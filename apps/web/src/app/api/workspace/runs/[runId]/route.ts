@@ -1,12 +1,24 @@
 import { getWorkspaceRunOperation } from "@nojv/db";
 import { NextResponse } from "next/server";
 
-export async function GET(_request: Request, context: { params: Promise<{ runId: string }> }) {
+import { getActorContext } from "@/lib/server/actor-context";
+
+export async function GET(request: Request, context: { params: Promise<{ runId: string }> }) {
   try {
+    const actor = await getActorContext(request);
+
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
     const { runId } = await context.params;
     const workspaceRun = await getWorkspaceRunOperation(runId);
 
     if (!workspaceRun) {
+      return NextResponse.json({ message: "Workspace run not found." }, { status: 404 });
+    }
+
+    if (workspaceRun.userId !== actor.userId && actor.platformRole !== "admin") {
       return NextResponse.json({ message: "Workspace run not found." }, { status: 404 });
     }
 
