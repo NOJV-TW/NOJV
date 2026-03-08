@@ -1,0 +1,25 @@
+{
+  "name": "@nojv/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "dev": "node --import tsx --watch src/index.ts",
+    "lint": "eslint .",
+    "start": "node --import tsx src/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@nojv/db": "workspace:*",
+    "@nojv/domain": "workspace:*",
+    "@nojv/queue": "workspace:*",
+    "bullmq": "^5.70.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@nojv/config-eslint": "workspace:*",
+    "@nojv/config-typescript": "workspace:*"
+  }
+}

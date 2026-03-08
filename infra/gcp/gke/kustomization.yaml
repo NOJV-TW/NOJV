@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nojv
+resources:
+  - namespace.yaml
+  - worker.deployment.yaml
+  - worker.scaledobject.yaml
+  - sandbox.deployment.yaml
+  - sandbox.service.yaml
+  - sandbox.hpa.yaml
+  - sandbox.networkpolicy.yaml

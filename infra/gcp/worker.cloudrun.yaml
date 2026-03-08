@@ -1,0 +1,36 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: nojv-worker
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        run.googleapis.com/container-concurrency: "1"
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/worker:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: EXECUTION_BACKEND
+              value: remote_http
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-redis-url
+            - name: SANDBOX_BASE_URL
+              value: https://nojv-sandbox.example.com
+            - name: SANDBOX_SHARED_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-sandbox-token

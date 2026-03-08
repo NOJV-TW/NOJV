@@ -1,0 +1,25 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: nojv-worker
+spec:
+  scaleTargetRef:
+    name: nojv-worker
+  minReplicaCount: 1
+  maxReplicaCount: 20
+  triggers:
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_URL
+        listLength: "5"
+        listName: bull:submission-judge:wait
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_URL
+        listLength: "3"
+        listName: bull:workspace-run:wait
+    - type: redis
+      metadata:
+        addressFromEnv: REDIS_URL
+        listLength: "10"
+        listName: bull:cheating-signal:wait
