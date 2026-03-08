@@ -12,10 +12,14 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@nojv/domain": "workspace:*",
@@ -27,7 +31,10 @@
   "devDependencies": {
     "@nojv/config-eslint": "workspace:*",
     "@nojv/config-typescript": "workspace:*",
+    "@types/bcryptjs": "^3.0.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.3.1",
-    "prisma": "^7.4.2"
+    "prisma": "^7.4.2",
+    "tsx": "^4.21.0"
   }
 }
