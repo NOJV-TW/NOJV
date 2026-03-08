@@ -1,0 +1,11 @@
+{
+  "HomePage": {
+    "title": "NOJV",
+    "description": "A Next.js project with Vite, Prisma, ECharts, TailwindCSS, GenAI, Zod, and i18n.",
+    "welcome": "Welcome to NOJV"
+  },
+  "Navigation": {
+    "home": "Home",
+    "about": "About"
+  }
+}
