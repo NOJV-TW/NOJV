@@ -1,0 +1,289 @@
+import { describe, expect, it } from "vitest";
+
+import { localActorPresets } from "@nojv/domain";
+
+import {
+  attachProblemToCourseMutation,
+  createCourseMutation,
+  createProblemMutation,
+  createProblemTestcaseSetMutation,
+  enrollCourseMemberMutation,
+  joinCourseMutation,
+  publishCourseAssessmentMutation
+} from "../src/lib/client/course-management-client";
+
+function createJsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    headers: {
+      "content-type": "application/json"
+    },
+    status
+  });
+}
+
+function createFetcherRecorder(responseBody: unknown, status = 200) {
+  const calls: { init: RequestInit | undefined; input: string }[] = [];
+
+  return {
+    calls,
+    fetcher: (input: string, init?: RequestInit) => {
+      calls.push({ init, input });
+
+      return Promise.resolve(createJsonResponse(responseBody, status));
+    }
+  };
+}
+
+describe("course management client mutations", () => {
+  it("sends actor-authenticated course creation requests", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ slug: "compiler-design-2026" }, 201);
+
+    await createCourseMutation(
+      {
+        description: "Compiler construction course.",
+        locale: "zh-TW",
+        slug: "compiler-design-2026",
+        title: "Compiler Design"
+      },
+      localActorPresets.teacher,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/courses");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        description: "Compiler construction course.",
+        locale: "zh-TW",
+        slug: "compiler-design-2026",
+        title: "Compiler Design"
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "Content-Type": "application/json",
+        "x-nojv-actor-id": "usr_teacher_amelia",
+        "x-nojv-platform-role": "teacher"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("sends problem authoring requests with the selected actor", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ slug: "compiler-intro" }, 201);
+
+    await createProblemMutation(
+      {
+        difficulty: "easy",
+        slug: "compiler-intro",
+        statement: "Write a recursive descent parser for the input grammar.",
+        summary: "Introductory parser warmup.",
+        title: "Compiler Intro",
+        visibility: "public"
+      },
+      localActorPresets.teacher,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/problems");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        difficulty: "easy",
+        slug: "compiler-intro",
+        statement: "Write a recursive descent parser for the input grammar.",
+        summary: "Introductory parser warmup.",
+        title: "Compiler Intro",
+        visibility: "public"
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "x-nojv-handle": "teacher_amelia"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("targets the course join endpoint with join payloads", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ status: "joined" });
+
+    await joinCourseMutation(
+      {
+        courseSlug: "os-lab-spring-2026",
+        joinMethod: "join_code",
+        joinToken: "OSLAB2026"
+      },
+      localActorPresets.student,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/courses/os-lab-spring-2026/join");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        courseSlug: "os-lab-spring-2026",
+        joinMethod: "join_code",
+        joinToken: "OSLAB2026"
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "x-nojv-actor-id": "usr_student_alice",
+        "x-nojv-platform-role": "student"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("targets the course membership endpoint for manual enrollment", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ status: "enrolled" }, 201);
+
+    await enrollCourseMemberMutation(
+      {
+        courseSlug: "os-lab-spring-2026",
+        displayName: "Carol Tsai",
+        email: "carol@nojv.local",
+        handle: "stu_carol",
+        role: "student"
+      },
+      localActorPresets.teacher,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/courses/os-lab-spring-2026/members");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        courseSlug: "os-lab-spring-2026",
+        displayName: "Carol Tsai",
+        email: "carol@nojv.local",
+        handle: "stu_carol",
+        role: "student"
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "Content-Type": "application/json",
+        "x-nojv-actor-id": "usr_teacher_amelia"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("targets the course problem endpoint for problem attachment", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ status: "attached" }, 201);
+
+    await attachProblemToCourseMutation(
+      {
+        courseSlug: "os-lab-spring-2026",
+        problemSlug: "compiler-intro"
+      },
+      localActorPresets.teacher,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/courses/os-lab-spring-2026/problems");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        courseSlug: "os-lab-spring-2026",
+        problemSlug: "compiler-intro"
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "Content-Type": "application/json",
+        "x-nojv-actor-id": "usr_teacher_amelia"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("targets the course assessment endpoint for publishing assessments", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ status: "published" }, 201);
+
+    await publishCourseAssessmentMutation(
+      {
+        closesAt: "2026-03-25T15:00:00.000Z",
+        courseSlug: "os-lab-spring-2026",
+        dueAt: "2026-03-23T15:00:00.000Z",
+        opensAt: "2026-03-17T09:00:00.000Z",
+        problemSlugs: ["compiler-intro"],
+        slug: "hw1-parser",
+        summary: "First compiler homework.",
+        title: "Homework 1",
+        type: "assignment"
+      },
+      localActorPresets.teacher,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/courses/os-lab-spring-2026/assessments");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        closesAt: "2026-03-25T15:00:00.000Z",
+        courseSlug: "os-lab-spring-2026",
+        dueAt: "2026-03-23T15:00:00.000Z",
+        opensAt: "2026-03-17T09:00:00.000Z",
+        problemSlugs: ["compiler-intro"],
+        slug: "hw1-parser",
+        summary: "First compiler homework.",
+        title: "Homework 1",
+        type: "assignment"
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "Content-Type": "application/json",
+        "x-nojv-actor-id": "usr_teacher_amelia"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("targets the testcase-set endpoint for authored problems", async () => {
+    const { calls, fetcher } = createFetcherRecorder({ status: "created" }, 201);
+
+    await createProblemTestcaseSetMutation(
+      "compiler-intro",
+      {
+        cases: [
+          {
+            expectedStdout: "3\n",
+            stdin: "1 2\n"
+          }
+        ],
+        isHidden: false,
+        name: "Samples",
+        weight: 1
+      },
+      localActorPresets.teacher,
+      fetcher
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.input).toBe("/api/problems/compiler-intro/testcase-sets");
+    expect(calls[0]?.init?.body).toBe(
+      JSON.stringify({
+        cases: [
+          {
+            expectedStdout: "3\n",
+            stdin: "1 2\n"
+          }
+        ],
+        isHidden: false,
+        name: "Samples",
+        weight: 1
+      })
+    );
+    expect(calls[0]?.init?.headers).toEqual(
+      expect.objectContaining({
+        "Content-Type": "application/json",
+        "x-nojv-actor-id": "usr_teacher_amelia"
+      })
+    );
+    expect(calls[0]?.init?.method).toBe("POST");
+  });
+});
