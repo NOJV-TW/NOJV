@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 export default function SignUpPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setLoading(true);
@@ -31,7 +31,7 @@ export default function SignUpPage() {
     });
 
     if (!response.ok) {
-      const body = await response.json();
+      const body = (await response.json()) as { message?: string };
       setError(body.message ?? "Registration failed.");
       setLoading(false);
 
@@ -46,7 +46,7 @@ export default function SignUpPage() {
 
     setLoading(false);
 
-    if (result?.error) {
+    if (result.error) {
       setError("Account created but sign-in failed. Please sign in manually.");
 
       return;
@@ -60,7 +60,7 @@ export default function SignUpPage() {
     <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)]">
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8">
         <h1 className="mb-6 text-center text-2xl font-semibold">Create your NOJV account</h1>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <label className="flex flex-col gap-1 text-sm">
             Display name
             <input

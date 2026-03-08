@@ -6,7 +6,7 @@ import { prisma } from "@nojv/db";
 
 const registerSchema = z.object({
   displayName: z.string().trim().min(2).max(120),
-  email: z.string().email(),
+  email: z.email(),
   handle: z
     .string()
     .trim()

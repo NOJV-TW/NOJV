@@ -9,6 +9,11 @@ import { dispatchSubmissionJob } from "@/lib/server/queue";
 export async function POST(request: Request) {
   try {
     const actor = await getActorContext(request);
+
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
     const payload = submissionDraftSchema.parse(await request.json());
     const submission = await createQueuedSubmissionRecord(payload, actor);
     await dispatchSubmissionJob({
