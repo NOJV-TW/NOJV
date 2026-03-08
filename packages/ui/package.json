@@ -1,0 +1,19 @@
+{
+  "name": "@nojv/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@nojv/config-eslint": "workspace:*",
+    "@nojv/config-typescript": "workspace:*"
+  }
+}

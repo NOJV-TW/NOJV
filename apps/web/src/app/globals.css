@@ -1,0 +1,67 @@
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/fraunces/600.css";
+@import "tailwindcss";
+
+:root {
+  --background:
+    radial-gradient(circle at top left, rgba(196, 104, 45, 0.14), transparent 26%),
+    radial-gradient(circle at top right, rgba(77, 111, 143, 0.12), transparent 22%),
+    linear-gradient(180deg, #fbf5ed 0%, #f4ecdf 100%);
+  --color-accent: #c4682d;
+  --color-border: rgba(79, 52, 35, 0.14);
+  --color-ink: #1f1916;
+  --color-muted: #6d6157;
+  --color-panel: rgba(255, 250, 244, 0.82);
+  --color-panel-strong: rgba(247, 239, 228, 0.94);
+  --font-body: "Manrope", sans-serif;
+  --font-display: "Fraunces", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(196, 104, 45, 0.18);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

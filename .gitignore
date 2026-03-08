@@ -2,18 +2,29 @@
 
 # dependencies
 /node_modules
+**/node_modules/
 /.pnp
 .pnp.js
 
 # testing
 /coverage
+**/coverage
 
 # next.js
 /.next/
 /out/
+**/.next/
+**/out/
 
 # production
 /build
+/dist
+**/build
+**/dist
+.turbo
+.pnpm-store
+.worktrees
+/packages/db/generated
 
 # misc
 .DS_Store

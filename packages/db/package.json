@@ -1,0 +1,33 @@
+{
+  "name": "@nojv/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "pnpm db:generate && tsc -p tsconfig.json --noEmit",
+    "db:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "lint": "eslint .",
+    "prisma:validate": "prisma validate",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@nojv/domain": "workspace:*",
+    "@prisma/adapter-pg": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@nojv/config-eslint": "workspace:*",
+    "@nojv/config-typescript": "workspace:*",
+    "dotenv": "^17.3.1",
+    "prisma": "^7.4.2"
+  }
+}

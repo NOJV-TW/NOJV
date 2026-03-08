@@ -1,0 +1,35 @@
+{
+  "name": "@nojv/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "lint": "eslint .",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/fraunces": "^5.2.9",
+    "@fontsource/manrope": "^5.2.8",
+    "@monaco-editor/react": "^4.7.0",
+    "@nojv/domain": "workspace:*",
+    "@nojv/i18n": "workspace:*",
+    "@nojv/queue": "workspace:*",
+    "@nojv/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.2.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.1",
+    "vite": "^7.3.1"
+  },
+  "devDependencies": {
+    "@nojv/config-eslint": "workspace:*",
+    "@nojv/config-typescript": "workspace:*",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  }
+}

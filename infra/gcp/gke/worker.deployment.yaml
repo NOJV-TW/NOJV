@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nojv-worker
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-worker
+    spec:
+      containers:
+        - name: worker
+          image: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:latest
+          env:
+            - name: PORT
+              value: "8080"
+            - name: EXECUTION_BACKEND
+              value: remote_http
+            - name: SANDBOX_BASE_URL
+              value: http://nojv-sandbox.nojv.svc.cluster.local:8080
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: DATABASE_URL
+                  name: nojv-runtime-secrets
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  key: REDIS_URL
+                  name: nojv-runtime-secrets
+            - name: SANDBOX_SHARED_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: SANDBOX_SHARED_TOKEN
+                  name: nojv-runtime-secrets
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          ports:
+            - containerPort: 8080
+              name: health
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi

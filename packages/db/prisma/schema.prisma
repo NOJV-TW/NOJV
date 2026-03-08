@@ -1,0 +1,521 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SupportedLanguage {
+  c
+  cpp
+  java
+  javascript
+  python
+  rust
+  typescript
+}
+
+enum SubmissionMode {
+  practice
+  contest
+  assignment
+  exam
+}
+
+enum SubmissionStatus {
+  queued
+  compiling
+  running
+  accepted
+  wrong_answer
+  time_limit_exceeded
+  memory_limit_exceeded
+  runtime_error
+  compile_error
+}
+
+enum WorkspaceMode {
+  practice
+  assignment
+  contest
+  exam
+}
+
+enum WorkspaceRunStatus {
+  queued
+  running
+  succeeded
+  failed
+  blocked
+  timed_out
+}
+
+enum ContestVisibility {
+  draft
+  published
+  archived
+}
+
+enum ContestParticipationStatus {
+  registered
+  active
+  submitted
+  disqualified
+}
+
+enum PlatformRole {
+  admin
+  teacher
+  ta
+  student
+}
+
+enum CourseRole {
+  teacher
+  ta
+  student
+}
+
+enum CourseVisibility {
+  invite_only
+  listed
+  archived
+}
+
+enum CourseMembershipStatus {
+  active
+  invited
+  pending
+  removed
+}
+
+enum CourseJoinMethod {
+  qr_code
+  join_code
+  manual_invite
+}
+
+enum ProblemVisibility {
+  public
+  private
+}
+
+enum CourseAssessmentType {
+  assignment
+  exam
+}
+
+enum CourseAssessmentStatus {
+  draft
+  published
+  archived
+}
+
+enum CourseAssessmentScoreboardMode {
+  hidden
+  live
+  frozen
+}
+
+enum CheatingSignalType {
+  focus_loss
+  paste_burst
+  ip_change
+  similarity_match
+  shell_policy_violation
+  concurrent_session
+}
+
+enum CheatingCaseStatus {
+  open
+  under_review
+  resolved
+}
+
+model User {
+  id                   String                 @id @default(cuid())
+  email                String                 @unique
+  handle               String                 @unique
+  displayName          String
+  locale               String                 @default("zh-TW")
+  platformRole         PlatformRole           @default(student)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  submissions          Submission[]
+  workspaceSessions    WorkspaceSession[]
+  workspaceRuns        WorkspaceRun[]
+  contestParticipations ContestParticipation[]
+  cheatingSignals      CheatingSignal[]
+  cheatingCases        CheatingCase[]
+  authoredProblems     Problem[]              @relation("ProblemAuthor")
+  ownedCourses         Course[]               @relation("CourseOwner")
+  courseMemberships    CourseMembership[]     @relation("CourseMembershipUser")
+  createdMemberships   CourseMembership[]     @relation("CourseMembershipCreator")
+  createdJoinTokens    CourseJoinToken[]      @relation("CourseJoinTokenCreator")
+  attachedCourseProblems CourseProblem[]      @relation("CourseProblemAttacher")
+  createdCourseAssessments CourseAssessment[] @relation("CourseAssessmentCreator")
+}
+
+model Problem {
+  id                  String                  @id @default(cuid())
+  slug                String                  @unique
+  defaultTitle        String
+  summary             String                  @db.Text
+  difficulty          String
+  visibility          ProblemVisibility       @default(public)
+  authorId            String?
+  timeLimitMs         Int
+  memoryLimitMb       Int
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  statements          ProblemStatementI18n[]
+  testcaseSets        TestcaseSet[]
+  submissions         Submission[]
+  workspaceSessions   WorkspaceSession[]
+  contestLinks        ContestProblem[]
+  courseLinks         CourseProblem[]
+  assessmentLinks     CourseAssessmentProblem[]
+  author              User?                   @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+model ProblemStatementI18n {
+  id           String   @id @default(cuid())
+  problemId    String
+  locale       String
+  title        String
+  bodyMarkdown String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  problem      Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, locale])
+}
+
+model TestcaseSet {
+  id            String   @id @default(cuid())
+  problemId     String
+  name          String
+  isHidden      Boolean  @default(true)
+  weight        Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  problem       Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  testcases     Testcase[]
+
+  @@unique([problemId, name])
+}
+
+model Testcase {
+  id             String      @id @default(cuid())
+  testcaseSetId  String
+  ordinal        Int
+  stdin          String      @db.Text
+  expectedStdout String      @db.Text
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  testcaseSet    TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
+
+  @@unique([testcaseSetId, ordinal])
+}
+
+model Contest {
+  id             String                  @id @default(cuid())
+  slug           String                  @unique
+  title          String
+  summary        String                  @db.Text
+  startsAt       DateTime
+  endsAt         DateTime
+  frozenBoard    Boolean                 @default(true)
+  visibility     ContestVisibility       @default(draft)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  problems       ContestProblem[]
+  participations ContestParticipation[]
+  cheatingCases  CheatingCase[]
+}
+
+model ContestProblem {
+  id             String   @id @default(cuid())
+  contestId      String
+  problemId      String
+  ordinal        Int
+  points         Int      @default(100)
+  createdAt      DateTime @default(now())
+  contest        Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  problem        Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, problemId])
+  @@unique([contestId, ordinal])
+}
+
+model Course {
+  id                String             @id @default(cuid())
+  slug              String             @unique
+  title             String
+  description       String             @db.Text
+  locale            String             @default("zh-TW")
+  visibility        CourseVisibility   @default(invite_only)
+  ownerId           String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  owner             User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships       CourseMembership[]
+  joinTokens        CourseJoinToken[]
+  problems          CourseProblem[]
+  assessments       CourseAssessment[]
+  submissions       Submission[]
+  workspaceSessions WorkspaceSession[]
+  workspaceRuns     WorkspaceRun[]
+  cheatingCases     CheatingCase[]
+  cheatingSignals   CheatingSignal[]
+}
+
+model CourseMembership {
+  id            String                 @id @default(cuid())
+  courseId      String
+  userId        String
+  role          CourseRole
+  status        CourseMembershipStatus @default(active)
+  joinedVia     CourseJoinMethod?
+  addedByUserId String?
+  joinedAt      DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  course        Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user          User                   @relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  addedBy       User?                  @relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([courseId, userId])
+  @@index([courseId, role, status])
+}
+
+model CourseJoinToken {
+  id              String           @id @default(cuid())
+  courseId        String
+  method          CourseJoinMethod
+  token           String           @unique
+  label           String
+  createdByUserId String
+  expiresAt       DateTime?
+  maxUses         Int?
+  usageCount      Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy       User             @relation("CourseJoinTokenCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([courseId, method])
+}
+
+model CourseProblem {
+  id            String   @id @default(cuid())
+  courseId      String
+  problemId     String
+  addedByUserId String
+  createdAt     DateTime @default(now())
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  problem       Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  addedBy       User     @relation("CourseProblemAttacher", fields: [addedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, problemId])
+}
+
+model CourseAssessment {
+  id              String                         @id @default(cuid())
+  courseId        String
+  slug            String
+  title           String
+  summary         String                         @db.Text
+  type            CourseAssessmentType
+  status          CourseAssessmentStatus         @default(draft)
+  scoreboardMode  CourseAssessmentScoreboardMode @default(hidden)
+  opensAt         DateTime
+  dueAt           DateTime
+  closesAt        DateTime
+  createdByUserId String
+  createdAt       DateTime                       @default(now())
+  updatedAt       DateTime                       @updatedAt
+  course          Course                         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy       User                           @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  problems        CourseAssessmentProblem[]
+  submissions     Submission[]
+  workspaceSessions WorkspaceSession[]
+  workspaceRuns   WorkspaceRun[]
+  cheatingCases   CheatingCase[]
+  cheatingSignals CheatingSignal[]
+
+  @@unique([courseId, slug])
+  @@index([courseId, type, status])
+}
+
+model CourseAssessmentProblem {
+  id           String           @id @default(cuid())
+  assessmentId String
+  problemId    String
+  ordinal      Int
+  points       Int              @default(100)
+  createdAt    DateTime         @default(now())
+  assessment   CourseAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  problem      Problem          @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, problemId])
+  @@unique([assessmentId, ordinal])
+}
+
+model ContestParticipation {
+  id               String                       @id @default(cuid())
+  contestId        String
+  userId           String
+  status           ContestParticipationStatus   @default(registered)
+  startedAt        DateTime?
+  submittedAt      DateTime?
+  score            Int                          @default(0)
+  penaltySeconds   Int                          @default(0)
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  contest          Contest                      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user             User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions      Submission[]
+  workspaceSessions WorkspaceSession[]
+  workspaceRuns    WorkspaceRun[]
+  cheatingSignals  CheatingSignal[]
+
+  @@unique([contestId, userId])
+}
+
+model Submission {
+  id                     String                @id @default(cuid())
+  userId                 String
+  problemId              String
+  contestParticipationId String?
+  courseId               String?
+  courseAssessmentId     String?
+  mode                   SubmissionMode
+  language               SupportedLanguage
+  sourceCode             String                @db.Text
+  status                 SubmissionStatus      @default(queued)
+  score                  Int                   @default(0)
+  runtimeMs              Int?
+  memoryKb               Int?
+  compilerOutput         String?               @db.Text
+  verdictDetail          Json?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem                Problem               @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
+  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  cheatingSignals        CheatingSignal[]
+
+  @@index([problemId, createdAt])
+  @@index([userId, createdAt])
+  @@index([courseId, courseAssessmentId, createdAt])
+}
+
+model WorkspaceSession {
+  id                     String                @id @default(cuid())
+  userId                 String
+  problemId              String?
+  contestParticipationId String?
+  courseId               String?
+  courseAssessmentId     String?
+  mode                   WorkspaceMode
+  imageTag               String
+  status                 String
+  startedAt              DateTime?
+  endedAt                DateTime?
+  lastHeartbeatAt        DateTime?
+  metadata               Json?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem                Problem?              @relation(fields: [problemId], references: [id], onDelete: SetNull)
+  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
+  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  runs                   WorkspaceRun[]
+  cheatingSignals        CheatingSignal[]
+}
+
+model WorkspaceRun {
+  id                     String                @id @default(cuid())
+  workspaceSessionId     String
+  userId                 String
+  contestParticipationId String?
+  courseId               String?
+  courseAssessmentId     String?
+  command                String
+  mode                   WorkspaceMode
+  status                 WorkspaceRunStatus    @default(queued)
+  exitCode               Int?
+  stdout                 String?               @db.Text
+  stderr                 String?               @db.Text
+  artifactsPath          String?
+  startedAt              DateTime?
+  finishedAt             DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  workspaceSession       WorkspaceSession      @relation(fields: [workspaceSessionId], references: [id], onDelete: Cascade)
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
+  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  cheatingSignals        CheatingSignal[]
+
+  @@index([workspaceSessionId, createdAt])
+  @@index([courseId, courseAssessmentId, createdAt])
+}
+
+model CheatingCase {
+  id                 String               @id @default(cuid())
+  userId             String
+  contestId          String?
+  courseId           String?
+  courseAssessmentId String?
+  status             CheatingCaseStatus   @default(open)
+  score              Int                  @default(0)
+  summary            String               @db.Text
+  openedAt           DateTime             @default(now())
+  resolvedAt         DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest            Contest?             @relation(fields: [contestId], references: [id], onDelete: SetNull)
+  course             Course?              @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseAssessment   CourseAssessment?    @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  signals            CheatingSignal[]
+
+  @@index([status, score])
+}
+
+model CheatingSignal {
+  id                     String                @id @default(cuid())
+  userId                 String
+  contestParticipationId String?
+  courseId               String?
+  courseAssessmentId     String?
+  submissionId           String?
+  workspaceSessionId     String?
+  workspaceRunId         String?
+  cheatingCaseId         String?
+  type                   CheatingSignalType
+  confidence             Float
+  payload                Json
+  occurredAt             DateTime              @default(now())
+  createdAt              DateTime              @default(now())
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
+  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+  submission             Submission?           @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  workspaceSession       WorkspaceSession?     @relation(fields: [workspaceSessionId], references: [id], onDelete: SetNull)
+  workspaceRun           WorkspaceRun?         @relation(fields: [workspaceRunId], references: [id], onDelete: SetNull)
+  cheatingCase          CheatingCase?         @relation(fields: [cheatingCaseId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([type, confidence])
+}
