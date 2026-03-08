@@ -5,6 +5,7 @@ import { getCopy, isLocale, locales, type LocaleCode } from "@nojv/i18n";
 import { shellClassNames } from "@nojv/ui";
 
 import { ActorSessionControl, ActorSessionProvider } from "@/components/actor-session-provider";
+import { UserAuthMenu } from "@/components/user-auth-menu";
 
 const navigation = (locale: LocaleCode) => {
   const labels = getCopy(locale).navigation;
@@ -84,7 +85,8 @@ export default async function LocaleLayout({
                   </Link>
                 ))}
               </div>
-              <ActorSessionControl />
+              <UserAuthMenu />
+              {process.env.NODE_ENV === "development" && <ActorSessionControl />}
             </div>
           </div>
         </header>
