@@ -13,7 +13,7 @@ export async function POST(
   }
 ) {
   try {
-    const actor = getActorContext(request);
+    const actor = await getActorContext(request);
 
     if (!canCreateProblem(actor.platformRole)) {
       return NextResponse.json(

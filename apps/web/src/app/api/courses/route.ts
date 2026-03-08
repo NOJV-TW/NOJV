@@ -15,7 +15,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const actor = getActorContext(request);
+    const actor = await getActorContext(request);
 
     if (!canCreateCourse(actor.platformRole)) {
       return NextResponse.json(

@@ -8,7 +8,7 @@ import { dispatchWorkspaceRunJob } from "@/lib/server/queue";
 
 export async function POST(request: Request) {
   try {
-    const actor = getActorContext(request);
+    const actor = await getActorContext(request);
     const payload = workspaceRunRequestSchema.parse(await request.json());
     const workspaceRun = await createQueuedWorkspaceRunRecord(payload, actor);
     await dispatchWorkspaceRunJob({

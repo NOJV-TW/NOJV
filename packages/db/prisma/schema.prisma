@@ -140,6 +140,7 @@ model User {
   email                String                 @unique
   handle               String                 @unique
   displayName          String
+  passwordHash         String?
   locale               String                 @default("zh-TW")
   platformRole         PlatformRole           @default(student)
   createdAt            DateTime               @default(now())

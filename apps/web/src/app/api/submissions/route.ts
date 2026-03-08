@@ -8,7 +8,7 @@ import { dispatchSubmissionJob } from "@/lib/server/queue";
 
 export async function POST(request: Request) {
   try {
-    const actor = getActorContext(request);
+    const actor = await getActorContext(request);
     const payload = submissionDraftSchema.parse(await request.json());
     const submission = await createQueuedSubmissionRecord(payload, actor);
     await dispatchSubmissionJob({

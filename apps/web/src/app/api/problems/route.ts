@@ -8,7 +8,7 @@ import { createProblemRecord } from "@/lib/server/poc-persistence";
 
 export async function POST(request: Request) {
   try {
-    const actor = getActorContext(request);
+    const actor = await getActorContext(request);
 
     if (!canCreateProblem(actor.platformRole)) {
       return NextResponse.json(

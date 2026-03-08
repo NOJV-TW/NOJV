@@ -12,7 +12,7 @@ export async function POST(
   }
 ) {
   try {
-    const actor = getActorContext(request);
+    const actor = await getActorContext(request);
     const { slug } = await context.params;
     const payload = courseJoinRequestSchema.parse({
       ...(await request.json()),
