@@ -17,6 +17,11 @@ export async function POST(
 ) {
   try {
     const actor = await getActorContext(request);
+
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
     const { slug } = await context.params;
     const role = await getCoursePermissionRole(slug, actor);
 

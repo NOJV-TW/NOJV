@@ -15,6 +15,10 @@ export async function POST(
   try {
     const actor = await getActorContext(request);
 
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
     if (!canCreateProblem(actor.platformRole)) {
       return NextResponse.json(
         {

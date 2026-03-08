@@ -9,6 +9,11 @@ import { dispatchWorkspaceRunJob } from "@/lib/server/queue";
 export async function POST(request: Request) {
   try {
     const actor = await getActorContext(request);
+
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
     const payload = workspaceRunRequestSchema.parse(await request.json());
     const workspaceRun = await createQueuedWorkspaceRunRecord(payload, actor);
     await dispatchWorkspaceRunJob({

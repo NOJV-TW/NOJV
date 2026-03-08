@@ -4,23 +4,41 @@ import Credentials from "next-auth/providers/credentials";
 
 import { prisma } from "@nojv/db";
 
+/** Extra fields added to session.user and JWT token by our auth callbacks. */
+export interface NojvSessionExtras {
+  handle?: string;
+  platformRole?: string;
+}
+
 export const { auth, handlers, signIn, signOut } = NextAuth({
   callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        const u = user as { handle?: string; platformRole?: string };
-        token.handle = u.handle;
-        token.platformRole = u.platformRole;
+    authorized({ auth: session }) {
+      // Middleware matcher already scopes to /api/((?!auth|runtime).*),
+      // so every request reaching here is a protected API route.
+      if (!session?.user) {
+        return Response.json({ message: "Authentication required." }, { status: 401 });
+      }
+
+      return true;
+    },
+    jwt({ token, user, trigger }) {
+      if (trigger === "signIn" || trigger === "signUp") {
+        const extra = user as NojvSessionExtras;
+        token.handle = extra.handle;
+        token.platformRole = extra.platformRole;
       }
 
       return token;
     },
     session({ session, token }) {
-      session.user.id = token.sub!;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const u = session.user as any;
-      u.handle = token.handle;
-      u.platformRole = token.platformRole;
+      if (token.sub) {
+        session.user.id = token.sub;
+      }
+
+      Object.assign(session.user, {
+        handle: token.handle,
+        platformRole: token.platformRole
+      });
 
       return session;
     }

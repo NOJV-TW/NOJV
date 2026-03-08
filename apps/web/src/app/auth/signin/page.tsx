@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 export default function SignInPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setLoading(true);
@@ -24,7 +24,7 @@ export default function SignInPage() {
 
     setLoading(false);
 
-    if (result?.error) {
+    if (result.error) {
       setError("Invalid email or password.");
 
       return;
@@ -38,7 +38,7 @@ export default function SignInPage() {
     <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)]">
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8">
         <h1 className="mb-6 text-center text-2xl font-semibold">Sign in to NOJV</h1>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <label className="flex flex-col gap-1 text-sm">
             Email
             <input

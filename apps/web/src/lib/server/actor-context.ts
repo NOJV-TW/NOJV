@@ -1,6 +1,6 @@
 import { platformRoleSchema, type PlatformRole } from "@nojv/domain";
 
-import { auth } from "@/auth";
+import { auth, type NojvSessionExtras } from "@/auth";
 
 export interface PocActorContext {
   displayName: string;
@@ -48,18 +48,17 @@ function getActorContextFromHeaders(request: Request): PocActorContext {
   };
 }
 
-export async function getActorContext(request: Request): Promise<PocActorContext> {
+export async function getActorContext(request: Request): Promise<PocActorContext | null> {
   const session = await auth();
 
   if (session?.user?.id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const u = session.user as any;
-    const parsedRole = platformRoleSchema.safeParse(u.platformRole);
+    const extra = session.user as NojvSessionExtras;
+    const parsedRole = platformRoleSchema.safeParse(extra.platformRole);
 
     return {
       displayName: session.user.name ?? session.user.email ?? "User",
       email: session.user.email ?? "",
-      handle: (u.handle as string) ?? "",
+      handle: extra.handle ?? "",
       platformRole: parsedRole.success ? parsedRole.data : "student",
       userId: session.user.id
     };
@@ -70,5 +69,5 @@ export async function getActorContext(request: Request): Promise<PocActorContext
     return getActorContextFromHeaders(request);
   }
 
-  return defaultActorContext;
+  return null;
 }
