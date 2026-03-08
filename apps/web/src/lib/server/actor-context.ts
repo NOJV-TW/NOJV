@@ -65,6 +65,10 @@ export async function getActorContext(request: Request): Promise<PocActorContext
     };
   }
 
-  // Fallback to header-based context for development / backward compatibility
-  return getActorContextFromHeaders(request);
+  // Header-based fallback is only allowed in development
+  if (process.env.NODE_ENV === "development") {
+    return getActorContextFromHeaders(request);
+  }
+
+  return defaultActorContext;
 }

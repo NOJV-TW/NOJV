@@ -30,7 +30,7 @@ export default function SignInPage() {
       return;
     }
 
-    router.push("/zh-TW");
+    router.push("/");
     router.refresh();
   }
 

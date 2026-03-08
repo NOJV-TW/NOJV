@@ -52,7 +52,7 @@ export default function SignUpPage() {
       return;
     }
 
-    router.push("/zh-TW");
+    router.push("/");
     router.refresh();
   }
 
@@ -75,9 +75,9 @@ export default function SignUpPage() {
             <input
               className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
               name="handle"
-              pattern="[a-z0-9._-]{3,30}"
+              pattern="[a-z0-9._-]{3,64}"
               required
-              title="3-30 characters, lowercase letters, digits, dots, hyphens, underscores"
+              title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
               type="text"
             />
           </label>

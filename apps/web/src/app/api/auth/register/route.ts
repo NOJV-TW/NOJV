@@ -5,12 +5,13 @@ import { z } from "zod";
 import { prisma } from "@nojv/db";
 
 const registerSchema = z.object({
-  displayName: z.string().min(1).max(100),
+  displayName: z.string().trim().min(2).max(120),
   email: z.string().email(),
   handle: z
     .string()
+    .trim()
     .min(3)
-    .max(30)
+    .max(64)
     .regex(/^[a-z0-9._-]+$/),
   password: z.string().min(8).max(128)
 });
@@ -18,21 +19,6 @@ const registerSchema = z.object({
 export async function POST(request: Request) {
   try {
     const body = registerSchema.parse(await request.json());
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: body.email }, { handle: body.handle }]
-      }
-    });
-
-    if (existing) {
-      const field = existing.email === body.email ? "email" : "handle";
-
-      return NextResponse.json(
-        { message: `This ${field} is already taken.` },
-        { status: 409 }
-      );
-    }
-
     const passwordHash = await bcrypt.hash(body.password, 12);
     const user = await prisma.user.create({
       data: {
@@ -53,6 +39,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { issues: error.issues, message: "Invalid registration payload." },
         { status: 400 }
+      );
+    }
+
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      const meta = "meta" in error ? (error.meta as { target?: string[] }) : undefined;
+      const field = meta?.target?.includes("email") ? "email" : "handle";
+
+      return NextResponse.json(
+        { message: `This ${field} is already taken.` },
+        { status: 409 }
       );
     }
 
