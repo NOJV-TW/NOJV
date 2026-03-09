@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "test": "vitest run --passWithNoTests",
