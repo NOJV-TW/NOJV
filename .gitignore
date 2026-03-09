@@ -45,3 +45,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright
+e2e/test-results/
+e2e/screenshots/*.png
+playwright-report/
