@@ -17,7 +17,7 @@ import {
 } from "@nojv/domain";
 import { shellClassNames } from "@nojv/ui";
 
-import type { ProblemDetail } from "@/lib/demo-data";
+import type { ProblemDetail } from "@/lib/problem-types";
 import { buildWorkspaceLaunchUrl, resolveWorkspaceAppUrl } from "@/lib/workspace-launch";
 
 import { useActorSession } from "./actor-session-provider";

@@ -11,10 +11,9 @@ import {
 } from "../course-poc-data";
 import {
   getProblemDetail,
-  problemCards,
-  starterByLanguage,
-  type ProblemDetail
+  problemCards
 } from "../demo-data";
+import { starterByLanguage, type ProblemDetail } from "../problem-types";
 
 export type CoursePageData = CoursePocDetail & { assessments: CoursePocAssessment[] };
 
