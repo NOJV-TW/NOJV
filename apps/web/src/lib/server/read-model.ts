@@ -442,6 +442,55 @@ export async function listProblemCards() {
   return mergeBySlug(problemCards, persistedProblems.map(mapProblemCatalogCard));
 }
 
+export async function listContestCards() {
+  const contests = await prisma.contest.findMany({
+    include: {
+      problems: { select: { id: true } }
+    },
+    orderBy: { startsAt: "desc" },
+    where: { visibility: "published" }
+  });
+
+  return contests.map((contest) => ({
+    endsAt: contest.endsAt.toISOString(),
+    problemCount: contest.problems.length,
+    slug: contest.slug,
+    startsAt: contest.startsAt.toISOString(),
+    summary: contest.summary,
+    title: contest.title
+  }));
+}
+
+export async function getContestPageData(slug: string) {
+  const contest = await prisma.contest.findUnique({
+    include: {
+      problems: {
+        include: { problem: true },
+        orderBy: { ordinal: "asc" }
+      }
+    },
+    where: { slug }
+  });
+
+  if (!contest) {
+    return null;
+  }
+
+  return {
+    endsAt: contest.endsAt.toISOString(),
+    frozenScoreboard: contest.frozenBoard,
+    problems: contest.problems.map((cp) => ({
+      points: cp.points,
+      slug: cp.problem.slug,
+      title: cp.problem.defaultTitle
+    })),
+    slug: contest.slug,
+    startsAt: contest.startsAt.toISOString(),
+    summary: contest.summary,
+    title: contest.title
+  };
+}
+
 export async function getProblemPageData(slug: string, locale: string) {
   const persistedProblem = await prisma.problem.findUnique({
     include: {
