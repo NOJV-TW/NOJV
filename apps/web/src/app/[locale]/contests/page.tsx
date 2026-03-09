@@ -19,16 +19,10 @@ export default async function ContestsPage({
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-        <p className={shellClassNames.eyebrow}>{labels.navigation.contests}</p>
-        <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
-          Contest space is isolated from practice mode by data model and policy.
+      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
+        <h2 className="font-[family-name:var(--font-display)] text-3xl">
+          {labels.navigation.contests}
         </h2>
-        <p className="mt-4 max-w-3xl text-base leading-7 text-[color:var(--color-muted)]">
-          Contest participation owns its own telemetry thresholds, frozen scoreboard behavior,
-          and escalation rules. Workspace sessions can still exist in contest mode, but they are
-          bound to the participant context and command allowlist.
-        </p>
       </section>
 
       {contests.length === 0 ? (

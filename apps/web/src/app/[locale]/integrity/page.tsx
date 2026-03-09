@@ -18,15 +18,12 @@ export default async function IntegrityPage({
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-        <p className={shellClassNames.eyebrow}>{labels.navigation.integrity}</p>
-        <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
-          Anti-cheat is an evidence graph, not a checkbox.
+      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
+        <h2 className="font-[family-name:var(--font-display)] text-3xl">
+          {labels.integrity.heading}
         </h2>
-        <p className="mt-4 max-w-3xl text-base leading-7 text-[color:var(--color-muted)]">
-          Tab switches, similarity clusters, IP changes, and shell violations land in the same
-          case timeline so reviewers can reason about behavior instead of trusting a single
-          score.
+        <p className="mt-2 text-base text-[color:var(--color-muted)]">
+          {labels.integrity.subtitle}
         </p>
       </section>
 
