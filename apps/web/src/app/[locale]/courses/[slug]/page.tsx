@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { type LocaleCode } from "@nojv/domain";
-import { getCopy, isLocale } from "@nojv/i18n";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { shellClassNames } from "@nojv/ui";
 
 import { CourseAssessmentBoard } from "@/components/course-assessment-board";
@@ -19,8 +18,13 @@ export default async function CourseDetailPage({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const currentLocale: LocaleCode = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
+  setRequestLocale(locale);
+
+  const [tNav, tCourse, tCommon] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("courseDetail"),
+    getTranslations("common")
+  ]);
   const courseData = await getCoursePageData(slug);
   const course = courseData?.course;
 
@@ -34,7 +38,7 @@ export default async function CourseDetailPage({
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
             <p className={shellClassNames.eyebrow}>
-              {labels.navigation.courses} / {course.slug}
+              {tNav("courses")} / {course.slug}
             </p>
             <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
               {course.title}
@@ -45,15 +49,15 @@ export default async function CourseDetailPage({
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Members</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCommon("members")}</p>
               <p className="mt-2 text-lg font-semibold">{course.members.length}</p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Assessments</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCommon("assessments")}</p>
               <p className="mt-2 text-lg font-semibold">{course.assessments.length}</p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Problem pool</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCourse("problemPool")}</p>
               <p className="mt-2 text-lg font-semibold">{course.problemSlugs.length}</p>
             </div>
           </div>
@@ -66,11 +70,9 @@ export default async function CourseDetailPage({
           <CourseAssessmentBoard
             assessments={course.assessments}
             courseSlug={course.slug}
-            locale={currentLocale}
           />
           <CourseProblemShelf
             courseSlug={course.slug}
-            locale={currentLocale}
             problems={courseData.problems}
           />
         </div>
@@ -79,7 +81,6 @@ export default async function CourseDetailPage({
           <CourseJoinPanel
             courseSlug={course.slug}
             joinChannels={course.joinChannels}
-            locale={currentLocale}
           />
         </div>
       </section>

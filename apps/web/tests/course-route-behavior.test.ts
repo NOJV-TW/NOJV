@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listCourseCards = vi.fn();
+const getActorContext = vi.fn();
 
 vi.mock("@/lib/server/actor-context", () => ({
-  getActorContext: vi.fn()
+  getActorContext
 }));
 
-vi.mock("@/lib/server/course-authorization", () => ({
+vi.mock("@/lib/server/authorization", () => ({
   canCreateCourse: vi.fn()
 }));
 
@@ -24,6 +25,13 @@ describe("course routes", () => {
   });
 
   it("returns persisted course cards from GET /api/courses", async () => {
+    getActorContext.mockResolvedValue({
+      displayName: "Teacher",
+      email: "teacher@nojv.local",
+      handle: "teacher",
+      platformRole: "teacher",
+      userId: "usr_teacher"
+    });
     listCourseCards.mockResolvedValue([
       {
         assessmentCount: 1,
@@ -34,7 +42,7 @@ describe("course routes", () => {
     ]);
 
     const { GET } = await import("../src/app/api/courses/route");
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/courses"));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({

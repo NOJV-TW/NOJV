@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+
+import { authClient } from "@/lib/auth-client";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -16,17 +17,16 @@ export default function SignInPage() {
     setLoading(true);
 
     const form = new FormData(event.currentTarget);
-    const result = await signIn("credentials", {
+
+    const { error: signInError } = await authClient.signIn.email({
       email: form.get("email") as string,
-      password: form.get("password") as string,
-      redirect: false
+      password: form.get("password") as string
     });
 
     setLoading(false);
 
-    if (result.error) {
-      setError("Invalid email or password.");
-
+    if (signInError) {
+      setError(signInError.message ?? "Invalid email or password.");
       return;
     }
 
@@ -34,10 +34,38 @@ export default function SignInPage() {
     router.refresh();
   }
 
+  async function handleOAuth(provider: "github" | "google") {
+    await authClient.signIn.social({ callbackURL: "/", provider });
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)]">
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8">
         <h1 className="mb-6 text-center text-2xl font-semibold">Sign in to NOJV</h1>
+
+        <div className="flex flex-col gap-3">
+          <button
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--color-border)] py-2 text-sm font-medium transition hover:bg-white/70"
+            onClick={() => void handleOAuth("github")}
+            type="button"
+          >
+            GitHub
+          </button>
+          <button
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--color-border)] py-2 text-sm font-medium transition hover:bg-white/70"
+            onClick={() => void handleOAuth("google")}
+            type="button"
+          >
+            Google
+          </button>
+        </div>
+
+        <div className="my-5 flex items-center gap-3 text-xs text-[color:var(--color-muted)]">
+          <hr className="flex-1 border-[color:var(--color-border)]" />
+          or
+          <hr className="flex-1 border-[color:var(--color-border)]" />
+        </div>
+
         <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <label className="flex flex-col gap-1 text-sm">
             Email

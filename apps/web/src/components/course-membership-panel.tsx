@@ -1,20 +1,25 @@
+import { getTranslations } from "next-intl/server";
 import { shellClassNames } from "@nojv/ui";
 
-import type { CoursePocMember } from "@/lib/course-poc-data";
+import type { CoursePocMember } from "@/lib/server/read-model";
 
 interface CourseMembershipPanelProps {
   members: CoursePocMember[];
 }
 
-export function CourseMembershipPanel({ members }: CourseMembershipPanelProps) {
+export async function CourseMembershipPanel({ members }: CourseMembershipPanelProps) {
+  const [tCourse, tCommon] = await Promise.all([
+    getTranslations("courseDetail"),
+    getTranslations("common")
+  ]);
   return (
     <section className={`${shellClassNames.card} px-5 py-5`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Roles</p>
-          <h3 className="mt-1 text-2xl font-semibold">Teacher, TA, student, admin override</h3>
+          <p className={shellClassNames.eyebrow}>{tCourse("roles")}</p>
+          <h3 className="mt-1 text-2xl font-semibold">{tCourse("rolesSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>{members.length} members</span>
+        <span className={shellClassNames.badge}>{members.length} {tCommon("members")}</span>
       </div>
       <div className="mt-5 space-y-3">
         {members.map((member) => (
@@ -33,7 +38,7 @@ export function CourseMembershipPanel({ members }: CourseMembershipPanelProps) {
                 {member.courseRole}
               </p>
               <p className="mt-1 text-sm text-[color:var(--color-muted)]">
-                joined via {member.joinedVia.replaceAll("_", " ")}
+                {tCourse("joinedVia")} {member.joinedVia.replaceAll("_", " ")}
               </p>
             </div>
           </article>

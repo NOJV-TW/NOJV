@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { type LocaleCode } from "@nojv/domain";
-import { getCopy, isLocale } from "@nojv/i18n";
 import { shellClassNames } from "@nojv/ui";
 
 import { ProblemEditor } from "@/components/problem-editor";
 import { ProblemTestcasePanel } from "@/components/problem-testcase-panel";
-import { getContestDetail } from "@/lib/demo-data";
-import { getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
+import { getContestPageData, getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +19,17 @@ export default async function ProblemDetailPage({
 }) {
   const { locale, slug } = await params;
   const { assessment, contest, course } = await searchParams;
-  const currentLocale: LocaleCode = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
-  const problem = await getProblemPageData(slug, currentLocale);
-  const contestContext = contest ? getContestDetail(contest) : undefined;
-  const courseData = course ? await getCoursePageData(course) : null;
+  setRequestLocale(locale);
+  const [tNav, tCommon, tProblem] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("common"),
+    getTranslations("problemDetail")
+  ]);
+  const [problem, contestContext, courseData] = await Promise.all([
+    getProblemPageData(slug, locale),
+    contest ? getContestPageData(contest) : undefined,
+    course ? getCoursePageData(course) : null
+  ]);
   const courseContext = courseData?.course;
   const assessmentContext = assessment
     ? courseContext?.assessments.find((entry) => entry.slug === assessment)
@@ -42,7 +46,7 @@ export default async function ProblemDetailPage({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
             <p className={shellClassNames.eyebrow}>
-              {labels.navigation.problems} / {problem.slug}
+              {tNav('problems')} / {problem.slug}
             </p>
             <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
               {problem.title}
@@ -53,25 +57,25 @@ export default async function ProblemDetailPage({
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Difficulty</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCommon('difficulty')}</p>
               <p className="mt-2 text-lg font-semibold capitalize">{problem.difficulty}</p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Acceptance</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCommon('acceptance')}</p>
               <p className="mt-2 text-lg font-semibold">
                 {Math.round(problem.acceptanceRate * 100)}%
               </p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Context</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tProblem('context')}</p>
               <p className="mt-2 text-lg font-semibold">
                 {contestContext
                   ? contestContext.title
                   : assessmentContext
-                    ? `${courseContext?.title ?? "Course"} / ${assessmentContext.title}`
+                    ? `${courseContext?.title ?? tProblem('course')} / ${assessmentContext.title}`
                     : courseContext
                       ? courseContext.title
-                      : "Practice catalog"}
+                      : tProblem('practiceCatalog')}
               </p>
             </div>
           </div>
@@ -80,7 +84,7 @@ export default async function ProblemDetailPage({
 
       <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <div className={`${shellClassNames.card} px-6 py-6`}>
-          <p className={shellClassNames.eyebrow}>Problem brief</p>
+          <p className={shellClassNames.eyebrow}>{tProblem('brief')}</p>
           <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
             {problem.summary}
           </p>
@@ -97,13 +101,13 @@ export default async function ProblemDetailPage({
                 className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
                 key={[problem.slug, String(index)].join("-")}
               >
-                <p className="text-sm font-semibold">Sample {index + 1}</p>
+                <p className="text-sm font-semibold">{tProblem('sample')} {index + 1}</p>
                 <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-2xl bg-stone-900/95 px-3 py-3 text-xs leading-6 text-stone-100">
-                  Input
+                  {tProblem('input')}
                   {"\n"}
                   {sample.input}
                   {"\n\n"}
-                  Output
+                  {tProblem('output')}
                   {"\n"}
                   {sample.output}
                 </pre>
@@ -118,37 +122,28 @@ export default async function ProblemDetailPage({
         <section className="space-y-4">
           {contestContext ? (
             <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>Contest binding</p>
+              <p className={shellClassNames.eyebrow}>{tProblem('contest')}</p>
               <p className="mt-2 text-lg font-semibold">{contestContext.title}</p>
-              <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-                This editor is linked to the contest zone, so submission mode and telemetry
-                thresholds are stricter than practice mode.
-              </p>
               <Link
-                className="mt-4 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
-                href={`/${currentLocale}/contests/${contestContext.slug}`}
+                className="mt-3 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+                href={`/${locale}/contests/${contestContext.slug}`}
               >
-                Back to contest zone
+                {tProblem('backToContest')}
               </Link>
             </div>
           ) : assessmentContext ? (
             <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>Course binding</p>
+              <p className={shellClassNames.eyebrow}>{tProblem('course')}</p>
               <p className="mt-2 text-lg font-semibold">{assessmentContext.title}</p>
-              <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-                This editor is linked to the {assessmentContext.type} surface inside{" "}
-                {courseContext?.title ?? "the course"}, so submissions and telemetry now carry
-                course assessment context.
-              </p>
               <Link
-                className="mt-4 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+                className="mt-3 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
                 href={
                   assessmentContext.type === "exam"
-                    ? `/${currentLocale}/courses/${boundCourseSlug}/exams/${assessmentContext.slug}`
-                    : `/${currentLocale}/courses/${boundCourseSlug}/assignments/${assessmentContext.slug}`
+                    ? `/${locale}/courses/${boundCourseSlug}/exams/${assessmentContext.slug}`
+                    : `/${locale}/courses/${boundCourseSlug}/assignments/${assessmentContext.slug}`
                 }
               >
-                Back to {assessmentContext.type}
+                {assessmentContext.type === "exam" ? tProblem('backToExam') : tProblem('backToAssignment')}
               </Link>
             </div>
           ) : null}
@@ -164,7 +159,6 @@ export default async function ProblemDetailPage({
                 : undefined
             }
             contestSlug={contestContext?.slug}
-            locale={currentLocale}
             problem={problem}
           />
           <ProblemTestcasePanel problemSlug={problem.slug} />

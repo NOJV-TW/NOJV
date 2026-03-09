@@ -4,7 +4,8 @@ import { startTransition, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { type LocaleCode } from "@nojv/domain";
+import { useLocale, useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 import { joinCourseMutation } from "@/lib/client/course-management-client";
@@ -16,16 +17,17 @@ interface CourseJoinCallToActionProps {
   courseTitle: string;
   joinMethod: "join_code" | "manual_invite" | "qr_code" | null;
   joinToken: string | null;
-  locale: LocaleCode;
 }
 
 export function CourseJoinCallToAction({
   courseSlug,
   courseTitle,
   joinMethod,
-  joinToken,
-  locale
+  joinToken
 }: CourseJoinCallToActionProps) {
+  const locale = useLocale();
+  const tJoin = useTranslations("courseJoin");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const { actor } = useActorSession();
   const [isJoining, setIsJoining] = useState(false);
@@ -33,7 +35,7 @@ export function CourseJoinCallToAction({
 
   async function handleJoin() {
     if (!joinMethod || !joinToken || joinMethod === "manual_invite") {
-      setError("This join link is incomplete. Ask course staff for a QR or join code.");
+      setError(tJoin("incompleteLink"));
       return;
     }
 
@@ -54,7 +56,7 @@ export function CourseJoinCallToAction({
         router.refresh();
       });
     } catch (issue) {
-      setError(issue instanceof Error ? issue.message : "Course join failed.");
+      setError(issue instanceof Error ? issue.message : tJoin("joinFailed"));
     } finally {
       setIsJoining(false);
     }
@@ -62,11 +64,10 @@ export function CourseJoinCallToAction({
 
   return (
     <section className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-      <p className={shellClassNames.eyebrow}>Course join</p>
+      <p className={shellClassNames.eyebrow}>{tJoin("heading")}</p>
       <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">{courseTitle}</h2>
       <p className="mt-4 max-w-2xl text-base leading-7 text-[color:var(--color-muted)]">
-        Join this course as {actor.displayName}. The selected local actor is what the platform
-        will use for membership, submissions, telemetry, and workspace runs.
+        {tJoin("description", { name: actor.displayName })}
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <span className={shellClassNames.badge}>
@@ -81,17 +82,17 @@ export function CourseJoinCallToAction({
           onClick={() => void handleJoin()}
           type="button"
         >
-          {isJoining ? "Joining..." : "Join this course"}
+          {isJoining ? tCommon("joining") : tJoin("joinButton")}
         </button>
         <Link
           className="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
           href={`/${locale}/courses/${courseSlug}`}
         >
-          Back to course
+          {tJoin("backToCourse")}
         </Link>
       </div>
       {joinToken ? (
-        <p className="mt-4 text-sm text-[color:var(--color-muted)]">Token: {joinToken}</p>
+        <p className="mt-4 text-sm text-[color:var(--color-muted)]">{tJoin("token")}: {joinToken}</p>
       ) : null}
       {error ? (
         <div className="mt-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

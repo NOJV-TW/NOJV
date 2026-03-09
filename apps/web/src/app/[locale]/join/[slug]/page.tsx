@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { type LocaleCode } from "@nojv/domain";
-import { getCopy, isLocale } from "@nojv/i18n";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { CourseJoinCallToAction } from "@/components/course-join-call-to-action";
 import { getCoursePageData } from "@/lib/server/read-model";
@@ -17,8 +16,12 @@ export default async function CourseJoinPage({
 }) {
   const { locale, slug } = await params;
   const { method, token } = await searchParams;
-  const currentLocale: LocaleCode = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
+  setRequestLocale(locale);
+
+  const [tNav, tJoin] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("courseJoin")
+  ]);
   const courseData = await getCoursePageData(slug);
 
   if (!courseData) {
@@ -37,16 +40,13 @@ export default async function CourseJoinPage({
         courseTitle={courseData.course.title}
         joinMethod={joinMethod}
         joinToken={token ?? null}
-        locale={currentLocale}
       />
       <section className="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6">
         <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-          {labels.navigation.courses}
+          {tNav("courses")}
         </p>
         <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-          If the current actor does not have the right role, switch actor from the header first
-          and retry the join action. The same actor will then be used across problems,
-          telemetry, and workspace runs.
+          {tJoin("hint")}
         </p>
       </section>
     </div>

@@ -1,8 +1,10 @@
 import Link from "next/link";
 
+import { getLocale, getTranslations } from "next-intl/server";
+
 import { shellClassNames } from "@nojv/ui";
 
-import type { CoursePocAssessment } from "@/lib/course-poc-data";
+import type { CoursePocAssessment } from "@/lib/server/read-model";
 import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState
@@ -11,22 +13,26 @@ import {
 interface CourseAssessmentBoardProps {
   assessments: CoursePocAssessment[];
   courseSlug: string;
-  locale: string;
 }
 
-export function CourseAssessmentBoard({
+export async function CourseAssessmentBoard({
   assessments,
-  courseSlug,
-  locale
+  courseSlug
 }: CourseAssessmentBoardProps) {
+  const [locale, tCourse, tCommon, tContest] = await Promise.all([
+    getLocale(),
+    getTranslations("courseDetail"),
+    getTranslations("common"),
+    getTranslations("contestDetail")
+  ]);
   return (
     <section className={`${shellClassNames.card} px-5 py-5`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Assessments</p>
-          <h3 className="mt-1 text-2xl font-semibold">Assignments and exams share the judge</h3>
+          <p className={shellClassNames.eyebrow}>{tCourse("assessmentBoard")}</p>
+          <h3 className="mt-1 text-2xl font-semibold">{tCourse("assessmentBoardSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>{assessments.length} assessments</span>
+        <span className={shellClassNames.badge}>{assessments.length} {tCommon("assessments")}</span>
       </div>
       <div className="mt-5 grid gap-4">
         {assessments.map((assessment) => {
@@ -63,17 +69,17 @@ export function CourseAssessmentBoard({
                 <div className="text-right">
                   <span className={shellClassNames.badge}>{windowState}</span>
                   <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-                    {assessment.problemSlugs.length} problems
+                    {assessment.problemSlugs.length} {tContest("problems")}
                   </p>
                 </div>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-sm text-[color:var(--color-muted)]">Framing</p>
+                  <p className="text-sm text-[color:var(--color-muted)]">{tCourse("framing")}</p>
                   <p className="mt-1 font-semibold">{presentation.heroLabel}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[color:var(--color-muted)]">Window</p>
+                  <p className="text-sm text-[color:var(--color-muted)]">{tCourse("window")}</p>
                   <p className="mt-1 font-semibold">
                     {assessment.opensAt.slice(0, 10)} → {assessment.closesAt.slice(0, 10)}
                   </p>
