@@ -22,13 +22,13 @@ type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 async function postJson(
   path: string,
   payload: unknown,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher: Fetcher = fetch
 ) {
   const response = await fetcher(path, {
     body: JSON.stringify(payload),
     headers: {
-      ...buildActorRequestHeaders(actor),
+      ...(actor ? buildActorRequestHeaders(actor) : {}),
       "Content-Type": "application/json"
     },
     method: "POST"
@@ -44,7 +44,7 @@ async function postJson(
 
 export function createCourseMutation(
   payload: CourseCreate,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   return postJson("/api/courses", courseCreateSchema.parse(payload), actor, fetcher);
@@ -52,7 +52,7 @@ export function createCourseMutation(
 
 export function createProblemMutation(
   payload: ProblemCreate,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   return postJson("/api/problems", problemCreateSchema.parse(payload), actor, fetcher);
@@ -60,7 +60,7 @@ export function createProblemMutation(
 
 export function joinCourseMutation(
   payload: CourseJoinRequest,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   const parsed = courseJoinRequestSchema.parse(payload);
@@ -70,7 +70,7 @@ export function joinCourseMutation(
 
 export function enrollCourseMemberMutation(
   payload: ManualCourseEnrollment,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   const parsed = manualCourseEnrollmentSchema.parse(payload);
@@ -80,7 +80,7 @@ export function enrollCourseMemberMutation(
 
 export function attachProblemToCourseMutation(
   payload: CourseProblemAttach,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   const parsed = courseProblemAttachSchema.parse(payload);
@@ -90,7 +90,7 @@ export function attachProblemToCourseMutation(
 
 export function publishCourseAssessmentMutation(
   payload: CourseAssessmentCreate,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   const parsed = courseAssessmentCreateSchema.parse(payload);
@@ -101,7 +101,7 @@ export function publishCourseAssessmentMutation(
 export function createProblemTestcaseSetMutation(
   problemSlug: string,
   payload: ProblemTestcaseSetCreate,
-  actor: ActorIdentity,
+  actor?: ActorIdentity,
   fetcher?: Fetcher
 ) {
   return postJson(
