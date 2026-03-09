@@ -7,7 +7,6 @@ import { shellClassNames } from "@nojv/ui";
 
 import { ProblemEditor } from "@/components/problem-editor";
 import { ProblemTestcasePanel } from "@/components/problem-testcase-panel";
-import { getContestDetail } from "@/lib/demo-data";
 import { getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +23,8 @@ export default async function ProblemDetailPage({
   const currentLocale: LocaleCode = isLocale(locale) ? locale : "zh-TW";
   const labels = getCopy(currentLocale);
   const problem = await getProblemPageData(slug, currentLocale);
-  const contestContext = contest ? getContestDetail(contest) : undefined;
+  // TODO: replace with DB-driven getContestPageData() once Phase 1 merges
+  const contestContext = contest ? { slug: contest, title: contest } : undefined;
   const courseData = course ? await getCoursePageData(course) : null;
   const courseContext = courseData?.course;
   const assessmentContext = assessment
@@ -118,30 +118,21 @@ export default async function ProblemDetailPage({
         <section className="space-y-4">
           {contestContext ? (
             <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>Contest binding</p>
+              <p className={shellClassNames.eyebrow}>Contest</p>
               <p className="mt-2 text-lg font-semibold">{contestContext.title}</p>
-              <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-                This editor is linked to the contest zone, so submission mode and telemetry
-                thresholds are stricter than practice mode.
-              </p>
               <Link
-                className="mt-4 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+                className="mt-3 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
                 href={`/${currentLocale}/contests/${contestContext.slug}`}
               >
-                Back to contest zone
+                Back to contest
               </Link>
             </div>
           ) : assessmentContext ? (
             <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>Course binding</p>
+              <p className={shellClassNames.eyebrow}>Course</p>
               <p className="mt-2 text-lg font-semibold">{assessmentContext.title}</p>
-              <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-                This editor is linked to the {assessmentContext.type} surface inside{" "}
-                {courseContext?.title ?? "the course"}, so submissions and telemetry now carry
-                course assessment context.
-              </p>
               <Link
-                className="mt-4 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+                className="mt-3 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
                 href={
                   assessmentContext.type === "exam"
                     ? `/${currentLocale}/courses/${boundCourseSlug}/exams/${assessmentContext.slug}`
