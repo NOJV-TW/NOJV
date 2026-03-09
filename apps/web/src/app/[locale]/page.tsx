@@ -3,9 +3,13 @@ import Link from "next/link";
 import { getCopy, isLocale } from "@nojv/i18n";
 import { formatAcceptanceRate, shellClassNames } from "@nojv/ui";
 
-import { MetricTrendChart } from "@/components/metric-trend-chart";
-import { contestCards, integrityCases, queueSeries } from "@/lib/demo-data";
-import { listCourseCards, listProblemCards } from "@/lib/server/read-model";
+import {
+  getDashboardStats,
+  listContestCards,
+  listCourseCards,
+  listIntegrityCases,
+  listProblemCards
+} from "@/lib/server/read-model";
 import { resolveWorkspaceAppUrl } from "@/lib/workspace-launch";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +22,13 @@ export default async function LocaleHomePage({
   const { locale } = await params;
   const currentLocale = isLocale(locale) ? locale : "zh-TW";
   const labels = getCopy(currentLocale);
-  const courses = await listCourseCards();
-  const problems = await listProblemCards();
+  const [courses, problems, contests, integrityCases, stats] = await Promise.all([
+    listCourseCards(),
+    listProblemCards(),
+    listContestCards(),
+    listIntegrityCases(),
+    getDashboardStats()
+  ]);
   const workspaceAppUrl = resolveWorkspaceAppUrl();
 
   return (
@@ -54,65 +63,26 @@ export default async function LocaleHomePage({
           </div>
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
             <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>Queues / min</p>
-              <p className={shellClassNames.metricValue}>149</p>
+              <p className={shellClassNames.eyebrow}>Problems</p>
+              <p className={shellClassNames.metricValue}>{stats.problems}</p>
               <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-                submission + workspace + integrity events
+                public problems in the catalog
+              </p>
+            </div>
+            <div className={`${shellClassNames.card} px-5 py-5`}>
+              <p className={shellClassNames.eyebrow}>Submissions</p>
+              <p className={shellClassNames.metricValue}>{stats.submissions}</p>
+              <p className="mt-2 text-sm text-[color:var(--color-muted)]">
+                total submissions processed
               </p>
             </div>
             <div className={`${shellClassNames.card} px-5 py-5`}>
               <p className={shellClassNames.eyebrow}>Course zones</p>
-              <p className={shellClassNames.metricValue}>{courses.length}</p>
+              <p className={shellClassNames.metricValue}>{stats.courses}</p>
               <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-                teacher-owned RBAC, assignments, exams, and enrollment flows
+                active courses with assignments and exams
               </p>
             </div>
-            <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>Isolation</p>
-              <p className={shellClassNames.metricValue}>Docker</p>
-              <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-                makefile, shell, and submission execution leave the web tier
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[1.3fr_0.9fr]">
-        <div className={`${shellClassNames.card} px-6 py-6`}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className={shellClassNames.eyebrow}>Execution Backbone</p>
-              <h3 className={shellClassNames.sectionTitle}>
-                Queue health across product zones
-              </h3>
-            </div>
-            <span className={shellClassNames.badge}>BullMQ + Redis</span>
-          </div>
-          <div className="mt-6">
-            <MetricTrendChart {...queueSeries} />
-          </div>
-        </div>
-        <div className="space-y-6">
-          <div className={`${shellClassNames.card} px-6 py-6`}>
-            <p className={shellClassNames.eyebrow}>Architecture</p>
-            <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl">
-              Next.js for the platform, Vite for the IDE, worker for the judge.
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-              The web app owns discovery, problems, contests, and integrity dashboards. The
-              workspace app owns terminal-grade interaction. The worker owns scoring, execution,
-              and anti-cheat aggregation.
-            </p>
-          </div>
-          <div className={`${shellClassNames.card} px-6 py-6`}>
-            <p className={shellClassNames.eyebrow}>{labels.integrity.heading}</p>
-            <h3 className="mt-2 font-[family-name:var(--font-display)] text-2xl">
-              Evidence-first reviewer pipeline
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-              {labels.integrity.subtitle}
-            </p>
           </div>
         </div>
       </section>
@@ -154,14 +124,14 @@ export default async function LocaleHomePage({
           <div className="flex items-center justify-between">
             <div>
               <p className={shellClassNames.eyebrow}>Contest Zone</p>
-              <h3 className={shellClassNames.sectionTitle}>Isolated competitive surfaces</h3>
+              <h3 className={shellClassNames.sectionTitle}>Competitive surfaces</h3>
             </div>
             <Link className={shellClassNames.badge} href={`/${currentLocale}/contests`}>
               Enter
             </Link>
           </div>
           <div className="mt-5 space-y-3">
-            {contestCards.map((contest) => (
+            {contests.map((contest) => (
               <div
                 className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/60 px-4 py-4"
                 key={contest.slug}
@@ -169,14 +139,15 @@ export default async function LocaleHomePage({
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-                      {contest.mode}
+                      {contest.problemCount} problems
                     </p>
                     <p className="mt-1 text-lg font-semibold">{contest.title}</p>
                   </div>
-                  <span className={shellClassNames.badge}>freeze aware</span>
+                  <span className={shellClassNames.badge}>contest</span>
                 </div>
                 <p className="mt-4 text-sm text-[color:var(--color-muted)]">
-                  {contest.startsAt} → {contest.endsAt}
+                  {new Date(contest.startsAt).toLocaleDateString()} &mdash;{" "}
+                  {new Date(contest.endsAt).toLocaleDateString()}
                 </p>
               </div>
             ))}
@@ -216,33 +187,35 @@ export default async function LocaleHomePage({
         </div>
       </section>
 
-      <section className={`${shellClassNames.card} px-6 py-6`}>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className={shellClassNames.eyebrow}>Integrity Review</p>
-            <h3 className={shellClassNames.sectionTitle}>Top flagged cases</h3>
-          </div>
-          <Link className={shellClassNames.badge} href={`/${currentLocale}/integrity`}>
-            Reviewer desk
-          </Link>
-        </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          {integrityCases.map((item) => (
-            <div
-              className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/60 px-4 py-4"
-              key={item.caseId}
-            >
-              <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-                {item.state.replaceAll("_", " ")}
-              </p>
-              <p className="mt-2 text-lg font-semibold">{item.userId}</p>
-              <p className="mt-4 text-sm text-[color:var(--color-muted)]">
-                score {item.score} / {item.signalCount} signals
-              </p>
+      {integrityCases.length > 0 ? (
+        <section className={`${shellClassNames.card} px-6 py-6`}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className={shellClassNames.eyebrow}>Integrity Review</p>
+              <h3 className={shellClassNames.sectionTitle}>Top flagged cases</h3>
             </div>
-          ))}
-        </div>
-      </section>
+            <Link className={shellClassNames.badge} href={`/${currentLocale}/integrity`}>
+              Reviewer desk
+            </Link>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {integrityCases.map((item) => (
+              <div
+                className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/60 px-4 py-4"
+                key={item.caseId}
+              >
+                <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
+                  {item.state.replaceAll("_", " ")}
+                </p>
+                <p className="mt-2 text-lg font-semibold">{item.userId}</p>
+                <p className="mt-4 text-sm text-[color:var(--color-muted)]">
+                  score {item.score} / {item.signalCount} signals
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
