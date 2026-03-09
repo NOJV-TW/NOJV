@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { shellClassNames } from "@nojv/ui";
 
-import type { CoursePocAssessment } from "@/lib/course-poc-data";
+import type { CoursePocAssessment } from "@/lib/server/read-model";
 import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState
