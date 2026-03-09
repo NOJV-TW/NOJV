@@ -529,3 +529,37 @@ export async function getProblemPageData(slug: string, locale: string) {
 
   return getProblemDetail(slug);
 }
+
+export async function listIntegrityCases() {
+  const cases = await prisma.cheatingCase.findMany({
+    include: {
+      _count: {
+        select: { signals: true }
+      },
+      user: {
+        select: { handle: true }
+      }
+    },
+    orderBy: { openedAt: "desc" },
+    take: 20
+  });
+
+  return cases.map((c) => ({
+    caseId: c.id,
+    score: c.score,
+    signalCount: c._count.signals,
+    state: c.status,
+    userId: c.user.handle
+  }));
+}
+
+export async function getDashboardStats() {
+  const [problems, submissions, courses, contests] = await Promise.all([
+    prisma.problem.count({ where: { visibility: "public" } }),
+    prisma.submission.count(),
+    prisma.course.count(),
+    prisma.contest.count({ where: { visibility: "published" } })
+  ]);
+
+  return { contests, courses, problems, submissions };
+}
