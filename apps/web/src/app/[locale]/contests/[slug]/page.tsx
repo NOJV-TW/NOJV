@@ -5,7 +5,9 @@ import { type LocaleCode } from "@nojv/domain";
 import { getCopy, isLocale } from "@nojv/i18n";
 import { shellClassNames } from "@nojv/ui";
 
-import { getContestDetail } from "@/lib/demo-data";
+import { getContestPageData } from "@/lib/server/read-model";
+
+export const dynamic = "force-dynamic";
 
 export default async function ContestDetailPage({
   params
@@ -15,7 +17,7 @@ export default async function ContestDetailPage({
   const { locale, slug } = await params;
   const currentLocale: LocaleCode = isLocale(locale) ? locale : "zh-TW";
   const labels = getCopy(currentLocale);
-  const contest = getContestDetail(slug);
+  const contest = await getContestPageData(slug);
 
   if (!contest) {
     notFound();
@@ -44,8 +46,8 @@ export default async function ContestDetailPage({
               </p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">Telemetry sensitivity</p>
-              <p className="mt-2 text-lg font-semibold">{contest.telemetrySensitivity}</p>
+              <p className="text-sm text-[color:var(--color-muted)]">Problems</p>
+              <p className="mt-2 text-lg font-semibold">{contest.problems.length}</p>
             </div>
           </div>
         </div>
@@ -56,9 +58,9 @@ export default async function ContestDetailPage({
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className={shellClassNames.eyebrow}>Contest problems</p>
-              <h3 className={shellClassNames.sectionTitle}>Separate competitive surface</h3>
+              <h3 className={shellClassNames.sectionTitle}>Competitive surface</h3>
             </div>
-            <span className={shellClassNames.badge}>{contest.mode}</span>
+            <span className={shellClassNames.badge}>{contest.problems.length} problems</span>
           </div>
           <div className="mt-5 space-y-3">
             {contest.problems.map((problem) => (
@@ -81,26 +83,12 @@ export default async function ContestDetailPage({
 
         <aside className="space-y-6">
           <section className={`${shellClassNames.card} px-5 py-5`}>
-            <p className={shellClassNames.eyebrow}>Workspace policy</p>
-            <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-              {contest.workspacePolicy}. Participants keep a per-session filesystem, but the
-              command policy is narrower than the practice workspace.
-            </p>
-          </section>
-          <section className={`${shellClassNames.card} px-5 py-5`}>
             <p className={shellClassNames.eyebrow}>Timeline</p>
             <div className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--color-muted)]">
-              <p>Starts: {contest.startsAt}</p>
-              <p>Ends: {contest.endsAt}</p>
+              <p>Starts: {new Date(contest.startsAt).toLocaleString()}</p>
+              <p>Ends: {new Date(contest.endsAt).toLocaleString()}</p>
               <p>Scoreboard: {contest.frozenScoreboard ? "freeze-aware" : "live-ranked"}</p>
             </div>
-          </section>
-          <section className={`${shellClassNames.card} px-5 py-5`}>
-            <p className={shellClassNames.eyebrow}>Why a distinct zone?</p>
-            <p className="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-              Contest navigation, telemetry thresholds, and workspace command policy are all
-              contest-specific. They should not leak into the practice catalog.
-            </p>
           </section>
         </aside>
       </section>
