@@ -33,15 +33,13 @@ export interface SharedCopy {
 export const copy: Record<LocaleCode, SharedCopy> = {
   en: {
     hero: {
-      eyebrow: "Online Judge Platform",
-      subtitle:
-        "Practice, assignments, contests, and integrity workflows live on the same execution backbone.",
-      title:
-        "A modern OJ that treats judging, workspace isolation, and anti-cheat as first-class systems."
+      eyebrow: "Online Judge",
+      subtitle: "Solve problems, join contests, and track your progress.",
+      title: "Practice, Compete, Learn"
     },
     integrity: {
-      heading: "Integrity pipeline",
-      subtitle: "Signals are stored as evidence so reviewers can trace why a case was opened."
+      heading: "Integrity",
+      subtitle: "Review flagged cases and cheating signals."
     },
     navigation: {
       contests: "Contests",
@@ -62,13 +60,13 @@ export const copy: Record<LocaleCode, SharedCopy> = {
   },
   "zh-TW": {
     hero: {
-      eyebrow: "線上評測平台",
-      subtitle: "練習、作業、競賽與誠信稽核共用同一條執行骨幹，不再是互相拼湊的子系統。",
-      title: "把評測、獨立作業區與反作弊視為一等公民的現代 OJ。"
+      eyebrow: "線上評測",
+      subtitle: "解題、參加競賽、追蹤你的學習進度。",
+      title: "練習、競賽、學習"
     },
     integrity: {
-      heading: "誠信偵測管線",
-      subtitle: "所有可疑訊號都保存成證據，而不是只留下模糊的作弊布林值。"
+      heading: "誠信中心",
+      subtitle: "檢視標記案件與可疑訊號。"
     },
     navigation: {
       contests: "競賽區",
