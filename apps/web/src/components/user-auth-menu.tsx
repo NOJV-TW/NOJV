@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
 
 import { shellClassNames } from "@nojv/ui";
 
-export function UserAuthMenu() {
-  const { data: session, status } = useSession();
+import { authClient } from "@/lib/auth-client";
 
-  if (status === "loading") {
+export function UserAuthMenu() {
+  const { data: session, isPending } = authClient.useSession();
+
+  if (isPending) {
     return (
       <div className="rounded-full border border-[color:var(--color-border)] bg-white/60 px-4 py-2 text-sm text-[color:var(--color-muted)]">
         ...
@@ -24,7 +25,7 @@ export function UserAuthMenu() {
         </span>
         <button
           className="rounded-full border border-[color:var(--color-border)] px-3 py-1.5 text-sm transition hover:-translate-y-0.5 hover:bg-white/70"
-          onClick={() => void signOut({ callbackUrl: "/" })}
+          onClick={() => void authClient.signOut()}
           type="button"
         >
           Sign out

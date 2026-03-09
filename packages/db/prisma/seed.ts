@@ -18,21 +18,38 @@ async function main() {
 
   // --- Users ---
   const userDefs = [
-    { id: "usr_admin", email: "admin@nojv.local", handle: "admin", displayName: "Admin", platformRole: "admin" as const },
-    { id: "usr_teacher_amelia", email: "amelia.chen@nojv.local", handle: "teacher_amelia", displayName: "Amelia Chen", platformRole: "teacher" as const },
-    { id: "usr_teacher_lin", email: "lin.carter@nojv.local", handle: "teacher_lin", displayName: "Lin Carter", platformRole: "teacher" as const },
-    { id: "usr_ta_ren", email: "ren.wu@nojv.local", handle: "ta_ren", displayName: "Ren Wu", platformRole: "ta" as const },
-    { id: "usr_student_alice", email: "alice.huang@nojv.local", handle: "stu_alice", displayName: "Alice Huang", platformRole: "student" as const },
-    { id: "usr_student_bob", email: "bob.lin@nojv.local", handle: "stu_bob", displayName: "Bob Lin", platformRole: "student" as const },
-    { id: "usr_student_maya", email: "maya.su@nojv.local", handle: "stu_maya", displayName: "Maya Su", platformRole: "student" as const }
+    { id: "usr_admin", email: "admin@nojv.local", handle: "admin", name: "Admin", platformRole: "admin" as const },
+    { id: "usr_teacher_amelia", email: "amelia.chen@nojv.local", handle: "teacher_amelia", name: "Amelia Chen", platformRole: "teacher" as const },
+    { id: "usr_teacher_lin", email: "lin.carter@nojv.local", handle: "teacher_lin", name: "Lin Carter", platformRole: "teacher" as const },
+    { id: "usr_ta_ren", email: "ren.wu@nojv.local", handle: "ta_ren", name: "Ren Wu", platformRole: "ta" as const },
+    { id: "usr_student_alice", email: "alice.huang@nojv.local", handle: "stu_alice", name: "Alice Huang", platformRole: "student" as const },
+    { id: "usr_student_bob", email: "bob.lin@nojv.local", handle: "stu_bob", name: "Bob Lin", platformRole: "student" as const },
+    { id: "usr_student_maya", email: "maya.su@nojv.local", handle: "stu_maya", name: "Maya Su", platformRole: "student" as const }
   ];
 
   const users = await Promise.all(
     userDefs.map((u) =>
       prisma.user.upsert({
         where: { handle: u.handle },
-        update: { passwordHash },
-        create: { ...u, passwordHash }
+        update: {},
+        create: u
+      })
+    )
+  );
+
+  // Create credential accounts (BetterAuth stores passwords in the Account table)
+  await Promise.all(
+    users.map((u) =>
+      prisma.account.upsert({
+        where: { id: `acct_${u.handle}` },
+        update: { password: passwordHash },
+        create: {
+          id: `acct_${u.handle}`,
+          accountId: u.id,
+          providerId: "credential",
+          userId: u.id,
+          password: passwordHash
+        }
       })
     )
   );

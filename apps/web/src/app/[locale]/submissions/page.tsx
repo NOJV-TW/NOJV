@@ -1,9 +1,11 @@
 import Link from "next/link";
 
+import { headers } from "next/headers";
+
 import { getCopy, isLocale } from "@nojv/i18n";
 import { shellClassNames } from "@nojv/ui";
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 import { listUserSubmissions } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +41,7 @@ export default async function SubmissionsPage({
   const currentLocale = isLocale(locale) ? locale : "zh-TW";
   const labels = getCopy(currentLocale);
 
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.id) {
     return (

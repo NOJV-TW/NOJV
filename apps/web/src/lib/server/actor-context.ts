@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
+
 import { platformRoleSchema, type PlatformRole } from "@nojv/domain";
 
-import { auth, type NojvSessionExtras } from "@/auth";
+import { auth } from "@/lib/auth";
 
 export interface PocActorContext {
   displayName: string;
@@ -18,8 +20,8 @@ const defaultActorContext: PocActorContext = {
   userId: "usr_student_local"
 };
 
-function readHeader(headers: Headers, key: string) {
-  const value = headers.get(key)?.trim();
+function readHeader(reqHeaders: Headers, key: string) {
+  const value = reqHeaders.get(key)?.trim();
 
   return value && value.length > 0 ? value : undefined;
 }
@@ -49,22 +51,23 @@ function getActorContextFromHeaders(request: Request): PocActorContext {
 }
 
 export async function getActorContext(request: Request): Promise<PocActorContext | null> {
-  const session = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers()
+  });
 
-  if (session?.user?.id) {
-    const extra = session.user as NojvSessionExtras;
+  if (session?.user) {
+    const extra = session.user as Record<string, unknown>;
     const parsedRole = platformRoleSchema.safeParse(extra.platformRole);
 
     return {
-      displayName: session.user.name ?? session.user.email ?? "User",
-      email: session.user.email ?? "",
-      handle: extra.handle ?? "",
+      displayName: session.user.name ?? session.user.email,
+      email: session.user.email,
+      handle: (extra.handle as string) ?? "",
       platformRole: parsedRole.success ? parsedRole.data : "student",
       userId: session.user.id
     };
   }
 
-  // Header-based fallback is only allowed in development
   if (process.env.NODE_ENV === "development") {
     return getActorContextFromHeaders(request);
   }
