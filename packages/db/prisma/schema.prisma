@@ -37,6 +37,17 @@ enum SubmissionStatus {
   compile_error
 }
 
+enum JudgeType {
+  standard
+  checker
+  interactive
+}
+
+enum SubmissionType {
+  function
+  full_source
+}
+
 enum WorkspaceMode {
   practice
   assignment
@@ -139,12 +150,15 @@ model User {
   id                   String                 @id @default(cuid())
   email                String                 @unique
   handle               String                 @unique
-  displayName          String
-  passwordHash         String?
+  name                 String
+  emailVerified        Boolean                @default(false)
+  image                String?
   locale               String                 @default("zh-TW")
   platformRole         PlatformRole           @default(student)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
+  sessions             Session[]
+  accounts             Account[]
   submissions          Submission[]
   workspaceSessions    WorkspaceSession[]
   workspaceRuns        WorkspaceRun[]
@@ -170,10 +184,15 @@ model Problem {
   authorId            String?
   timeLimitMs         Int
   memoryLimitMb       Int
+  judgeType           JudgeType               @default(standard)
+  submissionType      SubmissionType          @default(full_source)
+  checkerScript       String?                 @db.Text
+  interactorScript    String?                 @db.Text
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   statements          ProblemStatementI18n[]
   testcaseSets        TestcaseSet[]
+  templates           ProblemTemplate[]
   submissions         Submission[]
   workspaceSessions   WorkspaceSession[]
   contestLinks        ContestProblem[]
@@ -214,12 +233,27 @@ model Testcase {
   testcaseSetId  String
   ordinal        Int
   stdin          String      @db.Text
-  expectedStdout String      @db.Text
+  expectedStdout String?     @db.Text
+  inputFiles     Json?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   testcaseSet    TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
 
   @@unique([testcaseSetId, ordinal])
+}
+
+model ProblemTemplate {
+  id              String            @id @default(cuid())
+  problemId       String
+  language        SupportedLanguage
+  driverCode      String            @db.Text
+  templateCode    String            @db.Text
+  insertionMarker String            @default("// __USER_CODE__")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  problem         Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, language])
 }
 
 model Contest {
@@ -519,4 +553,42 @@ model CheatingSignal {
 
   @@index([userId, occurredAt])
   @@index([type, confidence])
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
 }

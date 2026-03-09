@@ -12,6 +12,7 @@ import {
   integrityAssessmentSchema,
   workspaceRunResultSchema,
   type CheatingSignal,
+  type WorkspaceRunRequest,
   type WorkspaceRunResult
 } from "@nojv/domain";
 import {
@@ -74,6 +75,17 @@ async function executeJudgeRun(
   });
 }
 
+async function executeRawRun(
+  request: WorkspaceRunRequest,
+  remoteSandboxConfig: ReturnType<typeof getRemoteSandboxConfig>
+) {
+  if (remoteSandboxConfig) {
+    return runRemoteSandboxCommand(request, remoteSandboxConfig);
+  }
+
+  return executeEphemeralWorkspaceRun(request, getLocalSandboxOptions());
+}
+
 export async function processSubmission(job: Job<SubmissionJudgeJob>) {
   const payload = submissionJudgeJobSchema.parse(job.data);
   const remoteSandboxConfig = getRemoteSandboxConfig();
@@ -87,12 +99,20 @@ export async function processSubmission(job: Job<SubmissionJudgeJob>) {
 
   const result = await judgeSubmissionAgainstTestcases(
     {
+      checkerScript: judgeContext.checkerScript,
       draft: payload.draft,
+      interactorScript: judgeContext.interactorScript,
+      judgeType: judgeContext.judgeType,
       memoryLimitMb: judgeContext.memoryLimitMb,
+      submissionType: judgeContext.submissionType,
+      templates: judgeContext.templates,
       testcases: judgeContext.testcases,
       timeLimitMs: judgeContext.timeLimitMs
     },
     {
+      executeRun: async (request) => {
+        return executeRawRun(request, remoteSandboxConfig);
+      },
       runSolution: async (input) => {
         return executeJudgeRun(input, remoteSandboxConfig);
       }

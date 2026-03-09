@@ -1,0 +1,27 @@
+export class HttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+export class NotFoundError extends HttpError {
+  constructor(message = "Not found.") {
+    super(message, 404);
+  }
+}
+
+export class ConflictError extends HttpError {
+  constructor(message = "Resource already exists.") {
+    super(message, 409);
+  }
+}
+
+export class ForbiddenError extends HttpError {
+  constructor(message = "Forbidden.") {
+    super(message, 403);
+  }
+}

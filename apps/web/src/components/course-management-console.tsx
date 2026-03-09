@@ -3,6 +3,8 @@
 import { startTransition, useState, type SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 import {
@@ -54,6 +56,8 @@ function createDefaultAssessmentWindow() {
 }
 
 export function CourseManagementConsole({ course }: CourseManagementConsoleProps) {
+  const tAdmin = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const { actor } = useActorSession();
   const defaultWindow = createDefaultAssessmentWindow();
@@ -228,9 +232,9 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
     <section className={`${shellClassNames.cardStrong} px-5 py-5`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Course actions</p>
+          <p className={shellClassNames.eyebrow}>{tAdmin("courseActions")}</p>
           <h3 className="mt-1 text-2xl font-semibold">
-            Operate the course without hand-written API calls
+            {tAdmin("courseActionsSubtitle")}
           </h3>
         </div>
         <span className={shellClassNames.badge}>
@@ -240,7 +244,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
 
       <div className="mt-5 grid gap-6 xl:grid-cols-2">
         <article className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-          <p className={shellClassNames.eyebrow}>Join as current actor</p>
+          <p className={shellClassNames.eyebrow}>{tAdmin("joinAsActor")}</p>
           <div className="mt-4 flex flex-wrap gap-3">
             {selfJoinChannels.map((channel) => (
               <button
@@ -250,7 +254,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
                 onClick={() => void handleJoin(channel.method, channel.token)}
                 type="button"
               >
-                {isJoining ? "Joining..." : `${channel.label} · ${channel.method}`}
+                {isJoining ? tCommon("joining") : `${channel.label} · ${channel.method}`}
               </button>
             ))}
           </div>
@@ -259,7 +263,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
         </article>
 
         <article className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-          <p className={shellClassNames.eyebrow}>Manual enrollment</p>
+          <p className={shellClassNames.eyebrow}>{tAdmin("manualEnrollment")}</p>
           <form
             className="mt-4 grid gap-3"
             onSubmit={(event) => void handleManualEnrollment(event)}
@@ -267,7 +271,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
             <input
               className={inputClassName}
               onChange={(event) => setEnrollName(event.target.value)}
-              placeholder="Display name"
+              placeholder={tAdmin("displayName")}
               required
               value={enrollName}
             />
@@ -275,7 +279,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
               <input
                 className={inputClassName}
                 onChange={(event) => setEnrollEmail(event.target.value)}
-                placeholder="Email"
+                placeholder={tAdmin("email")}
                 required
                 type="email"
                 value={enrollEmail}
@@ -283,7 +287,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
               <input
                 className={inputClassName}
                 onChange={(event) => setEnrollHandle(event.target.value)}
-                placeholder="Handle"
+                placeholder={tAdmin("handle")}
                 required
                 value={enrollHandle}
               />
@@ -304,7 +308,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
               disabled={isEnrolling}
               type="submit"
             >
-              {isEnrolling ? "Enrolling..." : "Enroll member"}
+              {isEnrolling ? tAdmin("enrolling") : tAdmin("enrollMember")}
             </button>
           </form>
           {enrollStatus ? (
@@ -314,7 +318,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
         </article>
 
         <article className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-          <p className={shellClassNames.eyebrow}>Attach authored problem</p>
+          <p className={shellClassNames.eyebrow}>{tAdmin("attachProblem")}</p>
           <form
             className="mt-4 grid gap-3"
             onSubmit={(event) => void handleAttachProblem(event)}
@@ -332,7 +336,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
               disabled={isAttaching}
               type="submit"
             >
-              {isAttaching ? "Attaching..." : "Attach problem"}
+              {isAttaching ? tAdmin("attaching") : tAdmin("attachButton")}
             </button>
           </form>
           {attachStatus ? (
@@ -342,7 +346,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
         </article>
 
         <article className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-          <p className={shellClassNames.eyebrow}>Publish assessment</p>
+          <p className={shellClassNames.eyebrow}>{tAdmin("publishAssessment")}</p>
           <form
             className="mt-4 grid gap-3"
             onSubmit={(event) => void handlePublishAssessment(event)}
@@ -351,7 +355,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
               <input
                 className={inputClassName}
                 onChange={(event) => setAssessmentTitle(event.target.value)}
-                placeholder="Assessment title"
+                placeholder={tAdmin("assessmentTitle")}
                 required
                 value={assessmentTitle}
               />
@@ -390,7 +394,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
             <textarea
               className={textareaClassName}
               onChange={(event) => setAssessmentSummary(event.target.value)}
-              placeholder="Assessment summary"
+              placeholder={tAdmin("assessmentSummary")}
               required
               value={assessmentSummary}
             />
@@ -429,7 +433,7 @@ export function CourseManagementConsole({ course }: CourseManagementConsoleProps
               disabled={isPublishingAssessment}
               type="submit"
             >
-              {isPublishingAssessment ? "Publishing..." : "Publish assessment"}
+              {isPublishingAssessment ? tAdmin("publishing") : tAdmin("publishButton")}
             </button>
           </form>
           {assessmentStatus ? (

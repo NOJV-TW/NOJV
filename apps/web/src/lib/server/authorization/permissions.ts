@@ -1,4 +1,4 @@
-import type { CourseRole, EffectiveCourseRole, PlatformRole } from "@nojv/domain";
+import type { EffectiveCourseRole, PlatformRole } from "@nojv/domain";
 
 export function canCreateCourse(platformRole: PlatformRole) {
   return platformRole === "admin" || platformRole === "teacher";
@@ -16,13 +16,10 @@ export function canPublishAssessment(role: EffectiveCourseRole) {
   return role === "admin" || role === "teacher" || role === "ta";
 }
 
-export function resolveCoursePermissionRole(input: {
-  courseRole?: CourseRole | null;
-  platformRole: PlatformRole;
-}): EffectiveCourseRole | null {
-  if (input.platformRole === "admin") {
-    return "admin";
-  }
+export function canManageCourseProblems(role: EffectiveCourseRole) {
+  return role === "admin" || role === "teacher" || role === "ta";
+}
 
-  return input.courseRole ?? null;
+export function canViewManagePanel(role: EffectiveCourseRole) {
+  return role === "admin" || role === "teacher" || role === "ta";
 }

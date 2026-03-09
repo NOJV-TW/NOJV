@@ -27,7 +27,7 @@ vi.mock("@/lib/server/actor-context", () => ({
   getActorContext: vi.fn(() => currentActor)
 }));
 
-vi.mock("@/lib/server/course-authorization", () => ({
+vi.mock("@/lib/server/authorization", () => ({
   canManageCourseMembership: vi.fn(
     (role: "admin" | "student" | "ta" | "teacher" | undefined) => {
       return role === "admin" || role === "teacher" || role === "ta";
@@ -35,13 +35,13 @@ vi.mock("@/lib/server/course-authorization", () => ({
   ),
   canPublishAssessment: vi.fn((role: "admin" | "student" | "ta" | "teacher" | undefined) => {
     return role === "admin" || role === "teacher" || role === "ta";
-  })
+  }),
+  getCoursePermissionRole: vi.fn(() => currentPermissionRole)
 }));
 
 vi.mock("@/lib/server/poc-persistence", () => ({
   attachProblemToCourseRecord,
   createCourseAssessmentRecord,
-  getCoursePermissionRole: vi.fn(() => currentPermissionRole),
   joinCourseRecord,
   manuallyEnrollCourseMember
 }));
