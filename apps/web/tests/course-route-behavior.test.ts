@@ -7,7 +7,7 @@ vi.mock("@/lib/server/actor-context", () => ({
   getActorContext
 }));
 
-vi.mock("@/lib/server/course-authorization", () => ({
+vi.mock("@/lib/server/authorization", () => ({
   canCreateCourse: vi.fn()
 }));
 

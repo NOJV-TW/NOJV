@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { ForbiddenError } from "@/lib/server/api-errors";
 import { withAuthParams } from "@/lib/server/api-handler";
-import { canCreateProblem } from "@/lib/server/course-authorization";
+import { canCreateProblem } from "@/lib/server/authorization";
 import { createProblemTestcaseSetRecord } from "@/lib/server/poc-persistence";
 
 export const POST = withAuthParams<{ slug: string }>(async (request, actor, { slug }) => {
