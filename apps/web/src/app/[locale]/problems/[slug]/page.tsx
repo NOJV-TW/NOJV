@@ -7,8 +7,7 @@ import { shellClassNames } from "@nojv/ui";
 
 import { ProblemEditor } from "@/components/problem-editor";
 import { ProblemTestcasePanel } from "@/components/problem-testcase-panel";
-import { getContestDetail } from "@/lib/demo-data";
-import { getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
+import { getContestPageData, getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +23,7 @@ export default async function ProblemDetailPage({
   const currentLocale: LocaleCode = isLocale(locale) ? locale : "zh-TW";
   const labels = getCopy(currentLocale);
   const problem = await getProblemPageData(slug, currentLocale);
-  const contestContext = contest ? getContestDetail(contest) : undefined;
+  const contestContext = contest ? await getContestPageData(contest) : undefined;
   const courseData = course ? await getCoursePageData(course) : null;
   const courseContext = courseData?.course;
   const assessmentContext = assessment

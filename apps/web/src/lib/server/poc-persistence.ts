@@ -15,9 +15,6 @@ import {
   type WorkspaceRunResult
 } from "@nojv/domain";
 
-import { getCourseAssessment, getCourseDetail } from "@/lib/course-poc-data";
-import { getContestDetail, getProblemDetail } from "@/lib/demo-data";
-
 import type { PocActorContext } from "./actor-context";
 import { resolveCoursePermissionRole } from "./course-authorization";
 import {
@@ -113,13 +110,12 @@ async function ensureProblem(
   problemSlug: string,
   input: EnsureProblemInput = {}
 ) {
-  const problem = getProblemDetail(problemSlug);
-  const title = input.title ?? problem?.title;
-  const difficulty = input.difficulty ?? problem?.difficulty;
-  const summary = input.summary ?? problem?.summary;
+  const title = input.title;
+  const difficulty = input.difficulty;
+  const summary = input.summary;
 
   if (!title || !difficulty || !summary) {
-    throw new Error(`Unknown POC problem slug: ${problemSlug}`);
+    throw new Error(`Problem slug requires title, difficulty, and summary: ${problemSlug}`);
   }
 
   return tx.problem
@@ -133,30 +129,30 @@ async function ensureProblem(
         slug: problemSlug,
         summary,
         timeLimitMs: input.timeLimitMs ?? 1_000,
-        visibility: input.visibility ?? problem?.visibility ?? "public"
+        visibility: input.visibility ?? "public"
       },
       update: {
         defaultTitle: title,
         difficulty,
         ...(input.authorId ? { authorId: input.authorId } : {}),
         summary,
-        visibility: input.visibility ?? problem?.visibility ?? "public"
+        visibility: input.visibility ?? "public"
       },
       where: {
         slug: problemSlug
       }
     })
     .then(async (persistedProblem) => {
-      if (input.statement || problem?.statement) {
+      if (input.statement) {
         await tx.problemStatementI18n.upsert({
           create: {
-            bodyMarkdown: input.statement ?? problem?.statement ?? "",
+            bodyMarkdown: input.statement,
             locale: "zh-TW",
             problemId: persistedProblem.id,
             title
           },
           update: {
-            bodyMarkdown: input.statement ?? problem?.statement ?? "",
+            bodyMarkdown: input.statement,
             title
           },
           where: {
@@ -200,35 +196,15 @@ function assertCourseProblemAccess(
 }
 
 async function ensureContest(tx: TransactionClient, contestSlug: string) {
-  const contest = getContestDetail(contestSlug);
+  const contest = await tx.contest.findUnique({
+    where: { slug: contestSlug }
+  });
 
   if (!contest) {
-    throw new Error(`Unknown POC contest slug: ${contestSlug}`);
+    throw new Error(`Contest not found: ${contestSlug}`);
   }
 
-  return tx.contest.upsert({
-    create: {
-      endsAt: new Date(contest.endsAt.replace(" ", "T") + ":00+08:00"),
-      frozenBoard: contest.frozenScoreboard,
-      id: `contest_${contest.slug}`,
-      slug: contest.slug,
-      startsAt: new Date(contest.startsAt.replace(" ", "T") + ":00+08:00"),
-      summary: contest.summary,
-      title: contest.title,
-      visibility: "published"
-    },
-    update: {
-      endsAt: new Date(contest.endsAt.replace(" ", "T") + ":00+08:00"),
-      frozenBoard: contest.frozenScoreboard,
-      startsAt: new Date(contest.startsAt.replace(" ", "T") + ":00+08:00"),
-      summary: contest.summary,
-      title: contest.title,
-      visibility: "published"
-    },
-    where: {
-      slug: contest.slug
-    }
-  });
+  return contest;
 }
 
 async function ensureContestParticipation(
@@ -257,188 +233,6 @@ async function ensureContestParticipation(
   });
 }
 
-async function seedCourseIfKnown(tx: TransactionClient, courseSlug: string) {
-  const course = getCourseDetail(courseSlug);
-
-  if (!course) {
-    return null;
-  }
-
-  const ownerSeed =
-    course.members.find((member) => member.courseRole === "teacher") ?? course.members[0];
-
-  if (!ownerSeed) {
-    throw new Error(`POC course ${courseSlug} has no teacher seed.`);
-  }
-
-  const owner = await ensureUser(tx, ownerSeed.userId, {
-    displayName: ownerSeed.displayName,
-    email: ownerSeed.email,
-    handle: ownerSeed.handle,
-    locale: course.locale,
-    platformRole: ownerSeed.platformRole
-  });
-
-  const persistedCourse = await tx.course.upsert({
-    create: {
-      description: course.description,
-      locale: course.locale,
-      ownerId: owner.id,
-      slug: course.slug,
-      title: course.title,
-      visibility: "invite_only"
-    },
-    update: {
-      description: course.description,
-      locale: course.locale,
-      ownerId: owner.id,
-      title: course.title
-    },
-    where: {
-      slug: course.slug
-    }
-  });
-
-  for (const member of course.members) {
-    const user = await ensureUser(tx, member.userId, {
-      displayName: member.displayName,
-      email: member.email,
-      handle: member.handle,
-      locale: course.locale,
-      platformRole: member.platformRole
-    });
-
-    await tx.courseMembership.upsert({
-      create: {
-        addedByUserId: owner.id,
-        courseId: persistedCourse.id,
-        joinedAt: new Date(),
-        joinedVia: member.joinedVia,
-        role: member.courseRole,
-        status: "active",
-        userId: user.id
-      },
-      update: {
-        addedByUserId: owner.id,
-        joinedVia: member.joinedVia,
-        role: member.courseRole,
-        status: "active"
-      },
-      where: {
-        courseId_userId: {
-          courseId: persistedCourse.id,
-          userId: user.id
-        }
-      }
-    });
-  }
-
-  for (const joinChannel of course.joinChannels) {
-    await tx.courseJoinToken.upsert({
-      create: {
-        courseId: persistedCourse.id,
-        createdByUserId: owner.id,
-        label: joinChannel.label,
-        method: joinChannel.method,
-        token: joinChannel.token
-      },
-      update: {
-        label: joinChannel.label,
-        method: joinChannel.method
-      },
-      where: {
-        token: joinChannel.token
-      }
-    });
-  }
-
-  for (const problemSlug of course.problemSlugs) {
-    const detail = getProblemDetail(problemSlug);
-    const problem = await ensureProblem(tx, problemSlug, {
-      authorId: owner.id,
-      visibility: detail?.visibility ?? "public"
-    });
-
-    await tx.courseProblem.upsert({
-      create: {
-        addedByUserId: owner.id,
-        courseId: persistedCourse.id,
-        problemId: problem.id
-      },
-      update: {
-        addedByUserId: owner.id
-      },
-      where: {
-        courseId_problemId: {
-          courseId: persistedCourse.id,
-          problemId: problem.id
-        }
-      }
-    });
-  }
-
-  for (const assessment of course.assessments) {
-    const persistedAssessment = await tx.courseAssessment.upsert({
-      create: {
-        closesAt: new Date(assessment.closesAt),
-        courseId: persistedCourse.id,
-        createdByUserId: owner.id,
-        dueAt: new Date(assessment.dueAt),
-        opensAt: new Date(assessment.opensAt),
-        scoreboardMode: assessment.scoreboardMode,
-        slug: assessment.slug,
-        status: "published",
-        summary: assessment.summary,
-        title: assessment.title,
-        type: assessment.type
-      },
-      update: {
-        closesAt: new Date(assessment.closesAt),
-        dueAt: new Date(assessment.dueAt),
-        opensAt: new Date(assessment.opensAt),
-        scoreboardMode: assessment.scoreboardMode,
-        status: "published",
-        summary: assessment.summary,
-        title: assessment.title,
-        type: assessment.type
-      },
-      where: {
-        courseId_slug: {
-          courseId: persistedCourse.id,
-          slug: assessment.slug
-        }
-      }
-    });
-
-    for (const [index, problemSlug] of assessment.problemSlugs.entries()) {
-      const problem = await ensureProblem(tx, problemSlug, {
-        authorId: owner.id,
-        visibility: getProblemDetail(problemSlug)?.visibility ?? "public"
-      });
-
-      await tx.courseAssessmentProblem.upsert({
-        create: {
-          assessmentId: persistedAssessment.id,
-          ordinal: index + 1,
-          points: 100,
-          problemId: problem.id
-        },
-        update: {
-          ordinal: index + 1
-        },
-        where: {
-          assessmentId_problemId: {
-            assessmentId: persistedAssessment.id,
-            problemId: problem.id
-          }
-        }
-      });
-    }
-  }
-
-  return persistedCourse;
-}
-
 async function ensureCourse(tx: TransactionClient, courseSlug: string) {
   const existing = await tx.course.findUnique({
     where: {
@@ -446,17 +240,11 @@ async function ensureCourse(tx: TransactionClient, courseSlug: string) {
     }
   });
 
-  if (existing) {
-    return existing;
+  if (!existing) {
+    throw new Error(`Course not found: ${courseSlug}`);
   }
 
-  const seeded = await seedCourseIfKnown(tx, courseSlug);
-
-  if (seeded) {
-    return seeded;
-  }
-
-  throw new Error(`Unknown POC course slug: ${courseSlug}`);
+  return existing;
 }
 
 async function ensureCourseAssessment(
@@ -475,29 +263,7 @@ async function ensureCourseAssessment(
   });
 
   if (!assessment) {
-    const seededAssessment = getCourseAssessment(courseSlug, assessmentSlug);
-
-    if (seededAssessment) {
-      await seedCourseIfKnown(tx, courseSlug);
-
-      const seeded = await tx.courseAssessment.findUnique({
-        where: {
-          courseId_slug: {
-            courseId: course.id,
-            slug: assessmentSlug
-          }
-        }
-      });
-
-      if (seeded) {
-        return {
-          assessment: seeded,
-          course
-        };
-      }
-    }
-
-    throw new Error(`Unknown POC assessment slug: ${courseSlug}/${assessmentSlug}`);
+    throw new Error(`Assessment not found: ${courseSlug}/${assessmentSlug}`);
   }
 
   return {
