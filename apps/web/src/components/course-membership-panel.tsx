@@ -1,6 +1,6 @@
 import { shellClassNames } from "@nojv/ui";
 
-import type { CoursePocMember } from "@/lib/course-poc-data";
+import type { CoursePocMember } from "@/lib/server/read-model";
 
 interface CourseMembershipPanelProps {
   members: CoursePocMember[];

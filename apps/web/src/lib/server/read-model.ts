@@ -1,47 +1,71 @@
 import { prisma } from "@nojv/db";
+import type {
+  CourseAssessmentType,
+  CourseJoinMethod,
+  CourseRole,
+  LocaleCode,
+  PlatformRole
+} from "@nojv/domain";
 
-import {
-  courseCards,
-  getCourseDetail,
-  getCourseProblemCatalog,
-  type CoursePocAssessment,
-  type CoursePocDetail,
-  type CoursePocMember,
-  type CourseProblemCatalogEntry
-} from "../course-poc-data";
-import {
-  getProblemDetail,
-  problemCards
-} from "../demo-data";
 import { starterByLanguage, type ProblemDetail } from "../problem-types";
 
-export type CoursePageData = CoursePocDetail & { assessments: CoursePocAssessment[] };
+// --- Course-related types (previously in course-poc-data.ts) ---
+
+export interface CoursePocMember {
+  courseRole: CourseRole;
+  displayName: string;
+  email: string;
+  handle: string;
+  joinedVia: CourseJoinMethod;
+  platformRole: PlatformRole;
+  userId: string;
+}
+
+export interface CoursePocAssessment {
+  closesAt: string;
+  dueAt: string;
+  opensAt: string;
+  problemSlugs: string[];
+  scoreboardMode: "frozen" | "hidden" | "live";
+  slug: string;
+  summary: string;
+  title: string;
+  type: CourseAssessmentType;
+}
+
+export interface CourseProblemCatalogEntry {
+  authorHandle: string;
+  slug: string;
+  summary: string;
+  title: string;
+  visibility: "private" | "public";
+}
+
+export type CoursePageData = {
+  assessments: CoursePocAssessment[];
+  description: string;
+  joinChannels: {
+    label: string;
+    method: CourseJoinMethod;
+    token: string;
+  }[];
+  locale: LocaleCode;
+  members: CoursePocMember[];
+  problemSlugs: string[];
+  slug: string;
+  title: string;
+};
 
 export interface CoursePageDetailData {
   course: CoursePageData;
   problems: CourseProblemCatalogEntry[];
 }
 
-function mergeBySlug<T extends { slug: string }>(seeded: T[], persisted: T[]) {
-  const persistedBySlug = new Map(persisted.map((entry) => [entry.slug, entry]));
-  const merged = seeded.map((entry) => persistedBySlug.get(entry.slug) ?? entry);
-  const seededSlugs = new Set(seeded.map((entry) => entry.slug));
+// --- Helper functions ---
 
-  for (const entry of persisted) {
-    if (!seededSlugs.has(entry.slug)) {
-      merged.push(entry);
-    }
-  }
-
-  return merged;
-}
-
-function calculateAcceptanceRate(
-  submissionStatuses: { status: string }[] | undefined,
-  seededProblem?: ProblemDetail
-) {
+function calculateAcceptanceRate(submissionStatuses: { status: string }[] | undefined) {
   if (!submissionStatuses || submissionStatuses.length === 0) {
-    return seededProblem?.acceptanceRate ?? 0;
+    return 0;
   }
 
   const accepted = submissionStatuses.filter((submission) => submission.status === "accepted");
@@ -70,11 +94,10 @@ function mapProblemCatalogCard(problem: {
   slug: string;
   submissions?: { status: string }[];
 }) {
-  const seededProblem = getProblemDetail(problem.slug);
-  const totalSubmissions = problem.submissions?.length ?? seededProblem?.totalSubmissions ?? 0;
+  const totalSubmissions = problem.submissions?.length ?? 0;
 
   return {
-    acceptanceRate: calculateAcceptanceRate(problem.submissions, seededProblem),
+    acceptanceRate: calculateAcceptanceRate(problem.submissions),
     difficulty: problem.difficulty as "easy" | "hard" | "medium",
     slug: problem.slug,
     title: problem.defaultTitle,
@@ -89,22 +112,17 @@ function mapProblemShelfEntry(problem: {
   summary: string;
   visibility: "private" | "public";
 }) {
-  const seededProblem = getProblemDetail(problem.slug);
   const localized = pickProblemStatement(
     problem.statements,
     "zh-TW",
-    seededProblem?.title ?? problem.slug,
-    seededProblem?.statement ?? problem.summary
+    problem.slug,
+    problem.summary
   );
-  const summary =
-    problem.summary.trim().length > 0
-      ? problem.summary
-      : (seededProblem?.summary ?? localized.statement);
 
   return {
-    authorHandle: problem.author?.handle ?? seededProblem?.authorHandle ?? "course_staff",
+    authorHandle: problem.author?.handle ?? "course_staff",
     slug: problem.slug,
-    summary,
+    summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     title: localized.title,
     visibility: problem.visibility
   } satisfies CourseProblemCatalogEntry;
@@ -232,7 +250,6 @@ function mapPersistedCourse(course: {
 }
 
 function buildProblemSamples(problem: {
-  slug: string;
   testcaseSets?: {
     isHidden: boolean;
     testcases: {
@@ -241,12 +258,6 @@ function buildProblemSamples(problem: {
     }[];
   }[];
 }) {
-  const seededProblem = getProblemDetail(problem.slug);
-
-  if (seededProblem?.samples.length) {
-    return seededProblem.samples;
-  }
-
   const visibleSet =
     problem.testcaseSets?.find((testcaseSet) => !testcaseSet.isHidden) ??
     problem.testcaseSets?.[0];
@@ -285,33 +296,30 @@ function mapPersistedProblemDetail(
   },
   locale: string
 ) {
-  const seededProblem = getProblemDetail(problem.slug);
   const localized = pickProblemStatement(
     problem.statements,
     locale,
-    seededProblem?.title ?? problem.defaultTitle,
-    seededProblem?.statement ?? problem.summary
+    problem.defaultTitle,
+    problem.summary
   );
-  const summary =
-    problem.summary.trim().length > 0
-      ? problem.summary
-      : (seededProblem?.summary ?? localized.statement);
 
   return {
-    acceptanceRate: calculateAcceptanceRate(problem.submissions, seededProblem),
-    authorHandle: problem.author?.handle ?? seededProblem?.authorHandle ?? "course_staff",
+    acceptanceRate: calculateAcceptanceRate(problem.submissions),
+    authorHandle: problem.author?.handle ?? "course_staff",
     difficulty: problem.difficulty as "easy" | "hard" | "medium",
     samples: buildProblemSamples(problem),
     slug: problem.slug,
-    starterByLanguage: seededProblem?.starterByLanguage ?? starterByLanguage,
+    starterByLanguage,
     statement: localized.statement,
-    summary,
-    tags: seededProblem?.tags ?? [],
+    summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
+    tags: [],
     title: localized.title,
-    totalSubmissions: problem.submissions?.length ?? seededProblem?.totalSubmissions ?? 0,
+    totalSubmissions: problem.submissions?.length ?? 0,
     visibility: problem.visibility
   } satisfies ProblemDetail;
 }
+
+// --- Public query functions ---
 
 export async function listCourseCards() {
   const persistedCourses = await prisma.course.findMany({
@@ -338,15 +346,12 @@ export async function listCourseCards() {
     }
   });
 
-  return mergeBySlug(
-    courseCards,
-    persistedCourses.map((course) => ({
-      assessmentCount: course.assessments.length,
-      memberCount: course.memberships.length,
-      slug: course.slug,
-      title: course.title
-    }))
-  );
+  return persistedCourses.map((course) => ({
+    assessmentCount: course.assessments.length,
+    memberCount: course.memberships.length,
+    slug: course.slug,
+    title: course.title
+  }));
 }
 
 export async function getCoursePageData(slug: string): Promise<CoursePageDetailData | null> {
@@ -406,20 +411,11 @@ export async function getCoursePageData(slug: string): Promise<CoursePageDetailD
     }
   });
 
-  if (persistedCourse) {
-    return mapPersistedCourse(persistedCourse);
-  }
-
-  const seededCourse = getCourseDetail(slug);
-
-  if (!seededCourse) {
+  if (!persistedCourse) {
     return null;
   }
 
-  return {
-    course: seededCourse,
-    problems: getCourseProblemCatalog(slug)
-  } satisfies CoursePageDetailData;
+  return mapPersistedCourse(persistedCourse);
 }
 
 export async function listProblemCards() {
@@ -439,7 +435,7 @@ export async function listProblemCards() {
     }
   });
 
-  return mergeBySlug(problemCards, persistedProblems.map(mapProblemCatalogCard));
+  return persistedProblems.map(mapProblemCatalogCard);
 }
 
 export async function listContestCards() {
@@ -523,11 +519,11 @@ export async function getProblemPageData(slug: string, locale: string) {
     }
   });
 
-  if (persistedProblem) {
-    return mapPersistedProblemDetail(persistedProblem, locale);
+  if (!persistedProblem) {
+    return null;
   }
 
-  return getProblemDetail(slug);
+  return mapPersistedProblemDetail(persistedProblem, locale);
 }
 
 export async function listIntegrityCases() {

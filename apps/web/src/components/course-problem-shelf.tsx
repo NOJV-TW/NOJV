@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { shellClassNames } from "@nojv/ui";
 
-import type { CourseProblemCatalogEntry } from "@/lib/course-poc-data";
+import type { CourseProblemCatalogEntry } from "@/lib/server/read-model";
 
 interface CourseProblemShelfProps {
   courseSlug: string;
