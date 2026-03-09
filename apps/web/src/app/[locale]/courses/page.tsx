@@ -16,15 +16,10 @@ export default async function CoursesPage({ params }: { params: Promise<{ locale
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-        <p className={shellClassNames.eyebrow}>{labels.navigation.courses}</p>
-        <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
-          Course management adds teacher workflows on top of the judge backbone.
+      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
+        <h2 className="font-[family-name:var(--font-display)] text-3xl">
+          {labels.navigation.courses}
         </h2>
-        <p className="mt-4 max-w-3xl text-base leading-7 text-[color:var(--color-muted)]">
-          Teachers can create courses, publish assignments or exams, pull in public or private
-          problems, and manage enrollment via QR code, join code, or manual account creation.
-        </p>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
