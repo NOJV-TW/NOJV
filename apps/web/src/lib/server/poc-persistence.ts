@@ -17,7 +17,6 @@ import {
 
 import type { PocActorContext } from "./actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "./api-errors";
-import { resolveCoursePermissionRole } from "./course-authorization";
 import {
   buildCheatingCaseSummary,
   mapIntegrityAssessmentToCaseStatus,
@@ -283,29 +282,6 @@ async function ensureCourseAssessment(
   };
 }
 
-async function resolveCoursePermission(
-  tx: TransactionClient,
-  courseSlug: string,
-  actor: PocActorContext
-) {
-  const course = await ensureCourse(tx, courseSlug);
-  const membership = await tx.courseMembership.findUnique({
-    where: {
-      courseId_userId: {
-        courseId: course.id,
-        userId: actor.userId
-      }
-    }
-  });
-
-  return {
-    course,
-    role: resolveCoursePermissionRole({
-      courseRole: membership?.role ?? null,
-      platformRole: actor.platformRole
-    })
-  };
-}
 
 function resolveWorkspaceSessionId(request: WorkspaceRunRequest) {
   if (!request.workspaceSessionId) {
@@ -741,13 +717,6 @@ function defaultScoreboardMode(type: CourseAssessmentType) {
   return type === "exam" ? "live" : "hidden";
 }
 
-export async function getCoursePermissionRole(courseSlug: string, actor: PocActorContext) {
-  return prisma.$transaction(async (tx) => {
-    const { role } = await resolveCoursePermission(tx, courseSlug, actor);
-
-    return role;
-  });
-}
 
 export async function createCourseRecord(actor: PocActorContext, payload: CourseCreate) {
   return prisma.$transaction(async (tx) => {

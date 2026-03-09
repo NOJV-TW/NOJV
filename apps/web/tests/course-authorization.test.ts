@@ -5,7 +5,7 @@ import {
   canCreateProblem,
   canManageCourseMembership,
   canPublishAssessment
-} from "../src/lib/server/course-authorization";
+} from "../src/lib/server/authorization/permissions";
 
 describe("course authorization", () => {
   it("allows teachers to create courses", () => {

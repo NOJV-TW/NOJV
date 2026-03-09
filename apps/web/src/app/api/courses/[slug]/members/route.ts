@@ -3,11 +3,8 @@ import { NextResponse } from "next/server";
 
 import { ForbiddenError } from "@/lib/server/api-errors";
 import { withAuthParams } from "@/lib/server/api-handler";
-import { canManageCourseMembership } from "@/lib/server/course-authorization";
-import {
-  getCoursePermissionRole,
-  manuallyEnrollCourseMember
-} from "@/lib/server/poc-persistence";
+import { canManageCourseMembership, getCoursePermissionRole } from "@/lib/server/authorization";
+import { manuallyEnrollCourseMember } from "@/lib/server/poc-persistence";
 
 export const POST = withAuthParams<{ slug: string }>(async (request, actor, { slug }) => {
   const role = await getCoursePermissionRole(slug, actor);

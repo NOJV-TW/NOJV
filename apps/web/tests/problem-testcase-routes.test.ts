@@ -22,7 +22,7 @@ vi.mock("@/lib/server/actor-context", () => ({
   getActorContext: vi.fn(() => currentActor)
 }));
 
-vi.mock("@/lib/server/course-authorization", () => ({
+vi.mock("@/lib/server/authorization", () => ({
   canCreateProblem: vi.fn((platformRole: "admin" | "student" | "ta" | "teacher") => {
     return platformRole === "admin" || platformRole === "teacher";
   })

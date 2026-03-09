@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { ForbiddenError } from "@/lib/server/api-errors";
 import { withAuth } from "@/lib/server/api-handler";
-import { canCreateCourse } from "@/lib/server/course-authorization";
+import { canCreateCourse } from "@/lib/server/authorization";
 import { createCourseRecord } from "@/lib/server/poc-persistence";
 import { listCourseCards } from "@/lib/server/read-model";
 
