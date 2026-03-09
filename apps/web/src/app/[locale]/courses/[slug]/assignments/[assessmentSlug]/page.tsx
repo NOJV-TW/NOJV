@@ -38,7 +38,6 @@ export default async function CourseAssignmentPage({
   const windowState = deriveAssessmentWindowState({
     closesAt: assessment.closesAt,
     dueAt: assessment.dueAt,
-    now: "2026-03-08T12:00:00.000Z",
     opensAt: assessment.opensAt
   });
 

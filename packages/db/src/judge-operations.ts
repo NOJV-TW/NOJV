@@ -43,6 +43,8 @@ function mapSubmissionResultToStatus(result: SubmissionResult): PersistedSubmiss
       return "runtime_error";
     case "time_limit_exceeded":
       return "time_limit_exceeded";
+    case "memory_limit_exceeded":
+      return "memory_limit_exceeded";
     case "wrong_answer":
       return "wrong_answer";
   }

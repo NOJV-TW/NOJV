@@ -15,7 +15,7 @@ export type AssessmentWindowState = "upcoming" | "open" | "grace" | "closed";
 export interface AssessmentWindowStateInput {
   closesAt: string;
   dueAt: string;
-  now: string;
+  now?: string;
   opensAt: string;
 }
 
@@ -41,7 +41,7 @@ export function deriveAssessmentWindowState({
   now,
   opensAt
 }: AssessmentWindowStateInput): AssessmentWindowState {
-  const currentTime = new Date(now);
+  const currentTime = now ? new Date(now) : new Date();
 
   if (currentTime < new Date(opensAt)) {
     return "upcoming";

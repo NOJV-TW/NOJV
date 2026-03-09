@@ -13,6 +13,7 @@ const sharedIgnores = [
   "**/generated/**",
   "**/next.config.ts",
   "**/postcss.config.mjs",
+  "**/prisma/**",
   "**/prisma.config.ts",
   "**/vite.config.ts"
 ];
