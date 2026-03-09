@@ -9,7 +9,7 @@ interface MockActor {
   displayName: string;
   email: string;
   handle: string;
-  platformRole: "admin" | "student" | "ta" | "teacher";
+  platformRole: "admin" | "student" | "teacher";
   userId: string;
 }
 

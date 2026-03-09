@@ -11,11 +11,11 @@ export default async function CourseJoinPage({
   params,
   searchParams
 }: {
-  params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ method?: string; token?: string }>;
+  params: Promise<{ locale: string; slug: string; token: string }>;
+  searchParams: Promise<{ method?: string }>;
 }) {
-  const { locale, slug } = await params;
-  const { method, token } = await searchParams;
+  const { locale, slug, token } = await params;
+  const { method } = await searchParams;
   setRequestLocale(locale);
 
   const [tNav, tJoin] = await Promise.all([
@@ -39,7 +39,7 @@ export default async function CourseJoinPage({
         courseSlug={slug}
         courseTitle={courseData.course.title}
         joinMethod={joinMethod}
-        joinToken={token ?? null}
+        joinToken={token}
       />
       <section className="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6">
         <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">

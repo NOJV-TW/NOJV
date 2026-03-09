@@ -151,7 +151,7 @@ function mapCourseMember(member: {
     name: string;
     email: string;
     handle: string;
-    platformRole: "admin" | "student" | "ta" | "teacher";
+    platformRole: "admin" | "student" | "teacher";
   };
   userId: string;
 }) {
@@ -193,7 +193,7 @@ function mapPersistedCourse(course: {
       name: string;
       email: string;
       handle: string;
-      platformRole: "admin" | "student" | "ta" | "teacher";
+      platformRole: "admin" | "student" | "teacher";
     };
     userId: string;
   }[];
@@ -443,6 +443,45 @@ export async function listProblemCards() {
   });
 }
 
+export async function listEditableProblems(userId: string) {
+  const problems = await prisma.problem.findMany({
+    include: {
+      _count: { select: { submissions: true } }
+    },
+    orderBy: { createdAt: "desc" },
+    where: {
+      OR: [
+        { authorId: userId },
+        {
+          assessmentLinks: {
+            some: {
+              assessment: {
+                course: {
+                  memberships: {
+                    some: {
+                      userId,
+                      role: { in: ["teacher", "ta"] },
+                      status: "active"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  });
+
+  return problems.map((problem) => ({
+    difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    slug: problem.slug,
+    title: problem.defaultTitle,
+    totalSubmissions: problem._count.submissions,
+    visibility: problem.visibility
+  }));
+}
+
 export async function listContestCards() {
   const contests = await prisma.contest.findMany({
     include: {
@@ -577,6 +616,41 @@ export async function listIntegrityCases() {
     signalCount: c._count.signals,
     state: c.status,
     userId: c.user.handle
+  }));
+}
+
+export async function listUserAssessments(userId: string, type: CourseAssessmentType) {
+  const assessments = await prisma.courseAssessment.findMany({
+    include: {
+      course: { select: { slug: true, title: true } },
+      problems: {
+        include: { problem: { select: { slug: true } } },
+        orderBy: { ordinal: "asc" }
+      }
+    },
+    orderBy: { opensAt: "desc" },
+    where: {
+      course: {
+        memberships: {
+          some: { userId, status: "active" }
+        }
+      },
+      status: "published",
+      type
+    }
+  });
+
+  return assessments.map((a) => ({
+    closesAt: a.closesAt.toISOString(),
+    courseSlug: a.course.slug,
+    courseTitle: a.course.title,
+    dueAt: a.dueAt.toISOString(),
+    opensAt: a.opensAt.toISOString(),
+    problemCount: a.problems.length,
+    scoreboardMode: a.scoreboardMode,
+    slug: a.slug,
+    summary: a.summary,
+    title: a.title
   }));
 }
 

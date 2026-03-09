@@ -10,7 +10,7 @@ export const supportedLanguages = [
   "typescript"
 ] as const;
 
-export const platformRoles = ["admin", "teacher", "ta", "student"] as const;
+export const platformRoles = ["admin", "teacher", "student"] as const;
 export const courseRoles = ["teacher", "ta", "student"] as const;
 export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
 export const courseJoinMethods = ["qr_code", "join_code", "manual_invite"] as const;
@@ -127,7 +127,7 @@ export const localActorPresets = {
     displayName: "Ren Wu",
     email: "ren.wu@nojv.local",
     handle: "ta_ren",
-    platformRole: "ta",
+    platformRole: "student",
     userId: "usr_ta_ren"
   }),
   teacher: actorIdentitySchema.parse({
@@ -283,7 +283,9 @@ export const courseAssessmentCreateSchema = z
     closesAt: isoDateTimeSchema,
     courseSlug: slugSchema,
     dueAt: isoDateTimeSchema,
+    ipLockEnabled: z.boolean().default(false),
     opensAt: isoDateTimeSchema,
+    pageLockEnabled: z.boolean().default(false),
     problemSlugs: z.array(slugSchema).min(1).max(32),
     scoreboardMode: assessmentScoreboardModeSchema.optional(),
     slug: slugSchema,

@@ -80,7 +80,6 @@ enum ContestParticipationStatus {
 enum PlatformRole {
   admin
   teacher
-  ta
   student
 }
 
@@ -367,6 +366,8 @@ model CourseAssessment {
   type            CourseAssessmentType
   status          CourseAssessmentStatus         @default(draft)
   scoreboardMode  CourseAssessmentScoreboardMode @default(hidden)
+  pageLockEnabled Boolean                       @default(false)
+  ipLockEnabled   Boolean                       @default(false)
   opensAt         DateTime
   dueAt           DateTime
   closesAt        DateTime

@@ -33,6 +33,15 @@
     "title": "Title",
     "visibility": "Visibility"
   },
+  "assignmentsList": {
+    "course": "Course",
+    "due": "Due",
+    "empty": "No assignments yet.",
+    "heading": "Assignments",
+    "opens": "Opens",
+    "signInRequired": "Please sign in to view your assignments.",
+    "status": "Status"
+  },
   "assessment": {
     "assignmentExplanation": "Assignments emphasize deadlines, progress, and course context. They still submit through the judge, but the UI avoids contest-rank pressure.",
     "assignmentFraming": "Assignment framing",
@@ -112,6 +121,15 @@
     "joinFailed": "Course join failed.",
     "token": "Token"
   },
+  "examsList": {
+    "course": "Course",
+    "due": "Due",
+    "empty": "No exams yet.",
+    "heading": "Exams",
+    "opens": "Opens",
+    "signInRequired": "Please sign in to view your exams.",
+    "status": "Status"
+  },
   "editor": {
     "assignmentMode": "assignment mode",
     "chars": "chars",
@@ -148,13 +166,18 @@
     "subtitle": "Review flagged cases and cheating signals."
   },
   "navigation": {
-    "contests": "Contests",
+    "assignments": "Assignments",
     "courses": "Courses",
     "dashboard": "Overview",
-    "integrity": "Integrity",
-    "problems": "Problems",
-    "submissions": "Submissions",
-    "workspace": "Workspace"
+    "exams": "Exams",
+    "problems": "Problems"
+  },
+  "problems": {
+    "createNew": "Create new problem",
+    "empty": "No problems yet.",
+    "myProblems": "My Problems",
+    "myProblemsEmpty": "You haven't created any problems yet.",
+    "publicLibrary": "Public Library"
   },
   "problemDetail": {
     "backToAssignment": "Back to assignment",

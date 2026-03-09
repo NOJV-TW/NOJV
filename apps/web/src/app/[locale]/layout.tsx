@@ -36,10 +36,9 @@ export default async function LocaleLayout({
   const navItems = [
     { href: `/${locale}`, label: tNav("dashboard") },
     { href: `/${locale}/problems`, label: tNav("problems") },
-    { href: `/${locale}/contests`, label: tNav("contests") },
     { href: `/${locale}/courses`, label: tNav("courses") },
-    { href: `/${locale}/submissions`, label: tNav("submissions") },
-    { href: `/${locale}/integrity`, label: tNav("integrity") }
+    { href: `/${locale}/assignments`, label: tNav("assignments") },
+    { href: `/${locale}/exams`, label: tNav("exams") }
   ];
 
   return (

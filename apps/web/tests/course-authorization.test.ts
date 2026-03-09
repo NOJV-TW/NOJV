@@ -16,9 +16,10 @@ describe("course authorization", () => {
     expect(canCreateCourse("student")).toBe(false);
   });
 
-  it("allows teachers and admins to create problems", () => {
+  it("allows all authenticated users to create problems", () => {
     expect(canCreateProblem("teacher")).toBe(true);
     expect(canCreateProblem("admin")).toBe(true);
+    expect(canCreateProblem("student")).toBe(true);
   });
 
   it("allows course staff to manage memberships", () => {

@@ -6,7 +6,7 @@ interface MockActor {
   displayName: string;
   email: string;
   handle: string;
-  platformRole: "admin" | "student" | "ta" | "teacher";
+  platformRole: "admin" | "student" | "teacher";
   userId: string;
 }
 
@@ -23,9 +23,7 @@ vi.mock("@/lib/server/actor-context", () => ({
 }));
 
 vi.mock("@/lib/server/authorization", () => ({
-  canCreateProblem: vi.fn((platformRole: "admin" | "student" | "ta" | "teacher") => {
-    return platformRole === "admin" || platformRole === "teacher";
-  })
+  canCreateProblem: vi.fn(() => true)
 }));
 
 vi.mock("@/lib/server/poc-persistence", () => ({
