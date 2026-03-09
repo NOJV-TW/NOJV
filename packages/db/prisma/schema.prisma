@@ -37,6 +37,17 @@ enum SubmissionStatus {
   compile_error
 }
 
+enum JudgeType {
+  standard
+  checker
+  interactive
+}
+
+enum SubmissionType {
+  function
+  full_source
+}
+
 enum WorkspaceMode {
   practice
   assignment
@@ -173,10 +184,15 @@ model Problem {
   authorId            String?
   timeLimitMs         Int
   memoryLimitMb       Int
+  judgeType           JudgeType               @default(standard)
+  submissionType      SubmissionType          @default(full_source)
+  checkerScript       String?                 @db.Text
+  interactorScript    String?                 @db.Text
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   statements          ProblemStatementI18n[]
   testcaseSets        TestcaseSet[]
+  templates           ProblemTemplate[]
   submissions         Submission[]
   workspaceSessions   WorkspaceSession[]
   contestLinks        ContestProblem[]
@@ -217,12 +233,27 @@ model Testcase {
   testcaseSetId  String
   ordinal        Int
   stdin          String      @db.Text
-  expectedStdout String      @db.Text
+  expectedStdout String?     @db.Text
+  inputFiles     Json?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   testcaseSet    TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
 
   @@unique([testcaseSetId, ordinal])
+}
+
+model ProblemTemplate {
+  id              String            @id @default(cuid())
+  problemId       String
+  language        SupportedLanguage
+  driverCode      String            @db.Text
+  templateCode    String            @db.Text
+  insertionMarker String            @default("// __USER_CODE__")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  problem         Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, language])
 }
 
 model Contest {

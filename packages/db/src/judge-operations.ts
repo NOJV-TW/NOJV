@@ -284,8 +284,18 @@ export async function getSubmissionOperation(submissionId: string) {
 }
 
 export interface SubmissionJudgeContext {
+  checkerScript: string | null;
+  interactorScript: string | null;
+  judgeType: "standard" | "checker" | "interactive";
   memoryLimitMb: number;
   problemSlug: string;
+  submissionType: "function" | "full_source";
+  templates: {
+    driverCode: string;
+    insertionMarker: string;
+    language: string;
+    templateCode: string;
+  }[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
 }
@@ -297,6 +307,7 @@ export async function getSubmissionJudgeContext(
     include: {
       problem: {
         include: {
+          templates: true,
           testcaseSets: {
             include: {
               testcases: {
@@ -322,12 +333,23 @@ export async function getSubmissionJudgeContext(
   }
 
   return {
+    checkerScript: submission.problem.checkerScript,
+    interactorScript: submission.problem.interactorScript,
+    judgeType: submission.problem.judgeType,
     memoryLimitMb: submission.problem.memoryLimitMb,
     problemSlug: submission.problem.slug,
+    submissionType: submission.problem.submissionType,
+    templates: submission.problem.templates.map((t) => ({
+      driverCode: t.driverCode,
+      insertionMarker: t.insertionMarker,
+      language: t.language,
+      templateCode: t.templateCode
+    })),
     testcases: submission.problem.testcaseSets.flatMap((testcaseSet) =>
       testcaseSet.testcases.map((testcase) => ({
-        expectedStdout: testcase.expectedStdout,
+        expectedStdout: testcase.expectedStdout ?? undefined,
         id: testcase.id,
+        inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
         isHidden: testcaseSet.isHidden,
         stdin: testcase.stdin,
         weight: testcaseSet.weight

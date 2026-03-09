@@ -15,7 +15,7 @@ async function main() {
   // --- Users ---
   const amelia = await prisma.user.upsert({
     create: {
-      displayName: "Amelia Chen",
+      name: "Amelia Chen",
       email: "amelia.chen@nojv.local",
       handle: "teacher_amelia",
       id: "usr_teacher_amelia",
@@ -28,7 +28,7 @@ async function main() {
 
   const lin = await prisma.user.upsert({
     create: {
-      displayName: "Lin Carter",
+      name: "Lin Carter",
       email: "lin.carter@nojv.local",
       handle: "teacher_lin",
       id: "usr_teacher_lin",
@@ -41,7 +41,7 @@ async function main() {
 
   const ren = await prisma.user.upsert({
     create: {
-      displayName: "Ren Wu",
+      name: "Ren Wu",
       email: "ren.wu@nojv.local",
       handle: "ta_ren",
       id: "usr_ta_ren",
@@ -54,7 +54,7 @@ async function main() {
 
   const alice = await prisma.user.upsert({
     create: {
-      displayName: "Alice Huang",
+      name: "Alice Huang",
       email: "alice.huang@nojv.local",
       handle: "stu_alice",
       id: "usr_student_alice",
@@ -67,7 +67,7 @@ async function main() {
 
   const bob = await prisma.user.upsert({
     create: {
-      displayName: "Bob Lin",
+      name: "Bob Lin",
       email: "bob.lin@nojv.local",
       handle: "stu_bob",
       id: "usr_student_bob",
@@ -80,7 +80,7 @@ async function main() {
 
   const maya = await prisma.user.upsert({
     create: {
-      displayName: "Maya Su",
+      name: "Maya Su",
       email: "maya.su@nojv.local",
       handle: "stu_maya",
       id: "usr_student_maya",
@@ -93,7 +93,7 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     create: {
-      displayName: "Ops Admin",
+      name: "Ops Admin",
       email: "ops.admin@nojv.local",
       handle: "ops_admin",
       id: "usr_admin_ops",
@@ -308,6 +308,106 @@ async function main() {
           ]
         }
       }
+    },
+    {
+      authorId: amelia.id,
+      defaultTitle: "Add Two Numbers",
+      difficulty: "easy",
+      id: "problem_add-two-numbers",
+      memoryLimitMb: 256,
+      slug: "add-two-numbers",
+      submissionType: "function" as const,
+      judgeType: "standard" as const,
+      summary:
+        "Write a function that adds two integers.",
+      timeLimitMs: 1000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "兩數相加",
+          body: "撰寫一個函式，接收兩個整數並回傳它們的總和。"
+        },
+        en: {
+          title: "Add Two Numbers",
+          body: "Write a function that takes two integers and returns their sum."
+        }
+      },
+      testcases: {
+        sample: {
+          isHidden: false,
+          cases: [
+            { stdin: "1 2", expectedStdout: "3" },
+            { stdin: "0 0", expectedStdout: "0" },
+            { stdin: "-1 1", expectedStdout: "0" }
+          ]
+        },
+        hidden: {
+          isHidden: true,
+          cases: [
+            { stdin: "1000000 999999", expectedStdout: "1999999" },
+            { stdin: "-500 -700", expectedStdout: "-1200" },
+            { stdin: "2147483646 1", expectedStdout: "2147483647" }
+          ]
+        }
+      }
+    },
+    {
+      authorId: amelia.id,
+      defaultTitle: "Float Compare",
+      difficulty: "easy",
+      id: "problem_float-compare",
+      memoryLimitMb: 256,
+      slug: "float-compare",
+      submissionType: "full_source" as const,
+      judgeType: "checker" as const,
+      checkerScript: `import sys
+
+def main():
+    input_path, expected_path, user_path = sys.argv[1], sys.argv[2], sys.argv[3]
+    with open(expected_path) as f:
+        expected = float(f.read().strip())
+    with open(user_path) as f:
+        actual = float(f.read().strip())
+    if abs(expected - actual) < 1e-6:
+        print("100")
+        sys.exit(0)
+    else:
+        print(f"Expected {expected}, got {actual}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+`,
+      summary:
+        "Compute the result with floating-point precision.",
+      timeLimitMs: 1000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "浮點數比較",
+          body: "計算結果並以浮點數精度輸出。答案與預期值的絕對差必須小於 1e-6。"
+        },
+        en: {
+          title: "Float Compare",
+          body: "Compute the result and output it with floating-point precision. Your answer must be within 1e-6 absolute difference of the expected value."
+        }
+      },
+      testcases: {
+        sample: {
+          isHidden: false,
+          cases: [
+            { stdin: "1 3", expectedStdout: "0.333333" },
+            { stdin: "1 7", expectedStdout: "0.142857" }
+          ]
+        },
+        hidden: {
+          isHidden: true,
+          cases: [
+            { stdin: "2 3", expectedStdout: "0.666667" },
+            { stdin: "355 113", expectedStdout: "3.141593" }
+          ]
+        }
+      }
     }
   ];
 
@@ -322,12 +422,18 @@ async function main() {
         slug: def.slug,
         summary: def.summary,
         timeLimitMs: def.timeLimitMs,
-        visibility: def.visibility
+        visibility: def.visibility,
+        ...("submissionType" in def && { submissionType: def.submissionType }),
+        ...("judgeType" in def && { judgeType: def.judgeType }),
+        ...("checkerScript" in def && { checkerScript: def.checkerScript })
       },
       update: {
         defaultTitle: def.defaultTitle,
         difficulty: def.difficulty,
-        summary: def.summary
+        summary: def.summary,
+        ...("submissionType" in def && { submissionType: def.submissionType }),
+        ...("judgeType" in def && { judgeType: def.judgeType }),
+        ...("checkerScript" in def && { checkerScript: def.checkerScript })
       },
       where: { slug: def.slug }
     });
@@ -392,6 +498,52 @@ async function main() {
     }
 
     console.log(`  Problem: ${def.slug} (${Object.keys(def.statements).join(", ")} statements, ${Object.keys(def.testcases).length} testcase sets)`);
+  }
+
+  // --- Problem Templates (for function-mode problems) ---
+  const addProblem = await prisma.problem.findUnique({ where: { slug: "add-two-numbers" } });
+  if (addProblem) {
+    await prisma.problemTemplate.upsert({
+      create: {
+        driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
+        insertionMarker: "# __USER_CODE__",
+        language: "python",
+        problemId: addProblem.id,
+        templateCode: "def add(a, b):\n    # Write your solution here\n    pass\n"
+      },
+      update: {
+        driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
+        templateCode: "def add(a, b):\n    # Write your solution here\n    pass\n"
+      },
+      where: {
+        problemId_language: {
+          language: "python",
+          problemId: addProblem.id
+        }
+      }
+    });
+
+    await prisma.problemTemplate.upsert({
+      create: {
+        driverCode: "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
+        insertionMarker: "// __USER_CODE__",
+        language: "cpp",
+        problemId: addProblem.id,
+        templateCode: "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
+      },
+      update: {
+        driverCode: "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
+        templateCode: "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
+      },
+      where: {
+        problemId_language: {
+          language: "cpp",
+          problemId: addProblem.id
+        }
+      }
+    });
+
+    console.log(`  Templates: 2 upserted for add-two-numbers (python, cpp)`);
   }
 
   // --- Contests ---
