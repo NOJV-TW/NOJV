@@ -253,7 +253,7 @@ function buildProblemSamples(problem: {
   testcaseSets?: {
     isHidden: boolean;
     testcases: {
-      expectedStdout: string;
+      expectedStdout: string | null;
       stdin: string;
     }[];
   }[];
@@ -271,7 +271,7 @@ function buildProblemSamples(problem: {
     {
       explanation: "Sample case extracted from the authored testcase set.",
       input: sample.stdin,
-      output: sample.expectedStdout
+      output: sample.expectedStdout ?? ""
     }
   ];
 }
@@ -288,7 +288,7 @@ function mapPersistedProblemDetail(
     testcaseSets?: {
       isHidden: boolean;
       testcases: {
-        expectedStdout: string;
+        expectedStdout: string | null;
         stdin: string;
       }[];
     }[];

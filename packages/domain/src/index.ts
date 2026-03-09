@@ -19,6 +19,8 @@ export const courseAssessmentTypes = ["assignment", "exam"] as const;
 export const assessmentScoreboardModes = ["hidden", "live", "frozen"] as const;
 export const courseMembershipStatuses = ["active", "invited", "pending", "removed"] as const;
 export const submissionModes = ["practice", "contest", "assignment", "exam"] as const;
+export const judgeTypes = ["standard", "checker", "interactive"] as const;
+export const submissionTypes = ["function", "full_source"] as const;
 export const workspaceModes = ["practice", "assignment", "contest", "exam"] as const;
 export const cheatingSignalTypes = [
   "focus_loss",
@@ -75,6 +77,8 @@ export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
 export const languageSchema = z.enum(supportedLanguages);
 export const submissionModeSchema = z.enum(submissionModes);
 export const workspaceModeSchema = z.enum(workspaceModes);
+export const judgeTypeSchema = z.enum(judgeTypes);
+export const submissionTypeSchema = z.enum(submissionTypes);
 export const cheatingSignalTypeSchema = z.enum(cheatingSignalTypes);
 export const integritySignalSourceSchema = z.enum(integritySignalSources);
 export const localeCodeSchema = z.enum(localeCodes);
@@ -228,11 +232,19 @@ export const problemTestcaseCaseSchema = z.object({
 });
 
 export const problemJudgeTestcaseSchema = z.object({
-  expectedStdout: z.string().max(200_000),
+  expectedStdout: z.string().max(200_000).optional(),
   id: z.string().trim().min(1),
+  inputFiles: z.record(z.string(), z.string()).optional(),
   isHidden: z.boolean(),
   stdin: z.string().max(200_000),
   weight: z.coerce.number().int().min(1).max(100)
+});
+
+export const problemTemplateSchema = z.object({
+  driverCode: z.string().min(1).max(200_000),
+  insertionMarker: z.string().min(1).max(200).default("// __USER_CODE__"),
+  language: languageSchema,
+  templateCode: z.string().min(1).max(100_000)
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
@@ -508,6 +520,7 @@ export type CourseMembershipStatus = z.infer<typeof courseMembershipStatusSchema
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
 export type CourseRole = z.infer<typeof courseRoleSchema>;
 export type EffectiveCourseRole = z.infer<typeof effectiveCourseRoleSchema>;
+export type JudgeType = z.infer<typeof judgeTypeSchema>;
 export type IntegrityAssessment = z.infer<typeof integrityAssessmentSchema>;
 export type IntegrityCase = z.infer<typeof integrityCaseSchema>;
 export type Language = z.infer<typeof languageSchema>;
@@ -515,11 +528,13 @@ export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ManualCourseEnrollment = z.infer<typeof manualCourseEnrollmentSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ProblemCreate = z.infer<typeof problemCreateSchema>;
+export type ProblemTemplate = z.infer<typeof problemTemplateSchema>;
 export type ProblemTestcaseCase = z.infer<typeof problemTestcaseCaseSchema>;
 export type ProblemJudgeTestcase = z.infer<typeof problemJudgeTestcaseSchema>;
 export type ProblemTestcaseSetCreate = z.infer<typeof problemTestcaseSetCreateSchema>;
 export type ProblemOverview = z.infer<typeof problemOverviewSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
+export type SubmissionType = z.infer<typeof submissionTypeSchema>;
 export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
 export type SubmissionDispatchResponse = z.infer<typeof submissionDispatchResponseSchema>;
 export type SubmissionMode = z.infer<typeof submissionModeSchema>;
