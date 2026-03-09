@@ -110,32 +110,32 @@ const actorSearchParamKeys = {
 
 export const localActorPresets = {
   admin: actorIdentitySchema.parse({
-    displayName: "Ops Admin",
-    email: "ops.admin@nojv.local",
-    handle: "ops_admin",
+    displayName: "Admin",
+    email: "admin@nojv.local",
+    handle: "admin",
     platformRole: "admin",
-    userId: "usr_admin_ops"
+    userId: "usr_admin"
   }),
   student: actorIdentitySchema.parse({
-    displayName: "Alice Huang",
-    email: "alice.huang@nojv.local",
-    handle: "stu_alice",
+    displayName: "Student",
+    email: "student@nojv.local",
+    handle: "student",
     platformRole: "student",
-    userId: "usr_student_alice"
+    userId: "usr_student"
   }),
   ta: actorIdentitySchema.parse({
-    displayName: "Ren Wu",
-    email: "ren.wu@nojv.local",
-    handle: "ta_ren",
+    displayName: "TA Student",
+    email: "ta-student@nojv.local",
+    handle: "ta-student",
     platformRole: "student",
-    userId: "usr_ta_ren"
+    userId: "usr_ta_student"
   }),
   teacher: actorIdentitySchema.parse({
-    displayName: "Amelia Chen",
-    email: "amelia.chen@nojv.local",
-    handle: "teacher_amelia",
+    displayName: "Teacher",
+    email: "teacher@nojv.local",
+    handle: "teacher",
     platformRole: "teacher",
-    userId: "usr_teacher_amelia"
+    userId: "usr_teacher"
   })
 } as const;
 

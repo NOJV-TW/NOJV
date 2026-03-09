@@ -61,6 +61,17 @@ export function deriveAssessmentWindowState({
   return "closed";
 }
 
+const windowStateColors: Record<AssessmentWindowState, string> = {
+  closed: "text-[color:var(--color-muted)]",
+  grace: "text-amber-600",
+  open: "text-emerald-600",
+  upcoming: "text-blue-600"
+};
+
+export function windowStateColorClass(state: AssessmentWindowState) {
+  return windowStateColors[state];
+}
+
 export function deriveAssessmentPresentation(input: {
   scoreboardMode: "frozen" | "hidden" | "live";
   type: CourseAssessmentType;

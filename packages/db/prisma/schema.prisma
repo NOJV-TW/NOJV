@@ -324,6 +324,7 @@ model CourseMembership {
 
   @@unique([courseId, userId])
   @@index([courseId, role, status])
+  @@index([userId, status])
 }
 
 model CourseJoinToken {

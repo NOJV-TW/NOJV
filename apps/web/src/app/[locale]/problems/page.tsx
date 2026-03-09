@@ -35,7 +35,7 @@ export default async function ProblemsPage({
         </h2>
       </section>
 
-      <ProblemCreationPanel />
+      {userId && <ProblemCreationPanel />}
       <ProblemsTabs editableProblems={editableProblems} publicProblems={publicProblems} />
     </div>
   );
