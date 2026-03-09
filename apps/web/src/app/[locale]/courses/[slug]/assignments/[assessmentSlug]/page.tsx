@@ -38,7 +38,6 @@ export default async function CourseAssignmentPage({
   const windowState = deriveAssessmentWindowState({
     closesAt: assessment.closesAt,
     dueAt: assessment.dueAt,
-    now: new Date().toISOString(),
     opensAt: assessment.opensAt
   });
 
