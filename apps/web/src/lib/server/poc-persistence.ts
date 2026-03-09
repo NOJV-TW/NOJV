@@ -73,7 +73,7 @@ async function ensureUser(tx: TransactionClient, userId: string, input: EnsureUs
   });
 
   const data = {
-    displayName: input.displayName ?? createDemoDisplayName(userId),
+    name: input.displayName ?? createDemoDisplayName(userId),
     email,
     handle,
     locale: input.locale ?? "zh-TW",

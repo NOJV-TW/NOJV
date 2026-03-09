@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-import { AuthSessionProvider } from "@/components/auth-session-provider";
-
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,9 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html suppressHydrationWarning>
-      <body>
-        <AuthSessionProvider>{children}</AuthSessionProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

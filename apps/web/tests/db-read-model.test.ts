@@ -101,7 +101,7 @@ describe("DB-backed read model", () => {
           joinedVia: "manual_invite",
           role: "teacher",
           user: {
-            displayName: "Amelia Chen",
+            name: "Amelia Chen",
             email: "amelia@nojv.local",
             handle: "teacher_amelia",
             platformRole: "teacher"

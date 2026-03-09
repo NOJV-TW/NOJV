@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+
+import { authClient } from "@/lib/auth-client";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -16,39 +17,18 @@ export default function SignUpPage() {
     setLoading(true);
 
     const form = new FormData(event.currentTarget);
-    const email = form.get("email") as string;
-    const password = form.get("password") as string;
 
-    const response = await fetch("/api/auth/register", {
-      body: JSON.stringify({
-        displayName: form.get("displayName") as string,
-        email,
-        handle: form.get("handle") as string,
-        password
-      }),
-      headers: { "content-type": "application/json" },
-      method: "POST"
-    });
-
-    if (!response.ok) {
-      const body = (await response.json()) as { message?: string };
-      setError(body.message ?? "Registration failed.");
-      setLoading(false);
-
-      return;
-    }
-
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false
+    const { error: signUpError } = await authClient.signUp.email({
+      email: form.get("email") as string,
+      handle: form.get("handle") as string,
+      name: form.get("displayName") as string,
+      password: form.get("password") as string
     });
 
     setLoading(false);
 
-    if (result.error) {
-      setError("Account created but sign-in failed. Please sign in manually.");
-
+    if (signUpError) {
+      setError(signUpError.message ?? "Registration failed.");
       return;
     }
 
@@ -56,10 +36,38 @@ export default function SignUpPage() {
     router.refresh();
   }
 
+  async function handleOAuth(provider: "github" | "google") {
+    await authClient.signIn.social({ callbackURL: "/", provider });
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)]">
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8">
         <h1 className="mb-6 text-center text-2xl font-semibold">Create your NOJV account</h1>
+
+        <div className="flex flex-col gap-3">
+          <button
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--color-border)] py-2 text-sm font-medium transition hover:bg-white/70"
+            onClick={() => void handleOAuth("github")}
+            type="button"
+          >
+            GitHub
+          </button>
+          <button
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--color-border)] py-2 text-sm font-medium transition hover:bg-white/70"
+            onClick={() => void handleOAuth("google")}
+            type="button"
+          >
+            Google
+          </button>
+        </div>
+
+        <div className="my-5 flex items-center gap-3 text-xs text-[color:var(--color-muted)]">
+          <hr className="flex-1 border-[color:var(--color-border)]" />
+          or
+          <hr className="flex-1 border-[color:var(--color-border)]" />
+        </div>
+
         <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <label className="flex flex-col gap-1 text-sm">
             Display name

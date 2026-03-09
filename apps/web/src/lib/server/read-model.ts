@@ -148,7 +148,7 @@ function mapCourseMember(member: {
   joinedVia: "join_code" | "manual_invite" | "qr_code" | null;
   role: "student" | "ta" | "teacher";
   user: {
-    displayName: string;
+    name: string;
     email: string;
     handle: string;
     platformRole: "admin" | "student" | "ta" | "teacher";
@@ -157,7 +157,7 @@ function mapCourseMember(member: {
 }) {
   return {
     courseRole: member.role,
-    displayName: member.user.displayName,
+    displayName: member.user.name,
     email: member.user.email,
     handle: member.user.handle,
     joinedVia: member.joinedVia ?? "manual_invite",
@@ -190,7 +190,7 @@ function mapPersistedCourse(course: {
     joinedVia: "join_code" | "manual_invite" | "qr_code" | null;
     role: "student" | "ta" | "teacher";
     user: {
-      displayName: string;
+      name: string;
       email: string;
       handle: string;
       platformRole: "admin" | "student" | "ta" | "teacher";
