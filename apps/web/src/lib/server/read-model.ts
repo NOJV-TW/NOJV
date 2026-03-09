@@ -445,17 +445,24 @@ export async function listProblemCards() {
 
 export async function listUserSubmissions(userId: string) {
   return prisma.submission.findMany({
-    include: {
+    orderBy: {
+      createdAt: "desc"
+    },
+    select: {
+      createdAt: true,
+      id: true,
+      language: true,
       problem: {
         select: {
           defaultTitle: true,
           slug: true
         }
-      }
+      },
+      runtimeMs: true,
+      score: true,
+      status: true
     },
-    orderBy: {
-      createdAt: "desc"
-    },
+    take: 50,
     where: {
       userId
     }
