@@ -4,8 +4,8 @@ export function canCreateCourse(platformRole: PlatformRole) {
   return platformRole === "admin" || platformRole === "teacher";
 }
 
-export function canCreateProblem(platformRole: PlatformRole) {
-  return platformRole === "admin" || platformRole === "teacher";
+export function canCreateProblem(_platformRole: PlatformRole) {
+  return true;
 }
 
 export function canManageCourseMembership(role: EffectiveCourseRole) {

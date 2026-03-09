@@ -22,7 +22,7 @@ const actorPresetEntries = [
   {
     actor: localActorPresets.ta,
     key: "ta",
-    label: "TA"
+    label: "TA (student)"
   },
   {
     actor: localActorPresets.student,

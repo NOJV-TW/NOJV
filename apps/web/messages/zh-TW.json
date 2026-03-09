@@ -33,6 +33,15 @@
     "title": "標題",
     "visibility": "可見度"
   },
+  "assignmentsList": {
+    "course": "課程",
+    "due": "截止",
+    "empty": "尚無作業。",
+    "heading": "作業",
+    "opens": "開放",
+    "signInRequired": "請先登入以查看作業。",
+    "status": "狀態"
+  },
   "assessment": {
     "assignmentExplanation": "作業著重截止日期、進度與課程情境。仍然透過評測系統提交，但介面避免競賽式的排名壓力。",
     "assignmentFraming": "作業架構",
@@ -112,6 +121,15 @@
     "joinFailed": "課程加入失敗。",
     "token": "權杖"
   },
+  "examsList": {
+    "course": "課程",
+    "due": "截止",
+    "empty": "尚無考試。",
+    "heading": "考試",
+    "opens": "開放",
+    "signInRequired": "請先登入以查看考試。",
+    "status": "狀態"
+  },
   "editor": {
     "assignmentMode": "作業模式",
     "chars": "字元",
@@ -148,13 +166,18 @@
     "subtitle": "檢視標記案件與可疑訊號。"
   },
   "navigation": {
-    "contests": "競賽區",
+    "assignments": "作業",
     "courses": "課程",
     "dashboard": "總覽",
-    "integrity": "誠信中心",
-    "problems": "題庫",
-    "submissions": "提交紀錄",
-    "workspace": "作業區"
+    "exams": "考試",
+    "problems": "題庫"
+  },
+  "problems": {
+    "createNew": "建立新題目",
+    "empty": "尚無題目。",
+    "myProblems": "我的題目",
+    "myProblemsEmpty": "你尚未建立任何題目。",
+    "publicLibrary": "公開題庫"
   },
   "problemDetail": {
     "backToAssignment": "返回作業",

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma/client";
@@ -12,104 +13,84 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Seeding database...");
 
+  const passwordHash = bcrypt.hashSync("password123", 10);
+
   // --- Users ---
-  const amelia = await prisma.user.upsert({
-    create: {
-      name: "Amelia Chen",
-      email: "amelia.chen@nojv.local",
-      handle: "teacher_amelia",
-      id: "usr_teacher_amelia",
-      locale: "zh-TW",
-      platformRole: "teacher"
-    },
-    update: {},
-    where: { id: "usr_teacher_amelia" }
-  });
-
-  const lin = await prisma.user.upsert({
-    create: {
-      name: "Lin Carter",
-      email: "lin.carter@nojv.local",
-      handle: "teacher_lin",
-      id: "usr_teacher_lin",
-      locale: "en",
-      platformRole: "teacher"
-    },
-    update: {},
-    where: { id: "usr_teacher_lin" }
-  });
-
-  const ren = await prisma.user.upsert({
-    create: {
-      name: "Ren Wu",
-      email: "ren.wu@nojv.local",
-      handle: "ta_ren",
-      id: "usr_ta_ren",
-      locale: "zh-TW",
-      platformRole: "ta"
-    },
-    update: {},
-    where: { id: "usr_ta_ren" }
-  });
-
-  const alice = await prisma.user.upsert({
-    create: {
-      name: "Alice Huang",
-      email: "alice.huang@nojv.local",
-      handle: "stu_alice",
-      id: "usr_student_alice",
-      locale: "zh-TW",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_student_alice" }
-  });
-
-  const bob = await prisma.user.upsert({
-    create: {
-      name: "Bob Lin",
-      email: "bob.lin@nojv.local",
-      handle: "stu_bob",
-      id: "usr_student_bob",
-      locale: "zh-TW",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_student_bob" }
-  });
-
-  const maya = await prisma.user.upsert({
-    create: {
-      name: "Maya Su",
-      email: "maya.su@nojv.local",
-      handle: "stu_maya",
-      id: "usr_student_maya",
-      locale: "en",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_student_maya" }
-  });
-
   const admin = await prisma.user.upsert({
     create: {
-      name: "Ops Admin",
-      email: "ops.admin@nojv.local",
-      handle: "ops_admin",
-      id: "usr_admin_ops",
+      name: "Admin",
+      email: "admin@nojv.local",
+      handle: "admin",
+      id: "usr_admin",
       locale: "zh-TW",
       platformRole: "admin"
     },
     update: {},
-    where: { id: "usr_admin_ops" }
+    where: { id: "usr_admin" }
   });
 
-  console.log(`  Users: ${[amelia, lin, ren, alice, bob, maya, admin].length} upserted`);
+  const teacher = await prisma.user.upsert({
+    create: {
+      name: "Teacher",
+      email: "teacher@nojv.local",
+      handle: "teacher",
+      id: "usr_teacher",
+      locale: "zh-TW",
+      platformRole: "teacher"
+    },
+    update: {},
+    where: { id: "usr_teacher" }
+  });
+
+  const taStudent = await prisma.user.upsert({
+    create: {
+      name: "TA Student",
+      email: "ta-student@nojv.local",
+      handle: "ta-student",
+      id: "usr_ta_student",
+      locale: "zh-TW",
+      platformRole: "student"
+    },
+    update: {},
+    where: { id: "usr_ta_student" }
+  });
+
+  const student = await prisma.user.upsert({
+    create: {
+      name: "Student",
+      email: "student@nojv.local",
+      handle: "student",
+      id: "usr_student",
+      locale: "zh-TW",
+      platformRole: "student"
+    },
+    update: {},
+    where: { id: "usr_student" }
+  });
+
+  const users = [admin, teacher, taStudent, student];
+
+  // --- Credential Accounts ---
+  for (const u of users) {
+    await prisma.account.upsert({
+      create: {
+        id: `acct_${u.handle}`,
+        accountId: u.id,
+        providerId: "credential",
+        userId: u.id,
+        password: passwordHash
+      },
+      update: { password: passwordHash },
+      where: { id: `acct_${u.handle}` }
+    });
+  }
+
+  console.log(`  Users: ${users.length} upserted with credential accounts`);
 
   // --- Problems ---
   const problemDefs = [
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Warmup Sum",
       difficulty: "easy",
       id: "problem_warmup-sum",
@@ -149,7 +130,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Graph Docking",
       difficulty: "medium",
       id: "problem_graph-docking",
@@ -187,7 +168,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Distributed Labyrinth",
       difficulty: "hard",
       id: "problem_distributed-labyrinth",
@@ -225,7 +206,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Process Log Parser",
       difficulty: "medium",
       id: "problem_process-log-parser",
@@ -272,7 +253,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Fork Bomb Safeguard",
       difficulty: "hard",
       id: "problem_fork-bomb-safeguard",
@@ -310,7 +291,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Add Two Numbers",
       difficulty: "easy",
       id: "problem_add-two-numbers",
@@ -352,7 +333,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Float Compare",
       difficulty: "easy",
       id: "problem_float-compare",
@@ -563,33 +544,10 @@ if __name__ == "__main__":
     where: { slug: "spring-qualifier-2026" }
   });
 
-  const systemsLabMidterm = await prisma.contest.upsert({
-    create: {
-      endsAt: new Date("2026-03-22T21:00:00+08:00"),
-      frozenBoard: false,
-      id: "contest_systems-lab-midterm",
-      slug: "systems-lab-midterm",
-      startsAt: new Date("2026-03-22T18:00:00+08:00"),
-      summary:
-        "Assignment-flavored contest where participants submit through a contest-specific scoring surface.",
-      title: "Systems Lab Midterm",
-      visibility: "published"
-    },
-    update: {},
-    where: { slug: "systems-lab-midterm" }
-  });
-
   // Link problems to contests
   const contestProblemLinks = [
     { contestId: springQualifier.id, problemSlug: "warmup-sum", ordinal: 1, points: 100 },
-    { contestId: springQualifier.id, problemSlug: "graph-docking", ordinal: 2, points: 300 },
-    { contestId: systemsLabMidterm.id, problemSlug: "warmup-sum", ordinal: 1, points: 100 },
-    {
-      contestId: systemsLabMidterm.id,
-      problemSlug: "distributed-labyrinth",
-      ordinal: 2,
-      points: 500
-    }
+    { contestId: springQualifier.id, problemSlug: "graph-docking", ordinal: 2, points: 300 }
   ];
 
   for (const link of contestProblemLinks) {
@@ -617,7 +575,7 @@ if __name__ == "__main__":
     });
   }
 
-  console.log(`  Contests: 2 upserted with problem links`);
+  console.log(`  Contests: 1 upserted with problem links`);
 
   // --- Courses ---
   const osLabCourse = await prisma.course.upsert({
@@ -626,7 +584,7 @@ if __name__ == "__main__":
         "A course-managed OJ space for systems programming. Teachers own the course, TAs manage operations, and students join by QR code, join code, or manual enrollment.",
       id: "course_os-lab-spring-2026",
       locale: "zh-TW",
-      ownerId: amelia.id,
+      ownerId: teacher.id,
       slug: "os-lab-spring-2026",
       title: "Operating Systems Lab",
       visibility: "invite_only"
@@ -635,38 +593,17 @@ if __name__ == "__main__":
     where: { slug: "os-lab-spring-2026" }
   });
 
-  const algoStudioCourse = await prisma.course.upsert({
-    create: {
-      description:
-        "An algorithm design studio where the teacher curates a mixed shelf of public catalog problems and course-private derivatives.",
-      id: "course_algorithm-studio-2026",
-      locale: "en",
-      ownerId: lin.id,
-      slug: "algorithm-studio-2026",
-      title: "Algorithm Studio",
-      visibility: "invite_only"
-    },
-    update: {},
-    where: { slug: "algorithm-studio-2026" }
-  });
-
   // Course memberships
   const osLabMemberships = [
-    { courseId: osLabCourse.id, userId: amelia.id, role: "teacher" as const, joinedVia: "manual_invite" as const },
-    { courseId: osLabCourse.id, userId: ren.id, role: "ta" as const, joinedVia: "manual_invite" as const },
-    { courseId: osLabCourse.id, userId: alice.id, role: "student" as const, joinedVia: "join_code" as const },
-    { courseId: osLabCourse.id, userId: bob.id, role: "student" as const, joinedVia: "qr_code" as const }
+    { courseId: osLabCourse.id, userId: teacher.id, role: "teacher" as const, joinedVia: "manual_invite" as const },
+    { courseId: osLabCourse.id, userId: taStudent.id, role: "ta" as const, joinedVia: "manual_invite" as const },
+    { courseId: osLabCourse.id, userId: student.id, role: "student" as const, joinedVia: "join_code" as const }
   ];
 
-  const algoStudioMemberships = [
-    { courseId: algoStudioCourse.id, userId: lin.id, role: "teacher" as const, joinedVia: "manual_invite" as const },
-    { courseId: algoStudioCourse.id, userId: maya.id, role: "student" as const, joinedVia: "qr_code" as const }
-  ];
-
-  for (const mem of [...osLabMemberships, ...algoStudioMemberships]) {
+  for (const mem of osLabMemberships) {
     await prisma.courseMembership.upsert({
       create: {
-        addedByUserId: mem.role === "teacher" ? mem.userId : (mem.courseId === osLabCourse.id ? amelia.id : lin.id),
+        addedByUserId: mem.role === "teacher" ? mem.userId : teacher.id,
         courseId: mem.courseId,
         joinedAt: new Date(),
         joinedVia: mem.joinedVia,
@@ -686,12 +623,9 @@ if __name__ == "__main__":
 
   // Course join tokens
   const joinTokens = [
-    { courseId: osLabCourse.id, createdByUserId: amelia.id, label: "Course QR", method: "qr_code" as const, token: "oslab-qr-2026" },
-    { courseId: osLabCourse.id, createdByUserId: amelia.id, label: "Course code", method: "join_code" as const, token: "OSLAB2026" },
-    { courseId: osLabCourse.id, createdByUserId: amelia.id, label: "Manual roster sync", method: "manual_invite" as const, token: "teacher-managed-oslab" },
-    { courseId: algoStudioCourse.id, createdByUserId: lin.id, label: "Studio QR", method: "qr_code" as const, token: "algo-studio-qr" },
-    { courseId: algoStudioCourse.id, createdByUserId: lin.id, label: "Studio code", method: "join_code" as const, token: "ALGOSTUDIO" },
-    { courseId: algoStudioCourse.id, createdByUserId: lin.id, label: "Manual roster sync", method: "manual_invite" as const, token: "teacher-managed-algo" }
+    { courseId: osLabCourse.id, createdByUserId: teacher.id, label: "Course QR", method: "qr_code" as const, token: "oslab-qr-2026" },
+    { courseId: osLabCourse.id, createdByUserId: teacher.id, label: "Course code", method: "join_code" as const, token: "OSLAB2026" },
+    { courseId: osLabCourse.id, createdByUserId: teacher.id, label: "Manual roster sync", method: "manual_invite" as const, token: "teacher-managed-oslab" }
   ];
 
   for (const jt of joinTokens) {
@@ -704,13 +638,12 @@ if __name__ == "__main__":
 
   // Course problems
   const osLabProblemSlugs = ["warmup-sum", "graph-docking", "process-log-parser", "fork-bomb-safeguard"];
-  const algoStudioProblemSlugs = ["warmup-sum", "distributed-labyrinth"];
 
   for (const slug of osLabProblemSlugs) {
     const problem = await prisma.problem.findUniqueOrThrow({ where: { slug } });
     await prisma.courseProblem.upsert({
       create: {
-        addedByUserId: amelia.id,
+        addedByUserId: teacher.id,
         courseId: osLabCourse.id,
         problemId: problem.id
       },
@@ -724,30 +657,12 @@ if __name__ == "__main__":
     });
   }
 
-  for (const slug of algoStudioProblemSlugs) {
-    const problem = await prisma.problem.findUniqueOrThrow({ where: { slug } });
-    await prisma.courseProblem.upsert({
-      create: {
-        addedByUserId: lin.id,
-        courseId: algoStudioCourse.id,
-        problemId: problem.id
-      },
-      update: {},
-      where: {
-        courseId_problemId: {
-          courseId: algoStudioCourse.id,
-          problemId: problem.id
-        }
-      }
-    });
-  }
-
   // Course assessments
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       closesAt: new Date("2026-03-25T15:00:00.000Z"),
       courseId: osLabCourse.id,
-      createdByUserId: amelia.id,
+      createdByUserId: teacher.id,
       dueAt: new Date("2026-03-23T15:00:00.000Z"),
       opensAt: new Date("2026-03-17T09:00:00.000Z"),
       scoreboardMode: "hidden",
@@ -770,7 +685,7 @@ if __name__ == "__main__":
     create: {
       closesAt: new Date("2026-04-02T12:00:00.000Z"),
       courseId: osLabCourse.id,
-      createdByUserId: amelia.id,
+      createdByUserId: teacher.id,
       dueAt: new Date("2026-04-02T12:00:00.000Z"),
       opensAt: new Date("2026-04-02T09:00:00.000Z"),
       scoreboardMode: "live",
@@ -789,37 +704,12 @@ if __name__ == "__main__":
     }
   });
 
-  const hw2 = await prisma.courseAssessment.upsert({
-    create: {
-      closesAt: new Date("2026-04-12T15:00:00.000Z"),
-      courseId: algoStudioCourse.id,
-      createdByUserId: lin.id,
-      dueAt: new Date("2026-04-10T15:00:00.000Z"),
-      opensAt: new Date("2026-04-01T09:00:00.000Z"),
-      scoreboardMode: "hidden",
-      slug: "hw2-graph-state",
-      status: "published",
-      summary: "Algorithm homework with a longer open window and no live ranking pressure.",
-      title: "Homework 2: Graph State Compression",
-      type: "assignment"
-    },
-    update: {},
-    where: {
-      courseId_slug: {
-        courseId: algoStudioCourse.id,
-        slug: "hw2-graph-state"
-      }
-    }
-  });
-
   // Assessment problem links
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemSlug: "warmup-sum", ordinal: 1 },
     { assessmentId: hw1.id, problemSlug: "process-log-parser", ordinal: 2 },
     { assessmentId: midterm.id, problemSlug: "graph-docking", ordinal: 1 },
-    { assessmentId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2 },
-    { assessmentId: hw2.id, problemSlug: "warmup-sum", ordinal: 1 },
-    { assessmentId: hw2.id, problemSlug: "distributed-labyrinth", ordinal: 2 }
+    { assessmentId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2 }
   ];
 
   for (const link of assessmentProblemLinks) {
@@ -846,7 +736,7 @@ if __name__ == "__main__":
     });
   }
 
-  console.log(`  Courses: 2 upserted with memberships, join tokens, problems, and assessments`);
+  console.log(`  Courses: 1 upserted with memberships, join tokens, problems, and assessments`);
   console.log("Seed complete.");
 }
 

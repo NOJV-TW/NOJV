@@ -67,7 +67,7 @@ interface EnsureUserInput {
   email?: string;
   handle?: string;
   locale?: string;
-  platformRole?: "admin" | "student" | "ta" | "teacher";
+  platformRole?: "admin" | "student" | "teacher";
 }
 
 async function ensureUser(tx: TransactionClient, userId: string, input: EnsureUserInput = {}) {
