@@ -443,6 +443,25 @@ export async function listProblemCards() {
   return mergeBySlug(problemCards, persistedProblems.map(mapProblemCatalogCard));
 }
 
+export async function listUserSubmissions(userId: string) {
+  return prisma.submission.findMany({
+    include: {
+      problem: {
+        select: {
+          defaultTitle: true,
+          slug: true
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    where: {
+      userId
+    }
+  });
+}
+
 export async function getProblemPageData(slug: string, locale: string) {
   const persistedProblem = await prisma.problem.findUnique({
     include: {

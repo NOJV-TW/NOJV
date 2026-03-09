@@ -19,6 +19,7 @@ export interface SharedCopy {
     dashboard: string;
     integrity: string;
     problems: string;
+    submissions: string;
     workspace: string;
   };
   workspace: {
@@ -49,6 +50,7 @@ export const copy: Record<LocaleCode, SharedCopy> = {
       dashboard: "Overview",
       integrity: "Integrity",
       problems: "Problems",
+      submissions: "Submissions",
       workspace: "Workspace"
     },
     workspace: {
@@ -76,6 +78,7 @@ export const copy: Record<LocaleCode, SharedCopy> = {
       dashboard: "總覽",
       integrity: "誠信中心",
       problems: "題庫",
+      submissions: "提交紀錄",
       workspace: "作業區"
     },
     workspace: {
