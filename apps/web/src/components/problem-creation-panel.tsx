@@ -3,7 +3,8 @@
 import { startTransition, useState, type SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { type LocaleCode } from "@nojv/domain";
+import { useLocale, useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 import { createProblemMutation } from "@/lib/client/course-management-client";
@@ -14,13 +15,12 @@ const inputClassName =
   "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
 const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
-interface ProblemCreationPanelProps {
-  locale: LocaleCode;
-}
-
-export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
+export function ProblemCreationPanel() {
   const router = useRouter();
   const { actor } = useActorSession();
+  const locale = useLocale();
+  const tAdmin = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const [title, setTitle] = useState("Compiler Intro");
   const [slug, setSlug] = useState("compiler-intro");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
@@ -66,14 +66,14 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
     <section className={`${shellClassNames.card} px-6 py-6`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Author problem</p>
-          <h3 className={shellClassNames.sectionTitle}>Create a judgeable problem record</h3>
+          <p className={shellClassNames.eyebrow}>{tAdmin("authorProblem")}</p>
+          <h3 className={shellClassNames.sectionTitle}>{tAdmin("createProblemSubtitle")}</h3>
         </div>
         <span className={shellClassNames.badge}>{actor.platformRole}</span>
       </div>
       <form className="mt-5 grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="text-sm text-[color:var(--color-muted)]">
-          Title
+          {tAdmin("title")}
           <input
             className={inputClassName}
             onChange={(event) => setTitle(event.target.value)}
@@ -83,7 +83,7 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
         </label>
         <div className="grid gap-4 md:grid-cols-3">
           <label className="text-sm text-[color:var(--color-muted)]">
-            Slug
+            {tAdmin("slug")}
             <input
               className={inputClassName}
               onChange={(event) => setSlug(event.target.value)}
@@ -93,7 +93,7 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
             />
           </label>
           <label className="text-sm text-[color:var(--color-muted)]">
-            Difficulty
+            {tAdmin("difficulty")}
             <select
               className={inputClassName}
               onChange={(event) =>
@@ -107,7 +107,7 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
             </select>
           </label>
           <label className="text-sm text-[color:var(--color-muted)]">
-            Visibility
+            {tAdmin("visibility")}
             <select
               className={inputClassName}
               onChange={(event) => setVisibility(event.target.value as "public" | "private")}
@@ -119,7 +119,7 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
           </label>
         </div>
         <label className="text-sm text-[color:var(--color-muted)]">
-          Summary
+          {tAdmin("summary")}
           <textarea
             className={textareaClassName}
             onChange={(event) => setSummary(event.target.value)}
@@ -128,7 +128,7 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
           />
         </label>
         <label className="text-sm text-[color:var(--color-muted)]">
-          Statement
+          {tAdmin("statement")}
           <textarea
             className={`${textareaClassName} min-h-40`}
             onChange={(event) => setStatement(event.target.value)}
@@ -141,7 +141,7 @@ export function ProblemCreationPanel({ locale }: ProblemCreationPanelProps) {
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? "Creating..." : "Create problem"}
+          {isSubmitting ? tCommon("creating") : tAdmin("createProblem")}
         </button>
         {message ? (
           <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { getCopy, isLocale } from "@nojv/i18n";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { shellClassNames } from "@nojv/ui";
 
 import { CourseCreationPanel } from "@/components/course-creation-panel";
@@ -10,42 +10,47 @@ export const dynamic = "force-dynamic";
 
 export default async function CoursesPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const currentLocale = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
+  setRequestLocale(locale);
+
+  const [tNav, tCourse, tCommon] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("courseDetail"),
+    getTranslations("common")
+  ]);
   const courses = await listCourseCards();
 
   return (
     <div className="space-y-6">
       <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
         <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {labels.navigation.courses}
+          {tNav("courses")}
         </h2>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <CourseCreationPanel locale={currentLocale} />
+        <CourseCreationPanel />
         {courses.map((course) => (
           <Link
             className={`${shellClassNames.card} px-6 py-6`}
-            href={`/${currentLocale}/courses/${course.slug}`}
+            href={`/${locale}/courses/${course.slug}`}
             key={course.slug}
           >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-                  course
+                  {tCourse("course")}
                 </p>
                 <h3 className="mt-2 text-2xl font-semibold">{course.title}</h3>
               </div>
-              <span className={shellClassNames.badge}>rbac enabled</span>
+              <span className={shellClassNames.badge}>{tCourse("rbacEnabled")}</span>
             </div>
             <dl className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
-                <dt className="text-sm text-[color:var(--color-muted)]">Members</dt>
+                <dt className="text-sm text-[color:var(--color-muted)]">{tCommon("members")}</dt>
                 <dd className="mt-1 text-lg font-semibold">{course.memberCount}</dd>
               </div>
               <div>
-                <dt className="text-sm text-[color:var(--color-muted)]">Assessments</dt>
+                <dt className="text-sm text-[color:var(--color-muted)]">{tCommon("assessments")}</dt>
                 <dd className="mt-1 text-lg font-semibold">{course.assessmentCount}</dd>
               </div>
             </dl>

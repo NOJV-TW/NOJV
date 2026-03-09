@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 interface RuntimeStatsPayload {
@@ -12,6 +14,7 @@ interface RuntimeStatsPayload {
 }
 
 export function RuntimeStats() {
+  const t = useTranslations("runtimeStats");
   const [stats, setStats] = useState<RuntimeStatsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,8 +52,8 @@ export function RuntimeStats() {
     <section className={`${shellClassNames.card} px-5 py-5`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Runtime persistence</p>
-          <p className="mt-1 text-lg font-semibold">Persisted execution counters</p>
+          <p className={shellClassNames.eyebrow}>{t("heading")}</p>
+          <p className="mt-1 text-lg font-semibold">{t("subtitle")}</p>
         </div>
         <span className={shellClassNames.badge}>Prisma</span>
       </div>
@@ -59,25 +62,25 @@ export function RuntimeStats() {
       ) : stats ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-            <p className="text-sm text-[color:var(--color-muted)]">Submissions</p>
+            <p className="text-sm text-[color:var(--color-muted)]">{t("submissions")}</p>
             <p className="mt-2 font-[family-name:var(--font-display)] text-4xl">
               {stats.submissions}
             </p>
           </div>
           <div className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-            <p className="text-sm text-[color:var(--color-muted)]">Workspace runs</p>
+            <p className="text-sm text-[color:var(--color-muted)]">{t("workspaceRuns")}</p>
             <p className="mt-2 font-[family-name:var(--font-display)] text-4xl">
               {stats.workspaceRuns}
             </p>
           </div>
           <div className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-            <p className="text-sm text-[color:var(--color-muted)]">Integrity signals</p>
+            <p className="text-sm text-[color:var(--color-muted)]">{t("integritySignals")}</p>
             <p className="mt-2 font-[family-name:var(--font-display)] text-4xl">
               {stats.cheatingSignals}
             </p>
           </div>
           <div className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-            <p className="text-sm text-[color:var(--color-muted)]">Open cases</p>
+            <p className="text-sm text-[color:var(--color-muted)]">{t("openCases")}</p>
             <p className="mt-2 font-[family-name:var(--font-display)] text-4xl">
               {stats.cheatingCases}
             </p>
@@ -85,7 +88,7 @@ export function RuntimeStats() {
         </div>
       ) : (
         <p className="mt-4 text-sm leading-7 text-[color:var(--color-muted)]">
-          Waiting for the runtime counters to load.
+          {t("loading")}
         </p>
       )}
     </section>

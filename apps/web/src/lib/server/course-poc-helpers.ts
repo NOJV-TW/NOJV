@@ -42,16 +42,19 @@ export function deriveAssessmentWindowState({
   opensAt
 }: AssessmentWindowStateInput): AssessmentWindowState {
   const currentTime = now ? new Date(now) : new Date();
+  const opensDate = new Date(opensAt);
+  const dueDate = new Date(dueAt);
+  const closesDate = new Date(closesAt);
 
-  if (currentTime < new Date(opensAt)) {
+  if (currentTime < opensDate) {
     return "upcoming";
   }
 
-  if (currentTime <= new Date(dueAt)) {
+  if (currentTime <= dueDate) {
     return "open";
   }
 
-  if (currentTime <= new Date(closesAt)) {
+  if (currentTime <= closesDate) {
     return "grace";
   }
 

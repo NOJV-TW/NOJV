@@ -4,6 +4,8 @@ import { startTransition, useState, type SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { type LocaleCode } from "@nojv/domain";
+import { useLocale, useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 import { createCourseMutation } from "@/lib/client/course-management-client";
@@ -14,11 +16,10 @@ const inputClassName =
   "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
 const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
-interface CourseCreationPanelProps {
-  locale: LocaleCode;
-}
-
-export function CourseCreationPanel({ locale }: CourseCreationPanelProps) {
+export function CourseCreationPanel() {
+  const locale = useLocale();
+  const tAdmin = useTranslations("admin");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const { actor } = useActorSession();
   const [title, setTitle] = useState("Compiler Design");
@@ -60,14 +61,14 @@ export function CourseCreationPanel({ locale }: CourseCreationPanelProps) {
     <section className={`${shellClassNames.card} px-6 py-6`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Create course</p>
-          <h3 className={shellClassNames.sectionTitle}>Teacher-facing course bootstrap</h3>
+          <p className={shellClassNames.eyebrow}>{tAdmin("createCourse")}</p>
+          <h3 className={shellClassNames.sectionTitle}>{tAdmin("createCourseSubtitle")}</h3>
         </div>
         <span className={shellClassNames.badge}>{actor.platformRole}</span>
       </div>
       <form className="mt-5 grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="text-sm text-[color:var(--color-muted)]">
-          Title
+          {tAdmin("title")}
           <input
             className={inputClassName}
             onChange={(event) => setTitle(event.target.value)}
@@ -77,7 +78,7 @@ export function CourseCreationPanel({ locale }: CourseCreationPanelProps) {
         </label>
         <div className="grid gap-4 md:grid-cols-[1fr_180px]">
           <label className="text-sm text-[color:var(--color-muted)]">
-            Slug
+            {tAdmin("slug")}
             <input
               className={inputClassName}
               onChange={(event) => setSlug(event.target.value)}
@@ -87,7 +88,7 @@ export function CourseCreationPanel({ locale }: CourseCreationPanelProps) {
             />
           </label>
           <label className="text-sm text-[color:var(--color-muted)]">
-            Locale
+            {tAdmin("locale")}
             <select
               className={inputClassName}
               onChange={(event) => setCourseLocale(event.target.value as LocaleCode)}
@@ -99,7 +100,7 @@ export function CourseCreationPanel({ locale }: CourseCreationPanelProps) {
           </label>
         </div>
         <label className="text-sm text-[color:var(--color-muted)]">
-          Description
+          {tAdmin("description")}
           <textarea
             className={textareaClassName}
             onChange={(event) => setDescription(event.target.value)}
@@ -112,7 +113,7 @@ export function CourseCreationPanel({ locale }: CourseCreationPanelProps) {
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? "Creating..." : "Create course"}
+          {isSubmitting ? tCommon("creating") : tAdmin("createCourseButton")}
         </button>
         {message ? (
           <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">

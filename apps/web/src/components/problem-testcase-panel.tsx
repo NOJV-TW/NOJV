@@ -2,6 +2,8 @@
 
 import { useState, type SyntheticEvent } from "react";
 
+import { useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 import { createProblemTestcaseSetMutation } from "@/lib/client/course-management-client";
@@ -23,6 +25,7 @@ interface DraftCase {
 
 export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps) {
   const { actor } = useActorSession();
+  const t = useTranslations("testcases");
   const [name, setName] = useState("Samples");
   const [isHidden, setIsHidden] = useState(false);
   const [weight, setWeight] = useState(1);
@@ -65,15 +68,15 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
     <section className={`${shellClassNames.card} px-5 py-5`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Author testcase set</p>
-          <p className="mt-1 text-lg font-semibold">Make newly authored problems judgeable</p>
+          <p className={shellClassNames.eyebrow}>{t("authorTestcases")}</p>
+          <p className="mt-1 text-lg font-semibold">{t("authorTestcasesSubtitle")}</p>
         </div>
         <span className={shellClassNames.badge}>{actor.platformRole}</span>
       </div>
       <form className="mt-5 grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
         <div className="grid gap-4 md:grid-cols-[1fr_120px_140px]">
           <label className="text-sm text-[color:var(--color-muted)]">
-            Set name
+            {t("setName")}
             <input
               className={inputClassName}
               onChange={(event) => setName(event.target.value)}
@@ -82,7 +85,7 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
             />
           </label>
           <label className="text-sm text-[color:var(--color-muted)]">
-            Weight
+            {t("weight")}
             <input
               className={inputClassName}
               min={1}
@@ -98,7 +101,7 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
               onChange={(event) => setIsHidden(event.target.checked)}
               type="checkbox"
             />
-            Hidden set
+            {t("hiddenSet")}
           </label>
         </div>
         <div className="grid gap-4">
@@ -108,7 +111,7 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
               key={`case-${String(index)}`}
             >
               <div className="flex items-center justify-between gap-4">
-                <p className="text-sm font-semibold">Case {index + 1}</p>
+                <p className="text-sm font-semibold">{t("case")} {index + 1}</p>
                 {cases.length > 1 ? (
                   <button
                     className="text-sm text-red-700"
@@ -119,13 +122,13 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
                     }}
                     type="button"
                   >
-                    Remove
+                    {t("remove")}
                   </button>
                 ) : null}
               </div>
               <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <label className="text-sm text-[color:var(--color-muted)]">
-                  stdin
+                  {t("stdin")}
                   <textarea
                     className={textareaClassName}
                     onChange={(event) => {
@@ -140,7 +143,7 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
                   />
                 </label>
                 <label className="text-sm text-[color:var(--color-muted)]">
-                  expected stdout
+                  {t("expectedStdout")}
                   <textarea
                     className={textareaClassName}
                     onChange={(event) => {
@@ -174,14 +177,14 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
             }}
             type="button"
           >
-            Add case
+            {t("addCase")}
           </button>
           <button
             className="rounded-full bg-[color:var(--color-accent)] px-5 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "Saving..." : "Create testcase set"}
+            {isSubmitting ? t("saving") : t("createButton")}
           </button>
         </div>
         {message ? (

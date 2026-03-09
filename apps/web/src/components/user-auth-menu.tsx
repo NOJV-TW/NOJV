@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 
+import { useTranslations } from "next-intl";
+
 import { shellClassNames } from "@nojv/ui";
 
 import { authClient } from "@/lib/auth-client";
 
 export function UserAuthMenu() {
+  const t = useTranslations("auth");
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
@@ -28,7 +31,7 @@ export function UserAuthMenu() {
           onClick={() => void authClient.signOut()}
           type="button"
         >
-          Sign out
+          {t("signOut")}
         </button>
       </div>
     );
@@ -40,13 +43,13 @@ export function UserAuthMenu() {
         className="rounded-full border border-[color:var(--color-border)] px-4 py-2 transition hover:-translate-y-0.5 hover:bg-white/70"
         href="/auth/signin"
       >
-        Sign in
+        {t("signIn")}
       </Link>
       <Link
         className="rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-white transition hover:-translate-y-0.5"
         href="/auth/signup"
       >
-        Sign up
+        {t("signUp")}
       </Link>
     </div>
   );
