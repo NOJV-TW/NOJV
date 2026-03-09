@@ -2,6 +2,7 @@ import { cheatingSignalSchema, evaluateIntegritySignals } from "@nojv/domain";
 import { NextResponse } from "next/server";
 import { ZodError, z } from "zod";
 
+import { getActorContext } from "@/lib/server/actor-context";
 import { persistCheatingSignals } from "@/lib/server/poc-persistence";
 import { bufferCheatingSignals } from "@/lib/server/queue";
 
@@ -9,6 +10,12 @@ const cheatingSignalBatchSchema = z.array(cheatingSignalSchema).min(1);
 
 export async function POST(request: Request) {
   try {
+    const actor = await getActorContext(request);
+
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
     const payload: unknown = await request.json();
     const batchedPayload = Array.isArray(payload)
       ? payload

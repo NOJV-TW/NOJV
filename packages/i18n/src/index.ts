@@ -19,7 +19,19 @@ export interface SharedCopy {
     dashboard: string;
     integrity: string;
     problems: string;
+    submissions: string;
     workspace: string;
+  };
+  submissions: {
+    date: string;
+    empty: string;
+    heading: string;
+    language: string;
+    problem: string;
+    runtime: string;
+    score: string;
+    signInRequired: string;
+    status: string;
   };
   workspace: {
     commandLabel: string;
@@ -49,7 +61,19 @@ export const copy: Record<LocaleCode, SharedCopy> = {
       dashboard: "Overview",
       integrity: "Integrity",
       problems: "Problems",
+      submissions: "Submissions",
       workspace: "Workspace"
+    },
+    submissions: {
+      date: "Date",
+      empty: "No submissions yet.",
+      heading: "Your Submissions",
+      language: "Language",
+      problem: "Problem",
+      runtime: "Runtime",
+      score: "Score",
+      signInRequired: "Please sign in to view submissions.",
+      status: "Status"
     },
     workspace: {
       commandLabel: "Command policy",
@@ -76,7 +100,19 @@ export const copy: Record<LocaleCode, SharedCopy> = {
       dashboard: "總覽",
       integrity: "誠信中心",
       problems: "題庫",
+      submissions: "提交紀錄",
       workspace: "作業區"
+    },
+    submissions: {
+      date: "提交時間",
+      empty: "尚無提交紀錄。",
+      heading: "你的提交紀錄",
+      language: "語言",
+      problem: "題目",
+      runtime: "執行時間",
+      score: "分數",
+      signInRequired: "請先登入以查看提交紀錄。",
+      status: "狀態"
     },
     workspace: {
       commandLabel: "指令政策",

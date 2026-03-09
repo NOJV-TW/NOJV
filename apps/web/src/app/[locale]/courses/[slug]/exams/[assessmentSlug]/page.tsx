@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { getCopy, isLocale } from "@nojv/i18n";
 import { shellClassNames } from "@nojv/ui";
 
-import { deriveAssessmentPresentation } from "@/lib/server/course-poc-helpers";
+import {
+  deriveAssessmentPresentation,
+  deriveAssessmentWindowState
+} from "@/lib/server/course-poc-helpers";
 import { getCoursePageData } from "@/lib/server/read-model";
 
 const examLeaderboard = [
@@ -37,6 +40,11 @@ export default async function CourseExamPage({
   const presentation = deriveAssessmentPresentation({
     scoreboardMode: assessment.scoreboardMode,
     type: assessment.type
+  });
+  const windowState = deriveAssessmentWindowState({
+    closesAt: assessment.closesAt,
+    dueAt: assessment.dueAt,
+    opensAt: assessment.opensAt
   });
 
   return (
@@ -74,7 +82,7 @@ export default async function CourseExamPage({
               <p className={shellClassNames.eyebrow}>Exam framing</p>
               <h3 className={shellClassNames.sectionTitle}>{presentation.heroLabel}</h3>
             </div>
-            <span className={shellClassNames.badge}>{assessment.scoreboardMode}</span>
+            <span className={shellClassNames.badge}>{windowState}</span>
           </div>
           <div className="mt-5 space-y-3">
             {assessment.problemSlugs.map((problemSlug) => {

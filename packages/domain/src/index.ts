@@ -17,7 +17,7 @@ export const courseJoinMethods = ["qr_code", "join_code", "manual_invite"] as co
 export const problemVisibilities = ["public", "private"] as const;
 export const courseAssessmentTypes = ["assignment", "exam"] as const;
 export const assessmentScoreboardModes = ["hidden", "live", "frozen"] as const;
-export const courseMembershipStatuses = ["active", "invited", "pending"] as const;
+export const courseMembershipStatuses = ["active", "invited", "pending", "removed"] as const;
 export const submissionModes = ["practice", "contest", "assignment", "exam"] as const;
 export const workspaceModes = ["practice", "assignment", "contest", "exam"] as const;
 export const cheatingSignalTypes = [
@@ -40,7 +40,8 @@ export const submissionVerdicts = [
   "wrong_answer",
   "compile_error",
   "runtime_error",
-  "time_limit_exceeded"
+  "time_limit_exceeded",
+  "memory_limit_exceeded"
 ] as const;
 export const submissionOperationStatuses = [
   "queued",
