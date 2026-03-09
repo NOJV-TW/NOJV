@@ -28,6 +28,10 @@ const navigation = (locale: LocaleCode) => {
       label: labels.courses
     },
     {
+      href: `/${locale}/submissions`,
+      label: labels.submissions
+    },
+    {
       href: `/${locale}/integrity`,
       label: labels.integrity
     }
