@@ -58,7 +58,7 @@ export default async function ContestDetailPage({
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className={shellClassNames.eyebrow}>Contest problems</p>
-              <h3 className={shellClassNames.sectionTitle}>Competitive surface</h3>
+              <h3 className={shellClassNames.sectionTitle}>Problems</h3>
             </div>
             <span className={shellClassNames.badge}>{contest.problems.length} problems</span>
           </div>

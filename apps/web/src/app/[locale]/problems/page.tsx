@@ -20,16 +20,10 @@ export default async function ProblemsPage({
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-        <p className={shellClassNames.eyebrow}>{labels.navigation.problems}</p>
-        <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
-          Practice problems are modeled separately from contest participation.
+      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
+        <h2 className="font-[family-name:var(--font-display)] text-3xl">
+          {labels.navigation.problems}
         </h2>
-        <p className="mt-4 max-w-3xl text-base leading-7 text-[color:var(--color-muted)]">
-          Every practice submission can still reuse the same judge pipeline, but problem
-          discovery, acceptance statistics, and workspace warm-up stay independent from contest
-          controls.
-        </p>
       </section>
 
       <section className="grid gap-4">
