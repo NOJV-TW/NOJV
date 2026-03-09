@@ -40,7 +40,8 @@ export const submissionVerdicts = [
   "wrong_answer",
   "compile_error",
   "runtime_error",
-  "time_limit_exceeded"
+  "time_limit_exceeded",
+  "memory_limit_exceeded"
 ] as const;
 export const submissionOperationStatuses = [
   "queued",
