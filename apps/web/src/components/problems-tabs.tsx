@@ -18,7 +18,6 @@ type EditableProblemCard = {
   difficulty: "easy" | "hard" | "medium";
   slug: string;
   title: string;
-  totalSubmissions: number;
   visibility: "private" | "public";
 };
 

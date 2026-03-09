@@ -445,9 +445,6 @@ export async function listProblemCards() {
 
 export async function listEditableProblems(userId: string) {
   const problems = await prisma.problem.findMany({
-    include: {
-      _count: { select: { submissions: true } }
-    },
     orderBy: { createdAt: "desc" },
     where: {
       OR: [
@@ -477,7 +474,6 @@ export async function listEditableProblems(userId: string) {
     difficulty: problem.difficulty as "easy" | "hard" | "medium",
     slug: problem.slug,
     title: problem.defaultTitle,
-    totalSubmissions: problem._count.submissions,
     visibility: problem.visibility
   }));
 }
@@ -622,11 +618,8 @@ export async function listIntegrityCases() {
 export async function listUserAssessments(userId: string, type: CourseAssessmentType) {
   const assessments = await prisma.courseAssessment.findMany({
     include: {
-      course: { select: { slug: true, title: true } },
-      problems: {
-        include: { problem: { select: { slug: true } } },
-        orderBy: { ordinal: "asc" }
-      }
+      _count: { select: { problems: true } },
+      course: { select: { slug: true, title: true } }
     },
     orderBy: { opensAt: "desc" },
     where: {
@@ -646,7 +639,7 @@ export async function listUserAssessments(userId: string, type: CourseAssessment
     courseTitle: a.course.title,
     dueAt: a.dueAt.toISOString(),
     opensAt: a.opensAt.toISOString(),
-    problemCount: a.problems.length,
+    problemCount: a._count.problems,
     scoreboardMode: a.scoreboardMode,
     slug: a.slug,
     summary: a.summary,
