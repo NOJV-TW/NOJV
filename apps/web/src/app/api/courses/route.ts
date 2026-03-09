@@ -8,15 +8,21 @@ import { createCourseRecord } from "@/lib/server/poc-persistence";
 import { listCourseCards } from "@/lib/server/read-model";
 
 export async function GET(request: Request) {
-  const actor = await getActorContext(request);
+  try {
+    const actor = await getActorContext(request);
 
-  if (!actor) {
-    return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    if (!actor) {
+      return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    }
+
+    return NextResponse.json({
+      courses: await listCourseCards()
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Course listing failed.";
+
+    return NextResponse.json({ message }, { status: 500 });
   }
-
-  return NextResponse.json({
-    courses: await listCourseCards()
-  });
 }
 
 export async function POST(request: Request) {
