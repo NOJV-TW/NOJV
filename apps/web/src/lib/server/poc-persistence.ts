@@ -16,6 +16,7 @@ import {
 } from "@nojv/domain";
 
 import type { PocActorContext } from "./actor-context";
+import { ConflictError, ForbiddenError, NotFoundError } from "./api-errors";
 import { resolveCoursePermissionRole } from "./course-authorization";
 import {
   buildCheatingCaseSummary,
@@ -50,6 +51,16 @@ function createDemoDisplayName(userId: string) {
 
 function createDemoHandle(userId: string) {
   return sanitizeIdentitySegment(userId);
+}
+
+function resolveDefaultActor(actor?: PocActorContext): PocActorContext {
+  return actor ?? {
+    displayName: createDemoDisplayName(defaultPocUserId),
+    email: createDemoEmail(defaultPocUserId),
+    handle: createDemoHandle(defaultPocUserId),
+    platformRole: "student" as const,
+    userId: defaultPocUserId
+  };
 }
 
 interface EnsureUserInput {
@@ -191,7 +202,7 @@ function assertCourseProblemAccess(
     actor.platformRole !== "admin" &&
     problem.authorId !== actor.userId
   ) {
-    throw new Error("Private problems can only be attached by their author or an admin.");
+    throw new ForbiddenError("Private problems can only be attached by their author or an admin.");
   }
 }
 
@@ -201,7 +212,7 @@ async function ensureContest(tx: TransactionClient, contestSlug: string) {
   });
 
   if (!contest) {
-    throw new Error(`Contest not found: ${contestSlug}`);
+    throw new NotFoundError(`Contest not found: ${contestSlug}`);
   }
 
   return contest;
@@ -241,7 +252,7 @@ async function ensureCourse(tx: TransactionClient, courseSlug: string) {
   });
 
   if (!existing) {
-    throw new Error(`Course not found: ${courseSlug}`);
+    throw new NotFoundError(`Course not found: ${courseSlug}`);
   }
 
   return existing;
@@ -263,7 +274,7 @@ async function ensureCourseAssessment(
   });
 
   if (!assessment) {
-    throw new Error(`Assessment not found: ${courseSlug}/${assessmentSlug}`);
+    throw new NotFoundError(`Assessment not found: ${courseSlug}/${assessmentSlug}`);
   }
 
   return {
@@ -415,13 +426,7 @@ export async function persistSubmissionRecord(
   actor?: PocActorContext
 ) {
   return prisma.$transaction(async (tx) => {
-    const activeActor = actor ?? {
-      displayName: createDemoDisplayName(defaultPocUserId),
-      email: createDemoEmail(defaultPocUserId),
-      handle: createDemoHandle(defaultPocUserId),
-      platformRole: "student" as const,
-      userId: defaultPocUserId
-    };
+    const activeActor = resolveDefaultActor(actor);
     const user = await ensureUser(tx, activeActor.userId, activeActor);
     const problem = await findOrEnsureProblem(tx, payload.problemSlug);
     const contestParticipation = payload.contestSlug
@@ -460,13 +465,7 @@ export async function createQueuedSubmissionRecord(
   actor?: PocActorContext
 ) {
   return prisma.$transaction(async (tx) => {
-    const activeActor = actor ?? {
-      displayName: createDemoDisplayName(defaultPocUserId),
-      email: createDemoEmail(defaultPocUserId),
-      handle: createDemoHandle(defaultPocUserId),
-      platformRole: "student" as const,
-      userId: defaultPocUserId
-    };
+    const activeActor = resolveDefaultActor(actor);
     const user = await ensureUser(tx, activeActor.userId, activeActor);
     const problem = await findOrEnsureProblem(tx, payload.problemSlug);
     const contestParticipation = payload.contestSlug
@@ -502,13 +501,7 @@ export async function persistWorkspaceRunRecord(
   actor?: PocActorContext
 ) {
   return prisma.$transaction(async (tx) => {
-    const activeActor = actor ?? {
-      displayName: createDemoDisplayName(defaultPocUserId),
-      email: createDemoEmail(defaultPocUserId),
-      handle: createDemoHandle(defaultPocUserId),
-      platformRole: "student" as const,
-      userId: defaultPocUserId
-    };
+    const activeActor = resolveDefaultActor(actor);
     const user = await ensureUser(tx, activeActor.userId, activeActor);
     const contestParticipation = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug)
@@ -597,13 +590,7 @@ export async function createQueuedWorkspaceRunRecord(
   actor?: PocActorContext
 ) {
   return prisma.$transaction(async (tx) => {
-    const activeActor = actor ?? {
-      displayName: createDemoDisplayName(defaultPocUserId),
-      email: createDemoEmail(defaultPocUserId),
-      handle: createDemoHandle(defaultPocUserId),
-      platformRole: "student" as const,
-      userId: defaultPocUserId
-    };
+    const activeActor = resolveDefaultActor(actor);
     const user = await ensureUser(tx, activeActor.userId, activeActor);
     const contestParticipation = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug)
@@ -649,8 +636,10 @@ export async function persistCheatingSignals(signals: CheatingSignal[]) {
 
     for (const signal of signals) {
       const key = `${signal.userId}::${signal.contestSlug ?? "practice"}::${signal.assessment?.courseSlug ?? "course"}::${signal.assessment?.assessmentSlug ?? "none"}`;
-      const current = groupedSignals.get(key) ?? [];
-      groupedSignals.set(key, [...current, signal]);
+      if (!groupedSignals.has(key)) {
+        groupedSignals.set(key, []);
+      }
+      groupedSignals.get(key)!.push(signal);
     }
 
     const persisted = [];
@@ -667,30 +656,50 @@ export async function persistCheatingSignals(signals: CheatingSignal[]) {
         ? await ensureContestParticipation(tx, user.id, firstSignal.contestSlug)
         : null;
       const cheatingCase = await upsertCheatingCase(tx, group);
+
+      // Batch-fetch workspace sessions for all signals in group
+      const sessionIds = [...new Set(group.map((s) => s.sessionId).filter(Boolean))] as string[];
+      const sessions =
+        sessionIds.length > 0
+          ? await tx.workspaceSession.findMany({ where: { id: { in: sessionIds } } })
+          : [];
+      const sessionMap = new Map(sessions.map((s) => [s.id, s]));
+
+      // Batch-fetch latest workspace runs for all sessions
+      const sessionIdsForRuns = sessions.map((s) => s.id);
+      const runs =
+        sessionIdsForRuns.length > 0
+          ? await tx.workspaceRun.findMany({
+              orderBy: { createdAt: "desc" },
+              where: { workspaceSessionId: { in: sessionIdsForRuns } },
+              distinct: ["workspaceSessionId"]
+            })
+          : [];
+      const runBySessionId = new Map(runs.map((r) => [r.workspaceSessionId, r]));
+
+      // Batch-resolve unique assessment contexts
+      const assessmentKeys = [
+        ...new Set(
+          group
+            .filter((s) => s.assessment)
+            .map((s) => `${s.assessment!.courseSlug}::${s.assessment!.assessmentSlug}`)
+        )
+      ];
+      const assessmentContextMap = new Map<string, Awaited<ReturnType<typeof ensureCourseAssessment>>>();
+      for (const key of assessmentKeys) {
+        const [courseSlug, assessmentSlug] = key.split("::");
+        assessmentContextMap.set(key, await ensureCourseAssessment(tx, courseSlug!, assessmentSlug!));
+      }
+
       for (const signal of group) {
-        const workspaceSession = signal.sessionId
-          ? await tx.workspaceSession.findUnique({
-              where: {
-                id: signal.sessionId
-              }
-            })
-          : null;
+        const workspaceSession = signal.sessionId ? sessionMap.get(signal.sessionId) ?? null : null;
         const workspaceRun = workspaceSession
-          ? await tx.workspaceRun.findFirst({
-              orderBy: {
-                createdAt: "desc"
-              },
-              where: {
-                workspaceSessionId: workspaceSession.id
-              }
-            })
+          ? runBySessionId.get(workspaceSession.id) ?? null
           : null;
         const assessmentContext = signal.assessment
-          ? await ensureCourseAssessment(
-              tx,
-              signal.assessment.courseSlug,
-              signal.assessment.assessmentSlug
-            )
+          ? assessmentContextMap.get(
+              `${signal.assessment.courseSlug}::${signal.assessment.assessmentSlug}`
+            ) ?? null
           : null;
         const record = await tx.cheatingSignal.create({
           data: {
@@ -749,7 +758,7 @@ export async function createCourseRecord(actor: PocActorContext, payload: Course
     });
 
     if (existing) {
-      throw new Error(`Course slug already exists: ${payload.slug}`);
+      throw new ConflictError(`Course slug already exists: ${payload.slug}`);
     }
 
     const owner = await ensureUser(tx, actor.userId, actor);
@@ -816,7 +825,7 @@ export async function createProblemRecord(actor: PocActorContext, payload: Probl
     });
 
     if (existing) {
-      throw new Error(`Problem slug already exists: ${payload.slug}`);
+      throw new ConflictError(`Problem slug already exists: ${payload.slug}`);
     }
 
     const author = await ensureUser(tx, actor.userId, actor);
@@ -845,11 +854,11 @@ export async function createProblemTestcaseSetRecord(
     });
 
     if (!problem) {
-      throw new Error(`Problem not found: ${problemSlug}`);
+      throw new NotFoundError(`Problem not found: ${problemSlug}`);
     }
 
     if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new Error("Problem testcases can only be managed by the author or an admin.");
+      throw new ForbiddenError("Problem testcases can only be managed by the author or an admin.");
     }
 
     const testcaseSet = await tx.testcaseSet.create({
@@ -933,15 +942,15 @@ export async function joinCourseRecord(actor: PocActorContext, payload: CourseJo
     });
 
     if (!joinToken) {
-      throw new Error("Course join token is invalid.");
+      throw new ForbiddenError("Course join token is invalid.");
     }
 
     if (joinToken.expiresAt && joinToken.expiresAt < new Date()) {
-      throw new Error("Course join token has expired.");
+      throw new ForbiddenError("Course join token has expired.");
     }
 
     if (joinToken.maxUses !== null && joinToken.usageCount >= joinToken.maxUses) {
-      throw new Error("Course join token has reached its maximum usage.");
+      throw new ForbiddenError("Course join token has reached its maximum usage.");
     }
 
     if (existingMembership?.status === "active") {
@@ -1056,7 +1065,7 @@ export async function createCourseAssessmentRecord(
     });
 
     if (existing) {
-      throw new Error(`Assessment slug already exists in course: ${payload.slug}`);
+      throw new ConflictError(`Assessment slug already exists in course: ${payload.slug}`);
     }
 
     const assessment = await tx.courseAssessment.create({

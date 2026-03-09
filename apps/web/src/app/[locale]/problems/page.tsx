@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { getCopy, isLocale } from "@nojv/i18n";
 import { formatAcceptanceRate, shellClassNames } from "@nojv/ui";
 
 import { ProblemCreationPanel } from "@/components/problem-creation-panel";
@@ -14,24 +14,27 @@ export default async function ProblemsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const currentLocale = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
+  setRequestLocale(locale);
+  const [tNav, tCommon] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("common")
+  ]);
   const problems = await listProblemCards();
 
   return (
     <div className="space-y-6">
       <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
         <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {labels.navigation.problems}
+          {tNav('problems')}
         </h2>
       </section>
 
       <section className="grid gap-4">
-        <ProblemCreationPanel locale={currentLocale} />
+        <ProblemCreationPanel />
         {problems.map((problem) => (
           <Link
             className={`${shellClassNames.card} grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.8fr_0.8fr] sm:items-center`}
-            href={`/${currentLocale}/problems/${problem.slug}`}
+            href={`/${locale}/problems/${problem.slug}`}
             key={problem.slug}
           >
             <div>
@@ -41,11 +44,11 @@ export default async function ProblemsPage({
               <h3 className="mt-2 text-2xl font-semibold">{problem.title}</h3>
             </div>
             <div>
-              <p className="text-sm text-[color:var(--color-muted)]">Difficulty</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCommon('difficulty')}</p>
               <p className="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
             </div>
             <div className="sm:text-right">
-              <p className="text-sm text-[color:var(--color-muted)]">Acceptance</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{tCommon('acceptance')}</p>
               <p className="mt-1 text-lg font-semibold">
                 {formatAcceptanceRate(problem.acceptanceRate)}
               </p>

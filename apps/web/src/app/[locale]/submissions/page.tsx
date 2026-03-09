@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { headers } from "next/headers";
 
-import { getCopy, isLocale } from "@nojv/i18n";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { shellClassNames } from "@nojv/ui";
 
 import { auth } from "@/lib/auth";
@@ -10,16 +10,16 @@ import { listUserSubmissions } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
-const statusDisplay: Record<string, { color: string; label: string }> = {
-  accepted: { color: "text-green-700", label: "Accepted" },
-  compile_error: { color: "text-red-600", label: "Compile Error" },
-  compiling: { color: "text-[color:var(--color-muted)]", label: "Compiling" },
-  memory_limit_exceeded: { color: "text-red-600", label: "MLE" },
-  queued: { color: "text-[color:var(--color-muted)]", label: "Queued" },
-  running: { color: "text-[color:var(--color-muted)]", label: "Running" },
-  runtime_error: { color: "text-red-600", label: "Runtime Error" },
-  time_limit_exceeded: { color: "text-red-600", label: "TLE" },
-  wrong_answer: { color: "text-red-600", label: "Wrong Answer" }
+const statusColors: Record<string, string> = {
+  accepted: "text-green-700",
+  compile_error: "text-red-600",
+  compiling: "text-[color:var(--color-muted)]",
+  memory_limit_exceeded: "text-red-600",
+  queued: "text-[color:var(--color-muted)]",
+  running: "text-[color:var(--color-muted)]",
+  runtime_error: "text-red-600",
+  time_limit_exceeded: "text-red-600",
+  wrong_answer: "text-red-600"
 };
 
 const languageDisplay: Record<string, string> = {
@@ -38,17 +38,32 @@ export default async function SubmissionsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const currentLocale = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
+  setRequestLocale(locale);
+
+  const [tNav, tSub] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("submissions")
+  ]);
+  const statusLabels: Record<string, string> = {
+    accepted: tSub("accepted"),
+    compile_error: tSub("compileError"),
+    compiling: tSub("compiling"),
+    memory_limit_exceeded: tSub("mle"),
+    queued: tSub("queued"),
+    running: tSub("running"),
+    runtime_error: tSub("runtimeError"),
+    time_limit_exceeded: tSub("tle"),
+    wrong_answer: tSub("wrongAnswer")
+  };
 
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user?.id) {
     return (
       <div className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-        <p className={shellClassNames.eyebrow}>{labels.navigation.submissions}</p>
+        <p className={shellClassNames.eyebrow}>{tNav("submissions")}</p>
         <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
-          {labels.submissions.signInRequired}
+          {tSub("signInRequired")}
         </h2>
       </div>
     );
@@ -59,15 +74,15 @@ export default async function SubmissionsPage({
   return (
     <div className="space-y-6">
       <section className={`${shellClassNames.cardStrong} px-6 py-8 sm:px-8`}>
-        <p className={shellClassNames.eyebrow}>{labels.navigation.submissions}</p>
+        <p className={shellClassNames.eyebrow}>{tNav("submissions")}</p>
         <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">
-          {labels.submissions.heading}
+          {tSub("heading")}
         </h2>
       </section>
 
       {submissions.length === 0 ? (
         <section className={`${shellClassNames.card} px-6 py-8 sm:px-8`}>
-          <p className="text-[color:var(--color-muted)]">{labels.submissions.empty}</p>
+          <p className="text-[color:var(--color-muted)]">{tSub("empty")}</p>
         </section>
       ) : (
         <section className={`${shellClassNames.card} overflow-hidden`}>
@@ -75,18 +90,16 @@ export default async function SubmissionsPage({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[color:var(--color-border)] text-xs uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-                  <th className="px-5 py-3 font-semibold">{labels.submissions.problem}</th>
-                  <th className="px-5 py-3 font-semibold">{labels.submissions.language}</th>
-                  <th className="px-5 py-3 font-semibold">{labels.submissions.status}</th>
-                  <th className="px-5 py-3 font-semibold text-right">{labels.submissions.score}</th>
-                  <th className="px-5 py-3 font-semibold text-right">{labels.submissions.runtime}</th>
-                  <th className="px-5 py-3 font-semibold text-right">{labels.submissions.date}</th>
+                  <th className="px-5 py-3 font-semibold">{tSub("problem")}</th>
+                  <th className="px-5 py-3 font-semibold">{tSub("language")}</th>
+                  <th className="px-5 py-3 font-semibold">{tSub("status")}</th>
+                  <th className="px-5 py-3 font-semibold text-right">{tSub("score")}</th>
+                  <th className="px-5 py-3 font-semibold text-right">{tSub("runtime")}</th>
+                  <th className="px-5 py-3 font-semibold text-right">{tSub("date")}</th>
                 </tr>
               </thead>
               <tbody>
                 {submissions.map((submission) => {
-                  const display = statusDisplay[submission.status];
-
                   return (
                     <tr
                       className="border-b border-[color:var(--color-border)] last:border-0"
@@ -95,7 +108,7 @@ export default async function SubmissionsPage({
                       <td className="px-5 py-4 font-medium">
                         <Link
                           className="hover:underline"
-                          href={`/${currentLocale}/problems/${submission.problem.slug}`}
+                          href={`/${locale}/problems/${submission.problem.slug}`}
                         >
                           {submission.problem.defaultTitle}
                         </Link>
@@ -103,15 +116,15 @@ export default async function SubmissionsPage({
                       <td className="px-5 py-4">
                         {languageDisplay[submission.language] ?? submission.language}
                       </td>
-                      <td className={`px-5 py-4 font-semibold ${display?.color ?? ""}`}>
-                        {display?.label ?? submission.status}
+                      <td className={`px-5 py-4 font-semibold ${statusColors[submission.status] ?? ""}`}>
+                        {statusLabels[submission.status] ?? submission.status}
                       </td>
                       <td className="px-5 py-4 text-right tabular-nums">{submission.score}</td>
                       <td className="px-5 py-4 text-right tabular-nums">
                         {submission.runtimeMs != null ? `${String(submission.runtimeMs)} ms` : "—"}
                       </td>
                       <td className="px-5 py-4 text-right tabular-nums text-[color:var(--color-muted)]">
-                        {submission.createdAt.toLocaleDateString(currentLocale, {
+                        {submission.createdAt.toLocaleDateString(locale, {
                           day: "2-digit",
                           hour: "2-digit",
                           minute: "2-digit",

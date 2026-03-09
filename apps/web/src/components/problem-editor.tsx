@@ -4,6 +4,8 @@ import Link from "next/link";
 import Editor from "@monaco-editor/react";
 import { startTransition, useDeferredValue, useState } from "react";
 
+import { useLocale, useTranslations } from "next-intl";
+
 import {
   assessmentContextSchema,
   buildEditorSessionId,
@@ -12,7 +14,6 @@ import {
   submissionResultSchema,
   supportedLanguages,
   type Language,
-  type LocaleCode,
   type SubmissionResult
 } from "@nojv/domain";
 import { shellClassNames } from "@nojv/ui";
@@ -46,16 +47,16 @@ interface ProblemEditorProps {
       }
     | undefined;
   contestSlug?: string | undefined;
-  locale: LocaleCode;
   problem: ProblemDetail;
 }
 
 export function ProblemEditor({
   assessment,
   contestSlug,
-  locale,
   problem
 }: ProblemEditorProps) {
+  const locale = useLocale();
+  const t = useTranslations("editor");
   const { actor, actorHeaders } = useActorSession();
   const editorSessionId = buildEditorSessionId({
     assessmentSlug: assessment?.assessmentSlug,
@@ -153,27 +154,27 @@ export function ProblemEditor({
       <section className={`${shellClassNames.card} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--color-border)] px-5 py-4">
           <div>
-            <p className={shellClassNames.eyebrow}>Online editor</p>
+            <p className={shellClassNames.eyebrow}>{t("onlineEditor")}</p>
             <p className="mt-1 text-lg font-semibold">
-              LeetCode-style editing without file uploads
+              {t("onlineEditorSubtitle")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className={shellClassNames.badge}>
               {contestSlug
-                ? "contest mode"
+                ? t("contestMode")
                 : assessment
-                  ? `${assessment.kind} mode`
-                  : "practice mode"}
+                  ? (assessment.kind === "exam" ? t("examMode") : t("assignmentMode"))
+                  : t("practiceMode")}
             </span>
             <span className={shellClassNames.badge}>
-              {new Intl.NumberFormat(locale).format(deferredSource.length)} chars
+              {new Intl.NumberFormat(locale).format(deferredSource.length)} {t("chars")}
             </span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 border-b border-[color:var(--color-border)] px-5 py-4">
           <label className="text-sm">
-            <span className="mb-2 block text-[color:var(--color-muted)]">Language</span>
+            <span className="mb-2 block text-[color:var(--color-muted)]">{t("language")}</span>
             <select
               className="rounded-2xl border border-[color:var(--color-border)] bg-white/70 px-3 py-3"
               onChange={(event) => setLanguage(event.target.value as Language)}
@@ -192,14 +193,14 @@ export function ProblemEditor({
             onClick={() => void handleSubmit()}
             type="button"
           >
-            {isSubmitting ? "Submitting..." : "Submit to sandbox judge"}
+            {isSubmitting ? t("submitting") : t("submitButton")}
           </button>
           <Link
             className="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
             href={workspaceLabUrl}
             target="_blank"
           >
-            Open workspace lab
+            {t("openWorkspaceLab")}
           </Link>
         </div>
         <Editor
@@ -219,18 +220,18 @@ export function ProblemEditor({
 
       <aside className="space-y-6">
         <section className={`${shellClassNames.cardStrong} px-5 py-5`}>
-          <p className={shellClassNames.eyebrow}>Submission verdict</p>
-          <p className="mt-1 text-lg font-semibold">Sandbox testcase judge</p>
+          <p className={shellClassNames.eyebrow}>{t("submissionVerdict")}</p>
+          <p className="mt-1 text-lg font-semibold">{t("sandboxJudge")}</p>
           {submission ? (
             <div className="mt-4 space-y-4">
               <div className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-                <p className="text-sm text-[color:var(--color-muted)]">Verdict</p>
+                <p className="text-sm text-[color:var(--color-muted)]">{t("verdict")}</p>
                 <p className="mt-2 text-3xl font-[family-name:var(--font-display)]">
                   {submission.verdict}
                 </p>
               </div>
               <div className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-                <p className="text-sm text-[color:var(--color-muted)]">Judge feedback</p>
+                <p className="text-sm text-[color:var(--color-muted)]">{t("judgeFeedback")}</p>
                 <p className="mt-2 text-sm leading-7 text-[color:var(--color-muted)]">
                   {submission.feedback}
                 </p>
@@ -238,14 +239,14 @@ export function ProblemEditor({
             </div>
           ) : submissionStatus ? (
             <div className="mt-4 rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4">
-              <p className="text-sm text-[color:var(--color-muted)]">Queue state</p>
+              <p className="text-sm text-[color:var(--color-muted)]">{t("queueState")}</p>
               <p className="mt-2 text-3xl font-[family-name:var(--font-display)]">
                 {submissionStatus}
               </p>
             </div>
           ) : (
             <p className="mt-4 text-sm leading-7 text-[color:var(--color-muted)]">
-              Submit a solution to exercise the full judge path from editor to worker verdict.
+              {t("submitHint")}
             </p>
           )}
           {submissionError ? (
@@ -256,11 +257,11 @@ export function ProblemEditor({
         </section>
 
         <section className={`${shellClassNames.card} px-5 py-5`}>
-          <p className={shellClassNames.eyebrow}>Execution guarantees</p>
+          <p className={shellClassNames.eyebrow}>{t("executionGuarantees")}</p>
           <div className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--color-muted)]">
-            <p>Inline editor runs inside the web app without manual uploads.</p>
-            <p>Submissions hit BullMQ and execute against persisted testcase sets.</p>
-            <p>Heavy command execution stays inside the separate workspace surface.</p>
+            <p>{t("executionHint1")}</p>
+            <p>{t("executionHint2")}</p>
+            <p>{t("executionHint3")}</p>
           </div>
         </section>
 

@@ -2,6 +2,8 @@ import Image from "next/image";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 
+import { getLocale, getTranslations } from "next-intl/server";
+
 import { shellClassNames } from "@nojv/ui";
 
 interface CourseJoinPanelProps {
@@ -11,14 +13,14 @@ interface CourseJoinPanelProps {
     method: "join_code" | "manual_invite" | "qr_code";
     token: string;
   }[];
-  locale: string;
 }
 
 export async function CourseJoinPanel({
   courseSlug,
-  joinChannels,
-  locale
+  joinChannels
 }: CourseJoinPanelProps) {
+  const locale = await getLocale();
+  const t = await getTranslations("courseDetail");
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
@@ -52,10 +54,10 @@ export async function CourseJoinPanel({
     <section className={`${shellClassNames.card} px-5 py-5`}>
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className={shellClassNames.eyebrow}>Join flows</p>
-          <h3 className="mt-1 text-2xl font-semibold">QR code, join code, and manual invite</h3>
+          <p className={shellClassNames.eyebrow}>{t("joinFlows")}</p>
+          <h3 className="mt-1 text-2xl font-semibold">{t("joinFlowsSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>teacher-managed</span>
+        <span className={shellClassNames.badge}>{t("teacherManaged")}</span>
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {qrCards.map((channel) => (
@@ -81,7 +83,7 @@ export async function CourseJoinPanel({
               />
             ) : (
               <p className="mt-4 text-sm leading-7 text-[color:var(--color-muted)]">
-                Teacher or TA can manually add a student and auto-create the account.
+                {t("manualInviteHint")}
               </p>
             )}
           </article>

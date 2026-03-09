@@ -1,4 +1,4 @@
-import { getCopy, isLocale } from "@nojv/i18n";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { shellClassNames } from "@nojv/ui";
 
 import { RuntimeStats } from "@/components/runtime-stats";
@@ -12,24 +12,25 @@ export default async function IntegrityPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const currentLocale = isLocale(locale) ? locale : "zh-TW";
-  const labels = getCopy(currentLocale);
+  setRequestLocale(locale);
+
+  const tIntegrity = await getTranslations("integrity");
   const integrityCases = await listIntegrityCases();
 
   return (
     <div className="space-y-6">
       <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
         <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {labels.integrity.heading}
+          {tIntegrity("heading")}
         </h2>
         <p className="mt-2 text-base text-[color:var(--color-muted)]">
-          {labels.integrity.subtitle}
+          {tIntegrity("subtitle")}
         </p>
       </section>
 
       {integrityCases.length === 0 ? (
         <section className={`${shellClassNames.card} px-6 py-6`}>
-          <p className="text-[color:var(--color-muted)]">No integrity cases recorded yet.</p>
+          <p className="text-[color:var(--color-muted)]">{tIntegrity("empty")}</p>
         </section>
       ) : (
         <section className="grid gap-4 lg:grid-cols-3">
@@ -39,10 +40,10 @@ export default async function IntegrityPage({
                 {item.state.replaceAll("_", " ")}
               </p>
               <h3 className="mt-2 text-2xl font-semibold">{item.userId}</h3>
-              <p className="mt-4 text-sm text-[color:var(--color-muted)]">Case score</p>
+              <p className="mt-4 text-sm text-[color:var(--color-muted)]">{tIntegrity("caseScore")}</p>
               <p className="mt-1 text-4xl font-[family-name:var(--font-display)]">{item.score}</p>
               <p className="mt-4 text-sm text-[color:var(--color-muted)]">
-                {item.signalCount} linked signals
+                {item.signalCount} {tIntegrity("linkedSignals")}
               </p>
             </article>
           ))}

@@ -10,7 +10,7 @@ import {
   workspaceRunRequestSchema,
   type ActorIdentity
 } from "@nojv/domain";
-import { getCopy, locales, type LocaleCode } from "@nojv/i18n";
+import { locales, type LocaleCode } from "@nojv/i18n";
 import { shellClassNames } from "@nojv/ui";
 
 import {
@@ -19,6 +19,29 @@ import {
   workspaceActorStorageKey
 } from "./actor-session";
 import { resolveWebAppOrigin } from "./runtime-config";
+
+const workspaceCopy: Record<LocaleCode, {
+  commandLabel: string;
+  policyLabel: string;
+  runLabel: string;
+  subtitle: string;
+  title: string;
+}> = {
+  en: {
+    commandLabel: "Command policy",
+    policyLabel: "Isolation mode",
+    runLabel: "Run workspace",
+    subtitle: "Execute makefiles, shell commands, and assignment workflows inside isolated sandboxes.",
+    title: "Workspace"
+  },
+  "zh-TW": {
+    commandLabel: "指令政策",
+    policyLabel: "隔離模式",
+    runLabel: "執行作業區",
+    subtitle: "在獨立沙盒內執行 makefile、shell 指令與課程作業流程。",
+    title: "Workspace"
+  }
+};
 
 const editorOptions = {
   automaticLayout: true,
@@ -175,7 +198,7 @@ export function App() {
     }
   ]);
 
-  const copy = getCopy(locale);
+  const copy = workspaceCopy[locale];
   const workspaceSessionId = buildWorkspaceSessionId({
     assessmentSlug:
       sandboxMode === "assignment" || sandboxMode === "exam" ? assessmentSlug : undefined,
@@ -312,10 +335,10 @@ export function App() {
           <div>
             <p className={shellClassNames.eyebrow}>NOJV Workspace</p>
             <h1 className="font-[family-name:var(--font-display)] text-3xl">
-              {copy.workspace.title}
+              {copy.title}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-7 text-[color:var(--color-muted)]">
-              {copy.workspace.subtitle}
+              {copy.subtitle}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -376,7 +399,7 @@ export function App() {
           </section>
 
           <section className={`${shellClassNames.card} px-5 py-5`}>
-            <p className={shellClassNames.eyebrow}>{copy.workspace.policyLabel}</p>
+            <p className={shellClassNames.eyebrow}>{copy.policyLabel}</p>
             <div className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--color-muted)]">
               <p>Assignment mode allows make plus course scripts inside a per-run workspace.</p>
               <p>
@@ -470,7 +493,7 @@ export function App() {
 
         <aside className="space-y-6">
           <section className={`${shellClassNames.cardStrong} px-5 py-5`}>
-            <p className={shellClassNames.eyebrow}>{copy.workspace.commandLabel}</p>
+            <p className={shellClassNames.eyebrow}>{copy.commandLabel}</p>
             <div className="mt-4 space-y-4">
               <label className="block text-sm">
                 <span className="mb-2 block text-[color:var(--color-muted)]">
@@ -545,7 +568,7 @@ export function App() {
                 onClick={() => void handleRun()}
                 type="button"
               >
-                {isRunning ? "Running..." : copy.workspace.runLabel}
+                {isRunning ? "Running..." : copy.runLabel}
               </button>
 
               {error ? (

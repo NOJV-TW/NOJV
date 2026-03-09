@@ -88,23 +88,6 @@ function pickProblemStatement(
   };
 }
 
-function mapProblemCatalogCard(problem: {
-  defaultTitle: string;
-  difficulty: string;
-  slug: string;
-  submissions?: { status: string }[];
-}) {
-  const totalSubmissions = problem.submissions?.length ?? 0;
-
-  return {
-    acceptanceRate: calculateAcceptanceRate(problem.submissions),
-    difficulty: problem.difficulty as "easy" | "hard" | "medium",
-    slug: problem.slug,
-    title: problem.defaultTitle,
-    totalSubmissions
-  };
-}
-
 function mapProblemShelfEntry(problem: {
   author?: { handle: string } | null;
   slug: string;
@@ -421,10 +404,8 @@ export async function getCoursePageData(slug: string): Promise<CoursePageDetailD
 export async function listProblemCards() {
   const persistedProblems = await prisma.problem.findMany({
     include: {
-      submissions: {
-        select: {
-          status: true
-        }
+      _count: {
+        select: { submissions: true }
       }
     },
     orderBy: {
@@ -435,7 +416,31 @@ export async function listProblemCards() {
     }
   });
 
-  return persistedProblems.map(mapProblemCatalogCard);
+  // Batch-fetch accepted counts per problem
+  const problemIds = persistedProblems.map((p) => p.id);
+  const acceptedCounts =
+    problemIds.length > 0
+      ? await prisma.submission.groupBy({
+          by: ["problemId"],
+          _count: true,
+          where: { problemId: { in: problemIds }, status: "accepted" }
+        })
+      : [];
+  const acceptedByProblemId = new Map(
+    acceptedCounts.map((r) => [r.problemId, r._count])
+  );
+
+  return persistedProblems.map((problem) => {
+    const total = problem._count.submissions;
+    const accepted = acceptedByProblemId.get(problem.id) ?? 0;
+    return {
+      acceptanceRate: total > 0 ? accepted / total : 0,
+      difficulty: problem.difficulty as "easy" | "hard" | "medium",
+      slug: problem.slug,
+      title: problem.defaultTitle,
+      totalSubmissions: total
+    };
+  });
 }
 
 export async function listContestCards() {
