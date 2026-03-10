@@ -35,7 +35,11 @@ export default async function LocaleLayout({
   const currentPath = hdrs.get("x-pathname") ?? `/${locale}`;
   const isAuthRoute = currentPath.includes("/auth/");
 
-  if (session?.user && !hasCompletedHandle(session.user as Record<string, unknown>) && !isAuthRoute) {
+  if (
+    session?.user &&
+    !hasCompletedHandle(session.user as Record<string, unknown>) &&
+    !isAuthRoute
+  ) {
     redirect(`/${locale}/auth/complete-profile`);
   }
 

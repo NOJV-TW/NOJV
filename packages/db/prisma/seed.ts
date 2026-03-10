@@ -104,13 +104,15 @@ async function main() {
         "zh-TW": {
           title: "Warmup Sum",
           body: "實作經典的暖身題。從標準輸入讀取兩個整數，並將它們的總和加上換行符號後輸出。",
-          inputFormat: "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
           outputFormat: "一行，輸出 $a + b$ 的值。"
         },
         en: {
           title: "Warmup Sum",
           body: "Implement the classic warmup judge task. Read exactly two integers from standard input and print their sum followed by a newline.",
-          inputFormat: "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
+          inputFormat:
+            "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
           outputFormat: "A single line containing the value of $a + b$."
         }
       },
@@ -147,13 +149,15 @@ async function main() {
         "zh-TW": {
           title: "Graph Docking",
           body: "為每艘船維護下一個可用碼頭。隱藏評審偏好使用 DSU 或貪心路徑壓縮方法。",
-          inputFormat: "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
           outputFormat: "一行，輸出無法成功停靠的船隻數量。"
         },
         en: {
           title: "Graph Docking",
           body: "Maintain the next available dock for each incoming ship. The hidden judge favors DSU or greedy path compression approaches.",
-          inputFormat: "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks. The next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks. The next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
           outputFormat: "A single line containing the number of ships that could not dock."
         }
       },
@@ -189,14 +193,17 @@ async function main() {
         "zh-TW": {
           title: "Distributed Labyrinth",
           body: "在多層走廊中協調多個代理，同時保持最短路徑保證。一旦迷宮開始分支，需要高效的狀態壓縮和最短路徑推理。",
-          inputFormat: "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
+          inputFormat:
+            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
           outputFormat: "一行，輸出從起點到終點的最短路徑長度。"
         },
         en: {
           title: "Distributed Labyrinth",
           body: "Coordinate multiple agents across layered corridors while preserving shortest-path guarantees. Efficient state compression and shortest-path reasoning are both required once the maze begins to branch.",
-          inputFormat: "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns. The next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall. The start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
-          outputFormat: "A single line containing the length of the shortest path from start to goal."
+          inputFormat:
+            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns. The next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall. The start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
+          outputFormat:
+            "A single line containing the length of the shortest path from start to goal."
         }
       },
       testcases: {
@@ -231,14 +238,18 @@ async function main() {
         "zh-TW": {
           title: "Process Log Parser",
           body: "解析作業系統行程追蹤並輸出正規化的生命週期日誌。這是一個私有題目，僅供課程作業使用。",
-          inputFormat: "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
-          outputFormat: "每行一個事件的正規化描述：`fork` 事件輸出 `<parent>-><child> forked`，`exit` 事件輸出 `<pid> exited`，`wait` 事件輸出 `<pid> waited`。"
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
+          outputFormat:
+            "每行一個事件的正規化描述：`fork` 事件輸出 `<parent>-><child> forked`，`exit` 事件輸出 `<pid> exited`，`wait` 事件輸出 `<pid> waited`。"
         },
         en: {
           title: "Process Log Parser",
           body: "Parse an operating-system process trace and emit a normalized lifecycle log. This private problem is meant for course-only usage.",
-          inputFormat: "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events. The next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
-          outputFormat: "One line per event: `fork` events produce `<parent>-><child> forked`, `exit` events produce `<pid> exited`, and `wait` events produce `<pid> waited`."
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events. The next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
+          outputFormat:
+            "One line per event: `fork` events produce `<parent>-><child> forked`, `exit` events produce `<pid> exited`, and `wait` events produce `<pid> waited`."
         }
       },
       testcases: {
@@ -280,13 +291,15 @@ async function main() {
         "zh-TW": {
           title: "Fork Bomb Safeguard",
           body: "計算在爆發約束下行程樹的最小成本隔離策略。這個題目在課程考試中保持私有。",
-          inputFormat: "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
+          inputFormat:
+            "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
           outputFormat: "一行，輸出最小隔離成本。"
         },
         en: {
           title: "Fork Bomb Safeguard",
           body: "Compute the minimum cost isolation strategy for a process tree under burst constraints. This problem stays private to the course exam.",
-          inputFormat: "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes. The next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
+          inputFormat:
+            "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes. The next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
           outputFormat: "A single line containing the minimum isolation cost."
         }
       },
@@ -323,13 +336,15 @@ async function main() {
         "zh-TW": {
           title: "兩數相加",
           body: "撰寫一個函式，接收兩個整數並回傳它們的總和。",
-          inputFormat: "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
           outputFormat: "一行，輸出 $a + b$ 的值。"
         },
         en: {
           title: "Add Two Numbers",
           body: "Write a function that takes two integers and returns their sum.",
-          inputFormat: "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
+          inputFormat:
+            "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
           outputFormat: "A single line containing the value of $a + b$."
         }
       },
@@ -386,14 +401,17 @@ if __name__ == "__main__":
         "zh-TW": {
           title: "浮點數比較",
           body: "計算結果並以浮點數精度輸出。答案與預期值的絕對差必須小於 1e-6。",
-          inputFormat: "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^9$）。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^9$）。",
           outputFormat: "一行，輸出 $a / b$ 的值。答案與預期值的絕對差須小於 $10^{-6}$。"
         },
         en: {
           title: "Float Compare",
           body: "Compute the result and output it with floating-point precision. Your answer must be within 1e-6 absolute difference of the expected value.",
-          inputFormat: "A single line containing two space-separated positive integers $a$ and $b$ ($1 \\le a, b \\le 10^9$).",
-          outputFormat: "A single line containing the value of $a / b$. Your answer must be within $10^{-6}$ absolute difference of the expected value."
+          inputFormat:
+            "A single line containing two space-separated positive integers $a$ and $b$ ($1 \\le a, b \\le 10^9$).",
+          outputFormat:
+            "A single line containing the value of $a / b$. Your answer must be within $10^{-6}$ absolute difference of the expected value."
         }
       },
       testcases: {
@@ -462,13 +480,15 @@ if __name__ == "__main__":
         "zh-TW": {
           title: "猜數字",
           body: "這是一道互動題。系統會選定一個秘密數字，你需要透過互動來猜出它。\\n\\n系統首先會輸出範圍 `lo hi`，你每次猜一個數字，系統會回應 `higher`（太小）、`lower`（太大）或 `correct`（猜對）。你最多有 20 次猜測機會。",
-          inputFormat: "第一行包含兩個整數 $lo$ 和 $hi$（$1 \\le lo \\le hi \\le 10^6$），表示數字的範圍。",
+          inputFormat:
+            "第一行包含兩個整數 $lo$ 和 $hi$（$1 \\le lo \\le hi \\le 10^6$），表示數字的範圍。",
           outputFormat: "每次輸出一個整數作為你的猜測。"
         },
         en: {
           title: "Guess the Number",
           body: "This is an interactive problem. The system picks a secret number and you must guess it.\\n\\nThe system first outputs the range `lo hi`. Each turn, you output a guess and the system responds with `higher` (too low), `lower` (too high), or `correct`. You have at most 20 guesses.",
-          inputFormat: "The first line contains two integers $lo$ and $hi$ ($1 \\le lo \\le hi \\le 10^6$), the range of the number.",
+          inputFormat:
+            "The first line contains two integers $lo$ and $hi$ ($1 \\le lo \\le hi \\le 10^6$), the range of the number.",
           outputFormat: "Output one integer per line as your guess."
         }
       },

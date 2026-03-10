@@ -25,7 +25,9 @@ export default async function CreateProblemPage({
 
   return (
     <div className="space-y-6">
-      <h2 className="font-[family-name:var(--font-display)] text-3xl">{tProblems("createNew")}</h2>
+      <h2 className="font-[family-name:var(--font-display)] text-3xl">
+        {tProblems("createNew")}
+      </h2>
       <ProblemCreationPanel />
     </div>
   );

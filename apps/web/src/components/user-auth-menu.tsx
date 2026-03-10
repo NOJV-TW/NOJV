@@ -55,8 +55,8 @@ export function UserAuthMenu() {
     return null;
   }
 
-  const name = session.user.name ?? "";
-  const initial = name.charAt(0).toUpperCase() || "?";
+  const name = session.user.name;
+  const initial = (name.charAt(0) || "?").toUpperCase();
   const hasHandle = !!session.user.username;
 
   return (
@@ -79,7 +79,9 @@ export function UserAuthMenu() {
           >
             <div className="border-b border-[color:var(--color-border)] px-4 py-2.5">
               <p className="truncate text-sm font-medium">{name}</p>
-              <p className="truncate text-xs text-[color:var(--color-muted)]">{session.user.email}</p>
+              <p className="truncate text-xs text-[color:var(--color-muted)]">
+                {session.user.email}
+              </p>
             </div>
             {hasHandle && (
               <Link
@@ -93,7 +95,12 @@ export function UserAuthMenu() {
             )}
             <button
               className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
-              onClick={() => void authClient.signOut().then(() => { router.push(`/${locale}`); router.refresh(); })}
+              onClick={() =>
+                void authClient.signOut().then(() => {
+                  router.push(`/${locale}`);
+                  router.refresh();
+                })
+              }
               type="button"
             >
               <LogOut size={16} />

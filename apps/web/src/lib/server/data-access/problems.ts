@@ -9,7 +9,12 @@ export async function createProblemRecord(
   actor: CompletedActorContext,
   payload: ProblemCreate
 ) {
-  const slug = payload.slug || payload.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const slug =
+    payload.slug ||
+    payload.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
   return prisma.$transaction(async (tx) => {
     const existing = await tx.problem.findUnique({

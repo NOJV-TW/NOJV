@@ -10,7 +10,7 @@ import { getCoursePermissionRole } from "./roles";
 
 function getLocaleFromHeaders(hdrs: Headers): string {
   const pathname = hdrs.get("x-pathname") ?? "";
-  const match = pathname.match(/^\/([a-z-]+)\//);
+  const match = /^\/([a-z-]+)\//.exec(pathname);
   return match?.[1] ?? "zh-TW";
 }
 

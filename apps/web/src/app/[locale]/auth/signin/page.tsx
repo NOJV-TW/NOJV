@@ -103,7 +103,10 @@ export default function SignInPage() {
         </form>
         <p className="mt-4 text-center text-sm text-[color:var(--color-muted)]">
           {t("noAccount")}{" "}
-          <Link className="text-[color:var(--color-accent)] underline" href={`/${locale}/auth/signup`}>
+          <Link
+            className="text-[color:var(--color-accent)] underline"
+            href={`/${locale}/auth/signup`}
+          >
             {t("signUp")}
           </Link>
         </p>

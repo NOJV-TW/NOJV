@@ -44,7 +44,11 @@ interface ProblemEditorProps {
       }
     | undefined;
   contestSlug?: string | undefined;
-  onSubmissionComplete?: (result: SubmissionResult, language: string, sourceCode: string) => void;
+  onSubmissionComplete?: (
+    result: SubmissionResult,
+    language: string,
+    sourceCode: string
+  ) => void;
   problem: ProblemDetail;
 }
 
@@ -175,9 +179,7 @@ export function ProblemEditor({
       {/* Top toolbar */}
       <div className="flex items-center justify-between border-b border-[color:var(--color-border)] bg-white px-4 py-2">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-medium text-stone-500">
-            &lt;/&gt; {t("code")}
-          </span>
+          <span className="text-xs font-medium text-stone-500">&lt;/&gt; {t("code")}</span>
           <select
             className="rounded-md border border-stone-200 bg-transparent px-2 py-1 text-xs"
             onChange={(event) => setLanguage(event.target.value as Language)}
@@ -341,7 +343,9 @@ export function ProblemEditor({
                   onChange={(event) => {
                     const val = event.target.value;
                     setTestcases((prev) =>
-                      prev.map((tc, i) => (i === selectedCase ? { ...tc, expectedOutput: val } : tc))
+                      prev.map((tc, i) =>
+                        i === selectedCase ? { ...tc, expectedOutput: val } : tc
+                      )
                     );
                   }}
                   rows={2}
@@ -417,7 +421,9 @@ export function ProblemEditor({
                         {/* Expected */}
                         {testcases[selectedResultCase]?.expectedOutput ? (
                           <div>
-                            <p className="text-xs font-medium text-stone-400">{t("expectedOutput")}</p>
+                            <p className="text-xs font-medium text-stone-400">
+                              {t("expectedOutput")}
+                            </p>
                             <pre className="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">
                               {testcases[selectedResultCase].expectedOutput}
                             </pre>
