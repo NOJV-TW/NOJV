@@ -50,7 +50,11 @@ export function ProblemWorkspace({
   const [submissions, setSubmissions] = useState<SubmissionEntry[]>([]);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
 
-  function handleSubmissionComplete(result: SubmissionResult, language: string, sourceCode: string) {
+  function handleSubmissionComplete(
+    result: SubmissionResult,
+    language: string,
+    sourceCode: string
+  ) {
     setSubmissions((previous) => [
       {
         language,
@@ -249,9 +253,7 @@ export function ProblemWorkspace({
 
                       {/* Source code */}
                       <div className="mt-5">
-                        <p className="text-xs font-medium text-stone-400">
-                          {tEditor("code")}
-                        </p>
+                        <p className="text-xs font-medium text-stone-400">{tEditor("code")}</p>
                         <pre className="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">
                           {entry.sourceCode}
                         </pre>

@@ -10,7 +10,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/")) return true;
 
   // Auth pages: /xx/auth/* or /auth/* (before intl rewrite)
-  if (pathname.match(/^(\/[a-zA-Z-]+)?\/auth\//)) return true;
+  if (/^(\/[a-zA-Z-]+)?\/auth\//.exec(pathname)) return true;
 
   // Root "/" and locale roots like "/zh-TW", "/en" (no further segments)
   const segments = pathname.split("/").filter(Boolean);
@@ -28,7 +28,7 @@ export default function proxy(request: NextRequest) {
 
     if (!hasSession) {
       // Detect locale from pathname or fall back to default
-      const localeMatch = pathname.match(/^\/([a-z-]+)\//);
+      const localeMatch = /^\/([a-z-]+)\//.exec(pathname);
       const locale = localeMatch?.[1] ?? routing.defaultLocale;
       const homeUrl = new URL(`/${locale}`, request.url);
       return NextResponse.redirect(homeUrl);

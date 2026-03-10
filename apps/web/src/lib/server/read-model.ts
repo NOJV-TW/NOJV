@@ -62,7 +62,15 @@ export interface CoursePageDetailData {
 // --- Helper functions ---
 
 function pickProblemStatement(
-  statements: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[] | undefined,
+  statements:
+    | {
+        bodyMarkdown: string;
+        inputFormat?: string;
+        locale: string;
+        outputFormat?: string;
+        title: string;
+      }[]
+    | undefined,
   locale: string,
   fallbackTitle: string,
   fallbackStatement: string
@@ -81,7 +89,13 @@ function pickProblemStatement(
 function mapProblemShelfEntry(problem: {
   author?: { handle: string | null } | null;
   slug: string;
-  statements?: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[];
+  statements?: {
+    bodyMarkdown: string;
+    inputFormat?: string;
+    locale: string;
+    outputFormat?: string;
+    title: string;
+  }[];
   summary: string;
   visibility: "private" | "public";
 }) {
@@ -191,7 +205,13 @@ function mapPersistedCourse(course: {
     problem: {
       author?: { handle: string | null } | null;
       slug: string;
-      statements?: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[];
+      statements?: {
+        bodyMarkdown: string;
+        inputFormat?: string;
+        locale: string;
+        outputFormat?: string;
+        title: string;
+      }[];
       summary: string;
       visibility: "private" | "public";
     };
@@ -255,7 +275,13 @@ function mapPersistedProblemDetail(
     defaultTitle: string;
     difficulty: string;
     slug: string;
-    statements?: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[];
+    statements?: {
+      bodyMarkdown: string;
+      inputFormat?: string;
+      locale: string;
+      outputFormat?: string;
+      title: string;
+    }[];
     summary: string;
     tags?: string[];
     testcaseSets?: {

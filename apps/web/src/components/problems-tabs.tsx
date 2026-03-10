@@ -25,9 +25,14 @@ interface EditableProblemCard {
 
 type Difficulty = "all" | "easy" | "medium" | "hard";
 
-function useFilteredProblems<T extends { difficulty: "easy" | "hard" | "medium"; slug: string; tags: string[]; title: string }>(
-  problems: T[]
-) {
+function useFilteredProblems<
+  T extends {
+    difficulty: "easy" | "hard" | "medium";
+    slug: string;
+    tags: string[];
+    title: string;
+  }
+>(problems: T[]) {
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("all");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
@@ -40,7 +45,11 @@ function useFilteredProblems<T extends { difficulty: "easy" | "hard" | "medium";
   const filtered = useMemo(() => {
     const query = search.toLowerCase();
     return problems.filter((p) => {
-      if (query && !p.title.toLowerCase().includes(query) && !p.slug.toLowerCase().includes(query)) {
+      if (
+        query &&
+        !p.title.toLowerCase().includes(query) &&
+        !p.slug.toLowerCase().includes(query)
+      ) {
         return false;
       }
       if (difficulty !== "all" && p.difficulty !== difficulty) {
@@ -71,7 +80,17 @@ function useFilteredProblems<T extends { difficulty: "easy" | "hard" | "medium";
     setSelectedTags(new Set());
   };
 
-  return { allTags, difficulty, filtered, reset, search, selectedTags, setDifficulty, setSearch, toggleTag };
+  return {
+    allTags,
+    difficulty,
+    filtered,
+    reset,
+    search,
+    selectedTags,
+    setDifficulty,
+    setSearch,
+    toggleTag
+  };
 }
 
 export function ProblemsTabs({
@@ -110,7 +129,10 @@ export function ProblemsTabs({
               ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-white"
               : "border-[color:var(--color-border)] hover:-translate-y-0.5 hover:bg-white/70"
           }`}
-          onClick={() => { setTab("public"); mineFilter.reset(); }}
+          onClick={() => {
+            setTab("public");
+            mineFilter.reset();
+          }}
           type="button"
         >
           {tProblems("publicLibrary")}
@@ -122,7 +144,10 @@ export function ProblemsTabs({
                 ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-white"
                 : "border-[color:var(--color-border)] hover:-translate-y-0.5 hover:bg-white/70"
             }`}
-            onClick={() => { setTab("mine"); publicFilter.reset(); }}
+            onClick={() => {
+              setTab("mine");
+              publicFilter.reset();
+            }}
             type="button"
           >
             {tProblems("myProblems")}
@@ -160,8 +185,14 @@ export function ProblemsTabs({
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2" aria-label={tProblems("filterByDifficulty")} role="group">
-          <span className="text-xs font-medium text-[color:var(--color-muted)]">{tCommon("difficulty")}:</span>
+        <div
+          className="flex flex-wrap items-center gap-2"
+          aria-label={tProblems("filterByDifficulty")}
+          role="group"
+        >
+          <span className="text-xs font-medium text-[color:var(--color-muted)]">
+            {tCommon("difficulty")}:
+          </span>
           {difficulties.map((d) => (
             <button
               className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
@@ -179,7 +210,11 @@ export function ProblemsTabs({
         </div>
 
         {activeFilter.allTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2" aria-label={tProblems("filterByTag")} role="group">
+          <div
+            className="flex flex-wrap items-center gap-2"
+            aria-label={tProblems("filterByTag")}
+            role="group"
+          >
             {activeFilter.allTags.map((tag) => (
               <button
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition ${

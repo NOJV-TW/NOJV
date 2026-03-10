@@ -49,8 +49,8 @@ describe("required handle onboarding", () => {
 
     const { requireAuth } = await import("../src/lib/server/authorization/guards");
 
-    await expect(requireAuth()).rejects.toThrowError("REDIRECT:/auth/complete-profile");
-    expect(redirect).toHaveBeenCalledWith("/auth/complete-profile");
+    await expect(requireAuth()).rejects.toThrowError("REDIRECT:/zh-TW/auth/complete-profile");
+    expect(redirect).toHaveBeenCalledWith("/zh-TW/auth/complete-profile");
   });
 
   it("returns the actor context once the handle is present", async () => {

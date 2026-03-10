@@ -41,7 +41,9 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
             <dd className="mt-1 font-medium">{session.user.email}</dd>
           </div>
           <div>
-            <dt className="text-sm text-[color:var(--color-muted)]">{tAccount("userAccount")}</dt>
+            <dt className="text-sm text-[color:var(--color-muted)]">
+              {tAccount("userAccount")}
+            </dt>
             <dd className="mt-1 font-medium">{handle}</dd>
           </div>
           <div>

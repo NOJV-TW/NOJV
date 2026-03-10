@@ -24,7 +24,10 @@ export default async function CoursesPage({ params }: { params: Promise<{ locale
 
   const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user.id ?? null;
-  const platformRole = ((session?.user as Record<string, unknown> | undefined)?.platformRole as PlatformRole) ?? "student";
+  const platformRole =
+    ((session?.user as Record<string, unknown> | undefined)?.platformRole as
+      | PlatformRole
+      | undefined) ?? "student";
   const isStaff = canCreateCourse(platformRole);
 
   const courses = isStaff

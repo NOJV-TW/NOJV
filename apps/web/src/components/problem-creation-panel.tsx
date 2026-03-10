@@ -1,6 +1,12 @@
 "use client";
 
-import { startTransition, useRef, useState, type KeyboardEvent, type SyntheticEvent } from "react";
+import {
+  startTransition,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type SyntheticEvent
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { useLocale, useTranslations } from "next-intl";
@@ -90,10 +96,15 @@ function detectSubtasksFromFiles(
 
   // Group files by: stem → { in content, out content }
   // stem = filename without extension
-  const bySubtask = new Map<string, Map<string, { in?: string; out?: string; fileName: string }>>();
+  const bySubtask = new Map<
+    string,
+    Map<string, { in?: string; out?: string; fileName: string }>
+  >();
 
   for (const file of files) {
-    const baseName = file.name.includes("/") ? file.name.split("/").pop()! : file.name;
+    const baseName = file.name.includes("/")
+      ? (file.name.split("/").pop() ?? file.name)
+      : file.name;
     const isIn = baseName.endsWith(inExt);
     const isOut = baseName.endsWith(outExt);
     if (!isIn && !isOut) continue;
@@ -109,11 +120,13 @@ function detectSubtasksFromFiles(
     if (!bySubtask.has(subtaskId)) {
       bySubtask.set(subtaskId, new Map());
     }
-    const cases = bySubtask.get(subtaskId)!;
+    const cases = bySubtask.get(subtaskId);
+    if (!cases) continue;
     if (!cases.has(caseId)) {
       cases.set(caseId, { fileName: stem });
     }
-    const entry = cases.get(caseId)!;
+    const entry = cases.get(caseId);
+    if (!entry) continue;
     if (isIn) entry.in = file.content;
     if (isOut) entry.out = file.content;
   }
@@ -127,12 +140,14 @@ function detectSubtasksFromFiles(
   const sortedSubtaskIds = [...bySubtask.keys()].sort((a, b) => Number(a) - Number(b));
 
   for (const subtaskId of sortedSubtaskIds) {
-    const casesMap = bySubtask.get(subtaskId)!;
+    const casesMap = bySubtask.get(subtaskId);
+    if (!casesMap) continue;
     const sortedCaseIds = [...casesMap.keys()].sort((a, b) => Number(a) - Number(b));
     const indices: number[] = [];
 
     for (const caseId of sortedCaseIds) {
-      const entry = casesMap.get(caseId)!;
+      const entry = casesMap.get(caseId);
+      if (!entry) continue;
       indices.push(allCases.length);
       allCases.push({
         stdin: entry.in ?? "",
@@ -236,7 +251,9 @@ export function ProblemCreationPanel() {
       const fileNames = Object.keys(zip.files).filter((n) => !zip.files[n]?.dir);
 
       for (const name of fileNames) {
-        const content = await zip.files[name]!.async("string");
+        const zipEntry = zip.files[name];
+        if (!zipEntry) continue;
+        const content = await zipEntry.async("string");
         allFiles.push({ name, content });
       }
 
@@ -269,7 +286,7 @@ export function ProblemCreationPanel() {
       if (start >= parsedCases.length) break;
       const indices = Array.from({ length: end - start }, (_, k) => start + k);
       newSubtasks.push({
-        name: `Subtask ${i + 1}`,
+        name: `Subtask ${String(i + 1)}`,
         description: "",
         points: Math.round(100 / count),
         caseIndices: indices
@@ -282,7 +299,12 @@ export function ProblemCreationPanel() {
     // New subtask with no cases assigned
     setSubtasks((prev) => [
       ...prev,
-      { name: `Subtask ${prev.length + 1}`, description: "", points: 0, caseIndices: [] }
+      {
+        name: `Subtask ${String(prev.length + 1)}`,
+        description: "",
+        points: 0,
+        caseIndices: []
+      }
     ]);
   }
 
@@ -298,7 +320,7 @@ export function ProblemCreationPanel() {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    const slug = rawSlug.length >= 3 ? rawSlug : `problem-${Date.now()}`;
+    const slug = rawSlug.length >= 3 ? rawSlug : `problem-${String(Date.now())}`;
 
     try {
       await createProblemMutation({
@@ -611,7 +633,9 @@ export function ProblemCreationPanel() {
                 />
               </div>
               <div className="grid gap-1">
-                <span className="text-xs text-[color:var(--color-muted)]">Output Extension</span>
+                <span className="text-xs text-[color:var(--color-muted)]">
+                  Output Extension
+                </span>
                 <input
                   className={`${smallInputClassName} w-16`}
                   onChange={(event) => setOutExt(event.target.value)}
@@ -634,7 +658,8 @@ export function ProblemCreationPanel() {
               </div>
             </div>
             <p className="mt-2 text-xs text-[color:var(--color-muted)]">
-              Group 1 = subtask ID, Group 2 = case ID. e.g. <code className="rounded bg-white/80 px-1">1-01.in</code> → subtask 1, case 01
+              Group 1 = subtask ID, Group 2 = case ID. e.g.{" "}
+              <code className="rounded bg-white/80 px-1">1-01.in</code> → subtask 1, case 01
             </p>
           </div>
 
@@ -649,14 +674,18 @@ export function ProblemCreationPanel() {
                 <span className="text-xs text-[color:var(--color-muted)]">
                   {subtasks.length} subtask{subtasks.length !== 1 ? "s" : ""} detected
                 </span>
-                <span className={`text-xs font-medium ${totalPoints === 100 ? "text-emerald-600" : "text-amber-600"}`}>
+                <span
+                  className={`text-xs font-medium ${totalPoints === 100 ? "text-emerald-600" : "text-amber-600"}`}
+                >
                   {totalPoints}/100 pts
                 </span>
               </div>
 
               {/* Auto-split controls */}
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[color:var(--color-muted)]">Auto-split into:</span>
+                <span className="text-xs text-[color:var(--color-muted)]">
+                  Auto-split into:
+                </span>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
                     className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
@@ -726,7 +755,9 @@ export function ProblemCreationPanel() {
                     {/* Description */}
                     <textarea
                       className="mt-3 w-full rounded-xl border border-[color:var(--color-border)] bg-white/80 px-3 py-2 text-sm"
-                      onChange={(event) => updateSubtask(si, { description: event.target.value })}
+                      onChange={(event) =>
+                        updateSubtask(si, { description: event.target.value })
+                      }
                       placeholder={`${subtask.name} description...`}
                       rows={2}
                       value={subtask.description}
@@ -740,7 +771,10 @@ export function ProblemCreationPanel() {
                         </summary>
                         <div className="mt-1 max-h-32 overflow-y-auto rounded border border-[color:var(--color-border)] bg-white/40 px-3 py-2">
                           {subtask.caseIndices.map((idx) => (
-                            <p className="text-xs font-mono text-[color:var(--color-muted)]" key={idx}>
+                            <p
+                              className="text-xs font-mono text-[color:var(--color-muted)]"
+                              key={idx}
+                            >
                               #{idx + 1} — {parsedCases[idx]?.sourceFile ?? "unknown"}
                             </p>
                           ))}
