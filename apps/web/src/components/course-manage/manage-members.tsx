@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { shellClassNames } from "@nojv/ui";
 
 import { enrollCourseMemberMutation } from "@/lib/client/course-management-client";
-import type { CoursePocMember } from "@/lib/server/read-model";
+import type { CourseMemberRecord } from "@/lib/server/read-model";
 
 interface ManageMembersProps {
   courseSlug: string;
   courseTitle: string;
-  members: CoursePocMember[];
+  members: CourseMemberRecord[];
 }
 
 export function ManageMembers({ courseSlug, courseTitle, members }: ManageMembersProps) {
@@ -71,7 +71,7 @@ export function ManageMembers({ courseSlug, courseTitle, members }: ManageMember
               <div>
                 <p className="text-lg font-semibold">{member.displayName}</p>
                 <p className="mt-1 text-sm text-[color:var(--color-muted)]">
-                  {member.handle} · {member.email}
+                  {member.handle ?? "—"} · {member.email}
                 </p>
               </div>
               <div className="text-right">

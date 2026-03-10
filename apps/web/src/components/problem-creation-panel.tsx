@@ -7,9 +7,9 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { shellClassNames } from "@nojv/ui";
 
+import { authClient } from "@/lib/auth-client";
+import { readPlatformRole } from "@/lib/auth-onboarding";
 import { createProblemMutation } from "@/lib/client/course-management-client";
-
-import { useActorSession } from "./actor-session-provider";
 
 const inputClassName =
   "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
@@ -17,7 +17,9 @@ const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
 export function ProblemCreationPanel() {
   const router = useRouter();
-  const { actor } = useActorSession();
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+  const platformRole = readPlatformRole(user);
   const locale = useLocale();
   const tAdmin = useTranslations("admin");
   const tCommon = useTranslations("common");
@@ -40,17 +42,14 @@ export function ProblemCreationPanel() {
     setError(null);
 
     try {
-      await createProblemMutation(
-        {
-          difficulty,
-          slug,
-          statement,
-          summary,
-          title,
-          visibility
-        },
-        actor
-      );
+      await createProblemMutation({
+        difficulty,
+        slug,
+        statement,
+        summary,
+        title,
+        visibility
+      });
       setMessage(`Created ${title}. Redirecting to the authored problem...`);
       startTransition(() => {
         router.push(`/${locale}/problems/${slug}`);
@@ -69,7 +68,7 @@ export function ProblemCreationPanel() {
           <p className={shellClassNames.eyebrow}>{tAdmin("authorProblem")}</p>
           <h3 className={shellClassNames.sectionTitle}>{tAdmin("createProblemSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>{actor.platformRole}</span>
+        <span className={shellClassNames.badge}>{platformRole}</span>
       </div>
       <form className="mt-5 grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="text-sm text-[color:var(--color-muted)]">

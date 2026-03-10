@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { localActorPresets } from "@nojv/domain";
-
 import {
   attachProblemToCourseMutation,
   createCourseMutation,
@@ -35,7 +33,7 @@ function createFetcherRecorder(responseBody: unknown, status = 200) {
 }
 
 describe("course management client mutations", () => {
-  it("sends actor-authenticated course creation requests", async () => {
+  it("sends course creation requests", async () => {
     const { calls, fetcher } = createFetcherRecorder({ slug: "compiler-design-2026" }, 201);
 
     await createCourseMutation(
@@ -45,7 +43,6 @@ describe("course management client mutations", () => {
         slug: "compiler-design-2026",
         title: "Compiler Design"
       },
-      localActorPresets.teacher,
       fetcher
     );
 
@@ -59,17 +56,13 @@ describe("course management client mutations", () => {
         title: "Compiler Design"
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "Content-Type": "application/json",
-        "x-nojv-actor-id": "usr_teacher_amelia",
-        "x-nojv-platform-role": "teacher"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
-  it("sends problem authoring requests with the selected actor", async () => {
+  it("sends problem authoring requests", async () => {
     const { calls, fetcher } = createFetcherRecorder({ slug: "compiler-intro" }, 201);
 
     await createProblemMutation(
@@ -81,7 +74,6 @@ describe("course management client mutations", () => {
         title: "Compiler Intro",
         visibility: "public"
       },
-      localActorPresets.teacher,
       fetcher
     );
 
@@ -97,11 +89,9 @@ describe("course management client mutations", () => {
         visibility: "public"
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "x-nojv-handle": "teacher_amelia"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
@@ -114,7 +104,6 @@ describe("course management client mutations", () => {
         joinMethod: "join_code",
         joinToken: "OSLAB2026"
       },
-      localActorPresets.student,
       fetcher
     );
 
@@ -127,12 +116,9 @@ describe("course management client mutations", () => {
         joinToken: "OSLAB2026"
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "x-nojv-actor-id": "usr_student_alice",
-        "x-nojv-platform-role": "student"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
@@ -147,7 +133,6 @@ describe("course management client mutations", () => {
         handle: "stu_carol",
         role: "student"
       },
-      localActorPresets.teacher,
       fetcher
     );
 
@@ -162,12 +147,9 @@ describe("course management client mutations", () => {
         role: "student"
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "Content-Type": "application/json",
-        "x-nojv-actor-id": "usr_teacher_amelia"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
@@ -179,7 +161,6 @@ describe("course management client mutations", () => {
         courseSlug: "os-lab-spring-2026",
         problemSlug: "compiler-intro"
       },
-      localActorPresets.teacher,
       fetcher
     );
 
@@ -191,12 +172,9 @@ describe("course management client mutations", () => {
         problemSlug: "compiler-intro"
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "Content-Type": "application/json",
-        "x-nojv-actor-id": "usr_teacher_amelia"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
@@ -208,14 +186,15 @@ describe("course management client mutations", () => {
         closesAt: "2026-03-25T15:00:00.000Z",
         courseSlug: "os-lab-spring-2026",
         dueAt: "2026-03-23T15:00:00.000Z",
+        ipLockEnabled: false,
         opensAt: "2026-03-17T09:00:00.000Z",
+        pageLockEnabled: false,
         problemSlugs: ["compiler-intro"],
         slug: "hw1-parser",
         summary: "First compiler homework.",
         title: "Homework 1",
         type: "assignment"
       },
-      localActorPresets.teacher,
       fetcher
     );
 
@@ -236,12 +215,9 @@ describe("course management client mutations", () => {
         type: "assignment"
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "Content-Type": "application/json",
-        "x-nojv-actor-id": "usr_teacher_amelia"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 
@@ -261,7 +237,6 @@ describe("course management client mutations", () => {
         name: "Samples",
         weight: 1
       },
-      localActorPresets.teacher,
       fetcher
     );
 
@@ -280,12 +255,9 @@ describe("course management client mutations", () => {
         weight: 1
       })
     );
-    expect(calls[0]?.init?.headers).toEqual(
-      expect.objectContaining({
-        "Content-Type": "application/json",
-        "x-nojv-actor-id": "usr_teacher_amelia"
-      })
-    );
+    expect(calls[0]?.init?.headers).toEqual({
+      "Content-Type": "application/json"
+    });
     expect(calls[0]?.init?.method).toBe("POST");
   });
 });

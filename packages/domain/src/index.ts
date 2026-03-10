@@ -87,103 +87,6 @@ export const integrityRiskLevelSchema = z.enum(integrityRiskLevels);
 export const submissionVerdictSchema = z.enum(submissionVerdicts);
 export const submissionOperationStatusSchema = z.enum(submissionOperationStatuses);
 export const workspaceOperationStatusSchema = z.enum(workspaceOperationStatuses);
-export const actorIdentitySchema = z.object({
-  displayName: z.string().trim().min(2).max(120),
-  email: z.email(),
-  handle: z
-    .string()
-    .trim()
-    .min(3)
-    .max(64)
-    .regex(/^[a-z0-9._-]+$/),
-  platformRole: platformRoleSchema,
-  userId: z.string().trim().min(3).max(64)
-});
-
-const actorSearchParamKeys = {
-  displayName: "actorName",
-  email: "actorEmail",
-  handle: "actorHandle",
-  platformRole: "actorRole",
-  userId: "actorId"
-} as const;
-
-export const localActorPresets = {
-  admin: actorIdentitySchema.parse({
-    displayName: "Admin",
-    email: "admin@nojv.local",
-    handle: "admin",
-    platformRole: "admin",
-    userId: "usr_admin"
-  }),
-  student: actorIdentitySchema.parse({
-    displayName: "Student",
-    email: "student@nojv.local",
-    handle: "student",
-    platformRole: "student",
-    userId: "usr_student"
-  }),
-  ta: actorIdentitySchema.parse({
-    displayName: "TA Student",
-    email: "ta-student@nojv.local",
-    handle: "ta-student",
-    platformRole: "student",
-    userId: "usr_ta_student"
-  }),
-  teacher: actorIdentitySchema.parse({
-    displayName: "Teacher",
-    email: "teacher@nojv.local",
-    handle: "teacher",
-    platformRole: "teacher",
-    userId: "usr_teacher"
-  })
-} as const;
-
-export const defaultLocalActor = localActorPresets.student;
-
-export function buildActorRequestHeaders(actor: ActorIdentity) {
-  return {
-    "x-nojv-actor-id": actor.userId,
-    "x-nojv-display-name": actor.displayName,
-    "x-nojv-email": actor.email,
-    "x-nojv-handle": actor.handle,
-    "x-nojv-platform-role": actor.platformRole
-  };
-}
-
-export function readActorIdentityFromSearchParams(searchParams: URLSearchParams) {
-  const candidate = {
-    displayName: searchParams.get(actorSearchParamKeys.displayName),
-    email: searchParams.get(actorSearchParamKeys.email),
-    handle: searchParams.get(actorSearchParamKeys.handle),
-    platformRole: searchParams.get(actorSearchParamKeys.platformRole),
-    userId: searchParams.get(actorSearchParamKeys.userId)
-  };
-
-  if (Object.values(candidate).some((value) => !value)) {
-    return null;
-  }
-
-  const parsed = actorIdentitySchema.safeParse(candidate);
-
-  return parsed.success ? parsed.data : null;
-}
-
-export function writeActorIdentityToSearchParams(
-  searchParams: URLSearchParams,
-  actor: ActorIdentity
-) {
-  const next = new URLSearchParams(searchParams.toString());
-
-  next.set(actorSearchParamKeys.displayName, actor.displayName);
-  next.set(actorSearchParamKeys.email, actor.email);
-  next.set(actorSearchParamKeys.handle, actor.handle);
-  next.set(actorSearchParamKeys.platformRole, actor.platformRole);
-  next.set(actorSearchParamKeys.userId, actor.userId);
-
-  return next;
-}
-
 const slugSchema = z
   .string()
   .min(3)
@@ -509,7 +412,6 @@ export const workspaceRunOperationSchema = z.object({
 });
 
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
-export type ActorIdentity = z.infer<typeof actorIdentitySchema>;
 export type CheatingSignal = z.infer<typeof cheatingSignalSchema>;
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
 export type ContestSession = z.infer<typeof contestSessionSchema>;

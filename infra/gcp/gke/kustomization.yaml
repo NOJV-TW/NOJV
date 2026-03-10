@@ -5,7 +5,3 @@ resources:
   - namespace.yaml
   - worker.deployment.yaml
   - worker.scaledobject.yaml
-  - sandbox.deployment.yaml
-  - sandbox.service.yaml
-  - sandbox.hpa.yaml
-  - sandbox.networkpolicy.yaml

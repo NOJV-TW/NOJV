@@ -6,9 +6,9 @@ import { useTranslations } from "next-intl";
 
 import { shellClassNames } from "@nojv/ui";
 
+import { authClient } from "@/lib/auth-client";
+import { readPlatformRole } from "@/lib/auth-onboarding";
 import { createProblemTestcaseSetMutation } from "@/lib/client/course-management-client";
-
-import { useActorSession } from "./actor-session-provider";
 
 const inputClassName =
   "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
@@ -24,7 +24,9 @@ interface DraftCase {
 }
 
 export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps) {
-  const { actor } = useActorSession();
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+  const platformRole = readPlatformRole(user);
   const t = useTranslations("testcases");
   const [name, setName] = useState("Samples");
   const [isHidden, setIsHidden] = useState(false);
@@ -53,8 +55,7 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
           isHidden,
           name,
           weight
-        },
-        actor
+        }
       );
       setMessage(`Created testcase set ${name} with ${String(cases.length)} case(s).`);
     } catch (issue) {
@@ -71,7 +72,7 @@ export function ProblemTestcasePanel({ problemSlug }: ProblemTestcasePanelProps)
           <p className={shellClassNames.eyebrow}>{t("authorTestcases")}</p>
           <p className="mt-1 text-lg font-semibold">{t("authorTestcasesSubtitle")}</p>
         </div>
-        <span className={shellClassNames.badge}>{actor.platformRole}</span>
+        <span className={shellClassNames.badge}>{platformRole}</span>
       </div>
       <form className="mt-5 grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
         <div className="grid gap-4 md:grid-cols-[1fr_120px_140px]">

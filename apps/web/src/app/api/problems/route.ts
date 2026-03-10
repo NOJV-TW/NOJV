@@ -2,7 +2,7 @@ import { problemCreateSchema } from "@nojv/domain";
 import { NextResponse } from "next/server";
 
 import { withAuth } from "@/lib/server/api-handler";
-import { createProblemRecord } from "@/lib/server/poc-persistence";
+import { createProblemRecord } from "@/lib/server/data-access/problems";
 
 export const POST = withAuth(async (request, actor) => {
   const payload = problemCreateSchema.parse(await request.json());

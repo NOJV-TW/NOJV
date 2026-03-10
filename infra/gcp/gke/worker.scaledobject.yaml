@@ -16,10 +16,5 @@ spec:
     - type: redis
       metadata:
         addressFromEnv: REDIS_URL
-        listLength: "3"
-        listName: bull:workspace-run:wait
-    - type: redis
-      metadata:
-        addressFromEnv: REDIS_URL
         listLength: "10"
         listName: bull:cheating-signal:wait

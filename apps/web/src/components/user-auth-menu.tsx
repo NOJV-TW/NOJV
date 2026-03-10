@@ -24,7 +24,7 @@ export function UserAuthMenu() {
     return (
       <div className="flex items-center gap-2">
         <span className={`${shellClassNames.badge} max-w-[10rem] truncate`}>
-          {session.user.name ?? session.user.email}
+          {session.user.name}
         </span>
         <button
           className="rounded-full border border-[color:var(--color-border)] px-3 py-1.5 text-sm transition hover:-translate-y-0.5 hover:bg-white/70"

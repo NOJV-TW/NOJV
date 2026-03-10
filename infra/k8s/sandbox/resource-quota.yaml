@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sandbox-quota
+  namespace: nojv-sandbox
+spec:
+  hard:
+    pods: "50"
+    requests.cpu: "25"
+    requests.memory: "12Gi"

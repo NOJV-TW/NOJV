@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 
-import { formatAcceptanceRate, shellClassNames } from "@nojv/ui";
+import { shellClassNames } from "@nojv/ui";
 
-import {
-  getDashboardStats,
-  listContestCards,
-  listCourseCards,
-  listProblemCards
-} from "@/lib/server/read-model";
-import { resolveWorkspaceAppUrl } from "@/lib/workspace-launch";
+import { auth } from "@/lib/auth";
+import { listAnnouncements, listUpcomingAssessments } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -20,139 +16,115 @@ export default async function LocaleHomePage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [tHero, tNav, tCommon] = await Promise.all([
-    getTranslations("hero"),
-    getTranslations("navigation"),
-    getTranslations("common")
+  const [tHome, tAuth] = await Promise.all([
+    getTranslations("home"),
+    getTranslations("auth")
   ]);
-  const [courses, problems, contests, stats] = await Promise.all([
-    listCourseCards(),
-    listProblemCards(),
-    listContestCards(),
-    getDashboardStats()
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const isLoggedIn = !!session?.user;
+  const userId = session?.user.id;
+
+  const [announcements, assessments] = await Promise.all([
+    listAnnouncements(),
+    userId ? listUpcomingAssessments(userId) : Promise.resolve([])
   ]);
-  const workspaceAppUrl = resolveWorkspaceAppUrl();
 
   return (
-    <div className="space-y-6">
-      <section
-        className={`${shellClassNames.cardStrong} animate-[fade-up_700ms_cubic-bezier(0.22,1,0.36,1)_both] px-6 py-8 sm:px-8`}
-      >
-        <p className={shellClassNames.eyebrow}>{tHero('eyebrow')}</p>
-        <h2 className="mt-2 max-w-3xl font-[family-name:var(--font-display)] text-4xl leading-tight sm:text-5xl">
-          {tHero('title')}
+    <div className="grid gap-6 lg:grid-cols-2">
+      {/* Left: Announcements */}
+      <section className={`${shellClassNames.card} px-6 py-6`}>
+        <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold">
+          {tHome("announcements")}
         </h2>
-        <p className="mt-3 max-w-2xl text-base leading-7 text-[color:var(--color-muted)]">
-          {tHero('subtitle')}
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            className="rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-            href={`/${locale}/problems`}
-          >
-            {tNav('problems')}
-          </Link>
-          <Link
-            className="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
-            href={workspaceAppUrl}
-            target="_blank"
-          >
-            {tNav('workspace')}
-          </Link>
-        </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <div className={`${shellClassNames.card} px-5 py-4`}>
-            <p className={shellClassNames.eyebrow}>{tNav('problems')}</p>
-            <p className={shellClassNames.metricValue}>{stats.problems}</p>
-          </div>
-          <div className={`${shellClassNames.card} px-5 py-4`}>
-            <p className={shellClassNames.eyebrow}>{tNav('submissions')}</p>
-            <p className={shellClassNames.metricValue}>{stats.submissions}</p>
-          </div>
-          <div className={`${shellClassNames.card} px-5 py-4`}>
-            <p className={shellClassNames.eyebrow}>{tNav('courses')}</p>
-            <p className={shellClassNames.metricValue}>{stats.courses}</p>
-          </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-[color:var(--color-border)]">
+                <th className="pb-2 pr-4 font-medium text-[color:var(--color-muted)]">{tHome("date")}</th>
+                <th className="pb-2 font-medium text-[color:var(--color-muted)]">{tHome("content")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {announcements.length === 0 && (
+                <tr>
+                  <td className="py-3 text-[color:var(--color-muted)]" colSpan={2}>
+                    {tHome("noAnnouncements")}
+                  </td>
+                </tr>
+              )}
+              {announcements.map((a) => (
+                <tr className="border-b border-[color:var(--color-border)] last:border-0" key={a.id}>
+                  <td className="whitespace-nowrap py-3 pr-4 text-[color:var(--color-muted)]">
+                    {new Date(a.createdAt).toLocaleDateString(locale)}
+                  </td>
+                  <td className="py-3">
+                    <p className="font-medium">{a.title}{a.pinned ? " 📌" : ""}</p>
+                    <p className="mt-0.5 text-[color:var(--color-muted)]">{a.content}</p>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-3">
-        <div className={`${shellClassNames.card} px-6 py-6`}>
-          <div className="flex items-center justify-between">
-            <h3 className={shellClassNames.sectionTitle}>{tNav('problems')}</h3>
-            <Link className={shellClassNames.badge} href={`/${locale}/problems`}>
-              {tCommon('browse')}
+      {/* Right: Login panel or Upcoming assessments */}
+      {!isLoggedIn ? (
+        <section className={`${shellClassNames.cardStrong} flex flex-col items-center justify-center gap-4 px-6 py-10 text-center`}>
+          <h2 className="font-[family-name:var(--font-display)] text-3xl font-semibold">
+            NOJV
+          </h2>
+          <p className="max-w-sm text-[color:var(--color-muted)]">
+            {tHome("productDescription")}
+          </p>
+          <div className="mt-2 flex gap-3">
+            <Link
+              className="rounded-full bg-[color:var(--color-accent)] px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+              href="/auth/signin"
+            >
+              {tAuth("signIn")}
+            </Link>
+            <Link
+              className="rounded-full border border-[color:var(--color-border)] px-6 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+              href="/auth/signup"
+            >
+              {tAuth("signUp")}
             </Link>
           </div>
-          <div className="mt-5 space-y-3">
-            {problems.map((problem) => (
+        </section>
+      ) : (
+        <section className={`${shellClassNames.card} px-6 py-6`}>
+          <h2 className="font-[family-name:var(--font-display)] text-2xl font-semibold">
+            {tHome("upcomingAssessments")}
+          </h2>
+          <div className="mt-4 space-y-3">
+            {assessments.length === 0 && (
+              <p className="text-sm text-[color:var(--color-muted)]">{tHome("noAssessments")}</p>
+            )}
+            {assessments.map((a) => (
               <Link
                 className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/60 px-4 py-4 transition hover:-translate-y-0.5"
-                href={`/${locale}/problems/${problem.slug}`}
-                key={problem.slug}
+                href={`/${locale}/courses/${a.courseSlug}/${a.type === "assignment" ? "assignments" : "exams"}/${a.slug}`}
+                key={`${a.courseSlug}-${a.slug}`}
               >
                 <div>
-                  <p className="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-                    {problem.difficulty}
+                  <p className="text-xs uppercase tracking-widest text-[color:var(--color-muted)]">
+                    {a.courseTitle} · {a.type === "assignment" ? tHome("assignment") : tHome("exam")}
                   </p>
-                  <p className="mt-1 text-lg font-semibold">{problem.title}</p>
+                  <p className="mt-1 text-lg font-semibold">{a.title}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-[color:var(--color-muted)]">{tCommon('acceptance')}</p>
-                  <p className="text-lg font-semibold">
-                    {formatAcceptanceRate(problem.acceptanceRate)}
+                <div className="text-right text-sm text-[color:var(--color-muted)]">
+                  <p>{tHome("due")}</p>
+                  <p className="font-medium text-[color:var(--color-ink)]">
+                    {new Date(a.dueAt).toLocaleDateString(locale)}
                   </p>
                 </div>
               </Link>
             ))}
           </div>
-        </div>
-        <div className={`${shellClassNames.card} px-6 py-6`}>
-          <div className="flex items-center justify-between">
-            <h3 className={shellClassNames.sectionTitle}>{tNav('contests')}</h3>
-            <Link className={shellClassNames.badge} href={`/${locale}/contests`}>
-              {tCommon('enter')}
-            </Link>
-          </div>
-          <div className="mt-5 space-y-3">
-            {contests.map((contest) => (
-              <Link
-                className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/60 px-4 py-4 block transition hover:-translate-y-0.5"
-                href={`/${locale}/contests/${contest.slug}`}
-                key={contest.slug}
-              >
-                <p className="text-lg font-semibold">{contest.title}</p>
-                <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-                  {new Date(contest.startsAt).toLocaleDateString()} &mdash;{" "}
-                  {new Date(contest.endsAt).toLocaleDateString()}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className={`${shellClassNames.card} px-6 py-6`}>
-          <div className="flex items-center justify-between">
-            <h3 className={shellClassNames.sectionTitle}>{tNav('courses')}</h3>
-            <Link className={shellClassNames.badge} href={`/${locale}/courses`}>
-              {tCommon('enter')}
-            </Link>
-          </div>
-          <div className="mt-5 space-y-3">
-            {courses.map((course) => (
-              <Link
-                className="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/60 px-4 py-4 transition hover:-translate-y-0.5 block"
-                href={`/${locale}/courses/${course.slug}`}
-                key={course.slug}
-              >
-                <p className="text-lg font-semibold">{course.title}</p>
-                <p className="mt-2 text-sm text-[color:var(--color-muted)]">
-                  {course.memberCount} {tCommon('members')} / {course.assessmentCount} {tCommon('assessments')}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

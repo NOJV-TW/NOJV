@@ -1,6 +1,5 @@
 export {
   canCreateCourse,
-  canCreateProblem,
   canManageCourseMembership,
   canManageCourseProblems,
   canPublishAssessment,

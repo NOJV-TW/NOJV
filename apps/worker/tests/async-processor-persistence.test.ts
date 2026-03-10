@@ -2,23 +2,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const markSubmissionRunning = vi.fn();
 const completeSubmission = vi.fn();
-const markWorkspaceRunRunning = vi.fn();
-const completeWorkspaceRun = vi.fn();
 const getSubmissionJudgeContext = vi.fn();
-const executeEphemeralWorkspaceRun = vi.fn();
 
 vi.mock("@nojv/db", () => {
   return {
     completeSubmission,
-    completeWorkspaceRun,
     getSubmissionJudgeContext,
-    markSubmissionRunning,
-    markWorkspaceRunRunning
+    markSubmissionRunning
   };
 });
 
-vi.mock("../src/services/ephemeral-workspace", () => ({
-  executeEphemeralWorkspaceRun
+const mockExecute = vi.fn();
+
+vi.mock("../src/services/docker-executor", () => {
+  return {
+    DockerExecutor: class {
+      execute = mockExecute;
+    }
+  };
+});
+
+vi.mock("../src/services/k8s-executor", () => ({
+  K8sExecutor: vi.fn()
 }));
 
 describe("async processor persistence", () => {
@@ -28,8 +33,13 @@ describe("async processor persistence", () => {
 
   it("marks queued submissions running and completes them against the same record", async () => {
     getSubmissionJudgeContext.mockResolvedValue({
+      checkerScript: null,
+      interactorScript: null,
+      judgeType: "standard",
       memoryLimitMb: 256,
       problemSlug: "warmup-sum",
+      submissionType: "full_source",
+      templates: [],
       testcases: [
         {
           expectedStdout: "3\n",
@@ -41,13 +51,21 @@ describe("async processor persistence", () => {
       ],
       timeLimitMs: 1_000
     });
-    executeEphemeralWorkspaceRun.mockResolvedValue({
-      durationMs: 14,
-      exitCode: 0,
-      stderr: "",
-      status: "succeeded",
-      stdout: "3\n"
+
+    mockExecute.mockResolvedValue({
+      testcaseResults: [
+        {
+          index: 0,
+          verdict: "AC",
+          stdout: "3\n",
+          stderr: "",
+          exitCode: 0,
+          timeMs: 14,
+          score: 100
+        }
+      ]
     });
+
     const { processSubmission } = await import("../src/processors");
 
     await processSubmission({
@@ -69,47 +87,6 @@ describe("async processor persistence", () => {
       "sub_test_async_01",
       expect.objectContaining({
         verdict: "accepted"
-      })
-    );
-  });
-
-  it("marks queued workspace runs running and completes them against the same record", async () => {
-    executeEphemeralWorkspaceRun.mockResolvedValue({
-      durationMs: 24,
-      exitCode: 0,
-      stderr: "",
-      status: "succeeded",
-      stdout: "hello from async processor\n"
-    });
-    const { processWorkspaceRun } = await import("../src/processors");
-
-    await processWorkspaceRun({
-      data: {
-        request: {
-          command: "make run",
-          files: [
-            {
-              content: "run:\n\t@cat src/message.txt\n",
-              path: "Makefile"
-            },
-            {
-              content: "hello from async processor\n",
-              path: "src/message.txt"
-            }
-          ],
-          mode: "assignment",
-          timeoutMs: 3_000,
-          workspaceSessionId: "ws_async_processor_01"
-        },
-        workspaceRunId: "run_test_async_01"
-      }
-    } as never);
-
-    expect(markWorkspaceRunRunning).toHaveBeenCalledWith("run_test_async_01");
-    expect(completeWorkspaceRun).toHaveBeenCalledWith(
-      "run_test_async_01",
-      expect.objectContaining({
-        status: "succeeded"
       })
     );
   });

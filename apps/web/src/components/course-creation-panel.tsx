@@ -8,9 +8,9 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { shellClassNames } from "@nojv/ui";
 
+import { authClient } from "@/lib/auth-client";
+import { readPlatformRole } from "@/lib/auth-onboarding";
 import { createCourseMutation } from "@/lib/client/course-management-client";
-
-import { useActorSession } from "./actor-session-provider";
 
 const inputClassName =
   "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
@@ -21,7 +21,9 @@ export function CourseCreationPanel() {
   const tAdmin = useTranslations("admin");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const { actor } = useActorSession();
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+  const platformRole = readPlatformRole(user);
   const [title, setTitle] = useState("Compiler Design");
   const [slug, setSlug] = useState("compiler-design-2026");
   const [description, setDescription] = useState("Course-managed judge surface for compilers.");
@@ -37,15 +39,12 @@ export function CourseCreationPanel() {
     setError(null);
 
     try {
-      await createCourseMutation(
-        {
-          description,
-          locale: courseLocale,
-          slug,
-          title
-        },
-        actor
-      );
+      await createCourseMutation({
+        description,
+        locale: courseLocale,
+        slug,
+        title
+      });
       setMessage(`Created ${title}. Redirecting to the course surface...`);
       startTransition(() => {
         router.push(`/${locale}/courses/${slug}`);
@@ -64,7 +63,7 @@ export function CourseCreationPanel() {
           <p className={shellClassNames.eyebrow}>{tAdmin("createCourse")}</p>
           <h3 className={shellClassNames.sectionTitle}>{tAdmin("createCourseSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>{actor.platformRole}</span>
+        <span className={shellClassNames.badge}>{platformRole}</span>
       </div>
       <form className="mt-5 grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
         <label className="text-sm text-[color:var(--color-muted)]">

@@ -1,15 +1,13 @@
 import {
   cheatingSignalSchema,
   submissionDraftSchema,
-  workspaceRunRequestSchema,
   type CheatingSignal
 } from "@nojv/domain";
 import { z } from "zod";
 
 export const queueNames = {
   cheatingSignal: "cheating-signal",
-  submission: "submission-judge",
-  workspaceRun: "workspace-run"
+  submission: "submission-judge"
 } as const;
 
 export const defaultJobOptions = {
@@ -23,13 +21,7 @@ export const submissionJudgeJobSchema = z.object({
   submissionId: z.string().trim().min(1)
 });
 
-export const workspaceRunJobSchema = z.object({
-  request: workspaceRunRequestSchema,
-  workspaceRunId: z.string().trim().min(1)
-});
-
 export type SubmissionJudgeJob = z.infer<typeof submissionJudgeJobSchema>;
-export type WorkspaceRunJob = z.infer<typeof workspaceRunJobSchema>;
 
 export interface QueueEnvelope<TName extends string, TData> {
   data: TData;
@@ -42,15 +34,6 @@ export function createSubmissionJob(
   return {
     data: submissionJudgeJobSchema.parse(payload),
     name: queueNames.submission
-  };
-}
-
-export function createWorkspaceRunJob(
-  payload: WorkspaceRunJob
-): QueueEnvelope<(typeof queueNames)["workspaceRun"], WorkspaceRunJob> {
-  return {
-    data: workspaceRunJobSchema.parse(payload),
-    name: queueNames.workspaceRun
   };
 }
 

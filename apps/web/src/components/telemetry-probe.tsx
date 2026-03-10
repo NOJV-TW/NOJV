@@ -9,7 +9,7 @@ import {
 } from "@nojv/domain";
 import { shellClassNames } from "@nojv/ui";
 
-import { useActorSession } from "./actor-session-provider";
+import { authClient } from "@/lib/auth-client";
 
 const emptyAssessment: IntegrityAssessment = {
   level: "low",
@@ -31,7 +31,8 @@ export function TelemetryProbe({
   sessionId,
   signalSource
 }: TelemetryProbeProps) {
-  const { actor, actorHeaders } = useActorSession();
+  const { data: session } = authClient.useSession();
+  const userId = session?.user.id ?? "";
   const [riskAssessment, setRiskAssessment] = useState<IntegrityAssessment>(emptyAssessment);
   const [signalCount, setSignalCount] = useState(0);
   const recentSignalsRef = useRef<CheatingSignal[]>([]);
@@ -41,7 +42,6 @@ export function TelemetryProbe({
     const response = await fetch("/api/integrity/signals", {
       body: JSON.stringify(signals),
       headers: {
-        ...actorHeaders,
         "Content-Type": "application/json"
       },
       method: "POST"
@@ -83,7 +83,7 @@ export function TelemetryProbe({
         sessionId,
         source: signalSource,
         type: "focus_loss",
-        userId: actor.userId
+        userId
       });
     };
 
@@ -104,7 +104,7 @@ export function TelemetryProbe({
         sessionId,
         source: signalSource,
         type: "paste_burst",
-        userId: actor.userId
+        userId
       });
     };
 
@@ -115,7 +115,7 @@ export function TelemetryProbe({
       window.removeEventListener("blur", onWindowBlur);
       document.removeEventListener("paste", onPaste);
     };
-  }, [actor.userId, assessment, contestSlug, sessionId, signalSource]);
+  }, [userId, assessment, contestSlug, sessionId, signalSource]);
 
   return (
     <section className={`${shellClassNames.card} px-5 py-5`}>

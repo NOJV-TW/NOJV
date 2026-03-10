@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { shellClassNames } from "@nojv/ui";
 
 import { publishCourseAssessmentMutation } from "@/lib/client/course-management-client";
-import type { CoursePocAssessment } from "@/lib/server/read-model";
+import type { CourseAssessmentRecord } from "@/lib/server/read-model";
 
 interface ManageAssessmentsProps {
   courseSlug: string;
-  assessments: CoursePocAssessment[];
+  assessments: CourseAssessmentRecord[];
   problemSlugs: string[];
 }
 
@@ -72,7 +72,9 @@ export function ManageAssessments({
         closesAt: new Date(closesAt).toISOString(),
         courseSlug,
         dueAt: new Date(dueAt).toISOString(),
+        ipLockEnabled: false,
         opensAt: new Date(opensAt).toISOString(),
+        pageLockEnabled: false,
         problemSlugs: problemSlugsText
           .split(",")
           .map((entry) => entry.trim())

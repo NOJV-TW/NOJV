@@ -138,12 +138,10 @@
     "executionGuarantees": "執行保證",
     "executionHint1": "內嵌編輯器在網頁應用程式內執行，無需手動上傳。",
     "executionHint2": "提交經由 BullMQ 處理，並針對已儲存的測資集執行。",
-    "executionHint3": "較重的指令執行保留在獨立的作業區介面中。",
     "judgeFeedback": "評測回饋",
     "language": "語言",
     "onlineEditor": "線上編輯器",
     "onlineEditorSubtitle": "LeetCode 風格的編輯，無需檔案上傳",
-    "openWorkspaceLab": "開啟作業區實驗室",
     "practiceMode": "練習模式",
     "queueState": "佇列狀態",
     "sandboxJudge": "沙盒測資評測",
@@ -152,6 +150,18 @@
     "submissionVerdict": "提交評測結果",
     "submitting": "提交中...",
     "verdict": "評測結果"
+  },
+  "home": {
+    "announcements": "公告",
+    "assignment": "作業",
+    "content": "內容",
+    "date": "日期",
+    "due": "截止",
+    "exam": "考試",
+    "noAnnouncements": "目前沒有公告。",
+    "noAssessments": "沒有即將到來的作業或考試。",
+    "productDescription": "程式課程線上評測平台 — 解題、繳交作業、參加考試。",
+    "upcomingAssessments": "近期評量"
   },
   "hero": {
     "eyebrow": "線上評測",
@@ -166,6 +176,7 @@
     "subtitle": "檢視標記案件與可疑訊號。"
   },
   "navigation": {
+    "account": "帳號",
     "assignments": "作業",
     "courses": "課程",
     "dashboard": "總覽",

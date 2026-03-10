@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ForbiddenError } from "../src/lib/server/api-errors";
+
 const attachProblemToCourseRecord = vi.fn();
 const createCourseAssessmentRecord = vi.fn();
 const joinCourseRecord = vi.fn();
@@ -39,7 +41,7 @@ vi.mock("@/lib/server/authorization", () => ({
   getCoursePermissionRole: vi.fn(() => currentPermissionRole)
 }));
 
-vi.mock("@/lib/server/poc-persistence", () => ({
+vi.mock("@/lib/server/data-access/courses", () => ({
   attachProblemToCourseRecord,
   createCourseAssessmentRecord,
   joinCourseRecord,
@@ -68,7 +70,7 @@ describe("course management routes", () => {
       userId: "usr_student_bob"
     };
     joinCourseRecord.mockRejectedValue(
-      new Error("Course join token has reached its maximum usage.")
+      new ForbiddenError("Course join token has reached its maximum usage.")
     );
 
     const { POST } = await import("../src/app/api/courses/[slug]/join/route");
@@ -130,7 +132,7 @@ describe("course management routes", () => {
 
   it("maps private problem permission failures to forbidden", async () => {
     attachProblemToCourseRecord.mockRejectedValue(
-      new Error("Private problems can only be attached by their author or an admin.")
+      new ForbiddenError("Private problems can only be attached by their author or an admin.")
     );
 
     const { POST } = await import("../src/app/api/courses/[slug]/problems/route");
