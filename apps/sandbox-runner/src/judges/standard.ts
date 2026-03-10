@@ -20,7 +20,7 @@ function normalizeOutput(output: string): string {
 export function judgeStandard(
   runCommand: string[],
   testcase: TestcaseFiles,
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<TestcaseResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -33,14 +33,14 @@ export function judgeStandard(
         stdout: "",
         stderr: "Empty run command.",
         exitCode: -1,
-        timeMs: 0,
+        timeMs: 0
       });
       return;
     }
 
     const proc = spawn(cmd, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: timeoutMs,
+      timeout: timeoutMs
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -87,15 +87,14 @@ export function judgeStandard(
           stdout,
           stderr,
           exitCode,
-          timeMs,
+          timeMs
         });
         return;
       }
 
       // Compare output
       const expected = testcase.expected ?? "";
-      const verdict =
-        normalizeOutput(stdout) === normalizeOutput(expected) ? "AC" : "WA";
+      const verdict = normalizeOutput(stdout) === normalizeOutput(expected) ? "AC" : "WA";
 
       resolve({
         index: testcase.index,
@@ -104,7 +103,7 @@ export function judgeStandard(
         stderr,
         exitCode,
         timeMs,
-        score: verdict === "AC" ? 100 : 0,
+        score: verdict === "AC" ? 100 : 0
       });
     });
 
@@ -117,7 +116,7 @@ export function judgeStandard(
         stdout: "",
         stderr: `Failed to spawn process: ${err.message}`,
         exitCode: -1,
-        timeMs,
+        timeMs
       });
     });
   });

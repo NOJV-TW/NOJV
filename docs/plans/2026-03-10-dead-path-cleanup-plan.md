@@ -13,6 +13,7 @@
 ### Task 1: Remove the retired external workspace app launch path
 
 **Files:**
+
 - Delete: `apps/web/src/lib/workspace-launch.ts`
 - Delete: `apps/web/tests/workspace-launch.test.ts`
 - Modify: `apps/web/src/components/problem-editor.tsx`
@@ -44,6 +45,7 @@ Delete `apps/web/src/lib/workspace-launch.ts` and `apps/web/tests/workspace-laun
 ### Task 2: Remove obsolete deployment artifacts for deleted apps
 
 **Files:**
+
 - Delete: `infra/docker/workspace.Dockerfile`
 - Delete: `infra/docker/sandbox-service.Dockerfile`
 - Delete: `infra/gcp/workspace.cloudrun.yaml`
@@ -77,6 +79,7 @@ Expected: only intentional historical references remain outside active runtime a
 ### Task 3: Update runtime documentation and environment samples
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `.env.example`
 
@@ -101,11 +104,13 @@ Expected: no matches in active docs except where explicitly preserved as histori
 ### Task 4: Verify cleanup
 
 **Files:**
+
 - Modify as needed based on test results
 
 **Step 1: Run targeted tests**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test -- workspace-launch.test.ts problem-editor.test.tsx
 pnpm --filter @nojv/worker test
@@ -117,6 +122,7 @@ Adjust the exact web test target if the repository uses a different problem edit
 **Step 2: Run repo-level validation relevant to touched surfaces**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web lint
 pnpm --filter @nojv/worker lint

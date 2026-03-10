@@ -1,10 +1,14 @@
 import Link from "next/link";
 
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
+
+import type { PlatformRole } from "@nojv/domain";
 import { shellClassNames } from "@nojv/ui";
 
-import { CourseCreationPanel } from "@/components/course-creation-panel";
-import { listCourseCards } from "@/lib/server/read-model";
+import { auth } from "@/lib/auth";
+import { canCreateCourse } from "@/lib/server/authorization";
+import { listCourseCards, listUserCourseCards } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -17,18 +21,27 @@ export default async function CoursesPage({ params }: { params: Promise<{ locale
     getTranslations("courseDetail"),
     getTranslations("common")
   ]);
-  const courses = await listCourseCards();
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  const userId = session?.user.id ?? null;
+  const platformRole = ((session?.user as Record<string, unknown> | undefined)?.platformRole as PlatformRole) ?? "student";
+  const isStaff = canCreateCourse(platformRole);
+
+  const courses = isStaff
+    ? await listCourseCards()
+    : userId
+      ? await listUserCourseCards(userId)
+      : [];
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
-        <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {tNav("courses")}
-        </h2>
-      </section>
+      <h2 className="font-[family-name:var(--font-display)] text-3xl">{tNav("courses")}</h2>
+
+      {courses.length === 0 && (
+        <p className="text-sm text-[color:var(--color-muted)]">{tCourse("empty")}</p>
+      )}
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <CourseCreationPanel />
         {courses.map((course) => (
           <Link
             className={`${shellClassNames.card} px-6 py-6`}
@@ -46,11 +59,15 @@ export default async function CoursesPage({ params }: { params: Promise<{ locale
             </div>
             <dl className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
-                <dt className="text-sm text-[color:var(--color-muted)]">{tCommon("members")}</dt>
+                <dt className="text-sm text-[color:var(--color-muted)]">
+                  {tCommon("members")}
+                </dt>
                 <dd className="mt-1 text-lg font-semibold">{course.memberCount}</dd>
               </div>
               <div>
-                <dt className="text-sm text-[color:var(--color-muted)]">{tCommon("assessments")}</dt>
+                <dt className="text-sm text-[color:var(--color-muted)]">
+                  {tCommon("assessments")}
+                </dt>
                 <dd className="mt-1 text-lg font-semibold">{course.assessmentCount}</dd>
               </div>
             </dl>

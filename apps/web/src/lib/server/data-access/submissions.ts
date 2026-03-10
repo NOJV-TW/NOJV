@@ -27,6 +27,28 @@ export async function createQueuedSubmissionRecord(
         )
       : null;
 
+    // Enforce attempt limit for assignment/exam submissions (not sampleOnly runs)
+    if (courseContext?.assessment && !payload.sampleOnly) {
+      const { maxAttempts } = courseContext.assessment;
+
+      if (maxAttempts != null) {
+        const attemptCount = await tx.submission.count({
+          where: {
+            courseAssessmentId: courseContext.assessment.id,
+            problemId: problem.id,
+            sampleOnly: false,
+            userId: user.id
+          }
+        });
+
+        if (attemptCount >= maxAttempts) {
+          throw new Error(
+            `Attempt limit reached (${String(maxAttempts)}/${String(maxAttempts)}).`
+          );
+        }
+      }
+    }
+
     return tx.submission.create({
       data: {
         contestParticipationId: contestParticipation?.id ?? null,
@@ -35,6 +57,7 @@ export async function createQueuedSubmissionRecord(
         language: payload.language,
         mode: payload.mode,
         problemId: problem.id,
+        sampleOnly: payload.sampleOnly ?? false,
         sourceCode: payload.sourceCode,
         status: "queued",
         userId: user.id

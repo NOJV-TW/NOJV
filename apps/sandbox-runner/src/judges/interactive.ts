@@ -9,7 +9,7 @@ import type { TestcaseFiles, TestcaseResult } from "../types.js";
  */
 function parseInteractorOutput(
   exitCode: number,
-  stderr: string,
+  stderr: string
 ): { accepted: boolean; score: number; feedback: string } {
   const accepted = exitCode === 0;
   const lines = stderr.trim().split("\n");
@@ -18,11 +18,7 @@ function parseInteractorOutput(
   let score: number;
   if (scoreText.length > 0) {
     const parsed = parseInt(scoreText, 10);
-    score = Number.isFinite(parsed)
-      ? Math.max(0, Math.min(100, parsed))
-      : accepted
-        ? 100
-        : 0;
+    score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : accepted ? 100 : 0;
   } else {
     score = accepted ? 100 : 0;
   }
@@ -44,7 +40,7 @@ export function judgeInteractive(
   runCommand: string[],
   testcase: TestcaseFiles,
   interactorCommand: string[],
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<TestcaseResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -59,20 +55,20 @@ export function judgeInteractive(
         stdout: "",
         stderr: "Empty run or interactor command.",
         exitCode: -1,
-        timeMs: 0,
+        timeMs: 0
       });
       return;
     }
 
     // Spawn solution process
     const solution = spawn(solCmd, solArgs, {
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"]
     });
 
     // Spawn interactor process — receives testcase input via argument
     // The interactor reads from stdin (solution's stdout) and writes to stdout (solution's stdin)
     const interactor = spawn(intCmd, [...intArgs, "/dev/stdin"], {
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"]
     });
 
     // Pipe: solution.stdout → interactor.stdin
@@ -127,7 +123,7 @@ export function judgeInteractive(
           stdout: solStdout,
           stderr: solStderr,
           exitCode: solutionExitCode,
-          timeMs,
+          timeMs
         });
         return;
       }
@@ -140,7 +136,7 @@ export function judgeInteractive(
           stdout: solStdout,
           stderr: solStderr,
           exitCode: solutionExitCode,
-          timeMs,
+          timeMs
         });
         return;
       }
@@ -153,7 +149,7 @@ export function judgeInteractive(
           stdout: solStdout,
           stderr: solStderr,
           exitCode: solutionExitCode,
-          timeMs,
+          timeMs
         });
         return;
       }
@@ -166,7 +162,7 @@ export function judgeInteractive(
           stdout: solStdout,
           stderr: solStderr,
           exitCode: solutionExitCode,
-          timeMs,
+          timeMs
         });
         return;
       }
@@ -181,7 +177,7 @@ export function judgeInteractive(
         stderr: solStderr,
         exitCode: solutionExitCode,
         timeMs,
-        score: parsed.score,
+        score: parsed.score
       };
       if (parsed.feedback) {
         result.feedback = parsed.feedback;

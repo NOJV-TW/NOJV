@@ -10,30 +10,22 @@ export type CompileResult =
  * For function-mode submissions, inject user source code into the driver
  * template at the insertion marker position.
  */
-export function assembleSource(
-  userSource: string,
-  input: SandboxInput,
-): string {
+export function assembleSource(userSource: string, input: SandboxInput): string {
   if (input.submissionType === "full_source") {
     return userSource;
   }
 
   if (!input.template) {
-    throw new Error(
-      "Function-mode submission requires a template in config.json.",
-    );
+    throw new Error("Function-mode submission requires a template in config.json.");
   }
 
   if (!input.template.driverCode.includes(input.template.insertionMarker)) {
     throw new Error(
-      `Driver code does not contain insertion marker "${input.template.insertionMarker}".`,
+      `Driver code does not contain insertion marker "${input.template.insertionMarker}".`
     );
   }
 
-  return input.template.driverCode.replace(
-    input.template.insertionMarker,
-    userSource,
-  );
+  return input.template.driverCode.replace(input.template.insertionMarker, userSource);
 }
 
 /** Returns the source file name for a given language. */
@@ -68,32 +60,32 @@ export function sourceFileName(language: SandboxInput["language"]): string {
 export async function compile(
   input: SandboxInput,
   sourcePath: string,
-  workDir: string,
+  workDir: string
 ): Promise<CompileResult> {
   switch (input.language) {
     case "c":
       return compileWithCommand(
         ["gcc", "-O2", "-std=c17", "-o", path.join(workDir, "main"), sourcePath],
         [path.join(workDir, "main")],
-        workDir,
+        workDir
       );
     case "cpp":
       return compileWithCommand(
         ["g++", "-O2", "-std=c++20", "-o", path.join(workDir, "main"), sourcePath],
         [path.join(workDir, "main")],
-        workDir,
+        workDir
       );
     case "go":
       return compileWithCommand(
         ["go", "build", "-o", path.join(workDir, "main"), sourcePath],
         [path.join(workDir, "main")],
-        workDir,
+        workDir
       );
     case "java":
       return compileWithCommand(
         ["javac", "-d", workDir, sourcePath],
         ["java", "-cp", workDir, "Main"],
-        workDir,
+        workDir
       );
     case "javascript":
       return { success: true, runCommand: ["node", sourcePath] };
@@ -103,7 +95,7 @@ export async function compile(
       return compileWithCommand(
         ["rustc", "-O", "-o", path.join(workDir, "main"), sourcePath],
         [path.join(workDir, "main")],
-        workDir,
+        workDir
       );
     case "typescript":
       return { success: true, runCommand: ["node", "--experimental-strip-types", sourcePath] };
@@ -118,7 +110,7 @@ export async function compile(
 export async function compileChecker(
   scriptPath: string,
   language: string,
-  workDir: string,
+  workDir: string
 ): Promise<CompileResult> {
   // Extend this when non-Python checkers are supported
   if (language === "python" || language === "python3") {
@@ -130,7 +122,7 @@ export async function compileChecker(
     return compileWithCommand(
       ["gcc", "-O2", "-std=c17", "-o", outPath, scriptPath],
       [outPath],
-      workDir,
+      workDir
     );
   }
 
@@ -139,7 +131,7 @@ export async function compileChecker(
     return compileWithCommand(
       ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
       [outPath],
-      workDir,
+      workDir
     );
   }
 
@@ -150,7 +142,7 @@ export async function compileChecker(
 function compileWithCommand(
   compileArgs: string[],
   runCommand: string[],
-  workDir: string,
+  workDir: string
 ): Promise<CompileResult> {
   return new Promise((resolve) => {
     const [cmd, ...args] = compileArgs;
@@ -162,7 +154,7 @@ function compileWithCommand(
     const proc = spawn(cmd, args, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
-      timeout: 30_000,
+      timeout: 30_000
     });
 
     const stderrChunks: Buffer[] = [];
@@ -175,7 +167,7 @@ function compileWithCommand(
         const stderr = Buffer.concat(stderrChunks).toString("utf-8").trim();
         resolve({
           success: false,
-          error: stderr || `Compiler exited with code ${String(code ?? "unknown")}.`,
+          error: stderr || `Compiler exited with code ${String(code ?? "unknown")}.`
         });
       }
     });
@@ -183,7 +175,7 @@ function compileWithCommand(
     proc.on("error", (err) => {
       resolve({
         success: false,
-        error: `Failed to spawn compiler: ${err.message}`,
+        error: `Failed to spawn compiler: ${err.message}`
       });
     });
   });

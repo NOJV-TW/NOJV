@@ -29,16 +29,12 @@ export function ManageNav({ locale, role, slug }: ManageNavProps) {
       {navItems.map((item) => {
         const fullHref = `${basePath}${item.href}`;
         const isActive =
-          item.href === ""
-            ? pathname === basePath
-            : pathname.startsWith(fullHref);
+          item.href === "" ? pathname === basePath : pathname.startsWith(fullHref);
 
         return (
           <Link
             className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-              isActive
-                ? "bg-[color:var(--color-accent)] text-white"
-                : "hover:bg-white/60"
+              isActive ? "bg-[color:var(--color-accent)] text-white" : "hover:bg-white/60"
             }`}
             href={fullHref}
             key={item.href}

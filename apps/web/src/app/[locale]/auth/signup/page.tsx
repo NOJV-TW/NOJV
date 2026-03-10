@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useLocale } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const router = useRouter();
+  const locale = useLocale();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,30 +20,32 @@ export default function SignInPage() {
 
     const form = new FormData(event.currentTarget);
 
-    const { error: signInError } = await authClient.signIn.email({
+    const { error: signUpError } = await authClient.signUp.email({
       email: form.get("email") as string,
-      password: form.get("password") as string
+      name: form.get("displayName") as string,
+      password: form.get("password") as string,
+      username: form.get("handle") as string
     });
 
     setLoading(false);
 
-    if (signInError) {
-      setError(signInError.message ?? "Invalid email or password.");
+    if (signUpError) {
+      setError(signUpError.message ?? "Registration failed.");
       return;
     }
 
-    router.push("/");
+    router.push(`/${locale}`);
     router.refresh();
   }
 
   async function handleOAuth(provider: "github" | "google") {
-    await authClient.signIn.social({ callbackURL: "/auth/complete-profile", provider });
+    await authClient.signIn.social({ callbackURL: `/${locale}`, provider });
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)]">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8">
-        <h1 className="mb-6 text-center text-2xl font-semibold">Sign in to NOJV</h1>
+        <h1 className="mb-6 text-center text-2xl font-semibold">Create your NOJV account</h1>
 
         <div className="flex flex-col gap-3">
           <button
@@ -68,6 +72,26 @@ export default function SignInPage() {
 
         <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <label className="flex flex-col gap-1 text-sm">
+            Display name
+            <input
+              className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
+              name="displayName"
+              required
+              type="text"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Handle
+            <input
+              className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
+              name="handle"
+              pattern="[a-z0-9._-]{3,64}"
+              required
+              title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
+              type="text"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
             Email
             <input
               autoComplete="email"
@@ -80,8 +104,9 @@ export default function SignInPage() {
           <label className="flex flex-col gap-1 text-sm">
             Password
             <input
-              autoComplete="current-password"
+              autoComplete="new-password"
               className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
+              minLength={8}
               name="password"
               required
               type="password"
@@ -93,13 +118,13 @@ export default function SignInPage() {
             disabled={loading}
             type="submit"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? "Creating account..." : "Sign up"}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-[color:var(--color-muted)]">
-          Don&apos;t have an account?{" "}
-          <Link className="text-[color:var(--color-accent)] underline" href="/auth/signup">
-            Sign up
+          Already have an account?{" "}
+          <Link className="text-[color:var(--color-accent)] underline" href={`/${locale}/auth/signin`}>
+            Sign in
           </Link>
         </p>
       </div>

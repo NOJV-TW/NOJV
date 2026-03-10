@@ -68,9 +68,13 @@ describe("course management client mutations", () => {
     await createProblemMutation(
       {
         difficulty: "easy",
+        inputFormat: "",
+        judgeType: "standard",
+        outputFormat: "",
         slug: "compiler-intro",
         statement: "Write a recursive descent parser for the input grammar.",
-        summary: "Introductory parser warmup.",
+        summary: "",
+        tags: [],
         title: "Compiler Intro",
         visibility: "public"
       },
@@ -82,9 +86,13 @@ describe("course management client mutations", () => {
     expect(calls[0]?.init?.body).toBe(
       JSON.stringify({
         difficulty: "easy",
+        inputFormat: "",
+        judgeType: "standard",
+        outputFormat: "",
         slug: "compiler-intro",
         statement: "Write a recursive descent parser for the input grammar.",
-        summary: "Introductory parser warmup.",
+        summary: "",
+        tags: [],
         title: "Compiler Intro",
         visibility: "public"
       })

@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 
 import { routing } from "@/i18n/routing";
 import { auth } from "@/lib/auth";
-import { COMPLETE_PROFILE_PATH, hasCompletedHandle } from "@/lib/auth-onboarding";
+import { hasCompletedHandle } from "@/lib/auth-onboarding";
 import { UserAuthMenu } from "@/components/user-auth-menu";
 
 export function generateStaticParams() {
@@ -31,8 +31,12 @@ export default async function LocaleLayout({
 
   const session = await auth.api.getSession({ headers: await headers() });
 
-  if (session?.user && !hasCompletedHandle(session.user as Record<string, unknown>)) {
-    redirect(COMPLETE_PROFILE_PATH);
+  const hdrs = await headers();
+  const currentPath = hdrs.get("x-pathname") ?? `/${locale}`;
+  const isAuthRoute = currentPath.includes("/auth/");
+
+  if (session?.user && !hasCompletedHandle(session.user as Record<string, unknown>) && !isAuthRoute) {
+    redirect(`/${locale}/auth/complete-profile`);
   }
 
   const [messages, tNav] = await Promise.all([getMessages(), getTranslations("navigation")]);
@@ -41,12 +45,10 @@ export default async function LocaleLayout({
 
   const navItems = isLoggedIn
     ? [
-        { href: `/${locale}`, label: tNav("dashboard") },
         { href: `/${locale}/problems`, label: tNav("problems") },
         { href: `/${locale}/courses`, label: tNav("courses") },
         { href: `/${locale}/assignments`, label: tNav("assignments") },
-        { href: `/${locale}/exams`, label: tNav("exams") },
-        { href: `/${locale}/account`, label: tNav("account") }
+        { href: `/${locale}/exams`, label: tNav("exams") }
       ]
     : [];
 
@@ -55,7 +57,10 @@ export default async function LocaleLayout({
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8">
         <header className="animate-[fade-up_700ms_cubic-bezier(0.22,1,0.36,1)_both] rounded-[2rem] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-5 py-3 backdrop-blur-sm sm:px-6">
           <div className="flex flex-wrap items-center gap-4">
-            <Link className="font-[family-name:var(--font-display)] text-xl font-bold" href={`/${locale}`}>
+            <Link
+              className="font-[family-name:var(--font-display)] text-xl font-bold"
+              href={`/${locale}`}
+            >
               NOJV
             </Link>
             {navItems.length > 0 && (

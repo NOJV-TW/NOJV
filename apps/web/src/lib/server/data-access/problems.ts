@@ -5,25 +5,36 @@ import type { CompletedActorContext } from "../actor-context";
 import { ConflictError, ForbiddenError } from "../api-errors";
 import { createProblemDefinition, ensureUser, requireProblem } from "./shared";
 
-export async function createProblemRecord(actor: CompletedActorContext, payload: ProblemCreate) {
+export async function createProblemRecord(
+  actor: CompletedActorContext,
+  payload: ProblemCreate
+) {
+  const slug = payload.slug || payload.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
   return prisma.$transaction(async (tx) => {
     const existing = await tx.problem.findUnique({
       where: {
-        slug: payload.slug
+        slug
       }
     });
 
     if (existing) {
-      throw new ConflictError(`Problem slug already exists: ${payload.slug}`);
+      throw new ConflictError(`Problem slug already exists: ${slug}`);
     }
 
     const author = await ensureUser(tx, actor.userId, actor);
 
-    return createProblemDefinition(tx, payload.slug, {
+    return createProblemDefinition(tx, slug, {
       authorId: author.id,
+      checkerScript: payload.checkerScript,
       difficulty: payload.difficulty,
+      inputFormat: payload.inputFormat,
+      interactorScript: payload.interactorScript,
+      judgeType: payload.judgeType,
+      outputFormat: payload.outputFormat,
       statement: payload.statement,
       summary: payload.summary,
+      tags: payload.tags,
       title: payload.title,
       visibility: payload.visibility
     });
@@ -39,7 +50,9 @@ export async function createProblemTestcaseSetRecord(
     const problem = await requireProblem(tx, problemSlug);
 
     if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError("Problem testcases can only be managed by the author or an admin.");
+      throw new ForbiddenError(
+        "Problem testcases can only be managed by the author or an admin."
+      );
     }
 
     const testcaseSet = await tx.testcaseSet.create({

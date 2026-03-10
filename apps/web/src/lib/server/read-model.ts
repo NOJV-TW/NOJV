@@ -62,7 +62,7 @@ export interface CoursePageDetailData {
 // --- Helper functions ---
 
 function pickProblemStatement(
-  statements: { bodyMarkdown: string; locale: string; title: string }[] | undefined,
+  statements: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[] | undefined,
   locale: string,
   fallbackTitle: string,
   fallbackStatement: string
@@ -71,6 +71,8 @@ function pickProblemStatement(
     statements?.find((statement) => statement.locale === locale) ?? statements?.[0] ?? null;
 
   return {
+    inputFormat: localized?.inputFormat ?? "",
+    outputFormat: localized?.outputFormat ?? "",
     statement: localized?.bodyMarkdown ?? fallbackStatement,
     title: localized?.title ?? fallbackTitle
   };
@@ -79,7 +81,7 @@ function pickProblemStatement(
 function mapProblemShelfEntry(problem: {
   author?: { handle: string | null } | null;
   slug: string;
-  statements?: { bodyMarkdown: string; locale: string; title: string }[];
+  statements?: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[];
   summary: string;
   visibility: "private" | "public";
 }) {
@@ -189,7 +191,7 @@ function mapPersistedCourse(course: {
     problem: {
       author?: { handle: string | null } | null;
       slug: string;
-      statements?: { bodyMarkdown: string; locale: string; title: string }[];
+      statements?: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[];
       summary: string;
       visibility: "private" | "public";
     };
@@ -253,8 +255,9 @@ function mapPersistedProblemDetail(
     defaultTitle: string;
     difficulty: string;
     slug: string;
-    statements?: { bodyMarkdown: string; locale: string; title: string }[];
+    statements?: { bodyMarkdown: string; inputFormat?: string; locale: string; outputFormat?: string; title: string }[];
     summary: string;
+    tags?: string[];
     testcaseSets?: {
       isHidden: boolean;
       testcases: {
@@ -279,12 +282,14 @@ function mapPersistedProblemDetail(
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorHandle: problem.author?.handle ?? "course_staff",
     difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    inputFormat: localized.inputFormat,
+    outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
     slug: problem.slug,
     starterByLanguage,
     statement: localized.statement,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
-    tags: [],
+    tags: problem.tags ?? [],
     title: localized.title,
     totalSubmissions,
     visibility: problem.visibility
@@ -305,6 +310,34 @@ export async function listCourseCards() {
     },
     orderBy: {
       createdAt: "desc"
+    }
+  });
+
+  return persistedCourses.map((course) => ({
+    assessmentCount: course._count.assessments,
+    memberCount: course._count.memberships,
+    slug: course.slug,
+    title: course.title
+  }));
+}
+
+export async function listUserCourseCards(userId: string) {
+  const persistedCourses = await prisma.course.findMany({
+    include: {
+      _count: {
+        select: {
+          assessments: { where: { status: "published" } },
+          memberships: { where: { status: "active" } }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    where: {
+      memberships: {
+        some: { userId, status: "active" }
+      }
     }
   });
 
@@ -405,9 +438,7 @@ export async function listProblemCards() {
           where: { problemId: { in: problemIds }, status: "accepted" }
         })
       : [];
-  const acceptedByProblemId = new Map(
-    acceptedCounts.map((r) => [r.problemId, r._count])
-  );
+  const acceptedByProblemId = new Map(acceptedCounts.map((r) => [r.problemId, r._count]));
 
   return persistedProblems.map((problem) => {
     const total = problem._count.submissions;
@@ -416,6 +447,7 @@ export async function listProblemCards() {
       acceptanceRate: total > 0 ? accepted / total : 0,
       difficulty: problem.difficulty as "easy" | "hard" | "medium",
       slug: problem.slug,
+      tags: problem.tags,
       title: problem.defaultTitle,
       totalSubmissions: total
     };
@@ -452,11 +484,11 @@ export async function listEditableProblems(userId: string) {
   return problems.map((problem) => ({
     difficulty: problem.difficulty as "easy" | "hard" | "medium",
     slug: problem.slug,
+    tags: problem.tags,
     title: problem.defaultTitle,
     visibility: problem.visibility
   }));
 }
-
 
 export async function getProblemPageData(slug: string, locale: string) {
   const persistedProblem = await prisma.problem.findUnique({
@@ -549,10 +581,7 @@ export async function getDashboardStats() {
 
 export async function listAnnouncements() {
   return prisma.announcement.findMany({
-    orderBy: [
-      { pinned: "desc" },
-      { createdAt: "desc" }
-    ],
+    orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
     take: 20
   });
 }

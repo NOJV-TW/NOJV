@@ -12,10 +12,7 @@ import {
   requireCourseAssessment
 } from "./shared";
 
-async function upsertCheatingCase(
-  tx: TransactionClient,
-  signals: CheatingSignal[]
-) {
+async function upsertCheatingCase(tx: TransactionClient, signals: CheatingSignal[]) {
   const firstSignal = signals[0];
 
   if (!firstSignal) {
@@ -105,7 +102,9 @@ export async function persistCheatingSignals(signals: CheatingSignal[]) {
         : null;
       const cheatingCase = await upsertCheatingCase(tx, group);
 
-      const sessionIds = [...new Set(group.map((signal) => signal.sessionId).filter(Boolean))] as string[];
+      const sessionIds = [
+        ...new Set(group.map((signal) => signal.sessionId).filter(Boolean))
+      ] as string[];
       const sessions =
         sessionIds.length > 0
           ? await tx.workspaceSession.findMany({
@@ -162,14 +161,16 @@ export async function persistCheatingSignals(signals: CheatingSignal[]) {
       }
 
       for (const signal of group) {
-        const workspaceSession = signal.sessionId ? sessionMap.get(signal.sessionId) ?? null : null;
+        const workspaceSession = signal.sessionId
+          ? (sessionMap.get(signal.sessionId) ?? null)
+          : null;
         const workspaceRun = workspaceSession
-          ? runBySessionId.get(workspaceSession.id) ?? null
+          ? (runBySessionId.get(workspaceSession.id) ?? null)
           : null;
         const assessmentContext = signal.assessment
-          ? assessmentContextMap.get(
+          ? (assessmentContextMap.get(
               `${signal.assessment.courseSlug}::${signal.assessment.assessmentSlug}`
-            ) ?? null
+            ) ?? null)
           : null;
         const record = await tx.cheatingSignal.create({
           data: {

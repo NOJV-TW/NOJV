@@ -6,7 +6,11 @@ export const workerEnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   REDIS_URL: z.url().default("redis://localhost:6379"),
   // Docker executor settings
-  SANDBOX_CPU_LIMIT: z.string().trim().regex(/^\d+(\.\d+)?$/).default("1"),
+  SANDBOX_CPU_LIMIT: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d+)?$/)
+    .default("1"),
   SANDBOX_IMAGE: z.string().trim().min(1).default("nojv-sandbox:local"),
   SANDBOX_MEMORY_MB: z.coerce.number().int().min(128).max(4096).default(256),
   SANDBOX_PIDS_LIMIT: z.coerce.number().int().min(16).max(512).default(64),
@@ -17,7 +21,7 @@ export const workerEnvSchema = z.object({
   K8S_MEMORY_REQUEST: z.string().trim().default("256Mi"),
   K8S_MEMORY_LIMIT: z.string().trim().default("512Mi"),
   // Worker settings
-  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4)
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

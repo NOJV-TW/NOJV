@@ -62,7 +62,9 @@ export function ManageProblems({ courseSlug, courseTitle, problems }: ManageProb
             >
               <div>
                 <p className="text-lg font-semibold">{problem.title}</p>
-                <p className="mt-2 text-sm text-[color:var(--color-muted)]">{problem.summary}</p>
+                <p className="mt-2 text-sm text-[color:var(--color-muted)]">
+                  {problem.summary}
+                </p>
               </div>
               <div className="text-right">
                 <span className={shellClassNames.badge}>{problem.visibility}</span>
@@ -77,10 +79,7 @@ export function ManageProblems({ courseSlug, courseTitle, problems }: ManageProb
 
       <section className={`${shellClassNames.card} px-5 py-5`}>
         <h3 className="text-2xl font-semibold">Attach Problem</h3>
-        <form
-          className="mt-4 grid gap-3"
-          onSubmit={(event) => void handleAttachProblem(event)}
-        >
+        <form className="mt-4 grid gap-3" onSubmit={(event) => void handleAttachProblem(event)}>
           <input
             className={inputClassName}
             onChange={(event) => setProblemSlug(event.target.value)}

@@ -6,15 +6,15 @@ Migrate authentication from NextAuth v5 (JWT strategy) to BetterAuth with GitHub
 
 ## Decisions
 
-| Decision | Choice |
-|----------|--------|
-| BetterAuth table management | Official default (BetterAuth manages auth tables) |
-| Login methods | Email/password + GitHub + Google OAuth |
-| OAuth handle | Auto-derive from provider, changeable later |
-| Account linking | Auto-link by same email |
-| Email verification | Required for email/password registration |
-| Dev header fallback | Keep (development only) |
-| Middleware | Delete (deprecated in Next.js 16, redundant with per-route checks) |
+| Decision                    | Choice                                                             |
+| --------------------------- | ------------------------------------------------------------------ |
+| BetterAuth table management | Official default (BetterAuth manages auth tables)                  |
+| Login methods               | Email/password + GitHub + Google OAuth                             |
+| OAuth handle                | Auto-derive from provider, changeable later                        |
+| Account linking             | Auto-link by same email                                            |
+| Email verification          | Required for email/password registration                           |
+| Dev header fallback         | Keep (development only)                                            |
+| Middleware                  | Delete (deprecated in Next.js 16, redundant with per-route checks) |
 
 ## Schema Changes
 
@@ -73,26 +73,26 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: true
   },
   socialProviders: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!
     },
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    },
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!
+    }
   },
   user: {
     additionalFields: {
       handle: { type: "string", unique: true, required: true },
       platformRole: { type: "string", defaultValue: "student" },
-      locale: { type: "string", defaultValue: "zh-TW" },
-    },
+      locale: { type: "string", defaultValue: "zh-TW" }
+    }
   },
-  account: { accountLinking: { enabled: true } },
+  account: { accountLinking: { enabled: true } }
 });
 ```
 
@@ -122,7 +122,7 @@ import { headers } from "next/headers";
 
 export async function getActorContext(request: Request): Promise<PocActorContext | null> {
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: await headers()
   });
 
   if (session?.user) {
@@ -131,7 +131,7 @@ export async function getActorContext(request: Request): Promise<PocActorContext
       email: session.user.email,
       displayName: session.user.name ?? session.user.email,
       handle: session.user.handle ?? "",
-      platformRole: parsePlatformRole(session.user.platformRole),
+      platformRole: parsePlatformRole(session.user.platformRole)
     };
   }
 

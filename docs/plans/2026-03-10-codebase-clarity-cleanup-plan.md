@@ -13,6 +13,7 @@
 ### Task 1: Rename stale `POC` helper surfaces to current domain language
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/course-assessment-helpers.ts`
 - Delete: `apps/web/src/lib/server/course-poc-helpers.ts`
 - Modify: `apps/web/src/components/assessment-list-page.tsx`
@@ -24,9 +25,11 @@
 **Step 1: Write the failing validation**
 
 Run:
+
 ```bash
 rg -n "course-poc-helpers|CoursePoc" apps/web/src apps/web/tests
 ```
+
 Expected: matches present.
 
 **Step 2: Write minimal implementation**
@@ -36,14 +39,17 @@ Rename the helper module to `course-assessment-helpers.ts`, update imports, and 
 **Step 3: Run targeted test**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test -- course-poc-helpers.test.ts
 ```
+
 Expected: PASS after updating the test path/name.
 
 ### Task 2: Split `persistence.ts` into focused server data-access modules
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/data-access/shared.ts`
 - Create: `apps/web/src/lib/server/data-access/submissions.ts`
 - Create: `apps/web/src/lib/server/data-access/workspace-runs.ts`
@@ -57,14 +63,17 @@ Expected: PASS after updating the test path/name.
 **Step 1: Write the failing validation**
 
 Run:
+
 ```bash
 wc -l apps/web/src/lib/server/persistence.ts
 ```
+
 Expected: file is far larger than a focused module and still mixes unrelated concerns.
 
 **Step 2: Write minimal implementation**
 
 Move shared actor/course/problem lookup helpers into `shared.ts`, then split exported persistence functions by responsibility:
+
 - submissions
 - workspace runs
 - integrity signals
@@ -81,14 +90,17 @@ Replace fallback/demo identifiers such as `poc-user`, `@poc.nojv.local`, `POC ..
 **Step 4: Run targeted tests**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test -- course-management-routes.test.ts course-route-behavior.test.ts problem-testcase-routes.test.ts db-read-model.test.ts judge-operations.test.ts
 ```
+
 Expected: PASS
 
 ### Task 3: Update active documentation and API naming to match the cleaned architecture
 
 **Files:**
+
 - Modify: `README.md`
 - Modify: `apps/web/src/app/api/runtime/stats/route.ts`
 - Modify: `apps/web/src/lib/server/data-access/runtime-stats.ts`
@@ -97,9 +109,11 @@ Expected: PASS
 **Step 1: Write the failing validation**
 
 Run:
+
 ```bash
 rg -n "POC|poc" README.md apps/web/src/app/api/runtime/stats/route.ts apps/web/src/lib/server apps/web/src/components/runtime-stats.tsx
 ```
+
 Expected: active runtime code or docs still contain stale references.
 
 **Step 2: Write minimal implementation**
@@ -109,19 +123,23 @@ Rename `getPocRuntimeStats` to `getRuntimeStats`, update the route import, and r
 **Step 3: Run validation**
 
 Run:
+
 ```bash
 rg -n "course-poc-helpers|CoursePoc|getPocRuntimeStats|poc-user|@poc\\.nojv\\.local|POC " apps/web/src apps/web/tests README.md
 ```
+
 Expected: no matches in active runtime code and tests.
 
 ### Task 4: Verify the cleanup end-to-end
 
 **Files:**
+
 - Modify as needed based on verification output
 
 **Step 1: Run focused lint, tests, and typecheck**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web lint
 pnpm --filter @nojv/web test -- course-management-routes.test.ts course-route-behavior.test.ts problem-testcase-routes.test.ts db-read-model.test.ts judge-operations.test.ts problem-editor.test.tsx auth-route.test.ts
@@ -132,6 +150,7 @@ pnpm --filter @nojv/worker typecheck
 **Step 2: Run repo-level smoke verification for touched docs/config**
 
 Run:
+
 ```bash
 docker compose config
 ```

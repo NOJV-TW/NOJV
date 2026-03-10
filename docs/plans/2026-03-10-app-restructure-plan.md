@@ -15,6 +15,7 @@
 ## Task 1: Remove `ta` from PlatformRole enum
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma:80-85`
 - Modify: `packages/domain/src/index.ts:13`
 - Modify: `packages/domain/src/index.ts:111-140` (localActorPresets)
@@ -23,6 +24,7 @@
 **Step 1: Update Prisma schema — remove `ta` from PlatformRole**
 
 In `packages/db/prisma/schema.prisma`, change:
+
 ```prisma
 enum PlatformRole {
   admin
@@ -30,11 +32,13 @@ enum PlatformRole {
   student
 }
 ```
+
 (Remove the `ta` line.)
 
 **Step 2: Update domain types — remove `ta` from platformRoles**
 
 In `packages/domain/src/index.ts`, change line 13:
+
 ```typescript
 export const platformRoles = ["admin", "teacher", "student"] as const;
 ```
@@ -44,6 +48,7 @@ Also update `effectiveCourseRoles` (line 15) — keep as-is since `admin` is sti
 **Step 3: Update localActorPresets — change TA preset to Student platformRole**
 
 In `packages/domain/src/index.ts`, change the `ta` preset (lines 126-131):
+
 ```typescript
   ta: actorIdentitySchema.parse({
     displayName: "Ren Wu",
@@ -57,6 +62,7 @@ In `packages/domain/src/index.ts`, change the `ta` preset (lines 126-131):
 **Step 4: Update ActorSessionControl presets**
 
 In `apps/web/src/components/actor-session-provider.tsx`, update the TA entry label to clarify it's a student with TA course role:
+
 ```typescript
   {
     actor: localActorPresets.ta,
@@ -68,11 +74,13 @@ In `apps/web/src/components/actor-session-provider.tsx`, update the TA entry lab
 **Step 5: Create migration to convert existing `ta` platform roles to `student`**
 
 Run:
+
 ```bash
 cd /Users/takala/code/NOJV && pnpm db:generate
 ```
 
 Then create a manual SQL migration:
+
 ```sql
 -- Convert existing platform-level TA users to student
 UPDATE "User" SET "platformRole" = 'student' WHERE "platformRole" = 'ta';
@@ -88,6 +96,7 @@ DROP TYPE "PlatformRole_old";
 **Step 6: Verify build**
 
 Run:
+
 ```bash
 cd /Users/takala/code/NOJV && pnpm build --filter=@nojv/domain && pnpm build --filter=@nojv/db
 ```
@@ -95,6 +104,7 @@ cd /Users/takala/code/NOJV && pnpm build --filter=@nojv/domain && pnpm build --f
 **Step 7: Fix all references to platform role `ta`**
 
 Search for `"ta"` references in platform role contexts:
+
 - `apps/web/src/lib/server/read-model.ts:154` — `mapCourseMember` type has `"admin" | "student" | "ta" | "teacher"` — change to `"admin" | "student" | "teacher"`
 - `apps/web/src/lib/server/actor-context.ts` — dev fallback defaults to "student", no change needed
 - `apps/web/tests/problem-testcase-routes.test.ts:26` — mock has `"admin" | "student" | "ta" | "teacher"` — update to `"admin" | "student" | "teacher"`
@@ -118,12 +128,14 @@ git commit -m "refactor: remove ta from PlatformRole — TA is course-level only
 ## Task 2: Add exam restriction fields to CourseAssessment
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma:361-387`
 - Modify: `packages/domain/src/index.ts` (courseAssessmentCreateSchema)
 
 **Step 1: Add fields to CourseAssessment model in schema**
 
 In `packages/db/prisma/schema.prisma`, add after `scoreboardMode` field (line 369):
+
 ```prisma
   pageLockEnabled Boolean                       @default(false)
   ipLockEnabled   Boolean                       @default(false)
@@ -132,6 +144,7 @@ In `packages/db/prisma/schema.prisma`, add after `scoreboardMode` field (line 36
 **Step 2: Update courseAssessmentCreateSchema in domain**
 
 In `packages/domain/src/index.ts`, add to `courseAssessmentCreateSchema` object (inside `.object({...})`):
+
 ```typescript
     ipLockEnabled: z.boolean().default(false),
     pageLockEnabled: z.boolean().default(false),
@@ -161,26 +174,29 @@ git commit -m "feat: add pageLockEnabled and ipLockEnabled fields to CourseAsses
 ## Task 3: Update seed data to match design (4 accounts)
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts`
 
 **Step 1: Rewrite seed to 4 accounts matching design**
 
 Replace user creation section with 4 accounts:
 
-| Handle | Display Name | Platform Role | Password |
-|--------|-------------|--------------|----------|
-| admin | Admin | admin | password123 |
-| teacher | Teacher | teacher | password123 |
-| ta-student | TA Student | student | password123 |
-| student | Student | student | password123 |
+| Handle     | Display Name | Platform Role | Password    |
+| ---------- | ------------ | ------------- | ----------- |
+| admin      | Admin        | admin         | password123 |
+| teacher    | Teacher      | teacher       | password123 |
+| ta-student | TA Student   | student       | password123 |
+| student    | Student      | student       | password123 |
 
 User IDs:
+
 - `usr_admin` (admin)
 - `usr_teacher` (teacher)
 - `usr_ta_student` (student — to be promoted to TA in course)
 - `usr_student` (student)
 
 Update all course memberships accordingly:
+
 - Course owner: `usr_teacher`
 - Course teacher membership: `usr_teacher`
 - Course TA membership: `usr_ta_student` (courseRole: `ta`)
@@ -206,6 +222,7 @@ git commit -m "refactor: simplify seed to 4 accounts matching app restructure de
 ## Task 4: Update permissions — everyone can create problems
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/authorization/permissions.ts:7-9`
 - Modify: `apps/web/src/app/api/problems/route.ts:10-12`
 - Modify: `apps/web/src/app/api/problems/[slug]/testcase-sets/route.ts:10-12`
@@ -214,6 +231,7 @@ git commit -m "refactor: simplify seed to 4 accounts matching app restructure de
 **Step 1: Update the test first (TDD)**
 
 In `apps/web/tests/course-authorization.test.ts`, update the canCreateProblem test:
+
 ```typescript
 it("allows all authenticated users to create problems", () => {
   expect(canCreateProblem("teacher")).toBe(true);
@@ -227,11 +245,13 @@ it("allows all authenticated users to create problems", () => {
 ```bash
 cd /Users/takala/code/NOJV && pnpm vitest run apps/web/tests/course-authorization.test.ts
 ```
+
 Expected: FAIL — student returns false
 
 **Step 3: Update canCreateProblem to always return true**
 
 In `apps/web/src/lib/server/authorization/permissions.ts`:
+
 ```typescript
 export function canCreateProblem(_platformRole: PlatformRole) {
   return true;
@@ -241,11 +261,13 @@ export function canCreateProblem(_platformRole: PlatformRole) {
 **Step 4: Update API route error messages**
 
 In `apps/web/src/app/api/problems/route.ts`, remove the canCreateProblem guard entirely (or keep for unauthenticated — but `withAuth` already handles that). Remove lines 10-12:
+
 ```typescript
 // Remove: if (!canCreateProblem(actor.platformRole)) { ... }
 ```
 
 In `apps/web/src/app/api/problems/[slug]/testcase-sets/route.ts`, keep the guard but update message:
+
 ```typescript
 // Keep: testcase management still requires problem authorship check
 // The canCreateProblem check here is actually wrong — should check problem ownership
@@ -257,8 +279,9 @@ Actually, looking at this more carefully: `canCreateProblem` is used as a gate f
 **Step 5: Update the mock in problem-testcase-routes.test.ts**
 
 In `apps/web/tests/problem-testcase-routes.test.ts`, update the mock:
+
 ```typescript
-canCreateProblem: vi.fn(() => true)
+canCreateProblem: vi.fn(() => true);
 ```
 
 **Step 6: Run tests**
@@ -279,6 +302,7 @@ git commit -m "feat: allow all authenticated users to create problems"
 ## Task 5: Update navigation to match design
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/layout.tsx:36-43`
 - Modify: `apps/web/messages/en.json` (navigation section)
 - Modify: `apps/web/messages/zh-TW.json` (navigation section)
@@ -286,6 +310,7 @@ git commit -m "feat: allow all authenticated users to create problems"
 **Step 1: Add i18n keys for assignments and exams navigation**
 
 In `apps/web/messages/en.json`, update `navigation`:
+
 ```json
 "navigation": {
   "assignments": "Assignments",
@@ -297,6 +322,7 @@ In `apps/web/messages/en.json`, update `navigation`:
 ```
 
 In `apps/web/messages/zh-TW.json`, update `navigation`:
+
 ```json
 "navigation": {
   "assignments": "作業",
@@ -312,6 +338,7 @@ Remove `contests`, `submissions`, `integrity`, `workspace` from both files' navi
 **Step 2: Update navItems in layout**
 
 In `apps/web/src/app/[locale]/layout.tsx`, replace navItems:
+
 ```typescript
 const navItems = [
   { href: `/${locale}`, label: tNav("dashboard") },
@@ -327,6 +354,7 @@ const navItems = [
 ```bash
 cd /Users/takala/code/NOJV && pnpm dev --filter=web
 ```
+
 Navigate to `http://localhost:3000` and confirm nav shows: Overview / Problems / Courses / Assignments / Exams
 
 **Step 4: Commit**
@@ -341,6 +369,7 @@ git commit -m "feat: update navigation to Homepage/Problems/Courses/Assignments/
 ## Task 6: Problems page — two tabs (Public Library / My Problems)
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/read-model.ts` (add `listEditableProblems` query)
 - Modify: `apps/web/src/app/[locale]/problems/page.tsx`
 - Create: `apps/web/src/components/problems-tabs.tsx` (client component for tab switching)
@@ -350,6 +379,7 @@ git commit -m "feat: update navigation to Homepage/Problems/Courses/Assignments/
 **Step 1: Add i18n keys for problem tabs**
 
 In `apps/web/messages/en.json`, add a `problems` section:
+
 ```json
 "problems": {
   "createNew": "Create new problem",
@@ -361,6 +391,7 @@ In `apps/web/messages/en.json`, add a `problems` section:
 ```
 
 In `apps/web/messages/zh-TW.json`:
+
 ```json
 "problems": {
   "createNew": "建立新題目",
@@ -374,6 +405,7 @@ In `apps/web/messages/zh-TW.json`:
 **Step 2: Add `listEditableProblems` query to read-model**
 
 In `apps/web/src/lib/server/read-model.ts`, add:
+
 ```typescript
 export async function listEditableProblems(userId: string) {
   const problems = await prisma.problem.findMany({
@@ -416,12 +448,14 @@ export async function listEditableProblems(userId: string) {
 ```
 
 This query finds problems where:
+
 - User is the author, OR
 - Problem is linked to an assessment in a course where the user is teacher/TA
 
 **Step 3: Create ProblemsTabs client component**
 
 Create `apps/web/src/components/problems-tabs.tsx`:
+
 ```tsx
 "use client";
 
@@ -506,11 +540,15 @@ export function ProblemsTabs({
                 <h3 className="mt-2 text-2xl font-semibold">{problem.title}</h3>
               </div>
               <div>
-                <p className="text-sm text-[color:var(--color-muted)]">{tCommon("difficulty")}</p>
+                <p className="text-sm text-[color:var(--color-muted)]">
+                  {tCommon("difficulty")}
+                </p>
                 <p className="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
               </div>
               <div className="sm:text-right">
-                <p className="text-sm text-[color:var(--color-muted)]">{tCommon("acceptance")}</p>
+                <p className="text-sm text-[color:var(--color-muted)]">
+                  {tCommon("acceptance")}
+                </p>
                 <p className="mt-1 text-lg font-semibold">
                   {formatAcceptanceRate(problem.acceptanceRate)}
                 </p>
@@ -540,7 +578,9 @@ export function ProblemsTabs({
                 <h3 className="mt-2 text-2xl font-semibold">{problem.title}</h3>
               </div>
               <div>
-                <p className="text-sm text-[color:var(--color-muted)]">{tCommon("difficulty")}</p>
+                <p className="text-sm text-[color:var(--color-muted)]">
+                  {tCommon("difficulty")}
+                </p>
                 <p className="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
               </div>
               <div className="sm:text-right">
@@ -564,6 +604,7 @@ export function ProblemsTabs({
 **Step 4: Rewrite the problems page to use tabs**
 
 Replace `apps/web/src/app/[locale]/problems/page.tsx`:
+
 ```tsx
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
@@ -597,9 +638,7 @@ export default async function ProblemsPage({
   return (
     <div className="space-y-6">
       <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
-        <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {tNav("problems")}
-        </h2>
+        <h2 className="font-[family-name:var(--font-display)] text-3xl">{tNav("problems")}</h2>
       </section>
 
       <ProblemCreationPanel />
@@ -627,6 +666,7 @@ git commit -m "feat: add two-tab problems page (Public Library / My Problems)"
 ## Task 7: Create cross-course Assignments aggregation page
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/read-model.ts` (add `listUserAssessments` query)
 - Create: `apps/web/src/app/[locale]/assignments/page.tsx`
 - Modify: `apps/web/messages/en.json`
@@ -635,6 +675,7 @@ git commit -m "feat: add two-tab problems page (Public Library / My Problems)"
 **Step 1: Add i18n keys**
 
 In `apps/web/messages/en.json`, add:
+
 ```json
 "assignmentsList": {
   "course": "Course",
@@ -648,6 +689,7 @@ In `apps/web/messages/en.json`, add:
 ```
 
 In `apps/web/messages/zh-TW.json`:
+
 ```json
 "assignmentsList": {
   "course": "課程",
@@ -663,6 +705,7 @@ In `apps/web/messages/zh-TW.json`:
 **Step 2: Add `listUserAssessments` query**
 
 In `apps/web/src/lib/server/read-model.ts`, add:
+
 ```typescript
 export async function listUserAssessments(userId: string, type: CourseAssessmentType) {
   const assessments = await prisma.courseAssessment.findMany({
@@ -703,6 +746,7 @@ export async function listUserAssessments(userId: string, type: CourseAssessment
 **Step 3: Create assignments page**
 
 Create `apps/web/src/app/[locale]/assignments/page.tsx`:
+
 ```tsx
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -780,12 +824,17 @@ export default async function AssignmentsPage({
                 <p className="mt-1 text-sm">{new Date(a.dueAt).toLocaleDateString(locale)}</p>
               </div>
               <div className="sm:text-right">
-                <span className={`${shellClassNames.badge} ${
-                  windowState === "open" ? "text-emerald-600" :
-                  windowState === "upcoming" ? "text-blue-600" :
-                  windowState === "grace" ? "text-amber-600" :
-                  "text-[color:var(--color-muted)]"
-                }`}>
+                <span
+                  className={`${shellClassNames.badge} ${
+                    windowState === "open"
+                      ? "text-emerald-600"
+                      : windowState === "upcoming"
+                        ? "text-blue-600"
+                        : windowState === "grace"
+                          ? "text-amber-600"
+                          : "text-[color:var(--color-muted)]"
+                  }`}
+                >
                   {windowState}
                 </span>
               </div>
@@ -816,6 +865,7 @@ git commit -m "feat: add cross-course assignments aggregation page"
 ## Task 8: Create cross-course Exams aggregation page
 
 **Files:**
+
 - Create: `apps/web/src/app/[locale]/exams/page.tsx`
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
@@ -823,6 +873,7 @@ git commit -m "feat: add cross-course assignments aggregation page"
 **Step 1: Add i18n keys**
 
 In `apps/web/messages/en.json`, add:
+
 ```json
 "examsList": {
   "course": "Course",
@@ -836,6 +887,7 @@ In `apps/web/messages/en.json`, add:
 ```
 
 In `apps/web/messages/zh-TW.json`:
+
 ```json
 "examsList": {
   "course": "課程",
@@ -851,6 +903,7 @@ In `apps/web/messages/zh-TW.json`:
 **Step 2: Create exams page**
 
 Create `apps/web/src/app/[locale]/exams/page.tsx` (nearly identical to assignments page but with `type: "exam"`):
+
 ```tsx
 import Link from "next/link";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -864,11 +917,7 @@ import { listUserAssessments } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
-export default async function ExamsPage({
-  params
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function ExamsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("examsList");
@@ -928,12 +977,17 @@ export default async function ExamsPage({
                 <p className="mt-1 text-sm">{new Date(e.dueAt).toLocaleDateString(locale)}</p>
               </div>
               <div className="sm:text-right">
-                <span className={`${shellClassNames.badge} ${
-                  windowState === "open" ? "text-emerald-600" :
-                  windowState === "upcoming" ? "text-blue-600" :
-                  windowState === "grace" ? "text-amber-600" :
-                  "text-[color:var(--color-muted)]"
-                }`}>
+                <span
+                  className={`${shellClassNames.badge} ${
+                    windowState === "open"
+                      ? "text-emerald-600"
+                      : windowState === "upcoming"
+                        ? "text-blue-600"
+                        : windowState === "grace"
+                          ? "text-amber-600"
+                          : "text-[color:var(--color-muted)]"
+                  }`}
+                >
                   {windowState}
                 </span>
               </div>
@@ -964,6 +1018,7 @@ git commit -m "feat: add cross-course exams aggregation page"
 ## Task 9: Move course join route to `/courses/[slug]/join/[token]`
 
 **Files:**
+
 - Move: `apps/web/src/app/[locale]/join/[slug]/page.tsx` → `apps/web/src/app/[locale]/courses/[slug]/join/[token]/page.tsx`
 - Update: all references to the join route
 
@@ -978,6 +1033,7 @@ Read the existing page first, then adapt it for the new route structure where th
 Search for references to `/join/` in the codebase and update them to point to the new route.
 
 Key places:
+
 - `apps/web/src/components/course-join-panel.tsx` — join links
 - `apps/web/src/app/[locale]/courses/[slug]/page.tsx` — join button links
 
@@ -1004,6 +1060,7 @@ git commit -m "refactor: move course join route to /courses/[slug]/join/[token]"
 ## Execution Notes
 
 ### Dependencies between tasks:
+
 - Task 1 (PlatformRole) must be done first — other tasks may reference it
 - Task 2 (exam fields) is independent
 - Task 3 (seed) depends on Task 1
@@ -1015,9 +1072,11 @@ git commit -m "refactor: move course join route to /courses/[slug]/join/[token]"
 - Task 9 (join route) is independent
 
 ### Parallelization:
+
 - Tasks 2, 5 can run in parallel with Task 1
 - Tasks 6, 9 can run in parallel
 - Tasks 7, 8 can run in parallel after Task 5
 
 ### Migration strategy:
+
 For Tasks 1 and 2, rather than using `prisma migrate dev` (which may fail on enum changes), use `prisma db push` for development or write manual SQL migrations.

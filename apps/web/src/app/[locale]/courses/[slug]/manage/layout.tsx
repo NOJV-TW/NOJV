@@ -11,7 +11,7 @@ export default async function ManageLayout({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const actor = await requireAuth("/auth/signin");
+  const actor = await requireAuth();
   const role = await requireCourseRole(actor, slug, "admin", "teacher", "ta");
 
   return (

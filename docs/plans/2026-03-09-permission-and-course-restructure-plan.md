@@ -13,6 +13,7 @@
 ### Task 1: Create authorization module — `permissions.ts`
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/authorization/permissions.ts`
 
 **Step 1: Create the permissions file**
@@ -56,6 +57,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -20`
 ### Task 2: Create authorization module — `roles.ts`
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/authorization/roles.ts`
 - Modify: `apps/web/src/lib/server/poc-persistence.ts` (remove `resolveCoursePermission` and `getCoursePermissionRole`)
 
@@ -134,6 +136,7 @@ However, `poc-persistence.ts` still uses `resolveCoursePermissionRole` directly 
 **Revised approach:** In `roles.ts`, the `resolveCoursePermission` function does its own `findUnique` + `NotFoundError` (not using the private `ensureCourse` helper). This is already how the code above is written — it's self-contained.
 
 In `poc-persistence.ts`:
+
 - Remove `resolveCoursePermission` (lines 286-308) and `getCoursePermissionRole` (lines 744-750)
 - Remove `import { resolveCoursePermissionRole } from "./course-authorization"` entirely (line 20)
 - The remaining code in `poc-persistence.ts` does NOT reference `resolveCoursePermissionRole` or `resolveCoursePermission` anymore after the removal.
@@ -147,6 +150,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -30`
 ### Task 3: Create authorization module — `guards.ts` and `index.ts`
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/authorization/guards.ts`
 - Create: `apps/web/src/lib/server/authorization/index.ts`
 
@@ -236,11 +240,7 @@ export {
   resolveCoursePermissionRole
 } from "./roles";
 
-export {
-  requireAuth,
-  requireCourseRole,
-  requirePlatformRole
-} from "./guards";
+export { requireAuth, requireCourseRole, requirePlatformRole } from "./guards";
 ```
 
 **Step 3: Verify**
@@ -252,6 +252,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -30`
 ### Task 4: Update all imports to use authorization module
 
 **Files:**
+
 - Modify: `apps/web/src/app/api/courses/route.ts`
 - Modify: `apps/web/src/app/api/courses/[slug]/members/route.ts`
 - Modify: `apps/web/src/app/api/courses/[slug]/assessments/route.ts`
@@ -262,14 +263,19 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -30`
 **Step 1: Update each API route**
 
 For each file, replace:
+
 - `import { canXxx } from "@/lib/server/course-authorization"` → `import { canXxx } from "@/lib/server/authorization"`
 - `import { getCoursePermissionRole, ... } from "@/lib/server/poc-persistence"` → add `getCoursePermissionRole` to the authorization import, remove it from poc-persistence import
 
 Example for `api/courses/[slug]/members/route.ts`:
+
 ```typescript
 // Before:
 import { canManageCourseMembership } from "@/lib/server/course-authorization";
-import { getCoursePermissionRole, manuallyEnrollCourseMember } from "@/lib/server/poc-persistence";
+import {
+  getCoursePermissionRole,
+  manuallyEnrollCourseMember
+} from "@/lib/server/poc-persistence";
 
 // After:
 import { canManageCourseMembership, getCoursePermissionRole } from "@/lib/server/authorization";
@@ -287,6 +293,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -30`
 ### Task 5: Update tests and delete old file
 
 **Files:**
+
 - Modify: `apps/web/tests/course-authorization.test.ts` — update import path
 - Modify: `apps/web/tests/course-management-routes.test.ts` — update mock paths
 - Modify: `apps/web/tests/course-route-behavior.test.ts` — update mock paths
@@ -296,6 +303,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -30`
 **Step 1: Update test imports**
 
 For `course-authorization.test.ts`:
+
 ```typescript
 // Before:
 import { ... } from "../src/lib/server/course-authorization";
@@ -304,6 +312,7 @@ import { ... } from "../src/lib/server/authorization";
 ```
 
 For mock paths in other test files, replace:
+
 ```typescript
 // Before:
 vi.mock("../src/lib/server/course-authorization", () => ({ ... }))
@@ -312,13 +321,17 @@ vi.mock("../src/lib/server/authorization", () => ({ ... }))
 ```
 
 And for `getCoursePermissionRole` mocks, update from:
+
 ```typescript
 vi.mock("../src/lib/server/poc-persistence", () => ({ getCoursePermissionRole: ... }))
 ```
+
 to:
+
 ```typescript
 vi.mock("../src/lib/server/authorization", () => ({ getCoursePermissionRole: ..., canXxx: ... }))
 ```
+
 (Merge the authorization mocks into a single mock call.)
 
 **Step 2: Delete old file**
@@ -344,6 +357,7 @@ git commit -m "refactor: centralize authorization into lib/server/authorization 
 ### Task 6: Create manage layout with auth guard
 
 **Files:**
+
 - Create: `apps/web/src/app/[locale]/courses/[slug]/manage/layout.tsx`
 
 **Step 1: Create the layout**
@@ -445,6 +459,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -20`
 ### Task 7: Create manage overview page
 
 **Files:**
+
 - Create: `apps/web/src/app/[locale]/courses/[slug]/manage/page.tsx`
 
 **Step 1: Create the page**
@@ -508,6 +523,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -20`
 ### Task 8: Create manage members page
 
 **Files:**
+
 - Create: `apps/web/src/components/course-manage/manage-members.tsx`
 - Create: `apps/web/src/app/[locale]/courses/[slug]/manage/members/page.tsx`
 
@@ -663,6 +679,7 @@ export function ManageMembers({ courseSlug, courseTitle, members }: ManageMember
 ```
 
 Note: The `enrollCourseMemberMutation` currently takes an `actor` second argument. We need to check whether the client mutation functions pass actor headers. Looking at the current `course-management-console.tsx`, it passes `actor` from `useActorSession()`. The client mutation function likely sends these as dev headers. For the manage pages, since the layout already verified auth, we can either:
+
 - Keep passing actor from a client hook (for dev mode header support)
 - Or simplify and just call the API without dev headers (prod uses session cookies)
 
@@ -713,6 +730,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -20`
 ### Task 9: Create manage problems page
 
 **Files:**
+
 - Create: `apps/web/src/components/course-manage/manage-problems.tsx`
 - Create: `apps/web/src/app/[locale]/courses/[slug]/manage/problems/page.tsx`
 
@@ -873,6 +891,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -20`
 ### Task 10: Create manage assessments page
 
 **Files:**
+
 - Create: `apps/web/src/components/course-manage/manage-assessments.tsx`
 - Create: `apps/web/src/app/[locale]/courses/[slug]/manage/assessments/page.tsx`
 
@@ -1167,6 +1186,7 @@ git commit -m "feat: add course management routes with dedicated pages for membe
 ### Task 11: Update course detail page (student view) and clean up
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/courses/[slug]/page.tsx`
 - Delete: `apps/web/src/components/course-management-console.tsx`
 - Delete: `apps/web/src/components/course-membership-panel.tsx`
@@ -1284,34 +1304,37 @@ import { getCoursePermissionRole, canViewManagePanel } from "@/lib/server/author
 And in the component body, before the return:
 
 ```typescript
-  let showManageLink = false;
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (session?.user) {
-    const parsedRole = platformRoleSchema.safeParse(
-      (session.user as Record<string, unknown>).platformRole
-    );
-    const actor = {
-      displayName: session.user.name ?? session.user.email,
-      email: session.user.email,
-      handle: ((session.user as Record<string, unknown>).handle as string) ?? "",
-      platformRole: parsedRole.success ? parsedRole.data : "student" as const,
-      userId: session.user.id
-    };
-    const role = await getCoursePermissionRole(slug, actor);
-    showManageLink = role !== null && canViewManagePanel(role);
-  }
+let showManageLink = false;
+const session = await auth.api.getSession({ headers: await headers() });
+if (session?.user) {
+  const parsedRole = platformRoleSchema.safeParse(
+    (session.user as Record<string, unknown>).platformRole
+  );
+  const actor = {
+    displayName: session.user.name ?? session.user.email,
+    email: session.user.email,
+    handle: ((session.user as Record<string, unknown>).handle as string) ?? "",
+    platformRole: parsedRole.success ? parsedRole.data : ("student" as const),
+    userId: session.user.id
+  };
+  const role = await getCoursePermissionRole(slug, actor);
+  showManageLink = role !== null && canViewManagePanel(role);
+}
 ```
 
 Then in the JSX, after the course title section, conditionally render:
+
 ```tsx
-{showManageLink ? (
-  <Link
-    className="inline-flex rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-    href={`/${locale}/courses/${slug}/manage`}
-  >
-    Manage Course
-  </Link>
-) : null}
+{
+  showManageLink ? (
+    <Link
+      className="inline-flex rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+      href={`/${locale}/courses/${slug}/manage`}
+    >
+      Manage Course
+    </Link>
+  ) : null;
+}
 ```
 
 This is getting complex in the plan. **Simplification:** Just add the manage link and let the manage layout handle the actual auth. If a student clicks the link, the layout guard will redirect them. This is simpler and still secure.
@@ -1351,6 +1374,7 @@ Run: `npx tsc --noEmit --pretty -p apps/web/tsconfig.json 2>&1 | head -30`
 ### Task 12: Update client mutation functions
 
 **Files:**
+
 - Modify: `apps/web/src/lib/client/course-management-client.ts`
 
 **Step 1: Make actor parameter optional**
@@ -1389,6 +1413,7 @@ Run: `cd apps/web && pnpm test`
 **Step 3: Dev server smoke test**
 
 Run: `cd apps/web && pnpm dev` and verify:
+
 - `/en/courses` loads
 - `/en/courses/{slug}` shows student view without management console
 - `/en/courses/{slug}/manage` shows management nav + overview

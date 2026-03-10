@@ -13,10 +13,16 @@ export interface EnsureUserInput {
 
 export interface CreateProblemDefinitionInput {
   authorId?: string;
+  checkerScript?: string | undefined;
   difficulty: "easy" | "hard" | "medium";
+  inputFormat?: string;
+  interactorScript?: string | undefined;
+  judgeType?: "checker" | "interactive" | "standard";
   memoryLimitMb?: number;
+  outputFormat?: string;
   statement?: string;
   summary: string;
+  tags?: string[];
   timeLimitMs?: number;
   title: string;
   visibility?: "private" | "public";
@@ -49,35 +55,30 @@ export async function ensureUser(
   userId: string,
   input: EnsureUserInput = {}
 ) {
-  const email = input.email ?? createLocalEmail(userId);
-  const handle = input.handle ?? createLocalHandle(userId);
-  const existing = await tx.user.findFirst({
-    where: {
-      OR: [{ email }, { handle }, { id: userId }]
-    }
-  });
-
-  const data = {
-    name: input.displayName ?? createLocalDisplayName(userId),
-    email,
-    handle,
-    locale: input.locale ?? "zh-TW",
-    platformRole: input.platformRole ?? "student"
-  } as const;
+  const existing = await tx.user.findUnique({ where: { id: userId } });
 
   if (existing) {
-    return tx.user.update({
-      data,
-      where: {
-        id: existing.id
-      }
-    });
+    // Only update fields explicitly provided — never overwrite with fallbacks
+    const updates: Record<string, string> = {};
+    if (input.displayName) updates.name = input.displayName;
+    if (input.email) updates.email = input.email;
+    if (input.handle) updates.handle = input.handle;
+    if (input.locale) updates.locale = input.locale;
+    if (input.platformRole) updates.platformRole = input.platformRole;
+
+    if (Object.keys(updates).length === 0) return existing;
+
+    return tx.user.update({ data: updates, where: { id: existing.id } });
   }
 
   return tx.user.create({
     data: {
-      ...data,
-      id: userId
+      id: userId,
+      name: input.displayName ?? createLocalDisplayName(userId),
+      email: input.email ?? createLocalEmail(userId),
+      handle: input.handle ?? createLocalHandle(userId),
+      locale: input.locale ?? "zh-TW",
+      platformRole: input.platformRole ?? "student"
     }
   });
 }
@@ -90,12 +91,16 @@ export async function createProblemDefinition(
   const problem = await tx.problem.create({
     data: {
       authorId: input.authorId ?? null,
+      checkerScript: input.checkerScript ?? null,
       defaultTitle: input.title,
       difficulty: input.difficulty,
       id: `problem_${problemSlug}`,
+      interactorScript: input.interactorScript ?? null,
+      judgeType: input.judgeType ?? "standard",
       memoryLimitMb: input.memoryLimitMb ?? 256,
       slug: problemSlug,
       summary: input.summary,
+      tags: input.tags ?? [],
       timeLimitMs: input.timeLimitMs ?? 1_000,
       visibility: input.visibility ?? "public"
     }
@@ -105,7 +110,9 @@ export async function createProblemDefinition(
     await tx.problemStatementI18n.create({
       data: {
         bodyMarkdown: input.statement,
+        inputFormat: input.inputFormat ?? "",
         locale: "zh-TW",
+        outputFormat: input.outputFormat ?? "",
         problemId: problem.id,
         title: input.title
       }
@@ -138,7 +145,9 @@ export function assertCourseProblemAccess(
     actor.platformRole !== "admin" &&
     problem.authorId !== actor.userId
   ) {
-    throw new ForbiddenError("Private problems can only be attached by their author or an admin.");
+    throw new ForbiddenError(
+      "Private problems can only be attached by their author or an admin."
+    );
   }
 }
 

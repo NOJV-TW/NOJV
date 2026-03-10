@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 import { authClient } from "@/lib/auth-client";
 
-export default function SignUpPage() {
+export default function SignInPage() {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations("auth");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -17,33 +20,33 @@ export default function SignUpPage() {
     setLoading(true);
 
     const form = new FormData(event.currentTarget);
+    const identity = (form.get("identity") as string).trim();
+    const password = form.get("password") as string;
 
-    const { error: signUpError } = await authClient.signUp.email({
-      email: form.get("email") as string,
-      name: form.get("displayName") as string,
-      password: form.get("password") as string,
-      username: form.get("handle") as string
-    });
+    const isEmail = identity.includes("@");
+    const { error: signInError } = isEmail
+      ? await authClient.signIn.email({ email: identity, password })
+      : await authClient.signIn.username({ username: identity, password });
 
     setLoading(false);
 
-    if (signUpError) {
-      setError(signUpError.message ?? "Registration failed.");
+    if (signInError) {
+      setError(signInError.message ?? t("invalidCredentials"));
       return;
     }
 
-    router.push("/");
+    router.push(`/${locale}`);
     router.refresh();
   }
 
   async function handleOAuth(provider: "github" | "google") {
-    await authClient.signIn.social({ callbackURL: "/auth/complete-profile", provider });
+    await authClient.signIn.social({ callbackURL: `/${locale}`, provider });
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)]">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8">
-        <h1 className="mb-6 text-center text-2xl font-semibold">Create your NOJV account</h1>
+        <h1 className="mb-6 text-center text-2xl font-semibold">{t("signInTitle")}</h1>
 
         <div className="flex flex-col gap-3">
           <button
@@ -64,47 +67,26 @@ export default function SignUpPage() {
 
         <div className="my-5 flex items-center gap-3 text-xs text-[color:var(--color-muted)]">
           <hr className="flex-1 border-[color:var(--color-border)]" />
-          or
+          {t("or")}
           <hr className="flex-1 border-[color:var(--color-border)]" />
         </div>
 
         <form className="flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
           <label className="flex flex-col gap-1 text-sm">
-            Display name
+            {t("emailOrHandle")}
             <input
+              autoComplete="username"
               className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
-              name="displayName"
+              name="identity"
               required
               type="text"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            Handle
+            {t("password")}
             <input
+              autoComplete="current-password"
               className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
-              name="handle"
-              pattern="[a-z0-9._-]{3,64}"
-              required
-              title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
-              type="text"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Email
-            <input
-              autoComplete="email"
-              className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
-              name="email"
-              required
-              type="email"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Password
-            <input
-              autoComplete="new-password"
-              className="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
-              minLength={8}
               name="password"
               required
               type="password"
@@ -116,13 +98,13 @@ export default function SignUpPage() {
             disabled={loading}
             type="submit"
           >
-            {loading ? "Creating account..." : "Sign up"}
+            {loading ? t("signingIn") : t("signIn")}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-[color:var(--color-muted)]">
-          Already have an account?{" "}
-          <Link className="text-[color:var(--color-accent)] underline" href="/auth/signin">
-            Sign in
+          {t("noAccount")}{" "}
+          <Link className="text-[color:var(--color-accent)] underline" href={`/${locale}/auth/signup`}>
+            {t("signUp")}
           </Link>
         </p>
       </div>

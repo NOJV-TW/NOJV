@@ -36,6 +36,7 @@
 ```
 
 ### Key changes
+
 - New `manage/` sub-routes extracted from `course-management-console`
 - `manage/layout.tsx` handles teacher/ta/admin permission check once
 - Student-facing routes unchanged
@@ -62,6 +63,7 @@ lib/server/authorization/
 ```
 
 ### Migration
+
 - `course-authorization.ts` → `permissions.ts` + `roles.ts`, then delete
 - `poc-persistence.ts` role resolution → `roles.ts`
 - `api-handler.ts` `withAuth` kept, internally uses `guards.ts`
@@ -69,6 +71,7 @@ lib/server/authorization/
 ## Component Restructure
 
 ### New structure
+
 ```
 components/
 ├── course/
@@ -84,11 +87,13 @@ components/
 ```
 
 ### Cleanup
+
 - Delete `course-management-console.tsx` after extraction
 - Merge `course-membership-panel.tsx` into `manage-members.tsx`, then delete
 - Keep `course-creation-panel.tsx` (independent flow)
 
 ### manage/layout.tsx pattern
+
 ```typescript
 export default async function ManageLayout({ children, params }) {
   const actor = await requireAuth()

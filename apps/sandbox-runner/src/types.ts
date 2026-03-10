@@ -8,17 +8,17 @@ export const SandboxInputSchema = z.object({
   submissionType: z.enum(["function", "full_source"]),
   limits: z.object({
     timeoutMs: z.number(),
-    memoryMb: z.number(),
+    memoryMb: z.number()
   }),
   // For function mode: template with insertion marker
   template: z
     .object({
       driverCode: z.string(),
-      insertionMarker: z.string(),
+      insertionMarker: z.string()
     })
     .optional(),
   // For checker/interactive
-  checkerLanguage: z.string().optional(),
+  checkerLanguage: z.string().optional()
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;

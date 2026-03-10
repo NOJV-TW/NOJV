@@ -39,13 +39,12 @@ describe("required handle onboarding", () => {
   });
 
   it("redirects authenticated users without a handle to the completion page", async () => {
-    getSession.mockResolvedValue({
-      user: {
-        email: "oauth-user@nojv.local",
-        id: "usr_oauth",
-        name: "OAuth User",
-        platformRole: "student"
-      }
+    getActorContext.mockResolvedValue({
+      displayName: "OAuth User",
+      email: "oauth-user@nojv.local",
+      handle: null,
+      platformRole: "student",
+      userId: "usr_oauth"
     });
 
     const { requireAuth } = await import("../src/lib/server/authorization/guards");
@@ -55,14 +54,12 @@ describe("required handle onboarding", () => {
   });
 
   it("returns the actor context once the handle is present", async () => {
-    getSession.mockResolvedValue({
-      user: {
-        email: "complete@nojv.local",
-        id: "usr_complete",
-        name: "Complete User",
-        platformRole: "teacher",
-        username: "complete_user"
-      }
+    getActorContext.mockResolvedValue({
+      displayName: "Complete User",
+      email: "complete@nojv.local",
+      handle: "complete_user",
+      platformRole: "teacher",
+      userId: "usr_complete"
     });
 
     const { requireAuth } = await import("../src/lib/server/authorization/guards");

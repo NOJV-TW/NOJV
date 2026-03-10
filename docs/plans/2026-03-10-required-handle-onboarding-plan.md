@@ -13,12 +13,14 @@
 ### Task 1: Lock onboarding rules with failing tests
 
 **Files:**
+
 - Create: `apps/web/tests/handle-onboarding.test.ts`
 - Modify: `apps/web/tests/auth-config.test.ts`
 
 **Step 1: Write the failing tests**
 
 Add tests that prove:
+
 - `requireAuth()` redirects incomplete users to `/auth/complete-profile`
 - `requireAuth()` allows complete users through unchanged
 - `withAuth()` returns `403` for authenticated users whose `handle` is missing
@@ -27,6 +29,7 @@ Add tests that prove:
 **Step 2: Run tests to verify they fail**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test tests/handle-onboarding.test.ts tests/auth-config.test.ts
 ```
@@ -45,6 +48,7 @@ git commit -m "test: capture required handle onboarding behavior"
 ### Task 2: Make handle nullable in the data and auth model
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma`
 - Create: `packages/db/prisma/migrations/<timestamp>_make_user_handle_nullable/migration.sql`
 - Modify: `apps/web/src/lib/auth.ts`
@@ -58,6 +62,7 @@ Change `User.handle` to `String? @unique` in Prisma and add a nullable `displayH
 **Step 2: Create migration**
 
 Run:
+
 ```bash
 cd packages/db && pnpm db:migrate --name make-user-handle-nullable
 ```
@@ -67,6 +72,7 @@ Expected: Prisma creates a migration that drops the `NOT NULL` requirement while
 **Step 3: Regenerate Prisma client**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/db db:generate
 ```
@@ -86,6 +92,7 @@ git commit -m "refactor: model handle as required onboarding data"
 ### Task 3: Add centralized completion helpers and guards
 
 **Files:**
+
 - Create: `apps/web/src/lib/auth-onboarding.ts`
 - Modify: `apps/web/src/lib/server/actor-context.ts`
 - Modify: `apps/web/src/lib/server/authorization/guards.ts`
@@ -94,6 +101,7 @@ git commit -m "refactor: model handle as required onboarding data"
 **Step 1: Write minimal implementation**
 
 Create a small auth-onboarding helper module that:
+
 - normalizes the session user handle
 - answers whether the account is complete
 - exposes the completion route constant
@@ -103,6 +111,7 @@ Update server auth mapping so `ActorContext.handle` becomes `string | null`. `re
 **Step 2: Run focused tests**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test tests/handle-onboarding.test.ts
 ```
@@ -121,6 +130,7 @@ git commit -m "feat: enforce handle completion in auth guards"
 ### Task 4: Build the completion page and route-aware redirect flow
 
 **Files:**
+
 - Create: `apps/web/src/app/auth/complete-profile/page.tsx`
 - Modify: `apps/web/src/proxy.ts`
 - Modify: `apps/web/src/app/[locale]/layout.tsx`
@@ -130,6 +140,7 @@ git commit -m "feat: enforce handle completion in auth guards"
 **Step 1: Surface the onboarding page**
 
 Create a dedicated completion page that:
+
 - requires an authenticated session
 - redirects complete users back to `/`
 - renders the current name/email
@@ -147,6 +158,7 @@ Set social sign-in callback URLs to `/auth/complete-profile` so the first post-O
 **Step 4: Run focused tests**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test tests/handle-onboarding.test.ts tests/auth-route.test.ts tests/auth-config.test.ts
 ```
@@ -165,11 +177,13 @@ git commit -m "feat: add required handle completion flow"
 ### Task 5: Clean dependent types and verify
 
 **Files:**
+
 - Modify: any files that still assume `ActorContext.handle` is always a string
 
 **Step 1: Run typecheck and adjust**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web typecheck
 ```
@@ -179,6 +193,7 @@ Update any affected code to respect the invariant that authenticated product cod
 **Step 2: Run final verification**
 
 Run:
+
 ```bash
 pnpm --filter @nojv/web test tests/handle-onboarding.test.ts tests/auth-route.test.ts tests/auth-config.test.ts
 pnpm --filter @nojv/web typecheck

@@ -6,14 +6,9 @@ import {
   type SandboxInput,
   type SandboxOutput,
   type TestcaseFiles,
-  type TestcaseResult,
+  type TestcaseResult
 } from "./types.js";
-import {
-  assembleSource,
-  compile,
-  compileChecker,
-  sourceFileName,
-} from "./compiler.js";
+import { assembleSource, compile, compileChecker, sourceFileName } from "./compiler.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
@@ -27,10 +22,7 @@ function log(message: string): void {
 
 /** Read and parse the submission config. */
 async function readConfig(): Promise<SandboxInput> {
-  const raw = await fs.readFile(
-    path.join(SUBMISSION_DIR, "config.json"),
-    "utf-8",
-  );
+  const raw = await fs.readFile(path.join(SUBMISSION_DIR, "config.json"), "utf-8");
   return SandboxInputSchema.parse(JSON.parse(raw));
 }
 
@@ -68,7 +60,7 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
 /** Docker volume mount layout: /submission/testcases/{index}/input.txt */
 async function loadTestcasesFromDirs(
   testcasesDir: string,
-  dirs: string[],
+  dirs: string[]
 ): Promise<TestcaseFiles[]> {
   const testcases: TestcaseFiles[] = [];
 
@@ -98,7 +90,7 @@ async function loadTestcasesFromDirs(
       input,
       expected,
       weight: meta.weight ?? 1,
-      isSample: meta.isSample ?? false,
+      isSample: meta.isSample ?? false
     });
   }
 
@@ -126,7 +118,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
     try {
       expected = await fs.readFile(
         path.join(SUBMISSION_DIR, `testcase-${String(index)}-expected.txt`),
-        "utf-8",
+        "utf-8"
       );
     } catch {
       // expected is optional
@@ -149,7 +141,9 @@ async function main(): Promise<void> {
   // 1. Read config
   log("Reading config...");
   const config = await readConfig();
-  log(`Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`);
+  log(
+    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
+  );
 
   // 2. Read source code and assemble (function mode → inject into template)
   log("Reading source code...");
@@ -160,9 +154,8 @@ async function main(): Promise<void> {
     assembledSource = assembleSource(rawSource, config);
   } catch (err) {
     const output: SandboxOutput = {
-      compilationError:
-        err instanceof Error ? err.message : "Source assembly failed.",
-      testcaseResults: [],
+      compilationError: err instanceof Error ? err.message : "Source assembly failed.",
+      testcaseResults: []
     };
     process.stdout.write(JSON.stringify(output));
     return;
@@ -180,7 +173,7 @@ async function main(): Promise<void> {
   if (!compileResult.success) {
     const output: SandboxOutput = {
       compilationError: compileResult.error,
-      testcaseResults: [],
+      testcaseResults: []
     };
     process.stdout.write(JSON.stringify(output));
     return;
@@ -195,7 +188,7 @@ async function main(): Promise<void> {
     if (!checkerPath) {
       const output: SandboxOutput = {
         compilationError: "Checker judge requires a checker script in /submission/.",
-        testcaseResults: [],
+        testcaseResults: []
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -206,7 +199,7 @@ async function main(): Promise<void> {
     if (!checkerResult.success) {
       const output: SandboxOutput = {
         compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
-        testcaseResults: [],
+        testcaseResults: []
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -219,7 +212,7 @@ async function main(): Promise<void> {
     if (!interactorPath) {
       const output: SandboxOutput = {
         compilationError: "Interactive judge requires an interactor script in /submission/.",
-        testcaseResults: [],
+        testcaseResults: []
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -230,7 +223,7 @@ async function main(): Promise<void> {
     if (!interactorResult.success) {
       const output: SandboxOutput = {
         compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,
-        testcaseResults: [],
+        testcaseResults: []
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -256,7 +249,7 @@ async function main(): Promise<void> {
         result = await judgeStandard(
           compileResult.runCommand,
           testcase,
-          config.limits.timeoutMs,
+          config.limits.timeoutMs
         );
         break;
 
@@ -265,7 +258,7 @@ async function main(): Promise<void> {
           compileResult.runCommand,
           testcase,
           checkerCommand!,
-          config.limits.timeoutMs,
+          config.limits.timeoutMs
         );
         break;
 
@@ -274,7 +267,7 @@ async function main(): Promise<void> {
           compileResult.runCommand,
           testcase,
           interactorCommand!,
-          config.limits.timeoutMs,
+          config.limits.timeoutMs
         );
         break;
     }
@@ -285,7 +278,7 @@ async function main(): Promise<void> {
 
   // 8. Output JSON result to stdout
   const output: SandboxOutput = {
-    testcaseResults: results,
+    testcaseResults: results
   };
   process.stdout.write(JSON.stringify(output));
 }
@@ -303,9 +296,9 @@ main().catch((err) => {
         stdout: "",
         stderr: message,
         exitCode: -1,
-        timeMs: 0,
-      },
-    ],
+        timeMs: 0
+      }
+    ]
   };
   process.stdout.write(JSON.stringify(output));
   process.exit(1);

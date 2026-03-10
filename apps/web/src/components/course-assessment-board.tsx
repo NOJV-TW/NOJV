@@ -32,7 +32,9 @@ export async function CourseAssessmentBoard({
           <p className={shellClassNames.eyebrow}>{tCourse("assessmentBoard")}</p>
           <h3 className="mt-1 text-2xl font-semibold">{tCourse("assessmentBoardSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>{assessments.length} {tCommon("assessments")}</span>
+        <span className={shellClassNames.badge}>
+          {assessments.length} {tCommon("assessments")}
+        </span>
       </div>
       <div className="mt-5 grid gap-4">
         {assessments.map((assessment) => {
@@ -75,7 +77,9 @@ export async function CourseAssessmentBoard({
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
-                  <p className="text-sm text-[color:var(--color-muted)]">{tCourse("framing")}</p>
+                  <p className="text-sm text-[color:var(--color-muted)]">
+                    {tCourse("framing")}
+                  </p>
                   <p className="mt-1 font-semibold">{presentation.heroLabel}</p>
                 </div>
                 <div>

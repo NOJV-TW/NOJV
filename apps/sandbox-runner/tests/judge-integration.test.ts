@@ -30,7 +30,11 @@ async function commandExists(cmd: string): Promise<boolean> {
 }
 
 const compilerCommands: Record<string, string> = {
-  c: "gcc", cpp: "g++", go: "go", java: "javac", rust: "rustc",
+  c: "gcc",
+  cpp: "g++",
+  go: "go",
+  java: "javac",
+  rust: "rustc"
 };
 
 type LangEntry = { source: string; language: SandboxInput["language"] };
@@ -47,12 +51,12 @@ const correctPrograms: Record<string, LangEntry> = {
   c: {
     language: "c",
     source: `#include <stdio.h>
-int main() { int a, b; scanf("%d %d", &a, &b); printf("%d\\n", a+b); return 0; }`,
+int main() { int a, b; scanf("%d %d", &a, &b); printf("%d\\n", a+b); return 0; }`
   },
   cpp: {
     language: "cpp",
     source: `#include <iostream>
-int main() { int a, b; std::cin >> a >> b; std::cout << a+b << '\\n'; }`,
+int main() { int a, b; std::cin >> a >> b; std::cout << a+b << '\\n'; }`
   },
   go: {
     language: "go",
@@ -62,7 +66,7 @@ func main() {
 	var a, b int
 	fmt.Scan(&a, &b)
 	fmt.Println(a + b)
-}`,
+}`
   },
   java: {
     language: "java",
@@ -72,7 +76,7 @@ public class Main {
     Scanner sc = new Scanner(System.in);
     System.out.println(sc.nextInt() + sc.nextInt());
   }
-}`,
+}`
   },
   javascript: {
     language: "javascript",
@@ -82,12 +86,12 @@ rl.on("line", (line) => {
   const [a, b] = line.trim().split(" ").map(Number);
   console.log(a + b);
   rl.close();
-});`,
+});`
   },
   python: {
     language: "python",
     source: `a, b = map(int, input().split())
-print(a + b)`,
+print(a + b)`
   },
   rust: {
     language: "rust",
@@ -97,7 +101,7 @@ fn main() {
     io::stdin().read_line(&mut s).unwrap();
     let v: Vec<i32> = s.trim().split_whitespace().map(|x| x.parse().unwrap()).collect();
     println!("{}", v[0] + v[1]);
-}`,
+}`
   },
   typescript: {
     language: "typescript",
@@ -107,24 +111,30 @@ rl.on("line", (line: string) => {
   const [a, b]: number[] = line.trim().split(" ").map(Number);
   console.log(a + b);
   rl.close();
-});`,
-  },
+});`
+  }
 };
 
 const wrongPrograms: Record<string, LangEntry> = {
   c: { language: "c", source: `#include <stdio.h>\nint main() { puts("999"); return 0; }` },
-  cpp: { language: "cpp", source: `#include <iostream>\nint main() { std::cout << 999 << std::endl; }` },
-  go: { language: "go", source: `package main\nimport "fmt"\nfunc main() { fmt.Println(999) }` },
+  cpp: {
+    language: "cpp",
+    source: `#include <iostream>\nint main() { std::cout << 999 << std::endl; }`
+  },
+  go: {
+    language: "go",
+    source: `package main\nimport "fmt"\nfunc main() { fmt.Println(999) }`
+  },
   java: {
     language: "java",
     source: `public class Main {
   public static void main(String[] args) { System.out.println(999); }
-}`,
+}`
   },
   javascript: { language: "javascript", source: `console.log(999);` },
   python: { language: "python", source: `print(999)` },
   rust: { language: "rust", source: `fn main() { println!("999"); }` },
-  typescript: { language: "typescript", source: `console.log(999);` },
+  typescript: { language: "typescript", source: `console.log(999);` }
 };
 
 const crashPrograms: Record<string, LangEntry> = {
@@ -135,12 +145,12 @@ const crashPrograms: Record<string, LangEntry> = {
     language: "java",
     source: `public class Main {
   public static void main(String[] args) { throw new RuntimeException(); }
-}`,
+}`
   },
   javascript: { language: "javascript", source: `process.exit(1);` },
   python: { language: "python", source: `raise RuntimeError("crash")` },
   rust: { language: "rust", source: `fn main() { panic!("crash"); }` },
-  typescript: { language: "typescript", source: `process.exit(1);` },
+  typescript: { language: "typescript", source: `process.exit(1);` }
 };
 
 const tlePrograms: Record<string, LangEntry> = {
@@ -151,12 +161,12 @@ const tlePrograms: Record<string, LangEntry> = {
     language: "java",
     source: `public class Main {
   public static void main(String[] args) { while(true) {} }
-}`,
+}`
   },
   javascript: { language: "javascript", source: `while(true) {}` },
   python: { language: "python", source: `while True: pass` },
   rust: { language: "rust", source: `fn main() { loop {} }` },
-  typescript: { language: "typescript", source: `while(true) {}` },
+  typescript: { language: "typescript", source: `while(true) {}` }
 };
 
 const invalidSources: Record<string, LangEntry> = {
@@ -164,7 +174,7 @@ const invalidSources: Record<string, LangEntry> = {
   cpp: { language: "cpp", source: "not valid" },
   go: { language: "go", source: "not valid" },
   java: { language: "java", source: "not valid" },
-  rust: { language: "rust", source: "not valid" },
+  rust: { language: "rust", source: "not valid" }
 };
 
 /** Programs that self-SIGKILL to simulate OOM kill → MLE */
@@ -173,13 +183,13 @@ const mlePrograms: Record<string, LangEntry> = {
     language: "c",
     source: `#include <signal.h>
 #include <unistd.h>
-int main() { kill(getpid(), SIGKILL); return 0; }`,
+int main() { kill(getpid(), SIGKILL); return 0; }`
   },
   cpp: {
     language: "cpp",
     source: `#include <csignal>
 #include <unistd.h>
-int main() { kill(getpid(), SIGKILL); return 0; }`,
+int main() { kill(getpid(), SIGKILL); return 0; }`
   },
   go: {
     language: "go",
@@ -190,7 +200,7 @@ import (
 )
 func main() {
 	syscall.Kill(os.Getpid(), syscall.SIGKILL)
-}`,
+}`
   },
   java: {
     language: "java",
@@ -200,13 +210,13 @@ func main() {
     Runtime.getRuntime().exec(new String[]{"kill", "-9", String.valueOf(pid)});
     while (true) {}
   }
-}`,
+}`
   },
   javascript: { language: "javascript", source: `process.kill(process.pid, 'SIGKILL');` },
   python: {
     language: "python",
     source: `import os, signal
-os.kill(os.getpid(), signal.SIGKILL)`,
+os.kill(os.getpid(), signal.SIGKILL)`
   },
   rust: {
     language: "rust",
@@ -215,27 +225,27 @@ fn main() {
     let pid = process::id();
     process::Command::new("kill").args(["-9", &pid.to_string()]).spawn().unwrap();
     loop {}
-}`,
+}`
   },
-  typescript: { language: "typescript", source: `process.kill(process.pid, 'SIGKILL');` },
+  typescript: { language: "typescript", source: `process.kill(process.pid, 'SIGKILL');` }
 };
 
 const doubleSolutions: Record<string, LangEntry> = {
   c: {
     language: "c",
     source: `#include <stdio.h>
-int main() { int n; scanf("%d", &n); printf("%d\\n", n * 2); return 0; }`,
+int main() { int n; scanf("%d", &n); printf("%d\\n", n * 2); return 0; }`
   },
   cpp: {
     language: "cpp",
     source: `#include <iostream>
-int main() { int n; std::cin >> n; std::cout << n * 2 << std::endl; }`,
+int main() { int n; std::cin >> n; std::cout << n * 2 << std::endl; }`
   },
   go: {
     language: "go",
     source: `package main
 import "fmt"
-func main() { var n int; fmt.Scan(&n); fmt.Println(n * 2) }`,
+func main() { var n int; fmt.Scan(&n); fmt.Println(n * 2) }`
   },
   java: {
     language: "java",
@@ -245,7 +255,7 @@ public class Main {
     Scanner sc = new Scanner(System.in);
     System.out.println(sc.nextInt() * 2);
   }
-}`,
+}`
   },
   javascript: {
     language: "javascript",
@@ -254,7 +264,7 @@ const rl = readline.createInterface({ input: process.stdin });
 rl.on("line", (line) => {
   console.log(parseInt(line.trim()) * 2);
   rl.close();
-});`,
+});`
   },
   python: { language: "python", source: `n = int(input())\nprint(n * 2)` },
   rust: {
@@ -265,7 +275,7 @@ fn main() {
     io::stdin().read_line(&mut s).unwrap();
     let n: i32 = s.trim().parse().unwrap();
     println!("{}", n * 2);
-}`,
+}`
   },
   typescript: {
     language: "typescript",
@@ -274,26 +284,26 @@ const rl: readline.Interface = readline.createInterface({ input: process.stdin }
 rl.on("line", (line: string) => {
   console.log(parseInt(line.trim()) * 2);
   rl.close();
-});`,
-  },
+});`
+  }
 };
 
 const wrongDoubleSolutions: Record<string, LangEntry> = {
   c: {
     language: "c",
     source: `#include <stdio.h>
-int main() { int n; scanf("%d", &n); printf("%d\\n", n + 1); return 0; }`,
+int main() { int n; scanf("%d", &n); printf("%d\\n", n + 1); return 0; }`
   },
   cpp: {
     language: "cpp",
     source: `#include <iostream>
-int main() { int n; std::cin >> n; std::cout << n + 1 << std::endl; }`,
+int main() { int n; std::cin >> n; std::cout << n + 1 << std::endl; }`
   },
   go: {
     language: "go",
     source: `package main
 import "fmt"
-func main() { var n int; fmt.Scan(&n); fmt.Println(n + 1) }`,
+func main() { var n int; fmt.Scan(&n); fmt.Println(n + 1) }`
   },
   java: {
     language: "java",
@@ -303,7 +313,7 @@ public class Main {
     Scanner sc = new Scanner(System.in);
     System.out.println(sc.nextInt() + 1);
   }
-}`,
+}`
   },
   javascript: {
     language: "javascript",
@@ -312,7 +322,7 @@ const rl = readline.createInterface({ input: process.stdin });
 rl.on("line", (line) => {
   console.log(parseInt(line.trim()) + 1);
   rl.close();
-});`,
+});`
   },
   python: { language: "python", source: `n = int(input())\nprint(n + 1)` },
   rust: {
@@ -323,7 +333,7 @@ fn main() {
     io::stdin().read_line(&mut s).unwrap();
     let n: i32 = s.trim().parse().unwrap();
     println!("{}", n + 1);
-}`,
+}`
   },
   typescript: {
     language: "typescript",
@@ -332,26 +342,26 @@ const rl: readline.Interface = readline.createInterface({ input: process.stdin }
 rl.on("line", (line: string) => {
   console.log(parseInt(line.trim()) + 1);
   rl.close();
-});`,
-  },
+});`
+  }
 };
 
 const interactiveTlePrograms: Record<string, LangEntry> = {
   c: {
     language: "c",
     source: `#include <stdio.h>
-int main() { int n; scanf("%d", &n); while(1) {} return 0; }`,
+int main() { int n; scanf("%d", &n); while(1) {} return 0; }`
   },
   cpp: {
     language: "cpp",
     source: `#include <iostream>
-int main() { int n; std::cin >> n; while(true) {} }`,
+int main() { int n; std::cin >> n; while(true) {} }`
   },
   go: {
     language: "go",
     source: `package main
 import "fmt"
-func main() { var n int; fmt.Scan(&n); for {} }`,
+func main() { var n int; fmt.Scan(&n); for {} }`
   },
   java: {
     language: "java",
@@ -362,19 +372,19 @@ public class Main {
     sc.nextInt();
     while(true) {}
   }
-}`,
+}`
   },
   javascript: {
     language: "javascript",
     source: `import * as readline from "node:readline";
 const rl = readline.createInterface({ input: process.stdin });
-rl.on("line", () => { while(true) {} });`,
+rl.on("line", () => { while(true) {} });`
   },
   python: {
     language: "python",
     source: `n = int(input())
 while True:
-    pass`,
+    pass`
   },
   rust: {
     language: "rust",
@@ -383,18 +393,21 @@ fn main() {
     let mut s = String::new();
     io::stdin().read_line(&mut s).unwrap();
     loop {}
-}`,
+}`
   },
   typescript: {
     language: "typescript",
     source: `import * as readline from "node:readline";
 const rl: readline.Interface = readline.createInterface({ input: process.stdin });
-rl.on("line", () => { while(true) {} });`,
-  },
+rl.on("line", () => { while(true) {} });`
+  }
 };
 
 /** Function mode templates for all languages */
-const functionModeData: Record<string, { language: SandboxInput["language"]; driverCode: string; userCode: string }> = {
+const functionModeData: Record<
+  string,
+  { language: SandboxInput["language"]; driverCode: string; userCode: string }
+> = {
   c: {
     language: "c",
     driverCode: `#include <stdio.h>
@@ -405,7 +418,7 @@ int main() {
     printf("%d\\n", solve(a, b));
     return 0;
 }`,
-    userCode: `int solve(int a, int b) { return a + b; }`,
+    userCode: `int solve(int a, int b) { return a + b; }`
   },
   cpp: {
     language: "cpp",
@@ -418,7 +431,7 @@ int main() {
     cout << solve(a, b) << endl;
     return 0;
 }`,
-    userCode: `int solve(int a, int b) { return a + b; }`,
+    userCode: `int solve(int a, int b) { return a + b; }`
   },
   go: {
     language: "go",
@@ -430,7 +443,7 @@ func main() {
 	fmt.Scan(&a, &b)
 	fmt.Println(solve(a, b))
 }`,
-    userCode: `func solve(a, b int) int { return a + b }`,
+    userCode: `func solve(a, b int) int { return a + b }`
   },
   java: {
     language: "java",
@@ -442,7 +455,7 @@ public class Main {
         System.out.println(solve(sc.nextInt(), sc.nextInt()));
     }
 }`,
-    userCode: `public static int solve(int a, int b) { return a + b; }`,
+    userCode: `public static int solve(int a, int b) { return a + b; }`
   },
   javascript: {
     language: "javascript",
@@ -454,14 +467,14 @@ rl.on("line", (line) => {
     console.log(solve(a, b));
     rl.close();
 });`,
-    userCode: `function solve(a, b) { return a + b; }`,
+    userCode: `function solve(a, b) { return a + b; }`
   },
   python: {
     language: "python",
     driverCode: `__USER_CODE__
 a, b = map(int, input().split())
 print(solve(a, b))`,
-    userCode: `def solve(a, b):\n    return a + b`,
+    userCode: `def solve(a, b):\n    return a + b`
   },
   rust: {
     language: "rust",
@@ -473,7 +486,7 @@ fn main() {
     let v: Vec<i32> = s.trim().split_whitespace().map(|x| x.parse().unwrap()).collect();
     println!("{}", solve(v[0], v[1]));
 }`,
-    userCode: `fn solve(a: i32, b: i32) -> i32 { a + b }`,
+    userCode: `fn solve(a: i32, b: i32) -> i32 { a + b }`
   },
   typescript: {
     language: "typescript",
@@ -485,8 +498,8 @@ rl.on("line", (line: string) => {
     console.log(solve(a, b));
     rl.close();
 });`,
-    userCode: `function solve(a: number, b: number): number { return a + b; }`,
-  },
+    userCode: `function solve(a: number, b: number): number { return a + b; }`
+  }
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -507,7 +520,7 @@ function makeInput(lang: SandboxInput["language"]): SandboxInput {
     language: lang,
     judgeType: "standard",
     submissionType: "full_source",
-    limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 },
+    limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 }
   };
 }
 
@@ -542,7 +555,11 @@ describe("standard judge", () => {
       const result = await compileProgram(prog.language, prog.source);
       expect(result.success).toBe(true);
       if (!result.success) return;
-      const verdict = await judgeStandard(result.runCommand, makeTestcase({ expected: "999\n" }), TIMEOUT_MS);
+      const verdict = await judgeStandard(
+        result.runCommand,
+        makeTestcase({ expected: "999\n" }),
+        TIMEOUT_MS
+      );
       expect(verdict.verdict).toBe("WA");
     }, 30_000);
   }
@@ -608,8 +625,8 @@ describe("function mode (template injection)", () => {
       limits: { timeoutMs: 5000, memoryMb: 256 },
       template: {
         driverCode: `# driver\n__USER_CODE__\nprint(add(3, 5))`,
-        insertionMarker: "__USER_CODE__",
-      },
+        insertionMarker: "__USER_CODE__"
+      }
     };
     const assembled = assembleSource("def add(a, b):\n    return a + b", input);
     expect(assembled).toContain("def add(a, b):");
@@ -626,7 +643,7 @@ describe("function mode (template injection)", () => {
         judgeType: "standard",
         submissionType: "function",
         limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 },
-        template: { driverCode: data.driverCode, insertionMarker: "__USER_CODE__" },
+        template: { driverCode: data.driverCode, insertionMarker: "__USER_CODE__" }
       };
 
       const assembled = assembleSource(data.userCode, input);
@@ -662,7 +679,11 @@ else:
     sys.exit(1)
 `;
 
-  async function withChecker(prog: LangEntry, tc: TestcaseFiles, timeoutMs: number = TIMEOUT_MS) {
+  async function withChecker(
+    prog: LangEntry,
+    tc: TestcaseFiles,
+    timeoutMs: number = TIMEOUT_MS
+  ) {
     const result = await compileProgram(prog.language, prog.source);
     expect(result.success).toBe(true);
     if (!result.success) throw new Error("compile failed");
@@ -726,7 +747,12 @@ else:
   it("SE — invalid command", async () => {
     const checkerFile = join(workDir, "checker.py");
     await writeFile(checkerFile, checkerScript);
-    const verdict = await judgeChecker(["/nonexistent/binary"], makeTestcase(), ["python3", checkerFile], TIMEOUT_MS);
+    const verdict = await judgeChecker(
+      ["/nonexistent/binary"],
+      makeTestcase(),
+      ["python3", checkerFile],
+      TIMEOUT_MS
+    );
     expect(verdict.verdict).toBe("SE");
   });
 });
@@ -815,7 +841,10 @@ else:
     const intFile = join(workDir, "interactor.py");
     await writeFile(intFile, interactorScript);
     const verdict = await judgeInteractive(
-      ["/nonexistent/binary"], interactiveTc, ["python3", intFile], TIMEOUT_MS,
+      ["/nonexistent/binary"],
+      interactiveTc,
+      ["python3", intFile],
+      TIMEOUT_MS
     );
     expect(verdict.verdict).toBe("SE");
   });
