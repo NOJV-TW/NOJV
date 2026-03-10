@@ -4,6 +4,7 @@ const findManyProblems = vi.fn();
 const findUniqueProblem = vi.fn();
 const findManyCourses = vi.fn();
 const findUniqueCourse = vi.fn();
+const groupBySubmissions = vi.fn();
 
 vi.mock("@nojv/db", () => ({
   prisma: {
@@ -14,6 +15,9 @@ vi.mock("@nojv/db", () => ({
     problem: {
       findMany: findManyProblems,
       findUnique: findUniqueProblem
+    },
+    submission: {
+      groupBy: groupBySubmissions
     }
   }
 }));
@@ -25,19 +29,22 @@ describe("DB-backed read model", () => {
     findUniqueProblem.mockResolvedValue(null);
     findManyCourses.mockResolvedValue([]);
     findUniqueCourse.mockResolvedValue(null);
+    groupBySubmissions.mockResolvedValue([]);
   });
 
   it("surfaces persisted public problems in the practice catalog", async () => {
     findManyProblems.mockResolvedValue([
       {
+        _count: { submissions: 2 },
         defaultTitle: "Compiler Intro",
         difficulty: "easy",
+        id: "prob_compiler_intro",
         slug: "compiler-intro",
-        submissions: [{ status: "accepted" }, { status: "wrong_answer" }],
         summary: "Introductory parser warmup.",
         visibility: "public"
       }
     ]);
+    groupBySubmissions.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
 
     const { listProblemCards } = await import("../src/lib/server/read-model");
     const cards = await listProblemCards();

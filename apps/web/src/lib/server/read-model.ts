@@ -9,19 +9,17 @@ import type {
 
 import { starterByLanguage, type ProblemDetail } from "../problem-types";
 
-// --- Course-related types (previously in course-poc-data.ts) ---
-
-export interface CoursePocMember {
+export interface CourseMemberRecord {
   courseRole: CourseRole;
   displayName: string;
   email: string;
-  handle: string;
+  handle: string | null;
   joinedVia: CourseJoinMethod;
   platformRole: PlatformRole;
   userId: string;
 }
 
-export interface CoursePocAssessment {
+export interface CourseAssessmentRecord {
   closesAt: string;
   dueAt: string;
   opensAt: string;
@@ -41,8 +39,8 @@ export interface CourseProblemCatalogEntry {
   visibility: "private" | "public";
 }
 
-export type CoursePageData = {
-  assessments: CoursePocAssessment[];
+export interface CoursePageData {
+  assessments: CourseAssessmentRecord[];
   description: string;
   joinChannels: {
     label: string;
@@ -50,11 +48,11 @@ export type CoursePageData = {
     token: string;
   }[];
   locale: LocaleCode;
-  members: CoursePocMember[];
+  members: CourseMemberRecord[];
   problemSlugs: string[];
   slug: string;
   title: string;
-};
+}
 
 export interface CoursePageDetailData {
   course: CoursePageData;
@@ -63,18 +61,16 @@ export interface CoursePageDetailData {
 
 // --- Helper functions ---
 
-function calculateAcceptanceRate(submissionStatuses: { status: string }[] | undefined) {
-  if (!submissionStatuses || submissionStatuses.length === 0) {
-    return 0;
-  }
-
-  const accepted = submissionStatuses.filter((submission) => submission.status === "accepted");
-
-  return accepted.length / submissionStatuses.length;
-}
-
 function pickProblemStatement(
-  statements: { bodyMarkdown: string; locale: string; title: string }[] | undefined,
+  statements:
+    | {
+        bodyMarkdown: string;
+        inputFormat?: string;
+        locale: string;
+        outputFormat?: string;
+        title: string;
+      }[]
+    | undefined,
   locale: string,
   fallbackTitle: string,
   fallbackStatement: string
@@ -83,15 +79,23 @@ function pickProblemStatement(
     statements?.find((statement) => statement.locale === locale) ?? statements?.[0] ?? null;
 
   return {
+    inputFormat: localized?.inputFormat ?? "",
+    outputFormat: localized?.outputFormat ?? "",
     statement: localized?.bodyMarkdown ?? fallbackStatement,
     title: localized?.title ?? fallbackTitle
   };
 }
 
 function mapProblemShelfEntry(problem: {
-  author?: { handle: string } | null;
+  author?: { handle: string | null } | null;
   slug: string;
-  statements?: { bodyMarkdown: string; locale: string; title: string }[];
+  statements?: {
+    bodyMarkdown: string;
+    inputFormat?: string;
+    locale: string;
+    outputFormat?: string;
+    title: string;
+  }[];
   summary: string;
   visibility: "private" | "public";
 }) {
@@ -141,7 +145,7 @@ function mapAssessmentRecord(assessment: {
     summary: assessment.summary,
     title: assessment.title,
     type: assessment.type
-  } satisfies CoursePocAssessment;
+  } satisfies CourseAssessmentRecord;
 }
 
 function mapCourseMember(member: {
@@ -150,8 +154,8 @@ function mapCourseMember(member: {
   user: {
     name: string;
     email: string;
-    handle: string;
-    platformRole: "admin" | "student" | "ta" | "teacher";
+    handle: string | null;
+    platformRole: "admin" | "student" | "teacher";
   };
   userId: string;
 }) {
@@ -163,7 +167,7 @@ function mapCourseMember(member: {
     joinedVia: member.joinedVia ?? "manual_invite",
     platformRole: member.user.platformRole,
     userId: member.userId
-  } satisfies CoursePocMember;
+  } satisfies CourseMemberRecord;
 }
 
 function mapPersistedCourse(course: {
@@ -192,16 +196,22 @@ function mapPersistedCourse(course: {
     user: {
       name: string;
       email: string;
-      handle: string;
-      platformRole: "admin" | "student" | "ta" | "teacher";
+      handle: string | null;
+      platformRole: "admin" | "student" | "teacher";
     };
     userId: string;
   }[];
   problems: {
     problem: {
-      author?: { handle: string } | null;
+      author?: { handle: string | null } | null;
       slug: string;
-      statements?: { bodyMarkdown: string; locale: string; title: string }[];
+      statements?: {
+        bodyMarkdown: string;
+        inputFormat?: string;
+        locale: string;
+        outputFormat?: string;
+        title: string;
+      }[];
       summary: string;
       visibility: "private" | "public";
     };
@@ -261,13 +271,19 @@ function buildProblemSamples(problem: {
 
 function mapPersistedProblemDetail(
   problem: {
-    author?: { handle: string } | null;
+    author?: { handle: string | null } | null;
     defaultTitle: string;
     difficulty: string;
     slug: string;
-    statements?: { bodyMarkdown: string; locale: string; title: string }[];
-    submissions?: { status: string }[];
+    statements?: {
+      bodyMarkdown: string;
+      inputFormat?: string;
+      locale: string;
+      outputFormat?: string;
+      title: string;
+    }[];
     summary: string;
+    tags?: string[];
     testcaseSets?: {
       isHidden: boolean;
       testcases: {
@@ -277,7 +293,9 @@ function mapPersistedProblemDetail(
     }[];
     visibility: "private" | "public";
   },
-  locale: string
+  locale: string,
+  totalSubmissions: number,
+  acceptedCount: number
 ) {
   const localized = pickProblemStatement(
     problem.statements,
@@ -287,17 +305,19 @@ function mapPersistedProblemDetail(
   );
 
   return {
-    acceptanceRate: calculateAcceptanceRate(problem.submissions),
+    acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorHandle: problem.author?.handle ?? "course_staff",
     difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    inputFormat: localized.inputFormat,
+    outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
     slug: problem.slug,
     starterByLanguage,
     statement: localized.statement,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
-    tags: [],
+    tags: problem.tags ?? [],
     title: localized.title,
-    totalSubmissions: problem.submissions?.length ?? 0,
+    totalSubmissions,
     visibility: problem.visibility
   } satisfies ProblemDetail;
 }
@@ -307,20 +327,10 @@ function mapPersistedProblemDetail(
 export async function listCourseCards() {
   const persistedCourses = await prisma.course.findMany({
     include: {
-      assessments: {
+      _count: {
         select: {
-          id: true
-        },
-        where: {
-          status: "published"
-        }
-      },
-      memberships: {
-        select: {
-          id: true
-        },
-        where: {
-          status: "active"
+          assessments: { where: { status: "published" } },
+          memberships: { where: { status: "active" } }
         }
       }
     },
@@ -330,8 +340,36 @@ export async function listCourseCards() {
   });
 
   return persistedCourses.map((course) => ({
-    assessmentCount: course.assessments.length,
-    memberCount: course.memberships.length,
+    assessmentCount: course._count.assessments,
+    memberCount: course._count.memberships,
+    slug: course.slug,
+    title: course.title
+  }));
+}
+
+export async function listUserCourseCards(userId: string) {
+  const persistedCourses = await prisma.course.findMany({
+    include: {
+      _count: {
+        select: {
+          assessments: { where: { status: "published" } },
+          memberships: { where: { status: "active" } }
+        }
+      }
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    where: {
+      memberships: {
+        some: { userId, status: "active" }
+      }
+    }
+  });
+
+  return persistedCourses.map((course) => ({
+    assessmentCount: course._count.assessments,
+    memberCount: course._count.memberships,
     slug: course.slug,
     title: course.title
   }));
@@ -426,9 +464,7 @@ export async function listProblemCards() {
           where: { problemId: { in: problemIds }, status: "accepted" }
         })
       : [];
-  const acceptedByProblemId = new Map(
-    acceptedCounts.map((r) => [r.problemId, r._count])
-  );
+  const acceptedByProblemId = new Map(acceptedCounts.map((r) => [r.problemId, r._count]));
 
   return persistedProblems.map((problem) => {
     const total = problem._count.submissions;
@@ -437,101 +473,63 @@ export async function listProblemCards() {
       acceptanceRate: total > 0 ? accepted / total : 0,
       difficulty: problem.difficulty as "easy" | "hard" | "medium",
       slug: problem.slug,
+      tags: problem.tags,
       title: problem.defaultTitle,
       totalSubmissions: total
     };
   });
 }
 
-export async function listContestCards() {
-  const contests = await prisma.contest.findMany({
-    include: {
-      problems: { select: { id: true } }
-    },
-    orderBy: { startsAt: "desc" },
-    where: { visibility: "published" }
-  });
-
-  return contests.map((contest) => ({
-    endsAt: contest.endsAt.toISOString(),
-    problemCount: contest.problems.length,
-    slug: contest.slug,
-    startsAt: contest.startsAt.toISOString(),
-    summary: contest.summary,
-    title: contest.title
-  }));
-}
-
-export async function getContestPageData(slug: string) {
-  const contest = await prisma.contest.findUnique({
-    include: {
-      problems: {
-        include: { problem: true },
-        orderBy: { ordinal: "asc" }
-      }
-    },
-    where: { slug }
-  });
-
-  if (!contest) {
-    return null;
-  }
-
-  return {
-    endsAt: contest.endsAt.toISOString(),
-    frozenScoreboard: contest.frozenBoard,
-    problems: contest.problems.map((cp) => ({
-      points: cp.points,
-      slug: cp.problem.slug,
-      title: cp.problem.defaultTitle
-    })),
-    slug: contest.slug,
-    startsAt: contest.startsAt.toISOString(),
-    summary: contest.summary,
-    title: contest.title
-  };
-}
-
-export async function listUserSubmissions(userId: string) {
-  return prisma.submission.findMany({
-    orderBy: {
-      createdAt: "desc"
-    },
-    select: {
-      createdAt: true,
-      id: true,
-      language: true,
-      problem: {
-        select: {
-          defaultTitle: true,
-          slug: true
-        }
-      },
-      runtimeMs: true,
-      score: true,
-      status: true
-    },
-    take: 50,
+export async function listEditableProblems(userId: string) {
+  const problems = await prisma.problem.findMany({
+    orderBy: { createdAt: "desc" },
     where: {
-      userId
+      OR: [
+        { authorId: userId },
+        {
+          assessmentLinks: {
+            some: {
+              assessment: {
+                course: {
+                  memberships: {
+                    some: {
+                      userId,
+                      role: { in: ["teacher", "ta"] },
+                      status: "active"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     }
   });
+
+  return problems.map((problem) => ({
+    difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    slug: problem.slug,
+    tags: problem.tags,
+    title: problem.defaultTitle,
+    visibility: problem.visibility
+  }));
 }
 
 export async function getProblemPageData(slug: string, locale: string) {
   const persistedProblem = await prisma.problem.findUnique({
     include: {
+      _count: {
+        select: {
+          submissions: true
+        }
+      },
       author: {
         select: {
           handle: true
         }
       },
       statements: true,
-      submissions: {
-        select: {
-          status: true
-        }
-      },
       testcaseSets: {
         include: {
           testcases: {
@@ -554,39 +552,92 @@ export async function getProblemPageData(slug: string, locale: string) {
     return null;
   }
 
-  return mapPersistedProblemDetail(persistedProblem, locale);
-}
-
-export async function listIntegrityCases() {
-  const cases = await prisma.cheatingCase.findMany({
-    include: {
-      _count: {
-        select: { signals: true }
-      },
-      user: {
-        select: { handle: true }
-      }
-    },
-    orderBy: { openedAt: "desc" },
-    take: 20
+  const acceptedCount = await prisma.submission.count({
+    where: { problemId: persistedProblem.id, status: "accepted" }
   });
 
-  return cases.map((c) => ({
-    caseId: c.id,
-    score: c.score,
-    signalCount: c._count.signals,
-    state: c.status,
-    userId: c.user.handle
+  return mapPersistedProblemDetail(
+    persistedProblem,
+    locale,
+    persistedProblem._count.submissions,
+    acceptedCount
+  );
+}
+
+export async function listUserAssessments(userId: string, type: CourseAssessmentType) {
+  const assessments = await prisma.courseAssessment.findMany({
+    include: {
+      _count: { select: { problems: true } },
+      course: { select: { slug: true, title: true } }
+    },
+    orderBy: { opensAt: "desc" },
+    where: {
+      course: {
+        memberships: {
+          some: { userId, status: "active" }
+        }
+      },
+      status: "published",
+      type
+    }
+  });
+
+  return assessments.map((a) => ({
+    closesAt: a.closesAt.toISOString(),
+    courseSlug: a.course.slug,
+    courseTitle: a.course.title,
+    dueAt: a.dueAt.toISOString(),
+    opensAt: a.opensAt.toISOString(),
+    problemCount: a._count.problems,
+    scoreboardMode: a.scoreboardMode,
+    slug: a.slug,
+    summary: a.summary,
+    title: a.title
   }));
 }
 
 export async function getDashboardStats() {
-  const [problems, submissions, courses, contests] = await Promise.all([
+  const [problems, courses] = await Promise.all([
     prisma.problem.count({ where: { visibility: "public" } }),
-    prisma.submission.count(),
-    prisma.course.count(),
-    prisma.contest.count({ where: { visibility: "published" } })
+    prisma.course.count()
   ]);
 
-  return { contests, courses, problems, submissions };
+  return { courses, problems };
+}
+
+export async function listAnnouncements() {
+  return prisma.announcement.findMany({
+    orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+    take: 20
+  });
+}
+
+export async function listUpcomingAssessments(userId: string) {
+  const assessments = await prisma.courseAssessment.findMany({
+    include: {
+      course: { select: { slug: true, title: true } }
+    },
+    orderBy: { opensAt: "asc" },
+    where: {
+      course: {
+        memberships: {
+          some: { userId, status: "active" }
+        }
+      },
+      closesAt: { gte: new Date() },
+      status: "published"
+    },
+    take: 10
+  });
+
+  return assessments.map((a) => ({
+    closesAt: a.closesAt.toISOString(),
+    courseSlug: a.course.slug,
+    courseTitle: a.course.title,
+    dueAt: a.dueAt.toISOString(),
+    opensAt: a.opensAt.toISOString(),
+    slug: a.slug,
+    title: a.title,
+    type: a.type
+  }));
 }

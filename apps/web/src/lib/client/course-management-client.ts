@@ -1,5 +1,4 @@
 import {
-  buildActorRequestHeaders,
   courseAssessmentCreateSchema,
   courseCreateSchema,
   courseJoinRequestSchema,
@@ -7,7 +6,6 @@ import {
   manualCourseEnrollmentSchema,
   problemCreateSchema,
   problemTestcaseSetCreateSchema,
-  type ActorIdentity,
   type CourseAssessmentCreate,
   type CourseCreate,
   type CourseJoinRequest,
@@ -19,16 +17,10 @@ import {
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
-async function postJson(
-  path: string,
-  payload: unknown,
-  actor: ActorIdentity,
-  fetcher: Fetcher = fetch
-) {
+async function postJson(path: string, payload: unknown, fetcher: Fetcher = fetch) {
   const response = await fetcher(path, {
     body: JSON.stringify(payload),
     headers: {
-      ...buildActorRequestHeaders(actor),
       "Content-Type": "application/json"
     },
     method: "POST"
@@ -42,72 +34,49 @@ async function postJson(
   return body;
 }
 
-export function createCourseMutation(
-  payload: CourseCreate,
-  actor: ActorIdentity,
-  fetcher?: Fetcher
-) {
-  return postJson("/api/courses", courseCreateSchema.parse(payload), actor, fetcher);
+export function createCourseMutation(payload: CourseCreate, fetcher?: Fetcher) {
+  return postJson("/api/courses", courseCreateSchema.parse(payload), fetcher);
 }
 
-export function createProblemMutation(
-  payload: ProblemCreate,
-  actor: ActorIdentity,
-  fetcher?: Fetcher
-) {
-  return postJson("/api/problems", problemCreateSchema.parse(payload), actor, fetcher);
+export function createProblemMutation(payload: ProblemCreate, fetcher?: Fetcher) {
+  return postJson("/api/problems", problemCreateSchema.parse(payload), fetcher);
 }
 
-export function joinCourseMutation(
-  payload: CourseJoinRequest,
-  actor: ActorIdentity,
-  fetcher?: Fetcher
-) {
+export function joinCourseMutation(payload: CourseJoinRequest, fetcher?: Fetcher) {
   const parsed = courseJoinRequestSchema.parse(payload);
 
-  return postJson(`/api/courses/${parsed.courseSlug}/join`, parsed, actor, fetcher);
+  return postJson(`/api/courses/${parsed.courseSlug}/join`, parsed, fetcher);
 }
 
-export function enrollCourseMemberMutation(
-  payload: ManualCourseEnrollment,
-  actor: ActorIdentity,
-  fetcher?: Fetcher
-) {
+export function enrollCourseMemberMutation(payload: ManualCourseEnrollment, fetcher?: Fetcher) {
   const parsed = manualCourseEnrollmentSchema.parse(payload);
 
-  return postJson(`/api/courses/${parsed.courseSlug}/members`, parsed, actor, fetcher);
+  return postJson(`/api/courses/${parsed.courseSlug}/members`, parsed, fetcher);
 }
 
-export function attachProblemToCourseMutation(
-  payload: CourseProblemAttach,
-  actor: ActorIdentity,
-  fetcher?: Fetcher
-) {
+export function attachProblemToCourseMutation(payload: CourseProblemAttach, fetcher?: Fetcher) {
   const parsed = courseProblemAttachSchema.parse(payload);
 
-  return postJson(`/api/courses/${parsed.courseSlug}/problems`, parsed, actor, fetcher);
+  return postJson(`/api/courses/${parsed.courseSlug}/problems`, parsed, fetcher);
 }
 
 export function publishCourseAssessmentMutation(
   payload: CourseAssessmentCreate,
-  actor: ActorIdentity,
   fetcher?: Fetcher
 ) {
   const parsed = courseAssessmentCreateSchema.parse(payload);
 
-  return postJson(`/api/courses/${parsed.courseSlug}/assessments`, parsed, actor, fetcher);
+  return postJson(`/api/courses/${parsed.courseSlug}/assessments`, parsed, fetcher);
 }
 
 export function createProblemTestcaseSetMutation(
   problemSlug: string,
   payload: ProblemTestcaseSetCreate,
-  actor: ActorIdentity,
   fetcher?: Fetcher
 ) {
   return postJson(
     `/api/problems/${problemSlug}/testcase-sets`,
     problemTestcaseSetCreateSchema.parse(payload),
-    actor,
     fetcher
   );
 }

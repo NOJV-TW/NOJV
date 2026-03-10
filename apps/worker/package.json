@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@kubernetes/client-node": "^1.0.0",
     "@nojv/db": "workspace:*",
     "@nojv/domain": "workspace:*",
     "@nojv/queue": "workspace:*",

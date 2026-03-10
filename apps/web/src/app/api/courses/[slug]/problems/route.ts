@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { ForbiddenError } from "@/lib/server/api-errors";
 import { withAuthParams } from "@/lib/server/api-handler";
 import { canManageCourseMembership, getCoursePermissionRole } from "@/lib/server/authorization";
-import { attachProblemToCourseRecord } from "@/lib/server/poc-persistence";
+import { attachProblemToCourseRecord } from "@/lib/server/data-access/courses";
 
 export const POST = withAuthParams<{ slug: string }>(async (request, actor, { slug }) => {
   const role = await getCoursePermissionRole(slug, actor);

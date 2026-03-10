@@ -20,9 +20,19 @@ spec:
             - name: PORT
               value: "8080"
             - name: EXECUTION_BACKEND
-              value: remote_http
-            - name: SANDBOX_BASE_URL
-              value: http://nojv-sandbox.nojv.svc.cluster.local:8080
+              value: kubernetes
+            - name: K8S_NAMESPACE
+              value: nojv-sandbox
+            - name: SANDBOX_IMAGE
+              value: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/sandbox:latest
+            - name: K8S_CPU_REQUEST
+              value: "500m"
+            - name: K8S_CPU_LIMIT
+              value: "1"
+            - name: K8S_MEMORY_REQUEST
+              value: "256Mi"
+            - name: K8S_MEMORY_LIMIT
+              value: "512Mi"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -32,11 +42,6 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: REDIS_URL
-                  name: nojv-runtime-secrets
-            - name: SANDBOX_SHARED_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  key: SANDBOX_SHARED_TOKEN
                   name: nojv-runtime-secrets
           livenessProbe:
             httpGet:

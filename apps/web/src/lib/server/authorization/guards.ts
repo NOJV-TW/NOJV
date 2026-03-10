@@ -2,42 +2,42 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
 import type { EffectiveCourseRole, PlatformRole } from "@nojv/domain";
-import { platformRoleSchema } from "@nojv/domain";
 
-import { auth } from "@/lib/auth";
-import type { PocActorContext } from "../actor-context";
+import type { ActorContext, CompletedActorContext } from "../actor-context";
+import { getActorContext } from "../actor-context";
 import { ForbiddenError } from "../api-errors";
 import { getCoursePermissionRole } from "./roles";
+
+function getLocaleFromHeaders(hdrs: Headers): string {
+  const pathname = hdrs.get("x-pathname") ?? "";
+  const match = /^\/([a-z-]+)\//.exec(pathname);
+  return match?.[1] ?? "zh-TW";
+}
 
 /**
  * Require authentication for a server component page.
  * Redirects to sign-in if not authenticated.
  */
-export async function requireAuth(redirectTo?: string): Promise<PocActorContext> {
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
+export async function requireAuth(redirectTo?: string): Promise<CompletedActorContext> {
+  const actor = await getActorContext();
+  const hdrs = await headers();
+  const locale = getLocaleFromHeaders(hdrs);
 
-  if (!session?.user) {
-    redirect(redirectTo ?? "/auth/signin");
+  if (!actor) {
+    redirect(redirectTo ?? `/${locale}`);
   }
 
-  const extra = session.user as Record<string, unknown>;
-  const parsedRole = platformRoleSchema.safeParse(extra.platformRole);
+  if (!actor.handle) {
+    redirect(`/${locale}/auth/complete-profile`);
+  }
 
-  return {
-    displayName: session.user.name ?? session.user.email,
-    email: session.user.email,
-    handle: (extra.handle as string) ?? "",
-    platformRole: parsedRole.success ? parsedRole.data : "student",
-    userId: session.user.id
-  };
+  return actor as CompletedActorContext;
 }
 
 /**
  * Require specific platform roles. Throws ForbiddenError if not matched.
  */
-export function requirePlatformRole(actor: PocActorContext, ...roles: PlatformRole[]): void {
+export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[]): void {
   if (!roles.includes(actor.platformRole)) {
     throw new ForbiddenError("Insufficient platform role.");
   }
@@ -48,7 +48,7 @@ export function requirePlatformRole(actor: PocActorContext, ...roles: PlatformRo
  * Throws ForbiddenError if user has no role or role is not in the allowed list.
  */
 export async function requireCourseRole(
-  actor: PocActorContext,
+  actor: ActorContext,
   courseSlug: string,
   ...roles: EffectiveCourseRole[]
 ): Promise<EffectiveCourseRole> {

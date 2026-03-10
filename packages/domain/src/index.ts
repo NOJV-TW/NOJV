@@ -10,7 +10,7 @@ export const supportedLanguages = [
   "typescript"
 ] as const;
 
-export const platformRoles = ["admin", "teacher", "ta", "student"] as const;
+export const platformRoles = ["admin", "teacher", "student"] as const;
 export const courseRoles = ["teacher", "ta", "student"] as const;
 export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
 export const courseJoinMethods = ["qr_code", "join_code", "manual_invite"] as const;
@@ -87,103 +87,6 @@ export const integrityRiskLevelSchema = z.enum(integrityRiskLevels);
 export const submissionVerdictSchema = z.enum(submissionVerdicts);
 export const submissionOperationStatusSchema = z.enum(submissionOperationStatuses);
 export const workspaceOperationStatusSchema = z.enum(workspaceOperationStatuses);
-export const actorIdentitySchema = z.object({
-  displayName: z.string().trim().min(2).max(120),
-  email: z.email(),
-  handle: z
-    .string()
-    .trim()
-    .min(3)
-    .max(64)
-    .regex(/^[a-z0-9._-]+$/),
-  platformRole: platformRoleSchema,
-  userId: z.string().trim().min(3).max(64)
-});
-
-const actorSearchParamKeys = {
-  displayName: "actorName",
-  email: "actorEmail",
-  handle: "actorHandle",
-  platformRole: "actorRole",
-  userId: "actorId"
-} as const;
-
-export const localActorPresets = {
-  admin: actorIdentitySchema.parse({
-    displayName: "Ops Admin",
-    email: "ops.admin@nojv.local",
-    handle: "ops_admin",
-    platformRole: "admin",
-    userId: "usr_admin_ops"
-  }),
-  student: actorIdentitySchema.parse({
-    displayName: "Alice Huang",
-    email: "alice.huang@nojv.local",
-    handle: "stu_alice",
-    platformRole: "student",
-    userId: "usr_student_alice"
-  }),
-  ta: actorIdentitySchema.parse({
-    displayName: "Ren Wu",
-    email: "ren.wu@nojv.local",
-    handle: "ta_ren",
-    platformRole: "ta",
-    userId: "usr_ta_ren"
-  }),
-  teacher: actorIdentitySchema.parse({
-    displayName: "Amelia Chen",
-    email: "amelia.chen@nojv.local",
-    handle: "teacher_amelia",
-    platformRole: "teacher",
-    userId: "usr_teacher_amelia"
-  })
-} as const;
-
-export const defaultLocalActor = localActorPresets.student;
-
-export function buildActorRequestHeaders(actor: ActorIdentity) {
-  return {
-    "x-nojv-actor-id": actor.userId,
-    "x-nojv-display-name": actor.displayName,
-    "x-nojv-email": actor.email,
-    "x-nojv-handle": actor.handle,
-    "x-nojv-platform-role": actor.platformRole
-  };
-}
-
-export function readActorIdentityFromSearchParams(searchParams: URLSearchParams) {
-  const candidate = {
-    displayName: searchParams.get(actorSearchParamKeys.displayName),
-    email: searchParams.get(actorSearchParamKeys.email),
-    handle: searchParams.get(actorSearchParamKeys.handle),
-    platformRole: searchParams.get(actorSearchParamKeys.platformRole),
-    userId: searchParams.get(actorSearchParamKeys.userId)
-  };
-
-  if (Object.values(candidate).some((value) => !value)) {
-    return null;
-  }
-
-  const parsed = actorIdentitySchema.safeParse(candidate);
-
-  return parsed.success ? parsed.data : null;
-}
-
-export function writeActorIdentityToSearchParams(
-  searchParams: URLSearchParams,
-  actor: ActorIdentity
-) {
-  const next = new URLSearchParams(searchParams.toString());
-
-  next.set(actorSearchParamKeys.displayName, actor.displayName);
-  next.set(actorSearchParamKeys.email, actor.email);
-  next.set(actorSearchParamKeys.handle, actor.handle);
-  next.set(actorSearchParamKeys.platformRole, actor.platformRole);
-  next.set(actorSearchParamKeys.userId, actor.userId);
-
-  return next;
-}
-
 const slugSchema = z
   .string()
   .min(3)
@@ -218,10 +121,16 @@ export const courseJoinRequestSchema = z.object({
 });
 
 export const problemCreateSchema = z.object({
+  checkerScript: z.string().max(200_000).optional(),
   difficulty: z.enum(["easy", "medium", "hard"]),
+  inputFormat: z.string().trim().max(4_000).default(""),
+  interactorScript: z.string().max(200_000).optional(),
+  judgeType: judgeTypeSchema.default("standard"),
+  outputFormat: z.string().trim().max(4_000).default(""),
   slug: slugSchema,
   statement: z.string().trim().min(16).max(12_000),
-  summary: z.string().trim().min(8).max(2_000),
+  summary: z.string().trim().max(2_000).default(""),
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema
 });
@@ -283,7 +192,10 @@ export const courseAssessmentCreateSchema = z
     closesAt: isoDateTimeSchema,
     courseSlug: slugSchema,
     dueAt: isoDateTimeSchema,
+    ipLockEnabled: z.boolean().default(false),
+    maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
+    pageLockEnabled: z.boolean().default(false),
     problemSlugs: z.array(slugSchema).min(1).max(32),
     scoreboardMode: assessmentScoreboardModeSchema.optional(),
     slug: slugSchema,
@@ -320,6 +232,7 @@ export const submissionDraftSchema = z
     language: languageSchema,
     mode: submissionModeSchema,
     problemSlug: slugSchema,
+    sampleOnly: z.boolean().optional(),
     sourceCode: sourceCodeSchema
   })
   .superRefine((value, ctx) => {
@@ -448,8 +361,16 @@ export const integrityAssessmentSchema = z.object({
   score: z.number().min(0).max(100)
 });
 
+export const testcaseResultItemSchema = z.object({
+  index: z.number().int().nonnegative(),
+  passed: z.boolean(),
+  stdout: z.string(),
+  timeMs: z.number().int().nonnegative()
+});
+
 export const submissionResultSchema = z.object({
   accepted: z.boolean(),
+  caseResults: z.array(testcaseResultItemSchema).optional(),
   feedback: z.string().min(1),
   runtimeMs: z.number().int().nonnegative(),
   score: z.number().int().min(0).max(100),
@@ -507,7 +428,6 @@ export const workspaceRunOperationSchema = z.object({
 });
 
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
-export type ActorIdentity = z.infer<typeof actorIdentitySchema>;
 export type CheatingSignal = z.infer<typeof cheatingSignalSchema>;
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
 export type ContestSession = z.infer<typeof contestSessionSchema>;

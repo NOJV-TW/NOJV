@@ -19,11 +19,11 @@ export async function CourseProblemShelf({ courseSlug, problems }: CourseProblem
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className={shellClassNames.eyebrow}>{t("problemShelf")}</p>
-          <h3 className="mt-1 text-2xl font-semibold">
-            {t("problemShelfSubtitle")}
-          </h3>
+          <h3 className="mt-1 text-2xl font-semibold">{t("problemShelfSubtitle")}</h3>
         </div>
-        <span className={shellClassNames.badge}>{problems.length} {t("linkedProblems")}</span>
+        <span className={shellClassNames.badge}>
+          {problems.length} {t("linkedProblems")}
+        </span>
       </div>
       <div className="mt-5 grid gap-3">
         {problems.map((problem) => (

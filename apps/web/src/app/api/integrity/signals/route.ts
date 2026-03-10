@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withAuth } from "@/lib/server/api-handler";
-import { persistCheatingSignals } from "@/lib/server/poc-persistence";
+import { persistCheatingSignals } from "@/lib/server/data-access/integrity";
 import { bufferCheatingSignals } from "@/lib/server/queue";
 
 const cheatingSignalBatchSchema = z.array(cheatingSignalSchema).min(1);
 
-export const POST = withAuth(async (request, _actor) => {
+export const POST = withAuth(async (request) => {
   const payload: unknown = await request.json();
   const batchedPayload = Array.isArray(payload)
     ? payload
@@ -17,8 +17,7 @@ export const POST = withAuth(async (request, _actor) => {
       : [payload];
   const signals = cheatingSignalBatchSchema.parse(batchedPayload);
 
-  await bufferCheatingSignals(signals);
-  await persistCheatingSignals(signals);
+  await Promise.all([bufferCheatingSignals(signals), persistCheatingSignals(signals)]);
 
   return NextResponse.json(evaluateIntegritySignals(signals));
 });

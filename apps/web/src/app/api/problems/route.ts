@@ -1,14 +1,13 @@
 import { problemCreateSchema } from "@nojv/domain";
 import { NextResponse } from "next/server";
 
-import { ForbiddenError } from "@/lib/server/api-errors";
 import { withAuth } from "@/lib/server/api-handler";
-import { canCreateProblem } from "@/lib/server/authorization";
-import { createProblemRecord } from "@/lib/server/poc-persistence";
+import { ForbiddenError } from "@/lib/server/api-errors";
+import { createProblemRecord } from "@/lib/server/data-access/problems";
 
 export const POST = withAuth(async (request, actor) => {
-  if (!canCreateProblem(actor.platformRole)) {
-    throw new ForbiddenError("Only teachers or admins can author problems.");
+  if (actor.platformRole === "student") {
+    throw new ForbiddenError("Only teachers and admins can create problems.");
   }
 
   const payload = problemCreateSchema.parse(await request.json());

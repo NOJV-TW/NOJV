@@ -5,7 +5,7 @@ import { queueNames } from "@nojv/queue";
 import { parseWorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
 import { closeServerSafely } from "./server-lifecycle";
-import { processCheatingSignal, processSubmission, processWorkspaceRun } from "./processors";
+import { processCheatingSignal, processSubmission } from "./processors";
 
 const environment = parseWorkerEnv(process.env);
 const redis = new URL(environment.REDIS_URL);
@@ -18,10 +18,6 @@ const connection = {
 
 const workers = [
   new Worker(queueNames.submission, processSubmission, {
-    concurrency: environment.WORKER_CONCURRENCY,
-    connection
-  }),
-  new Worker(queueNames.workspaceRun, processWorkspaceRun, {
     concurrency: environment.WORKER_CONCURRENCY,
     connection
   }),

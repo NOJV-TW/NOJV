@@ -8,9 +8,9 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { shellClassNames } from "@nojv/ui";
 
+import { authClient } from "@/lib/auth-client";
+import { readPlatformRole } from "@/lib/auth-onboarding";
 import { joinCourseMutation } from "@/lib/client/course-management-client";
-
-import { useActorSession } from "./actor-session-provider";
 
 interface CourseJoinCallToActionProps {
   courseSlug: string;
@@ -29,7 +29,9 @@ export function CourseJoinCallToAction({
   const tJoin = useTranslations("courseJoin");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const { actor } = useActorSession();
+  const { data: session } = authClient.useSession();
+  const user = session?.user;
+  const platformRole = readPlatformRole(user);
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +45,11 @@ export function CourseJoinCallToAction({
     setError(null);
 
     try {
-      await joinCourseMutation(
-        {
-          courseSlug,
-          joinMethod,
-          joinToken
-        },
-        actor
-      );
+      await joinCourseMutation({
+        courseSlug,
+        joinMethod,
+        joinToken
+      });
       startTransition(() => {
         router.push(`/${locale}/courses/${courseSlug}`);
         router.refresh();
@@ -67,13 +66,13 @@ export function CourseJoinCallToAction({
       <p className={shellClassNames.eyebrow}>{tJoin("heading")}</p>
       <h2 className="mt-2 font-[family-name:var(--font-display)] text-4xl">{courseTitle}</h2>
       <p className="mt-4 max-w-2xl text-base leading-7 text-[color:var(--color-muted)]">
-        {tJoin("description", { name: actor.displayName })}
+        {tJoin("description", { name: user?.name ?? "" })}
       </p>
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <span className={shellClassNames.badge}>
           {joinMethod ? joinMethod.replaceAll("_", " ") : "missing join method"}
         </span>
-        <span className={shellClassNames.badge}>{actor.platformRole}</span>
+        <span className={shellClassNames.badge}>{platformRole}</span>
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
         <button
@@ -92,7 +91,9 @@ export function CourseJoinCallToAction({
         </Link>
       </div>
       {joinToken ? (
-        <p className="mt-4 text-sm text-[color:var(--color-muted)]">{tJoin("token")}: {joinToken}</p>
+        <p className="mt-4 text-sm text-[color:var(--color-muted)]">
+          {tJoin("token")}: {joinToken}
+        </p>
       ) : null}
       {error ? (
         <div className="mt-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

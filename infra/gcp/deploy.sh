@@ -75,7 +75,6 @@ IMAGE_TAG="$(resolve_image_tag)"
 require_env PROJECT_ID
 require_env DATABASE_URL
 require_env REDIS_URL
-require_env SANDBOX_SHARED_TOKEN
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
@@ -93,7 +92,6 @@ fi
 
 upsert_secret nojv-database-url "$DATABASE_URL"
 upsert_secret nojv-redis-url "$REDIS_URL"
-upsert_secret nojv-sandbox-token "$SANDBOX_SHARED_TOKEN"
 
 gcloud builds submit \
   --config infra/gcp/cloudbuild.yaml \
@@ -109,46 +107,16 @@ gcloud run jobs deploy "${SERVICE_PREFIX}-migrator" \
 
 gcloud run jobs execute "${SERVICE_PREFIX}-migrator" --region "$REGION" --wait
 
-gcloud run deploy "${SERVICE_PREFIX}-sandbox" \
-  --allow-unauthenticated \
-  --image "${IMAGE_BASE}/sandbox:${IMAGE_TAG}" \
-  --port 8080 \
-  --region "$REGION" \
-  --concurrency 1 \
-  --set-secrets "SANDBOX_SHARED_TOKEN=nojv-sandbox-token:latest" \
-  --timeout 900
-
-SANDBOX_URL="$(gcloud run services describe "${SERVICE_PREFIX}-sandbox" --region "$REGION" --format='value(status.url)')"
-
-gcloud run deploy "${SERVICE_PREFIX}-workspace" \
-  --allow-unauthenticated \
-  --image "${IMAGE_BASE}/workspace:${IMAGE_TAG}" \
-  --port 4173 \
-  --region "$REGION"
-
-WORKSPACE_URL="$(gcloud run services describe "${SERVICE_PREFIX}-workspace" --region "$REGION" --format='value(status.url)')"
-
 gcloud run deploy "${SERVICE_PREFIX}-web" \
   --allow-unauthenticated \
   --image "${IMAGE_BASE}/web:${IMAGE_TAG}" \
   --port 3000 \
   --region "$REGION" \
-  --set-env-vars "NEXT_PUBLIC_WORKSPACE_URL=${WORKSPACE_URL}" \
   --set-secrets "DATABASE_URL=nojv-database-url:latest,REDIS_URL=nojv-redis-url:latest"
-
-gcloud run deploy "${SERVICE_PREFIX}-worker" \
-  --no-allow-unauthenticated \
-  --image "${IMAGE_BASE}/worker:${IMAGE_TAG}" \
-  --region "$REGION" \
-  --port 8080 \
-  --concurrency 1 \
-  --min-instances 1 \
-  --no-cpu-throttling \
-  --set-env-vars "EXECUTION_BACKEND=remote_http,SANDBOX_BASE_URL=${SANDBOX_URL}" \
-  --set-secrets "DATABASE_URL=nojv-database-url:latest,REDIS_URL=nojv-redis-url:latest,SANDBOX_SHARED_TOKEN=nojv-sandbox-token:latest"
 
 echo "Deployment completed:"
 echo "  image tag: ${IMAGE_TAG}"
 echo "  web: $(gcloud run services describe "${SERVICE_PREFIX}-web" --region "$REGION" --format='value(status.url)')"
-echo "  workspace: ${WORKSPACE_URL}"
-echo "  sandbox: ${SANDBOX_URL}"
+echo "  worker image: ${IMAGE_BASE}/worker:${IMAGE_TAG}"
+echo "  sandbox image: ${IMAGE_BASE}/sandbox:${IMAGE_TAG}"
+echo "  next step: apply infra/gcp/gke plus infra/k8s/sandbox manifests to run the worker on GKE"
