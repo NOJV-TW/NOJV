@@ -10,20 +10,36 @@ import type { TestcaseFiles, TestcaseResult } from "../types.js";
 function runSolution(
   runCommand: string[],
   stdin: string,
-  timeoutMs: number,
-): Promise<{ stdout: string; stderr: string; exitCode: number; timeMs: number; timedOut: boolean; memoryExceeded: boolean; spawnError: boolean }> {
+  timeoutMs: number
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  timeMs: number;
+  timedOut: boolean;
+  memoryExceeded: boolean;
+  spawnError: boolean;
+}> {
   return new Promise((resolve) => {
     const startTime = performance.now();
     const [cmd, ...args] = runCommand;
 
     if (!cmd) {
-      resolve({ stdout: "", stderr: "Empty run command.", exitCode: -1, timeMs: 0, timedOut: false, memoryExceeded: false, spawnError: true });
+      resolve({
+        stdout: "",
+        stderr: "Empty run command.",
+        exitCode: -1,
+        timeMs: 0,
+        timedOut: false,
+        memoryExceeded: false,
+        spawnError: true
+      });
       return;
     }
 
     const proc = spawn(cmd, args, {
       stdio: ["pipe", "pipe", "pipe"],
-      timeout: timeoutMs,
+      timeout: timeoutMs
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -52,7 +68,7 @@ function runSolution(
         timeMs,
         timedOut: isTimedOut,
         memoryExceeded: !isTimedOut && signal === "SIGKILL",
-        spawnError: false,
+        spawnError: false
       });
     });
 
@@ -65,7 +81,7 @@ function runSolution(
         timeMs: Math.round(performance.now() - startTime),
         timedOut: false,
         memoryExceeded: false,
-        spawnError: true,
+        spawnError: true
       });
     });
   });
@@ -83,7 +99,7 @@ function runSolution(
 function parseCheckerOutput(
   exitCode: number,
   stdout: string,
-  stderr: string,
+  stderr: string
 ): { accepted: boolean; score: number; feedback: string } {
   const accepted = exitCode === 0;
   const feedback = stderr.trim();
@@ -92,11 +108,7 @@ function parseCheckerOutput(
   let score: number;
   if (scoreText.length > 0) {
     const parsed = parseInt(scoreText, 10);
-    score = Number.isFinite(parsed)
-      ? Math.max(0, Math.min(100, parsed))
-      : accepted
-        ? 100
-        : 0;
+    score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : accepted ? 100 : 0;
   } else {
     score = accepted ? 100 : 0;
   }
@@ -114,7 +126,7 @@ export async function judgeChecker(
   runCommand: string[],
   testcase: TestcaseFiles,
   checkerCommand: string[],
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<TestcaseResult> {
   // Step 1: Run the solution
   const solution = await runSolution(runCommand, testcase.input, timeoutMs);
@@ -126,7 +138,7 @@ export async function judgeChecker(
       stdout: solution.stdout,
       stderr: solution.stderr,
       exitCode: solution.exitCode,
-      timeMs: solution.timeMs,
+      timeMs: solution.timeMs
     };
   }
 
@@ -137,7 +149,7 @@ export async function judgeChecker(
       stdout: solution.stdout,
       stderr: solution.stderr,
       exitCode: solution.exitCode,
-      timeMs: solution.timeMs,
+      timeMs: solution.timeMs
     };
   }
 
@@ -148,7 +160,7 @@ export async function judgeChecker(
       stdout: solution.stdout,
       stderr: solution.stderr,
       exitCode: solution.exitCode,
-      timeMs: solution.timeMs,
+      timeMs: solution.timeMs
     };
   }
 
@@ -159,7 +171,7 @@ export async function judgeChecker(
       stdout: solution.stdout,
       stderr: solution.stderr,
       exitCode: solution.exitCode,
-      timeMs: solution.timeMs,
+      timeMs: solution.timeMs
     };
   }
 
@@ -173,7 +185,7 @@ export async function judgeChecker(
     await Promise.all([
       fs.writeFile(inputFile, testcase.input),
       fs.writeFile(expectedFile, testcase.expected ?? ""),
-      fs.writeFile(userOutputFile, solution.stdout),
+      fs.writeFile(userOutputFile, solution.stdout)
     ]);
 
     // Step 3: Run checker
@@ -182,13 +194,13 @@ export async function judgeChecker(
       inputFile,
       expectedFile,
       userOutputFile,
-      timeoutMs,
+      timeoutMs
     );
 
     const parsed = parseCheckerOutput(
       checkerResult.exitCode,
       checkerResult.stdout,
-      checkerResult.stderr,
+      checkerResult.stderr
     );
 
     const result: TestcaseResult = {
@@ -198,7 +210,7 @@ export async function judgeChecker(
       stderr: solution.stderr,
       exitCode: solution.exitCode,
       timeMs: solution.timeMs + checkerResult.timeMs,
-      score: parsed.score,
+      score: parsed.score
     };
     if (parsed.feedback) {
       result.feedback = parsed.feedback;
@@ -217,7 +229,7 @@ function runChecker(
   inputFile: string,
   expectedFile: string,
   userOutputFile: string,
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<{ stdout: string; stderr: string; exitCode: number; timeMs: number }> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -230,7 +242,7 @@ function runChecker(
 
     const proc = spawn(cmd, [...args, inputFile, expectedFile, userOutputFile], {
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: timeoutMs,
+      timeout: timeoutMs
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -244,7 +256,7 @@ function runChecker(
         stdout: Buffer.concat(stdoutChunks).toString("utf-8"),
         stderr: Buffer.concat(stderrChunks).toString("utf-8"),
         exitCode: code ?? -1,
-        timeMs: Math.round(performance.now() - startTime),
+        timeMs: Math.round(performance.now() - startTime)
       });
     });
 
@@ -253,7 +265,7 @@ function runChecker(
         stdout: "",
         stderr: `Failed to spawn checker: ${err.message}`,
         exitCode: -1,
-        timeMs: Math.round(performance.now() - startTime),
+        timeMs: Math.round(performance.now() - startTime)
       });
     });
   });

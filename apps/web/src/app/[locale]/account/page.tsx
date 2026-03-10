@@ -9,11 +9,7 @@ import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage({
-  params
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function AccountPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
 
@@ -23,34 +19,33 @@ export default async function AccountPage({
     redirect(`/${locale}`);
   }
 
-  const tNav = await getTranslations("navigation");
+  const [tNav, tAccount] = await Promise.all([
+    getTranslations("navigation"),
+    getTranslations("account")
+  ]);
   const user = session.user as Record<string, unknown>;
   const handle = readHandleFromAuthUser(user) ?? "—";
   const platformRole = readStringValue(user.platformRole) ?? "student";
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
-        <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {tNav("account")}
-        </h2>
-      </section>
+      <h2 className="font-[family-name:var(--font-display)] text-3xl">{tNav("account")}</h2>
       <section className={`${shellClassNames.card} px-6 py-6`}>
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
-            <dt className="text-sm text-[color:var(--color-muted)]">Name</dt>
+            <dt className="text-sm text-[color:var(--color-muted)]">{tAccount("name")}</dt>
             <dd className="mt-1 font-medium">{session.user.name}</dd>
           </div>
           <div>
-            <dt className="text-sm text-[color:var(--color-muted)]">Email</dt>
+            <dt className="text-sm text-[color:var(--color-muted)]">{tAccount("email")}</dt>
             <dd className="mt-1 font-medium">{session.user.email}</dd>
           </div>
           <div>
-            <dt className="text-sm text-[color:var(--color-muted)]">Handle</dt>
+            <dt className="text-sm text-[color:var(--color-muted)]">{tAccount("userAccount")}</dt>
             <dd className="mt-1 font-medium">{handle}</dd>
           </div>
           <div>
-            <dt className="text-sm text-[color:var(--color-muted)]">Role</dt>
+            <dt className="text-sm text-[color:var(--color-muted)]">{tAccount("role")}</dt>
             <dd className="mt-1 font-medium">{platformRole}</dd>
           </div>
         </dl>

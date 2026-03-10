@@ -44,9 +44,7 @@ describe("DB-backed read model", () => {
         visibility: "public"
       }
     ]);
-    groupBySubmissions.mockResolvedValue([
-      { _count: 1, problemId: "prob_compiler_intro" }
-    ]);
+    groupBySubmissions.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
 
     const { listProblemCards } = await import("../src/lib/server/read-model");
     const cards = await listProblemCards();

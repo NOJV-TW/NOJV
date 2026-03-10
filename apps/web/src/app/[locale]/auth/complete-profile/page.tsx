@@ -3,24 +3,28 @@ import { redirect } from "next/navigation";
 
 import { CompleteProfileForm } from "@/components/complete-profile-form";
 import { auth } from "@/lib/auth";
-import { hasCompletedHandle, readStringValue } from "@/lib/auth-onboarding";
+import { hasCompletedHandle } from "@/lib/auth-onboarding";
 
-export default async function CompleteProfilePage() {
+export default async function CompleteProfilePage({
+  params
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) {
-    redirect("/auth/signin");
+    redirect(`/${locale}`);
   }
 
   const user = session.user as Record<string, unknown>;
-  const locale = readStringValue(user.locale) ?? "zh-TW";
 
   if (hasCompletedHandle(user)) {
     redirect(`/${locale}`);
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-bg)] px-4">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <CompleteProfileForm
         email={session.user.email}
         locale={locale}

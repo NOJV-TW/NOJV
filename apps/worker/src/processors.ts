@@ -1,19 +1,12 @@
 import type { Job } from "bullmq";
 
-import {
-  completeSubmission,
-  getSubmissionJudgeContext,
-  markSubmissionRunning
-} from "@nojv/db";
+import { completeSubmission, getSubmissionJudgeContext, markSubmissionRunning } from "@nojv/db";
 import {
   cheatingSignalSchema,
   integrityAssessmentSchema,
   type CheatingSignal
 } from "@nojv/domain";
-import {
-  submissionJudgeJobSchema,
-  type SubmissionJudgeJob
-} from "@nojv/queue";
+import { submissionJudgeJobSchema, type SubmissionJudgeJob } from "@nojv/queue";
 
 import { parseWorkerEnv } from "./env";
 import { DockerExecutor } from "./services/docker-executor.js";
@@ -32,14 +25,14 @@ function createExecutor(): SandboxExecutor {
       cpuRequest: environment.K8S_CPU_REQUEST,
       cpuLimit: environment.K8S_CPU_LIMIT,
       memoryRequest: environment.K8S_MEMORY_REQUEST,
-      memoryLimit: environment.K8S_MEMORY_LIMIT,
+      memoryLimit: environment.K8S_MEMORY_LIMIT
     });
   }
   return new DockerExecutor({
     cpuLimit: environment.SANDBOX_CPU_LIMIT,
     image: environment.SANDBOX_IMAGE,
     memoryMb: environment.SANDBOX_MEMORY_MB,
-    pidsLimit: environment.SANDBOX_PIDS_LIMIT,
+    pidsLimit: environment.SANDBOX_PIDS_LIMIT
   });
 }
 
@@ -59,7 +52,7 @@ export async function processSubmission(job: Job<SubmissionJudgeJob>) {
     payload.submissionId,
     payload.draft,
     judgeContext,
-    executor,
+    executor
   );
   await completeSubmission(payload.submissionId, result);
 

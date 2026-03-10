@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   esbuild: {
-    jsx: "automatic",
+    jsx: "automatic"
   },
   resolve: {
     alias: {

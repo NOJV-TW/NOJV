@@ -12,11 +12,7 @@ interface CompleteProfileFormProps {
   name: string;
 }
 
-export function CompleteProfileForm({
-  email,
-  locale,
-  name
-}: CompleteProfileFormProps) {
+export function CompleteProfileForm({ email, locale, name }: CompleteProfileFormProps) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [handle, setHandle] = useState("");
@@ -52,15 +48,15 @@ export function CompleteProfileForm({
 
   async function handleSignOut() {
     await authClient.signOut();
-    router.push("/auth/signin");
+    router.push(`/${locale}`);
     router.refresh();
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8 shadow-sm">
+    <div className="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8 shadow-sm">
       <h1 className="text-center text-2xl font-semibold">Finish your NOJV profile</h1>
       <p className="mt-3 text-center text-sm text-[color:var(--color-muted)]">
-        {name} is signed in as {email}. Set your unique NOJV handle before continuing.
+        {name} ({email}). Set your unique NOJV handle before continuing.
       </p>
 
       <form className="mt-6 flex flex-col gap-4" onSubmit={(event) => void handleSubmit(event)}>
@@ -72,6 +68,7 @@ export function CompleteProfileForm({
             name="handle"
             onChange={(event) => setHandle(event.target.value)}
             pattern={HANDLE_INPUT_PATTERN}
+            placeholder="e.g. john-doe"
             required
             title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
             type="text"

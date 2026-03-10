@@ -22,13 +22,16 @@ export async function judgeSubmission(
   executor: SandboxExecutor
 ): Promise<SubmissionResult> {
   const template = judgeContext.templates.find((t) => t.language === draft.language);
+  const testcases = draft.sampleOnly
+    ? judgeContext.testcases.filter((tc) => !tc.isHidden)
+    : judgeContext.testcases;
 
   const request: SandboxRequest = {
     submissionId,
     sourceCode: draft.sourceCode,
     language: draft.language as SandboxRequest["language"],
     submissionType: judgeContext.submissionType,
-    testcases: judgeContext.testcases.map((tc, i) => ({
+    testcases: testcases.map((tc, i) => ({
       index: i,
       input: tc.stdin,
       ...(tc.expectedStdout != null ? { expected: tc.expectedStdout } : {}),
@@ -37,14 +40,25 @@ export async function judgeSubmission(
     })),
     judgeType: judgeContext.judgeType,
     judgeConfig: {
-      ...(judgeContext.checkerScript != null ? { checkerScript: judgeContext.checkerScript } : {}),
-      ...(judgeContext.interactorScript != null ? { interactorScript: judgeContext.interactorScript } : {}),
+      ...(judgeContext.checkerScript != null
+        ? { checkerScript: judgeContext.checkerScript }
+        : {}),
+      ...(judgeContext.interactorScript != null
+        ? { interactorScript: judgeContext.interactorScript }
+        : {})
     },
     limits: {
       timeoutMs: judgeContext.timeLimitMs,
       memoryMb: judgeContext.memoryLimitMb
     },
-    ...(template ? { template: { driverCode: template.driverCode, insertionMarker: template.insertionMarker } } : {})
+    ...(template
+      ? {
+          template: {
+            driverCode: template.driverCode,
+            insertionMarker: template.insertionMarker
+          }
+        }
+      : {})
   };
 
   const result = await executor.execute(request);
@@ -53,11 +67,27 @@ export async function judgeSubmission(
 }
 
 function mapResult(result: SandboxResult): SubmissionResult {
+  const caseResults = result.testcaseResults.map((t) => ({
+    index: t.index,
+    passed: t.verdict === "AC",
+    stdout: t.stdout,
+    timeMs: t.timeMs
+  }));
+
   if (result.compilationError) {
-    return { accepted: false, feedback: result.compilationError, runtimeMs: 0, score: 0, verdict: "compile_error" };
+    return {
+      accepted: false,
+      caseResults: [],
+      feedback: result.compilationError,
+      runtimeMs: 0,
+      score: 0,
+      verdict: "compile_error"
+    };
   }
 
-  const totalWeight = result.testcaseResults.reduce((s, t) => s + (t.score ?? 0), 0) || result.testcaseResults.length;
+  const totalWeight =
+    result.testcaseResults.reduce((s, t) => s + (t.score ?? 0), 0) ||
+    result.testcaseResults.length;
   const passedWeight = result.testcaseResults
     .filter((t) => t.verdict === "AC")
     .reduce((s, t) => s + (t.score ?? 1), 0);
@@ -65,17 +95,32 @@ function mapResult(result: SandboxResult): SubmissionResult {
   const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
 
   if (result.testcaseResults.every((t) => t.verdict === "AC")) {
-    return { accepted: true, feedback: "All testcases passed", runtimeMs, score: 100, verdict: "accepted" };
+    return {
+      accepted: true,
+      caseResults,
+      feedback: "All testcases passed",
+      runtimeMs,
+      score: 100,
+      verdict: "accepted"
+    };
   }
 
   const first = result.testcaseResults.find((t) => t.verdict !== "AC");
   if (!first) {
-    return { accepted: true, feedback: "All testcases passed", runtimeMs, score: 100, verdict: "accepted" };
+    return {
+      accepted: true,
+      caseResults,
+      feedback: "All testcases passed",
+      runtimeMs,
+      score: 100,
+      verdict: "accepted"
+    };
   }
 
   const verdict = verdictMap[first.verdict] ?? "runtime_error";
   const feedback =
-    first.feedback ?? `Failed on testcase ${String(first.index + 1)}: ${verdict.replace(/_/g, " ")}`;
+    first.feedback ??
+    `Failed on testcase ${String(first.index + 1)}: ${verdict.replace(/_/g, " ")}`;
 
-  return { accepted: false, feedback, runtimeMs, score, verdict };
+  return { accepted: false, caseResults, feedback, runtimeMs, score, verdict };
 }

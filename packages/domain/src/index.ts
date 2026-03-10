@@ -121,10 +121,16 @@ export const courseJoinRequestSchema = z.object({
 });
 
 export const problemCreateSchema = z.object({
+  checkerScript: z.string().max(200_000).optional(),
   difficulty: z.enum(["easy", "medium", "hard"]),
+  inputFormat: z.string().trim().max(4_000).default(""),
+  interactorScript: z.string().max(200_000).optional(),
+  judgeType: judgeTypeSchema.default("standard"),
+  outputFormat: z.string().trim().max(4_000).default(""),
   slug: slugSchema,
   statement: z.string().trim().min(16).max(12_000),
-  summary: z.string().trim().min(8).max(2_000),
+  summary: z.string().trim().max(2_000).default(""),
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema
 });
@@ -187,6 +193,7 @@ export const courseAssessmentCreateSchema = z
     courseSlug: slugSchema,
     dueAt: isoDateTimeSchema,
     ipLockEnabled: z.boolean().default(false),
+    maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
     pageLockEnabled: z.boolean().default(false),
     problemSlugs: z.array(slugSchema).min(1).max(32),
@@ -225,6 +232,7 @@ export const submissionDraftSchema = z
     language: languageSchema,
     mode: submissionModeSchema,
     problemSlug: slugSchema,
+    sampleOnly: z.boolean().optional(),
     sourceCode: sourceCodeSchema
   })
   .superRefine((value, ctx) => {
@@ -353,8 +361,16 @@ export const integrityAssessmentSchema = z.object({
   score: z.number().min(0).max(100)
 });
 
+export const testcaseResultItemSchema = z.object({
+  index: z.number().int().nonnegative(),
+  passed: z.boolean(),
+  stdout: z.string(),
+  timeMs: z.number().int().nonnegative()
+});
+
 export const submissionResultSchema = z.object({
   accepted: z.boolean(),
+  caseResults: z.array(testcaseResultItemSchema).optional(),
   feedback: z.string().min(1),
   runtimeMs: z.number().int().nonnegative(),
   score: z.number().int().min(0).max(100),

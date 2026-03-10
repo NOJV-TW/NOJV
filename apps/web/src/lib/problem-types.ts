@@ -2,6 +2,8 @@ import type { Language, ProblemOverview } from "@nojv/domain";
 
 export interface ProblemDetail extends ProblemOverview {
   authorHandle: string;
+  inputFormat: string;
+  outputFormat: string;
   samples: {
     explanation: string;
     input: string;

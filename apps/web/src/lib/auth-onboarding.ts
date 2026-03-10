@@ -1,4 +1,3 @@
-export const COMPLETE_PROFILE_PATH = "/auth/complete-profile";
 export const HANDLE_INPUT_PATTERN = "[a-z0-9._-]{3,64}";
 const handlePattern = /^[a-z0-9._-]{3,64}$/;
 
@@ -13,7 +12,9 @@ export function readHandleFromAuthUser(user: Record<string, unknown>): string | 
 }
 
 export function readPlatformRole(user: unknown): string {
-  return readStringValue((user as Record<string, unknown> | undefined)?.platformRole) ?? "student";
+  return (
+    readStringValue((user as Record<string, unknown> | undefined)?.platformRole) ?? "student"
+  );
 }
 
 export function hasCompletedHandle(user: Record<string, unknown>): boolean {

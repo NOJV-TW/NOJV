@@ -1,9 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
 
-import { shellClassNames } from "@nojv/ui";
-
-import { ProblemCreationPanel } from "@/components/problem-creation-panel";
 import { ProblemsTabs } from "@/components/problems-tabs";
 import { auth } from "@/lib/auth";
 import { listEditableProblems, listProblemCards } from "@/lib/server/read-model";
@@ -29,14 +26,13 @@ export default async function ProblemsPage({
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
-        <h2 className="font-[family-name:var(--font-display)] text-3xl">
-          {tNav("problems")}
-        </h2>
-      </section>
+      <h2 className="font-[family-name:var(--font-display)] text-3xl">{tNav("problems")}</h2>
 
-      {userId && <ProblemCreationPanel />}
-      <ProblemsTabs editableProblems={editableProblems} publicProblems={publicProblems} />
+      <ProblemsTabs
+        editableProblems={editableProblems}
+        publicProblems={publicProblems}
+        showCreate={!!userId}
+      />
     </div>
   );
 }

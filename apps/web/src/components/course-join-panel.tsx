@@ -15,10 +15,7 @@ interface CourseJoinPanelProps {
   }[];
 }
 
-export async function CourseJoinPanel({
-  courseSlug,
-  joinChannels
-}: CourseJoinPanelProps) {
+export async function CourseJoinPanel({ courseSlug, joinChannels }: CourseJoinPanelProps) {
   const locale = await getLocale();
   const t = await getTranslations("courseDetail");
   const requestHeaders = await headers();

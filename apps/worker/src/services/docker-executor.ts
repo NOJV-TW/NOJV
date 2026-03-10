@@ -5,15 +5,16 @@ import { join } from "node:path";
 
 import type { SandboxExecutor, SandboxRequest, SandboxResult } from "./sandbox-executor";
 
-const languageExtensions: Record<SandboxRequest["language"], string> = {
-  c: ".c",
-  cpp: ".cpp",
-  go: ".go",
-  java: ".java",
-  javascript: ".js",
-  python: ".py",
-  rust: ".rs",
-  typescript: ".ts"
+/** Must match sandbox-runner's sourceFileName() in compiler.ts */
+const sourceFileNames: Record<SandboxRequest["language"], string> = {
+  c: "main.c",
+  cpp: "main.cpp",
+  go: "main.go",
+  java: "Main.java",
+  javascript: "main.mjs",
+  python: "main.py",
+  rust: "main.rs",
+  typescript: "main.ts"
 };
 
 export interface DockerExecutorConfig {
@@ -27,8 +28,22 @@ function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
+const languageExtensions: Record<SandboxRequest["language"], string> = {
+  c: ".c",
+  cpp: ".cpp",
+  go: ".go",
+  java: ".java",
+  javascript: ".js",
+  python: ".py",
+  rust: ".rs",
+  typescript: ".ts"
+};
+
 function resolveScriptExtension(language: string | undefined): string {
-  return languageExtensions[language as SandboxRequest["language"]] ?? ".py";
+  if (language && language in languageExtensions) {
+    return languageExtensions[language as SandboxRequest["language"]];
+  }
+  return ".py";
 }
 
 export class DockerExecutor implements SandboxExecutor {
@@ -51,34 +66,44 @@ export class DockerExecutor implements SandboxExecutor {
     }
   }
 
-  private async writeSubmissionFiles(
-    tempDir: string,
-    request: SandboxRequest
-  ): Promise<void> {
+  private async writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
     const config = {
-      judgeConfig: request.judgeConfig,
-      judgeType: request.judgeType,
+      submissionId: request.submissionId,
       language: request.language,
-      limits: request.limits,
+      judgeType: request.judgeType,
       submissionType: request.submissionType,
-      template: request.template,
-      testcaseCount: request.testcases.length
+      limits: request.limits,
+      ...(request.template ? { template: request.template } : {}),
+      ...(request.judgeConfig.checkerLanguage
+        ? { checkerLanguage: request.judgeConfig.checkerLanguage }
+        : {})
     };
 
-    const ext = languageExtensions[request.language];
     const fileWrites: Promise<void>[] = [
       writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"),
-      writeFile(join(tempDir, `source${ext}`), request.sourceCode, "utf8")
+      writeFile(join(tempDir, sourceFileNames[request.language]), request.sourceCode, "utf8")
     ];
 
     if (request.judgeConfig.checkerScript) {
       const checkerExt = resolveScriptExtension(request.judgeConfig.checkerLanguage);
-      fileWrites.push(writeFile(join(tempDir, `checker${checkerExt}`), request.judgeConfig.checkerScript, "utf8"));
+      fileWrites.push(
+        writeFile(
+          join(tempDir, `checker${checkerExt}`),
+          request.judgeConfig.checkerScript,
+          "utf8"
+        )
+      );
     }
 
     if (request.judgeConfig.interactorScript) {
       const interactorExt = resolveScriptExtension(request.judgeConfig.checkerLanguage);
-      fileWrites.push(writeFile(join(tempDir, `interactor${interactorExt}`), request.judgeConfig.interactorScript, "utf8"));
+      fileWrites.push(
+        writeFile(
+          join(tempDir, `interactor${interactorExt}`),
+          request.judgeConfig.interactorScript,
+          "utf8"
+        )
+      );
     }
 
     await Promise.all(fileWrites);
@@ -102,10 +127,7 @@ export class DockerExecutor implements SandboxExecutor {
     await chmod(tempDir, 0o755);
   }
 
-  private async runContainer(
-    tempDir: string,
-    request: SandboxRequest
-  ): Promise<SandboxResult> {
+  private async runContainer(tempDir: string, request: SandboxRequest): Promise<SandboxResult> {
     const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
     const workDir = join(tempDir, "_workspace");
     await mkdir(workDir, { mode: 0o777, recursive: true });
@@ -123,7 +145,7 @@ export class DockerExecutor implements SandboxExecutor {
       "no-new-privileges",
       "--read-only",
       "--tmpfs",
-      "/tmp:rw,nosuid,nodev,size=64m",
+      "/tmp:rw,exec,nosuid,nodev,size=64m",
       "-v",
       `${tempDir}:/submission:ro`,
       "-v",
@@ -189,7 +211,9 @@ export class DockerExecutor implements SandboxExecutor {
         }
 
         if (exitCode !== 0) {
-          settle(systemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim()));
+          settle(
+            systemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim())
+          );
           return;
         }
 
@@ -197,7 +221,9 @@ export class DockerExecutor implements SandboxExecutor {
           const parsed = JSON.parse(stdout) as SandboxResult;
           settle(parsed);
         } catch {
-          settle(systemError(`Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`));
+          settle(
+            systemError(`Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`)
+          );
         }
       });
 

@@ -5,48 +5,46 @@ import { describe, expect, it, vi } from "vitest";
 import { ProblemEditor } from "../src/components/problem-editor";
 
 vi.mock("@monaco-editor/react", () => ({
-  default: () => null,
+  default: () => null
 }));
 
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
-  useTranslations:
-    () =>
-    (key: string) =>
-      ({
-        chars: "chars",
-        contestMode: "Contest mode",
-        examMode: "Exam mode",
-        executionGuarantees: "Execution guarantees",
-        executionHint1: "Hint 1",
-        executionHint2: "Hint 2",
-        judgeFeedback: "Judge feedback",
-        language: "Language",
-        onlineEditor: "Online editor",
-        onlineEditorSubtitle: "Write and submit solutions.",
-        practiceMode: "Practice mode",
-        queueState: "Queue state",
-        sandboxJudge: "Sandbox judge",
-        submitButton: "Submit to sandbox judge",
-        submitHint: "Hint",
-        submitting: "Submitting...",
-        submissionVerdict: "Submission verdict",
-        verdict: "Verdict",
-      })[key] ?? key,
+  useTranslations: () => (key: string) =>
+    ({
+      chars: "chars",
+      code: "Code",
+      contestMode: "contest",
+      examMode: "exam",
+      expectedOutput: "Expected Output",
+      input: "Input",
+      judgeFeedback: "Feedback",
+      practiceMode: "practice",
+      queueState: "Status",
+      run: "Run",
+      runFirst: "Run your code to see results.",
+      submitButton: "Submit",
+      submitting: "Submitting...",
+      testcase: "Testcase",
+      testResult: "Test Result",
+      verdict: "Verdict"
+    })[key] ?? key
 }));
 
 vi.mock("../src/components/telemetry-probe", () => ({
-  TelemetryProbe: () => null,
+  TelemetryProbe: () => null
 }));
 
 describe("ProblemEditor", () => {
-  it("keeps the submission action but removes the retired workspace launch CTA", () => {
+  it("renders the submit button and mode badge", () => {
     const markup = renderToStaticMarkup(
       <ProblemEditor
         problem={{
           acceptanceRate: 0.5,
           authorHandle: "teacher_amelia",
           difficulty: "easy",
+          inputFormat: "",
+          outputFormat: "",
           slug: "two-sum",
           samples: [],
           starterByLanguage: {
@@ -56,19 +54,19 @@ describe("ProblemEditor", () => {
             javascript: "console.log('hello');",
             python: "print('hello')",
             rust: "fn main() {}",
-            typescript: "console.log('hello');",
+            typescript: "console.log('hello');"
           },
           statement: "Solve the problem.",
           summary: "Warm up.",
           tags: [],
           title: "Two Sum",
           totalSubmissions: 1,
-          visibility: "public",
+          visibility: "public"
         }}
-      />,
+      />
     );
 
-    expect(markup).toContain("Submit to sandbox judge");
-    expect(markup).not.toContain("href=\"http://localhost:4173/\"");
+    expect(markup).toContain("Submit");
+    expect(markup).toContain("practice");
   });
 });

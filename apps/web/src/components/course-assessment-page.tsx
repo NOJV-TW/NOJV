@@ -68,11 +68,15 @@ export async function CourseAssessmentPage({
             <div>{headerContent}</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className={`${shellClassNames.card} px-4 py-4`}>
-                <p className="text-sm text-[color:var(--color-muted)]">{tAssessment("rankMode")}</p>
+                <p className="text-sm text-[color:var(--color-muted)]">
+                  {tAssessment("rankMode")}
+                </p>
                 <p className="mt-2 text-lg font-semibold">{assessment.scoreboardMode}</p>
               </div>
               <div className={`${shellClassNames.card} px-4 py-4`}>
-                <p className="text-sm text-[color:var(--color-muted)]">{tAssessment("policy")}</p>
+                <p className="text-sm text-[color:var(--color-muted)]">
+                  {tAssessment("policy")}
+                </p>
                 <p className="mt-2 text-lg font-semibold">{tAssessment("contestGrade")}</p>
               </div>
             </div>
@@ -89,7 +93,9 @@ export async function CourseAssessmentPage({
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className={shellClassNames.eyebrow}>
-                {type === "exam" ? tAssessment("examFraming") : tAssessment("assignmentFraming")}
+                {type === "exam"
+                  ? tAssessment("examFraming")
+                  : tAssessment("assignmentFraming")}
               </p>
               <h3 className={shellClassNames.sectionTitle}>{presentation.heroLabel}</h3>
             </div>
@@ -136,9 +142,15 @@ export async function CourseAssessmentPage({
             <section className={`${shellClassNames.card} px-5 py-5`}>
               <p className={shellClassNames.eyebrow}>{tCommon("timeline")}</p>
               <div className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--color-muted)]">
-                <p>{tAssessment("opens")}: {assessment.opensAt}</p>
-                <p>{tAssessment("due")}: {assessment.dueAt}</p>
-                <p>{tAssessment("closes")}: {assessment.closesAt}</p>
+                <p>
+                  {tAssessment("opens")}: {assessment.opensAt}
+                </p>
+                <p>
+                  {tAssessment("due")}: {assessment.dueAt}
+                </p>
+                <p>
+                  {tAssessment("closes")}: {assessment.closesAt}
+                </p>
               </div>
             </section>
           )}

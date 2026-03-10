@@ -60,11 +60,15 @@ export default async function CourseDetailPage({
               <p className="mt-2 text-lg font-semibold">{course.members.length}</p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">{tCommon("assessments")}</p>
+              <p className="text-sm text-[color:var(--color-muted)]">
+                {tCommon("assessments")}
+              </p>
               <p className="mt-2 text-lg font-semibold">{course.assessments.length}</p>
             </div>
             <div className={`${shellClassNames.card} px-4 py-4`}>
-              <p className="text-sm text-[color:var(--color-muted)]">{tCourse("problemPool")}</p>
+              <p className="text-sm text-[color:var(--color-muted)]">
+                {tCourse("problemPool")}
+              </p>
               <p className="mt-2 text-lg font-semibold">{course.problemSlugs.length}</p>
             </div>
           </div>
@@ -73,20 +77,11 @@ export default async function CourseDetailPage({
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
-          <CourseAssessmentBoard
-            assessments={course.assessments}
-            courseSlug={course.slug}
-          />
-          <CourseProblemShelf
-            courseSlug={course.slug}
-            problems={courseData.problems}
-          />
+          <CourseAssessmentBoard assessments={course.assessments} courseSlug={course.slug} />
+          <CourseProblemShelf courseSlug={course.slug} problems={courseData.problems} />
         </div>
         <div className="space-y-6">
-          <CourseJoinPanel
-            courseSlug={course.slug}
-            joinChannels={course.joinChannels}
-          />
+          <CourseJoinPanel courseSlug={course.slug} joinChannels={course.joinChannels} />
         </div>
       </section>
     </div>

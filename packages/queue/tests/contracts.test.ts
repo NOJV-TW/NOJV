@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createCheatingSignalJob,
-  createSubmissionJob,
-  queueNames
-} from "../src/index";
+import { createCheatingSignalJob, createSubmissionJob, queueNames } from "../src/index";
 
 describe("queueNames", () => {
   it("keeps queue names explicit for routing and dashboarding", () => {

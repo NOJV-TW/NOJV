@@ -87,9 +87,7 @@ export function RuntimeStats() {
           </div>
         </div>
       ) : (
-        <p className="mt-4 text-sm leading-7 text-[color:var(--color-muted)]">
-          {t("loading")}
-        </p>
+        <p className="mt-4 text-sm leading-7 text-[color:var(--color-muted)]">{t("loading")}</p>
       )}
     </section>
   );

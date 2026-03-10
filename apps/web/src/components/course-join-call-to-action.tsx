@@ -91,7 +91,9 @@ export function CourseJoinCallToAction({
         </Link>
       </div>
       {joinToken ? (
-        <p className="mt-4 text-sm text-[color:var(--color-muted)]">{tJoin("token")}: {joinToken}</p>
+        <p className="mt-4 text-sm text-[color:var(--color-muted)]">
+          {tJoin("token")}: {joinToken}
+        </p>
       ) : null}
       {error ? (
         <div className="mt-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">

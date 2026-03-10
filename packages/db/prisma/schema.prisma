@@ -181,6 +181,7 @@ model Problem {
   summary             String                  @db.Text
   difficulty          String
   visibility          ProblemVisibility       @default(public)
+  tags                String[]                @default([])
   authorId            String?
   timeLimitMs         Int
   memoryLimitMb       Int
@@ -207,6 +208,8 @@ model ProblemStatementI18n {
   locale       String
   title        String
   bodyMarkdown String   @db.Text
+  inputFormat  String   @default("") @db.Text
+  outputFormat String   @default("") @db.Text
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   problem      Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
@@ -370,6 +373,7 @@ model CourseAssessment {
   scoreboardMode  CourseAssessmentScoreboardMode @default(hidden)
   pageLockEnabled Boolean                       @default(false)
   ipLockEnabled   Boolean                       @default(false)
+  maxAttempts     Int?
   opensAt         DateTime
   dueAt           DateTime
   closesAt        DateTime
@@ -432,6 +436,7 @@ model Submission {
   courseId               String?
   courseAssessmentId     String?
   mode                   SubmissionMode
+  sampleOnly             Boolean               @default(false)
   language               SupportedLanguage
   sourceCode             String                @db.Text
   status                 SubmissionStatus      @default(queued)

@@ -31,9 +31,7 @@ export async function AssessmentListPage({
   if (!userId) {
     return (
       <div className="space-y-6">
-        <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
-          <h2 className="font-[family-name:var(--font-display)] text-3xl">{t("heading")}</h2>
-        </section>
+        <h2 className="font-[family-name:var(--font-display)] text-3xl">{t("heading")}</h2>
         <p className="text-sm text-[color:var(--color-muted)]">{t("signInRequired")}</p>
       </div>
     );
@@ -45,9 +43,7 @@ export async function AssessmentListPage({
 
   return (
     <div className="space-y-6">
-      <section className={`${shellClassNames.cardStrong} px-6 py-6 sm:px-8`}>
-        <h2 className="font-[family-name:var(--font-display)] text-3xl">{t("heading")}</h2>
-      </section>
+      <h2 className="font-[family-name:var(--font-display)] text-3xl">{t("heading")}</h2>
 
       {items.length === 0 && (
         <p className="text-sm text-[color:var(--color-muted)]">{t("empty")}</p>
@@ -81,7 +77,9 @@ export async function AssessmentListPage({
                 <p className="mt-1 text-sm">{new Date(a.dueAt).toLocaleDateString(locale)}</p>
               </div>
               <div className="sm:text-right">
-                <span className={`${shellClassNames.badge} ${windowStateColorClass(windowState)}`}>
+                <span
+                  className={`${shellClassNames.badge} ${windowStateColorClass(windowState)}`}
+                >
                   {windowState}
                 </span>
               </div>

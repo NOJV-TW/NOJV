@@ -17,11 +17,7 @@ import {
 
 type Fetcher = (input: string, init?: RequestInit) => Promise<Response>;
 
-async function postJson(
-  path: string,
-  payload: unknown,
-  fetcher: Fetcher = fetch
-) {
+async function postJson(path: string, payload: unknown, fetcher: Fetcher = fetch) {
   const response = await fetcher(path, {
     body: JSON.stringify(payload),
     headers: {
@@ -38,42 +34,27 @@ async function postJson(
   return body;
 }
 
-export function createCourseMutation(
-  payload: CourseCreate,
-  fetcher?: Fetcher
-) {
+export function createCourseMutation(payload: CourseCreate, fetcher?: Fetcher) {
   return postJson("/api/courses", courseCreateSchema.parse(payload), fetcher);
 }
 
-export function createProblemMutation(
-  payload: ProblemCreate,
-  fetcher?: Fetcher
-) {
+export function createProblemMutation(payload: ProblemCreate, fetcher?: Fetcher) {
   return postJson("/api/problems", problemCreateSchema.parse(payload), fetcher);
 }
 
-export function joinCourseMutation(
-  payload: CourseJoinRequest,
-  fetcher?: Fetcher
-) {
+export function joinCourseMutation(payload: CourseJoinRequest, fetcher?: Fetcher) {
   const parsed = courseJoinRequestSchema.parse(payload);
 
   return postJson(`/api/courses/${parsed.courseSlug}/join`, parsed, fetcher);
 }
 
-export function enrollCourseMemberMutation(
-  payload: ManualCourseEnrollment,
-  fetcher?: Fetcher
-) {
+export function enrollCourseMemberMutation(payload: ManualCourseEnrollment, fetcher?: Fetcher) {
   const parsed = manualCourseEnrollmentSchema.parse(payload);
 
   return postJson(`/api/courses/${parsed.courseSlug}/members`, parsed, fetcher);
 }
 
-export function attachProblemToCourseMutation(
-  payload: CourseProblemAttach,
-  fetcher?: Fetcher
-) {
+export function attachProblemToCourseMutation(payload: CourseProblemAttach, fetcher?: Fetcher) {
   const parsed = courseProblemAttachSchema.parse(payload);
 
   return postJson(`/api/courses/${parsed.courseSlug}/problems`, parsed, fetcher);

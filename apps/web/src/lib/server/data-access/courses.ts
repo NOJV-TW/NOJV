@@ -10,12 +10,7 @@ import type {
 
 import type { CompletedActorContext } from "../actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../api-errors";
-import {
-  assertCourseProblemAccess,
-  ensureUser,
-  requireCourse,
-  requireProblem
-} from "./shared";
+import { assertCourseProblemAccess, ensureUser, requireCourse, requireProblem } from "./shared";
 
 function buildJoinCode(slug: string) {
   return slug.replaceAll(/-/g, "").toUpperCase().slice(0, 10);
@@ -125,7 +120,10 @@ export async function attachProblemToCourseRecord(
   });
 }
 
-export async function joinCourseRecord(actor: CompletedActorContext, payload: CourseJoinRequest) {
+export async function joinCourseRecord(
+  actor: CompletedActorContext,
+  payload: CourseJoinRequest
+) {
   return prisma.$transaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
     const course = await requireCourse(tx, payload.courseSlug);
@@ -296,6 +294,8 @@ export async function createCourseAssessmentRecord(
 
     await Promise.all(
       payload.problemSlugs.map(async (slug, index) => {
+        // Safe: validated in the loop above that all slugs exist in the map
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const problem = problemBySlug.get(slug)!;
         await tx.courseProblem.upsert({
           create: {

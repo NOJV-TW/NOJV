@@ -1,8 +1,4 @@
-import {
-  cheatingSignalSchema,
-  submissionDraftSchema,
-  type CheatingSignal
-} from "@nojv/domain";
+import { cheatingSignalSchema, submissionDraftSchema, type CheatingSignal } from "@nojv/domain";
 import { z } from "zod";
 
 export const queueNames = {
