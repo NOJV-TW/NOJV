@@ -13,11 +13,13 @@
 ### Task 1: Install dependencies
 
 **Files:**
+
 - Modify: `apps/web/package.json`
 
 **Step 1: Remove NextAuth and bcryptjs, install BetterAuth**
 
 Run:
+
 ```bash
 cd apps/web && pnpm remove next-auth bcryptjs @types/bcryptjs && pnpm add better-auth
 ```
@@ -39,6 +41,7 @@ git commit -m "chore: replace next-auth with better-auth dependency"
 ### Task 2: Update Prisma schema
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma`
 
 **Step 1: Modify User model and add BetterAuth tables**
@@ -101,6 +104,7 @@ accounts             Account[]
 ```
 
 Also update all references to `displayName` throughout the codebase to `name` — search for `displayName` in:
+
 - `packages/db/prisma/seed.ts` (user creation)
 - `apps/web/src/lib/server/actor-context.ts` (session mapping)
 - `apps/web/src/lib/server/poc-persistence.ts` (ensureUser)
@@ -132,6 +136,7 @@ git commit -m "feat: update prisma schema for BetterAuth (user fields + session/
 ### Task 3: Create BetterAuth server config
 
 **Files:**
+
 - Create: `apps/web/src/lib/auth.ts`
 
 **Step 1: Write the server auth config**
@@ -221,6 +226,7 @@ git commit -m "feat: add BetterAuth server config with GitHub/Google OAuth and h
 ### Task 4: Create BetterAuth client and route handler
 
 **Files:**
+
 - Create: `apps/web/src/lib/auth-client.ts`
 - Create: `apps/web/src/app/api/auth/[...all]/route.ts`
 
@@ -254,6 +260,7 @@ git commit -m "feat: add BetterAuth client and Next.js route handler"
 ### Task 5: Delete old auth files
 
 **Files:**
+
 - Delete: `apps/web/src/auth.ts`
 - Delete: `apps/web/src/app/api/auth/[...nextauth]/route.ts`
 - Delete: `apps/web/src/app/api/auth/register/route.ts`
@@ -263,6 +270,7 @@ git commit -m "feat: add BetterAuth client and Next.js route handler"
 **Step 1: Remove old files**
 
 Run:
+
 ```bash
 rm apps/web/src/auth.ts
 rm apps/web/src/app/api/auth/\[...nextauth\]/route.ts
@@ -284,6 +292,7 @@ git commit -m "chore: remove NextAuth config, middleware, register route, and se
 ### Task 6: Update actor-context.ts
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/actor-context.ts`
 
 **Step 1: Rewrite to use BetterAuth session API**
@@ -384,6 +393,7 @@ git commit -m "feat: update actor-context to use BetterAuth session API"
 ### Task 7: Update root layout
 
 **Files:**
+
 - Modify: `apps/web/src/app/layout.tsx`
 
 **Step 1: Remove AuthSessionProvider**
@@ -426,6 +436,7 @@ git commit -m "chore: remove AuthSessionProvider from root layout"
 ### Task 8: Update user-auth-menu.tsx
 
 **Files:**
+
 - Modify: `apps/web/src/components/user-auth-menu.tsx`
 
 **Step 1: Rewrite to use BetterAuth client**
@@ -498,6 +509,7 @@ git commit -m "feat: update user-auth-menu to use BetterAuth client"
 ### Task 9: Update signin page
 
 **Files:**
+
 - Modify: `apps/web/src/app/auth/signin/page.tsx`
 
 **Step 1: Rewrite with BetterAuth + OAuth buttons**
@@ -625,6 +637,7 @@ git commit -m "feat: update signin page with BetterAuth + GitHub/Google OAuth bu
 ### Task 10: Update signup page
 
 **Files:**
+
 - Modify: `apps/web/src/app/auth/signup/page.tsx`
 
 **Step 1: Rewrite with BetterAuth signUp + OAuth buttons**
@@ -775,15 +788,19 @@ git commit -m "feat: update signup page with BetterAuth + GitHub/Google OAuth bu
 ### Task 11: Update submissions page
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/submissions/page.tsx`
 
 **Step 1: Replace auth import**
 
 Change:
+
 ```ts
 import { auth } from "@/auth";
 ```
+
 to:
+
 ```ts
 import { headers } from "next/headers";
 
@@ -791,12 +808,15 @@ import { auth } from "@/lib/auth";
 ```
 
 Change:
+
 ```ts
 const session = await auth();
 
 if (!session?.user?.id) {
 ```
+
 to:
+
 ```ts
 const session = await auth.api.getSession({ headers: await headers() });
 
@@ -817,6 +837,7 @@ git commit -m "feat: update submissions page to use BetterAuth session"
 ### Task 12: Update displayName → name references
 
 **Files:**
+
 - Modify: any files referencing `user.displayName` or `displayName` as a Prisma field
 
 Search for all files using `displayName` as a Prisma/DB field (not the `PocActorContext.displayName` which stays):
@@ -853,6 +874,7 @@ git commit -m "refactor: rename User.displayName to User.name for BetterAuth com
 ### Task 13: Update seed script for Account table
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts`
 
 **Step 1: Update seed to create Account records for passwords**
@@ -904,6 +926,7 @@ git commit -m "feat: update seed script to create Account records for BetterAuth
 ### Task 14: Update environment files
 
 **Files:**
+
 - Modify: `.env.example`
 - Modify: `.env`
 
@@ -952,6 +975,7 @@ Expected: Build succeeds
 **Step 4: Seed and smoke test**
 
 Run:
+
 ```bash
 pnpm db:push
 pnpm db:seed

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma/client";
@@ -12,104 +13,84 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Seeding database...");
 
+  const passwordHash = bcrypt.hashSync("password123", 10);
+
   // --- Users ---
-  const amelia = await prisma.user.upsert({
-    create: {
-      name: "Amelia Chen",
-      email: "amelia.chen@nojv.local",
-      handle: "teacher_amelia",
-      id: "usr_teacher_amelia",
-      locale: "zh-TW",
-      platformRole: "teacher"
-    },
-    update: {},
-    where: { id: "usr_teacher_amelia" }
-  });
-
-  const lin = await prisma.user.upsert({
-    create: {
-      name: "Lin Carter",
-      email: "lin.carter@nojv.local",
-      handle: "teacher_lin",
-      id: "usr_teacher_lin",
-      locale: "en",
-      platformRole: "teacher"
-    },
-    update: {},
-    where: { id: "usr_teacher_lin" }
-  });
-
-  const ren = await prisma.user.upsert({
-    create: {
-      name: "Ren Wu",
-      email: "ren.wu@nojv.local",
-      handle: "ta_ren",
-      id: "usr_ta_ren",
-      locale: "zh-TW",
-      platformRole: "ta"
-    },
-    update: {},
-    where: { id: "usr_ta_ren" }
-  });
-
-  const alice = await prisma.user.upsert({
-    create: {
-      name: "Alice Huang",
-      email: "alice.huang@nojv.local",
-      handle: "stu_alice",
-      id: "usr_student_alice",
-      locale: "zh-TW",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_student_alice" }
-  });
-
-  const bob = await prisma.user.upsert({
-    create: {
-      name: "Bob Lin",
-      email: "bob.lin@nojv.local",
-      handle: "stu_bob",
-      id: "usr_student_bob",
-      locale: "zh-TW",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_student_bob" }
-  });
-
-  const maya = await prisma.user.upsert({
-    create: {
-      name: "Maya Su",
-      email: "maya.su@nojv.local",
-      handle: "stu_maya",
-      id: "usr_student_maya",
-      locale: "en",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_student_maya" }
-  });
-
   const admin = await prisma.user.upsert({
     create: {
-      name: "Ops Admin",
-      email: "ops.admin@nojv.local",
-      handle: "ops_admin",
-      id: "usr_admin_ops",
+      name: "Admin",
+      email: "admin@nojv.local",
+      handle: "admin",
+      id: "usr_admin",
       locale: "zh-TW",
       platformRole: "admin"
     },
     update: {},
-    where: { id: "usr_admin_ops" }
+    where: { id: "usr_admin" }
   });
 
-  console.log(`  Users: ${[amelia, lin, ren, alice, bob, maya, admin].length} upserted`);
+  const teacher = await prisma.user.upsert({
+    create: {
+      name: "Teacher",
+      email: "teacher@nojv.local",
+      handle: "teacher",
+      id: "usr_teacher",
+      locale: "zh-TW",
+      platformRole: "teacher"
+    },
+    update: {},
+    where: { id: "usr_teacher" }
+  });
+
+  const taStudent = await prisma.user.upsert({
+    create: {
+      name: "TA Student",
+      email: "ta-student@nojv.local",
+      handle: "ta-student",
+      id: "usr_ta_student",
+      locale: "zh-TW",
+      platformRole: "student"
+    },
+    update: {},
+    where: { id: "usr_ta_student" }
+  });
+
+  const student = await prisma.user.upsert({
+    create: {
+      name: "Student",
+      email: "student@nojv.local",
+      handle: "student",
+      id: "usr_student",
+      locale: "zh-TW",
+      platformRole: "student"
+    },
+    update: {},
+    where: { id: "usr_student" }
+  });
+
+  const users = [admin, teacher, taStudent, student];
+
+  // --- Credential Accounts ---
+  for (const u of users) {
+    await prisma.account.upsert({
+      create: {
+        id: `acct_${u.handle}`,
+        accountId: u.id,
+        providerId: "credential",
+        userId: u.id,
+        password: passwordHash
+      },
+      update: { password: passwordHash },
+      where: { id: `acct_${u.handle}` }
+    });
+  }
+
+  console.log(`  Users: ${users.length} upserted with credential accounts`);
 
   // --- Problems ---
   const problemDefs = [
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Warmup Sum",
       difficulty: "easy",
       id: "problem_warmup-sum",
@@ -122,11 +103,17 @@ async function main() {
       statements: {
         "zh-TW": {
           title: "Warmup Sum",
-          body: "實作經典的暖身題。從標準輸入讀取兩個整數，並將它們的總和加上換行符號後輸出。"
+          body: "實作經典的暖身題。從標準輸入讀取兩個整數，並將它們的總和加上換行符號後輸出。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
+          outputFormat: "一行，輸出 $a + b$ 的值。"
         },
         en: {
           title: "Warmup Sum",
-          body: "Implement the classic warmup judge task. Read exactly two integers from standard input and print their sum followed by a newline."
+          body: "Implement the classic warmup judge task. Read exactly two integers from standard input and print their sum followed by a newline.",
+          inputFormat:
+            "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
+          outputFormat: "A single line containing the value of $a + b$."
         }
       },
       testcases: {
@@ -149,24 +136,29 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Graph Docking",
       difficulty: "medium",
       id: "problem_graph-docking",
       memoryLimitMb: 256,
       slug: "graph-docking",
-      summary:
-        "A medium problem used to show richer catalog metadata on the problem page.",
+      summary: "A medium problem used to show richer catalog metadata on the problem page.",
       timeLimitMs: 2000,
       visibility: "public" as const,
       statements: {
         "zh-TW": {
           title: "Graph Docking",
-          body: "為每艘船維護下一個可用碼頭。隱藏評審偏好使用 DSU 或貪心路徑壓縮方法。"
+          body: "為每艘船維護下一個可用碼頭。隱藏評審偏好使用 DSU 或貪心路徑壓縮方法。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
+          outputFormat: "一行，輸出無法成功停靠的船隻數量。"
         },
         en: {
           title: "Graph Docking",
-          body: "Maintain the next available dock for each incoming ship. The hidden judge favors DSU or greedy path compression approaches."
+          body: "Maintain the next available dock for each incoming ship. The hidden judge favors DSU or greedy path compression approaches.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks. The next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
+          outputFormat: "A single line containing the number of ships that could not dock."
         }
       },
       testcases: {
@@ -187,7 +179,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Distributed Labyrinth",
       difficulty: "hard",
       id: "problem_distributed-labyrinth",
@@ -200,11 +192,18 @@ async function main() {
       statements: {
         "zh-TW": {
           title: "Distributed Labyrinth",
-          body: "在多層走廊中協調多個代理，同時保持最短路徑保證。一旦迷宮開始分支，需要高效的狀態壓縮和最短路徑推理。"
+          body: "在多層走廊中協調多個代理，同時保持最短路徑保證。一旦迷宮開始分支，需要高效的狀態壓縮和最短路徑推理。",
+          inputFormat:
+            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
+          outputFormat: "一行，輸出從起點到終點的最短路徑長度。"
         },
         en: {
           title: "Distributed Labyrinth",
-          body: "Coordinate multiple agents across layered corridors while preserving shortest-path guarantees. Efficient state compression and shortest-path reasoning are both required once the maze begins to branch."
+          body: "Coordinate multiple agents across layered corridors while preserving shortest-path guarantees. Efficient state compression and shortest-path reasoning are both required once the maze begins to branch.",
+          inputFormat:
+            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns. The next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall. The start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
+          outputFormat:
+            "A single line containing the length of the shortest path from start to goal."
         }
       },
       testcases: {
@@ -225,7 +224,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Process Log Parser",
       difficulty: "medium",
       id: "problem_process-log-parser",
@@ -238,11 +237,19 @@ async function main() {
       statements: {
         "zh-TW": {
           title: "Process Log Parser",
-          body: "解析作業系統行程追蹤並輸出正規化的生命週期日誌。這是一個私有題目，僅供課程作業使用。"
+          body: "解析作業系統行程追蹤並輸出正規化的生命週期日誌。這是一個私有題目，僅供課程作業使用。",
+          inputFormat:
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
+          outputFormat:
+            "每行一個事件的正規化描述：`fork` 事件輸出 `<parent>-><child> forked`，`exit` 事件輸出 `<pid> exited`，`wait` 事件輸出 `<pid> waited`。"
         },
         en: {
           title: "Process Log Parser",
-          body: "Parse an operating-system process trace and emit a normalized lifecycle log. This private problem is meant for course-only usage."
+          body: "Parse an operating-system process trace and emit a normalized lifecycle log. This private problem is meant for course-only usage.",
+          inputFormat:
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events. The next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
+          outputFormat:
+            "One line per event: `fork` events produce `<parent>-><child> forked`, `exit` events produce `<pid> exited`, and `wait` events produce `<pid> waited`."
         }
       },
       testcases: {
@@ -260,8 +267,7 @@ async function main() {
           cases: [
             {
               stdin: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
-              expectedStdout:
-                "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n"
+              expectedStdout: "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n"
             },
             {
               stdin: "2\nfork 1 2\nexit 2\n",
@@ -272,24 +278,29 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Fork Bomb Safeguard",
       difficulty: "hard",
       id: "problem_fork-bomb-safeguard",
       memoryLimitMb: 512,
       slug: "fork-bomb-safeguard",
-      summary:
-        "A private exam problem that should only surface inside a course assessment.",
+      summary: "A private exam problem that should only surface inside a course assessment.",
       timeLimitMs: 2000,
       visibility: "private" as const,
       statements: {
         "zh-TW": {
           title: "Fork Bomb Safeguard",
-          body: "計算在爆發約束下行程樹的最小成本隔離策略。這個題目在課程考試中保持私有。"
+          body: "計算在爆發約束下行程樹的最小成本隔離策略。這個題目在課程考試中保持私有。",
+          inputFormat:
+            "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
+          outputFormat: "一行，輸出最小隔離成本。"
         },
         en: {
           title: "Fork Bomb Safeguard",
-          body: "Compute the minimum cost isolation strategy for a process tree under burst constraints. This problem stays private to the course exam."
+          body: "Compute the minimum cost isolation strategy for a process tree under burst constraints. This problem stays private to the course exam.",
+          inputFormat:
+            "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes. The next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
+          outputFormat: "A single line containing the minimum isolation cost."
         }
       },
       testcases: {
@@ -310,7 +321,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Add Two Numbers",
       difficulty: "easy",
       id: "problem_add-two-numbers",
@@ -318,18 +329,23 @@ async function main() {
       slug: "add-two-numbers",
       submissionType: "function" as const,
       judgeType: "standard" as const,
-      summary:
-        "Write a function that adds two integers.",
+      summary: "Write a function that adds two integers.",
       timeLimitMs: 1000,
       visibility: "public" as const,
       statements: {
         "zh-TW": {
           title: "兩數相加",
-          body: "撰寫一個函式，接收兩個整數並回傳它們的總和。"
+          body: "撰寫一個函式，接收兩個整數並回傳它們的總和。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
+          outputFormat: "一行，輸出 $a + b$ 的值。"
         },
         en: {
           title: "Add Two Numbers",
-          body: "Write a function that takes two integers and returns their sum."
+          body: "Write a function that takes two integers and returns their sum.",
+          inputFormat:
+            "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
+          outputFormat: "A single line containing the value of $a + b$."
         }
       },
       testcases: {
@@ -352,7 +368,7 @@ async function main() {
       }
     },
     {
-      authorId: amelia.id,
+      authorId: teacher.id,
       defaultTitle: "Float Compare",
       difficulty: "easy",
       id: "problem_float-compare",
@@ -378,18 +394,24 @@ def main():
 if __name__ == "__main__":
     main()
 `,
-      summary:
-        "Compute the result with floating-point precision.",
+      summary: "Compute the result with floating-point precision.",
       timeLimitMs: 1000,
       visibility: "public" as const,
       statements: {
         "zh-TW": {
           title: "浮點數比較",
-          body: "計算結果並以浮點數精度輸出。答案與預期值的絕對差必須小於 1e-6。"
+          body: "計算結果並以浮點數精度輸出。答案與預期值的絕對差必須小於 1e-6。",
+          inputFormat:
+            "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^9$）。",
+          outputFormat: "一行，輸出 $a / b$ 的值。答案與預期值的絕對差須小於 $10^{-6}$。"
         },
         en: {
           title: "Float Compare",
-          body: "Compute the result and output it with floating-point precision. Your answer must be within 1e-6 absolute difference of the expected value."
+          body: "Compute the result and output it with floating-point precision. Your answer must be within 1e-6 absolute difference of the expected value.",
+          inputFormat:
+            "A single line containing two space-separated positive integers $a$ and $b$ ($1 \\le a, b \\le 10^9$).",
+          outputFormat:
+            "A single line containing the value of $a / b$. Your answer must be within $10^{-6}$ absolute difference of the expected value."
         }
       },
       testcases: {
@@ -405,6 +427,85 @@ if __name__ == "__main__":
           cases: [
             { stdin: "2 3", expectedStdout: "0.666667" },
             { stdin: "355 113", expectedStdout: "3.141593" }
+          ]
+        }
+      }
+    },
+    {
+      authorId: teacher.id,
+      defaultTitle: "Guess the Number",
+      difficulty: "medium",
+      id: "problem_guess-the-number",
+      memoryLimitMb: 256,
+      slug: "guess-the-number",
+      submissionType: "full_source" as const,
+      judgeType: "interactive" as const,
+      interactorScript: `import sys
+
+def main():
+    # The interactor picks a secret number
+    # User program must guess it using binary search
+    # Protocol: interactor writes the range, user guesses, interactor responds "higher"/"lower"/"correct"
+
+    input_path = sys.argv[1]
+    with open(input_path) as f:
+        secret = int(f.read().strip())
+
+    lo, hi = 1, 1000000
+    print(f"{lo} {hi}", flush=True)
+
+    for _ in range(20):  # max 20 guesses
+        line = input().strip()
+        guess = int(line)
+
+        if guess == secret:
+            print("correct", flush=True)
+            sys.exit(0)
+        elif guess < secret:
+            print("higher", flush=True)
+        else:
+            print("lower", flush=True)
+
+    # Out of guesses
+    print(f"Failed to guess {secret} within 20 attempts", file=sys.stderr)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+`,
+      summary: "Guess a hidden number using binary search with interactive I/O.",
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "猜數字",
+          body: "這是一道互動題。系統會選定一個秘密數字，你需要透過互動來猜出它。\\n\\n系統首先會輸出範圍 `lo hi`，你每次猜一個數字，系統會回應 `higher`（太小）、`lower`（太大）或 `correct`（猜對）。你最多有 20 次猜測機會。",
+          inputFormat:
+            "第一行包含兩個整數 $lo$ 和 $hi$（$1 \\le lo \\le hi \\le 10^6$），表示數字的範圍。",
+          outputFormat: "每次輸出一個整數作為你的猜測。"
+        },
+        en: {
+          title: "Guess the Number",
+          body: "This is an interactive problem. The system picks a secret number and you must guess it.\\n\\nThe system first outputs the range `lo hi`. Each turn, you output a guess and the system responds with `higher` (too low), `lower` (too high), or `correct`. You have at most 20 guesses.",
+          inputFormat:
+            "The first line contains two integers $lo$ and $hi$ ($1 \\le lo \\le hi \\le 10^6$), the range of the number.",
+          outputFormat: "Output one integer per line as your guess."
+        }
+      },
+      testcases: {
+        sample: {
+          isHidden: false,
+          cases: [
+            { stdin: "42", expectedStdout: "" },
+            { stdin: "500000", expectedStdout: "" }
+          ]
+        },
+        hidden: {
+          isHidden: true,
+          cases: [
+            { stdin: "1", expectedStdout: "" },
+            { stdin: "1000000", expectedStdout: "" },
+            { stdin: "314159", expectedStdout: "" }
           ]
         }
       }
@@ -425,7 +526,8 @@ if __name__ == "__main__":
         visibility: def.visibility,
         ...("submissionType" in def && { submissionType: def.submissionType }),
         ...("judgeType" in def && { judgeType: def.judgeType }),
-        ...("checkerScript" in def && { checkerScript: def.checkerScript })
+        ...("checkerScript" in def && { checkerScript: def.checkerScript }),
+        ...("interactorScript" in def && { interactorScript: def.interactorScript })
       },
       update: {
         defaultTitle: def.defaultTitle,
@@ -433,7 +535,8 @@ if __name__ == "__main__":
         summary: def.summary,
         ...("submissionType" in def && { submissionType: def.submissionType }),
         ...("judgeType" in def && { judgeType: def.judgeType }),
-        ...("checkerScript" in def && { checkerScript: def.checkerScript })
+        ...("checkerScript" in def && { checkerScript: def.checkerScript }),
+        ...("interactorScript" in def && { interactorScript: def.interactorScript })
       },
       where: { slug: def.slug }
     });
@@ -443,12 +546,16 @@ if __name__ == "__main__":
       await prisma.problemStatementI18n.upsert({
         create: {
           bodyMarkdown: stmt.body,
+          inputFormat: stmt.inputFormat ?? "",
+          outputFormat: stmt.outputFormat ?? "",
           locale,
           problemId: problem.id,
           title: stmt.title
         },
         update: {
           bodyMarkdown: stmt.body,
+          inputFormat: stmt.inputFormat ?? "",
+          outputFormat: stmt.outputFormat ?? "",
           title: stmt.title
         },
         where: {
@@ -497,7 +604,9 @@ if __name__ == "__main__":
       }
     }
 
-    console.log(`  Problem: ${def.slug} (${Object.keys(def.statements).join(", ")} statements, ${Object.keys(def.testcases).length} testcase sets)`);
+    console.log(
+      `  Problem: ${def.slug} (${Object.keys(def.statements).join(", ")} statements, ${Object.keys(def.testcases).length} testcase sets)`
+    );
   }
 
   // --- Problem Templates (for function-mode problems) ---
@@ -525,15 +634,19 @@ if __name__ == "__main__":
 
     await prisma.problemTemplate.upsert({
       create: {
-        driverCode: "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
+        driverCode:
+          "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
         insertionMarker: "// __USER_CODE__",
         language: "cpp",
         problemId: addProblem.id,
-        templateCode: "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
+        templateCode:
+          "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
       },
       update: {
-        driverCode: "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
-        templateCode: "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
+        driverCode:
+          "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
+        templateCode:
+          "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
       },
       where: {
         problemId_language: {
@@ -554,8 +667,7 @@ if __name__ == "__main__":
       id: "contest_spring-qualifier-2026",
       slug: "spring-qualifier-2026",
       startsAt: new Date("2026-03-15T14:00:00+08:00"),
-      summary:
-        "Qualifier contest with a frozen board in the final hour.",
+      summary: "Qualifier contest with a frozen board in the final hour.",
       title: "Spring Qualifier 2026",
       visibility: "published"
     },
@@ -563,33 +675,10 @@ if __name__ == "__main__":
     where: { slug: "spring-qualifier-2026" }
   });
 
-  const systemsLabMidterm = await prisma.contest.upsert({
-    create: {
-      endsAt: new Date("2026-03-22T21:00:00+08:00"),
-      frozenBoard: false,
-      id: "contest_systems-lab-midterm",
-      slug: "systems-lab-midterm",
-      startsAt: new Date("2026-03-22T18:00:00+08:00"),
-      summary:
-        "Assignment-flavored contest where participants submit through a contest-specific scoring surface.",
-      title: "Systems Lab Midterm",
-      visibility: "published"
-    },
-    update: {},
-    where: { slug: "systems-lab-midterm" }
-  });
-
   // Link problems to contests
   const contestProblemLinks = [
     { contestId: springQualifier.id, problemSlug: "warmup-sum", ordinal: 1, points: 100 },
-    { contestId: springQualifier.id, problemSlug: "graph-docking", ordinal: 2, points: 300 },
-    { contestId: systemsLabMidterm.id, problemSlug: "warmup-sum", ordinal: 1, points: 100 },
-    {
-      contestId: systemsLabMidterm.id,
-      problemSlug: "distributed-labyrinth",
-      ordinal: 2,
-      points: 500
-    }
+    { contestId: springQualifier.id, problemSlug: "graph-docking", ordinal: 2, points: 300 }
   ];
 
   for (const link of contestProblemLinks) {
@@ -617,7 +706,7 @@ if __name__ == "__main__":
     });
   }
 
-  console.log(`  Contests: 2 upserted with problem links`);
+  console.log(`  Contests: 1 upserted with problem links`);
 
   // --- Courses ---
   const osLabCourse = await prisma.course.upsert({
@@ -626,7 +715,7 @@ if __name__ == "__main__":
         "A course-managed OJ space for systems programming. Teachers own the course, TAs manage operations, and students join by QR code, join code, or manual enrollment.",
       id: "course_os-lab-spring-2026",
       locale: "zh-TW",
-      ownerId: amelia.id,
+      ownerId: teacher.id,
       slug: "os-lab-spring-2026",
       title: "Operating Systems Lab",
       visibility: "invite_only"
@@ -635,38 +724,32 @@ if __name__ == "__main__":
     where: { slug: "os-lab-spring-2026" }
   });
 
-  const algoStudioCourse = await prisma.course.upsert({
-    create: {
-      description:
-        "An algorithm design studio where the teacher curates a mixed shelf of public catalog problems and course-private derivatives.",
-      id: "course_algorithm-studio-2026",
-      locale: "en",
-      ownerId: lin.id,
-      slug: "algorithm-studio-2026",
-      title: "Algorithm Studio",
-      visibility: "invite_only"
-    },
-    update: {},
-    where: { slug: "algorithm-studio-2026" }
-  });
-
   // Course memberships
   const osLabMemberships = [
-    { courseId: osLabCourse.id, userId: amelia.id, role: "teacher" as const, joinedVia: "manual_invite" as const },
-    { courseId: osLabCourse.id, userId: ren.id, role: "ta" as const, joinedVia: "manual_invite" as const },
-    { courseId: osLabCourse.id, userId: alice.id, role: "student" as const, joinedVia: "join_code" as const },
-    { courseId: osLabCourse.id, userId: bob.id, role: "student" as const, joinedVia: "qr_code" as const }
+    {
+      courseId: osLabCourse.id,
+      userId: teacher.id,
+      role: "teacher" as const,
+      joinedVia: "manual_invite" as const
+    },
+    {
+      courseId: osLabCourse.id,
+      userId: taStudent.id,
+      role: "ta" as const,
+      joinedVia: "manual_invite" as const
+    },
+    {
+      courseId: osLabCourse.id,
+      userId: student.id,
+      role: "student" as const,
+      joinedVia: "join_code" as const
+    }
   ];
 
-  const algoStudioMemberships = [
-    { courseId: algoStudioCourse.id, userId: lin.id, role: "teacher" as const, joinedVia: "manual_invite" as const },
-    { courseId: algoStudioCourse.id, userId: maya.id, role: "student" as const, joinedVia: "qr_code" as const }
-  ];
-
-  for (const mem of [...osLabMemberships, ...algoStudioMemberships]) {
+  for (const mem of osLabMemberships) {
     await prisma.courseMembership.upsert({
       create: {
-        addedByUserId: mem.role === "teacher" ? mem.userId : (mem.courseId === osLabCourse.id ? amelia.id : lin.id),
+        addedByUserId: mem.role === "teacher" ? mem.userId : teacher.id,
         courseId: mem.courseId,
         joinedAt: new Date(),
         joinedVia: mem.joinedVia,
@@ -686,12 +769,27 @@ if __name__ == "__main__":
 
   // Course join tokens
   const joinTokens = [
-    { courseId: osLabCourse.id, createdByUserId: amelia.id, label: "Course QR", method: "qr_code" as const, token: "oslab-qr-2026" },
-    { courseId: osLabCourse.id, createdByUserId: amelia.id, label: "Course code", method: "join_code" as const, token: "OSLAB2026" },
-    { courseId: osLabCourse.id, createdByUserId: amelia.id, label: "Manual roster sync", method: "manual_invite" as const, token: "teacher-managed-oslab" },
-    { courseId: algoStudioCourse.id, createdByUserId: lin.id, label: "Studio QR", method: "qr_code" as const, token: "algo-studio-qr" },
-    { courseId: algoStudioCourse.id, createdByUserId: lin.id, label: "Studio code", method: "join_code" as const, token: "ALGOSTUDIO" },
-    { courseId: algoStudioCourse.id, createdByUserId: lin.id, label: "Manual roster sync", method: "manual_invite" as const, token: "teacher-managed-algo" }
+    {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      label: "Course QR",
+      method: "qr_code" as const,
+      token: "oslab-qr-2026"
+    },
+    {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      label: "Course code",
+      method: "join_code" as const,
+      token: "OSLAB2026"
+    },
+    {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      label: "Manual roster sync",
+      method: "manual_invite" as const,
+      token: "teacher-managed-oslab"
+    }
   ];
 
   for (const jt of joinTokens) {
@@ -703,14 +801,18 @@ if __name__ == "__main__":
   }
 
   // Course problems
-  const osLabProblemSlugs = ["warmup-sum", "graph-docking", "process-log-parser", "fork-bomb-safeguard"];
-  const algoStudioProblemSlugs = ["warmup-sum", "distributed-labyrinth"];
+  const osLabProblemSlugs = [
+    "warmup-sum",
+    "graph-docking",
+    "process-log-parser",
+    "fork-bomb-safeguard"
+  ];
 
   for (const slug of osLabProblemSlugs) {
     const problem = await prisma.problem.findUniqueOrThrow({ where: { slug } });
     await prisma.courseProblem.upsert({
       create: {
-        addedByUserId: amelia.id,
+        addedByUserId: teacher.id,
         courseId: osLabCourse.id,
         problemId: problem.id
       },
@@ -724,36 +826,19 @@ if __name__ == "__main__":
     });
   }
 
-  for (const slug of algoStudioProblemSlugs) {
-    const problem = await prisma.problem.findUniqueOrThrow({ where: { slug } });
-    await prisma.courseProblem.upsert({
-      create: {
-        addedByUserId: lin.id,
-        courseId: algoStudioCourse.id,
-        problemId: problem.id
-      },
-      update: {},
-      where: {
-        courseId_problemId: {
-          courseId: algoStudioCourse.id,
-          problemId: problem.id
-        }
-      }
-    });
-  }
-
   // Course assessments
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       closesAt: new Date("2026-03-25T15:00:00.000Z"),
       courseId: osLabCourse.id,
-      createdByUserId: amelia.id,
+      createdByUserId: teacher.id,
       dueAt: new Date("2026-03-23T15:00:00.000Z"),
       opensAt: new Date("2026-03-17T09:00:00.000Z"),
       scoreboardMode: "hidden",
       slug: "hw1-process-trace",
       status: "published",
-      summary: "Coursework-oriented assignment with a visible deadline and a private systems problem.",
+      summary:
+        "Coursework-oriented assignment with a visible deadline and a private systems problem.",
       title: "Homework 1: Process Trace",
       type: "assignment"
     },
@@ -770,13 +855,14 @@ if __name__ == "__main__":
     create: {
       closesAt: new Date("2026-04-02T12:00:00.000Z"),
       courseId: osLabCourse.id,
-      createdByUserId: amelia.id,
+      createdByUserId: teacher.id,
       dueAt: new Date("2026-04-02T12:00:00.000Z"),
       opensAt: new Date("2026-04-02T09:00:00.000Z"),
       scoreboardMode: "live",
       slug: "midterm-systems-lab",
       status: "published",
-      summary: "Exam-style assessment with contest-grade pacing, live ranking, and tighter shell policy.",
+      summary:
+        "Exam-style assessment with contest-grade pacing, live ranking, and tighter shell policy.",
       title: "Midterm Systems Lab",
       type: "exam"
     },
@@ -789,37 +875,12 @@ if __name__ == "__main__":
     }
   });
 
-  const hw2 = await prisma.courseAssessment.upsert({
-    create: {
-      closesAt: new Date("2026-04-12T15:00:00.000Z"),
-      courseId: algoStudioCourse.id,
-      createdByUserId: lin.id,
-      dueAt: new Date("2026-04-10T15:00:00.000Z"),
-      opensAt: new Date("2026-04-01T09:00:00.000Z"),
-      scoreboardMode: "hidden",
-      slug: "hw2-graph-state",
-      status: "published",
-      summary: "Algorithm homework with a longer open window and no live ranking pressure.",
-      title: "Homework 2: Graph State Compression",
-      type: "assignment"
-    },
-    update: {},
-    where: {
-      courseId_slug: {
-        courseId: algoStudioCourse.id,
-        slug: "hw2-graph-state"
-      }
-    }
-  });
-
   // Assessment problem links
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemSlug: "warmup-sum", ordinal: 1 },
     { assessmentId: hw1.id, problemSlug: "process-log-parser", ordinal: 2 },
     { assessmentId: midterm.id, problemSlug: "graph-docking", ordinal: 1 },
-    { assessmentId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2 },
-    { assessmentId: hw2.id, problemSlug: "warmup-sum", ordinal: 1 },
-    { assessmentId: hw2.id, problemSlug: "distributed-labyrinth", ordinal: 2 }
+    { assessmentId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2 }
   ];
 
   for (const link of assessmentProblemLinks) {
@@ -846,7 +907,31 @@ if __name__ == "__main__":
     });
   }
 
-  console.log(`  Courses: 2 upserted with memberships, join tokens, problems, and assessments`);
+  console.log(`  Courses: 1 upserted with memberships, join tokens, problems, and assessments`);
+
+  // Seed announcements
+  await prisma.announcement.deleteMany();
+  await prisma.announcement.createMany({
+    data: [
+      {
+        title: "系統上線公告",
+        content: "NOJV 線上評測系統已正式上線，歡迎使用！",
+        pinned: true
+      },
+      {
+        title: "新功能：課程管理",
+        content: "教師現在可以建立課程、新增作業與考試。學生可以透過加入碼加入課程。",
+        pinned: false
+      },
+      {
+        title: "系統維護通知",
+        content: "預計於本週六 22:00-24:00 進行系統維護，届時服務將暫停。",
+        pinned: false
+      }
+    ]
+  });
+  console.log("Seeded announcements");
+
   console.log("Seed complete.");
 }
 

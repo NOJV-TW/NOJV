@@ -1,6 +1,5 @@
 export {
   canCreateCourse,
-  canCreateProblem,
   canManageCourseMembership,
   canManageCourseProblems,
   canPublishAssessment,
@@ -13,8 +12,4 @@ export {
   resolveCoursePermissionRole
 } from "./roles";
 
-export {
-  requireAuth,
-  requireCourseRole,
-  requirePlatformRole
-} from "./guards";
+export { requireAuth, requireCourseRole, requirePlatformRole } from "./guards";

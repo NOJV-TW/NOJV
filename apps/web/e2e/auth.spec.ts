@@ -2,6 +2,12 @@ import { test, expect } from "@playwright/test";
 import { screenshotPage } from "./helpers";
 
 test.describe("Authentication", () => {
+  test("homepage sign-in button navigates to non-localized sign-in route", async ({ page }) => {
+    await page.goto("/zh-TW");
+    await page.locator('a[href="/auth/signin"]').first().click();
+    await expect(page).toHaveURL("/auth/signin");
+  });
+
   test("sign-in page renders correctly", async ({ page }) => {
     await page.goto("/auth/signin");
     await expect(page.locator("h1")).toContainText("Sign in");
@@ -16,7 +22,7 @@ test.describe("Authentication", () => {
 
   test("sign-up page renders correctly", async ({ page }) => {
     await page.goto("/auth/signup");
-    await expect(page.locator("h1")).toContainText("Sign up");
+    await expect(page.locator("h1")).toContainText("Create your NOJV account");
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await screenshotPage(page, "auth-signup");
   });

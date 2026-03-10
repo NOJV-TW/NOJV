@@ -17,6 +17,7 @@
 Currently only `warmup-sum` has testcases in seed. Add testcases for all 5 problems.
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts`
 
 **Step 1: Add testcase sets for all problems**
@@ -44,6 +45,7 @@ git commit -m "feat: add testcase sets and en statements for all seeded problems
 ### Task 2: Move shared types and starter templates out of demo-data
 
 **Files:**
+
 - Create: `apps/web/src/lib/problem-types.ts` (types + starterByLanguage)
 - Modify: `apps/web/src/lib/server/read-model.ts` (import from new location)
 - Modify: `apps/web/src/components/problem-editor.tsx` (import ProblemDetail from new location)
@@ -74,6 +76,7 @@ git commit -m "refactor: extract shared types and starter templates from demo-da
 Contest list and detail pages currently read from `contestCards` / `getContestDetail` in demo-data.ts. Make them query the database.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/read-model.ts` (add `listContestCards()` and `getContestPageData()`)
 - Modify: `apps/web/src/app/[locale]/contests/page.tsx`
 - Modify: `apps/web/src/app/[locale]/contests/[slug]/page.tsx`
@@ -133,6 +136,7 @@ git commit -m "feat: make contest pages fully DB-driven"
 ### Task 4: Make integrity page DB-driven
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/read-model.ts` (add `listIntegrityCases()`)
 - Modify: `apps/web/src/app/[locale]/integrity/page.tsx`
 - Modify: `apps/web/src/app/[locale]/page.tsx` (dashboard integrity section)
@@ -167,6 +171,7 @@ git commit -m "feat: make integrity page and dashboard DB-driven"
 ### Task 5: Remove demo-data fallbacks from read-model.ts
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/read-model.ts`
 
 **Step 1: Remove mergeBySlug usage**
@@ -200,6 +205,7 @@ git commit -m "refactor: remove demo-data fallbacks from read-model"
 ### Task 6: Remove demo-data fallbacks from poc-persistence.ts
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/poc-persistence.ts`
 
 **Step 1: Remove imports from demo-data and course-poc-data**
@@ -229,6 +235,7 @@ git commit -m "refactor: remove demo-data fallbacks from poc-persistence"
 ### Task 7: Delete demo-data files
 
 **Files:**
+
 - Delete: `apps/web/src/lib/demo-data.ts`
 - Delete: `apps/web/src/lib/course-poc-data.ts`
 
@@ -256,6 +263,7 @@ git commit -m "chore: remove demo-data.ts and course-poc-data.ts"
 ### Task 8: Simplify layout/header
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/layout.tsx`
 
 **Step 1: Clean up header**
@@ -276,11 +284,13 @@ git commit -m "ui: simplify header to clean OJ branding"
 ### Task 9: Redesign homepage/dashboard
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/page.tsx`
 
 **Step 1: Remove verbose portfolio content**
 
 Remove:
+
 - "Execution Backbone" / "Queue health across product zones" section with MetricTrendChart
 - "Architecture" card ("Next.js for the platform, Vite for the IDE...")
 - "Evidence-first reviewer pipeline" card
@@ -290,6 +300,7 @@ Remove:
 **Step 2: Keep functional dashboard content**
 
 Keep but simplify:
+
 - Hero section (shorter, no technical pitch)
 - Problem list preview (link to problems)
 - Contest list preview (link to contests)
@@ -310,6 +321,7 @@ git commit -m "ui: redesign homepage as clean functional dashboard"
 ### Task 10: Simplify problems pages
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/problems/page.tsx`
 - Modify: `apps/web/src/app/[locale]/problems/[slug]/page.tsx`
 
@@ -332,6 +344,7 @@ git commit -m "ui: simplify problem pages, remove verbose descriptions"
 ### Task 11: Simplify contest pages
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/contests/page.tsx`
 - Modify: `apps/web/src/app/[locale]/contests/[slug]/page.tsx`
 
@@ -354,6 +367,7 @@ git commit -m "ui: simplify contest pages"
 ### Task 12: Simplify courses and integrity pages
 
 **Files:**
+
 - Modify: `apps/web/src/app/[locale]/courses/page.tsx`
 - Modify: `apps/web/src/app/[locale]/integrity/page.tsx`
 
@@ -376,6 +390,7 @@ git commit -m "ui: simplify courses and integrity pages"
 ### Task 13: Update i18n copy
 
 **Files:**
+
 - Modify: `packages/i18n/src/index.ts`
 
 **Step 1: Update hero copy**
@@ -399,6 +414,7 @@ git commit -m "i18n: update copy to match clean OJ UI"
 ### Task 14: Set up Playwright
 
 **Files:**
+
 - Modify: `apps/web/package.json` (add playwright deps)
 - Create: `apps/web/playwright.config.ts`
 - Create: `apps/web/e2e/` directory
@@ -412,6 +428,7 @@ cd apps/web && pnpm add -D @playwright/test
 **Step 2: Create playwright.config.ts**
 
 Configure with:
+
 - baseURL: http://localhost:3000
 - screenshot on failure
 - screenshot directory: `e2e/screenshots/`
@@ -432,6 +449,7 @@ git commit -m "chore: set up Playwright for E2E tests"
 ### Task 15: E2E test — Auth flow
 
 **Files:**
+
 - Create: `apps/web/e2e/auth.spec.ts`
 
 **Step 1: Write sign-in test**
@@ -464,6 +482,7 @@ git commit -m "test(e2e): add auth flow tests with screenshots"
 ### Task 16: E2E test — Problems browsing
 
 **Files:**
+
 - Create: `apps/web/e2e/problems.spec.ts`
 
 **Step 1: Write problems list test**
@@ -495,6 +514,7 @@ git commit -m "test(e2e): add problem browsing tests with screenshots"
 ### Task 17: E2E test — Contests browsing
 
 **Files:**
+
 - Create: `apps/web/e2e/contests.spec.ts`
 
 **Step 1: Write contests list test**
@@ -520,6 +540,7 @@ git commit -m "test(e2e): add contest browsing tests with screenshots"
 ### Task 18: E2E test — Courses browsing
 
 **Files:**
+
 - Create: `apps/web/e2e/courses.spec.ts`
 
 **Step 1: Write courses list test**
@@ -545,6 +566,7 @@ git commit -m "test(e2e): add course browsing tests with screenshots"
 ### Task 19: E2E test — Navigation and locale switching
 
 **Files:**
+
 - Create: `apps/web/e2e/navigation.spec.ts`
 
 **Step 1: Write navigation test**

@@ -15,10 +15,7 @@ interface CourseJoinPanelProps {
   }[];
 }
 
-export async function CourseJoinPanel({
-  courseSlug,
-  joinChannels
-}: CourseJoinPanelProps) {
+export async function CourseJoinPanel({ courseSlug, joinChannels }: CourseJoinPanelProps) {
   const locale = await getLocale();
   const t = await getTranslations("courseDetail");
   const requestHeaders = await headers();
@@ -37,11 +34,10 @@ export async function CourseJoinPanel({
           ? await QRCode.toDataURL(
               (() => {
                 const joinUrl = new URL(
-                  `/${locale}/join/${courseSlug}`,
+                  `/${locale}/courses/${courseSlug}/join/${channel.token}`,
                   `${protocol}://${host}`
                 );
                 joinUrl.searchParams.set("method", channel.method);
-                joinUrl.searchParams.set("token", channel.token);
 
                 return joinUrl.toString();
               })()

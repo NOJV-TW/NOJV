@@ -2,7 +2,7 @@ import { submissionDraftSchema } from "@nojv/domain";
 import { NextResponse } from "next/server";
 
 import { withAuth } from "@/lib/server/api-handler";
-import { createQueuedSubmissionRecord } from "@/lib/server/poc-persistence";
+import { createQueuedSubmissionRecord } from "@/lib/server/data-access/submissions";
 import { dispatchSubmissionJob } from "@/lib/server/queue";
 
 export const POST = withAuth(async (request, actor) => {

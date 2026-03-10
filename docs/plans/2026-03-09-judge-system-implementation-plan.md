@@ -13,6 +13,7 @@
 ### Task 1: Add Prisma schema enums and modify Problem model
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma`
 
 **Step 1: Add new enums**
@@ -46,10 +47,13 @@ Add after `memoryLimitMb` (line 175):
 **Step 3: Make Testcase.expectedStdout optional, add inputFiles**
 
 Change line 220 from:
+
 ```prisma
   expectedStdout String      @db.Text
 ```
+
 to:
+
 ```prisma
   expectedStdout String?     @db.Text
   inputFiles     Json?
@@ -76,6 +80,7 @@ model ProblemTemplate {
 ```
 
 Add to Problem model relations (after `testcaseSets` line 179):
+
 ```prisma
   templates         ProblemTemplate[]
 ```
@@ -98,6 +103,7 @@ git commit -m "feat: add judge type, submission type, and problem template schem
 ### Task 2: Add domain Zod schemas for new types
 
 **Files:**
+
 - Modify: `packages/domain/src/index.ts`
 
 **Step 1: Add new const arrays and schemas**
@@ -167,6 +173,7 @@ git commit -m "feat: add judge type and problem template domain schemas"
 ### Task 3: Update judge operations to include new context
 
 **Files:**
+
 - Modify: `packages/db/src/judge-operations.ts`
 
 **Step 1: Update `SubmissionJudgeContext` interface**
@@ -274,6 +281,7 @@ git commit -m "feat: include judge type and templates in submission judge contex
 ### Task 4: Refactor submission runner — source assembly and standard judge
 
 **Files:**
+
 - Modify: `apps/worker/src/services/submission-runner.ts`
 
 **Step 1: Add source assembly function**
@@ -300,9 +308,7 @@ function assembleSourceCode(
 
   const template = templates.find((t) => t.language === language);
   if (!template) {
-    throw new Error(
-      `No template found for language "${language}" in function-mode problem.`
-    );
+    throw new Error(`No template found for language "${language}" in function-mode problem.`);
   }
 
   if (!template.driverCode.includes(template.insertionMarker)) {
@@ -336,33 +342,33 @@ export interface JudgeSubmissionInput {
 At the start of the function, after validating language and testcases, add source assembly:
 
 ```typescript
-  const submissionType = payload.submissionType ?? "full_source";
-  const templates = payload.templates ?? [];
-  const judgeType = payload.judgeType ?? "standard";
+const submissionType = payload.submissionType ?? "full_source";
+const templates = payload.templates ?? [];
+const judgeType = payload.judgeType ?? "standard";
 
-  let assembledSourceCode: string;
-  try {
-    assembledSourceCode = assembleSourceCode(
-      draft.sourceCode,
-      submissionType,
-      draft.language,
-      templates
-    );
-  } catch (error) {
-    return submissionResultSchema.parse({
-      accepted: false,
-      feedback: error instanceof Error ? error.message : "Source assembly failed.",
-      runtimeMs: 0,
-      score: 0,
-      verdict: "compile_error"
-    });
-  }
+let assembledSourceCode: string;
+try {
+  assembledSourceCode = assembleSourceCode(
+    draft.sourceCode,
+    submissionType,
+    draft.language,
+    templates
+  );
+} catch (error) {
+  return submissionResultSchema.parse({
+    accepted: false,
+    feedback: error instanceof Error ? error.message : "Source assembly failed.",
+    runtimeMs: 0,
+    score: 0,
+    verdict: "compile_error"
+  });
+}
 ```
 
 Then pass `assembledSourceCode` instead of `draft.sourceCode` when creating the run solution input. Create a modified draft for the sandbox:
 
 ```typescript
-  const assembledDraft = { ...draft, sourceCode: assembledSourceCode };
+const assembledDraft = { ...draft, sourceCode: assembledSourceCode };
 ```
 
 Use `assembledDraft` in the `runSolution` call.
@@ -388,6 +394,7 @@ git commit -m "feat: add source assembly for function-mode and extract standard 
 ### Task 5: Add checker judge mode
 
 **Files:**
+
 - Modify: `apps/worker/src/services/submission-runner.ts`
 
 **Step 1: Write failing test for checker mode**
@@ -396,8 +403,7 @@ Add to `apps/worker/tests/submission-runner.test.ts`:
 
 ```typescript
 it("accepts via checker script when checker exits 0", async () => {
-  const { judgeSubmissionAgainstTestcases } =
-    await import("../src/services/submission-runner");
+  const { judgeSubmissionAgainstTestcases } = await import("../src/services/submission-runner");
 
   // First call: user program runs, produces output
   // Second call: checker script runs, exits 0
@@ -420,7 +426,7 @@ it("accepts via checker script when checker exits 0", async () => {
 
   const result = await judgeSubmissionAgainstTestcases(
     {
-      checkerScript: 'import sys\nsys.exit(0)\n',
+      checkerScript: "import sys\nsys.exit(0)\n",
       draft: {
         language: "python",
         mode: "practice",
@@ -528,7 +534,10 @@ export function buildCheckerWorkspaceRequest(input: {
     { content: input.stdin, path: "stdin.txt" },
     { content: input.expectedStdout, path: "expected.txt" },
     { content: input.userStdout, path: "user_output.txt" },
-    { content: "checker:\n\t@python3 checker.py stdin.txt expected.txt user_output.txt\n", path: "Makefile" }
+    {
+      content: "checker:\n\t@python3 checker.py stdin.txt expected.txt user_output.txt\n",
+      path: "Makefile"
+    }
   ];
 
   if (input.inputFiles) {
@@ -558,8 +567,7 @@ Expected: All tests pass including the new checker test.
 
 ```typescript
 it("returns wrong_answer when checker exits 1", async () => {
-  const { judgeSubmissionAgainstTestcases } =
-    await import("../src/services/submission-runner");
+  const { judgeSubmissionAgainstTestcases } = await import("../src/services/submission-runner");
   const runSolution = vi
     .fn()
     .mockResolvedValueOnce({
@@ -620,6 +628,7 @@ git commit -m "feat: add checker judge mode with script-based evaluation"
 ### Task 6: Add interactive judge mode
 
 **Files:**
+
 - Modify: `apps/worker/src/services/submission-runner.ts`
 - Modify: `apps/worker/tests/submission-runner.test.ts`
 
@@ -627,8 +636,7 @@ git commit -m "feat: add checker judge mode with script-based evaluation"
 
 ```typescript
 it("accepts via interactive judge when interactor exits 0", async () => {
-  const { judgeSubmissionAgainstTestcases } =
-    await import("../src/services/submission-runner");
+  const { judgeSubmissionAgainstTestcases } = await import("../src/services/submission-runner");
 
   // Interactive mode: single sandbox run with interactor + user program connected via pipes
   const runSolution = vi.fn().mockResolvedValueOnce({
@@ -672,6 +680,7 @@ Run: `cd apps/worker && pnpm vitest run`
 **Step 3: Implement interactive judge**
 
 For interactive mode, the sandbox runs a wrapper script that:
+
 1. Creates two named pipes (FIFOs)
 2. Starts the interactor writing to one pipe, reading from another
 3. Starts the user program reading from the first pipe, writing to the second
@@ -701,9 +710,11 @@ export function buildInteractiveWorkspaceRequest(input: {
     "set -eu",
     "",
     "# Compile user program if needed",
-    languageSpec.runtimeScript.includes("gcc") || languageSpec.runtimeScript.includes("g++") ||
-    languageSpec.runtimeScript.includes("javac") || languageSpec.runtimeScript.includes("rustc")
-      ? languageSpec.runtimeScript.split("\n").slice(0, -1).join("\n")  // compile only, no exec
+    languageSpec.runtimeScript.includes("gcc") ||
+    languageSpec.runtimeScript.includes("g++") ||
+    languageSpec.runtimeScript.includes("javac") ||
+    languageSpec.runtimeScript.includes("rustc")
+      ? languageSpec.runtimeScript.split("\n").slice(0, -1).join("\n") // compile only, no exec
       : "",
     "",
     "# Set up pipes",
@@ -762,6 +773,7 @@ function getRunCommand(spec: JudgeLanguageSpec): string {
 ```
 
 In the main judge function, when `judgeType === "interactive"`:
+
 - Build interactive workspace request
 - Run it
 - Parse interactor stderr: line 1 = score, line 2+ = feedback
@@ -784,6 +796,7 @@ git commit -m "feat: add interactive judge mode with pipe-based communication"
 ### Task 7: Update worker processor to pass new context
 
 **Files:**
+
 - Modify: `apps/worker/src/processors.ts`
 
 **Step 1: Update `processSubmission` to pass new fields**
@@ -791,24 +804,24 @@ git commit -m "feat: add interactive judge mode with pipe-based communication"
 The `judgeContext` from `getSubmissionJudgeContext` now includes `judgeType`, `submissionType`, `checkerScript`, `interactorScript`, `templates`. Pass them through:
 
 ```typescript
-  const result = await judgeSubmissionAgainstTestcases(
-    {
-      checkerScript: judgeContext.checkerScript,
-      draft: payload.draft,
-      interactorScript: judgeContext.interactorScript,
-      judgeType: judgeContext.judgeType,
-      memoryLimitMb: judgeContext.memoryLimitMb,
-      submissionType: judgeContext.submissionType,
-      templates: judgeContext.templates,
-      testcases: judgeContext.testcases,
-      timeLimitMs: judgeContext.timeLimitMs
-    },
-    {
-      runSolution: async (input) => {
-        return executeJudgeRun(input, remoteSandboxConfig);
-      }
+const result = await judgeSubmissionAgainstTestcases(
+  {
+    checkerScript: judgeContext.checkerScript,
+    draft: payload.draft,
+    interactorScript: judgeContext.interactorScript,
+    judgeType: judgeContext.judgeType,
+    memoryLimitMb: judgeContext.memoryLimitMb,
+    submissionType: judgeContext.submissionType,
+    templates: judgeContext.templates,
+    testcases: judgeContext.testcases,
+    timeLimitMs: judgeContext.timeLimitMs
+  },
+  {
+    runSolution: async (input) => {
+      return executeJudgeRun(input, remoteSandboxConfig);
     }
-  );
+  }
+);
 ```
 
 **Step 2: Verify types compile**
@@ -828,14 +841,14 @@ git commit -m "feat: pass judge type and templates through worker processor"
 ### Task 8: Write test for function-mode source assembly
 
 **Files:**
+
 - Modify: `apps/worker/tests/submission-runner.test.ts`
 
 **Step 1: Write test**
 
 ```typescript
 it("assembles function-mode source before judging", async () => {
-  const { judgeSubmissionAgainstTestcases } =
-    await import("../src/services/submission-runner");
+  const { judgeSubmissionAgainstTestcases } = await import("../src/services/submission-runner");
 
   const runSolution = vi.fn().mockResolvedValue({
     durationMs: 8,
@@ -887,8 +900,7 @@ it("assembles function-mode source before judging", async () => {
 
 ```typescript
 it("returns compile_error when function-mode has no template for language", async () => {
-  const { judgeSubmissionAgainstTestcases } =
-    await import("../src/services/submission-runner");
+  const { judgeSubmissionAgainstTestcases } = await import("../src/services/submission-runner");
   const runSolution = vi.fn();
 
   const result = await judgeSubmissionAgainstTestcases(
@@ -944,6 +956,7 @@ git commit -m "test: add function-mode and checker-mode judge tests"
 ### Task 9: Update seed data with function-mode and checker-mode examples
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts`
 
 **Step 1: Add a function-mode problem to seed**
@@ -980,15 +993,19 @@ if (addProblem) {
 
   await prisma.problemTemplate.upsert({
     create: {
-      driverCode: '#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n',
+      driverCode:
+        "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
       insertionMarker: "// __USER_CODE__",
       language: "cpp",
       problemId: addProblem.id,
-      templateCode: "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
+      templateCode:
+        "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
     },
     update: {
-      driverCode: '#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n',
-      templateCode: "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
+      driverCode:
+        "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
+      templateCode:
+        "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
     },
     where: {
       problemId_language: {
@@ -1021,6 +1038,7 @@ git commit -m "feat: add function-mode and checker-mode example problems to seed
 ### Task 10: Update sandbox Dockerfile for interactive mode
 
 **Files:**
+
 - Modify: `infra/docker/sandbox-runner.Dockerfile`
 
 **Step 1: Verify mkfifo availability**

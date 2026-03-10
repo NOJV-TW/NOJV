@@ -2,7 +2,7 @@ import { courseJoinRequestSchema } from "@nojv/domain";
 import { NextResponse } from "next/server";
 
 import { withAuthParams } from "@/lib/server/api-handler";
-import { joinCourseRecord } from "@/lib/server/poc-persistence";
+import { joinCourseRecord } from "@/lib/server/data-access/courses";
 
 export const POST = withAuthParams<{ slug: string }>(async (request, actor, { slug }) => {
   const payload = courseJoinRequestSchema.parse({

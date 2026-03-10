@@ -2,6 +2,7 @@
 @import "@fontsource/manrope/500.css";
 @import "@fontsource/manrope/700.css";
 @import "@fontsource/fraunces/600.css";
+@import "katex/dist/katex.min.css";
 @import "tailwindcss";
 
 :root {

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   canCreateCourse,
-  canCreateProblem,
   canManageCourseMembership,
   canPublishAssessment
 } from "../src/lib/server/authorization/permissions";
@@ -14,11 +13,6 @@ describe("course authorization", () => {
 
   it("blocks students from creating courses", () => {
     expect(canCreateCourse("student")).toBe(false);
-  });
-
-  it("allows teachers and admins to create problems", () => {
-    expect(canCreateProblem("teacher")).toBe(true);
-    expect(canCreateProblem("admin")).toBe(true);
   });
 
   it("allows course staff to manage memberships", () => {

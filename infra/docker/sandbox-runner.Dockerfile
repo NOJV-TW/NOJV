@@ -1,17 +1,28 @@
+FROM node:24-alpine AS builder
+
+RUN corepack enable
+
+WORKDIR /build
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/sandbox-runner/package.json apps/sandbox-runner/
+COPY packages/config-typescript/ packages/config-typescript/
+RUN pnpm install --frozen-lockfile --filter @nojv/sandbox-runner...
+
+COPY apps/sandbox-runner/ apps/sandbox-runner/
+RUN pnpm --filter @nojv/sandbox-runner build
+
 FROM node:24-alpine
 
-ENV HOME="/home/sandbox"
-ENV PNPM_HOME="/home/sandbox/.local/share/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-
-RUN apk add --no-cache bash build-base cargo openjdk21-jdk python3 rust \
-  && corepack enable \
+RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust \
   && addgroup -S sandbox -g 10001 \
   && adduser -S -D -h /home/sandbox -u 10001 -G sandbox sandbox \
-  && mkdir -p /workspace /tmp "$PNPM_HOME" \
-  && chown -R sandbox:sandbox /workspace /tmp /home/sandbox
+  && mkdir -p /runner /workspace /tmp \
+  && chown -R sandbox:sandbox /runner /workspace /tmp /home/sandbox
 
+COPY --from=builder /build/apps/sandbox-runner/dist/ /runner/
+
+ENV HOME="/tmp"
 WORKDIR /workspace
 USER sandbox
 
-CMD ["sh"]
+CMD ["node", "/runner/index.js"]

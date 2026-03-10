@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ConflictError, ForbiddenError } from "../src/lib/server/api-errors";
+
 const createProblemTestcaseSetRecord = vi.fn();
 
 interface MockActor {
   displayName: string;
   email: string;
   handle: string;
-  platformRole: "admin" | "student" | "ta" | "teacher";
+  platformRole: "admin" | "student" | "teacher";
   userId: string;
 }
 
@@ -22,13 +24,7 @@ vi.mock("@/lib/server/actor-context", () => ({
   getActorContext: vi.fn(() => currentActor)
 }));
 
-vi.mock("@/lib/server/authorization", () => ({
-  canCreateProblem: vi.fn((platformRole: "admin" | "student" | "ta" | "teacher") => {
-    return platformRole === "admin" || platformRole === "teacher";
-  })
-}));
-
-vi.mock("@/lib/server/poc-persistence", () => ({
+vi.mock("@/lib/server/data-access/problems", () => ({
   createProblemTestcaseSetRecord
 }));
 
@@ -99,6 +95,9 @@ describe("problem testcase authoring routes", () => {
       platformRole: "student",
       userId: "usr_student_bob"
     };
+    createProblemTestcaseSetRecord.mockRejectedValue(
+      new ForbiddenError("Problem testcases can only be managed by the author or an admin.")
+    );
 
     const { POST } = await import("../src/app/api/problems/[slug]/testcase-sets/route");
     const response = await POST(
@@ -127,12 +126,11 @@ describe("problem testcase authoring routes", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(createProblemTestcaseSetRecord).not.toHaveBeenCalled();
   });
 
   it("maps duplicate testcase-set names to a conflict response", async () => {
     createProblemTestcaseSetRecord.mockRejectedValue(
-      new Error('Unique constraint failed on the fields: ("problemId", "name")')
+      new ConflictError('Unique constraint failed on the fields: ("problemId", "name")')
     );
 
     const { POST } = await import("../src/app/api/problems/[slug]/testcase-sets/route");
