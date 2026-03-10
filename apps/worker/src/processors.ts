@@ -2,93 +2,51 @@ import type { Job } from "bullmq";
 
 import {
   completeSubmission,
-  completeWorkspaceRun,
   getSubmissionJudgeContext,
-  markSubmissionRunning,
-  markWorkspaceRunRunning
+  markSubmissionRunning
 } from "@nojv/db";
 import {
   cheatingSignalSchema,
   integrityAssessmentSchema,
-  workspaceRunResultSchema,
-  type CheatingSignal,
-  type WorkspaceRunRequest,
-  type WorkspaceRunResult
+  type CheatingSignal
 } from "@nojv/domain";
 import {
   submissionJudgeJobSchema,
-  type SubmissionJudgeJob,
-  type WorkspaceRunJob,
-  workspaceRunJobSchema
+  type SubmissionJudgeJob
 } from "@nojv/queue";
 
 import { parseWorkerEnv } from "./env";
-import { executeEphemeralWorkspaceRun } from "./services/ephemeral-workspace";
+import { DockerExecutor } from "./services/docker-executor.js";
 import { evaluateIntegritySignals } from "./services/integrity-score";
-import { runRemoteSandboxCommand } from "./services/remote-sandbox";
-import {
-  buildJudgeWorkspaceRequest,
-  judgeSubmissionAgainstTestcases
-} from "./services/submission-runner";
+import { K8sExecutor } from "./services/k8s-executor.js";
+import type { SandboxExecutor } from "./services/sandbox-executor.js";
+import { judgeSubmission } from "./services/submission-runner.js";
 
 const environment = parseWorkerEnv(process.env);
 
-function getRemoteSandboxConfig() {
-  if (environment.EXECUTION_BACKEND !== "remote_http") {
-    return null;
+function createExecutor(): SandboxExecutor {
+  if (environment.EXECUTION_BACKEND === "kubernetes") {
+    return new K8sExecutor({
+      namespace: environment.K8S_NAMESPACE,
+      image: environment.SANDBOX_IMAGE,
+      cpuRequest: environment.K8S_CPU_REQUEST,
+      cpuLimit: environment.K8S_CPU_LIMIT,
+      memoryRequest: environment.K8S_MEMORY_REQUEST,
+      memoryLimit: environment.K8S_MEMORY_LIMIT,
+    });
   }
-
-  if (!environment.SANDBOX_BASE_URL || !environment.SANDBOX_SHARED_TOKEN) {
-    throw new Error(
-      "Remote sandbox execution requires SANDBOX_BASE_URL and SANDBOX_SHARED_TOKEN."
-    );
-  }
-
-  return {
-    baseUrl: environment.SANDBOX_BASE_URL,
-    sharedToken: environment.SANDBOX_SHARED_TOKEN
-  };
-}
-
-function getLocalSandboxOptions() {
-  return {
-    sandboxCpuLimit: environment.SANDBOX_CPU_LIMIT,
-    sandboxImage: environment.SANDBOX_IMAGE,
-    sandboxMemoryMb: environment.SANDBOX_MEMORY_MB,
-    sandboxPidsLimit: environment.SANDBOX_PIDS_LIMIT
-  } as const;
-}
-
-async function executeJudgeRun(
-  input: Parameters<typeof buildJudgeWorkspaceRequest>[0],
-  remoteSandboxConfig: ReturnType<typeof getRemoteSandboxConfig>
-) {
-  const request = buildJudgeWorkspaceRequest(input);
-
-  if (remoteSandboxConfig) {
-    return runRemoteSandboxCommand(request, remoteSandboxConfig);
-  }
-
-  return executeEphemeralWorkspaceRun(request, {
-    ...getLocalSandboxOptions(),
-    sandboxMemoryMb: input.memoryLimitMb
+  return new DockerExecutor({
+    cpuLimit: environment.SANDBOX_CPU_LIMIT,
+    image: environment.SANDBOX_IMAGE,
+    memoryMb: environment.SANDBOX_MEMORY_MB,
+    pidsLimit: environment.SANDBOX_PIDS_LIMIT,
   });
 }
 
-async function executeRawRun(
-  request: WorkspaceRunRequest,
-  remoteSandboxConfig: ReturnType<typeof getRemoteSandboxConfig>
-) {
-  if (remoteSandboxConfig) {
-    return runRemoteSandboxCommand(request, remoteSandboxConfig);
-  }
-
-  return executeEphemeralWorkspaceRun(request, getLocalSandboxOptions());
-}
+const executor = createExecutor();
 
 export async function processSubmission(job: Job<SubmissionJudgeJob>) {
   const payload = submissionJudgeJobSchema.parse(job.data);
-  const remoteSandboxConfig = getRemoteSandboxConfig();
 
   await markSubmissionRunning(payload.submissionId);
   const judgeContext = await getSubmissionJudgeContext(payload.submissionId);
@@ -97,43 +55,13 @@ export async function processSubmission(job: Job<SubmissionJudgeJob>) {
     throw new Error(`Submission context not found for ${payload.submissionId}.`);
   }
 
-  const result = await judgeSubmissionAgainstTestcases(
-    {
-      checkerScript: judgeContext.checkerScript,
-      draft: payload.draft,
-      interactorScript: judgeContext.interactorScript,
-      judgeType: judgeContext.judgeType,
-      memoryLimitMb: judgeContext.memoryLimitMb,
-      submissionType: judgeContext.submissionType,
-      templates: judgeContext.templates,
-      testcases: judgeContext.testcases,
-      timeLimitMs: judgeContext.timeLimitMs
-    },
-    {
-      executeRun: async (request) => {
-        return executeRawRun(request, remoteSandboxConfig);
-      },
-      runSolution: async (input) => {
-        return executeJudgeRun(input, remoteSandboxConfig);
-      }
-    }
+  const result = await judgeSubmission(
+    payload.submissionId,
+    payload.draft,
+    judgeContext,
+    executor,
   );
   await completeSubmission(payload.submissionId, result);
-
-  return result;
-}
-
-export async function processWorkspaceRun(job: Job<WorkspaceRunJob>) {
-  const payload = workspaceRunJobSchema.parse(job.data);
-  const remoteSandboxConfig = getRemoteSandboxConfig();
-
-  await markWorkspaceRunRunning(payload.workspaceRunId);
-  const result: WorkspaceRunResult = remoteSandboxConfig
-    ? await runRemoteSandboxCommand(payload.request, remoteSandboxConfig)
-    : workspaceRunResultSchema.parse(
-        await executeEphemeralWorkspaceRun(payload.request, getLocalSandboxOptions())
-      );
-  await completeWorkspaceRun(payload.workspaceRunId, result);
 
   return result;
 }

@@ -4,14 +4,14 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { shellClassNames } from "@nojv/ui";
 
-import type { CoursePocAssessment } from "@/lib/server/read-model";
+import type { CourseAssessmentRecord } from "@/lib/server/read-model";
 import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState
-} from "@/lib/server/course-poc-helpers";
+} from "@/lib/server/course-assessment-helpers";
 
 interface CourseAssessmentBoardProps {
-  assessments: CoursePocAssessment[];
+  assessments: CourseAssessmentRecord[];
   courseSlug: string;
 }
 

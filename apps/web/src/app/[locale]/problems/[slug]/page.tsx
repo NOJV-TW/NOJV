@@ -6,7 +6,7 @@ import { shellClassNames } from "@nojv/ui";
 
 import { ProblemEditor } from "@/components/problem-editor";
 import { ProblemTestcasePanel } from "@/components/problem-testcase-panel";
-import { getContestPageData, getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
+import { getCoursePageData, getProblemPageData } from "@/lib/server/read-model";
 
 export const dynamic = "force-dynamic";
 
@@ -15,19 +15,18 @@ export default async function ProblemDetailPage({
   searchParams
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ assessment?: string; contest?: string; course?: string }>;
+  searchParams: Promise<{ assessment?: string; course?: string }>;
 }) {
   const { locale, slug } = await params;
-  const { assessment, contest, course } = await searchParams;
+  const { assessment, course } = await searchParams;
   setRequestLocale(locale);
   const [tNav, tCommon, tProblem] = await Promise.all([
     getTranslations("navigation"),
     getTranslations("common"),
     getTranslations("problemDetail")
   ]);
-  const [problem, contestContext, courseData] = await Promise.all([
+  const [problem, courseData] = await Promise.all([
     getProblemPageData(slug, locale),
-    contest ? getContestPageData(contest) : undefined,
     course ? getCoursePageData(course) : null
   ]);
   const courseContext = courseData?.course;
@@ -69,13 +68,11 @@ export default async function ProblemDetailPage({
             <div className={`${shellClassNames.card} px-4 py-4`}>
               <p className="text-sm text-[color:var(--color-muted)]">{tProblem('context')}</p>
               <p className="mt-2 text-lg font-semibold">
-                {contestContext
-                  ? contestContext.title
-                  : assessmentContext
-                    ? `${courseContext?.title ?? tProblem('course')} / ${assessmentContext.title}`
-                    : courseContext
-                      ? courseContext.title
-                      : tProblem('practiceCatalog')}
+                {assessmentContext
+                  ? `${courseContext?.title ?? tProblem('course')} / ${assessmentContext.title}`
+                  : courseContext
+                    ? courseContext.title
+                    : tProblem('practiceCatalog')}
               </p>
             </div>
           </div>
@@ -120,18 +117,7 @@ export default async function ProblemDetailPage({
         </div>
 
         <section className="space-y-4">
-          {contestContext ? (
-            <div className={`${shellClassNames.card} px-5 py-5`}>
-              <p className={shellClassNames.eyebrow}>{tProblem('contest')}</p>
-              <p className="mt-2 text-lg font-semibold">{contestContext.title}</p>
-              <Link
-                className="mt-3 inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
-                href={`/${locale}/contests/${contestContext.slug}`}
-              >
-                {tProblem('backToContest')}
-              </Link>
-            </div>
-          ) : assessmentContext ? (
+          {assessmentContext ? (
             <div className={`${shellClassNames.card} px-5 py-5`}>
               <p className={shellClassNames.eyebrow}>{tProblem('course')}</p>
               <p className="mt-2 text-lg font-semibold">{assessmentContext.title}</p>
@@ -158,7 +144,6 @@ export default async function ProblemDetailPage({
                   }
                 : undefined
             }
-            contestSlug={contestContext?.slug}
             problem={problem}
           />
           <ProblemTestcasePanel problemSlug={problem.slug} />

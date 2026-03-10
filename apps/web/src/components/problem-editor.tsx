@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import Editor from "@monaco-editor/react";
 import { startTransition, useDeferredValue, useState } from "react";
 
@@ -19,9 +18,7 @@ import {
 import { shellClassNames } from "@nojv/ui";
 
 import type { ProblemDetail } from "@/lib/problem-types";
-import { buildWorkspaceLaunchUrl, resolveWorkspaceAppUrl } from "@/lib/workspace-launch";
 
-import { useActorSession } from "./actor-session-provider";
 import { TelemetryProbe } from "./telemetry-probe";
 
 const editorOptions = {
@@ -57,17 +54,11 @@ export function ProblemEditor({
 }: ProblemEditorProps) {
   const locale = useLocale();
   const t = useTranslations("editor");
-  const { actor, actorHeaders } = useActorSession();
   const editorSessionId = buildEditorSessionId({
     assessmentSlug: assessment?.assessmentSlug,
     contestSlug,
     courseSlug: assessment?.courseSlug,
     problemSlug: problem.slug
-  });
-  const workspaceLabUrl = buildWorkspaceLaunchUrl(resolveWorkspaceAppUrl(), {
-    assessment,
-    actor,
-    contestSlug
   });
   const [language, setLanguage] = useState<Language>("cpp");
   const [drafts, setDrafts] = useState(problem.starterByLanguage);
@@ -126,7 +117,6 @@ export function ProblemEditor({
           sourceCode: drafts[language]
         }),
         headers: {
-          ...actorHeaders,
           "Content-Type": "application/json"
         },
         method: "POST"
@@ -195,13 +185,6 @@ export function ProblemEditor({
           >
             {isSubmitting ? t("submitting") : t("submitButton")}
           </button>
-          <Link
-            className="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
-            href={workspaceLabUrl}
-            target="_blank"
-          >
-            {t("openWorkspaceLab")}
-          </Link>
         </div>
         <Editor
           defaultLanguage="cpp"
@@ -261,7 +244,6 @@ export function ProblemEditor({
           <div className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--color-muted)]">
             <p>{t("executionHint1")}</p>
             <p>{t("executionHint2")}</p>
-            <p>{t("executionHint3")}</p>
           </div>
         </section>
 

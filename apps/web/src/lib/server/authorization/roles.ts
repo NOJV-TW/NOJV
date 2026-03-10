@@ -1,8 +1,8 @@
 import { prisma, type TransactionClient } from "@nojv/db";
 import type { CourseRole, EffectiveCourseRole, PlatformRole } from "@nojv/domain";
 
-import type { PocActorContext } from "../actor-context";
-import { NotFoundError } from "../api-errors";
+import type { ActorContext } from "../actor-context";
+import { requireCourse } from "../data-access/shared";
 
 export function resolveCoursePermissionRole(input: {
   courseRole?: CourseRole | null;
@@ -18,16 +18,9 @@ export function resolveCoursePermissionRole(input: {
 export async function resolveCoursePermission(
   tx: TransactionClient,
   courseSlug: string,
-  actor: PocActorContext
+  actor: ActorContext
 ) {
-  const course = await tx.course.findUnique({
-    where: { slug: courseSlug }
-  });
-
-  if (!course) {
-    throw new NotFoundError(`Course not found: ${courseSlug}`);
-  }
-
+  const course = await requireCourse(tx, courseSlug);
   const membership = await tx.courseMembership.findUnique({
     where: {
       courseId_userId: {
@@ -46,9 +39,7 @@ export async function resolveCoursePermission(
   };
 }
 
-export async function getCoursePermissionRole(courseSlug: string, actor: PocActorContext) {
-  return prisma.$transaction(async (tx) => {
-    const { role } = await resolveCoursePermission(tx, courseSlug, actor);
-    return role;
-  });
+export async function getCoursePermissionRole(courseSlug: string, actor: ActorContext) {
+  const { role } = await resolveCoursePermission(prisma, courseSlug, actor);
+  return role;
 }

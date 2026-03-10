@@ -11,7 +11,7 @@ vi.mock("@/lib/server/authorization", () => ({
   canCreateCourse: vi.fn()
 }));
 
-vi.mock("@/lib/server/poc-persistence", () => ({
+vi.mock("@/lib/server/data-access/courses", () => ({
   createCourseRecord: vi.fn()
 }));
 

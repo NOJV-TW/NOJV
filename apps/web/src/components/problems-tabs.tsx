@@ -6,20 +6,20 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { formatAcceptanceRate, shellClassNames } from "@nojv/ui";
 
-type ProblemCard = {
+interface ProblemCard {
   acceptanceRate: number;
   difficulty: "easy" | "hard" | "medium";
   slug: string;
   title: string;
   totalSubmissions: number;
-};
+}
 
-type EditableProblemCard = {
+interface EditableProblemCard {
   difficulty: "easy" | "hard" | "medium";
   slug: string;
   title: string;
   visibility: "private" | "public";
-};
+}
 
 export function ProblemsTabs({
   editableProblems,

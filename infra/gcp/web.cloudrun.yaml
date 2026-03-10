@@ -20,5 +20,3 @@ spec:
                 secretKeyRef:
                   key: latest
                   name: nojv-redis-url
-            - name: NEXT_PUBLIC_WORKSPACE_URL
-              value: https://nojv-workspace.example.com

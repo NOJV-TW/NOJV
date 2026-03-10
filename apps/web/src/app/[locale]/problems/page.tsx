@@ -20,7 +20,7 @@ export default async function ProblemsPage({
   const tNav = await getTranslations("navigation");
 
   const session = await auth.api.getSession({ headers: await headers() });
-  const userId = session?.user?.id ?? null;
+  const userId = session?.user.id ?? null;
 
   const [publicProblems, editableProblems] = await Promise.all([
     listProblemCards(),

@@ -20,9 +20,9 @@ export default function SignUpPage() {
 
     const { error: signUpError } = await authClient.signUp.email({
       email: form.get("email") as string,
-      handle: form.get("handle") as string,
       name: form.get("displayName") as string,
-      password: form.get("password") as string
+      password: form.get("password") as string,
+      username: form.get("handle") as string
     });
 
     setLoading(false);
@@ -37,7 +37,7 @@ export default function SignUpPage() {
   }
 
   async function handleOAuth(provider: "github" | "google") {
-    await authClient.signIn.social({ callbackURL: "/", provider });
+    await authClient.signIn.social({ callbackURL: "/auth/complete-profile", provider });
   }
 
   return (

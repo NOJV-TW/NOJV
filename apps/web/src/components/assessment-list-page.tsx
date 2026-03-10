@@ -6,7 +6,10 @@ import type { CourseAssessmentType } from "@nojv/domain";
 import { shellClassNames } from "@nojv/ui";
 
 import { auth } from "@/lib/auth";
-import { deriveAssessmentWindowState, windowStateColorClass } from "@/lib/server/course-poc-helpers";
+import {
+  deriveAssessmentWindowState,
+  windowStateColorClass
+} from "@/lib/server/course-assessment-helpers";
 import { listUserAssessments } from "@/lib/server/read-model";
 
 export async function AssessmentListPage({
@@ -23,7 +26,7 @@ export async function AssessmentListPage({
   const t = await getTranslations(i18nNamespace);
 
   const session = await auth.api.getSession({ headers: await headers() });
-  const userId = session?.user?.id ?? null;
+  const userId = session?.user.id ?? null;
 
   if (!userId) {
     return (

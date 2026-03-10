@@ -3,13 +3,10 @@ import { cheatingSignalSchema, type CheatingSignal } from "@nojv/domain";
 import {
   createCheatingSignalJob,
   createSubmissionJob,
-  createWorkspaceRunJob,
   defaultJobOptions,
   queueNames,
   submissionJudgeJobSchema,
-  type SubmissionJudgeJob,
-  type WorkspaceRunJob,
-  workspaceRunJobSchema
+  type SubmissionJudgeJob
 } from "@nojv/queue";
 import { z } from "zod";
 
@@ -21,7 +18,6 @@ interface QueueRegistry {
   queues: {
     cheatingSignal: Queue<CheatingSignal>;
     submission: Queue<SubmissionJudgeJob>;
-    workspaceRun: Queue<WorkspaceRunJob>;
   };
 }
 
@@ -42,8 +38,7 @@ function createQueueRegistry(): QueueRegistry {
   return {
     queues: {
       cheatingSignal: new Queue(queueNames.cheatingSignal, { connection }),
-      submission: new Queue(queueNames.submission, { connection }),
-      workspaceRun: new Queue(queueNames.workspaceRun, { connection })
+      submission: new Queue(queueNames.submission, { connection })
     }
   };
 }
@@ -59,13 +54,6 @@ export async function dispatchSubmissionJob(payload: SubmissionJudgeJob): Promis
   const registry = getQueueRegistry();
 
   await registry.queues.submission.add(jobEnvelope.name, jobEnvelope.data, defaultJobOptions);
-}
-
-export async function dispatchWorkspaceRunJob(payload: WorkspaceRunJob): Promise<void> {
-  const jobEnvelope = createWorkspaceRunJob(workspaceRunJobSchema.parse(payload));
-  const registry = getQueueRegistry();
-
-  await registry.queues.workspaceRun.add(jobEnvelope.name, jobEnvelope.data, defaultJobOptions);
 }
 
 export async function bufferCheatingSignals(signals: CheatingSignal[]) {

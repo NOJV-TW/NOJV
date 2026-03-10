@@ -35,7 +35,7 @@ export default function SignInPage() {
   }
 
   async function handleOAuth(provider: "github" | "google") {
-    await authClient.signIn.social({ callbackURL: "/", provider });
+    await authClient.signIn.social({ callbackURL: "/auth/complete-profile", provider });
   }
 
   return (

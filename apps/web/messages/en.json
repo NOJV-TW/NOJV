@@ -138,12 +138,10 @@
     "executionGuarantees": "Execution guarantees",
     "executionHint1": "Inline editor runs inside the web app without manual uploads.",
     "executionHint2": "Submissions hit BullMQ and execute against persisted testcase sets.",
-    "executionHint3": "Heavy command execution stays inside the separate workspace surface.",
     "judgeFeedback": "Judge feedback",
     "language": "Language",
     "onlineEditor": "Online editor",
     "onlineEditorSubtitle": "LeetCode-style editing without file uploads",
-    "openWorkspaceLab": "Open workspace lab",
     "practiceMode": "practice mode",
     "queueState": "Queue state",
     "sandboxJudge": "Sandbox testcase judge",
@@ -152,6 +150,18 @@
     "submissionVerdict": "Submission verdict",
     "submitting": "Submitting...",
     "verdict": "Verdict"
+  },
+  "home": {
+    "announcements": "Announcements",
+    "assignment": "Assignment",
+    "content": "Content",
+    "date": "Date",
+    "due": "Due",
+    "exam": "Exam",
+    "noAnnouncements": "No announcements.",
+    "noAssessments": "No upcoming assignments or exams.",
+    "productDescription": "Online judge platform for programming courses — solve problems, submit assignments, and take exams.",
+    "upcomingAssessments": "Upcoming"
   },
   "hero": {
     "eyebrow": "Online Judge",
@@ -166,6 +176,7 @@
     "subtitle": "Review flagged cases and cheating signals."
   },
   "navigation": {
+    "account": "Account",
     "assignments": "Assignments",
     "courses": "Courses",
     "dashboard": "Overview",

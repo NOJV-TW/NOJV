@@ -148,7 +148,8 @@ enum CheatingCaseStatus {
 model User {
   id                   String                 @id @default(cuid())
   email                String                 @unique
-  handle               String                 @unique
+  handle               String?                @unique
+  displayHandle        String?
   name                 String
   emailVerified        Boolean                @default(false)
   image                String?
@@ -593,4 +594,13 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime? @default(now())
   updatedAt  DateTime? @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -36,21 +36,9 @@ services:
       - redis
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nojv
-      NEXT_PUBLIC_WORKSPACE_URL: http://workspace:4173
       REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
-
-  workspace:
-    build:
-      context: .
-      dockerfile: infra/docker/workspace.Dockerfile
-    depends_on:
-      - redis
-    environment:
-      REDIS_URL: redis://redis:6379
-    ports:
-      - "4173:4173"
 
   worker:
     build:
@@ -61,6 +49,7 @@ services:
       - redis
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nojv
+      EXECUTION_BACKEND: docker
       REDIS_URL: redis://redis:6379
       SANDBOX_CPU_LIMIT: "1"
       SANDBOX_IMAGE: nojv-sandbox:local
