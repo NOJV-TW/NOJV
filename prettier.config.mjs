@@ -1,1 +1,8 @@
-export { default } from "./packages/config-prettier/index.mjs";
+const config = {
+  printWidth: 96,
+  semi: true,
+  singleQuote: false,
+  trailingComma: "none"
+};
+
+export default config;

@@ -1,11 +1,13 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { nextCookies } from "better-auth/next-js";
+import { toSvelteKitHandler } from "better-auth/svelte-kit";
 import { username } from "better-auth/plugins";
 
 import { prisma } from "@nojv/db";
 
 export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET ?? "dev-secret-change-in-production",
+  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:5173",
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true
@@ -43,7 +45,8 @@ export const auth = betterAuth({
       usernameValidator: (candidate) => {
         return /^[a-z0-9._-]+$/.test(candidate);
       }
-    }),
-    nextCookies()
+    })
   ]
 });
+
+export const { handler } = toSvelteKitHandler(auth);

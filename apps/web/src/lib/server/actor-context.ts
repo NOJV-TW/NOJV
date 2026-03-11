@@ -1,9 +1,8 @@
-import { headers } from "next/headers";
-
 import { platformRoleSchema, type PlatformRole } from "@nojv/domain";
+import type { RequestEvent } from "@sveltejs/kit";
 
-import { readHandleFromAuthUser } from "@/lib/auth-onboarding";
-import { auth } from "@/lib/auth";
+import { readHandleFromAuthUser } from "$lib/auth-onboarding";
+import { auth } from "$lib/auth";
 
 export interface ActorContext {
   displayName: string;
@@ -15,9 +14,9 @@ export interface ActorContext {
 
 export type CompletedActorContext = ActorContext & { handle: string };
 
-export async function getActorContext(): Promise<ActorContext | null> {
+export async function getActorContext(event: RequestEvent): Promise<ActorContext | null> {
   const session = await auth.api.getSession({
-    headers: await headers()
+    headers: event.request.headers
   });
 
   if (!session?.user) {

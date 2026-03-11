@@ -19,8 +19,5 @@
     "bullmq": "^5.70.4",
     "zod": "^4.3.6"
   },
-  "devDependencies": {
-    "@nojv/config-eslint": "workspace:*",
-    "@nojv/config-typescript": "workspace:*"
-  }
+  "devDependencies": {}
 }

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { redirect } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 
 import type { EffectiveCourseRole, PlatformRole } from "@nojv/domain";
 
@@ -8,27 +8,25 @@ import { getActorContext } from "../actor-context";
 import { ForbiddenError } from "../api-errors";
 import { getCoursePermissionRole } from "./roles";
 
-function getLocaleFromHeaders(hdrs: Headers): string {
-  const pathname = hdrs.get("x-pathname") ?? "";
-  const match = /^\/([a-z-]+)\//.exec(pathname);
+function getLocaleFromUrl(url: URL): string {
+  const match = /^\/([a-z-]+)\//.exec(url.pathname);
   return match?.[1] ?? "zh-TW";
 }
 
 /**
- * Require authentication for a server component page.
- * Redirects to sign-in if not authenticated.
+ * Require authentication for a server load function or page.
+ * Redirects to the locale root if not authenticated.
  */
-export async function requireAuth(redirectTo?: string): Promise<CompletedActorContext> {
-  const actor = await getActorContext();
-  const hdrs = await headers();
-  const locale = getLocaleFromHeaders(hdrs);
+export async function requireAuth(event: RequestEvent, redirectTo?: string): Promise<CompletedActorContext> {
+  const actor = await getActorContext(event);
+  const locale = getLocaleFromUrl(event.url);
 
   if (!actor) {
-    redirect(redirectTo ?? `/${locale}`);
+    redirect(302, redirectTo ?? `/${locale}`);
   }
 
   if (!actor.handle) {
-    redirect(`/${locale}/auth/complete-profile`);
+    redirect(302, `/${locale}/auth/complete-profile`);
   }
 
   return actor as CompletedActorContext;

@@ -31,4 +31,4 @@ export function isValidHandle(value: string): boolean {
   return handlePattern.test(value);
 }
 
-export { isReservedHandle } from "@/lib/school-verification";
+export { isReservedHandle } from "$lib/school-verification";
