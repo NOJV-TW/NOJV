@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsdown src/index.ts --format esm",
     "lint": "eslint src/",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
