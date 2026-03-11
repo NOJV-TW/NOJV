@@ -6,7 +6,7 @@ import {
   type CourseRole,
   type EffectiveCourseRole,
   type PlatformRole
-} from "@nojv/domain";
+} from "@nojv/core";
 
 // --- Error classes ---
 

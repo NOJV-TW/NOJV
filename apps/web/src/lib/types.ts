@@ -1,4 +1,4 @@
-import type { CourseAssessmentType, JudgeType, Language, ProblemOverview, SubmissionType } from "@nojv/domain";
+import type { CourseAssessmentType, JudgeType, Language, ProblemOverview, SubmissionType } from "@nojv/core";
 
 // --- Problem types ---
 

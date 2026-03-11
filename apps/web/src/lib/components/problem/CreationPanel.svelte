@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { t } from "svelte-i18n";
-  import { supportedLanguages, type JudgeType, type Language, type SubmissionType } from "@nojv/domain";
+  import { supportedLanguages, type JudgeType, type Language, type SubmissionType } from "@nojv/core";
 
   import type { ProblemDetail, TemplateInfo } from "$lib/types";
 

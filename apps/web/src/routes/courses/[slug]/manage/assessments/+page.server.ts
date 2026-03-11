@@ -1,4 +1,4 @@
-import { courseAssessmentCreateSchema } from "@nojv/domain";
+import { courseAssessmentCreateSchema } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";

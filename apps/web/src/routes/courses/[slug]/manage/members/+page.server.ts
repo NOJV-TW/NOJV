@@ -1,4 +1,4 @@
-import { manualCourseEnrollmentSchema } from "@nojv/domain";
+import { manualCourseEnrollmentSchema } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
