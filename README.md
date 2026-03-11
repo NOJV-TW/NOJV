@@ -58,7 +58,13 @@ The next delivery phases are documented in
 ## Local Setup
 
 ```bash
-cp .env.example .env
+# Copy env templates
+cp packages/db/.env.example packages/db/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/worker/.env.example apps/worker/.env
+
+# Fill in secrets in apps/web/.env (OAuth, Resend, Better Auth)
+
 pnpm install
 pnpm sandbox:build
 docker compose up -d postgres redis
@@ -66,6 +72,16 @@ pnpm db:generate
 pnpm db:deploy
 pnpm dev
 ```
+
+### Environment Files
+
+Each package/app owns its own `.env`:
+
+| File | Purpose |
+|---|---|
+| `packages/db/.env` | `DATABASE_URL` for Prisma migrations and seed |
+| `apps/web/.env` | Database, Redis, Better Auth, OAuth, Resend |
+| `apps/worker/.env` | Redis, sandbox execution settings |
 
 Open:
 
