@@ -81,16 +81,32 @@
     "whyDiffers": "頁面差異說明"
   },
   "auth": {
-    "emailOrHandle": "電子郵件或帳號名稱",
-    "invalidCredentials": "電子郵件/帳號名稱或密碼錯誤。",
-    "noAccount": "還沒有帳號？",
-    "or": "或",
-    "password": "密碼",
+    "adminSignIn": "管理員登入",
     "signIn": "登入",
     "signInTitle": "登入 NOJV",
-    "signOut": "登出",
-    "signUp": "註冊",
-    "signingIn": "登入中..."
+    "signOut": "登出"
+  },
+  "onboarding": {
+    "title": "設定你的 NOJV 帳號",
+    "subtitle": "選擇設定代稱的方式",
+    "schoolOption": "三校聯盟帳號",
+    "schoolOptionDesc": "使用師大 / 台大 / 台科大 email 驗證",
+    "generalOption": "一般帳號",
+    "generalOptionDesc": "自行選擇代稱",
+    "schoolEmailLabel": "學校信箱",
+    "schoolEmailPlaceholder": "例如 b12345678@ntu.edu.tw",
+    "sendVerification": "發送驗證信",
+    "sending": "發送中...",
+    "verificationSent": "驗證信已寄出！請檢查你的信箱並點擊連結。",
+    "waitingVerification": "等待驗證中...",
+    "handleLabel": "NOJV 代稱",
+    "handlePlaceholder": "例如 john-doe",
+    "handleReserved": "此代稱格式保留給學校帳號使用。",
+    "continue": "繼續",
+    "saving": "儲存中...",
+    "back": "返回",
+    "useOtherAccount": "使用其他帳號",
+    "verified": "驗證成功！跳轉中..."
   },
   "common": {
     "acceptance": "通過率",
