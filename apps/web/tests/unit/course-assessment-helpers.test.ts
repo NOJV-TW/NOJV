@@ -4,8 +4,8 @@ import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState,
   windowStateColorClass
-} from "../src/lib/types";
-import { resolveCoursePermissionRole } from "../src/lib/server/auth";
+} from "$lib/types";
+import { resolveCoursePermissionRole } from "$lib/server/auth";
 
 describe("resolveCoursePermissionRole", () => {
   it("lets platform admins override course membership role", () => {
