@@ -2,10 +2,14 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { BadgeCheck } from "lucide-react";
+
 import { shellClassNames } from "@nojv/ui";
 
 import { readHandleFromAuthUser, readStringValue } from "@/lib/auth-onboarding";
 import { auth } from "@/lib/auth";
+import { isReservedHandle } from "@/lib/school-verification";
+import { SchoolVerificationSection } from "@/components/school-verification-section";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +28,10 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
     getTranslations("account")
   ]);
   const user = session.user as Record<string, unknown>;
-  const handle = readHandleFromAuthUser(user) ?? "—";
+  const rawHandle = readHandleFromAuthUser(user);
+  const handle = rawHandle ?? "—";
   const platformRole = readStringValue(user.platformRole) ?? "student";
+  const isSchoolVerified = rawHandle !== null && isReservedHandle(rawHandle);
 
   return (
     <div className="space-y-6">
@@ -44,7 +50,12 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
             <dt className="text-sm text-[color:var(--color-muted)]">
               {tAccount("userAccount")}
             </dt>
-            <dd className="mt-1 font-medium">{handle}</dd>
+            <dd className="mt-1 flex items-center gap-1.5 font-medium">
+              {handle}
+              {isSchoolVerified && (
+                <BadgeCheck className="size-4 text-green-600" aria-label="School verified" />
+              )}
+            </dd>
           </div>
           <div>
             <dt className="text-sm text-[color:var(--color-muted)]">{tAccount("role")}</dt>
@@ -52,6 +63,7 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
           </div>
         </dl>
       </section>
+      <SchoolVerificationSection isSchoolVerified={isSchoolVerified} />
     </div>
   );
 }

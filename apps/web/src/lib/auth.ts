@@ -8,8 +8,7 @@ import { prisma } from "@nojv/db";
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true
+    enabled: true
   },
   socialProviders: {
     github: {
