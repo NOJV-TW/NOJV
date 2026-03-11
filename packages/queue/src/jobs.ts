@@ -1,9 +1,5 @@
-import { submissionDraftSchema } from "./domain";
+import { submissionDraftSchema } from "@nojv/core";
 import { z } from "zod";
-
-export const queueNames = {
-  submission: "submission-judge"
-} as const;
 
 export const defaultJobOptions = {
   attempts: 3,
