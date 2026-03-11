@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   let { data } = $props();
 </script>
@@ -9,7 +9,7 @@
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-gradient-to-br from-white/90 to-stone-50/80 px-6 py-8 sm:px-8"
   >
     <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-      {$t("navigation.courses")} / {data.course.slug} / assignment
+      {m.navigation_courses()} / {data.course.slug} / assignment
     </p>
     <h2 class="mt-2 font-[family-name:var(--font-display)] text-4xl">
       {data.assessment.title}
@@ -26,7 +26,7 @@
       <div class="flex items-center justify-between gap-4">
         <div>
           <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-            {$t("assessment.assignmentFraming")}
+            {m.assessment_assignmentFraming()}
           </p>
           <h3 class="mt-1 text-2xl font-semibold">{data.presentation.heroLabel}</h3>
         </div>
@@ -53,7 +53,7 @@
             <span
               class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
             >
-              {$t("assessment.openInEditor")}
+              {m.assessment_openInEditor()}
             </span>
           </a>
         {/each}
@@ -65,22 +65,22 @@
         class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
       >
         <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-          {$t("common.timeline")}
+          {m.common_timeline()}
         </p>
         <div class="mt-4 space-y-3 text-sm leading-7 text-[color:var(--color-muted)]">
-          <p>{$t("assessment.opens")}: {data.assessment.opensAt}</p>
-          <p>{$t("assessment.due")}: {data.assessment.dueAt}</p>
-          <p>{$t("assessment.closes")}: {data.assessment.closesAt}</p>
+          <p>{m.assessment_opens()}: {data.assessment.opensAt}</p>
+          <p>{m.assessment_due()}: {data.assessment.dueAt}</p>
+          <p>{m.assessment_closes()}: {data.assessment.closesAt}</p>
         </div>
       </section>
       <section
         class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
       >
         <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-          {$t("assessment.whyDiffers")}
+          {m.assessment_whyDiffers()}
         </p>
         <p class="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-          {$t("assessment.assignmentExplanation")}
+          {m.assessment_assignmentExplanation()}
         </p>
       </section>
     </aside>

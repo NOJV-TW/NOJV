@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import type { CourseProblemCatalogEntry } from "$lib/server/course/queries";
 
   interface Props {
@@ -16,16 +16,16 @@
   <div class="flex items-center justify-between gap-4">
     <div>
       <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-        {$t("courseDetail.problemShelf")}
+        {m.courseDetail_problemShelf()}
       </p>
       <h3 class="mt-1 text-2xl font-semibold">
-        {$t("courseDetail.problemShelfSubtitle")}
+        {m.courseDetail_problemShelfSubtitle()}
       </h3>
     </div>
     <span
       class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
     >
-      {problems.length} {$t("courseDetail.linkedProblems")}
+      {problems.length} {m.courseDetail_linkedProblems()}
     </span>
   </div>
   <div class="mt-5 grid gap-3">
@@ -48,7 +48,7 @@
               {problem.visibility}
             </span>
             <p class="mt-2 text-sm text-[color:var(--color-muted)]">
-              {$t("courseDetail.by")} {problem.authorHandle}
+              {m.courseDetail_by()} {problem.authorHandle}
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import CourseAssessmentBoard from "$lib/components/course/AssessmentBoard.svelte";
   import CourseProblemShelf from "$lib/components/course/ProblemShelf.svelte";
   import CourseJoinPanel from "$lib/components/course/JoinPanel.svelte";
@@ -18,7 +18,7 @@
       <div>
         <div class="flex items-center gap-3">
           <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-            {$t("navigation.courses")} / {course.slug}
+            {m.navigation_courses()} / {course.slug}
           </p>
           <a
             class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5"
@@ -38,19 +38,19 @@
         <div
           class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
         >
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("common.members")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.common_members()}</p>
           <p class="mt-2 text-lg font-semibold">{course.members.length}</p>
         </div>
         <div
           class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
         >
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("common.assessments")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.common_assessments()}</p>
           <p class="mt-2 text-lg font-semibold">{course.assessments.length}</p>
         </div>
         <div
           class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
         >
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("courseDetail.problemPool")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.courseDetail_problemPool()}</p>
           <p class="mt-2 text-lg font-semibold">{course.problemSlugs.length}</p>
         </div>
       </div>

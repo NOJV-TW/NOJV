@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface JoinChannel {
     label: string;
@@ -21,14 +21,14 @@
   <div class="flex items-center justify-between gap-4">
     <div>
       <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-        {$t("courseDetail.joinFlows")}
+        {m.courseDetail_joinFlows()}
       </p>
-      <h3 class="mt-1 text-2xl font-semibold">{$t("courseDetail.joinFlowsSubtitle")}</h3>
+      <h3 class="mt-1 text-2xl font-semibold">{m.courseDetail_joinFlowsSubtitle()}</h3>
     </div>
     <span
       class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
     >
-      {$t("courseDetail.teacherManaged")}
+      {m.courseDetail_teacherManaged()}
     </span>
   </div>
   <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -47,7 +47,7 @@
         </p>
         {#if channel.method !== "qr_code"}
           <p class="mt-4 text-sm leading-7 text-[color:var(--color-muted)]">
-            {$t("courseDetail.manualInviteHint")}
+            {m.courseDetail_manualInviteHint()}
           </p>
         {/if}
       </article>

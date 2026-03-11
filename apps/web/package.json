@@ -31,7 +31,6 @@
     "monaco-editor": "^0.52.2",
     "qrcode": "^1.5.4",
     "resend": "^6.9.3",
-    "svelte-i18n": "^4.0.1",
     "svelte-markdown": "^0.4.1",
     "tailwind-merge": "^3.5.0",
     "tailwind-variants": "^3.2.2",

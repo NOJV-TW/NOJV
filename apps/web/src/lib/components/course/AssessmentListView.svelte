@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { locale, t } from "svelte-i18n";
-  import { DEFAULT_LOCALE } from "$lib/i18n";
+  import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
 
   interface AssessmentItem {
     courseSlug: string;
@@ -19,21 +19,38 @@
   }
 
   let { items, type }: Props = $props();
-  let currentLocale = $derived($locale ?? DEFAULT_LOCALE);
-  let i18nPrefix = $derived(type === "assignment" ? "assignmentsList" : "examsList");
+  let currentLocale = $derived(getLocale());
+
+  const labels = $derived(
+    type === "assignment"
+      ? {
+          heading: m.assignmentsList_heading(),
+          signInRequired: m.assignmentsList_signInRequired(),
+          empty: m.assignmentsList_empty(),
+          opens: m.assignmentsList_opens(),
+          due: m.assignmentsList_due()
+        }
+      : {
+          heading: m.examsList_heading(),
+          signInRequired: m.examsList_signInRequired(),
+          empty: m.examsList_empty(),
+          opens: m.examsList_opens(),
+          due: m.examsList_due()
+        }
+  );
 </script>
 
 <div class="space-y-6">
   <h2 class="font-[family-name:var(--font-display)] text-3xl">
-    {$t(`${i18nPrefix}.heading`)}
+    {labels.heading}
   </h2>
 
   {#if items === null}
     <p class="text-sm text-[color:var(--color-muted)]">
-      {$t(`${i18nPrefix}.signInRequired`)}
+      {labels.signInRequired}
     </p>
   {:else if items.length === 0}
-    <p class="text-sm text-[color:var(--color-muted)]">{$t(`${i18nPrefix}.empty`)}</p>
+    <p class="text-sm text-[color:var(--color-muted)]">{labels.empty}</p>
   {:else}
     <section class="grid gap-4">
       {#each items as a (`${a.courseSlug}-${a.slug}`)}
@@ -46,11 +63,11 @@
             <h3 class="mt-1 text-xl font-semibold">{a.title}</h3>
           </div>
           <div>
-            <p class="text-sm text-[color:var(--color-muted)]">{$t(`${i18nPrefix}.opens`)}</p>
+            <p class="text-sm text-[color:var(--color-muted)]">{labels.opens}</p>
             <p class="mt-1 text-sm">{new Date(a.opensAt).toLocaleDateString(currentLocale)}</p>
           </div>
           <div>
-            <p class="text-sm text-[color:var(--color-muted)]">{$t(`${i18nPrefix}.due`)}</p>
+            <p class="text-sm text-[color:var(--color-muted)]">{labels.due}</p>
             <p class="mt-1 text-sm">{new Date(a.dueAt).toLocaleDateString(currentLocale)}</p>
           </div>
           <div class="sm:text-right">
