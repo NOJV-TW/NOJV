@@ -4,7 +4,7 @@ const markSubmissionRunning = vi.fn();
 const completeSubmission = vi.fn();
 const getSubmissionJudgeContext = vi.fn();
 
-vi.mock("@nojv/db", () => {
+vi.mock("../src/services/judge-db", () => {
   return {
     completeSubmission,
     getSubmissionJudgeContext,
