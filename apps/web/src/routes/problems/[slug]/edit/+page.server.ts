@@ -1,6 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
 import { prisma } from "@nojv/db";
-import { problemUpdateSchema, problemTemplateSchema } from "@nojv/domain";
+import { problemUpdateSchema, problemTemplateSchema } from "@nojv/core";
 import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, ForbiddenError, NotFoundError } from "$lib/server/auth";

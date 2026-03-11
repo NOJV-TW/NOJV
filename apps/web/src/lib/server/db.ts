@@ -10,7 +10,7 @@ import type {
   ProblemTestcaseSetCreate,
   ProblemUpdate,
   SubmissionDraft
-} from "@nojv/domain";
+} from "@nojv/core";
 
 import { DEFAULT_LOCALE } from "$lib/i18n";
 import type { CompletedActorContext } from "./auth";

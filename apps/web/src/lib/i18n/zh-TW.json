@@ -238,13 +238,6 @@
     "subtitle": "解題、參加競賽、追蹤你的學習進度。",
     "title": "練習、競賽、學習"
   },
-  "integrity": {
-    "caseScore": "案件分數",
-    "empty": "尚無誠信案件紀錄。",
-    "heading": "誠信中心",
-    "linkedSignals": "個關聯訊號",
-    "subtitle": "檢視標記案件與可疑訊號。"
-  },
   "navigation": {
     "account": "帳號",
     "assignments": "作業",
@@ -288,12 +281,9 @@
   },
   "runtimeStats": {
     "heading": "執行時期資料",
-    "integritySignals": "誠信訊號",
     "loading": "正在載入執行計數器...",
-    "openCases": "開放案件",
     "submissions": "提交",
-    "subtitle": "持久化的執行計數器",
-    "workspaceRuns": "作業區執行"
+    "subtitle": "持久化的執行計數器"
   },
   "submissions": {
     "accepted": "通過",
@@ -340,12 +330,5 @@
     "weight": "權重",
     "zipStructureHint": "正則表達式需有 2 個捕獲組：(1) 子任務 ID、(2) 題號 ID。預設 (\\d+)-(\\d+) 匹配 1-01.in。使用 (\\d'{'2'}')(\\d'{'2'}') 匹配 0103.in。",
     "zipUploaded": "從 ZIP 解壓出 {count} 筆測資"
-  },
-  "workspace": {
-    "commandLabel": "指令政策",
-    "policyLabel": "隔離模式",
-    "runLabel": "執行作業區",
-    "subtitle": "在獨立沙盒內執行 makefile、shell 指令與課程作業流程。",
-    "title": "Workspace"
   }
 }

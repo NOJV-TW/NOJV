@@ -97,7 +97,7 @@
     "contestGrade": "contest-grade",
     "due": "Due",
     "examEditor": "exam editor",
-    "examExplanation": "Exams inherit contest-style urgency: tighter workspace policy, rank visibility, and a stronger relationship between telemetry and reviewer escalation.",
+    "examExplanation": "Exams inherit contest-style urgency: rank visibility and time-limited assessment windows.",
     "examFraming": "Exam framing",
     "liveRank": "Live rank",
     "openInEditor": "open in editor",
@@ -185,9 +185,9 @@
   },
   "courseJoin": {
     "backToCourse": "Back to course",
-    "description": "Join this course as {name}. The selected local actor is what the platform will use for membership, submissions, telemetry, and workspace runs.",
+    "description": "Join this course as {name}. The selected local actor is what the platform will use for membership and submissions.",
     "heading": "Course join",
-    "hint": "If the current actor does not have the right role, switch actor from the header first and retry the join action. The same actor will then be used across problems, telemetry, and workspace runs.",
+    "hint": "If the current actor does not have the right role, switch actor from the header first and retry the join action. The same actor will then be used across problems and submissions.",
     "incompleteLink": "This join link is incomplete. Ask course staff for a QR or join code.",
     "joinButton": "Join this course",
     "joinFailed": "Course join failed.",
@@ -238,13 +238,6 @@
     "subtitle": "Solve problems, join contests, and track your progress.",
     "title": "Practice, Compete, Learn"
   },
-  "integrity": {
-    "caseScore": "Case score",
-    "empty": "No integrity cases recorded yet.",
-    "heading": "Integrity",
-    "linkedSignals": "linked signals",
-    "subtitle": "Review flagged cases and cheating signals."
-  },
   "navigation": {
     "account": "Account",
     "assignments": "Assignments",
@@ -288,12 +281,9 @@
   },
   "runtimeStats": {
     "heading": "Runtime persistence",
-    "integritySignals": "Integrity signals",
     "loading": "Waiting for the runtime counters to load.",
-    "openCases": "Open cases",
     "submissions": "Submissions",
-    "subtitle": "Persisted execution counters",
-    "workspaceRuns": "Workspace runs"
+    "subtitle": "Persisted execution counters"
   },
   "submissions": {
     "accepted": "Accepted",
@@ -340,12 +330,5 @@
     "weight": "Weight",
     "zipStructureHint": "Regex with 2 capture groups: (1) subtask ID, (2) case ID. Default (\\d+)-(\\d+) matches 1-01.in. Use (\\d'{'2'}')(\\d'{'2'}') for 0103.in.",
     "zipUploaded": "{count} cases extracted from ZIP"
-  },
-  "workspace": {
-    "commandLabel": "Command policy",
-    "policyLabel": "Isolation mode",
-    "runLabel": "Run workspace",
-    "subtitle": "Execute makefiles, shell commands, and assignment workflows inside isolated sandboxes.",
-    "title": "Workspace"
   }
 }

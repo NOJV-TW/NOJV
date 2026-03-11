@@ -1,4 +1,4 @@
-import type { CourseAssessmentType, JudgeType, Language, ProblemOverview, SubmissionType } from "@nojv/domain";
+import type { CourseAssessmentType, JudgeType, Language, ProblemOverview, SubmissionType } from "@nojv/core";
 
 // --- Problem types ---
 
@@ -43,9 +43,7 @@ export interface ContestDetail {
   slug: string;
   startsAt: string;
   summary: string;
-  telemetrySensitivity: string;
   title: string;
-  workspacePolicy: string;
 }
 
 export const starterByLanguage: Record<Language, string> = {
@@ -59,6 +57,16 @@ int main(void) {
   }
   printf("%d\\n", a + b);
   return 0;
+}
+`,
+  go: `package main
+
+import "fmt"
+
+func main() {
+  var a, b int
+  fmt.Scan(&a, &b)
+  fmt.Println(a + b)
 }
 `,
   cpp: `#include <bits/stdc++.h>

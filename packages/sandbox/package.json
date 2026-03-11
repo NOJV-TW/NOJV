@@ -1,5 +1,5 @@
 {
-  "name": "@nojv/queue",
+  "name": "@nojv/sandbox",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,17 +9,16 @@
       "import": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@nojv/core": "workspace:*"
+  },
   "scripts": {
-    "build": "tsdown src/index.ts --format esm",
+    "build": "tsdown src/index.ts --format esm --dts",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@nojv/core": "workspace:*",
-    "zod": "^4.3.6"
-  },
   "devDependencies": {
     "tsdown": "^0.12.5",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3"
   }
 }

@@ -1,11 +1,7 @@
-import type { SubmissionJudgeContext } from "@nojv/db";
-import {
-  submissionResultSchema,
-  type SubmissionDraft,
-  type SubmissionResult
-} from "@nojv/domain";
+import { submissionResultSchema, type SubmissionDraft, type SubmissionResult } from "@nojv/core";
+import type { SandboxExecutor, SandboxRequest, SandboxResult } from "@nojv/sandbox";
 
-import type { SandboxExecutor, SandboxRequest, SandboxResult } from "./sandbox-executor.js";
+import type { SubmissionJudgeContext } from "./judge-db.js";
 
 const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   WA: "wrong_answer",
@@ -29,7 +25,7 @@ export async function judgeSubmission(
   const request: SandboxRequest = {
     submissionId,
     sourceCode: draft.sourceCode,
-    language: draft.language as SandboxRequest["language"],
+    language: draft.language,
     submissionType: judgeContext.submissionType,
     testcases: testcases.map((tc, i) => ({
       index: i,
