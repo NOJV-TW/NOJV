@@ -6,7 +6,7 @@ import type {
   CourseRole,
   LocaleCode,
   PlatformRole
-} from "@nojv/domain";
+} from "@nojv/core";
 
 import { DEFAULT_LOCALE } from "$lib/i18n";
 import {

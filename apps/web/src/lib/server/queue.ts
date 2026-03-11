@@ -1,11 +1,10 @@
 import { Queue } from "bullmq";
 import {
-  createSubmissionJob,
   defaultJobOptions,
   queueNames,
   submissionJudgeJobSchema,
   type SubmissionJudgeJob
-} from "@nojv/queue";
+} from "@nojv/core";
 import { z } from "zod";
 
 const queueEnvSchema = z.object({
@@ -46,8 +45,8 @@ function getQueueRegistry() {
 }
 
 export async function dispatchSubmissionJob(payload: SubmissionJudgeJob): Promise<void> {
-  const jobEnvelope = createSubmissionJob(submissionJudgeJobSchema.parse(payload));
+  const validated = submissionJudgeJobSchema.parse(payload);
   const registry = getQueueRegistry();
 
-  await registry.queues.submission.add(jobEnvelope.name, jobEnvelope.data, defaultJobOptions);
+  await registry.queues.submission.add(queueNames.submission, validated, defaultJobOptions);
 }

@@ -1,4 +1,4 @@
-import { getSubmissionOperation } from "@nojv/db";
+import { prisma } from "@nojv/db";
 import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
@@ -12,7 +12,9 @@ export const GET: RequestHandler = async (event) => {
     if (!hasActorHandle(actor)) return json({ message: "Complete your profile first." }, { status: 403 });
 
     const submissionId = event.params.submissionId;
-    const submission = await getSubmissionOperation(submissionId);
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId }
+    });
 
     if (!submission) {
       throw new NotFoundError("Submission not found.");
