@@ -11,6 +11,7 @@ datasource db {
 enum SupportedLanguage {
   c
   cpp
+  go
   java
   javascript
   python
@@ -46,22 +47,6 @@ enum JudgeType {
 enum SubmissionType {
   function
   full_source
-}
-
-enum WorkspaceMode {
-  practice
-  assignment
-  contest
-  exam
-}
-
-enum WorkspaceRunStatus {
-  queued
-  running
-  succeeded
-  failed
-  blocked
-  timed_out
 }
 
 enum ContestVisibility {
@@ -130,21 +115,6 @@ enum CourseAssessmentScoreboardMode {
   frozen
 }
 
-enum CheatingSignalType {
-  focus_loss
-  paste_burst
-  ip_change
-  similarity_match
-  shell_policy_violation
-  concurrent_session
-}
-
-enum CheatingCaseStatus {
-  open
-  under_review
-  resolved
-}
-
 model User {
   id                   String                 @id @default(cuid())
   email                String                 @unique
@@ -160,11 +130,7 @@ model User {
   sessions             Session[]
   accounts             Account[]
   submissions          Submission[]
-  workspaceSessions    WorkspaceSession[]
-  workspaceRuns        WorkspaceRun[]
   contestParticipations ContestParticipation[]
-  cheatingSignals      CheatingSignal[]
-  cheatingCases        CheatingCase[]
   authoredProblems     Problem[]              @relation("ProblemAuthor")
   ownedCourses         Course[]               @relation("CourseOwner")
   courseMemberships    CourseMembership[]     @relation("CourseMembershipUser")
@@ -195,7 +161,6 @@ model Problem {
   testcaseSets        TestcaseSet[]
   templates           ProblemTemplate[]
   submissions         Submission[]
-  workspaceSessions   WorkspaceSession[]
   contestLinks        ContestProblem[]
   courseLinks         CourseProblem[]
   assessmentLinks     CourseAssessmentProblem[]
@@ -272,7 +237,6 @@ model Contest {
   updatedAt      DateTime                @updatedAt
   problems       ContestProblem[]
   participations ContestParticipation[]
-  cheatingCases  CheatingCase[]
 }
 
 model ContestProblem {
@@ -305,10 +269,6 @@ model Course {
   problems          CourseProblem[]
   assessments       CourseAssessment[]
   submissions       Submission[]
-  workspaceSessions WorkspaceSession[]
-  workspaceRuns     WorkspaceRun[]
-  cheatingCases     CheatingCase[]
-  cheatingSignals   CheatingSignal[]
 }
 
 model CourseMembership {
@@ -384,10 +344,6 @@ model CourseAssessment {
   createdBy       User                           @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   problems        CourseAssessmentProblem[]
   submissions     Submission[]
-  workspaceSessions WorkspaceSession[]
-  workspaceRuns   WorkspaceRun[]
-  cheatingCases   CheatingCase[]
-  cheatingSignals CheatingSignal[]
 
   @@unique([courseId, slug])
   @@index([courseId, type, status])
@@ -421,9 +377,6 @@ model ContestParticipation {
   contest          Contest                      @relation(fields: [contestId], references: [id], onDelete: Cascade)
   user             User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   submissions      Submission[]
-  workspaceSessions WorkspaceSession[]
-  workspaceRuns    WorkspaceRun[]
-  cheatingSignals  CheatingSignal[]
 
   @@unique([contestId, userId])
 }
@@ -452,115 +405,10 @@ model Submission {
   contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
   course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
-  cheatingSignals        CheatingSignal[]
 
   @@index([problemId, createdAt])
   @@index([userId, createdAt])
   @@index([courseId, courseAssessmentId, createdAt])
-}
-
-model WorkspaceSession {
-  id                     String                @id @default(cuid())
-  userId                 String
-  problemId              String?
-  contestParticipationId String?
-  courseId               String?
-  courseAssessmentId     String?
-  mode                   WorkspaceMode
-  imageTag               String
-  status                 String
-  startedAt              DateTime?
-  endedAt                DateTime?
-  lastHeartbeatAt        DateTime?
-  metadata               Json?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  problem                Problem?              @relation(fields: [problemId], references: [id], onDelete: SetNull)
-  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
-  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
-  runs                   WorkspaceRun[]
-  cheatingSignals        CheatingSignal[]
-}
-
-model WorkspaceRun {
-  id                     String                @id @default(cuid())
-  workspaceSessionId     String
-  userId                 String
-  contestParticipationId String?
-  courseId               String?
-  courseAssessmentId     String?
-  command                String
-  mode                   WorkspaceMode
-  status                 WorkspaceRunStatus    @default(queued)
-  exitCode               Int?
-  stdout                 String?               @db.Text
-  stderr                 String?               @db.Text
-  artifactsPath          String?
-  startedAt              DateTime?
-  finishedAt             DateTime?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  workspaceSession       WorkspaceSession      @relation(fields: [workspaceSessionId], references: [id], onDelete: Cascade)
-  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
-  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
-  cheatingSignals        CheatingSignal[]
-
-  @@index([workspaceSessionId, createdAt])
-  @@index([courseId, courseAssessmentId, createdAt])
-}
-
-model CheatingCase {
-  id                 String               @id @default(cuid())
-  userId             String
-  contestId          String?
-  courseId           String?
-  courseAssessmentId String?
-  status             CheatingCaseStatus   @default(open)
-  score              Int                  @default(0)
-  summary            String               @db.Text
-  openedAt           DateTime             @default(now())
-  resolvedAt         DateTime?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contest            Contest?             @relation(fields: [contestId], references: [id], onDelete: SetNull)
-  course             Course?              @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  courseAssessment   CourseAssessment?    @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
-  signals            CheatingSignal[]
-
-  @@index([status, score])
-}
-
-model CheatingSignal {
-  id                     String                @id @default(cuid())
-  userId                 String
-  contestParticipationId String?
-  courseId               String?
-  courseAssessmentId     String?
-  submissionId           String?
-  workspaceSessionId     String?
-  workspaceRunId         String?
-  cheatingCaseId         String?
-  type                   CheatingSignalType
-  confidence             Float
-  payload                Json
-  occurredAt             DateTime              @default(now())
-  createdAt              DateTime              @default(now())
-  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contestParticipation   ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
-  course                 Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  courseAssessment       CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
-  submission             Submission?           @relation(fields: [submissionId], references: [id], onDelete: SetNull)
-  workspaceSession       WorkspaceSession?     @relation(fields: [workspaceSessionId], references: [id], onDelete: SetNull)
-  workspaceRun           WorkspaceRun?         @relation(fields: [workspaceRunId], references: [id], onDelete: SetNull)
-  cheatingCase          CheatingCase?         @relation(fields: [cheatingCaseId], references: [id], onDelete: SetNull)
-
-  @@index([userId, occurredAt])
-  @@index([type, confidence])
 }
 
 model Session {

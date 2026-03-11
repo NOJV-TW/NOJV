@@ -4,7 +4,7 @@ import type * as k8s from "@kubernetes/client-node";
 
 const require = createRequire(import.meta.url);
 
-import type { SandboxExecutor, SandboxRequest, SandboxResult } from "./sandbox-executor.js";
+import { sourceExtensions, type SandboxExecutor, type SandboxRequest, type SandboxResult } from "@nojv/sandbox";
 
 export interface K8sExecutorConfig {
   namespace: string;
@@ -18,28 +18,6 @@ export interface K8sExecutorConfig {
 const JOB_DEADLINE_SECONDS = 120;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
-
-/** Map language to source file extension for ConfigMap keys. */
-function sourceExtension(language: SandboxRequest["language"]): string {
-  switch (language) {
-    case "c":
-      return "c";
-    case "cpp":
-      return "cpp";
-    case "go":
-      return "go";
-    case "java":
-      return "java";
-    case "javascript":
-      return "mjs";
-    case "python":
-      return "py";
-    case "rust":
-      return "rs";
-    case "typescript":
-      return "ts";
-  }
-}
 
 export class K8sExecutor implements SandboxExecutor {
   private coreApi: k8s.CoreV1Api;
@@ -115,7 +93,7 @@ export class K8sExecutor implements SandboxExecutor {
     });
 
     // Source code
-    const ext = sourceExtension(request.language);
+    const ext = sourceExtensions[request.language];
     data[`source.${ext}`] = request.sourceCode;
 
     // Checker / interactor scripts (if applicable)

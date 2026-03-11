@@ -8,7 +8,7 @@
     supportedLanguages,
     type Language,
     type SubmissionResult
-  } from "@nojv/domain";
+  } from "@nojv/core";
   import { DEFAULT_LOCALE } from "$lib/i18n";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";

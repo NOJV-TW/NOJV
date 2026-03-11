@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from "svelte-i18n";
-  import type { SubmissionResult } from "@nojv/domain";
+  import type { SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import MarkdownRenderer from "../MarkdownRenderer.svelte";

@@ -4,7 +4,6 @@ import { queueNames } from "@nojv/queue";
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
-import { processCheatingSignal } from "./processors/cheating-signal";
 import { createSubmissionProcessor } from "./processors/submission";
 import { closeServerSafely } from "./server-lifecycle";
 import { createExecutor } from "./services/executor-factory";
@@ -31,10 +30,6 @@ export class WorkerApp {
 
     this.workers = [
       new Worker(queueNames.submission, processSubmission, {
-        concurrency: env.WORKER_CONCURRENCY,
-        connection
-      }),
-      new Worker(queueNames.cheatingSignal, processCheatingSignal, {
         concurrency: env.WORKER_CONCURRENCY,
         connection
       })

@@ -1,4 +1,4 @@
-import { submissionDraftSchema } from "@nojv/domain";
+import { submissionDraftSchema } from "@nojv/core";
 import { json } from "@sveltejs/kit";
 import { ZodError } from "zod";
 
