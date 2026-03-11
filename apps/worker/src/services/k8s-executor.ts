@@ -130,7 +130,17 @@ export class K8sExecutor implements SandboxExecutor {
     }
 
     if (request.judgeConfig.interactorScript) {
-      data["interactor.py"] = request.judgeConfig.interactorScript;
+      const interactorExt =
+        request.judgeConfig.checkerLanguage === "cpp"
+          ? "cpp"
+          : request.judgeConfig.checkerLanguage === "c"
+            ? "c"
+            : request.judgeConfig.checkerLanguage === "go"
+              ? "go"
+              : request.judgeConfig.checkerLanguage === "rust"
+                ? "rs"
+                : "py";
+      data[`interactor.${interactorExt}`] = request.judgeConfig.interactorScript;
     }
 
     // Testcase data as flat keys

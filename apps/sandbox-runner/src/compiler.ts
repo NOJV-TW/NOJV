@@ -103,22 +103,26 @@ export async function compile(
 }
 
 /**
- * Compile a checker or interactor script. Currently assumes Python scripts
- * (matching the existing submission-runner pattern), so no compilation is
- * needed — just verify the file exists and return the run command.
+ * Compile a checker or interactor script.
+ *
+ * @param scriptPath - Path to the script source file
+ * @param language   - Language of the script (python, c, cpp, go, rust)
+ * @param workDir    - Working directory for compilation output
+ * @param outputName - Base name for the compiled binary (e.g. "checker" or "interactor")
  */
 export async function compileChecker(
   scriptPath: string,
   language: string,
-  workDir: string
+  workDir: string,
+  outputName: string = "checker"
 ): Promise<CompileResult> {
-  // Extend this when non-Python checkers are supported
   if (language === "python" || language === "python3") {
     return { success: true, runCommand: ["python3", scriptPath] };
   }
 
+  const outPath = path.join(workDir, outputName);
+
   if (language === "c") {
-    const outPath = path.join(workDir, "checker");
     return compileWithCommand(
       ["gcc", "-O2", "-std=c17", "-o", outPath, scriptPath],
       [outPath],
@@ -127,7 +131,6 @@ export async function compileChecker(
   }
 
   if (language === "cpp") {
-    const outPath = path.join(workDir, "checker");
     return compileWithCommand(
       ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
       [outPath],
@@ -135,6 +138,23 @@ export async function compileChecker(
     );
   }
 
+  if (language === "go") {
+    return compileWithCommand(
+      ["go", "build", "-o", outPath, scriptPath],
+      [outPath],
+      workDir
+    );
+  }
+
+  if (language === "rust") {
+    return compileWithCommand(
+      ["rustc", "-O", "-o", outPath, scriptPath],
+      [outPath],
+      workDir
+    );
+  }
+
+  // Fallback: assume interpreted (Python)
   return { success: true, runCommand: ["python3", scriptPath] };
 }
 

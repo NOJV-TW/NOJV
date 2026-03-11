@@ -1,10 +1,13 @@
 import { browser } from "$app/environment";
 import { init, register, getLocaleFromNavigator } from "svelte-i18n";
 
-register("en", () => import("../../../messages/en.json"));
-register("zh-TW", () => import("../../../messages/zh-TW.json"));
+export const SUPPORTED_LOCALES = ["en", "zh-TW"] as const;
+export const DEFAULT_LOCALE = "zh-TW";
+
+register("en", () => import("./en.json"));
+register("zh-TW", () => import("./zh-TW.json"));
 
 init({
-  fallbackLocale: "zh-TW",
-  initialLocale: browser ? getLocaleFromNavigator() : "zh-TW"
+  fallbackLocale: DEFAULT_LOCALE,
+  initialLocale: browser ? getLocaleFromNavigator() : DEFAULT_LOCALE
 });

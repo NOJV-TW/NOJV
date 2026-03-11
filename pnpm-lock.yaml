@@ -72,15 +72,9 @@ importers:
       '@nojv/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@nojv/i18n':
-        specifier: workspace:*
-        version: link:../../packages/i18n
       '@nojv/queue':
         specifier: workspace:*
         version: link:../../packages/queue
-      '@nojv/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       better-auth:
         specifier: ^1.5.4
         version: 1.5.4(f81844bbe0c5dd03a7faeae212a41a9a)
@@ -217,16 +211,6 @@ importers:
         specifier: ^0.12.5
         version: 0.12.9(typescript@5.9.3)
 
-  packages/i18n:
-    dependencies:
-      '@nojv/domain':
-        specifier: workspace:*
-        version: link:../domain
-    devDependencies:
-      tsdown:
-        specifier: ^0.12.5
-        version: 0.12.9(typescript@5.9.3)
-
   packages/queue:
     dependencies:
       '@nojv/domain':
@@ -238,12 +222,6 @@ importers:
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-    devDependencies:
-      tsdown:
-        specifier: ^0.12.5
-        version: 0.12.9(typescript@5.9.3)
-
-  packages/ui:
     devDependencies:
       tsdown:
         specifier: ^0.12.5
