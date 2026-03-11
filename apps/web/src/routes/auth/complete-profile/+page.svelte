@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { t } from "svelte-i18n";
   import { authClient } from "$lib/auth-client";
-  import { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/server/auth";
+  import { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/validation";
 
   import { isReservedHandle, parseSchoolEmail } from "$lib/school";
   import { onMount } from "svelte";

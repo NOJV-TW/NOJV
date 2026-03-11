@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { t } from "svelte-i18n";
-  import { readPlatformRole } from "$lib/server/auth";
+  import { readPlatformRole } from "$lib/validation";
 
   interface Props {
     courseSlug: string;
