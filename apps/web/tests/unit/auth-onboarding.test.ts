@@ -7,7 +7,7 @@ import {
   readHandleFromAuthUser,
   readPlatformRole,
   readStringValue
-} from "../src/lib/server/auth";
+} from "$lib/server/auth";
 
 describe("readStringValue", () => {
   it("returns the string when value is a string", () => {

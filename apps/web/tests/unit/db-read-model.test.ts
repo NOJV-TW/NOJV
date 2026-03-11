@@ -65,7 +65,7 @@ describe("DB-backed read model", () => {
     ]);
     groupBySubmissions.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
 
-    const { listProblemCards } = await import("../src/lib/server/queries");
+    const { listProblemCards } = await import("../../src/lib/server/queries");
     const cards = await listProblemCards();
 
     expect(cards).toContainEqual(
@@ -158,7 +158,7 @@ describe("DB-backed read model", () => {
       title: "Compiler Design"
     });
 
-    const { getCoursePageData } = await import("../src/lib/server/queries");
+    const { getCoursePageData } = await import("../../src/lib/server/queries");
     const detail = await getCoursePageData("compiler-design-2026");
 
     expect(detail?.course.title).toBe("Compiler Design");
@@ -180,7 +180,7 @@ describe("DB-backed read model", () => {
   it("returns null when a course slug is not found", async () => {
     findUniqueCourse.mockResolvedValue(null);
 
-    const { getCoursePageData } = await import("../src/lib/server/queries");
+    const { getCoursePageData } = await import("../../src/lib/server/queries");
     const detail = await getCoursePageData("nonexistent-course");
 
     expect(detail).toBeNull();
@@ -189,7 +189,7 @@ describe("DB-backed read model", () => {
   it("returns null when a problem slug is not found", async () => {
     findUniqueProblem.mockResolvedValue(null);
 
-    const { getProblemPageData } = await import("../src/lib/server/queries");
+    const { getProblemPageData } = await import("../../src/lib/server/queries");
     const detail = await getProblemPageData("nonexistent-problem", "en");
 
     expect(detail).toBeNull();
@@ -232,7 +232,7 @@ describe("DB-backed read model", () => {
     });
     countSubmissions.mockResolvedValue(5);
 
-    const { getProblemPageData } = await import("../src/lib/server/queries");
+    const { getProblemPageData } = await import("../../src/lib/server/queries");
     const detail = await getProblemPageData("a-plus-b", "en");
 
     expect(detail).not.toBeNull();
@@ -263,7 +263,7 @@ describe("DB-backed read model", () => {
     ]);
     groupBySubmissions.mockResolvedValue([{ _count: 3, problemId: "prob_hard" }]);
 
-    const { listProblemCards } = await import("../src/lib/server/queries");
+    const { listProblemCards } = await import("../../src/lib/server/queries");
     const cards = await listProblemCards();
 
     expect(cards[0]?.acceptanceRate).toBeCloseTo(0.3);
@@ -284,7 +284,7 @@ describe("DB-backed read model", () => {
       }
     ]);
 
-    const { listProblemCards } = await import("../src/lib/server/queries");
+    const { listProblemCards } = await import("../../src/lib/server/queries");
     const cards = await listProblemCards();
 
     expect(cards[0]?.acceptanceRate).toBe(0);
@@ -294,7 +294,7 @@ describe("DB-backed read model", () => {
     countProblems.mockResolvedValue(42);
     countCourses.mockResolvedValue(7);
 
-    const { getDashboardStats } = await import("../src/lib/server/queries");
+    const { getDashboardStats } = await import("../../src/lib/server/queries");
     const stats = await getDashboardStats();
 
     expect(stats).toEqual({ courses: 7, problems: 42 });
