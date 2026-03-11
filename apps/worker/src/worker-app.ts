@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 
-import { queueNames } from "@nojv/core";
+import { queueNames } from "@nojv/queue";
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
