@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const verifyUrl = `${appUrl}/api/auth/verify-school?token=${token}`;
 
-  await resend.emails.send({
-    from: "NOJV <noreply@nojv.org>",
+  const { data, error } = await resend.emails.send({
+    from: `NOJV <noreply@${process.env.EMAIL_FROM_DOMAIN}>`,
     to: email,
     subject: "NOJV 三校聯盟帳號驗證",
     html: `
@@ -60,6 +60,11 @@ export async function POST(request: NextRequest) {
       <p>如果您沒有申請此驗證，請忽略這封信。</p>
     `
   });
+
+  if (error) {
+    console.error("Resend error:", error);
+    return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
