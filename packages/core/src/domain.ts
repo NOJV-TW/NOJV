@@ -3,6 +3,7 @@ import { z } from "zod";
 export const supportedLanguages = [
   "c",
   "cpp",
+  "go",
   "java",
   "javascript",
   "python",
