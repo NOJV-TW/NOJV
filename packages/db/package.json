@@ -25,7 +25,6 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@nojv/domain": "workspace:*",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "pg": "^8.20.0",
