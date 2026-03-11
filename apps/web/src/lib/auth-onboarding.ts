@@ -30,3 +30,5 @@ export function hasActorHandle<T extends { handle: string | null }>(
 export function isValidHandle(value: string): boolean {
   return handlePattern.test(value);
 }
+
+export { isReservedHandle } from "@/lib/school-verification";

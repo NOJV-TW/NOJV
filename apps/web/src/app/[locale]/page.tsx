@@ -94,12 +94,6 @@ export default async function LocaleHomePage({
             >
               {tAuth("signIn")}
             </Link>
-            <Link
-              className="rounded-full border border-[color:var(--color-border)] px-6 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
-              href={`/${locale}/auth/signup`}
-            >
-              {tAuth("signUp")}
-            </Link>
           </div>
         </section>
       ) : (
