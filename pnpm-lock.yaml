@@ -14,6 +14,12 @@ importers:
       '@eslint/js':
         specifier: ^9.39.4
         version: 9.39.4
+      '@nojv/eslint-config':
+        specifier: workspace:*
+        version: link:tooling/eslint
+      '@nojv/prettier-config':
+        specifier: workspace:*
+        version: link:tooling/prettier
       '@types/node':
         specifier: ^25.3.5
         version: 25.3.5
@@ -257,6 +263,22 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  tooling/eslint:
+    dependencies:
+      '@eslint/js':
+        specifier: ^9.39.4
+        version: 9.39.4
+      globals:
+        specifier: ^17.4.0
+        version: 17.4.0
+      typescript-eslint:
+        specifier: ^8.56.1
+        version: 8.56.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+
+  tooling/prettier: {}
+
+  tooling/typescript: {}
 
 packages:
 
