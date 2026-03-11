@@ -1,0 +1,16 @@
+@import "tailwindcss";
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/fraunces/400.css";
+@import "@fontsource/fraunces/700.css";
+
+:root {
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Fraunces", serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}

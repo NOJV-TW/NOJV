@@ -10,11 +10,8 @@
 /coverage
 **/coverage
 
-# next.js
-/.next/
-/out/
-**/.next/
-**/out/
+# sveltekit
+**/.svelte-kit/
 
 # production
 /build
@@ -44,7 +41,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 .claude/worktrees/
 
 # playwright

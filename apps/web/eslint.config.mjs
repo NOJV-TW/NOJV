@@ -1,1 +1,1 @@
-export { default } from "@nojv/config-eslint/next";
+export { default } from "../../eslint.config.mjs";
