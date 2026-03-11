@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   let { data } = $props();
 </script>
@@ -11,7 +11,7 @@
     <div class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
       <div>
         <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-          {$t("navigation.courses")} / {data.course.slug} / exam
+          {m.navigation_courses()} / {data.course.slug} / exam
         </p>
         <h2 class="mt-2 font-[family-name:var(--font-display)] text-4xl">
           {data.assessment.title}
@@ -24,14 +24,14 @@
         <div
           class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
         >
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("assessment.rankMode")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.assessment_rankMode()}</p>
           <p class="mt-2 text-lg font-semibold">{data.assessment.scoreboardMode}</p>
         </div>
         <div
           class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
         >
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("assessment.policy")}</p>
-          <p class="mt-2 text-lg font-semibold">{$t("assessment.contestGrade")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.assessment_policy()}</p>
+          <p class="mt-2 text-lg font-semibold">{m.assessment_contestGrade()}</p>
         </div>
       </div>
     </div>
@@ -44,7 +44,7 @@
       <div class="flex items-center justify-between gap-4">
         <div>
           <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-            {$t("assessment.examFraming")}
+            {m.assessment_examFraming()}
           </p>
           <h3 class="mt-1 text-2xl font-semibold">{data.presentation.heroLabel}</h3>
         </div>
@@ -71,7 +71,7 @@
             <span
               class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
             >
-              {$t("assessment.examEditor")}
+              {m.assessment_examEditor()}
             </span>
           </a>
         {/each}
@@ -83,7 +83,7 @@
         class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
       >
         <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-          {$t("assessment.liveRank")}
+          {m.assessment_liveRank()}
         </p>
         <p class="mt-4 text-sm text-[color:var(--color-muted)]">
           Leaderboard not yet available.
@@ -93,10 +93,10 @@
         class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
       >
         <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-          {$t("assessment.whyDiffers")}
+          {m.assessment_whyDiffers()}
         </p>
         <p class="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
-          {$t("assessment.examExplanation")}
+          {m.assessment_examExplanation()}
         </p>
       </section>
     </aside>

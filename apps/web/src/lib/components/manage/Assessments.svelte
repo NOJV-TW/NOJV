@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
 
@@ -99,7 +99,7 @@
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-2xl font-semibold">{$t("courseManage.assessments")}</h3>
+      <h3 class="text-2xl font-semibold">{m.courseManage_assessments()}</h3>
       <span
         class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
       >
@@ -140,7 +140,7 @@
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
-    <h3 class="text-2xl font-semibold">{$t("courseManage.publishAssessment")}</h3>
+    <h3 class="text-2xl font-semibold">{m.courseManage_publishAssessment()}</h3>
     <form
       class="mt-4 grid gap-3"
       onsubmit={(e) => {
@@ -196,7 +196,7 @@
         disabled={isPublishing}
         type="submit"
       >
-        {isPublishing ? $t("common.publishing") : $t("courseManage.publishAssessment")}
+        {isPublishing ? m.common_publishing() : m.courseManage_publishAssessment()}
       </button>
     </form>
     {#if status}

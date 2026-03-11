@@ -8,7 +8,7 @@ import type {
   PlatformRole
 } from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/i18n";
+import { DEFAULT_LOCALE } from "$lib/locale";
 import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState,

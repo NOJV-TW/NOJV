@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { readPlatformRole } from "$lib/validation";
 
   interface Props {
@@ -21,7 +21,7 @@
 
   async function handleJoin() {
     if (!joinMethod || !joinToken || joinMethod === "manual_invite") {
-      error = $t("courseJoin.incompleteLink");
+      error = m.courseJoin_incompleteLink();
       return;
     }
 
@@ -38,12 +38,12 @@
       const result = await response.json();
 
       if (result.type === "failure") {
-        throw new Error(result.data?.error ?? $t("courseJoin.joinFailed"));
+        throw new Error(result.data?.error ?? m.courseJoin_joinFailed());
       }
 
       goto(`/courses/${courseSlug}`);
     } catch (issue) {
-      error = issue instanceof Error ? issue.message : $t("courseJoin.joinFailed");
+      error = issue instanceof Error ? issue.message : m.courseJoin_joinFailed();
     } finally {
       isJoining = false;
     }
@@ -54,11 +54,11 @@
   class="rounded-[2rem] border border-[color:var(--color-border)] bg-gradient-to-br from-white/90 to-stone-50/80 px-6 py-8 sm:px-8"
 >
   <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-    {$t("courseJoin.heading")}
+    {m.courseJoin_heading()}
   </p>
   <h2 class="mt-2 font-[family-name:var(--font-display)] text-4xl">{courseTitle}</h2>
   <p class="mt-4 max-w-2xl text-base leading-7 text-[color:var(--color-muted)]">
-    {$t("courseJoin.description", { values: { name: user?.name ?? "" } })}
+    {m.courseJoin_description({ name: user?.name ?? "" })}
   </p>
   <div class="mt-6 flex flex-wrap items-center gap-3">
     <span
@@ -79,18 +79,18 @@
       onclick={() => void handleJoin()}
       type="button"
     >
-      {isJoining ? $t("common.joining") : $t("courseJoin.joinButton")}
+      {isJoining ? m.common_joining() : m.courseJoin_joinButton()}
     </button>
     <a
       class="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
       href="/courses/{courseSlug}"
     >
-      {$t("courseJoin.backToCourse")}
+      {m.courseJoin_backToCourse()}
     </a>
   </div>
   {#if joinToken}
     <p class="mt-4 text-sm text-[color:var(--color-muted)]">
-      {$t("courseJoin.token")}: {joinToken}
+      {m.courseJoin_token()}: {joinToken}
     </p>
   {/if}
   {#if error}

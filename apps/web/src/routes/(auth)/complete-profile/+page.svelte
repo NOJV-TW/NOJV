@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { goto } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
   import { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/validation";
 
@@ -74,7 +74,7 @@
     }
 
     if (isReservedHandle(normalized)) {
-      error = $t("onboarding.handleReserved");
+      error = m.onboarding_handleReserved();
       return;
     }
 
@@ -104,7 +104,7 @@
   <div
     class="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8 shadow-sm"
   >
-    <h1 class="text-center text-2xl font-semibold">{$t("onboarding.title")}</h1>
+    <h1 class="text-center text-2xl font-semibold">{m.onboarding_title()}</h1>
     <p class="mt-2 text-center text-sm text-[color:var(--color-muted)]">
       {data.name} ({data.email})
     </p>
@@ -112,16 +112,16 @@
     {#if mode === "choose"}
       <div class="mt-6 flex flex-col gap-3">
         <p class="text-center text-sm text-[color:var(--color-muted)]">
-          {$t("onboarding.subtitle")}
+          {m.onboarding_subtitle()}
         </p>
         <button
           class="rounded-lg border border-[color:var(--color-border)] px-4 py-3 text-left transition hover:bg-white/70"
           onclick={() => (mode = "school")}
           type="button"
         >
-          <p class="text-sm font-medium">{$t("onboarding.schoolOption")}</p>
+          <p class="text-sm font-medium">{m.onboarding_schoolOption()}</p>
           <p class="mt-0.5 text-xs text-[color:var(--color-muted)]">
-            {$t("onboarding.schoolOptionDesc")}
+            {m.onboarding_schoolOptionDesc()}
           </p>
         </button>
         <button
@@ -129,9 +129,9 @@
           onclick={() => (mode = "general")}
           type="button"
         >
-          <p class="text-sm font-medium">{$t("onboarding.generalOption")}</p>
+          <p class="text-sm font-medium">{m.onboarding_generalOption()}</p>
           <p class="mt-0.5 text-xs text-[color:var(--color-muted)]">
-            {$t("onboarding.generalOptionDesc")}
+            {m.onboarding_generalOptionDesc()}
           </p>
         </button>
         <button
@@ -139,7 +139,7 @@
           onclick={() => void handleSignOut()}
           type="button"
         >
-          {$t("onboarding.useOtherAccount")}
+          {m.onboarding_useOtherAccount()}
         </button>
       </div>
     {/if}
@@ -148,7 +148,7 @@
       <div class="mt-6">
         {#if verified}
           <p class="text-center text-sm font-medium text-green-600">
-            {$t("onboarding.verified")}
+            {m.onboarding_verified()}
           </p>
         {:else if emailSent}
           <div class="flex flex-col items-center gap-3">
@@ -156,10 +156,10 @@
               class="size-6 animate-spin rounded-full border-2 border-[color:var(--color-accent)] border-t-transparent"
             ></div>
             <p class="text-center text-sm text-[color:var(--color-muted)]">
-              {$t("onboarding.verificationSent")}
+              {m.onboarding_verificationSent()}
             </p>
             <p class="text-center text-xs text-[color:var(--color-muted)]">
-              {$t("onboarding.waitingVerification")}
+              {m.onboarding_waitingVerification()}
             </p>
           </div>
         {:else}
@@ -187,12 +187,12 @@
             }}
           >
             <label class="flex flex-col gap-1 text-sm">
-              {$t("onboarding.schoolEmailLabel")}
+              {m.onboarding_schoolEmailLabel()}
               <input
                 class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
                 name="email"
                 oninput={(e) => (schoolEmail = (e.target as HTMLInputElement).value)}
-                placeholder={$t("onboarding.schoolEmailPlaceholder")}
+                placeholder={m.onboarding_schoolEmailPlaceholder()}
                 required
                 type="email"
                 value={schoolEmail}
@@ -206,7 +206,7 @@
               disabled={loading}
               type="submit"
             >
-              {loading ? $t("onboarding.sending") : $t("onboarding.sendVerification")}
+              {loading ? m.onboarding_sending() : m.onboarding_sendVerification()}
             </button>
             <button
               class="rounded-lg border border-[color:var(--color-border)] py-2 text-sm font-medium transition hover:bg-white/70"
@@ -216,7 +216,7 @@
               }}
               type="button"
             >
-              {$t("onboarding.back")}
+              {m.onboarding_back()}
             </button>
           </form>
         {/if}
@@ -226,13 +226,13 @@
     {#if mode === "general"}
       <form class="mt-6 flex flex-col gap-4" onsubmit={handleGeneralSubmit}>
         <label class="flex flex-col gap-1 text-sm">
-          {$t("onboarding.handleLabel")}
+          {m.onboarding_handleLabel()}
           <input
             class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
             maxlength={64}
             oninput={(e) => (handle = (e.target as HTMLInputElement).value)}
             pattern={HANDLE_INPUT_PATTERN}
-            placeholder={$t("onboarding.handlePlaceholder")}
+            placeholder={m.onboarding_handlePlaceholder()}
             required
             title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
             type="text"
@@ -247,7 +247,7 @@
           disabled={loading}
           type="submit"
         >
-          {loading ? $t("onboarding.saving") : $t("onboarding.continue")}
+          {loading ? m.onboarding_saving() : m.onboarding_continue()}
         </button>
         <button
           class="rounded-lg border border-[color:var(--color-border)] py-2 text-sm font-medium transition hover:bg-white/70"
@@ -257,7 +257,7 @@
           }}
           type="button"
         >
-          {$t("onboarding.back")}
+          {m.onboarding_back()}
         </button>
       </form>
     {/if}

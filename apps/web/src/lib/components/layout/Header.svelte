@@ -1,19 +1,19 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { locale, t } from "svelte-i18n";
-  import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "$lib/i18n";
+  import { m } from "$lib/paraglide/messages.js";
+  import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
 
-  let currentLocale = $derived($locale ?? DEFAULT_LOCALE);
+  let currentLocale = $derived(getLocale());
   let user = $derived($page.data.user as { name: string; handle?: string } | null);
 
   let navItems = $derived(
     user
       ? [
-          { href: "/problems", label: $t("navigation.problems") },
-          { href: "/courses", label: $t("navigation.courses") },
-          { href: "/assignments", label: $t("navigation.assignments") },
-          { href: "/exams", label: $t("navigation.exams") }
+          { href: "/problems", label: m.navigation_problems() },
+          { href: "/courses", label: m.navigation_courses() },
+          { href: "/assignments", label: m.navigation_assignments() },
+          { href: "/exams", label: m.navigation_exams() }
         ]
       : []
   );
@@ -47,12 +47,12 @@
       <div
         class="flex items-center gap-1 rounded-full border border-[color:var(--color-border)] bg-white/60 p-1 text-sm"
       >
-        {#each SUPPORTED_LOCALES as entry (entry)}
+        {#each locales as entry (entry)}
           <button
             class="rounded-full px-3 py-1.5 {entry === currentLocale
               ? 'bg-[color:var(--color-accent)] text-white'
               : ''}"
-            onclick={() => locale.set(entry)}
+            onclick={() => setLocale(entry)}
             type="button"
           >
             {entry}

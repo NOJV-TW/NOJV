@@ -1,7 +1,13 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { supportedLanguages, type JudgeType, type Language, type SubmissionType } from "@nojv/core";
+
+  const judgeTypeLabel: Record<string, () => string> = {
+    standard: () => m.admin_standard(),
+    checker: () => m.admin_checker(),
+    interactive: () => m.admin_interactive()
+  };
 
   import type { ProblemDetail, TemplateInfo } from "$lib/types";
 
@@ -447,7 +453,7 @@ sys.stdout.flush()
   <form class="grid gap-4" onsubmit={handleSubmit}>
     <!-- Title -->
     <label class="text-sm text-[color:var(--color-muted)]">
-      {$t("admin.title")}
+      {m.admin_title()}
       <input
         class={inputClassName}
         oninput={(e) => (title = (e.target as HTMLInputElement).value)}
@@ -458,7 +464,7 @@ sys.stdout.flush()
 
     <!-- Tags -->
     <div class="text-sm text-[color:var(--color-muted)]">
-      <span>{$t("admin.tags")}</span>
+      <span>{m.admin_tags()}</span>
       <div
         class="mt-2 flex min-h-[46px] flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-2"
         onclick={() => tagInputEl?.focus()}
@@ -485,7 +491,7 @@ sys.stdout.flush()
           class="min-w-[120px] flex-1 bg-transparent py-1 text-sm outline-none"
           oninput={(e) => (tagInput = (e.target as HTMLInputElement).value)}
           onkeydown={handleTagKeyDown}
-          placeholder={$t("admin.tagsPlaceholder")}
+          placeholder={m.admin_tagsPlaceholder()}
           value={tagInput}
         />
       </div>
@@ -494,7 +500,7 @@ sys.stdout.flush()
     <!-- Difficulty + Visibility -->
     <div class="grid gap-4 md:grid-cols-2">
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.difficulty")}
+        {m.admin_difficulty()}
         <select
           class={inputClassName}
           onchange={(e) =>
@@ -510,7 +516,7 @@ sys.stdout.flush()
         </select>
       </label>
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.visibility")}
+        {m.admin_visibility()}
         <select
           class={inputClassName}
           onchange={(e) =>
@@ -525,7 +531,7 @@ sys.stdout.flush()
 
     <!-- Judge Type -->
     <div class="text-sm text-[color:var(--color-muted)]">
-      <span>{$t("admin.judgeType")}</span>
+      <span>{m.admin_judgeType()}</span>
       <div class="mt-2 flex gap-4">
         {#each ["standard", "checker", "interactive"] as type (type)}
           <label class="flex items-center gap-2 text-sm">
@@ -537,7 +543,7 @@ sys.stdout.flush()
               type="radio"
               value={type}
             />
-            {$t(`admin.${type}`)}
+            {judgeTypeLabel[type]?.() ?? type}
           </label>
         {/each}
       </div>
@@ -545,7 +551,7 @@ sys.stdout.flush()
 
     {#if judgeType === "checker"}
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.checkerScript")}
+        {m.admin_checkerScript()}
         <textarea
           class="{monoTextareaClassName} min-h-40"
           oninput={(e) => (checkerScript = (e.target as HTMLTextAreaElement).value)}
@@ -557,7 +563,7 @@ sys.stdout.flush()
 
     {#if judgeType === "interactive"}
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.interactorScript")}
+        {m.admin_interactorScript()}
         <textarea
           class="{monoTextareaClassName} min-h-40"
           oninput={(e) => (interactorScript = (e.target as HTMLTextAreaElement).value)}
@@ -570,7 +576,7 @@ sys.stdout.flush()
     <!-- Checker/Interactor Language -->
     {#if judgeType === "checker" || judgeType === "interactive"}
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.checkerLanguage")}
+        {m.admin_checkerLanguage()}
         <select
           class={inputClassName}
           onchange={(e) =>
@@ -586,7 +592,7 @@ sys.stdout.flush()
     <!-- Time / Memory Limits -->
     <div class="grid gap-4 md:grid-cols-2">
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.timeLimit")}
+        {m.admin_timeLimit()}
         <input
           class={inputClassName}
           min="100"
@@ -597,7 +603,7 @@ sys.stdout.flush()
         />
       </label>
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.memoryLimit")}
+        {m.admin_memoryLimit()}
         <input
           class={inputClassName}
           min="16"
@@ -611,7 +617,7 @@ sys.stdout.flush()
 
     <!-- Submission Type -->
     <div class="text-sm text-[color:var(--color-muted)]">
-      <span>{$t("admin.submissionType")}</span>
+      <span>{m.admin_submissionType()}</span>
       <div class="mt-2 flex gap-4">
         <label class="flex items-center gap-2 text-sm">
           <input
@@ -622,7 +628,7 @@ sys.stdout.flush()
             type="radio"
             value="full_source"
           />
-          {$t("admin.fullSource")}
+          {m.admin_fullSource()}
         </label>
         <label class="flex items-center gap-2 text-sm">
           <input
@@ -633,7 +639,7 @@ sys.stdout.flush()
             type="radio"
             value="function"
           />
-          {$t("admin.functionTemplate")}
+          {m.admin_functionTemplate()}
         </label>
       </div>
     </div>
@@ -641,9 +647,9 @@ sys.stdout.flush()
     <!-- Starter Code (full_source mode) -->
     {#if submissionType === "full_source"}
       <div class="mt-2 border-t border-[color:var(--color-border)] pt-5">
-        <p class="text-sm font-bold">{$t("admin.starterCode")}</p>
+        <p class="text-sm font-bold">{m.admin_starterCode()}</p>
         <p class="mt-1 text-xs text-[color:var(--color-muted)]">
-          {$t("admin.fullSource")}
+          {m.admin_fullSource()}
         </p>
 
         <div class="mt-3 flex gap-1 border-b border-[color:var(--color-border)]">
@@ -672,9 +678,9 @@ sys.stdout.flush()
     <!-- Template Editor (function mode) -->
     {#if submissionType === "function"}
       <div class="mt-2 border-t border-[color:var(--color-border)] pt-5">
-        <p class="text-sm font-bold">{$t("admin.functionTemplate")}</p>
+        <p class="text-sm font-bold">{m.admin_functionTemplate()}</p>
         <p class="mt-1 text-xs text-[color:var(--color-muted)]">
-          {$t("admin.templatePreviewHint")}
+          {m.admin_templatePreviewHint()}
         </p>
 
         <div class="mt-3 flex gap-1 border-b border-[color:var(--color-border)]">
@@ -693,7 +699,7 @@ sys.stdout.flush()
 
         <div class="mt-3 grid gap-4">
           <label class="text-sm text-[color:var(--color-muted)]">
-            {$t("admin.driverCode")}
+            {m.admin_driverCode()}
             <textarea
               class="{monoTextareaClassName} min-h-36"
               oninput={(e) => updateTemplate(activeTemplateLang, { driverCode: (e.target as HTMLTextAreaElement).value })}
@@ -703,7 +709,7 @@ sys.stdout.flush()
           </label>
 
           <label class="text-sm text-[color:var(--color-muted)]">
-            {$t("admin.templateCode")}
+            {m.admin_templateCode()}
             <textarea
               class="{monoTextareaClassName} min-h-28"
               oninput={(e) => updateTemplate(activeTemplateLang, { templateCode: (e.target as HTMLTextAreaElement).value })}
@@ -713,7 +719,7 @@ sys.stdout.flush()
           </label>
 
           <label class="text-sm text-[color:var(--color-muted)]">
-            {$t("admin.insertionMarker")}
+            {m.admin_insertionMarker()}
             <input
               class="{inputClassName} font-mono"
               oninput={(e) => updateTemplate(activeTemplateLang, { insertionMarker: (e.target as HTMLInputElement).value })}
@@ -726,7 +732,7 @@ sys.stdout.flush()
 
     <!-- Statement -->
     <label class="text-sm text-[color:var(--color-muted)]">
-      {$t("admin.statement")}
+      {m.admin_statement()}
       <textarea
         class="{textareaClassName} min-h-40"
         oninput={(e) => (statement = (e.target as HTMLTextAreaElement).value)}
@@ -738,7 +744,7 @@ sys.stdout.flush()
     <!-- Input / Output Format -->
     <div class="grid gap-4 md:grid-cols-2">
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.inputFormat")}
+        {m.admin_inputFormat()}
         <textarea
           class={textareaClassName}
           oninput={(e) => (inputFormat = (e.target as HTMLTextAreaElement).value)}
@@ -746,7 +752,7 @@ sys.stdout.flush()
         ></textarea>
       </label>
       <label class="text-sm text-[color:var(--color-muted)]">
-        {$t("admin.outputFormat")}
+        {m.admin_outputFormat()}
         <textarea
           class={textareaClassName}
           oninput={(e) => (outputFormat = (e.target as HTMLTextAreaElement).value)}
@@ -759,9 +765,9 @@ sys.stdout.flush()
     <div class="mt-2 border-t border-[color:var(--color-border)] pt-5">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <p class="text-sm font-bold">{$t("testcases.sampleCases")}</p>
+          <p class="text-sm font-bold">{m.testcases_sampleCases()}</p>
           <p class="mt-1 text-xs text-[color:var(--color-muted)]">
-            {$t("testcases.sampleCasesHint")}
+            {m.testcases_sampleCasesHint()}
           </p>
         </div>
       </div>
@@ -772,20 +778,20 @@ sys.stdout.flush()
             class="rounded-xl border border-[color:var(--color-border)] bg-white/50 px-4 py-3"
           >
             <div class="flex items-center justify-between gap-4">
-              <p class="text-sm font-semibold">{$t("testcases.case")} {i + 1}</p>
+              <p class="text-sm font-semibold">{m.testcases_case()} {i + 1}</p>
               {#if examples.length > 1}
                 <button
                   class="text-sm text-red-700"
                   onclick={() => (examples = examples.filter((_, idx) => idx !== i))}
                   type="button"
                 >
-                  {$t("testcases.remove")}
+                  {m.testcases_remove()}
                 </button>
               {/if}
             </div>
             <div class="mt-3 grid gap-4 lg:grid-cols-2">
               <label class="text-sm text-[color:var(--color-muted)]">
-                {$t("testcases.stdin")}
+                {m.testcases_stdin()}
                 <textarea
                   class={monoTextareaClassName}
                   oninput={(e) =>
@@ -794,7 +800,7 @@ sys.stdout.flush()
                 ></textarea>
               </label>
               <label class="text-sm text-[color:var(--color-muted)]">
-                {$t("testcases.expectedStdout")}
+                {m.testcases_expectedStdout()}
                 <textarea
                   class={monoTextareaClassName}
                   oninput={(e) =>
@@ -813,7 +819,7 @@ sys.stdout.flush()
             (examples = [...examples, { stdin: "", expectedStdout: "" }])}
           type="button"
         >
-          {$t("testcases.addCase")}
+          {m.testcases_addCase()}
         </button>
       </div>
     </div>
@@ -821,9 +827,9 @@ sys.stdout.flush()
     <!-- ZIP Upload Section -->
     {#if !isEditMode}
       <div class="mt-2 border-t border-[color:var(--color-border)] pt-5">
-        <p class="text-sm font-bold">{$t("testcases.hiddenCases")}</p>
+        <p class="text-sm font-bold">{m.testcases_hiddenCases()}</p>
         <p class="mt-1 text-xs text-[color:var(--color-muted)]">
-          {$t("testcases.uploadZipHint")}
+          {m.testcases_uploadZipHint()}
         </p>
 
         <div
@@ -857,7 +863,7 @@ sys.stdout.flush()
             </div>
             <div class="grid gap-1">
               <span class="text-xs text-[color:var(--color-muted)]">
-                {$t("testcases.uploadZip")}
+                {m.testcases_uploadZip()}
               </span>
               <input
                 accept=".zip"
@@ -907,7 +913,7 @@ sys.stdout.flush()
                 </button>
               {/each}
               <button class="ml-2 {pillButton} py-1 text-xs" onclick={addSubtask} type="button">
-                + {$t("testcases.addSubtask")}
+                + {m.testcases_addSubtask()}
               </button>
             </div>
 
@@ -926,7 +932,7 @@ sys.stdout.flush()
                     <label
                       class="flex items-center gap-2 text-sm text-[color:var(--color-muted)]"
                     >
-                      {$t("testcases.subtaskPoints")}
+                      {m.testcases_subtaskPoints()}
                       <input
                         class="w-20 rounded-xl border border-[color:var(--color-border)] bg-white/80 px-2 py-2 text-sm"
                         min="0"
@@ -949,7 +955,7 @@ sys.stdout.flush()
                         onclick={() => (subtasks = subtasks.filter((_, i) => i !== si))}
                         type="button"
                       >
-                        {$t("testcases.removeSubtask")}
+                        {m.testcases_removeSubtask()}
                       </button>
                     {/if}
                   </div>
@@ -978,9 +984,9 @@ sys.stdout.flush()
       type="submit"
     >
       {#if isSubmitting}
-        {isEditMode ? $t("admin.updating") : $t("common.creating")}
+        {isEditMode ? m.admin_updating() : m.common_creating()}
       {:else}
-        {isEditMode ? $t("admin.updateProblem") : $t("admin.createProblem")}
+        {isEditMode ? m.admin_updateProblem() : m.admin_createProblem()}
       {/if}
     </button>
     {#if message}

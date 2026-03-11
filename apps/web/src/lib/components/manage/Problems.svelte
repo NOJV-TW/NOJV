@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   import type { CourseProblemCatalogEntry } from "$lib/server/course/queries";
 
@@ -51,7 +51,7 @@
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-2xl font-semibold">{$t("courseManage.courseProblems")}</h3>
+      <h3 class="text-2xl font-semibold">{m.courseManage_courseProblems()}</h3>
       <span
         class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
       >
@@ -87,7 +87,7 @@
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
-    <h3 class="text-2xl font-semibold">{$t("courseManage.attachProblem")}</h3>
+    <h3 class="text-2xl font-semibold">{m.courseManage_attachProblem()}</h3>
     <form
       class="mt-4 grid gap-3"
       onsubmit={(e) => {
@@ -107,7 +107,7 @@
         disabled={isAttaching}
         type="submit"
       >
-        {isAttaching ? $t("common.attaching") : $t("courseManage.attachProblem")}
+        {isAttaching ? m.common_attaching() : m.courseManage_attachProblem()}
       </button>
     </form>
     {#if status}

@@ -1,6 +1,6 @@
 import { type TransactionClient } from "@nojv/db";
 
-import { DEFAULT_LOCALE } from "$lib/i18n";
+import { DEFAULT_LOCALE } from "$lib/locale";
 
 // --- Shared helpers ---
 

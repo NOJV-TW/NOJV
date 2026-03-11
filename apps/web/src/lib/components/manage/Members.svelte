@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   import type { CourseMemberRecord } from "$lib/server/course/queries";
 
@@ -61,7 +61,7 @@
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-2xl font-semibold">{$t("courseManage.members")}</h3>
+      <h3 class="text-2xl font-semibold">{m.courseManage_members()}</h3>
       <span
         class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
       >
@@ -97,7 +97,7 @@
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
-    <h3 class="text-2xl font-semibold">{$t("courseManage.enrollMember")}</h3>
+    <h3 class="text-2xl font-semibold">{m.courseManage_enrollMember()}</h3>
     <form
       class="mt-4 grid gap-3"
       onsubmit={(e) => {
@@ -136,7 +136,7 @@
         disabled={isEnrolling}
         type="submit"
       >
-        {isEnrolling ? $t("common.enrolling") : $t("courseManage.enrollMember")}
+        {isEnrolling ? m.common_enrolling() : m.courseManage_enrollMember()}
       </button>
     </form>
     {#if status}

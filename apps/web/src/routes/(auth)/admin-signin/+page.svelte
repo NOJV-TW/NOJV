@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
 
 
@@ -36,7 +36,7 @@
   <div
     class="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8"
   >
-    <h1 class="mb-2 text-center text-2xl font-semibold">{$t("auth.adminSignIn")}</h1>
+    <h1 class="mb-2 text-center text-2xl font-semibold">{m.auth_adminSignIn()}</h1>
     <p class="mb-6 text-center text-xs text-[color:var(--color-muted)]">
       Handle + password login for testing
     </p>
@@ -75,7 +75,7 @@
     </form>
     <div class="mt-4 text-center">
       <a class="text-xs text-[color:var(--color-muted)] underline" href="/signin">
-        {$t("auth.signIn")}
+        {m.auth_signIn()}
       </a>
     </div>
   </div>

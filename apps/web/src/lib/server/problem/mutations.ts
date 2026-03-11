@@ -1,7 +1,7 @@
 import { prisma, type TransactionClient } from "@nojv/db";
 import type { ProblemCreate, ProblemTestcaseSetCreate, ProblemUpdate } from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/i18n";
+import { DEFAULT_LOCALE } from "$lib/locale";
 import type { CompletedActorContext } from "../auth";
 import { ConflictError, ForbiddenError, NotFoundError } from "../auth";
 import { ensureUser, type CreateProblemDefinitionInput } from "../db";

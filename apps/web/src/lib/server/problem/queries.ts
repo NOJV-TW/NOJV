@@ -1,6 +1,6 @@
 import { prisma } from "@nojv/db";
 
-import { DEFAULT_LOCALE } from "$lib/i18n";
+import { DEFAULT_LOCALE } from "$lib/locale";
 import {
   starterByLanguage,
   type ProblemDetail,

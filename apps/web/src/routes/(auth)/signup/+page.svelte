@@ -1,6 +1,5 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { t } from "svelte-i18n";
   import { authClient } from "$lib/auth-client";
   import OAuthButtons from "$lib/components/auth/OAuthButtons.svelte";
 
