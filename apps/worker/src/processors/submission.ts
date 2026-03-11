@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 
-import { submissionJudgeJobSchema, type SandboxExecutor, type SubmissionJudgeJob } from "@nojv/core";
+import { submissionJudgeJobSchema, type SubmissionJudgeJob } from "@nojv/queue";
+import type { SandboxExecutor } from "@nojv/sandbox";
 
 import { completeSubmission, getSubmissionJudgeContext, markSubmissionRunning } from "../services/judge-db.js";
 import { judgeSubmission } from "../services/submission-runner.js";

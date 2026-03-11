@@ -17,6 +17,7 @@
     "@fontsource/manrope": "^5.2.8",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
+    "@nojv/queue": "workspace:*",
     "better-auth": "^1.5.4",
     "bullmq": "^5.70.4",
     "echarts": "^6.0.0",

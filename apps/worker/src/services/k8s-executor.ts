@@ -4,7 +4,7 @@ import type * as k8s from "@kubernetes/client-node";
 
 const require = createRequire(import.meta.url);
 
-import { sourceExtensions, type SandboxExecutor, type SandboxRequest, type SandboxResult } from "@nojv/core";
+import { sourceExtensions, type SandboxExecutor, type SandboxRequest, type SandboxResult } from "@nojv/sandbox";
 
 export interface K8sExecutorConfig {
   namespace: string;
