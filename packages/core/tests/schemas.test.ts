@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  cheatingSignalSchema,
   contestSessionSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
-  submissionDraftSchema,
-  workspaceRunRequestSchema
+  submissionDraftSchema
 } from "../src/index";
 
 describe("submissionDraftSchema", () => {
@@ -22,61 +20,6 @@ describe("submissionDraftSchema", () => {
   });
 });
 
-describe("workspaceRunRequestSchema", () => {
-  it("accepts isolated runs with an explicit file payload", () => {
-    const result = workspaceRunRequestSchema.parse({
-      command: "make run",
-      files: [
-        {
-          content: "run:\n\t@cat src/message.txt\n",
-          path: "Makefile"
-        },
-        {
-          content: "hello\n",
-          path: "src/message.txt"
-        }
-      ],
-      mode: "assignment",
-      timeoutMs: 4_000,
-      workspaceSessionId: "ws_assignment_demo_01"
-    });
-
-    expect(result.files).toHaveLength(2);
-    expect(result.timeoutMs).toBe(4_000);
-  });
-
-  it("rejects command batches without a workspace session id", () => {
-    const result = workspaceRunRequestSchema.safeParse({
-      command: "make test",
-      files: [
-        {
-          content: "all:\n\t@true\n",
-          path: "Makefile"
-        }
-      ],
-      mode: "assignment"
-    });
-
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects file paths that escape the isolated workspace root", () => {
-    const result = workspaceRunRequestSchema.safeParse({
-      command: "make run",
-      files: [
-        {
-          content: "nope",
-          path: "../outside.txt"
-        }
-      ],
-      mode: "practice",
-      workspaceSessionId: "ws_assignment_demo_01"
-    });
-
-    expect(result.success).toBe(false);
-  });
-});
-
 describe("contestSessionSchema", () => {
   it("requires a frozen scoreboard flag for contest sessions", () => {
     const result = contestSessionSchema.parse({
@@ -87,24 +30,6 @@ describe("contestSessionSchema", () => {
     });
 
     expect(result.frozenScoreboard).toBe(true);
-  });
-});
-
-describe("cheatingSignalSchema", () => {
-  it("captures telemetry evidence instead of a boolean decision", () => {
-    const result = cheatingSignalSchema.parse({
-      capturedAt: "2026-03-08T08:30:00.000Z",
-      confidence: 0.86,
-      payload: {
-        tabSwitchCount: 5
-      },
-      source: "problem_editor",
-      type: "focus_loss",
-      userId: "usr_1234567890"
-    });
-
-    expect(result.payload).toMatchObject({ tabSwitchCount: 5 });
-    expect(result.source).toBe("problem_editor");
   });
 });
 

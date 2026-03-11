@@ -43,9 +43,7 @@ export interface ContestDetail {
   slug: string;
   startsAt: string;
   summary: string;
-  telemetrySensitivity: string;
   title: string;
-  workspacePolicy: string;
 }
 
 export const starterByLanguage: Record<Language, string> = {

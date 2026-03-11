@@ -2,7 +2,6 @@ import { submissionDraftSchema } from "./domain";
 import { z } from "zod";
 
 export const queueNames = {
-  cheatingSignal: "cheating-signal",
   submission: "submission-judge"
 } as const;
 
