@@ -5,7 +5,7 @@ import {
   evaluateIntegritySignals,
   integrityAssessmentSchema,
   type CheatingSignal
-} from "@nojv/domain";
+} from "@nojv/core";
 
 export function processCheatingSignal(job: Job<CheatingSignal>) {
   const payload = cheatingSignalSchema.parse(job.data);

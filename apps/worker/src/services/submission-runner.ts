@@ -1,11 +1,13 @@
-import type { SubmissionJudgeContext } from "@nojv/db";
 import {
   submissionResultSchema,
+  type SandboxExecutor,
+  type SandboxRequest,
+  type SandboxResult,
   type SubmissionDraft,
   type SubmissionResult
-} from "@nojv/domain";
+} from "@nojv/core";
 
-import type { SandboxExecutor, SandboxRequest, SandboxResult } from "./sandbox-executor.js";
+import type { SubmissionJudgeContext } from "./judge-db.js";
 
 const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   WA: "wrong_answer",

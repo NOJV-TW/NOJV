@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateIntegritySignals } from "@nojv/domain";
+import { evaluateIntegritySignals } from "@nojv/core";
 
 describe("evaluateIntegritySignals", () => {
   it("escalates combined contest telemetry into a high-risk case", () => {
