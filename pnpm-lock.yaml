@@ -41,6 +41,9 @@ importers:
 
   apps/sandbox-runner:
     dependencies:
+      '@nojv/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -66,15 +69,12 @@ importers:
       '@fontsource/manrope':
         specifier: ^5.2.8
         version: 5.2.8
+      '@nojv/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@nojv/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-      '@nojv/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
       better-auth:
         specifier: ^1.5.4
         version: 1.5.4(f81844bbe0c5dd03a7faeae212a41a9a)
@@ -148,15 +148,12 @@ importers:
       '@kubernetes/client-node':
         specifier: ^1.0.0
         version: 1.4.0
+      '@nojv/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@nojv/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-      '@nojv/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
       bullmq:
         specifier: ^5.70.4
         version: 5.70.4
@@ -164,11 +161,18 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
+  packages/core:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      tsdown:
+        specifier: ^0.12.5
+        version: 0.12.9(typescript@5.9.3)
+
   packages/db:
     dependencies:
-      '@nojv/domain':
-        specifier: workspace:*
-        version: link:../domain
       '@prisma/adapter-pg':
         specifier: ^7.4.2
         version: 7.4.2
@@ -200,32 +204,6 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
-
-  packages/domain:
-    dependencies:
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      tsdown:
-        specifier: ^0.12.5
-        version: 0.12.9(typescript@5.9.3)
-
-  packages/queue:
-    dependencies:
-      '@nojv/domain':
-        specifier: workspace:*
-        version: link:../domain
-      bullmq:
-        specifier: ^5.70.4
-        version: 5.70.4
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      tsdown:
-        specifier: ^0.12.5
-        version: 0.12.9(typescript@5.9.3)
 
 packages:
 
