@@ -193,9 +193,46 @@ export async function judgeChecker(
       checkerCommand,
       inputFile,
       expectedFile,
-      userOutputFile,
-      timeoutMs
+      userOutputFile
     );
+
+    // Checker infrastructure failures → SE (not the user's fault)
+    if (checkerResult.spawnError) {
+      return {
+        index: testcase.index,
+        verdict: "SE",
+        stdout: solution.stdout,
+        stderr: `Checker error: ${checkerResult.stderr}`,
+        exitCode: solution.exitCode,
+        timeMs: solution.timeMs + checkerResult.timeMs,
+        feedback: "Checker failed to start (system error)."
+      };
+    }
+
+    if (checkerResult.timedOut) {
+      return {
+        index: testcase.index,
+        verdict: "SE",
+        stdout: solution.stdout,
+        stderr: solution.stderr,
+        exitCode: solution.exitCode,
+        timeMs: solution.timeMs + checkerResult.timeMs,
+        feedback: "Checker timed out (system error)."
+      };
+    }
+
+    // Checker killed by signal (crash) → SE
+    if (checkerResult.signalName) {
+      return {
+        index: testcase.index,
+        verdict: "SE",
+        stdout: solution.stdout,
+        stderr: `Checker crashed with signal ${checkerResult.signalName}.\n${checkerResult.stderr}`,
+        exitCode: solution.exitCode,
+        timeMs: solution.timeMs + checkerResult.timeMs,
+        feedback: `Checker crashed (${checkerResult.signalName}).`
+      };
+    }
 
     const parsed = parseCheckerOutput(
       checkerResult.exitCode,
@@ -221,51 +258,85 @@ export async function judgeChecker(
   }
 }
 
+/** Checker timeout: generous since checkers should be fast. */
+const CHECKER_TIMEOUT_MS = 30_000;
+
 /**
  * Run the checker process with the three standard file arguments.
+ * Uses a fixed checker timeout independent of the solution timeout.
  */
 function runChecker(
   checkerCommand: string[],
   inputFile: string,
   expectedFile: string,
-  userOutputFile: string,
-  timeoutMs: number
-): Promise<{ stdout: string; stderr: string; exitCode: number; timeMs: number }> {
+  userOutputFile: string
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  timeMs: number;
+  timedOut: boolean;
+  signalName: string | null;
+  spawnError: boolean;
+}> {
   return new Promise((resolve) => {
     const startTime = performance.now();
     const [cmd, ...args] = checkerCommand;
 
     if (!cmd) {
-      resolve({ stdout: "", stderr: "Empty checker command.", exitCode: -1, timeMs: 0 });
+      resolve({
+        stdout: "",
+        stderr: "Empty checker command.",
+        exitCode: -1,
+        timeMs: 0,
+        timedOut: false,
+        signalName: null,
+        spawnError: true
+      });
       return;
     }
 
     const proc = spawn(cmd, [...args, inputFile, expectedFile, userOutputFile], {
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: timeoutMs
+      timeout: CHECKER_TIMEOUT_MS
     });
 
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
+    let killed = false;
 
     proc.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
     proc.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
-    proc.on("close", (code) => {
+    const timer = setTimeout(() => {
+      killed = true;
+      proc.kill("SIGKILL");
+    }, CHECKER_TIMEOUT_MS + 500);
+
+    proc.on("close", (code, signal) => {
+      clearTimeout(timer);
+      const timeMs = Math.round(performance.now() - startTime);
       resolve({
         stdout: Buffer.concat(stdoutChunks).toString("utf-8"),
         stderr: Buffer.concat(stderrChunks).toString("utf-8"),
         exitCode: code ?? -1,
-        timeMs: Math.round(performance.now() - startTime)
+        timeMs,
+        timedOut: killed || signal === "SIGTERM" || timeMs >= CHECKER_TIMEOUT_MS,
+        signalName: signal,
+        spawnError: false
       });
     });
 
     proc.on("error", (err) => {
+      clearTimeout(timer);
       resolve({
         stdout: "",
         stderr: `Failed to spawn checker: ${err.message}`,
         exitCode: -1,
-        timeMs: Math.round(performance.now() - startTime)
+        timeMs: Math.round(performance.now() - startTime),
+        timedOut: false,
+        signalName: null,
+        spawnError: true
       });
     });
   });

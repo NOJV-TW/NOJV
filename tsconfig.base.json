@@ -3,6 +3,7 @@
   "compilerOptions": {
     "target": "ES2023",
     "lib": ["ES2023"],
+    "types": ["node"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": false,
@@ -16,6 +17,7 @@
     "useDefineForClassFields": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "noEmit": true
   }
 }

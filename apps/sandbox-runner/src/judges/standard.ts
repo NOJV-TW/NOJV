@@ -4,8 +4,7 @@ import type { TestcaseFiles, TestcaseResult } from "../types.js";
 /**
  * Normalize program output for comparison:
  * - Convert \r\n → \n
- * - Trim trailing whitespace from each line
- * - Trim trailing newlines
+ * - Trim trailing whitespace/newlines from the end of the entire output
  *
  * Matches the normalization used in the existing submission-runner.
  */
