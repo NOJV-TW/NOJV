@@ -31,7 +31,7 @@ export async function judgeSubmission(
   const request: SandboxRequest = {
     submissionId,
     sourceCode: draft.sourceCode,
-    language: draft.language as SandboxRequest["language"],
+    language: draft.language,
     submissionType: judgeContext.submissionType,
     testcases: testcases.map((tc, i) => ({
       index: i,
