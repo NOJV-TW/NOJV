@@ -51,7 +51,22 @@
     "email": "Email",
     "name": "Name",
     "role": "Role",
-    "userAccount": "User Account"
+    "userAccount": "User Account",
+    "schoolVerification": "School Alliance Verification",
+    "schoolVerificationDesc": "Verify with your NTNU / NTU / NTUST email to set your handle to your student ID.",
+    "schoolVerified": "Verified as School Alliance account",
+    "startVerification": "Start verification",
+    "schoolEmailLabel": "School email",
+    "schoolEmailPlaceholder": "e.g. b12345678@ntu.edu.tw",
+    "sendVerification": "Send verification email",
+    "sending": "Sending...",
+    "verificationSent": "Verification email sent! Check your inbox and click the link.",
+    "resend": "Resend",
+    "resendCooldown": "Resend in {seconds}s",
+    "changeEmail": "Change email",
+    "verified": "Verified! Reloading...",
+    "cancel": "Cancel",
+    "acceptedDomains": "Accepted: @ntnu.edu.tw, @gapps.ntnu.edu.tw, @ntu.edu.tw, @g.ntu.edu.tw, @mail.ntust.edu.tw, @gapps.ntust.edu.tw"
   },
   "assignmentsList": {
     "course": "Course",
