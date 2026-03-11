@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import * as path from "node:path";
+import { sourceFileNames } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
 
 export type CompileResult =
@@ -30,24 +31,7 @@ export function assembleSource(userSource: string, input: SandboxInput): string 
 
 /** Returns the source file name for a given language. */
 export function sourceFileName(language: SandboxInput["language"]): string {
-  switch (language) {
-    case "c":
-      return "main.c";
-    case "cpp":
-      return "main.cpp";
-    case "go":
-      return "main.go";
-    case "java":
-      return "Main.java";
-    case "javascript":
-      return "main.mjs";
-    case "python":
-      return "main.py";
-    case "rust":
-      return "main.rs";
-    case "typescript":
-      return "main.ts";
-  }
+  return sourceFileNames[language];
 }
 
 /**
