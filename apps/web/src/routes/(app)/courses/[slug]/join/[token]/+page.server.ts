@@ -3,7 +3,7 @@ import { fail } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { joinCourseRecord } from "$lib/server/db";
+import { joinCourseRecord } from "$lib/server/course/mutations";
 
 export const load: PageServerLoad = async ({ params, parent, url }) => {
   const { slug, token } = params;

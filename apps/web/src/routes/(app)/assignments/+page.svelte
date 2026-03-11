@@ -1,5 +1,5 @@
 <script lang="ts">
-  import AssessmentListView from "$lib/components/AssessmentListView.svelte";
+  import AssessmentListView from "$lib/components/course/AssessmentListView.svelte";
 
   let { data } = $props();
 </script>

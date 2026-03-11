@@ -2,7 +2,7 @@ import { redirect } from "@sveltejs/kit";
 import { problemCreateSchema } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, ForbiddenError } from "$lib/server/auth";
-import { createProblemRecord, createProblemTestcaseSetRecord } from "$lib/server/db";
+import { createProblemRecord, createProblemTestcaseSetRecord } from "$lib/server/problem/mutations";
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) {

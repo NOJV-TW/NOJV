@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
-import { getCoursePageData } from "$lib/server/queries";
+import { getCoursePageData } from "$lib/server/course/queries";
 
 export const load: LayoutServerLoad = async ({ params }) => {
   const courseData = await getCoursePageData(params.slug);

@@ -2,7 +2,7 @@
   import { page } from "$app/stores";
   import { locale, t } from "svelte-i18n";
   import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "$lib/i18n";
-  import UserAuthMenu from "./auth/UserMenu.svelte";
+  import UserAuthMenu from "../auth/UserMenu.svelte";
 
   let currentLocale = $derived($locale ?? DEFAULT_LOCALE);
   let user = $derived($page.data.user as { name: string; handle?: string } | null);

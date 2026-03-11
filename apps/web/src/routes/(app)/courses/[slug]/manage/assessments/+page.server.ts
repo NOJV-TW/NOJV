@@ -3,7 +3,7 @@ import { fail } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canPublishAssessment, getCoursePermissionRole, requireAuth } from "$lib/server/auth";
-import { createCourseAssessmentRecord } from "$lib/server/db";
+import { createCourseAssessmentRecord } from "$lib/server/course/mutations";
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { courseData } = await parent();
