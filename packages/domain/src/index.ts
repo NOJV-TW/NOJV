@@ -120,19 +120,48 @@ export const courseJoinRequestSchema = z.object({
   joinToken: z.string().trim().min(4).max(128)
 });
 
+export const problemTemplateSchema = z.object({
+  driverCode: z.string().min(1).max(200_000),
+  insertionMarker: z.string().min(1).max(200).default("// __USER_CODE__"),
+  language: languageSchema,
+  templateCode: z.string().min(1).max(100_000)
+});
+
 export const problemCreateSchema = z.object({
   checkerScript: z.string().max(200_000).optional(),
   difficulty: z.enum(["easy", "medium", "hard"]),
   inputFormat: z.string().trim().max(4_000).default(""),
   interactorScript: z.string().max(200_000).optional(),
   judgeType: judgeTypeSchema.default("standard"),
+  memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
   outputFormat: z.string().trim().max(4_000).default(""),
   slug: slugSchema,
   statement: z.string().trim().min(16).max(12_000),
+  submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  templates: z.array(problemTemplateSchema).max(10).default([]),
+  timeLimitMs: z.coerce.number().int().min(100).max(30_000).default(1_000),
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema
+});
+
+export const problemUpdateSchema = z.object({
+  checkerScript: z.string().max(200_000).optional(),
+  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+  inputFormat: z.string().trim().max(4_000).optional(),
+  interactorScript: z.string().max(200_000).optional(),
+  judgeType: judgeTypeSchema.optional(),
+  memoryLimitMb: z.coerce.number().int().min(16).max(1024).optional(),
+  outputFormat: z.string().trim().max(4_000).optional(),
+  statement: z.string().trim().min(16).max(12_000).optional(),
+  submissionType: submissionTypeSchema.optional(),
+  summary: z.string().trim().max(2_000).optional(),
+  tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
+  templates: z.array(problemTemplateSchema).max(10).optional(),
+  timeLimitMs: z.coerce.number().int().min(100).max(30_000).optional(),
+  title: z.string().trim().min(3).max(120).optional(),
+  visibility: problemVisibilitySchema.optional()
 });
 
 export const problemTestcaseCaseSchema = z.object({
@@ -147,13 +176,6 @@ export const problemJudgeTestcaseSchema = z.object({
   isHidden: z.boolean(),
   stdin: z.string().max(200_000),
   weight: z.coerce.number().int().min(1).max(100)
-});
-
-export const problemTemplateSchema = z.object({
-  driverCode: z.string().min(1).max(200_000),
-  insertionMarker: z.string().min(1).max(200).default("// __USER_CODE__"),
-  language: languageSchema,
-  templateCode: z.string().min(1).max(100_000)
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
@@ -448,6 +470,7 @@ export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ManualCourseEnrollment = z.infer<typeof manualCourseEnrollmentSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ProblemCreate = z.infer<typeof problemCreateSchema>;
+export type ProblemUpdate = z.infer<typeof problemUpdateSchema>;
 export type ProblemTemplate = z.infer<typeof problemTemplateSchema>;
 export type ProblemTestcaseCase = z.infer<typeof problemTestcaseCaseSchema>;
 export type ProblemJudgeTestcase = z.infer<typeof problemJudgeTestcaseSchema>;

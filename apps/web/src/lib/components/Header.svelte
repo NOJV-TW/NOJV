@@ -1,21 +1,19 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { t } from "svelte-i18n";
-  import UserAuthMenu from "./UserAuthMenu.svelte";
+  import { locale, t } from "svelte-i18n";
+  import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "$lib/i18n";
+  import UserAuthMenu from "./auth/UserMenu.svelte";
 
-  const supportedLocales = ["en", "zh-TW"] as const;
-
-  let currentLocale = $derived(($page.params as { locale?: string }).locale ?? "zh-TW");
+  let currentLocale = $derived($locale ?? DEFAULT_LOCALE);
   let user = $derived($page.data.user as { name: string; handle?: string } | null);
-  let isLoggedIn = $derived(!!user);
 
   let navItems = $derived(
-    isLoggedIn
+    user
       ? [
-          { href: `/${currentLocale}/problems`, label: $t("navigation.problems") },
-          { href: `/${currentLocale}/courses`, label: $t("navigation.courses") },
-          { href: `/${currentLocale}/assignments`, label: $t("navigation.assignments") },
-          { href: `/${currentLocale}/exams`, label: $t("navigation.exams") }
+          { href: "/problems", label: $t("navigation.problems") },
+          { href: "/courses", label: $t("navigation.courses") },
+          { href: "/assignments", label: $t("navigation.assignments") },
+          { href: "/exams", label: $t("navigation.exams") }
         ]
       : []
   );
@@ -27,7 +25,7 @@
   <div class="flex flex-wrap items-center gap-4">
     <a
       class="font-[family-name:var(--font-display)] text-xl font-bold"
-      href="/{currentLocale}"
+      href="/"
     >
       NOJV
     </a>
@@ -49,15 +47,16 @@
       <div
         class="flex items-center gap-1 rounded-full border border-[color:var(--color-border)] bg-white/60 p-1 text-sm"
       >
-        {#each supportedLocales as entry (entry)}
-          <a
+        {#each SUPPORTED_LOCALES as entry (entry)}
+          <button
             class="rounded-full px-3 py-1.5 {entry === currentLocale
               ? 'bg-[color:var(--color-accent)] text-white'
               : ''}"
-            href="/{entry}"
+            onclick={() => locale.set(entry)}
+            type="button"
           >
             {entry}
-          </a>
+          </button>
         {/each}
       </div>
       <UserAuthMenu />

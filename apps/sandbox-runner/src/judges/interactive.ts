@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 
 /**
@@ -34,12 +37,32 @@ function parseInteractorOutput(
  * Interactor's stdout → solution's stdin
  *
  * The interactor receives the testcase input file path as its first argument.
+ * The testcase input is written to a temp file so the interactor can read it.
  * Uses Node.js stream piping (no FIFOs needed since both run locally).
  */
-export function judgeInteractive(
+export async function judgeInteractive(
   runCommand: string[],
   testcase: TestcaseFiles,
   interactorCommand: string[],
+  timeoutMs: number
+): Promise<TestcaseResult> {
+  // Write testcase input to a temp file for the interactor
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "interactive-"));
+  const inputFile = path.join(tmpDir, "input.txt");
+  await fs.writeFile(inputFile, testcase.input);
+
+  try {
+    return await runInteractive(runCommand, testcase, interactorCommand, inputFile, timeoutMs);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+function runInteractive(
+  runCommand: string[],
+  testcase: TestcaseFiles,
+  interactorCommand: string[],
+  inputFile: string,
   timeoutMs: number
 ): Promise<TestcaseResult> {
   return new Promise((resolve) => {
@@ -65,9 +88,8 @@ export function judgeInteractive(
       stdio: ["pipe", "pipe", "pipe"]
     });
 
-    // Spawn interactor process — receives testcase input via argument
-    // The interactor reads from stdin (solution's stdout) and writes to stdout (solution's stdin)
-    const interactor = spawn(intCmd, [...intArgs, "/dev/stdin"], {
+    // Spawn interactor process — receives testcase input file path as argument
+    const interactor = spawn(intCmd, [...intArgs, inputFile], {
       stdio: ["pipe", "pipe", "pipe"]
     });
 
@@ -76,13 +98,9 @@ export function judgeInteractive(
     // Pipe: interactor.stdout → solution.stdin
     interactor.stdout.pipe(solution.stdin);
 
-    // Write testcase input data to interactor via a separate mechanism:
-    // The interactor script is expected to read the input file path as arg.
-    // We pass the testcase input through the interactor's stdin alongside solution output.
-    // Actually, following the existing pattern: interactor gets input.txt as a file arg.
-    // We need to write the testcase input to a temp file. But since we're inside the
-    // sandbox, we can assume /submission/testcases/{index}/input exists.
-    // The interactor command already has the input file path appended by the caller.
+    // Handle EPIPE errors on piped streams (expected when one process exits)
+    solution.stdin.on("error", () => {});
+    interactor.stdin.on("error", () => {});
 
     const solutionStderr: Buffer[] = [];
     const interactorStderr: Buffer[] = [];
@@ -100,6 +118,8 @@ export function judgeInteractive(
     let timedOut = false;
     let solutionSignal: string | null = null;
     let solutionSpawnError = false;
+    let interactorSpawnError = false;
+    let interactorSignal: string | null = null;
 
     const timer = setTimeout(() => {
       timedOut = true;
@@ -137,6 +157,34 @@ export function judgeInteractive(
           stderr: solStderr,
           exitCode: solutionExitCode,
           timeMs
+        });
+        return;
+      }
+
+      // SE: interactor failed to spawn (system error, not user's fault)
+      if (interactorSpawnError) {
+        resolve({
+          index: testcase.index,
+          verdict: "SE",
+          stdout: solStdout,
+          stderr: `Interactor error: ${intStderr}`,
+          exitCode: solutionExitCode,
+          timeMs,
+          feedback: "Interactor failed to start (system error)."
+        });
+        return;
+      }
+
+      // SE: interactor crashed with signal (system error)
+      if (interactorSignal) {
+        resolve({
+          index: testcase.index,
+          verdict: "SE",
+          stdout: solStdout,
+          stderr: `Interactor crashed with signal ${interactorSignal}.\n${intStderr}`,
+          exitCode: solutionExitCode,
+          timeMs,
+          feedback: `Interactor crashed (${interactorSignal}).`
         });
         return;
       }
@@ -190,15 +238,24 @@ export function judgeInteractive(
       solutionSignal = signal;
       solutionDone = true;
       // Close interactor's stdin when solution finishes
-      interactor.stdin.end();
+      try {
+        interactor.stdin.end();
+      } catch {
+        // Already closed
+      }
       tryFinish();
     });
 
-    interactor.on("close", (code) => {
+    interactor.on("close", (code, signal) => {
       interactorExitCode = code ?? -1;
+      interactorSignal = signal;
       interactorDone = true;
       // Close solution's stdin when interactor finishes
-      solution.stdin.end();
+      try {
+        solution.stdin.end();
+      } catch {
+        // Already closed
+      }
       tryFinish();
     });
 
@@ -210,6 +267,7 @@ export function judgeInteractive(
     });
 
     interactor.on("error", (err) => {
+      interactorSpawnError = true;
       interactorDone = true;
       interactorStderr.push(Buffer.from(`Spawn error: ${err.message}`));
       tryFinish();

@@ -14,18 +14,6 @@ vi.mock("@nojv/db", () => {
 
 const mockExecute = vi.fn();
 
-vi.mock("../src/services/docker-executor", () => {
-  return {
-    DockerExecutor: class {
-      execute = mockExecute;
-    }
-  };
-});
-
-vi.mock("../src/services/k8s-executor", () => ({
-  K8sExecutor: vi.fn()
-}));
-
 describe("async processor persistence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -66,7 +54,8 @@ describe("async processor persistence", () => {
       ]
     });
 
-    const { processSubmission } = await import("../src/processors");
+    const { createSubmissionProcessor } = await import("../src/processors/submission");
+    const processSubmission = createSubmissionProcessor({ execute: mockExecute } as never);
 
     await processSubmission({
       data: {

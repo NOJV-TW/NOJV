@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { marked } from "marked";
 
   let { content = "" }: { content: string } = $props();

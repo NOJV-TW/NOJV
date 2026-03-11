@@ -18,7 +18,8 @@ export const SandboxInputSchema = z.object({
     })
     .optional(),
   // For checker/interactive
-  checkerLanguage: z.string().optional()
+  checkerLanguage: z.string().optional(),
+  interactorLanguage: z.string().optional()
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
