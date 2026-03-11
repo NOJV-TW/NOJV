@@ -3,8 +3,8 @@ import { fail } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, getActorContext, requireAuth } from "$lib/server/auth";
-import { createCourseRecord } from "$lib/server/db";
-import { listCourseCards, listUserCourseCards } from "$lib/server/queries";
+import { createCourseRecord } from "$lib/server/course/mutations";
+import { listCourseCards, listUserCourseCards } from "$lib/server/course/queries";
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);

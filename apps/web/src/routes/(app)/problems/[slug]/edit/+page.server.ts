@@ -4,8 +4,8 @@ import { problemUpdateSchema, problemTemplateSchema } from "@nojv/core";
 import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, ForbiddenError, NotFoundError } from "$lib/server/auth";
-import { updateProblemRecord, replaceTemplates, createProblemTestcaseSetRecord } from "$lib/server/db";
-import { getProblemPageData } from "$lib/server/queries";
+import { updateProblemRecord, replaceTemplates, createProblemTestcaseSetRecord } from "$lib/server/problem/mutations";
+import { getProblemPageData } from "$lib/server/problem/queries";
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   if (!locals.user) {

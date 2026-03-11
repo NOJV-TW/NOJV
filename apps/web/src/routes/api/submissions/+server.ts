@@ -5,7 +5,7 @@ import { ZodError } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { getActorContext, hasActorHandle, HttpError } from "$lib/server/auth";
-import { createQueuedSubmissionRecord } from "$lib/server/db";
+import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 import { dispatchSubmissionJob } from "$lib/server/queue";
 
 export const POST: RequestHandler = async (event) => {

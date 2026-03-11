@@ -2,7 +2,7 @@
   import "../../app.css";
   import "$lib/i18n";
   import { isLoading } from "svelte-i18n";
-  import Header from "$lib/components/Header.svelte";
+  import Header from "$lib/components/layout/Header.svelte";
 
   let { children } = $props();
 </script>

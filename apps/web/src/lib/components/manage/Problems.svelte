@@ -2,7 +2,7 @@
   import { invalidateAll } from "$app/navigation";
   import { t } from "svelte-i18n";
 
-  import type { CourseProblemCatalogEntry } from "$lib/server/queries";
+  import type { CourseProblemCatalogEntry } from "$lib/server/course/queries";
 
   interface Props {
     courseSlug: string;

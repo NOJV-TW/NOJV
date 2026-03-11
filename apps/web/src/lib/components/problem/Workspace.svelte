@@ -3,7 +3,7 @@
   import type { SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
-  import MarkdownRenderer from "../MarkdownRenderer.svelte";
+  import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
 
   const difficultyColor: Record<string, string> = {
