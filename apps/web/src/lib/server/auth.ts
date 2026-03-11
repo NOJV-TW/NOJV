@@ -112,7 +112,7 @@ export async function requireAuth(
   }
 
   if (!actor.handle) {
-    redirect(302, "/auth/complete-profile");
+    redirect(302, "/complete-profile");
   }
 
   return actor as CompletedActorContext;
