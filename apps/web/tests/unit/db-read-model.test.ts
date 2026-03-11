@@ -1,15 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const findManyProblems = vi.fn();
-const findUniqueProblem = vi.fn();
-const countProblems = vi.fn();
-const findManyCourses = vi.fn();
-const findUniqueCourse = vi.fn();
-const countCourses = vi.fn();
-const groupBySubmissions = vi.fn();
-const countSubmissions = vi.fn();
-const findManyAssessments = vi.fn();
-const findManyAnnouncements = vi.fn();
+const {
+  findManyProblems,
+  findUniqueProblem,
+  countProblems,
+  findManyCourses,
+  findUniqueCourse,
+  countCourses,
+  groupBySubmissions,
+  countSubmissions,
+  findManyAssessments,
+  findManyAnnouncements
+} = vi.hoisted(() => ({
+  findManyProblems: vi.fn(),
+  findUniqueProblem: vi.fn(),
+  countProblems: vi.fn(),
+  findManyCourses: vi.fn(),
+  findUniqueCourse: vi.fn(),
+  countCourses: vi.fn(),
+  groupBySubmissions: vi.fn(),
+  countSubmissions: vi.fn(),
+  findManyAssessments: vi.fn(),
+  findManyAnnouncements: vi.fn()
+}));
+
+vi.mock("$app/environment", () => ({
+  browser: false,
+  dev: true,
+  building: false
+}));
 
 vi.mock("@nojv/db", () => ({
   prisma: {
@@ -35,6 +54,9 @@ vi.mock("@nojv/db", () => ({
     }
   }
 }));
+
+import { listProblemCards, getProblemPageData } from "$lib/server/problem/queries";
+import { getCoursePageData, getDashboardStats } from "$lib/server/course/queries";
 
 describe("DB-backed read model", () => {
   beforeEach(() => {
@@ -65,7 +87,6 @@ describe("DB-backed read model", () => {
     ]);
     groupBySubmissions.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
 
-    const { listProblemCards } = await import("../../src/lib/server/queries");
     const cards = await listProblemCards();
 
     expect(cards).toContainEqual(
@@ -158,7 +179,6 @@ describe("DB-backed read model", () => {
       title: "Compiler Design"
     });
 
-    const { getCoursePageData } = await import("../../src/lib/server/queries");
     const detail = await getCoursePageData("compiler-design-2026");
 
     expect(detail?.course.title).toBe("Compiler Design");
@@ -180,7 +200,6 @@ describe("DB-backed read model", () => {
   it("returns null when a course slug is not found", async () => {
     findUniqueCourse.mockResolvedValue(null);
 
-    const { getCoursePageData } = await import("../../src/lib/server/queries");
     const detail = await getCoursePageData("nonexistent-course");
 
     expect(detail).toBeNull();
@@ -189,7 +208,6 @@ describe("DB-backed read model", () => {
   it("returns null when a problem slug is not found", async () => {
     findUniqueProblem.mockResolvedValue(null);
 
-    const { getProblemPageData } = await import("../../src/lib/server/queries");
     const detail = await getProblemPageData("nonexistent-problem", "en");
 
     expect(detail).toBeNull();
@@ -232,7 +250,6 @@ describe("DB-backed read model", () => {
     });
     countSubmissions.mockResolvedValue(5);
 
-    const { getProblemPageData } = await import("../../src/lib/server/queries");
     const detail = await getProblemPageData("a-plus-b", "en");
 
     expect(detail).not.toBeNull();
@@ -263,7 +280,6 @@ describe("DB-backed read model", () => {
     ]);
     groupBySubmissions.mockResolvedValue([{ _count: 3, problemId: "prob_hard" }]);
 
-    const { listProblemCards } = await import("../../src/lib/server/queries");
     const cards = await listProblemCards();
 
     expect(cards[0]?.acceptanceRate).toBeCloseTo(0.3);
@@ -284,7 +300,6 @@ describe("DB-backed read model", () => {
       }
     ]);
 
-    const { listProblemCards } = await import("../../src/lib/server/queries");
     const cards = await listProblemCards();
 
     expect(cards[0]?.acceptanceRate).toBe(0);
@@ -294,7 +309,6 @@ describe("DB-backed read model", () => {
     countProblems.mockResolvedValue(42);
     countCourses.mockResolvedValue(7);
 
-    const { getDashboardStats } = await import("../../src/lib/server/queries");
     const stats = await getDashboardStats();
 
     expect(stats).toEqual({ courses: 7, problems: 42 });
