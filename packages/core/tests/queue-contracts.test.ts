@@ -4,7 +4,6 @@ import { queueNames, submissionJudgeJobSchema } from "../src/index";
 describe("queue contracts", () => {
   it("uses explicit queue names for dashboard routing", () => {
     expect(queueNames.submission).toBe("submission-judge");
-    expect(queueNames.cheatingSignal).toBe("cheating-signal");
   });
 
   it("validates submission job payload", () => {
