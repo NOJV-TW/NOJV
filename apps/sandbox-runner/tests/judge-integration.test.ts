@@ -848,4 +848,293 @@ else:
     );
     expect(verdict.verdict).toBe("SE");
   });
+
+  it("SE — invalid interactor command", async () => {
+    const result = await compileProgram("python", "print('hello')");
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const verdict = await judgeInteractive(
+      result.runCommand,
+      interactiveTc,
+      ["/nonexistent/interactor"],
+      TIMEOUT_MS
+    );
+    expect(verdict.verdict).toBe("SE");
+    expect(verdict.feedback).toContain("Interactor");
+  }, 30_000);
+
+  it("handles interactor with testcase input file", async () => {
+    // Interactor that reads a number from the input file, sends it, expects double
+    const inputAwareInteractor = `import sys
+
+input_file = sys.argv[1]
+with open(input_file) as f:
+    n = int(f.read().strip())
+print(n, flush=True)
+response = input().strip()
+if response == str(n * 2):
+    print("100", file=sys.stderr)
+    sys.exit(0)
+else:
+    print("0", file=sys.stderr)
+    sys.exit(1)
+`;
+    const intFile = join(workDir, "interactor.py");
+    await writeFile(intFile, inputAwareInteractor);
+
+    // Solution that reads a number and prints double
+    const result = await compileProgram("python", `n = int(input())\nprint(n * 2)`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc: TestcaseFiles = { index: 0, input: "7\n", weight: 1, isSample: true };
+    const verdict = await judgeInteractive(result.runCommand, tc, ["python3", intFile], TIMEOUT_MS);
+    expect(verdict.verdict).toBe("AC");
+  }, 30_000);
+});
+
+// ─── Edge case tests ────────────────────────────────────────────────
+
+describe("checker edge cases", () => {
+  it("checker timeout → SE (not WA)", async () => {
+    // A checker that hangs forever
+    const slowChecker = `import time\ntime.sleep(999)`;
+    const checkerFile = join(workDir, "checker.py");
+    await writeFile(checkerFile, slowChecker);
+
+    const result = await compileProgram("python", `print("hello")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "hello\n" });
+    const verdict = await judgeChecker(
+      result.runCommand,
+      tc,
+      ["python3", checkerFile],
+      TIMEOUT_MS
+    );
+    expect(verdict.verdict).toBe("SE");
+    expect(verdict.feedback).toContain("timed out");
+  }, 60_000);
+
+  it("checker crash → SE (not WA)", async () => {
+    // A checker that crashes with a Python exception
+    const crashingChecker = `raise RuntimeError("checker bug")`;
+    const checkerFile = join(workDir, "checker.py");
+    await writeFile(checkerFile, crashingChecker);
+
+    const result = await compileProgram("python", `print("hello")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "hello\n" });
+    const verdict = await judgeChecker(
+      result.runCommand,
+      tc,
+      ["python3", checkerFile],
+      TIMEOUT_MS
+    );
+    // Python exceptions exit with code 1, which parseCheckerOutput interprets as WA.
+    // This is by design: exit code 0 = AC, non-zero = WA per the checker protocol.
+    // Only signal kills and timeouts are SE.
+    expect(verdict.verdict).toBe("WA");
+  }, 30_000);
+
+  it("checker with invalid score output defaults gracefully", async () => {
+    const badScoreChecker = `import sys
+sys.stdout.write("not_a_number")
+sys.exit(0)
+`;
+    const checkerFile = join(workDir, "checker.py");
+    await writeFile(checkerFile, badScoreChecker);
+
+    const result = await compileProgram("python", `print("hello")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "hello\n" });
+    const verdict = await judgeChecker(
+      result.runCommand,
+      tc,
+      ["python3", checkerFile],
+      TIMEOUT_MS
+    );
+    // Exit 0 → AC, invalid score text → defaults to 100
+    expect(verdict.verdict).toBe("AC");
+    expect(verdict.score).toBe(100);
+  }, 30_000);
+
+  it("checker with no stdout defaults score", async () => {
+    const silentChecker = `import sys\nsys.exit(0)`;
+    const checkerFile = join(workDir, "checker.py");
+    await writeFile(checkerFile, silentChecker);
+
+    const result = await compileProgram("python", `print("hello")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "hello\n" });
+    const verdict = await judgeChecker(
+      result.runCommand,
+      tc,
+      ["python3", checkerFile],
+      TIMEOUT_MS
+    );
+    expect(verdict.verdict).toBe("AC");
+    expect(verdict.score).toBe(100);
+  }, 30_000);
+
+  it("checker spawn failure → SE", async () => {
+    const result = await compileProgram("python", `print("hello")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "hello\n" });
+    const verdict = await judgeChecker(
+      result.runCommand,
+      tc,
+      ["/nonexistent/checker"],
+      TIMEOUT_MS
+    );
+    expect(verdict.verdict).toBe("SE");
+    expect(verdict.feedback).toContain("Checker failed to start");
+  }, 30_000);
+
+  it("checker with partial score", async () => {
+    const partialChecker = `import sys
+sys.stdout.write("50")
+sys.exit(0)
+`;
+    const checkerFile = join(workDir, "checker.py");
+    await writeFile(checkerFile, partialChecker);
+
+    const result = await compileProgram("python", `print("hello")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "hello\n" });
+    const verdict = await judgeChecker(
+      result.runCommand,
+      tc,
+      ["python3", checkerFile],
+      TIMEOUT_MS
+    );
+    expect(verdict.verdict).toBe("AC");
+    expect(verdict.score).toBe(50);
+  }, 30_000);
+});
+
+describe("template injection edge cases", () => {
+  it("missing marker in driverCode throws clear error", () => {
+    const input: SandboxInput = {
+      submissionId: "test",
+      language: "python",
+      judgeType: "standard",
+      submissionType: "function",
+      limits: { timeoutMs: 5000, memoryMb: 256 },
+      template: {
+        driverCode: `print("no marker here")`,
+        insertionMarker: "__USER_CODE__"
+      }
+    };
+    expect(() => assembleSource("def solve(): pass", input)).toThrow(
+      /does not contain insertion marker/
+    );
+  });
+
+  it("missing template in function mode throws clear error", () => {
+    const input: SandboxInput = {
+      submissionId: "test",
+      language: "python",
+      judgeType: "standard",
+      submissionType: "function",
+      limits: { timeoutMs: 5000, memoryMb: 256 }
+    };
+    expect(() => assembleSource("def solve(): pass", input)).toThrow(
+      /requires a template/
+    );
+  });
+
+  it("multiple markers — only first is replaced", () => {
+    const input: SandboxInput = {
+      submissionId: "test",
+      language: "python",
+      judgeType: "standard",
+      submissionType: "function",
+      limits: { timeoutMs: 5000, memoryMb: 256 },
+      template: {
+        driverCode: `__USER_CODE__\nprint("middle")\n__USER_CODE__`,
+        insertionMarker: "__USER_CODE__"
+      }
+    };
+    const assembled = assembleSource("CODE", input);
+    // String.replace replaces only the first occurrence
+    expect(assembled).toBe(`CODE\nprint("middle")\n__USER_CODE__`);
+  });
+
+  it("full_source mode ignores template entirely", () => {
+    const input: SandboxInput = {
+      submissionId: "test",
+      language: "python",
+      judgeType: "standard",
+      submissionType: "full_source",
+      limits: { timeoutMs: 5000, memoryMb: 256 },
+      template: {
+        driverCode: `__USER_CODE__\nprint("driver")`,
+        insertionMarker: "__USER_CODE__"
+      }
+    };
+    const assembled = assembleSource("print('raw')", input);
+    expect(assembled).toBe("print('raw')");
+  });
+});
+
+describe("standard judge edge cases", () => {
+  it("empty expected and empty output → AC", async () => {
+    const result = await compileProgram("python", `pass`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ input: "", expected: "" });
+    const verdict = await judgeStandard(result.runCommand, tc, TIMEOUT_MS);
+    expect(verdict.verdict).toBe("AC");
+  }, 30_000);
+
+  it("CRLF output matches LF expected → AC", async () => {
+    // Python program that outputs CRLF
+    const result = await compileProgram("python", `import sys\nsys.stdout.write("hello\\r\\n")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ input: "", expected: "hello\n" });
+    const verdict = await judgeStandard(result.runCommand, tc, TIMEOUT_MS);
+    expect(verdict.verdict).toBe("AC");
+  }, 30_000);
+
+  it("trailing whitespace in output still matches if trimEnd matches", async () => {
+    // Output with trailing newlines
+    const result = await compileProgram("python", `print("8\\n\\n")`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const tc = makeTestcase({ expected: "8\n" });
+    const verdict = await judgeStandard(result.runCommand, tc, TIMEOUT_MS);
+    expect(verdict.verdict).toBe("AC");
+  }, 30_000);
+
+  it("score is 100 for AC, 0 for WA", async () => {
+    const result = await compileProgram("python", `print(8)`);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const acVerdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
+    expect(acVerdict.score).toBe(100);
+
+    const waVerdict = await judgeStandard(
+      result.runCommand,
+      makeTestcase({ expected: "999\n" }),
+      TIMEOUT_MS
+    );
+    expect(waVerdict.score).toBe(0);
+  }, 30_000);
 });

@@ -85,13 +85,14 @@ function mapResult(result: SandboxResult): SubmissionResult {
     };
   }
 
-  const totalWeight =
-    result.testcaseResults.reduce((s, t) => s + (t.score ?? 0), 0) ||
-    result.testcaseResults.length;
-  const passedWeight = result.testcaseResults
-    .filter((t) => t.verdict === "AC")
-    .reduce((s, t) => s + (t.score ?? 1), 0);
-  const score = Math.round((passedWeight / totalWeight) * 100);
+  // Score: average of per-testcase scores (each 0-100).
+  // Falls back to binary 100/0 per testcase if score field is absent.
+  const totalCases = result.testcaseResults.length;
+  const scoreSum = result.testcaseResults.reduce(
+    (s, t) => s + (t.score ?? (t.verdict === "AC" ? 100 : 0)),
+    0
+  );
+  const score = totalCases > 0 ? Math.round(scoreSum / totalCases) : 0;
   const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
 
   if (result.testcaseResults.every((t) => t.verdict === "AC")) {

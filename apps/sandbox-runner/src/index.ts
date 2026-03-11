@@ -195,7 +195,7 @@ async function main(): Promise<void> {
     }
 
     const checkerLang = config.checkerLanguage ?? "python";
-    const checkerResult = await compileChecker(checkerPath, checkerLang, workDir);
+    const checkerResult = await compileChecker(checkerPath, checkerLang, workDir, "checker");
     if (!checkerResult.success) {
       const output: SandboxOutput = {
         compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
@@ -218,8 +218,8 @@ async function main(): Promise<void> {
       return;
     }
 
-    const interactorLang = config.checkerLanguage ?? "python";
-    const interactorResult = await compileChecker(interactorPath, interactorLang, workDir);
+    const interactorLang = config.interactorLanguage ?? config.checkerLanguage ?? "python";
+    const interactorResult = await compileChecker(interactorPath, interactorLang, workDir, "interactor");
     if (!interactorResult.success) {
       const output: SandboxOutput = {
         compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,

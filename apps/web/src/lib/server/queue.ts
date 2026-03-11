@@ -1,7 +1,5 @@
 import { Queue } from "bullmq";
-import { cheatingSignalSchema, type CheatingSignal } from "@nojv/domain";
 import {
-  createCheatingSignalJob,
   createSubmissionJob,
   defaultJobOptions,
   queueNames,
@@ -16,7 +14,6 @@ const queueEnvSchema = z.object({
 
 interface QueueRegistry {
   queues: {
-    cheatingSignal: Queue<CheatingSignal>;
     submission: Queue<SubmissionJudgeJob>;
   };
 }
@@ -37,7 +34,6 @@ const globalForQueues = globalThis as typeof globalThis & {
 function createQueueRegistry(): QueueRegistry {
   return {
     queues: {
-      cheatingSignal: new Queue(queueNames.cheatingSignal, { connection }),
       submission: new Queue(queueNames.submission, { connection })
     }
   };
@@ -54,20 +50,4 @@ export async function dispatchSubmissionJob(payload: SubmissionJudgeJob): Promis
   const registry = getQueueRegistry();
 
   await registry.queues.submission.add(jobEnvelope.name, jobEnvelope.data, defaultJobOptions);
-}
-
-export async function bufferCheatingSignals(signals: CheatingSignal[]) {
-  const payload = z.array(cheatingSignalSchema).min(1).parse(signals);
-  const registry = getQueueRegistry();
-
-  await Promise.all(
-    payload.map((signal) => {
-      const jobEnvelope = createCheatingSignalJob(signal);
-      return registry.queues.cheatingSignal.add(
-        jobEnvelope.name,
-        jobEnvelope.data,
-        defaultJobOptions
-      );
-    })
-  );
 }
