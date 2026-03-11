@@ -3,19 +3,7 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SandboxExecutor, SandboxRequest, SandboxResult } from "./sandbox-executor";
-
-/** Must match sandbox-runner's sourceFileName() in compiler.ts */
-const sourceFileNames: Record<SandboxRequest["language"], string> = {
-  c: "main.c",
-  cpp: "main.cpp",
-  go: "main.go",
-  java: "Main.java",
-  javascript: "main.mjs",
-  python: "main.py",
-  rust: "main.rs",
-  typescript: "main.ts"
-};
+import { sourceFileNames, type SandboxExecutor, type SandboxRequest, type SandboxResult } from "@nojv/core";
 
 export interface DockerExecutorConfig {
   cpuLimit: string;
