@@ -8,19 +8,19 @@
 <div class="space-y-6">
   <h2 class="font-[family-name:var(--font-display)] text-3xl">{m.navigation_account()}</h2>
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
   >
     <dl class="grid gap-4 sm:grid-cols-2">
       <div>
-        <dt class="text-sm text-[color:var(--color-muted)]">{m.account_name()}</dt>
+        <dt class="text-sm text-muted-foreground">{m.account_name()}</dt>
         <dd class="mt-1 font-medium">{data.name}</dd>
       </div>
       <div>
-        <dt class="text-sm text-[color:var(--color-muted)]">{m.account_email()}</dt>
+        <dt class="text-sm text-muted-foreground">{m.account_email()}</dt>
         <dd class="mt-1 font-medium">{data.email}</dd>
       </div>
       <div>
-        <dt class="text-sm text-[color:var(--color-muted)]">{m.account_userAccount()}</dt>
+        <dt class="text-sm text-muted-foreground">{m.account_userAccount()}</dt>
         <dd class="mt-1 flex items-center gap-1.5 font-medium">
           {data.handle}
           {#if data.isSchoolVerified}
@@ -39,7 +39,7 @@
         </dd>
       </div>
       <div>
-        <dt class="text-sm text-[color:var(--color-muted)]">{m.account_role()}</dt>
+        <dt class="text-sm text-muted-foreground">{m.account_role()}</dt>
         <dd class="mt-1 font-medium">{data.platformRole}</dd>
       </div>
     </dl>

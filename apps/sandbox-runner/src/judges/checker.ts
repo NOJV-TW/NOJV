@@ -49,6 +49,7 @@ function runSolution(
     proc.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
     proc.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
+    proc.stdin.on("error", () => {}); // Ignore EPIPE when process exits before stdin is consumed
     proc.stdin.write(stdin);
     proc.stdin.end();
 

@@ -49,12 +49,12 @@
   }
 
   const inputClassName =
-    "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
+    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
   const textareaClassName = `${inputClassName} min-h-24 resize-y`;
 
   const defaultWindow = createDefaultAssessmentWindow();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
     invalidateAll: true
   });
 
@@ -68,12 +68,12 @@
 
 <div class="space-y-6">
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-2xl font-semibold">{m.courseManage_assessments()}</h3>
       <span
-        class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+        class="rounded-full border border-border px-3 py-1 text-xs font-medium"
       >
         {assessments.length}
       </span>
@@ -81,27 +81,27 @@
     <div class="mt-5 grid gap-3">
       {#each assessments as assessment (assessment.slug)}
         <article
-          class="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
+          class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
         >
           <div class="flex items-start justify-between gap-4">
             <div>
               <p
-                class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]"
+                class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
               >
                 {assessment.type}
               </p>
               <p class="mt-2 text-lg font-semibold">{assessment.title}</p>
-              <p class="mt-2 text-sm text-[color:var(--color-muted)]">
+              <p class="mt-2 text-sm text-muted-foreground">
                 {assessment.summary}
               </p>
             </div>
             <span
-              class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+              class="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
               {assessment.problemSlugs.length} problems
             </span>
           </div>
-          <p class="mt-3 text-sm text-[color:var(--color-muted)]">
+          <p class="mt-3 text-sm text-muted-foreground">
             {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
           </p>
         </article>
@@ -110,7 +110,7 @@
   </section>
 
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <h3 class="text-2xl font-semibold">{m.courseManage_publishAssessment()}</h3>
     <form
@@ -188,7 +188,7 @@
         </div>
       </div>
       <button
-        class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >

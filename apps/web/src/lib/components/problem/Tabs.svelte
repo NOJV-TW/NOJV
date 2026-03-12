@@ -28,9 +28,12 @@
     editableProblems: EditableProblemCard[] | null;
     publicProblems: ProblemCard[];
     showCreate?: boolean;
+    solvedSlugs?: string[];
   }
 
-  let { editableProblems, publicProblems, showCreate }: Props = $props();
+  let { editableProblems, publicProblems, showCreate, solvedSlugs }: Props = $props();
+
+  let solvedSet = $derived(new Set(solvedSlugs ?? []));
 
   let tab = $state<"public" | "mine">("public");
 
@@ -145,8 +148,8 @@
 <div class="flex items-center gap-2">
   <button
     class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'public'
-      ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-white'
-      : 'border-[color:var(--color-border)] hover:-translate-y-0.5 hover:bg-white/70'}"
+      ? 'border-primary bg-primary text-white'
+      : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
     onclick={() => {
       tab = "public";
       resetOther();
@@ -158,8 +161,8 @@
   {#if editableProblems !== null}
     <button
       class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'mine'
-        ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-white'
-        : 'border-[color:var(--color-border)] hover:-translate-y-0.5 hover:bg-white/70'}"
+        ? 'border-primary bg-primary text-white'
+        : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
       onclick={() => {
         tab = "mine";
         resetOther();
@@ -171,7 +174,7 @@
   {/if}
   {#if showCreate}
     <a
-      class="ml-auto rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-white/70"
+      class="ml-auto rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
       href="/problems/create"
     >
       + {m.problems_createNew()}
@@ -183,7 +186,7 @@
 <div class="flex flex-col gap-3">
   <div class="relative">
     <svg
-      class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--color-muted)]"
+      class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
       fill="none"
       stroke="currentColor"
       stroke-width="2"
@@ -193,7 +196,7 @@
       <path d="m21 21-4.35-4.35" stroke-linecap="round"></path>
     </svg>
     <input
-      class="w-full rounded-full border border-[color:var(--color-border)] py-2 pl-9 pr-4 text-sm outline-none focus:border-[color:var(--color-accent)]"
+      class="w-full rounded-full border border-border py-2 pl-9 pr-4 text-sm outline-none focus:border-primary"
       oninput={(e) => setActiveSearch((e.target as HTMLInputElement).value)}
       placeholder={m.problems_searchProblems()}
       type="text"
@@ -206,15 +209,15 @@
     aria-label={m.problems_filterByDifficulty()}
     role="group"
   >
-    <span class="text-xs font-medium text-[color:var(--color-muted)]">
+    <span class="text-xs font-medium text-muted-foreground">
       {m.common_difficulty()}:
     </span>
     {#each difficulties as d (d)}
       <button
         class="rounded-full border px-3 py-1 text-xs font-medium transition {activeDifficulty ===
         d
-          ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-white'
-          : 'border-[color:var(--color-border)] hover:bg-white/70'}"
+          ? 'border-primary bg-primary text-white'
+          : 'border-border hover:bg-[color:var(--color-panel)]'}"
         onclick={() => setActiveDifficulty(d)}
         type="button"
       >
@@ -234,8 +237,8 @@
           class="rounded-full border px-3 py-1 text-xs font-medium transition {activeSelectedTags.has(
             tag
           )
-            ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-white'
-            : 'border-[color:var(--color-border)] hover:bg-white/70'}"
+            ? 'border-primary bg-primary text-white'
+            : 'border-border hover:bg-[color:var(--color-panel)]'}"
           onclick={() => toggleTag(tag)}
           type="button"
         >
@@ -249,30 +252,39 @@
 {#if tab === "public"}
   <section class="grid gap-4">
     {#if publicProblems.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">{m.problems_empty()}</p>
+      <p class="text-sm text-muted-foreground">{m.problems_empty()}</p>
     {/if}
     {#if publicProblems.length > 0 && publicFiltered.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">{m.problems_noResults()}</p>
+      <p class="text-sm text-muted-foreground">{m.problems_noResults()}</p>
     {/if}
     {#each publicFiltered as problem (problem.slug)}
       <a
-        class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.8fr_0.8fr] sm:items-center transition hover:-translate-y-0.5"
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.8fr_0.8fr] sm:items-center transition hover:-translate-y-0.5"
         href="/problems/{problem.slug}"
       >
         <div>
           <p
-            class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]"
+            class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
           >
             {problem.slug}
           </p>
-          <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
+          <div class="mt-2 flex items-center gap-2">
+            {#if solvedSet.has(problem.slug)}
+              <span class="text-emerald-500" title="Solved">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </span>
+            {/if}
+            <h3 class="text-2xl font-semibold">{problem.title}</h3>
+          </div>
         </div>
         <div>
-          <p class="text-sm text-[color:var(--color-muted)]">{m.common_difficulty()}</p>
+          <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
           <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
         <div class="sm:text-right">
-          <p class="text-sm text-[color:var(--color-muted)]">{m.common_acceptance()}</p>
+          <p class="text-sm text-muted-foreground">{m.common_acceptance()}</p>
           <p class="mt-1 text-lg font-semibold">
             {formatAcceptanceRate(problem.acceptanceRate)}
           </p>
@@ -285,33 +297,33 @@
 {#if tab === "mine" && editableProblems !== null}
   <section class="grid gap-4">
     {#if editableProblems.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">
+      <p class="text-sm text-muted-foreground">
         {m.problems_myProblemsEmpty()}
       </p>
     {/if}
     {#if editableProblems.length > 0 && mineFiltered.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">{m.problems_noResults()}</p>
+      <p class="text-sm text-muted-foreground">{m.problems_noResults()}</p>
     {/if}
     {#each mineFiltered as problem (problem.slug)}
       <a
-        class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr] sm:items-center transition hover:-translate-y-0.5"
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr] sm:items-center transition hover:-translate-y-0.5"
         href="/problems/{problem.slug}"
       >
         <div>
           <p
-            class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]"
+            class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
           >
             {problem.slug}
           </p>
           <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
         </div>
         <div>
-          <p class="text-sm text-[color:var(--color-muted)]">{m.common_difficulty()}</p>
+          <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
           <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
         <div class="sm:text-right">
           <span
-            class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium {problem.visibility ===
+            class="rounded-full border border-border px-3 py-1 text-xs font-medium {problem.visibility ===
             'public'
               ? 'text-emerald-600'
               : 'text-amber-600'}"

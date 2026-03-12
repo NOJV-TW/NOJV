@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { superForm } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
 
   let { data } = $props();
 
-  const role = (data.user as Record<string, unknown> | null)?.platformRole;
-  const canCreate = role === "admin" || role === "teacher";
+  let canCreate = $derived(
+    data.user?.platformRole === "admin" || data.user?.platformRole === "teacher"
+  );
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(data.form, {
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => data.form), {
     invalidateAll: true
   });
 </script>
@@ -16,35 +18,35 @@
   <h2 class="font-[family-name:var(--font-display)] text-3xl">{m.navigation_courses()}</h2>
 
   {#if data.courses.length === 0}
-    <p class="text-sm text-[color:var(--color-muted)]">{m.courseDetail_empty()}</p>
+    <p class="text-sm text-muted-foreground">{m.courseDetail_empty()}</p>
   {/if}
 
   <section class="grid gap-4 lg:grid-cols-2">
     {#each data.courses as course (course.slug)}
       <a
-        class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6 transition hover:-translate-y-0.5"
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm transition hover:-translate-y-0.5"
         href="/courses/{course.slug}"
       >
         <div class="flex items-center justify-between gap-4">
           <div>
-            <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
+            <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
               {m.courseDetail_course()}
             </p>
             <h3 class="mt-2 text-2xl font-semibold">{course.title}</h3>
           </div>
           <span
-            class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+            class="rounded-full border border-border px-3 py-1 text-xs font-medium"
           >
             {m.courseDetail_rbacEnabled()}
           </span>
         </div>
         <dl class="mt-5 grid gap-4 sm:grid-cols-2">
           <div>
-            <dt class="text-sm text-[color:var(--color-muted)]">{m.common_members()}</dt>
+            <dt class="text-sm text-muted-foreground">{m.common_members()}</dt>
             <dd class="mt-1 text-lg font-semibold">{course.memberCount}</dd>
           </div>
           <div>
-            <dt class="text-sm text-[color:var(--color-muted)]">{m.common_assessments()}</dt>
+            <dt class="text-sm text-muted-foreground">{m.common_assessments()}</dt>
             <dd class="mt-1 text-lg font-semibold">{course.assessmentCount}</dd>
           </div>
         </dl>
@@ -54,10 +56,10 @@
 
   {#if canCreate}
     <section
-      class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
     >
       <h3 class="text-2xl font-semibold">{m.admin_createCourse()}</h3>
-      <p class="mt-1 text-sm text-[color:var(--color-muted)]">
+      <p class="mt-1 text-sm text-muted-foreground">
         {m.admin_createCourseSubtitle()}
       </p>
       <form
@@ -69,7 +71,7 @@
         <div>
           <label class="text-sm font-medium" for="course-title">{m.admin_title()}</label>
           <input
-            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
             id="course-title"
             name="title"
             bind:value={$form.title}
@@ -80,7 +82,7 @@
         <div>
           <label class="text-sm font-medium" for="course-slug">{m.admin_slug()}</label>
           <input
-            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
             id="course-slug"
             name="slug"
             bind:value={$form.slug}
@@ -93,7 +95,7 @@
         <div>
           <label class="text-sm font-medium" for="course-description">{m.admin_description()}</label>
           <textarea
-            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
             id="course-description"
             name="description"
             bind:value={$form.description}
@@ -105,7 +107,7 @@
         <div>
           <label class="text-sm font-medium" for="course-locale">{m.admin_locale()}</label>
           <select
-            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
             id="course-locale"
             name="locale"
             bind:value={$form.locale}
@@ -115,7 +117,7 @@
           </select>
         </div>
         <button
-          class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+          class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
           disabled={$submitting}
           type="submit"
         >

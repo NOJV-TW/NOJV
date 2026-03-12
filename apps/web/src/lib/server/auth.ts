@@ -1,12 +1,8 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { prisma, type TransactionClient } from "@nojv/db";
-import {
-  platformRoleSchema,
-  type CourseRole,
-  type EffectiveCourseRole,
-  type PlatformRole
-} from "@nojv/core";
+import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
+import { parseSessionUser } from "$lib/session";
 
 import {
   canEditProblem,
@@ -57,40 +53,36 @@ export interface ActorContext {
 export type CompletedActorContext = ActorContext & { handle: string };
 
 export function getActorContext(event: RequestEvent): ActorContext | null {
-  const user = event.locals.user;
+  const sessionUser = parseSessionUser(event.locals.user);
 
-  if (!user) {
+  if (!sessionUser) {
     return null;
   }
 
-  const extra = user as Record<string, unknown>;
-  const parsedRole = platformRoleSchema.safeParse(extra.platformRole);
-
   return {
-    displayName: user.name,
-    email: user.email,
-    handle: readHandleFromAuthUser(extra),
-    platformRole: parsedRole.success ? parsedRole.data : "student",
-    userId: user.id
+    displayName: sessionUser.name,
+    email: sessionUser.email,
+    handle: sessionUser.handle,
+    platformRole: sessionUser.platformRole,
+    userId: sessionUser.id
   };
 }
 
 // --- Onboarding helpers ---
 
-export { HANDLE_INPUT_PATTERN, isValidHandle, readPlatformRole } from "$lib/validation";
+export { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/validation";
 
 export function readStringValue(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-export function readHandleFromAuthUser(user: Record<string, unknown>): string | null {
-  const handle = readStringValue(user.username);
-
-  return handle && handle.length > 0 ? handle : null;
+export function readHandleFromRawUser(raw: unknown): string | null {
+  const sessionUser = parseSessionUser(raw);
+  return sessionUser?.handle ?? null;
 }
 
-export function hasCompletedHandle(user: Record<string, unknown>): boolean {
-  return readHandleFromAuthUser(user) !== null;
+export function hasCompletedHandle(raw: unknown): boolean {
+  return readHandleFromRawUser(raw) !== null;
 }
 
 export function hasActorHandle<T extends { handle: string | null }>(

@@ -467,6 +467,25 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
 
 // ─── Assessment list loader ──────────────────────────────────────────
 
+export async function getAssessmentContext(courseSlug: string, assessmentSlug: string) {
+  const assessment = await prisma.courseAssessment.findFirst({
+    select: {
+      course: { select: { slug: true } },
+      slug: true,
+      type: true
+    },
+    where: {
+      course: { slug: courseSlug },
+      slug: assessmentSlug,
+      status: "published"
+    }
+  });
+
+  return assessment
+    ? { courseSlug: assessment.course.slug, slug: assessment.slug, type: assessment.type }
+    : null;
+}
+
 export function createAssessmentListLoader(type: CourseAssessmentType) {
   return async ({ locals }: { locals: App.Locals }) => {
     const userId = locals.user?.id ?? null;
@@ -494,4 +513,27 @@ export function createAssessmentListLoader(type: CourseAssessmentType) {
       })
     };
   };
+}
+
+export async function getActiveExamForUser(userId: string) {
+  const now = new Date();
+
+  return prisma.courseAssessment.findFirst({
+    where: {
+      type: "exam",
+      status: "published",
+      pageLockEnabled: true,
+      opensAt: { lte: now },
+      closesAt: { gte: now },
+      course: {
+        memberships: {
+          some: { userId, status: "active" }
+        }
+      }
+    },
+    select: {
+      slug: true,
+      course: { select: { slug: true } }
+    }
+  });
 }

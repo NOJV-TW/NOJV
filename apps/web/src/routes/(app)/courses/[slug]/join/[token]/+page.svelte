@@ -14,12 +14,12 @@
     joinToken={data.joinToken}
   />
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
   >
-    <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
+    <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
       {m.navigation_courses()}
     </p>
-    <p class="mt-3 text-sm leading-7 text-[color:var(--color-muted)]">
+    <p class="mt-3 text-sm leading-7 text-muted-foreground">
       {m.courseJoin_hint()}
     </p>
   </section>

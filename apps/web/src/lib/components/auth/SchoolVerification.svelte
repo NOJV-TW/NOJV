@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { parseSchoolEmail } from "$lib/school";
 
   interface Props {
@@ -32,7 +33,7 @@
 
     const bc = new BroadcastChannel("nojv-school-verify");
     bc.onmessage = (event: MessageEvent) => {
-      if ((event.data as { type?: string }).type === "verified") {
+      if (broadcastVerifiedSchema.safeParse(event.data).success) {
         phase = "verified";
         setTimeout(() => {
           void invalidateAll();
@@ -55,23 +56,23 @@
 
 {#if isSchoolVerified}
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
   >
     <h3 class="text-sm font-medium">{m.account_schoolVerification()}</h3>
     <p class="mt-1 text-sm text-green-600">{m.account_schoolVerified()}</p>
   </section>
 {:else}
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
   >
     <h3 class="text-sm font-medium">{m.account_schoolVerification()}</h3>
-    <p class="mt-1 text-sm text-[color:var(--color-muted)]">
+    <p class="mt-1 text-sm text-muted-foreground">
       {m.account_schoolVerificationDesc()}
     </p>
 
     {#if phase === "idle"}
       <button
-        class="mt-3 rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:bg-white/70"
+        class="mt-3 rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
         onclick={() => (phase = "form")}
         type="button"
       >
@@ -96,8 +97,8 @@
               phase = "sent";
               cooldown = RESEND_COOLDOWN;
             } else if (result.type === "failure") {
-              const data = result.data as { error?: string } | undefined;
-              error = data?.error ?? "Failed to send verification email";
+              const parsed = actionErrorSchema.safeParse(result.data);
+              error = parsed.success ? parsed.data.error : "Failed to send verification email";
             } else {
               await update();
             }
@@ -107,14 +108,14 @@
         <label class="flex flex-col gap-1 text-sm">
           {m.account_schoolEmailLabel()}
           <input
-            class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
+            class="rounded-2xl border border-border bg-white/60 px-3 py-3"
             bind:value={schoolEmail}
             name="email"
             placeholder={m.account_schoolEmailPlaceholder()}
             required
             type="email"
           />
-          <span class="text-xs text-[color:var(--color-muted)]">
+          <span class="text-xs text-muted-foreground">
             {m.account_acceptedDomains()}
           </span>
         </label>
@@ -123,14 +124,14 @@
         {/if}
         <div class="flex gap-2">
           <button
-            class="rounded-lg bg-[color:var(--color-accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            class="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
             disabled={loading}
             type="submit"
           >
             {loading ? m.account_sending() : m.account_sendVerification()}
           </button>
           <button
-            class="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:bg-white/70"
+            class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
             onclick={() => {
               phase = "idle";
               error = "";
@@ -157,8 +158,8 @@
               if (result.type === "success") {
                 cooldown = RESEND_COOLDOWN;
               } else if (result.type === "failure") {
-                const data = result.data as { error?: string } | undefined;
-                error = data?.error ?? "Failed to send verification email";
+                const parsed = actionErrorSchema.safeParse(result.data);
+                error = parsed.success ? parsed.data.error : "Failed to send verification email";
               } else {
                 await update();
               }
@@ -167,7 +168,7 @@
         >
           <input type="hidden" name="email" value={schoolEmail} />
           <button
-            class="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:bg-white/70 disabled:opacity-50"
+            class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)] disabled:opacity-50"
             disabled={cooldown > 0 || loading}
             type="submit"
           >
@@ -176,7 +177,7 @@
               : m.account_resend()}
           </button>
           <button
-            class="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:bg-white/70"
+            class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
             onclick={() => {
               phase = "form";
               error = "";

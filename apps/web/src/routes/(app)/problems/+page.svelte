@@ -12,5 +12,6 @@
     editableProblems={data.editableProblems}
     publicProblems={data.publicProblems}
     showCreate={data.showCreate}
+    solvedSlugs={data.solvedSlugs}
   />
 </div>

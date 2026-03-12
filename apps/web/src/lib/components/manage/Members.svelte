@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -18,19 +19,19 @@
 
   let { courseSlug, courseTitle, form: formData, members }: Props = $props();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
     invalidateAll: true
   });
 </script>
 
 <div class="space-y-6">
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-2xl font-semibold">{m.courseManage_members()}</h3>
       <span
-        class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+        class="rounded-full border border-border px-3 py-1 text-xs font-medium"
       >
         {members.length}
       </span>
@@ -38,21 +39,21 @@
     <div class="mt-5 space-y-3">
       {#each members as member (member.userId)}
         <article
-          class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
+          class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
         >
           <div>
             <p class="text-lg font-semibold">{member.displayName}</p>
-            <p class="mt-1 text-sm text-[color:var(--color-muted)]">
+            <p class="mt-1 text-sm text-muted-foreground">
               {member.handle ?? "\u2014"} &middot; {member.email}
             </p>
           </div>
           <div class="text-right">
             <p
-              class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]"
+              class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
             >
               {member.courseRole}
             </p>
-            <p class="mt-1 text-sm text-[color:var(--color-muted)]">
+            <p class="mt-1 text-sm text-muted-foreground">
               via {member.joinedVia.replaceAll("_", " ")}
             </p>
           </div>
@@ -62,7 +63,7 @@
   </section>
 
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <h3 class="text-2xl font-semibold">{m.courseManage_enrollMember()}</h3>
     <form
@@ -72,7 +73,7 @@
       use:enhance
     >
       <input
-        class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+        class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
         name="displayName"
         bind:value={$form.displayName}
         placeholder="Display name"
@@ -82,7 +83,7 @@
       <div class="grid gap-3 md:grid-cols-2">
         <div>
           <input
-            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
             name="email"
             bind:value={$form.email}
             placeholder="Email"
@@ -93,7 +94,7 @@
         </div>
         <div>
           <input
-            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
             name="handle"
             bind:value={$form.handle}
             placeholder="Handle"
@@ -102,13 +103,13 @@
           {#if $errors.handle}<span class="text-sm text-red-700">{$errors.handle}</span>{/if}
         </div>
       </div>
-      <select class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm" name="role" bind:value={$form.role}>
+      <select class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm" name="role" bind:value={$form.role}>
         <option value="student">student</option>
         <option value="ta">ta</option>
         <option value="teacher">teacher</option>
       </select>
       <button
-        class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >

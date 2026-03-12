@@ -3,14 +3,10 @@
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
+  import UserIcon from "@lucide/svelte/icons/user";
+  import LogOutIcon from "@lucide/svelte/icons/log-out";
 
-  let user = $derived(
-    $page.data.user as {
-      name: string;
-      email: string;
-      handle?: string;
-    } | null
-  );
+  let user = $derived($page.data.user);
   let session = $derived($page.data.session);
 
   let open = $state(false);
@@ -45,51 +41,55 @@
   <!-- No session: render nothing (sign-in is handled elsewhere) -->
 {:else if !user}
   <div
-    class="size-9 animate-pulse rounded-full border border-[color:var(--color-border)] bg-white/60"
+    class="size-9 animate-pulse rounded-full border border-border bg-white/60"
   ></div>
 {:else}
   {@const initial = (user.name.charAt(0) || "?").toUpperCase()}
   {@const hasHandle = !!user.handle}
 
-  <button
-    bind:this={btnEl}
-    class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-accent)] text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90"
-    onclick={() => (open = !open)}
-    title={user.name}
-    type="button"
-  >
-    {initial}
-  </button>
-
-  {#if open}
-    <div
-      bind:this={dropdownEl}
-      class="absolute right-0 top-full z-50 mt-2 min-w-[10rem] overflow-hidden rounded-xl border border-[color:var(--color-border)] bg-white py-1 shadow-lg"
+  <div class="relative">
+    <button
+      bind:this={btnEl}
+      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-primary text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90"
+      onclick={() => (open = !open)}
+      title={user.name}
+      type="button"
     >
-      <div class="border-b border-[color:var(--color-border)] px-4 py-2.5">
-        <p class="truncate text-sm font-medium">{user.name}</p>
-        <p class="truncate text-xs text-[color:var(--color-muted)]">
-          {user.email}
-        </p>
-      </div>
+      {initial}
+    </button>
 
-      {#if hasHandle}
-        <a
-          class="flex items-center gap-2 px-4 py-2 text-sm transition hover:bg-[color:var(--color-accent)]/10"
-          href="/account"
-          onclick={() => (open = false)}
-        >
-          {m.navigation_account()}
-        </a>
-      {/if}
-
-      <button
-        class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
-        onclick={handleSignOut}
-        type="button"
+    {#if open}
+      <div
+        bind:this={dropdownEl}
+        class="absolute right-0 top-full z-50 mt-2 min-w-[10rem] overflow-hidden rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] py-1 shadow-lg backdrop-blur-sm"
       >
-        {m.auth_signOut()}
-      </button>
-    </div>
-  {/if}
+        <div class="border-b border-border px-4 py-2.5">
+          <p class="truncate text-sm font-medium">{user.name}</p>
+          <p class="truncate text-xs text-muted-foreground">
+            {user.email}
+          </p>
+        </div>
+
+        {#if hasHandle}
+          <a
+            class="flex items-center gap-2 px-4 py-2 text-sm transition hover:bg-primary/10"
+            href="/account"
+            onclick={() => (open = false)}
+          >
+            <UserIcon size={16} />
+            {m.navigation_account()}
+          </a>
+        {/if}
+
+        <button
+          class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
+          onclick={handleSignOut}
+          type="button"
+        >
+          <LogOutIcon size={16} />
+          {m.auth_signOut()}
+        </button>
+      </div>
+    {/if}
+  </div>
 {/if}

@@ -2,6 +2,7 @@ import { prisma, type TransactionClient } from "@nojv/db";
 import type {
   Language,
   ProblemCreate,
+  ProblemDifficulty,
   ProblemTestcaseSetCreate,
   ProblemUpdate
 } from "@nojv/core";
@@ -14,7 +15,7 @@ import { ensureUser } from "../user/mutations";
 export interface CreateProblemDefinitionInput {
   authorId?: string;
   checkerScript?: string | undefined;
-  difficulty: "easy" | "hard" | "medium";
+  difficulty: ProblemDifficulty;
   inputFormat?: string;
   interactorScript?: string | undefined;
   judgeType?: "checker" | "interactive" | "standard";
@@ -106,7 +107,7 @@ export async function replaceTemplates(
   templates: {
     driverCode: string;
     insertionMarker: string;
-    language: string;
+    language: Language;
     templateCode: string;
   }[]
 ) {
@@ -120,7 +121,7 @@ export async function replaceTemplates(
       data: templates.map((tpl) => ({
         driverCode: tpl.driverCode,
         insertionMarker: tpl.insertionMarker,
-        language: tpl.language as Language,
+        language: tpl.language,
         problemId,
         templateCode: tpl.templateCode
       }))
@@ -134,7 +135,7 @@ export async function updateProblemTemplates(
   templates: {
     driverCode: string;
     insertionMarker: string;
-    language: string;
+    language: Language;
     templateCode: string;
   }[]
 ) {

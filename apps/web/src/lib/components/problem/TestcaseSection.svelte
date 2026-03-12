@@ -4,11 +4,11 @@
   import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
 
   const monoTextareaClassName =
-    "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm min-h-24 resize-y font-mono";
+    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm min-h-24 resize-y font-mono";
   const smallInputClassName =
-    "w-full rounded-xl border border-[color:var(--color-border)] bg-white/80 px-2 py-1.5 text-xs font-mono";
+    "w-full rounded-[1.5rem] border border-border bg-white/60 px-2 py-1.5 text-xs font-mono";
   const pillButton =
-    "inline-flex rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white";
+    "inline-flex rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white";
 
   interface ExampleCase {
     stdin: string;
@@ -105,11 +105,11 @@
 </script>
 
 <!-- Examples Section -->
-<div class="mt-2 border-t border-[color:var(--color-border)] pt-5">
+<div class="mt-2 border-t border-border pt-5">
   <div class="flex items-center justify-between gap-4">
     <div>
       <p class="text-sm font-bold">{m.testcases_sampleCases()}</p>
-      <p class="mt-1 text-xs text-[color:var(--color-muted)]">
+      <p class="mt-1 text-xs text-muted-foreground">
         {m.testcases_sampleCasesHint()}
       </p>
     </div>
@@ -118,7 +118,7 @@
   <div class="mt-3 grid gap-3">
     {#each examples as ex, i (`example-${i}`)}
       <div
-        class="rounded-xl border border-[color:var(--color-border)] bg-white/50 px-4 py-3"
+        class="rounded-[1.5rem] border border-border bg-white/50 px-4 py-3"
       >
         <div class="flex items-center justify-between gap-4">
           <p class="text-sm font-semibold">{m.testcases_case()} {i + 1}</p>
@@ -133,7 +133,7 @@
           {/if}
         </div>
         <div class="mt-3 grid gap-4 lg:grid-cols-2">
-          <label class="text-sm text-[color:var(--color-muted)]">
+          <label class="text-sm text-muted-foreground">
             {m.testcases_stdin()}
             <textarea
               class={monoTextareaClassName}
@@ -142,7 +142,7 @@
               value={ex.stdin}
             ></textarea>
           </label>
-          <label class="text-sm text-[color:var(--color-muted)]">
+          <label class="text-sm text-muted-foreground">
             {m.testcases_expectedStdout()}
             <textarea
               class={monoTextareaClassName}
@@ -169,18 +169,18 @@
 
 <!-- ZIP Upload Section -->
 {#if !isEditMode}
-  <div class="mt-2 border-t border-[color:var(--color-border)] pt-5">
+  <div class="mt-2 border-t border-border pt-5">
     <p class="text-sm font-bold">{m.testcases_hiddenCases()}</p>
-    <p class="mt-1 text-xs text-[color:var(--color-muted)]">
+    <p class="mt-1 text-xs text-muted-foreground">
       {m.testcases_uploadZipHint()}
     </p>
 
     <div
-      class="mt-3 rounded-xl border border-dashed border-[color:var(--color-border)] bg-white/40 px-4 py-3"
+      class="mt-3 rounded-[1.5rem] border border-dashed border-border bg-white/40 px-4 py-3"
     >
       <div class="flex flex-wrap items-end gap-3">
         <div class="grid gap-1">
-          <span class="text-xs text-[color:var(--color-muted)]">Regex</span>
+          <span class="text-xs text-muted-foreground">Regex</span>
           <input
             class="{smallInputClassName} w-48"
             oninput={(e) => (regexPattern = (e.target as HTMLInputElement).value)}
@@ -189,7 +189,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-[color:var(--color-muted)]">Input Extension</span>
+          <span class="text-xs text-muted-foreground">Input Extension</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (inExt = (e.target as HTMLInputElement).value)}
@@ -197,7 +197,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-[color:var(--color-muted)]">Output Extension</span>
+          <span class="text-xs text-muted-foreground">Output Extension</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (outExt = (e.target as HTMLInputElement).value)}
@@ -205,12 +205,12 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-[color:var(--color-muted)]">
+          <span class="text-xs text-muted-foreground">
             {m.testcases_uploadZip()}
           </span>
           <input
             accept=".zip"
-            class="text-xs file:mr-2 file:rounded-full file:border file:border-[color:var(--color-border)] file:bg-white/80 file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-white"
+            class="text-xs file:mr-2 file:rounded-full file:border file:border-border file:bg-white/60 file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-white"
             onchange={(e) => {
               const file = (e.target as HTMLInputElement).files?.[0];
               if (file) void handleZipUpload(file);
@@ -229,7 +229,7 @@
           >
             {zipFileName} — {parsedCases.length} cases uploaded
           </span>
-          <span class="text-xs text-[color:var(--color-muted)]">
+          <span class="text-xs text-muted-foreground">
             {subtasks.length} subtask{subtasks.length !== 1 ? "s" : ""} detected
           </span>
           <span
@@ -242,13 +242,13 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-xs text-[color:var(--color-muted)]">Auto-split into:</span>
+          <span class="text-xs text-muted-foreground">Auto-split into:</span>
           {#each [1, 2, 3, 4, 5] as n (n)}
             <button
               class="rounded-full border px-3 py-1 text-xs font-medium transition {subtasks.length ===
               n
-                ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 text-[color:var(--color-accent)]'
-                : 'border-[color:var(--color-border)] hover:bg-white'}"
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border hover:bg-white'}"
               onclick={() => autoSplitEvenly(n)}
               type="button"
             >
@@ -263,21 +263,21 @@
         <div class="grid gap-4">
           {#each subtasks as subtask, si (`subtask-${si}`)}
             <div
-              class="rounded-2xl border border-[color:var(--color-border)] bg-white/70 px-5 py-4"
+              class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4"
             >
               <div class="flex flex-wrap items-center gap-3">
                 <input
-                  class="rounded-xl border border-[color:var(--color-border)] bg-white/80 px-3 py-2 text-sm font-semibold"
+                  class="rounded-[1.5rem] border border-border bg-white/60 px-3 py-2 text-sm font-semibold"
                   oninput={(e) =>
                     updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
                   value={subtask.name}
                 />
                 <label
-                  class="flex items-center gap-2 text-sm text-[color:var(--color-muted)]"
+                  class="flex items-center gap-2 text-sm text-muted-foreground"
                 >
                   {m.testcases_subtaskPoints()}
                   <input
-                    class="w-20 rounded-xl border border-[color:var(--color-border)] bg-white/80 px-2 py-2 text-sm"
+                    class="w-20 rounded-[1.5rem] border border-border bg-white/60 px-2 py-2 text-sm"
                     min="0"
                     oninput={(e) =>
                       updateSubtask(si, {
@@ -303,7 +303,7 @@
                 {/if}
               </div>
               <textarea
-                class="mt-3 w-full rounded-xl border border-[color:var(--color-border)] bg-white/80 px-3 py-2 text-sm"
+                class="mt-3 w-full rounded-[1.5rem] border border-border bg-white/60 px-3 py-2 text-sm"
                 oninput={(e) =>
                   updateSubtask(si, {
                     description: (e.target as HTMLTextAreaElement).value

@@ -10,49 +10,15 @@ import {
 } from "../types";
 import { assessmentContextSchema } from "./course";
 
-export const submissionDraftSchema = z
-  .object({
-    assessment: assessmentContextSchema.optional(),
-    contestSlug: slugSchema.optional(),
-    language: languageSchema,
-    mode: submissionModeSchema,
-    problemSlug: slugSchema,
-    sampleOnly: z.boolean().optional(),
-    sourceCode: sourceCodeSchema
-  })
-  .superRefine((value, ctx) => {
-    if (value.mode === "contest" && !value.contestSlug) {
-      ctx.addIssue({
-        code: "custom",
-        message: "contestSlug is required for contest submissions",
-        path: ["contestSlug"]
-      });
-    }
-
-    if (value.mode === "exam") {
-      if (!value.assessment) {
-        ctx.addIssue({
-          code: "custom",
-          message: "assessment is required for exam submissions",
-          path: ["assessment"]
-        });
-      } else if (value.assessment.kind !== "exam") {
-        ctx.addIssue({
-          code: "custom",
-          message: "assessment.kind must be exam for exam submissions",
-          path: ["assessment", "kind"]
-        });
-      }
-    }
-
-    if (value.mode === "assignment" && value.assessment?.kind === "exam") {
-      ctx.addIssue({
-        code: "custom",
-        message: "assignment submissions cannot target exam assessments",
-        path: ["assessment", "kind"]
-      });
-    }
-  });
+export const submissionDraftSchema = z.object({
+  assessment: assessmentContextSchema.optional(),
+  contestSlug: slugSchema.optional(),
+  language: languageSchema,
+  mode: submissionModeSchema.optional(),
+  problemSlug: slugSchema,
+  sampleOnly: z.boolean().optional(),
+  sourceCode: sourceCodeSchema
+});
 
 export const testcaseResultItemSchema = z.object({
   index: z.number().int().nonnegative(),

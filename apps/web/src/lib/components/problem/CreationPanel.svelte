@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { superForm } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
-  import { supportedLanguages, type JudgeType, type Language, type SubmissionType } from "@nojv/core";
+  import { apiErrorSchema, supportedLanguages, type JudgeType, type Language, type SubmissionType } from "@nojv/core";
 
   const judgeTypeLabel: Record<string, () => string> = {
     standard: () => m.admin_standard(),
@@ -17,7 +17,7 @@
   import TestcaseSection from "./TestcaseSection.svelte";
 
   const inputClassName =
-    "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
+    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
   const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
   interface ExampleCase {
@@ -57,7 +57,7 @@ sys.stdout.flush()
 `;
 
   // --- superForm setup ---
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
     dataType: 'json',
     onResult({ result }) {
       if (result.type === 'success' && result.data) {
@@ -131,8 +131,8 @@ sys.stdout.flush()
     const response = await fetch(`?/${actionName}`, { method: "POST", body: fd });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { message?: string } | null;
-      throw new Error(body?.message ?? `Action ${actionName} failed.`);
+      const parsed = apiErrorSchema.safeParse(await response.json().catch(() => null));
+      throw new Error(parsed.success ? parsed.data.message : `Action ${actionName} failed.`);
     }
   }
 
@@ -170,7 +170,7 @@ sys.stdout.flush()
     }
   });
 
-  async function handlePostSubmit(resultData: Record<string, unknown>) {
+  async function handlePostSubmit(resultData: { slug?: unknown }) {
     postError = null;
 
     try {
@@ -178,7 +178,7 @@ sys.stdout.flush()
         const slug = init?.slug ?? "";
         goto(`/problems/${slug}`);
       } else {
-        const slug = resultData.slug as string;
+        const slug = String(resultData.slug ?? "");
 
         const validExamples = examples.filter((e) => e.stdin.trim().length > 0);
         if (validExamples.length > 0) {
@@ -221,10 +221,10 @@ sys.stdout.flush()
 
 </script>
 
-<section class="rounded-2xl border border-[color:var(--color-border)] bg-white/60 px-6 py-6">
+<section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
   <form class="grid gap-4" method="POST" action={isEditMode ? "?/update" : "?/create"} use:enhance>
     <!-- Title -->
-    <label class="text-sm text-[color:var(--color-muted)]">
+    <label class="text-sm text-muted-foreground">
       {m.admin_title()}
       <input
         class={inputClassName}
@@ -235,10 +235,10 @@ sys.stdout.flush()
     </label>
 
     <!-- Tags -->
-    <div class="text-sm text-[color:var(--color-muted)]">
+    <div class="text-sm text-muted-foreground">
       <span>{m.admin_tags()}</span>
       <div
-        class="mt-2 flex min-h-[46px] flex-wrap items-center gap-1.5 rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-2"
+        class="mt-2 flex min-h-[46px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-white/60 px-3 py-2"
         onclick={() => tagInputEl?.focus()}
         role="textbox"
         tabindex="-1"
@@ -246,11 +246,11 @@ sys.stdout.flush()
       >
         {#each $form.tags ?? [] as tag, index (tag)}
           <span
-            class="inline-flex items-center gap-1 rounded-full bg-[color:var(--color-accent)]/10 px-2.5 py-1 text-xs font-medium text-[color:var(--color-accent)]"
+            class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
           >
             {tag}
             <button
-              class="ml-0.5 text-[color:var(--color-accent)]/60 hover:text-[color:var(--color-accent)]"
+              class="ml-0.5 text-primary/60 hover:text-primary"
               onclick={() => removeTag(index)}
               type="button"
             >
@@ -272,7 +272,7 @@ sys.stdout.flush()
 
     <!-- Difficulty + Visibility -->
     <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_difficulty()}
         <select
           class={inputClassName}
@@ -284,7 +284,7 @@ sys.stdout.flush()
         </select>
         {#if $errors.difficulty}<span class="text-sm text-red-700">{$errors.difficulty}</span>{/if}
       </label>
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_visibility()}
         <select
           class={inputClassName}
@@ -298,14 +298,14 @@ sys.stdout.flush()
     </div>
 
     <!-- Judge Type -->
-    <div class="text-sm text-[color:var(--color-muted)]">
+    <div class="text-sm text-muted-foreground">
       <span>{m.admin_judgeType()}</span>
       <div class="mt-2 flex gap-4">
         {#each ["standard", "checker", "interactive"] as type (type)}
           <label class="flex items-center gap-2 text-sm">
             <input
               checked={$form.judgeType === type}
-              class="accent-[color:var(--color-accent)]"
+              class="accent-primary"
               name="judgeType"
               onchange={() => ($form.judgeType = type as JudgeType)}
               type="radio"
@@ -319,7 +319,7 @@ sys.stdout.flush()
     </div>
 
     {#if $form.judgeType === "checker"}
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_checkerScript()}
         <textarea
           class="{monoTextareaClassName} min-h-40"
@@ -331,7 +331,7 @@ sys.stdout.flush()
     {/if}
 
     {#if $form.judgeType === "interactive"}
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_interactorScript()}
         <textarea
           class="{monoTextareaClassName} min-h-40"
@@ -344,7 +344,7 @@ sys.stdout.flush()
 
     <!-- Checker/Interactor Language — not part of schema, keep as local -->
     {#if $form.judgeType === "checker" || $form.judgeType === "interactive"}
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_checkerLanguage()}
         <select
           class={inputClassName}
@@ -358,7 +358,7 @@ sys.stdout.flush()
 
     <!-- Time / Memory Limits -->
     <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_timeLimit()}
         <input
           class={inputClassName}
@@ -369,7 +369,7 @@ sys.stdout.flush()
         />
         {#if $errors.timeLimitMs}<span class="text-sm text-red-700">{$errors.timeLimitMs}</span>{/if}
       </label>
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_memoryLimit()}
         <input
           class={inputClassName}
@@ -383,13 +383,13 @@ sys.stdout.flush()
     </div>
 
     <!-- Submission Type -->
-    <div class="text-sm text-[color:var(--color-muted)]">
+    <div class="text-sm text-muted-foreground">
       <span>{m.admin_submissionType()}</span>
       <div class="mt-2 flex gap-4">
         <label class="flex items-center gap-2 text-sm">
           <input
             checked={$form.submissionType === "full_source"}
-            class="accent-[color:var(--color-accent)]"
+            class="accent-primary"
             name="submissionType"
             onchange={() => ($form.submissionType = "full_source")}
             type="radio"
@@ -400,7 +400,7 @@ sys.stdout.flush()
         <label class="flex items-center gap-2 text-sm">
           <input
             checked={$form.submissionType === "function"}
-            class="accent-[color:var(--color-accent)]"
+            class="accent-primary"
             name="submissionType"
             onchange={() => ($form.submissionType = "function")}
             type="radio"
@@ -419,7 +419,7 @@ sys.stdout.flush()
     />
 
     <!-- Statement -->
-    <label class="text-sm text-[color:var(--color-muted)]">
+    <label class="text-sm text-muted-foreground">
       {m.admin_statement()}
       <textarea
         class="{textareaClassName} min-h-40"
@@ -431,7 +431,7 @@ sys.stdout.flush()
 
     <!-- Input / Output Format -->
     <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_inputFormat()}
         <textarea
           class={textareaClassName}
@@ -439,7 +439,7 @@ sys.stdout.flush()
         ></textarea>
         {#if $errors.inputFormat}<span class="text-sm text-red-700">{$errors.inputFormat}</span>{/if}
       </label>
-      <label class="text-sm text-[color:var(--color-muted)]">
+      <label class="text-sm text-muted-foreground">
         {m.admin_outputFormat()}
         <textarea
           class={textareaClassName}
@@ -458,7 +458,7 @@ sys.stdout.flush()
 
     <!-- Submit -->
     <button
-      class="mt-2 inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      class="mt-2 inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
       disabled={$submitting}
       type="submit"
     >

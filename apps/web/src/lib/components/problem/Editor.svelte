@@ -4,6 +4,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale } from "$lib/paraglide/runtime.js";
   import {
+    apiErrorSchema,
+    languageSchema,
     submissionDispatchResponseSchema,
     submissionOperationSchema,
     submissionResultSchema,
@@ -140,8 +142,8 @@
     });
 
     if (!response.ok) {
-      const payload = (await response.json()) as { message?: string };
-      throw new Error(payload.message ?? "Submission failed.");
+      const parsed = apiErrorSchema.safeParse(await response.json());
+      throw new Error(parsed.success ? parsed.data.message : "Submission failed.");
     }
 
     const dispatch = submissionDispatchResponseSchema.parse(await response.json());
@@ -154,8 +156,8 @@
       const poll = await fetch(dispatch.pollUrl, { cache: "no-store", signal });
 
       if (!poll.ok) {
-        const payload = (await poll.json()) as { message?: string };
-        throw new Error(payload.message ?? "Polling failed.");
+        const parsed = apiErrorSchema.safeParse(await poll.json());
+        throw new Error(parsed.success ? parsed.data.message : "Polling failed.");
       }
 
       const operation = submissionOperationSchema.parse(await poll.json());
@@ -214,13 +216,16 @@
 <div class="flex h-full flex-col bg-stone-50">
   <!-- Top toolbar -->
   <div
-    class="flex items-center justify-between border-b border-[color:var(--color-border)] bg-white px-4 py-2"
+    class="flex items-center justify-between border-b border-border bg-white px-4 py-2"
   >
     <div class="flex items-center gap-3">
       <span class="text-xs font-medium text-stone-500">&lt;/&gt; {m.editor_code()}</span>
       <select
         class="rounded-md border border-stone-200 bg-transparent px-2 py-1 text-xs"
-        onchange={(e) => (language = (e.target as HTMLSelectElement).value as Language)}
+        onchange={(e) => {
+          const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
+          if (parsed.success) language = parsed.data;
+        }}
         value={language}
       >
         {#each supportedLanguages as entry (entry)}
@@ -251,7 +256,7 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-[color:var(--color-border)] bg-white px-4 py-2"
+    class="flex items-center justify-between border-t border-border bg-white px-4 py-2"
   >
     <span class="text-xs text-stone-400">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
@@ -278,7 +283,7 @@
 
   <!-- Bottom panel -->
   <div
-    class="flex h-[35%] min-h-[180px] flex-col border-t border-[color:var(--color-border)] bg-white"
+    class="flex h-[35%] min-h-[180px] flex-col border-t border-border bg-white"
   >
     <!-- Bottom tabs -->
     <div class="flex items-center border-b border-stone-100 px-2">

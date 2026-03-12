@@ -181,7 +181,7 @@ export function deriveAssessmentWindowState({
 }
 
 const windowStateColors: Record<AssessmentWindowState, string> = {
-  closed: "text-[color:var(--color-muted)]",
+  closed: "text-[color:var(--color-muted-foreground)]",
   grace: "text-amber-600",
   open: "text-emerald-600",
   upcoming: "text-blue-600"
