@@ -8,6 +8,12 @@ import {
   type PlatformRole
 } from "@nojv/core";
 
+import {
+  canEditProblem,
+  canManageCourse,
+  resolveEffectiveCourseRole
+} from "./shared/permissions";
+
 // --- Error classes ---
 
 export class HttpError extends Error {
@@ -111,11 +117,11 @@ export async function requireAuth(
     redirect(302, redirectTo ?? "/");
   }
 
-  if (!actor.handle) {
-    redirect(302, "/auth/complete-profile");
+  if (!hasActorHandle(actor)) {
+    redirect(302, "/complete-profile");
   }
 
-  return actor as CompletedActorContext;
+  return actor;
 }
 
 /**
@@ -151,11 +157,7 @@ export function resolveCoursePermissionRole(input: {
   courseRole?: CourseRole | null;
   platformRole: PlatformRole;
 }): EffectiveCourseRole | null {
-  if (input.platformRole === "admin") {
-    return "admin";
-  }
-
-  return input.courseRole ?? null;
+  return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
 }
 
 export async function resolveCoursePermission(
@@ -164,21 +166,20 @@ export async function resolveCoursePermission(
   actor: ActorContext
 ) {
   const course = await tx.course.findUnique({
-    where: { slug: courseSlug }
+    where: { slug: courseSlug },
+    include: {
+      memberships: {
+        where: { userId: actor.userId },
+        take: 1
+      }
+    }
   });
 
   if (!course) {
     throw new NotFoundError(`Course not found: ${courseSlug}`);
   }
 
-  const membership = await tx.courseMembership.findUnique({
-    where: {
-      courseId_userId: {
-        courseId: course.id,
-        userId: actor.userId
-      }
-    }
-  });
+  const membership = course.memberships[0] ?? null;
 
   return {
     course,
@@ -197,11 +198,11 @@ export async function getCoursePermissionRole(courseSlug: string, actor: ActorCo
 // --- Permission checks ---
 
 export function canCreateCourse(platformRole: PlatformRole) {
-  return platformRole === "admin" || platformRole === "teacher";
+  return canEditProblem(platformRole);
 }
 
 export function isCourseStaff(role: EffectiveCourseRole) {
-  return role === "admin" || role === "teacher" || role === "ta";
+  return canManageCourse(role);
 }
 
 export const canManageCourseMembership = isCourseStaff;

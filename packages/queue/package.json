@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsdown src/index.ts --format esm",
     "lint": "eslint src/",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +21,6 @@
   },
   "devDependencies": {
     "tsdown": "^0.12.5",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3"
   }
 }

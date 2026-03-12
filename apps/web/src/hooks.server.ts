@@ -1,6 +1,7 @@
 import type { Handle } from "@sveltejs/kit";
 
 import { auth } from "$lib/auth";
+import { paraglideMiddleware } from "$lib/paraglide/server.js";
 
 export const handle: Handle = async ({ event, resolve }) => {
   // --- Auth: populate event.locals with session/user ---
@@ -11,5 +12,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
 
-  return resolve(event);
+  return paraglideMiddleware(event.request, ({ request }) => {
+    // Update the event request with the (potentially de-localized) request
+    event.request = request;
+    return resolve(event);
+  });
 };
