@@ -5,17 +5,21 @@ import tseslint from "typescript-eslint";
 const sharedIgnores = [
   "**/.svelte-kit/**",
   "**/.turbo/**",
+  "**/build/**",
   "**/coverage/**",
   "**/dist/**",
   "**/eslint.config.mjs",
   "**/node_modules/**",
   "**/generated/**",
+  "**/paraglide/**",
+  "**/playwright.config.ts",
   "**/postcss.config.mjs",
   "**/prisma/**",
   "**/prisma.config.ts",
   "**/svelte.config.js",
   "**/tsdown.config.ts",
-  "**/vite.config.ts"
+  "**/vite.config.ts",
+  "**/vitest.config.ts"
 ];
 
 export const baseConfig = [

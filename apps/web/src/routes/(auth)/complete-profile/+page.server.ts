@@ -5,7 +5,7 @@ import { processSchoolVerification } from "$lib/server/shared/school-verificatio
 
 import type { Actions, PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = ({ locals }) => {
   const user = locals.user;
 
   if (!user) {
