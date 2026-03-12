@@ -29,6 +29,7 @@ async function mountBullBoard(
   });
 
   const expressApp = express.default();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- bull-board getRouter() returns any
   expressApp.use("/admin/queues", serverAdapter.getRouter());
 
   // Proxy /admin requests on the health server to express
@@ -40,7 +41,7 @@ async function mountBullBoard(
   });
 
   logger.info("bull-board dashboard started", {
-    url: `http://localhost:${BOARD_PORT}/admin/queues`
+    url: `http://localhost:${String(BOARD_PORT)}/admin/queues`
   });
 }
 
@@ -89,11 +90,11 @@ export class WorkerApp {
           this.dlqQueue
             .add("failed-submission", {
               originalJobId: job.id,
-              data: job.data,
+              data: job.data as Record<string, unknown>,
               failedReason: error.message,
               failedAt: new Date().toISOString()
             })
-            .catch((dlqError) => {
+            .catch((dlqError: unknown) => {
               logger.error("failed to enqueue to DLQ", { err: String(dlqError) });
             });
         }
