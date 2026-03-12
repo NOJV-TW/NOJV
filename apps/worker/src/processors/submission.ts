@@ -5,7 +5,11 @@ import type { SubmissionJudgeJob } from "@nojv/queue";
 import type { SandboxExecutor } from "@nojv/sandbox";
 
 import { activeJobs, submissionDurationSeconds, submissionJobsTotal } from "../metrics.js";
-import { completeSubmission, getSubmissionJudgeContext, markSubmissionRunning } from "../services/judge-db.js";
+import {
+  completeSubmission,
+  getSubmissionJudgeContext,
+  markSubmissionRunning
+} from "../services/judge-db.js";
 import { judgeSubmission } from "../services/submission-runner.js";
 
 export function createSubmissionProcessor(executor: SandboxExecutor) {
@@ -24,12 +28,7 @@ export function createSubmissionProcessor(executor: SandboxExecutor) {
         throw new UnrecoverableError(`Submission context not found for ${submissionId}.`);
       }
 
-      const result = await judgeSubmission(
-        submissionId,
-        draft,
-        judgeContext,
-        executor
-      );
+      const result = await judgeSubmission(submissionId, draft, judgeContext, executor);
       await completeSubmission(submissionId, result);
 
       timer({ verdict: result.verdict });

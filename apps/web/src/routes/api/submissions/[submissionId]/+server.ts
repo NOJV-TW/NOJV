@@ -9,7 +9,8 @@ import { getSubmissionForUser } from "$lib/server/submission/queries";
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = getActorContext(event);
   if (!actor) return json({ message: "Authentication required." }, { status: 401 });
-  if (!hasActorHandle(actor)) return json({ message: "Complete your profile first." }, { status: 403 });
+  if (!hasActorHandle(actor))
+    return json({ message: "Complete your profile first." }, { status: 403 });
 
   const { submissionId } = event.params;
   if (!submissionId) return json({ message: "Missing submissionId." }, { status: 400 });
