@@ -1,6 +1,6 @@
 import { Queue, UnrecoverableError, Worker } from "bullmq";
 
-import { parseRedisConnection, queueNames } from "@nojv/queue";
+import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/queue";
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
@@ -47,6 +47,7 @@ export class WorkerApp {
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
   private readonly readOnlyQueues: Queue[];
+  private readonly dlqQueue: Queue;
   private shutdownPromise: Promise<void> | null = null;
 
   constructor(env: WorkerEnv) {
@@ -57,6 +58,8 @@ export class WorkerApp {
     const executor = createExecutor(env);
     const processSubmission = createSubmissionProcessor(executor);
 
+    this.dlqQueue = new Queue(queueNames.submissionDlq, { connection });
+
     this.workers = [
       new Worker(queueNames.submission, processSubmission, {
         concurrency: env.WORKER_CONCURRENCY,
@@ -64,7 +67,10 @@ export class WorkerApp {
       })
     ];
 
-    this.readOnlyQueues = [new Queue(queueNames.submission, { connection })];
+    this.readOnlyQueues = [
+      new Queue(queueNames.submission, { connection }),
+      this.dlqQueue
+    ];
 
     this.healthServer = createWorkerHealthServer();
 
@@ -76,6 +82,19 @@ export class WorkerApp {
       worker.on("failed", (job, error) => {
         const prefix = error instanceof UnrecoverableError ? "permanent" : "retryable";
         logger.error(`${prefix} job failure`, { jobName: job?.name ?? "unknown", err: error.message });
+
+        if (job && job.attemptsMade >= (job.opts.attempts ?? defaultJobOptions.attempts)) {
+          this.dlqQueue
+            .add("failed-submission", {
+              originalJobId: job.id,
+              data: job.data,
+              failedReason: error.message,
+              failedAt: new Date().toISOString()
+            })
+            .catch((dlqError) => {
+              logger.error("failed to enqueue to DLQ", { err: String(dlqError) });
+            });
+        }
       });
     }
   }
