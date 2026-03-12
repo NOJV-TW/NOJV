@@ -2,6 +2,7 @@ import { prisma } from "@nojv/db";
 import {
   languageSchema,
   submissionResultSchema,
+  submissionVerdicts,
   submissionVerdictSchema,
   type SubmissionResult
 } from "@nojv/core";
@@ -33,43 +34,34 @@ export async function listProblemSubmissions(
   problemSlug: string,
   assessmentFilter?: { assessmentSlug: string; courseSlug: string }
 ) {
-  const problem = await prisma.problem.findUnique({
+  const problemP = prisma.problem.findUnique({
     where: { slug: problemSlug },
     select: { id: true }
   });
 
+  const assessmentP = assessmentFilter
+    ? prisma.courseAssessment.findFirst({
+        where: {
+          slug: assessmentFilter.assessmentSlug,
+          course: { slug: assessmentFilter.courseSlug }
+        },
+        select: { id: true }
+      })
+    : null;
+
+  const [problem, assessment] = await Promise.all([problemP, assessmentP]);
+
   if (!problem) return [];
+  if (assessmentFilter && !assessment) return [];
 
-  let courseAssessmentId: string | undefined;
-
-  if (assessmentFilter) {
-    const assessment = await prisma.courseAssessment.findFirst({
-      where: {
-        slug: assessmentFilter.assessmentSlug,
-        course: { slug: assessmentFilter.courseSlug }
-      },
-      select: { id: true }
-    });
-
-    if (!assessment) return [];
-    courseAssessmentId = assessment.id;
-  }
+  const courseAssessmentId = assessment?.id;
 
   const submissions = await prisma.submission.findMany({
     where: {
       problemId: problem.id,
       userId,
       sampleOnly: false,
-      status: {
-        in: [
-          "accepted",
-          "wrong_answer",
-          "compile_error",
-          "runtime_error",
-          "time_limit_exceeded",
-          "memory_limit_exceeded"
-        ]
-      },
+      status: { in: [...submissionVerdicts] },
       ...(courseAssessmentId ? { courseAssessmentId } : {})
     },
     orderBy: { createdAt: "desc" },

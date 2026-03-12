@@ -1,10 +1,8 @@
 <script lang="ts">
   import JSZip from "jszip";
   import { m } from "$lib/paraglide/messages.js";
+  import { monoTextareaClassName } from "$lib/utils";
   import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
-
-  const monoTextareaClassName =
-    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm min-h-24 resize-y font-mono";
   const smallInputClassName =
     "w-full rounded-[1.5rem] border border-border bg-white/60 px-2 py-1.5 text-xs font-mono";
   const pillButton =

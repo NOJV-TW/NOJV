@@ -15,14 +15,16 @@ export const load: PageServerLoad = async (event) => {
     redirect(302, "/complete-profile");
   }
 
-  const announcements = await listAnnouncements();
-
   if (!user) {
+    const announcements = await listAnnouncements();
     return { announcements, assessments: [] };
   }
 
   const now = new Date().toISOString();
-  const rawAssessments = await listUpcomingAssessments(user.id);
+  const [announcements, rawAssessments] = await Promise.all([
+    listAnnouncements(),
+    listUpcomingAssessments(user.id)
+  ]);
 
   const assessments = rawAssessments.map((a) => {
     const windowState = deriveAssessmentWindowState({

@@ -252,9 +252,7 @@
         {:else}
           <div class="grid gap-3">
             {#each submissions as entry, index (`sub-${index}`)}
-              {@const label = entry.result.verdict
-                .replace(/_/g, " ")
-                .replace(/\b\w/g, (char) => char.toUpperCase())}
+              {@const label = formatVerdictLabel(entry.result.verdict)}
               <button
                 class="rounded-lg border border-stone-200 px-4 py-3 text-left transition hover:border-stone-300 hover:bg-stone-50"
                 onclick={() => (viewingIndex = index)}

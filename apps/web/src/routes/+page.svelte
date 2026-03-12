@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { page } from "$app/stores";
   import Header from "$lib/components/layout/Header.svelte";
+  import { assessmentPath } from "$lib/types";
 
   let { data } = $props();
 
@@ -113,12 +114,9 @@
         {:else}
           <div class="mt-6 space-y-3">
             {#each data.assessments as assessment (assessment.slug)}
-              {@const assessmentPath =
-                assessment.type === "exam"
-                  ? `/courses/${assessment.courseSlug}/exams/${assessment.slug}`
-                  : `/courses/${assessment.courseSlug}/assignments/${assessment.slug}`}
+              {@const href = assessmentPath(assessment.courseSlug, assessment.type, assessment.slug)}
               <a
-                href={assessmentPath}
+                href={href}
                 class="block rounded-2xl border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition hover:-translate-y-0.5"
               >
                 <div class="flex items-start justify-between gap-3">

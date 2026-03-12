@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
+  import { inputClassName } from "$lib/utils";
 
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
 
@@ -48,8 +49,6 @@
     };
   }
 
-  const inputClassName =
-    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
   const textareaClassName = `${inputClassName} min-h-24 resize-y`;
 
   const defaultWindow = createDefaultAssessmentWindow();

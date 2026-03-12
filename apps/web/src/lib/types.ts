@@ -138,6 +138,17 @@ export function formatVerdictLabel(verdict: string): string {
   return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+// --- Route helpers ---
+
+export function assessmentPath(
+  courseSlug: string,
+  type: "assignment" | "exam" | string,
+  assessmentSlug: string
+): string {
+  const segment = type === "exam" ? "exams" : "assignments";
+  return `/courses/${courseSlug}/${segment}/${assessmentSlug}`;
+}
+
 // --- Assessment helpers ---
 
 export type AssessmentWindowState = "upcoming" | "open" | "grace" | "closed";

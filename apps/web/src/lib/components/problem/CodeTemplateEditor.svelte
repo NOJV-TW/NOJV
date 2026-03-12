@@ -2,10 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { supportedLanguages, type Language } from "@nojv/core";
   import type { TemplateInfo } from "$lib/types";
-
-  const inputClassName =
-    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
-  const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
+  import { inputClassName, monoTextareaClassName } from "$lib/utils";
 
   interface Props {
     submissionType: "full_source" | "function";

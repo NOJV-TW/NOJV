@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
   import {
+    assessmentPath,
     deriveAssessmentPresentation,
     deriveAssessmentWindowState
   } from "$lib/types";
@@ -43,10 +44,7 @@
         dueAt: assessment.dueAt,
         opensAt: assessment.opensAt
       })}
-      {@const href =
-        assessment.type === "exam"
-          ? `/courses/${courseSlug}/exams/${assessment.slug}`
-          : `/courses/${courseSlug}/assignments/${assessment.slug}`}
+      {@const href = assessmentPath(courseSlug, assessment.type, assessment.slug)}
       <a
         class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4 transition hover:-translate-y-0.5"
         {href}
