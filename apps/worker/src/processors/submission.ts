@@ -1,7 +1,7 @@
 import { UnrecoverableError } from "bullmq";
 import type { Job } from "bullmq";
 
-import { submissionJudgeJobSchema, type SubmissionJudgeJob } from "@nojv/queue";
+import type { SubmissionJudgeJob } from "@nojv/queue";
 import type { SandboxExecutor } from "@nojv/sandbox";
 
 import { activeJobs, submissionDurationSeconds, submissionJobsTotal } from "../metrics.js";
@@ -10,27 +10,27 @@ import { judgeSubmission } from "../services/submission-runner.js";
 
 export function createSubmissionProcessor(executor: SandboxExecutor) {
   return async function processSubmission(job: Job<SubmissionJudgeJob>) {
-    const payload = submissionJudgeJobSchema.parse(job.data);
-    const language = payload.draft.language;
+    const { draft, submissionId } = job.data;
+    const language = draft.language;
 
     activeJobs.inc();
     const timer = submissionDurationSeconds.startTimer({ language });
 
     try {
-      await markSubmissionRunning(payload.submissionId);
-      const judgeContext = await getSubmissionJudgeContext(payload.submissionId);
+      await markSubmissionRunning(submissionId);
+      const judgeContext = await getSubmissionJudgeContext(submissionId);
 
       if (!judgeContext) {
-        throw new UnrecoverableError(`Submission context not found for ${payload.submissionId}.`);
+        throw new UnrecoverableError(`Submission context not found for ${submissionId}.`);
       }
 
       const result = await judgeSubmission(
-        payload.submissionId,
-        payload.draft,
+        submissionId,
+        draft,
         judgeContext,
         executor
       );
-      await completeSubmission(payload.submissionId, result);
+      await completeSubmission(submissionId, result);
 
       timer({ verdict: result.verdict });
       submissionJobsTotal.inc({ status: "completed", language });
