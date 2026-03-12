@@ -1,5 +1,6 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
 
   function formatAcceptanceRate(value: number): string {
     return `${String(Math.round(value * 100))}%`;
@@ -7,7 +8,7 @@
 
   interface ProblemCard {
     acceptanceRate: number;
-    difficulty: "easy" | "hard" | "medium";
+    difficulty: ProblemDifficulty;
     slug: string;
     tags: string[];
     title: string;
@@ -15,14 +16,14 @@
   }
 
   interface EditableProblemCard {
-    difficulty: "easy" | "hard" | "medium";
+    difficulty: ProblemDifficulty;
     slug: string;
     tags: string[];
     title: string;
-    visibility: "private" | "public";
+    visibility: ProblemVisibility;
   }
 
-  type Difficulty = "all" | "easy" | "medium" | "hard";
+  type Difficulty = "all" | ProblemDifficulty;
 
   interface Props {
     editableProblems: EditableProblemCard[] | null;
@@ -66,7 +67,7 @@
   // Filtering
   function filterProblems<
     T extends {
-      difficulty: "easy" | "hard" | "medium";
+      difficulty: ProblemDifficulty;
       slug: string;
       tags: string[];
       title: string;

@@ -1,8 +1,8 @@
 import { redirect, type Handle } from "@sveltejs/kit";
+import { sessionUserSchema } from "@nojv/core";
 
 import { auth } from "$lib/auth";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
-import { parseSessionUser } from "$lib/session";
 
 /** Route prefixes exempt from the complete-profile redirect. */
 const PROFILE_EXEMPT_PREFIXES = [
@@ -39,7 +39,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
-  event.locals.sessionUser = parseSessionUser(session?.user ?? null);
+  const parsed = sessionUserSchema.safeParse(session?.user ?? null);
+  event.locals.sessionUser = parsed.success ? parsed.data : null;
 
   // --- Guard: redirect users without a handle to /complete-profile ---
   const { sessionUser } = event.locals;

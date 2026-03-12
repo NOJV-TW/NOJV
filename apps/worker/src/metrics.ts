@@ -23,9 +23,3 @@ export const activeJobs = new Gauge({
   registers: [registry]
 });
 
-export const queueDepth = new Gauge({
-  name: "nojv_queue_depth",
-  help: "Number of jobs waiting in queue",
-  labelNames: ["queue"] as const,
-  registers: [registry]
-});

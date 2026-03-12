@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
+  import type { AssessmentScoreboardMode, CourseAssessmentType } from "@nojv/core";
   import { inputClassName } from "$lib/utils";
 
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
@@ -17,11 +18,11 @@
       opensAt: string;
       pageLockEnabled: boolean;
       problemSlugsText: string;
-      scoreboardMode?: "hidden" | "live" | "frozen" | undefined;
+      scoreboardMode?: AssessmentScoreboardMode | undefined;
       slug: string;
       summary: string;
       title: string;
-      type: "assignment" | "exam";
+      type: CourseAssessmentType;
     }>;
     problemSlugs: string[];
   }

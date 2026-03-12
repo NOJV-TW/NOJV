@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateCourse,
   canManageCourseMembership,
-  canManageCourseProblems,
   canPublishAssessment,
   canViewManagePanel,
   ForbiddenError,
@@ -116,10 +115,6 @@ describe("permission aliases", () => {
 
   it("canPublishAssessment is isCourseStaff", () => {
     expect(canPublishAssessment).toBe(isCourseStaff);
-  });
-
-  it("canManageCourseProblems is isCourseStaff", () => {
-    expect(canManageCourseProblems).toBe(isCourseStaff);
   });
 
   it("canViewManagePanel is isCourseStaff", () => {

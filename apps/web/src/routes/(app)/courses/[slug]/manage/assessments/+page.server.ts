@@ -1,4 +1,9 @@
-import { courseAssessmentCreateSchema } from "@nojv/core";
+import {
+  assessmentScoreboardModeSchema,
+  courseAssessmentCreateSchema,
+  courseAssessmentTypeSchema,
+  slugSchema
+} from "@nojv/core";
 import { fail } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
@@ -16,14 +21,11 @@ const assessmentFormSchema = z.object({
   opensAt: z.string().min(1),
   pageLockEnabled: z.boolean().default(false),
   problemSlugsText: z.string().min(1),
-  scoreboardMode: z.enum(["hidden", "live", "frozen"]).optional(),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    .min(3),
+  scoreboardMode: assessmentScoreboardModeSchema.optional(),
+  slug: slugSchema,
   summary: z.string().min(8).max(2_000),
   title: z.string().min(3).max(120),
-  type: z.enum(["assignment", "exam"])
+  type: courseAssessmentTypeSchema
 });
 
 export const load: PageServerLoad = async ({ params, parent }) => {

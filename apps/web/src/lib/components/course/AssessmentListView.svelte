@@ -1,6 +1,8 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import type { CourseAssessmentType } from "@nojv/core";
   import { getLocale } from "$lib/paraglide/runtime.js";
+  import { assessmentPath } from "$lib/types";
 
   interface AssessmentItem {
     courseSlug: string;
@@ -15,7 +17,7 @@
 
   interface Props {
     items: AssessmentItem[] | null;
-    type: "assignment" | "exam";
+    type: CourseAssessmentType;
   }
 
   let { items, type }: Props = $props();
@@ -56,7 +58,7 @@
       {#each items as a (`${a.courseSlug}-${a.slug}`)}
         <a
           class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_0.4fr] sm:items-center transition hover:-translate-y-0.5"
-          href="/courses/{a.courseSlug}/{type === 'assignment' ? 'assignments' : 'exams'}/{a.slug}"
+          href={assessmentPath(a.courseSlug, type, a.slug)}
         >
           <div>
             <p class="text-sm text-muted-foreground">{a.courseTitle}</p>

@@ -69,19 +69,11 @@ export function getActorContext(event: RequestEvent): ActorContext | null {
 
 // --- Onboarding helpers ---
 
-export { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/validation";
-
-export function readStringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
 export function hasActorHandle<T extends { handle: string | null }>(
   actor: T
 ): actor is T & { handle: string } {
   return typeof actor.handle === "string" && actor.handle.length > 0;
 }
-
-export { isReservedHandle } from "$lib/school";
 
 // --- Guards ---
 
@@ -124,24 +116,6 @@ export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[
   if (!roles.includes(actor.platformRole)) {
     throw new ForbiddenError("Insufficient platform role.");
   }
-}
-
-/**
- * Require specific course roles. Returns the resolved role.
- * Throws ForbiddenError if user has no role or role is not in the allowed list.
- */
-export async function requireCourseRole(
-  actor: ActorContext,
-  courseSlug: string,
-  ...roles: EffectiveCourseRole[]
-): Promise<EffectiveCourseRole> {
-  const role = await getCoursePermissionRole(courseSlug, actor);
-
-  if (!role || !roles.includes(role)) {
-    throw new ForbiddenError("Insufficient course role.");
-  }
-
-  return role;
 }
 
 // --- Course role resolution ---
@@ -194,11 +168,7 @@ export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);
 }
 
-export function isCourseStaff(role: EffectiveCourseRole) {
-  return canManageCourse(role);
-}
-
-export const canManageCourseMembership = isCourseStaff;
-export const canPublishAssessment = isCourseStaff;
-export const canManageCourseProblems = isCourseStaff;
-export const canViewManagePanel = isCourseStaff;
+export const isCourseStaff = canManageCourse;
+export const canManageCourseMembership = canManageCourse;
+export const canPublishAssessment = canManageCourse;
+export const canViewManagePanel = canManageCourse;

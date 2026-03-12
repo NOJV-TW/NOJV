@@ -10,6 +10,7 @@
     submissionOperationSchema,
     submissionResultSchema,
     supportedLanguages,
+    type CourseAssessmentType,
     type Language,
     type SubmissionResult
   } from "@nojv/core";
@@ -30,7 +31,7 @@
     assessment?: {
       assessmentSlug: string;
       courseSlug: string;
-      kind: "assignment" | "exam";
+      kind: CourseAssessmentType;
     } | undefined;
     contestSlug?: string | undefined;
     onSubmissionComplete?: ((

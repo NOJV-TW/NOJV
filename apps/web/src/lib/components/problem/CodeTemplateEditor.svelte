@@ -1,11 +1,11 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { supportedLanguages, type Language } from "@nojv/core";
+  import { supportedLanguages, type Language, type SubmissionType } from "@nojv/core";
   import type { TemplateInfo } from "$lib/types";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
 
   interface Props {
-    submissionType: "full_source" | "function";
+    submissionType: SubmissionType;
     templatesByLang: Partial<Record<Language, TemplateInfo>>;
     starterByLang: Partial<Record<Language, string>>;
   }

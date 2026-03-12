@@ -106,22 +106,16 @@ function mapResult(result: SandboxResult): SubmissionResult {
     };
   }
 
-  const first = result.testcaseResults.find((t) => t.verdict !== "AC");
-  if (!first) {
-    return {
-      accepted: true,
-      caseResults,
-      feedback: "All testcases passed",
-      runtimeMs,
-      score: 100,
-      verdict: "accepted"
-    };
+  for (const tc of result.testcaseResults) {
+    if (tc.verdict !== "AC") {
+      const verdict = verdictMap[tc.verdict] ?? "runtime_error";
+      const feedback =
+        tc.feedback ??
+        `Failed on testcase ${String(tc.index + 1)}: ${verdict.replace(/_/g, " ")}`;
+      return { accepted: false, caseResults, feedback, runtimeMs, score, verdict };
+    }
   }
 
-  const verdict = verdictMap[first.verdict] ?? "runtime_error";
-  const feedback =
-    first.feedback ??
-    `Failed on testcase ${String(first.index + 1)}: ${verdict.replace(/_/g, " ")}`;
-
-  return { accepted: false, caseResults, feedback, runtimeMs, score, verdict };
+  // Unreachable: the `every` check above already returned for all-AC
+  return { accepted: false, caseResults, feedback: "Unknown error", runtimeMs, score, verdict: "runtime_error" as const };
 }

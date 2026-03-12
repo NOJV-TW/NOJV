@@ -4,7 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
-  import { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/validation";
+  import { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/utils";
 
   import { isReservedHandle, parseSchoolEmail } from "$lib/school";
   import { onMount } from "svelte";

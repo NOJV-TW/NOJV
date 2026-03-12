@@ -68,8 +68,6 @@ export const problemOverviewSchema = z.object({
 
 export type ProblemCreate = z.infer<typeof problemCreateSchema>;
 export type ProblemUpdate = z.infer<typeof problemUpdateSchema>;
-export type ProblemTemplate = z.infer<typeof problemTemplateSchema>;
-export type ProblemTestcaseCase = z.infer<typeof problemTestcaseCaseSchema>;
 export type ProblemJudgeTestcase = z.infer<typeof problemJudgeTestcaseSchema>;
 export type ProblemTestcaseSetCreate = z.infer<typeof problemTestcaseSetCreateSchema>;
 export type ProblemOverview = z.infer<typeof problemOverviewSchema>;

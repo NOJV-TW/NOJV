@@ -1,32 +1,5 @@
 import { prisma } from "@nojv/db";
-import type { ProblemJudgeTestcase, SubmissionResult } from "@nojv/core";
-
-type PersistedSubmissionStatus =
-  | "accepted"
-  | "compile_error"
-  | "memory_limit_exceeded"
-  | "queued"
-  | "running"
-  | "runtime_error"
-  | "time_limit_exceeded"
-  | "wrong_answer";
-
-function mapSubmissionResultToStatus(result: SubmissionResult): PersistedSubmissionStatus {
-  switch (result.verdict) {
-    case "accepted":
-      return "accepted";
-    case "compile_error":
-      return "compile_error";
-    case "runtime_error":
-      return "runtime_error";
-    case "time_limit_exceeded":
-      return "time_limit_exceeded";
-    case "memory_limit_exceeded":
-      return "memory_limit_exceeded";
-    case "wrong_answer":
-      return "wrong_answer";
-  }
-}
+import type { JudgeType, ProblemJudgeTestcase, SubmissionResult, SubmissionType } from "@nojv/core";
 
 export async function markSubmissionRunning(submissionId: string) {
   return prisma.submission.update({
@@ -41,7 +14,7 @@ export async function completeSubmission(submissionId: string, result: Submissio
       compilerOutput: result.verdict === "compile_error" ? result.feedback : null,
       runtimeMs: result.runtimeMs,
       score: result.score,
-      status: mapSubmissionResultToStatus(result),
+      status: result.verdict,
       verdictDetail: result
     },
     where: { id: submissionId }
@@ -51,10 +24,10 @@ export async function completeSubmission(submissionId: string, result: Submissio
 export interface SubmissionJudgeContext {
   checkerScript: string | null;
   interactorScript: string | null;
-  judgeType: "standard" | "checker" | "interactive";
+  judgeType: JudgeType;
   memoryLimitMb: number;
   problemSlug: string;
-  submissionType: "function" | "full_source";
+  submissionType: SubmissionType;
   templates: {
     driverCode: string;
     insertionMarker: string;

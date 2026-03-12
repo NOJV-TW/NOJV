@@ -1,7 +1,12 @@
 import { prisma } from "@nojv/db";
-import { judgeTypeSchema, problemDifficultySchema, submissionTypeSchema } from "@nojv/core";
+import {
+  judgeTypeSchema,
+  problemDifficultySchema,
+  submissionTypeSchema,
+  type ProblemVisibility
+} from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 import { starterByLanguage, type ProblemDetail, type TemplateInfo } from "$lib/types";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
@@ -109,7 +114,7 @@ function mapPersistedProblemDetail(
       }[];
     }[];
     timeLimitMs?: number;
-    visibility: "private" | "public";
+    visibility: ProblemVisibility;
   },
   locale: string,
   totalSubmissions: number,

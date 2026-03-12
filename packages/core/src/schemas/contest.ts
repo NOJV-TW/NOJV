@@ -14,4 +14,3 @@ export const contestSessionSchema = z
     path: ["endsAt"]
   });
 
-export type ContestSession = z.infer<typeof contestSessionSchema>;

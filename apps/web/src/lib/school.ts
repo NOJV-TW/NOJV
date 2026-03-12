@@ -1,6 +1,6 @@
-export type School = "ntnu" | "ntu" | "ntust";
+type School = "ntnu" | "ntu" | "ntust";
 
-export interface SchoolEmailResult {
+interface SchoolEmailResult {
   school: School;
   studentId: string;
 }
@@ -45,7 +45,7 @@ export function extractStudentId(school: School, studentId: string): string {
 }
 
 /** Returns true if the value looks like a student ID (any school) */
-export function isStudentIdFormat(value: string): boolean {
+function isStudentIdFormat(value: string): boolean {
   return NTNU_ID_RE.test(value) || NTU_NTUST_ID_RE.test(value);
 }
 
