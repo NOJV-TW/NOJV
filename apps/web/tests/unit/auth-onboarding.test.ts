@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  hasActorHandle,
-  isValidHandle,
-  readStringValue
-} from "$lib/server/auth";
+import { hasActorHandle, isValidHandle, readStringValue } from "$lib/server/auth";
 import { parseSessionUser } from "$lib/session";
 
 /** Helper to build a minimal valid session-user-like object. */
