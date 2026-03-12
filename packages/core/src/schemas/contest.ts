@@ -13,4 +13,3 @@ export const contestSessionSchema = z
     message: "endsAt must be later than startsAt",
     path: ["endsAt"]
   });
-

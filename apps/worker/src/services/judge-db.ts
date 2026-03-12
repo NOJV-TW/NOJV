@@ -1,5 +1,10 @@
 import { prisma } from "@nojv/db";
-import type { JudgeType, ProblemJudgeTestcase, SubmissionResult, SubmissionType } from "@nojv/core";
+import type {
+  JudgeType,
+  ProblemJudgeTestcase,
+  SubmissionResult,
+  SubmissionType
+} from "@nojv/core";
 
 export async function markSubmissionRunning(submissionId: string) {
   return prisma.submission.update({

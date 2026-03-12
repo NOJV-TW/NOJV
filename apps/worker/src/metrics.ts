@@ -22,4 +22,3 @@ export const activeJobs = new Gauge({
   help: "Number of currently processing jobs",
   registers: [registry]
 });
-

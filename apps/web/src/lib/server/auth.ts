@@ -92,10 +92,7 @@ export function requireApiAuth(event: RequestEvent): CompletedActorContext {
  * Require authentication for a server load function or page.
  * Redirects to the root if not authenticated.
  */
-export function requireAuth(
-  event: RequestEvent,
-  redirectTo?: string
-): CompletedActorContext {
+export function requireAuth(event: RequestEvent, redirectTo?: string): CompletedActorContext {
   const actor = getActorContext(event);
 
   if (!actor) {

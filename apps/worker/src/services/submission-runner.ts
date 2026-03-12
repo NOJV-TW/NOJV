@@ -117,5 +117,12 @@ function mapResult(result: SandboxResult): SubmissionResult {
   }
 
   // Unreachable: the `every` check above already returned for all-AC
-  return { accepted: false, caseResults, feedback: "Unknown error", runtimeMs, score, verdict: "runtime_error" as const };
+  return {
+    accepted: false,
+    caseResults,
+    feedback: "Unknown error",
+    runtimeMs,
+    score,
+    verdict: "runtime_error" as const
+  };
 }
