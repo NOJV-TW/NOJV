@@ -338,9 +338,8 @@ export async function createCourseAssessmentRecord(
 
     await Promise.all(
       payload.problemSlugs.map(async (slug, index) => {
-        // Safe: validated in the loop above that all slugs exist in the map
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const problem = problemBySlug.get(slug)!;
+        const problem = problemBySlug.get(slug);
+        if (!problem) throw new NotFoundError(`Problem not found: ${slug}`);
         await tx.courseProblem.upsert({
           create: {
             addedByUserId: creator.id,
