@@ -11,18 +11,20 @@ export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: CompletedActorContext
 ) {
+  // Reads outside transaction — pure lookups by slug, safe to run before tx
+  const problem = await requireProblem(prisma, payload.problemSlug);
+  const courseContext = payload.assessment
+    ? await requireCourseAssessment(
+        prisma,
+        payload.assessment.courseSlug,
+        payload.assessment.assessmentSlug
+      )
+    : null;
+
   return prisma.$transaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
-    const problem = await requireProblem(tx, payload.problemSlug);
     const contestParticipation = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug)
-      : null;
-    const courseContext = payload.assessment
-      ? await requireCourseAssessment(
-          tx,
-          payload.assessment.courseSlug,
-          payload.assessment.assessmentSlug
-        )
       : null;
 
     // Enforce attempt limit for assignment/exam submissions (not sampleOnly runs)
