@@ -11,8 +11,11 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   if (!actor) return json({ message: "Authentication required." }, { status: 401 });
   if (!hasActorHandle(actor)) return json({ message: "Complete your profile first." }, { status: 403 });
 
+  const { submissionId } = event.params;
+  if (!submissionId) return json({ message: "Missing submissionId." }, { status: 400 });
+
   const submission = await getSubmissionForUser(
-    event.params.submissionId,
+    submissionId,
     actor.userId,
     actor.platformRole === "admin"
   );
