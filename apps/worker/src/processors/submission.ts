@@ -1,3 +1,4 @@
+import { UnrecoverableError } from "bullmq";
 import type { Job } from "bullmq";
 
 import { submissionJudgeJobSchema, type SubmissionJudgeJob } from "@nojv/queue";
@@ -14,7 +15,7 @@ export function createSubmissionProcessor(executor: SandboxExecutor) {
     const judgeContext = await getSubmissionJudgeContext(payload.submissionId);
 
     if (!judgeContext) {
-      throw new Error(`Submission context not found for ${payload.submissionId}.`);
+      throw new UnrecoverableError(`Submission context not found for ${payload.submissionId}.`);
     }
 
     const result = await judgeSubmission(

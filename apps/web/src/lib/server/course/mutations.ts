@@ -10,7 +10,7 @@ import type {
 
 import type { CompletedActorContext } from "../auth";
 import { ConflictError, ForbiddenError, NotFoundError } from "../auth";
-import { ensureUser } from "../db";
+import { ensureUser } from "../user/mutations";
 import { assertCourseProblemAccess, requireProblem } from "../problem/mutations";
 
 // --- Course helpers ---

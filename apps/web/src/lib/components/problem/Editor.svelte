@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale } from "$lib/paraglide/runtime.js";
   import {
@@ -28,23 +28,24 @@
       assessmentSlug: string;
       courseSlug: string;
       kind: "assignment" | "exam";
-    };
-    contestSlug?: string;
-    onSubmissionComplete?: (
+    } | undefined;
+    contestSlug?: string | undefined;
+    onSubmissionComplete?: ((
       result: SubmissionResult,
       language: string,
       sourceCode: string
-    ) => void;
+    ) => void) | undefined;
     problem: ProblemDetail;
   }
 
   let { assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
+  const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
   let isFunctionMode = $derived(problem.submissionType === "function");
 
   let language = $state<Language>("cpp");
-  let drafts = $state({ ...problem.starterByLanguage });
+  let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
 
@@ -53,7 +54,7 @@
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
   let testcases = $state(
-    problem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
+    initialProblem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
   );
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
@@ -66,25 +67,28 @@
 
   // Monaco editor
   let editorContainer: HTMLDivElement;
-  let monacoEditor: any;
-  let monacoModule: any;
+  let monacoEditor: import("monaco-editor").editor.IStandaloneCodeEditor | undefined;
+  let monacoModule: typeof import("monaco-editor") | undefined;
 
   // Cleanup: abort in-flight polls when component is destroyed
   let destroyed = false;
   let pollAbortController: AbortController | null = null;
 
-  onMount(async () => {
-    monacoModule = await import("monaco-editor");
-    monacoEditor = monacoModule.editor.create(editorContainer, {
-      ...editorOptions,
-      language: "cpp",
-      theme: "vs-light",
-      value: drafts[language]
-    });
+  onMount(() => {
+    void (async () => {
+      monacoModule = await import("monaco-editor");
+      monacoEditor = monacoModule.editor.create(editorContainer, {
+        ...editorOptions,
+        language: "cpp",
+        theme: "vs-light",
+        value: drafts[language]
+      });
 
-    monacoEditor.onDidChangeModelContent(() => {
-      drafts[language] = monacoEditor.getValue();
-    });
+      const editor = monacoEditor;
+      editor.onDidChangeModelContent(() => {
+        drafts[language] = editor.getValue();
+      });
+    })();
 
     return () => {
       destroyed = true;
@@ -141,8 +145,9 @@
 
     const dispatch = submissionDispatchResponseSchema.parse(await response.json());
     const startedAt = Date.now();
+    let pollDelay = 500;
 
-    while (Date.now() - startedAt < 20_000) {
+    while (Date.now() - startedAt < 30_000) {
       if (destroyed) return null;
 
       const poll = await fetch(dispatch.pollUrl, { cache: "no-store", signal });
@@ -159,8 +164,9 @@
       }
 
       await new Promise((resolve) => {
-        setTimeout(resolve, 700);
+        setTimeout(resolve, pollDelay);
       });
+      pollDelay = Math.min(pollDelay * 1.5, 3000);
     }
 
     throw new Error("Submission polling timed out.");
@@ -411,7 +417,7 @@
                     <div>
                       <p class="text-xs font-medium text-stone-400">{m.editor_input()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase].input}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase]!.input}</pre>
                     </div>
                   {/if}
 
@@ -419,7 +425,7 @@
                     <div>
                       <p class="text-xs font-medium text-stone-400">{m.editor_output()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{runResult.caseResults[selectedResultCase].stdout || "(empty)"}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{runResult.caseResults[selectedResultCase]!.stdout || "(empty)"}</pre>
                     </div>
                   {/if}
 
@@ -429,7 +435,7 @@
                         {m.editor_expectedOutput()}
                       </p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase].expectedOutput}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase]!.expectedOutput}</pre>
                     </div>
                   {/if}
                 </div>

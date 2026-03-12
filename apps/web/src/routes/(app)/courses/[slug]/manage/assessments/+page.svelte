@@ -7,5 +7,6 @@
 <ManageAssessments
   assessments={data.assessments}
   courseSlug={data.courseSlug}
+  form={data.form}
   problemSlugs={data.problemSlugs}
 />

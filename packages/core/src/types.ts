@@ -64,7 +64,7 @@ export const slugSchema = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export const isoDateTimeSchema = z.iso.datetime();
-export const sourceCodeSchema = z.string().trim().min(1).max(100_000);
+export const sourceCodeSchema = z.string().trim().min(1).max(50_000);
 
 export type CourseAssessmentType = z.infer<typeof courseAssessmentTypeSchema>;
 export type CourseJoinMethod = z.infer<typeof courseJoinMethodSchema>;

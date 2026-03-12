@@ -7,5 +7,6 @@
 <ManageProblems
   courseSlug={data.courseSlug}
   courseTitle={data.courseTitle}
+  form={data.form}
   problems={data.problems}
 />

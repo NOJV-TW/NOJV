@@ -1,5 +1,7 @@
 import { courseCreateSchema } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
+import { message, superValidate } from "sveltekit-superforms";
+import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, getActorContext, requireAuth } from "$lib/server/auth";
@@ -16,7 +18,9 @@ export const load: PageServerLoad = async (event) => {
       ? await listUserCourseCards(actor.userId)
       : [];
 
-  return { courses };
+  const form = await superValidate(zod4(courseCreateSchema));
+
+  return { courses, form };
 };
 
 export const actions = {
@@ -27,14 +31,15 @@ export const actions = {
       return fail(403, { error: "Only teachers or admins can create courses." });
     }
 
+    const form = await superValidate(event, zod4(courseCreateSchema));
+    if (!form.valid) return fail(400, { form });
+
     try {
-      const formData = await event.request.formData();
-      const payload = courseCreateSchema.parse(JSON.parse(formData.get("data") as string));
-      const result = await createCourseRecord(actor, payload);
-      return { success: true, course: result };
+      await createCourseRecord(actor, form.data);
+      return message(form, "Course created.");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Course creation failed.";
-      return fail(400, { error: message });
+      const msg = err instanceof Error ? err.message : "Course creation failed.";
+      return fail(400, { form, error: msg });
     }
   }
 } satisfies Actions;
