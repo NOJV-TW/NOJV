@@ -68,7 +68,7 @@ export const GET: RequestHandler = async (event) => {
   return new Response(stream, {
     headers: {
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
       "Content-Type": "text/event-stream"
     }
   });

@@ -5,25 +5,25 @@
 
 ## Tech Stack
 
-| Layer | Technology | Note |
-|-------|-----------|------|
-| Runtime | Node.js 24+ | Existing |
-| Package Manager | pnpm 10 | Existing |
-| Monorepo | Turborepo | Existing |
-| Frontend | SvelteKit 2 + Svelte 5 | Existing |
-| UI Components | shadcn-svelte (Bits UI) | New, keep current styling |
-| Styling | Tailwind CSS 4 | Existing |
-| i18n | Paraglide.js (inlang) | Replace svelte-i18n |
-| Auth | BetterAuth | Existing, clean up NextAuth remnants |
-| Database | PostgreSQL 17 + Prisma 7 | Existing |
-| Queue | BullMQ + Redis 8 | Existing |
-| Code Editor | Monaco Editor | Existing |
-| Markdown | marked + svelte-markdown + KaTeX | Existing |
-| Charts | ECharts | Existing |
-| Unit/Integration Test | Vitest | Existing |
-| E2E Test | Playwright | Existing |
-| CI | GitHub Actions | Existing |
-| Deploy | GCP (Cloud Run + GKE) | Existing |
+| Layer                 | Technology                       | Note                                 |
+| --------------------- | -------------------------------- | ------------------------------------ |
+| Runtime               | Node.js 24+                      | Existing                             |
+| Package Manager       | pnpm 10                          | Existing                             |
+| Monorepo              | Turborepo                        | Existing                             |
+| Frontend              | SvelteKit 2 + Svelte 5           | Existing                             |
+| UI Components         | shadcn-svelte (Bits UI)          | New, keep current styling            |
+| Styling               | Tailwind CSS 4                   | Existing                             |
+| i18n                  | Paraglide.js (inlang)            | Replace svelte-i18n                  |
+| Auth                  | BetterAuth                       | Existing, clean up NextAuth remnants |
+| Database              | PostgreSQL 17 + Prisma 7         | Existing                             |
+| Queue                 | BullMQ + Redis 8                 | Existing                             |
+| Code Editor           | Monaco Editor                    | Existing                             |
+| Markdown              | marked + svelte-markdown + KaTeX | Existing                             |
+| Charts                | ECharts                          | Existing                             |
+| Unit/Integration Test | Vitest                           | Existing                             |
+| E2E Test              | Playwright                       | Existing                             |
+| CI                    | GitHub Actions                   | Existing                             |
+| Deploy                | GCP (Cloud Run + GKE)            | Existing                             |
 
 ### New Dependencies
 
@@ -65,12 +65,12 @@ sandbox-runner ──→ core, sandbox
 
 ### Package Details
 
-| Package | Responsibility | Dependents |
-|---------|---------------|------------|
-| `@nojv/db` | Prisma schema, client singleton, env parsing, seed | web, worker |
-| `@nojv/core` | Domain Zod schemas (problem, course, contest, submission), shared types | web, worker, sandbox-runner |
-| `@nojv/sandbox` | SandboxRequest / SandboxResult types, language config, judge type definitions | worker, sandbox-runner |
-| `@nojv/queue` | Queue names, SubmissionJudgeJob schema | web, worker |
+| Package         | Responsibility                                                                | Dependents                  |
+| --------------- | ----------------------------------------------------------------------------- | --------------------------- |
+| `@nojv/db`      | Prisma schema, client singleton, env parsing, seed                            | web, worker                 |
+| `@nojv/core`    | Domain Zod schemas (problem, course, contest, submission), shared types       | web, worker, sandbox-runner |
+| `@nojv/sandbox` | SandboxRequest / SandboxResult types, language config, judge type definitions | worker, sandbox-runner      |
+| `@nojv/queue`   | Queue names, SubmissionJudgeJob schema                                        | web, worker                 |
 
 ## File Tree
 
@@ -314,13 +314,13 @@ NOJV/
 
 ### Migration from svelte-i18n
 
-| | svelte-i18n (current) | Paraglide.js (new) |
-|---|---|---|
-| Mechanism | Runtime lookup | Compile-time generated functions |
-| Type safety | None | Full (`m.key()` with autocomplete) |
-| Bundle size | Entire runtime + all translations | Only used translations, tree-shakable |
-| Usage | `$t('key')` | `m.key()` |
-| Interpolation | `$t('greeting', { name })` | `m.greeting({ name })` |
+|               | svelte-i18n (current)             | Paraglide.js (new)                    |
+| ------------- | --------------------------------- | ------------------------------------- |
+| Mechanism     | Runtime lookup                    | Compile-time generated functions      |
+| Type safety   | None                              | Full (`m.key()` with autocomplete)    |
+| Bundle size   | Entire runtime + all translations | Only used translations, tree-shakable |
+| Usage         | `$t('key')`                       | `m.key()`                             |
+| Interpolation | `$t('greeting', { name })`        | `m.greeting({ name })`                |
 
 ### File Structure
 
@@ -342,11 +342,11 @@ apps/web/
 
 ## Testing Strategy
 
-| Layer | Tool | What to test | Volume |
-|-------|------|-------------|--------|
-| Unit | Vitest | Pure functions, schema validation, state derivation | High, fast |
-| Integration | Vitest | Server queries/mutations against DB | Medium, per-domain core paths |
-| E2E | Playwright | User critical flows (signin → create problem → submit → view result) | Low, happy paths only |
+| Layer       | Tool       | What to test                                                         | Volume                        |
+| ----------- | ---------- | -------------------------------------------------------------------- | ----------------------------- |
+| Unit        | Vitest     | Pure functions, schema validation, state derivation                  | High, fast                    |
+| Integration | Vitest     | Server queries/mutations against DB                                  | Medium, per-domain core paths |
+| E2E         | Playwright | User critical flows (signin → create problem → submit → view result) | Low, happy paths only         |
 
 ## Removed Modules
 

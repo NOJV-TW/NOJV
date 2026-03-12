@@ -888,7 +888,12 @@ else:
     if (!result.success) return;
 
     const tc: TestcaseFiles = { index: 0, input: "7\n", weight: 1, isSample: true };
-    const verdict = await judgeInteractive(result.runCommand, tc, ["python3", intFile], TIMEOUT_MS);
+    const verdict = await judgeInteractive(
+      result.runCommand,
+      tc,
+      ["python3", intFile],
+      TIMEOUT_MS
+    );
     expect(verdict.verdict).toBe("AC");
   }, 30_000);
 });
@@ -1050,9 +1055,7 @@ describe("template injection edge cases", () => {
       submissionType: "function",
       limits: { timeoutMs: 5000, memoryMb: 256 }
     };
-    expect(() => assembleSource("def solve(): pass", input)).toThrow(
-      /requires a template/
-    );
+    expect(() => assembleSource("def solve(): pass", input)).toThrow(/requires a template/);
   });
 
   it("multiple markers — only first is replaced", () => {
@@ -1102,7 +1105,10 @@ describe("standard judge edge cases", () => {
 
   it("CRLF output matches LF expected → AC", async () => {
     // Python program that outputs CRLF
-    const result = await compileProgram("python", `import sys\nsys.stdout.write("hello\\r\\n")`);
+    const result = await compileProgram(
+      "python",
+      `import sys\nsys.stdout.write("hello\\r\\n")`
+    );
     expect(result.success).toBe(true);
     if (!result.success) return;
 

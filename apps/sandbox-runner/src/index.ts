@@ -219,7 +219,12 @@ async function main(): Promise<void> {
     }
 
     const interactorLang = config.interactorLanguage ?? config.checkerLanguage ?? "python";
-    const interactorResult = await compileChecker(interactorPath, interactorLang, workDir, "interactor");
+    const interactorResult = await compileChecker(
+      interactorPath,
+      interactorLang,
+      workDir,
+      "interactor"
+    );
     if (!interactorResult.success) {
       const output: SandboxOutput = {
         compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,

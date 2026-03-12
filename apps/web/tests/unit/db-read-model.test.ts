@@ -235,15 +235,11 @@ describe("DB-backed read model", () => {
       testcaseSets: [
         {
           isHidden: false,
-          testcases: [
-            { expectedStdout: "3\n", stdin: "1 2\n" }
-          ]
+          testcases: [{ expectedStdout: "3\n", stdin: "1 2\n" }]
         },
         {
           isHidden: true,
-          testcases: [
-            { expectedStdout: "200\n", stdin: "100 100\n" }
-          ]
+          testcases: [{ expectedStdout: "200\n", stdin: "100 100\n" }]
         }
       ],
       visibility: "public"
