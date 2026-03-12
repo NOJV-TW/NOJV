@@ -8,6 +8,12 @@ import {
   type PlatformRole
 } from "@nojv/core";
 
+import {
+  canEditProblem,
+  canManageCourse,
+  resolveEffectiveCourseRole
+} from "./shared/permissions";
+
 // --- Error classes ---
 
 export class HttpError extends Error {
@@ -151,11 +157,7 @@ export function resolveCoursePermissionRole(input: {
   courseRole?: CourseRole | null;
   platformRole: PlatformRole;
 }): EffectiveCourseRole | null {
-  if (input.platformRole === "admin") {
-    return "admin";
-  }
-
-  return input.courseRole ?? null;
+  return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
 }
 
 export async function resolveCoursePermission(
@@ -196,11 +198,11 @@ export async function getCoursePermissionRole(courseSlug: string, actor: ActorCo
 // --- Permission checks ---
 
 export function canCreateCourse(platformRole: PlatformRole) {
-  return platformRole === "admin" || platformRole === "teacher";
+  return canEditProblem(platformRole);
 }
 
 export function isCourseStaff(role: EffectiveCourseRole) {
-  return role === "admin" || role === "teacher" || role === "ta";
+  return canManageCourse(role);
 }
 
 export const canManageCourseMembership = isCourseStaff;
