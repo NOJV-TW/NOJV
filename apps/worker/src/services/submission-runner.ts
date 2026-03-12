@@ -1,4 +1,8 @@
-import { submissionResultSchema, type SubmissionDraft, type SubmissionResult } from "@nojv/core";
+import {
+  submissionResultSchema,
+  type SubmissionDraft,
+  type SubmissionResult
+} from "@nojv/core";
 import type { SandboxExecutor, SandboxRequest, SandboxResult } from "@nojv/sandbox";
 
 import type { SubmissionJudgeContext } from "./judge-db.js";

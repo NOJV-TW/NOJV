@@ -1,5 +1,10 @@
 import { prisma, type TransactionClient } from "@nojv/db";
-import type { Language, ProblemCreate, ProblemTestcaseSetCreate, ProblemUpdate } from "@nojv/core";
+import type {
+  Language,
+  ProblemCreate,
+  ProblemTestcaseSetCreate,
+  ProblemUpdate
+} from "@nojv/core";
 
 import { DEFAULT_LOCALE } from "$lib/locale";
 import type { CompletedActorContext } from "../auth";
@@ -98,7 +103,12 @@ export function assertCourseProblemAccess(
 export async function replaceTemplates(
   tx: TransactionClient,
   problemId: string,
-  templates: { driverCode: string; insertionMarker: string; language: string; templateCode: string }[]
+  templates: {
+    driverCode: string;
+    insertionMarker: string;
+    language: string;
+    templateCode: string;
+  }[]
 ) {
   // Lock the problem row to prevent concurrent template modifications
   await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problemId} FOR UPDATE`;
@@ -121,7 +131,12 @@ export async function replaceTemplates(
 export async function updateProblemTemplates(
   actor: CompletedActorContext,
   problemSlug: string,
-  templates: { driverCode: string; insertionMarker: string; language: string; templateCode: string }[]
+  templates: {
+    driverCode: string;
+    insertionMarker: string;
+    language: string;
+    templateCode: string;
+  }[]
 ) {
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
@@ -208,7 +223,8 @@ export async function updateProblemRecord(
     if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
     if (payload.tags !== undefined) updateData.tags = payload.tags;
     if (payload.judgeType !== undefined) updateData.judgeType = payload.judgeType;
-    if (payload.submissionType !== undefined) updateData.submissionType = payload.submissionType;
+    if (payload.submissionType !== undefined)
+      updateData.submissionType = payload.submissionType;
     if (payload.timeLimitMs !== undefined) updateData.timeLimitMs = payload.timeLimitMs;
     if (payload.memoryLimitMb !== undefined) updateData.memoryLimitMb = payload.memoryLimitMb;
     if (payload.checkerScript !== undefined) updateData.checkerScript = payload.checkerScript;
@@ -224,7 +240,11 @@ export async function updateProblemRecord(
     }
 
     // Update statement if provided
-    if (payload.statement !== undefined || payload.inputFormat !== undefined || payload.outputFormat !== undefined) {
+    if (
+      payload.statement !== undefined ||
+      payload.inputFormat !== undefined ||
+      payload.outputFormat !== undefined
+    ) {
       await tx.problemStatementI18n.upsert({
         create: {
           bodyMarkdown: payload.statement ?? "",

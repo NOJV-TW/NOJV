@@ -53,45 +53,45 @@ describe("deriveAssessmentWindowState", () => {
   };
 
   it("marks assignment windows as upcoming before opensAt", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-18T11:59:00.000Z" })
-    ).toBe("upcoming");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-18T11:59:00.000Z" })).toBe(
+      "upcoming"
+    );
   });
 
   it("marks assignment windows as open between opensAt and dueAt", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-19T00:00:00.000Z" })
-    ).toBe("open");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-19T00:00:00.000Z" })).toBe(
+      "open"
+    );
   });
 
   it("marks exactly at opensAt as open", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-18T12:00:00.000Z" })
-    ).toBe("open");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-18T12:00:00.000Z" })).toBe(
+      "open"
+    );
   });
 
   it("marks exactly at dueAt as open", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-20T12:00:00.000Z" })
-    ).toBe("open");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-20T12:00:00.000Z" })).toBe(
+      "open"
+    );
   });
 
   it("marks between dueAt and closesAt as grace", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-21T00:00:00.000Z" })
-    ).toBe("grace");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-21T00:00:00.000Z" })).toBe(
+      "grace"
+    );
   });
 
   it("marks exactly at closesAt as grace", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-22T12:00:00.000Z" })
-    ).toBe("grace");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-22T12:00:00.000Z" })).toBe(
+      "grace"
+    );
   });
 
   it("marks after closesAt as closed", () => {
-    expect(
-      deriveAssessmentWindowState({ ...base, now: "2026-03-22T12:00:01.000Z" })
-    ).toBe("closed");
+    expect(deriveAssessmentWindowState({ ...base, now: "2026-03-22T12:00:01.000Z" })).toBe(
+      "closed"
+    );
   });
 });
 

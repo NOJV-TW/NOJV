@@ -11,7 +11,8 @@ import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 export const POST: RequestHandler = apiHandler(async (event) => {
   const actor = getActorContext(event);
   if (!actor) return json({ message: "Authentication required." }, { status: 401 });
-  if (!hasActorHandle(actor)) return json({ message: "Complete your profile first." }, { status: 403 });
+  if (!hasActorHandle(actor))
+    return json({ message: "Complete your profile first." }, { status: 403 });
 
   const payload = submissionDraftSchema.parse(await event.request.json());
   const submission = await createQueuedSubmissionRecord(payload, actor);

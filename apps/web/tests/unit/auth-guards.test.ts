@@ -52,18 +52,24 @@ describe("resolveCoursePermissionRole", () => {
     expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: "student" })).toBe(
       "admin"
     );
-    expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: null })).toBe("admin");
+    expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: null })).toBe(
+      "admin"
+    );
   });
 
   it("returns courseRole when platformRole is not admin and courseRole exists", () => {
-    expect(resolveCoursePermissionRole({ platformRole: "teacher", courseRole: "teacher" })).toBe(
-      "teacher"
+    expect(
+      resolveCoursePermissionRole({ platformRole: "teacher", courseRole: "teacher" })
+    ).toBe("teacher");
+    expect(resolveCoursePermissionRole({ platformRole: "student", courseRole: "ta" })).toBe(
+      "ta"
     );
-    expect(resolveCoursePermissionRole({ platformRole: "student", courseRole: "ta" })).toBe("ta");
   });
 
   it("returns null when platformRole is not admin and courseRole is null", () => {
-    expect(resolveCoursePermissionRole({ platformRole: "student", courseRole: null })).toBeNull();
+    expect(
+      resolveCoursePermissionRole({ platformRole: "student", courseRole: null })
+    ).toBeNull();
   });
 
   it("returns null when platformRole is not admin and courseRole is undefined", () => {

@@ -59,9 +59,7 @@ describe("pickProblemStatement", () => {
   });
 
   it("returns empty strings for inputFormat/outputFormat when not present in statement", () => {
-    const statements = [
-      { bodyMarkdown: "Body", locale: "en", title: "Title" }
-    ];
+    const statements = [{ bodyMarkdown: "Body", locale: "en", title: "Title" }];
 
     const result = pickProblemStatement(statements, "en", "Fallback", "Fallback body");
 

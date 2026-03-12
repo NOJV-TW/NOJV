@@ -1,11 +1,19 @@
 import { error, fail, redirect } from "@sveltejs/kit";
-import { problemUpdateSchema, problemTemplateSchema, problemTestcaseSetCreateSchema } from "@nojv/core";
+import {
+  problemUpdateSchema,
+  problemTemplateSchema,
+  problemTestcaseSetCreateSchema
+} from "@nojv/core";
 import { superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { updateProblemRecord, updateProblemTemplates, createProblemTestcaseSetRecord } from "$lib/server/problem/mutations";
+import {
+  updateProblemRecord,
+  updateProblemTemplates,
+  createProblemTestcaseSetRecord
+} from "$lib/server/problem/mutations";
 import { getProblemPageData } from "$lib/server/problem/queries";
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);

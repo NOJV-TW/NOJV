@@ -4,7 +4,11 @@ import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
-import { canManageCourseMembership, getCoursePermissionRole, requireAuth } from "$lib/server/auth";
+import {
+  canManageCourseMembership,
+  getCoursePermissionRole,
+  requireAuth
+} from "$lib/server/auth";
 import { manuallyEnrollCourseMember } from "$lib/server/course/mutations";
 
 const enrollFormSchema = manualCourseEnrollmentSchema.omit({ courseSlug: true });

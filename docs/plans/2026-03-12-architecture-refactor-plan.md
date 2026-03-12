@@ -17,23 +17,27 @@
 ### Task 1.1: Remove anti-cheat from Prisma schema
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma`
 
 **Step 1: Remove models and enums**
 
 Delete these models from `schema.prisma`:
+
 - `CheatingCase` model (and all its fields/relations)
 - `CheatingSignal` model (and all its fields/relations)
 - `WorkspaceSession` model (and all its fields/relations)
 - `WorkspaceRun` model (and all its fields/relations)
 
 Delete these enums:
+
 - `CheatingSignalType`
 - `CheatingCaseStatus`
 - `WorkspaceRunStatus`
 - `WorkspaceMode`
 
 Remove relation fields referencing these models from other models:
+
 - `User`: remove `workspaceSessions`, `workspaceRuns`, `cheatingSignals`, `cheatingCases`
 - `Problem`: remove `workspaceSessions`
 - `Contest`: remove `cheatingCases`
@@ -64,12 +68,14 @@ git commit -m "chore: remove anti-cheat and workspace models from schema"
 ### Task 1.2: Remove anti-cheat from @nojv/core
 
 **Files:**
+
 - Modify: `packages/core/src/domain.ts`
 - Modify: `packages/core/src/queue.ts`
 
 **Step 1: Clean up domain.ts**
 
 Remove these const arrays and their Zod schemas:
+
 - `cheatingSignalTypes` (line 26-33) + `cheatingSignalTypeSchema`
 - `integritySignalSources` (line 34-38) + `integritySignalSourceSchema`
 - `integrityRiskLevels` (line 40) + `integrityRiskLevelSchema`
@@ -78,6 +84,7 @@ Remove these const arrays and their Zod schemas:
 - `workspaceOperationStatuses` (line 59-66) + `workspaceOperationStatusSchema`
 
 Remove these schemas:
+
 - `workspaceFileSchema`
 - `workspaceRunRequestSchema`
 - `workspaceRunResultSchema`
@@ -88,11 +95,13 @@ Remove these schemas:
 - `integrityCaseSchema`
 
 Remove these types:
+
 - `CheatingSignal`, `IntegrityAssessment`, `IntegrityCase`
 - `WorkspaceFile`, `WorkspaceMode`, `WorkspaceRunDispatchResponse`
 - `WorkspaceRunOperation`, `WorkspaceRunRequestInput`, `WorkspaceRunRequest`, `WorkspaceRunResult`
 
 Remove these interfaces and functions:
+
 - `WorkspaceSessionIdentifierInput` interface
 - `buildWorkspaceSessionId()` function
 - `signalWeights` record
@@ -103,6 +112,7 @@ Keep `EditorSessionIdentifierInput` and `buildEditorSessionId()` — they are us
 **Step 2: Clean up queue.ts**
 
 Remove `cheatingSignal` from `queueNames`:
+
 ```typescript
 export const queueNames = {
   submission: "submission-judge"
@@ -126,6 +136,7 @@ git commit -m "chore: remove anti-cheat and workspace schemas from @nojv/core"
 ### Task 1.3: Remove anti-cheat from worker
 
 **Files:**
+
 - Delete: `apps/worker/src/processors/cheating-signal.ts`
 - Modify: `apps/worker/src/worker-app.ts`
 
@@ -155,6 +166,7 @@ git commit -m "chore: remove cheating-signal processor from worker"
 ### Task 1.4: Remove workspace and integrity from web app
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/db.ts` — remove workspace-related functions
 - Modify: `apps/web/src/lib/server/queries.ts` — remove workspace-related queries
 - Modify: `apps/web/src/lib/types.ts` — remove workspace-related types
@@ -164,11 +176,13 @@ git commit -m "chore: remove cheating-signal processor from worker"
 **Step 1: Search and remove**
 
 Search all files under `apps/web/src/` for references to:
+
 - `workspace` (case-insensitive) — remove workspace run/session logic
 - `cheating` / `integrity` / `telemetry` — remove anti-cheat UI and logic
 - `CheatingCase` / `CheatingSignal` / `WorkspaceSession` / `WorkspaceRun`
 
 Remove:
+
 - Workspace API routes: `apps/web/src/routes/api/workspace/` (entire directory)
 - Any telemetry probe component
 - Any integrity dashboard page
@@ -177,6 +191,7 @@ Remove:
 **Step 2: Clean up i18n JSON files**
 
 Remove the `workspace` and `integrity` sections from:
+
 - `apps/web/src/lib/i18n/en.json`
 - `apps/web/src/lib/i18n/zh-TW.json`
 
@@ -199,11 +214,13 @@ git commit -m "chore: remove workspace and integrity modules from web app"
 ### Task 1.5: Update seed script
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts`
 
 **Step 1: Remove references**
 
 Remove any seed data creating:
+
 - CheatingCase records
 - CheatingSignal records
 - WorkspaceSession records
@@ -228,6 +245,7 @@ git commit -m "chore: remove anti-cheat and workspace seed data"
 ### Task 2.1: Create @nojv/sandbox package
 
 **Files:**
+
 - Create: `packages/sandbox/package.json`
 - Create: `packages/sandbox/tsconfig.json`
 - Create: `packages/sandbox/src/index.ts`
@@ -281,6 +299,7 @@ git commit -m "chore: remove anti-cheat and workspace seed data"
 Split `packages/core/src/sandbox.ts` into:
 
 `packages/sandbox/src/request.ts`:
+
 ```typescript
 import type { JudgeType, Language, SubmissionType } from "@nojv/core";
 
@@ -290,6 +309,7 @@ export interface SandboxRequest { ... }
 ```
 
 `packages/sandbox/src/result.ts`:
+
 ```typescript
 export const sandboxVerdicts = ["AC", "WA", "TLE", "MLE", "RE", "SE"] as const;
 export type SandboxVerdict = (typeof sandboxVerdicts)[number];
@@ -300,6 +320,7 @@ export interface SandboxExecutor { ... }
 ```
 
 `packages/sandbox/src/languages.ts`:
+
 ```typescript
 import type { Language } from "@nojv/core";
 
@@ -308,6 +329,7 @@ export const sourceExtensions: Record<Language, string> = { ... };
 ```
 
 `packages/sandbox/src/index.ts`:
+
 ```typescript
 export * from "./request";
 export * from "./result";
@@ -339,6 +361,7 @@ git commit -m "feat: extract @nojv/sandbox package from @nojv/core"
 ### Task 2.2: Create @nojv/queue package
 
 **Files:**
+
 - Create: `packages/queue/package.json`
 - Create: `packages/queue/tsconfig.json`
 - Create: `packages/queue/src/index.ts`
@@ -379,6 +402,7 @@ git commit -m "feat: extract @nojv/sandbox package from @nojv/core"
 **Step 2: Move queue.ts content**
 
 `packages/queue/src/names.ts`:
+
 ```typescript
 export const queueNames = {
   submission: "submission-judge"
@@ -386,6 +410,7 @@ export const queueNames = {
 ```
 
 `packages/queue/src/jobs.ts`:
+
 ```typescript
 import { submissionDraftSchema } from "@nojv/core";
 import { z } from "zod";
@@ -405,6 +430,7 @@ export type SubmissionJudgeJob = z.infer<typeof submissionJudgeJobSchema>;
 ```
 
 `packages/queue/src/index.ts`:
+
 ```typescript
 export * from "./names";
 export * from "./jobs";
@@ -430,6 +456,7 @@ git commit -m "feat: extract @nojv/queue package from @nojv/core"
 ### Task 2.3: Reorganize @nojv/core into schemas/
 
 **Files:**
+
 - Create: `packages/core/src/schemas/problem.ts`
 - Create: `packages/core/src/schemas/course.ts`
 - Create: `packages/core/src/schemas/contest.ts`
@@ -441,6 +468,7 @@ git commit -m "feat: extract @nojv/queue package from @nojv/core"
 **Step 1: Split domain.ts**
 
 `packages/core/src/types.ts` — shared enums and base schemas:
+
 ```typescript
 // Language, role, locale enums + their Zod schemas
 // slugSchema, isoDateTimeSchema, sourceCodeSchema, userIdSchema
@@ -448,6 +476,7 @@ git commit -m "feat: extract @nojv/queue package from @nojv/core"
 ```
 
 `packages/core/src/schemas/problem.ts`:
+
 ```typescript
 // problemTemplateSchema, problemCreateSchema, problemUpdateSchema
 // problemTestcaseCaseSchema, problemJudgeTestcaseSchema, problemTestcaseSetCreateSchema
@@ -456,6 +485,7 @@ git commit -m "feat: extract @nojv/queue package from @nojv/core"
 ```
 
 `packages/core/src/schemas/course.ts`:
+
 ```typescript
 // courseCreateSchema, courseJoinRequestSchema, courseProblemAttachSchema
 // manualCourseEnrollmentSchema, assessmentContextSchema, courseAssessmentCreateSchema
@@ -464,12 +494,14 @@ git commit -m "feat: extract @nojv/queue package from @nojv/core"
 ```
 
 `packages/core/src/schemas/contest.ts`:
+
 ```typescript
 // contestSessionSchema
 // + its inferred type
 ```
 
 `packages/core/src/schemas/submission.ts`:
+
 ```typescript
 // submissionDraftSchema, submissionResultSchema, testcaseResultItemSchema
 // submissionDispatchResponseSchema, submissionOperationSchema
@@ -477,6 +509,7 @@ git commit -m "feat: extract @nojv/queue package from @nojv/core"
 ```
 
 `packages/core/src/index.ts`:
+
 ```typescript
 export * from "./types";
 export * from "./schemas/problem";
@@ -502,6 +535,7 @@ git commit -m "refactor: reorganize @nojv/core into schemas/ directory"
 ### Task 2.4: Update all import paths
 
 **Files:**
+
 - Modify: `apps/worker/package.json` — add `@nojv/sandbox`, `@nojv/queue` deps
 - Modify: `apps/worker/src/**/*.ts` — update imports from `@nojv/core` to `@nojv/sandbox` or `@nojv/queue`
 - Modify: `apps/sandbox-runner/package.json` — add `@nojv/sandbox` dep
@@ -512,33 +546,39 @@ git commit -m "refactor: reorganize @nojv/core into schemas/ directory"
 **Step 1: Update worker**
 
 In `apps/worker/package.json`, add:
+
 ```json
 "@nojv/sandbox": "workspace:*",
 "@nojv/queue": "workspace:*"
 ```
 
 Update imports in worker files:
+
 - `import { SandboxRequest, SandboxResult, SandboxExecutor, ... } from "@nojv/sandbox"`
 - `import { queueNames, submissionJudgeJobSchema, ... } from "@nojv/queue"`
 
 **Step 2: Update sandbox-runner**
 
 In `apps/sandbox-runner/package.json`, add:
+
 ```json
 "@nojv/sandbox": "workspace:*"
 ```
 
 Update imports:
+
 - `import { SandboxVerdict, SandboxTestcaseResult, sourceFileNames, ... } from "@nojv/sandbox"`
 
 **Step 3: Update web**
 
 In `apps/web/package.json`, add:
+
 ```json
 "@nojv/queue": "workspace:*"
 ```
 
 Update `apps/web/src/lib/server/queue.ts`:
+
 - `import { queueNames, defaultJobOptions, ... } from "@nojv/queue"`
 
 **Step 4: Install and verify**
@@ -560,6 +600,7 @@ git commit -m "refactor: update imports for @nojv/sandbox and @nojv/queue packag
 ### Task 3.1: Create tooling/ directory
 
 **Files:**
+
 - Create: `tooling/typescript/base.json`
 - Create: `tooling/eslint/base.mjs`
 - Create: `tooling/prettier/base.mjs`
@@ -571,6 +612,7 @@ git commit -m "refactor: update imports for @nojv/sandbox and @nojv/queue packag
 
 Copy `tsconfig.base.json` content to `tooling/typescript/base.json`.
 Update root `tsconfig.base.json` to:
+
 ```json
 {
   "extends": "./tooling/typescript/base.json"
@@ -614,6 +656,7 @@ git commit -m "refactor: centralize tooling configs into tooling/ directory"
 ### Task 4.1: Create (auth) and (app) layout groups
 
 **Files:**
+
 - Create: `apps/web/src/routes/(auth)/+layout.svelte`
 - Create: `apps/web/src/routes/(app)/+layout.server.ts` — auth guard
 - Create: `apps/web/src/routes/(app)/+layout.svelte`
@@ -625,6 +668,7 @@ git commit -m "refactor: centralize tooling configs into tooling/ directory"
 Create `apps/web/src/routes/(auth)/+layout.svelte` — minimal layout (no sidebar/nav, just centered container).
 
 Move these routes into `(auth)/`:
+
 - `auth/signin/` → `(auth)/signin/`
 - `auth/signup/` → `(auth)/signup/`
 - `auth/admin-signin/` → `(auth)/admin-signin/`
@@ -634,6 +678,7 @@ Move these routes into `(auth)/`:
 **Step 2: Create (app) layout group**
 
 Create `apps/web/src/routes/(app)/+layout.server.ts`:
+
 ```typescript
 import { redirect } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";
@@ -650,6 +695,7 @@ export const load: LayoutServerLoad = async (event) => {
 Create `apps/web/src/routes/(app)/+layout.svelte` — main app layout with Header.
 
 Move these routes into `(app)/`:
+
 - `problems/` → `(app)/problems/`
 - `courses/` → `(app)/courses/`
 - `submissions/` → `(app)/submissions/`
@@ -660,6 +706,7 @@ Move these routes into `(app)/`:
 **Step 3: Keep root layout minimal**
 
 Root `+layout.svelte` should only provide:
+
 - HTML lang attribute
 - Global CSS
 - Paraglide provider (later)
@@ -673,6 +720,7 @@ Actually — layout groups don't affect URLs, so `/signin` stays `/signin`, `/pr
 Note: Currently routes are at `/auth/signin`. Moving to `(auth)/signin/` means the URL becomes `/signin` (dropping the `/auth` prefix). If we want to keep `/auth/signin`, put routes at `(auth)/auth/signin/`. Decide based on preference.
 
 **Recommended:** Drop the `/auth/` prefix — cleaner URLs:
+
 - `/signin`, `/signup`, `/complete-profile`
 
 **Step 5: Verify**
@@ -696,6 +744,7 @@ git commit -m "refactor: reorganize routes into (auth) and (app) layout groups"
 ### Task 4.2: Create admin layout group
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/admin/+layout.server.ts`
 
 **Step 1: Admin guard**
@@ -724,6 +773,7 @@ git commit -m "feat: add admin layout guard"
 ### Task 4.3: Create course manage layout guard
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[slug]/manage/+layout.server.ts`
 
 **Step 1: Permission guard**
@@ -748,6 +798,7 @@ git commit -m "feat: add course manage layout guard"
 ### Task 5.1: Split server/db.ts into domain modules
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/problem/mutations.ts`
 - Create: `apps/web/src/lib/server/course/mutations.ts`
 - Create: `apps/web/src/lib/server/submission/mutations.ts`
@@ -756,6 +807,7 @@ git commit -m "feat: add course manage layout guard"
 **Step 1: Extract problem mutations**
 
 Move from `db.ts` to `server/problem/mutations.ts`:
+
 - `createProblemDefinition()`
 - `createProblemTestcaseSetRecord()` (or similar)
 - Any problem update functions
@@ -763,6 +815,7 @@ Move from `db.ts` to `server/problem/mutations.ts`:
 **Step 2: Extract course mutations**
 
 Move from `db.ts` to `server/course/mutations.ts`:
+
 - `createCourseRecord()`
 - `attachProblemToCourseRecord()`
 - `joinCourseRecord()`
@@ -772,11 +825,13 @@ Move from `db.ts` to `server/course/mutations.ts`:
 **Step 3: Extract submission mutations**
 
 Move from `db.ts` to `server/submission/mutations.ts`:
+
 - `createQueuedSubmissionRecord()`
 
 **Step 4: Update db.ts**
 
 Keep only shared utilities:
+
 - `ensureUser()`
 - Prisma client re-export (if any)
 
@@ -800,6 +855,7 @@ git commit -m "refactor: split server/db.ts into domain mutation modules"
 ### Task 5.2: Split server/queries.ts into domain modules
 
 **Files:**
+
 - Create: `apps/web/src/lib/server/problem/queries.ts`
 - Create: `apps/web/src/lib/server/course/queries.ts`
 - Create: `apps/web/src/lib/server/contest/queries.ts`
@@ -809,6 +865,7 @@ git commit -m "refactor: split server/db.ts into domain mutation modules"
 **Step 1: Extract problem queries**
 
 Move to `server/problem/queries.ts`:
+
 - `listProblemCards()`
 - `listEditableProblems()`
 - `getProblemPageData()`
@@ -816,6 +873,7 @@ Move to `server/problem/queries.ts`:
 **Step 2: Extract course queries**
 
 Move to `server/course/queries.ts`:
+
 - `getCoursePageData()`
 - `createAssessmentDetailLoader()`
 - `createAssessmentListLoader()`
@@ -823,11 +881,13 @@ Move to `server/course/queries.ts`:
 **Step 3: Extract contest queries**
 
 Move to `server/contest/queries.ts`:
+
 - Any contest-related query functions
 
 **Step 4: Extract submission queries**
 
 Move to `server/submission/queries.ts`:
+
 - Any submission listing/detail queries
 
 **Step 5: Update all route imports**
@@ -850,6 +910,7 @@ git commit -m "refactor: split server/queries.ts into domain query modules"
 ### Task 5.3: Reorganize components into domain directories
 
 **Files:**
+
 - Move problem components to `lib/components/problem/`
 - Move course components to `lib/components/course/`
 - Move contest components to `lib/components/contest/`
@@ -866,12 +927,14 @@ mkdir -p apps/web/src/lib/components/{problem,course,contest,layout}
 Map existing component files to new locations:
 
 Problem:
+
 - `Editor.svelte` → `components/problem/editor.svelte`
 - `Workspace.svelte` → `components/problem/workspace.svelte`
 - `CreationPanel.svelte` → `components/problem/creation-panel.svelte`
 - `Tabs.svelte` (problem listing) → `components/problem/problem-list.svelte`
 
 Course:
+
 - `AssessmentBoard.svelte` → `components/course/assessment-board.svelte`
 - `JoinPanel.svelte` → `components/course/join-panel.svelte`
 - `ProblemShelf.svelte` → `components/course/problem-shelf.svelte`
@@ -879,11 +942,13 @@ Course:
 - `AssessmentListView.svelte` → `components/course/assessment-list-view.svelte`
 
 Course manage:
+
 - `Problems.svelte` → `components/course/manage-problems.svelte`
 - `Assessments.svelte` → `components/course/manage-assessments.svelte`
 - `Members.svelte` → `components/course/manage-members.svelte`
 
 Layout:
+
 - `Header.svelte` → `components/layout/header.svelte`
 - `UserMenu.svelte` → `components/layout/user-menu.svelte`
 - `OAuthButtons.svelte` → `components/layout/oauth-buttons.svelte`
@@ -919,6 +984,7 @@ git commit -m "refactor: reorganize components into domain directories"
 Run: `cd /Users/takala/code/NOJV/apps/web && npx shadcn-svelte@latest init`
 
 Follow prompts:
+
 - Style: Default (or New York — match current aesthetic)
 - Base color: match current design
 - CSS variables: yes
@@ -960,6 +1026,7 @@ git commit -m "feat: initialize shadcn-svelte with base UI components"
 This task is ongoing — replace existing hand-crafted elements with shadcn-svelte components one component at a time. Each replacement should be a separate commit.
 
 Priority order:
+
 1. Buttons (replace custom button styles with `<Button>`)
 2. Form inputs (replace `<input>` with `<Input>`)
 3. Tables (submission list, member table → `<Table>`)
@@ -980,6 +1047,7 @@ Priority order:
 **Step 1: Install**
 
 Run:
+
 ```bash
 cd /Users/takala/code/NOJV/apps/web
 pnpm add -D @inlang/paraglide-sveltekit
@@ -1051,6 +1119,7 @@ git commit -m "feat: install and configure Paraglide.js"
 ### Task 7.2: Integrate Paraglide into layouts
 
 **Files:**
+
 - Modify: `apps/web/src/routes/+layout.svelte`
 - Modify: `apps/web/src/routes/+layout.server.ts`
 - Modify: `apps/web/src/hooks.server.ts`
@@ -1058,6 +1127,7 @@ git commit -m "feat: install and configure Paraglide.js"
 **Step 1: Setup ParaglideJS in root layout**
 
 Follow Paraglide-SvelteKit docs for:
+
 - `handle` hook in `hooks.server.ts` for locale detection
 - `ParaglideJS` component in root `+layout.svelte`
 - Language switcher integration
@@ -1084,6 +1154,7 @@ Run grep for `\$t\(` across all `.svelte` and `.ts` files in `apps/web/src/`.
 **Step 2: Replace systematically**
 
 For each file, replace:
+
 - `$t('key.subkey')` → `m.key_subkey()`
 - `$t('key.subkey', { name })` → `m.key_subkey({ name })`
 
@@ -1117,6 +1188,7 @@ git commit -m "feat: migrate all i18n from svelte-i18n to Paraglide.js"
 ### Task 8.1: Remove dev header fallback
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/auth.ts`
 
 **Step 1: Clean up getActorContext**
@@ -1146,6 +1218,7 @@ git commit -m "chore: remove dev header fallback from auth, BetterAuth only"
 ### Task 9.1: Set up test directory structure
 
 **Files:**
+
 - Create: `apps/web/tests/unit/`
 - Create: `apps/web/tests/integration/`
 - Create: `apps/web/tests/e2e/`
@@ -1162,6 +1235,7 @@ mkdir -p apps/web/tests/integration/{problem,course,submission}
 **Step 2: Configure Vitest for unit + integration**
 
 Update `apps/web/vitest.config.ts`:
+
 ```typescript
 import { defineConfig } from "vitest/config";
 import { sveltekit } from "@sveltejs/kit/vite";
@@ -1178,6 +1252,7 @@ export default defineConfig({
 **Step 3: Add a sample unit test**
 
 Create `apps/web/tests/unit/types.test.ts`:
+
 ```typescript
 import { describe, it, expect } from "vitest";
 import { deriveAssessmentWindowState } from "$lib/types";
@@ -1211,33 +1286,34 @@ git commit -m "feat: set up layered test structure with sample unit test"
 
 ## Execution Order Summary
 
-| Phase | Task | Description | Depends On |
-|-------|------|-------------|------------|
-| 1 | 1.1 | Remove anti-cheat from Prisma schema | — |
-| 1 | 1.2 | Remove anti-cheat from @nojv/core | — |
-| 1 | 1.3 | Remove anti-cheat from worker | 1.2 |
-| 1 | 1.4 | Remove workspace/integrity from web | 1.1, 1.2 |
-| 1 | 1.5 | Update seed script | 1.1 |
-| 2 | 2.1 | Create @nojv/sandbox | 1.2 |
-| 2 | 2.2 | Create @nojv/queue | 1.2 |
-| 2 | 2.3 | Reorganize @nojv/core schemas | 2.1, 2.2 |
-| 2 | 2.4 | Update all import paths | 2.1, 2.2, 2.3 |
-| 3 | 3.1 | Tooling centralization | — |
-| 4 | 4.1 | Route layout groups | 1.4 |
-| 4 | 4.2 | Admin layout guard | 4.1 |
-| 4 | 4.3 | Course manage layout guard | 4.1 |
-| 5 | 5.1 | Split server/db.ts | 1.4 |
-| 5 | 5.2 | Split server/queries.ts | 5.1 |
-| 5 | 5.3 | Reorganize components | 4.1 |
-| 6 | 6.1 | Initialize shadcn-svelte | 5.3 |
-| 6 | 6.2 | Replace hand-crafted UI | 6.1 |
-| 7 | 7.1 | Install Paraglide | — |
-| 7 | 7.2 | Integrate into layouts | 7.1 |
-| 7 | 7.3 | Migrate $t() to m.() | 7.2 |
-| 8 | 8.1 | BetterAuth cleanup | — |
-| 9 | 9.1 | Test structure | 5.2 |
+| Phase | Task | Description                          | Depends On    |
+| ----- | ---- | ------------------------------------ | ------------- |
+| 1     | 1.1  | Remove anti-cheat from Prisma schema | —             |
+| 1     | 1.2  | Remove anti-cheat from @nojv/core    | —             |
+| 1     | 1.3  | Remove anti-cheat from worker        | 1.2           |
+| 1     | 1.4  | Remove workspace/integrity from web  | 1.1, 1.2      |
+| 1     | 1.5  | Update seed script                   | 1.1           |
+| 2     | 2.1  | Create @nojv/sandbox                 | 1.2           |
+| 2     | 2.2  | Create @nojv/queue                   | 1.2           |
+| 2     | 2.3  | Reorganize @nojv/core schemas        | 2.1, 2.2      |
+| 2     | 2.4  | Update all import paths              | 2.1, 2.2, 2.3 |
+| 3     | 3.1  | Tooling centralization               | —             |
+| 4     | 4.1  | Route layout groups                  | 1.4           |
+| 4     | 4.2  | Admin layout guard                   | 4.1           |
+| 4     | 4.3  | Course manage layout guard           | 4.1           |
+| 5     | 5.1  | Split server/db.ts                   | 1.4           |
+| 5     | 5.2  | Split server/queries.ts              | 5.1           |
+| 5     | 5.3  | Reorganize components                | 4.1           |
+| 6     | 6.1  | Initialize shadcn-svelte             | 5.3           |
+| 6     | 6.2  | Replace hand-crafted UI              | 6.1           |
+| 7     | 7.1  | Install Paraglide                    | —             |
+| 7     | 7.2  | Integrate into layouts               | 7.1           |
+| 7     | 7.3  | Migrate $t() to m.()                 | 7.2           |
+| 8     | 8.1  | BetterAuth cleanup                   | —             |
+| 9     | 9.1  | Test structure                       | 5.2           |
 
 ### Parallelizable groups:
+
 - **Group A (independent):** Phase 1 (1.1 + 1.2 can start in parallel), Phase 3, Phase 7.1, Phase 8
 - **Group B (after Phase 1):** Phase 2, Phase 4, Phase 5
 - **Group C (after Phase 5):** Phase 6, Phase 9

@@ -3,7 +3,12 @@ import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { sourceFileNames, type SandboxExecutor, type SandboxRequest, type SandboxResult } from "@nojv/sandbox";
+import {
+  sourceFileNames,
+  type SandboxExecutor,
+  type SandboxRequest,
+  type SandboxResult
+} from "@nojv/sandbox";
 
 export interface DockerExecutorConfig {
   cpuLimit: string;

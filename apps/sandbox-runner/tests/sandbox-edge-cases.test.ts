@@ -1,6 +1,6 @@
 /**
  * Comprehensive edge case tests for sandbox-runner.
- * 
+ *
  * Covers scenarios not tested in judge-integration.test.ts:
  * - Compiler edge cases (timeout, spawn errors, compileChecker)
  * - Interactive judge edge cases (interactor timeout, feedback parsing)
@@ -190,8 +190,11 @@ raise RuntimeError("interactor crashed")`;
 
     // Solution that reads and responds correctly
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `n = int(input())
-print(n * 2)`);
+    await writeFile(
+      solutionFile,
+      `n = int(input())
+print(n * 2)`
+    );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
     const verdict = await judgeInteractive(
@@ -216,8 +219,11 @@ sys.exit(1)`;
     await writeFile(intFile, noScoreInteractor);
 
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `n = int(input())
-print(n * 2)`);
+    await writeFile(
+      solutionFile,
+      `n = int(input())
+print(n * 2)`
+    );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
     const verdict = await judgeInteractive(
@@ -243,8 +249,11 @@ sys.exit(0)`;
     await writeFile(intFile, badScoreInteractor);
 
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `n = int(input())
-print(n * 2)`);
+    await writeFile(
+      solutionFile,
+      `n = int(input())
+print(n * 2)`
+    );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
     const verdict = await judgeInteractive(
@@ -270,8 +279,11 @@ sys.exit(0)`;
     await writeFile(intFile, partialInteractor);
 
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `n = int(input())
-print(n * 2)`);
+    await writeFile(
+      solutionFile,
+      `n = int(input())
+print(n * 2)`
+    );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
     const verdict = await judgeInteractive(
@@ -288,10 +300,13 @@ print(n * 2)`);
 
   it("solution crashes before interactor starts", async () => {
     const interactorFile = join(workDir, "interactor.py");
-    await writeFile(interactorFile, `import sys
+    await writeFile(
+      interactorFile,
+      `import sys
 print(5, flush=True)
 response = input().strip()
-sys.exit(0)`);
+sys.exit(0)`
+    );
 
     // Solution that crashes immediately
     const solutionFile = join(workDir, "solution.py");
@@ -351,11 +366,14 @@ sys.exit(0)`;
 
     // Solution expects to receive a number
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `try:
+    await writeFile(
+      solutionFile,
+      `try:
     n = int(input())
     print(n * 2)
 except:
-    pass`);
+    pass`
+    );
 
     // Testcase with empty input
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
@@ -428,10 +446,19 @@ else:
     await writeFile(checkerFile, checkerScript);
 
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `n = int(input())
-print(n * 2)`);
+    await writeFile(
+      solutionFile,
+      `n = int(input())
+print(n * 2)`
+    );
 
-    const tc: TestcaseFiles = { index: 0, input: "7", expected: "14", weight: 1, isSample: true };
+    const tc: TestcaseFiles = {
+      index: 0,
+      input: "7",
+      expected: "14",
+      weight: 1,
+      isSample: true
+    };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
@@ -452,7 +479,13 @@ sys.exit(0)`;
     const solutionFile = join(workDir, "solution.py");
     await writeFile(solutionFile, "print('test')");
 
-    const tc: TestcaseFiles = { index: 0, input: "", expected: "test", weight: 1, isSample: true };
+    const tc: TestcaseFiles = {
+      index: 0,
+      input: "",
+      expected: "test",
+      weight: 1,
+      isSample: true
+    };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
@@ -474,7 +507,13 @@ sys.exit(0)`;
     const solutionFile = join(workDir, "solution.py");
     await writeFile(solutionFile, "print('test')");
 
-    const tc: TestcaseFiles = { index: 0, input: "", expected: "test", weight: 1, isSample: true };
+    const tc: TestcaseFiles = {
+      index: 0,
+      input: "",
+      expected: "test",
+      weight: 1,
+      isSample: true
+    };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
@@ -502,7 +541,13 @@ except Exception as e:
     const solutionFile = join(workDir, "solution.py");
     await writeFile(solutionFile, "print('test')");
 
-    const tc: TestcaseFiles = { index: 0, input: "", expected: "test", weight: 1, isSample: true };
+    const tc: TestcaseFiles = {
+      index: 0,
+      input: "",
+      expected: "test",
+      weight: 1,
+      isSample: true
+    };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
@@ -538,9 +583,12 @@ describe("standard judge edge cases", () => {
     // Generate 1MB of input
     const largeInput = "1234567890".repeat(100_000) + "\n";
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `import sys
+    await writeFile(
+      solutionFile,
+      `import sys
 data = sys.stdin.read()
-print(len(data))`);
+print(len(data))`
+    );
 
     const tc: TestcaseFiles = {
       index: 0,
@@ -574,9 +622,12 @@ print(len(data))`);
 
   it("unicode input and output", async () => {
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `import sys
+    await writeFile(
+      solutionFile,
+      `import sys
 line = sys.stdin.read()
-print(line.strip())`);
+print(line.strip())`
+    );
 
     const unicodeText = "Hello 世界 🌍 Привет";
     const tc: TestcaseFiles = {
@@ -609,9 +660,12 @@ print(line.strip())`);
 
   it("solution with only stderr output and exit 0 → AC", async () => {
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `import sys
+    await writeFile(
+      solutionFile,
+      `import sys
 sys.stderr.write("debug message\\n")
-print("")  # Empty output`);
+print("")  # Empty output`
+    );
 
     const tc: TestcaseFiles = {
       index: 0,
@@ -664,8 +718,11 @@ print("")  # Empty output`);
 describe("multi-testcase scenarios", () => {
   it("running same solution on multiple testcases sequentially", async () => {
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `a, b = map(int, input().split())
-print(a + b)`);
+    await writeFile(
+      solutionFile,
+      `a, b = map(int, input().split())
+print(a + b)`
+    );
 
     const testcases: TestcaseFiles[] = [
       { index: 0, input: "1 2", expected: "3", weight: 1, isSample: true },
@@ -689,10 +746,13 @@ print(a + b)`);
   it("mixed verdicts across testcases", async () => {
     const solutionFile = join(workDir, "solution.py");
     // Solution that only handles positive numbers
-    await writeFile(solutionFile, `a, b = map(int, input().split())
+    await writeFile(
+      solutionFile,
+      `a, b = map(int, input().split())
 if a < 0 or b < 0:
     raise ValueError("negative")
-print(a + b)`);
+print(a + b)`
+    );
 
     const testcases: TestcaseFiles[] = [
       { index: 0, input: "1 2", expected: "3", weight: 1, isSample: true },
@@ -715,7 +775,13 @@ print(a + b)`);
     const solutionFile = join(workDir, "solution.py");
     await writeFile(solutionFile, "print(42)");
 
-    const tc: TestcaseFiles = { index: 5, input: "", expected: "42", weight: 10, isSample: false };
+    const tc: TestcaseFiles = {
+      index: 5,
+      input: "",
+      expected: "42",
+      weight: 10,
+      isSample: false
+    };
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
 
     expect(verdict.index).toBe(5);
@@ -814,7 +880,7 @@ describe("template injection additional cases", () => {
     const assembled = assembleSource(userCode, input);
 
     // Only the first marker in driverCode should be replaced
-    expect(assembled).toContain('# __USER_CODE__ is here');
+    expect(assembled).toContain("# __USER_CODE__ is here");
     expect(assembled).toContain('print("done")');
   });
 });
@@ -824,11 +890,20 @@ describe("template injection additional cases", () => {
 describe("boundary and performance", () => {
   it("very short timeout enforced correctly", async () => {
     const solutionFile = join(workDir, "solution.py");
-    await writeFile(solutionFile, `import time
+    await writeFile(
+      solutionFile,
+      `import time
 time.sleep(0.2)
-print("done")`);
+print("done")`
+    );
 
-    const tc: TestcaseFiles = { index: 0, input: "", expected: "done", weight: 1, isSample: true };
+    const tc: TestcaseFiles = {
+      index: 0,
+      input: "",
+      expected: "done",
+      weight: 1,
+      isSample: true
+    };
     const verdict = await judgeStandard(["python3", solutionFile], tc, 100);
 
     expect(verdict.verdict).toBe("TLE");
@@ -839,7 +914,13 @@ print("done")`);
     const solutionFile = join(workDir, "solution.py");
     await writeFile(solutionFile, "print('test')");
 
-    const tc: TestcaseFiles = { index: 0, input: "", expected: "test", weight: 1, isSample: true };
+    const tc: TestcaseFiles = {
+      index: 0,
+      input: "",
+      expected: "test",
+      weight: 1,
+      isSample: true
+    };
     // This will likely timeout immediately or run very fast
     const verdict = await judgeStandard(["python3", solutionFile], tc, 1);
 

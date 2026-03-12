@@ -42,7 +42,12 @@ export async function processSchoolVerification(
     data: {
       id: token,
       identifier: userId,
-      value: JSON.stringify({ email, handle, school: parsed.school, studentId: parsed.studentId }),
+      value: JSON.stringify({
+        email,
+        handle,
+        school: parsed.school,
+        studentId: parsed.studentId
+      }),
       expiresAt
     }
   });
@@ -65,7 +70,9 @@ export async function processSchoolVerification(
   });
 
   if (error) {
-    logger.error("email send failed", { err: error instanceof Error ? error.message : String(error) });
+    logger.error("email send failed", {
+      err: error instanceof Error ? error.message : String(error)
+    });
     return { error: "Failed to send email", status: 500 };
   }
 

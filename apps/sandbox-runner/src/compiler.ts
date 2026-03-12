@@ -123,19 +123,11 @@ export async function compileChecker(
   }
 
   if (language === "go") {
-    return compileWithCommand(
-      ["go", "build", "-o", outPath, scriptPath],
-      [outPath],
-      workDir
-    );
+    return compileWithCommand(["go", "build", "-o", outPath, scriptPath], [outPath], workDir);
   }
 
   if (language === "rust") {
-    return compileWithCommand(
-      ["rustc", "-O", "-o", outPath, scriptPath],
-      [outPath],
-      workDir
-    );
+    return compileWithCommand(["rustc", "-O", "-o", outPath, scriptPath], [outPath], workDir);
   }
 
   // Fallback: assume interpreted (Python)
