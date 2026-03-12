@@ -77,11 +77,11 @@ pnpm dev
 
 Each package/app owns its own `.env`:
 
-| File | Purpose |
-|---|---|
+| File               | Purpose                                       |
+| ------------------ | --------------------------------------------- |
 | `packages/db/.env` | `DATABASE_URL` for Prisma migrations and seed |
-| `apps/web/.env` | Database, Redis, Better Auth, OAuth, Resend |
-| `apps/worker/.env` | Redis, sandbox execution settings |
+| `apps/web/.env`    | Database, Redis, Better Auth, OAuth, Resend   |
+| `apps/worker/.env` | Redis, sandbox execution settings             |
 
 Open:
 

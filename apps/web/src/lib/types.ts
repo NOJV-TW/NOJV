@@ -1,4 +1,10 @@
-import type { CourseAssessmentType, JudgeType, Language, ProblemOverview, SubmissionType } from "@nojv/core";
+import type {
+  CourseAssessmentType,
+  JudgeType,
+  Language,
+  ProblemOverview,
+  SubmissionType
+} from "@nojv/core";
 
 // --- Problem types ---
 
@@ -129,9 +135,7 @@ export const verdictColor: Record<string, string> = {
 };
 
 export function formatVerdictLabel(verdict: string): string {
-  return verdict
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 // --- Assessment helpers ---

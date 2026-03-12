@@ -2,8 +2,9 @@ import { json, isRedirect, isHttpError as isSvelteKitError } from "@sveltejs/kit
 import type { RequestEvent } from "@sveltejs/kit";
 import { ZodError } from "zod";
 
-import { HttpError } from "../auth";
 import { createLogger } from "../logger";
+import { classifyError } from "./handle-action-error";
+import { apiRateLimiter } from "./rate-limiter";
 
 const logger = createLogger("api");
 
@@ -11,6 +12,14 @@ type ApiHandler = (event: RequestEvent) => Promise<Response>;
 
 export function apiHandler(handler: ApiHandler): ApiHandler {
   return async (event) => {
+    const ip = event.getClientAddress();
+
+    try {
+      await apiRateLimiter.consume(ip);
+    } catch {
+      return json({ error: "Too many requests" }, { status: 429 });
+    }
+
     try {
       return await handler(event);
     } catch (error) {
@@ -22,17 +31,17 @@ export function apiHandler(handler: ApiHandler): ApiHandler {
         return json({ issues: error.issues }, { status: 400 });
       }
 
-      if (error instanceof HttpError) {
-        return json({ message: error.message }, { status: error.status });
+      const classified = classifyError(error);
+
+      if (classified.type === "unknown") {
+        logger.error("Unhandled API error", {
+          err: error instanceof Error ? error.message : String(error),
+          method: event.request.method,
+          url: event.url.pathname
+        });
       }
 
-      logger.error("Unhandled API error", {
-        err: error instanceof Error ? error.message : String(error),
-        method: event.request.method,
-        url: event.url.pathname
-      });
-
-      return json({ message: "Internal server error." }, { status: 500 });
+      return json({ message: classified.message }, { status: classified.status });
     }
   };
 }

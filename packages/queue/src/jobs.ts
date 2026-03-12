@@ -4,7 +4,7 @@ import { z } from "zod";
 export const defaultJobOptions = {
   attempts: 3,
   removeOnComplete: 250,
-  removeOnFail: 500
+  removeOnFail: false
 } as const;
 
 export const submissionJudgeJobSchema = z.object({

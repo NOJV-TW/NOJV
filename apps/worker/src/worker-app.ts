@@ -1,6 +1,6 @@
-import { UnrecoverableError, Worker } from "bullmq";
+import { Queue, UnrecoverableError, Worker } from "bullmq";
 
-import { parseRedisConnection, queueNames } from "@nojv/queue";
+import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/queue";
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
@@ -11,10 +11,46 @@ import { createExecutor } from "./services/executor-factory";
 
 const logger = createLogger("worker");
 
+async function mountBullBoard(
+  app: ReturnType<typeof createWorkerHealthServer>,
+  queues: Queue[]
+): Promise<void> {
+  const { createBullBoard } = await import("@bull-board/api");
+  const { BullMQAdapter } = await import("@bull-board/api/bullMQAdapter");
+  const { ExpressAdapter } = await import("@bull-board/express");
+  const express = await import("express");
+
+  const serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath("/admin/queues");
+
+  createBullBoard({
+    queues: queues.map((q) => new BullMQAdapter(q)),
+    serverAdapter
+  });
+
+  const expressApp = express.default();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- bull-board getRouter() returns any
+  expressApp.use("/admin/queues", serverAdapter.getRouter());
+
+  // Proxy /admin requests on the health server to express
+  const { createServer } = await import("node:http");
+  const boardServer = createServer(expressApp);
+  const BOARD_PORT = 9999;
+  await new Promise<void>((resolve) => {
+    boardServer.listen(BOARD_PORT, () => resolve());
+  });
+
+  logger.info("bull-board dashboard started", {
+    url: `http://localhost:${String(BOARD_PORT)}/admin/queues`
+  });
+}
+
 export class WorkerApp {
   private readonly workers: Worker[];
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
+  private readonly readOnlyQueues: Queue[];
+  private readonly dlqQueue: Queue;
   private shutdownPromise: Promise<void> | null = null;
 
   constructor(env: WorkerEnv) {
@@ -25,12 +61,16 @@ export class WorkerApp {
     const executor = createExecutor(env);
     const processSubmission = createSubmissionProcessor(executor);
 
+    this.dlqQueue = new Queue(queueNames.submissionDlq, { connection });
+
     this.workers = [
       new Worker(queueNames.submission, processSubmission, {
         concurrency: env.WORKER_CONCURRENCY,
         connection
       })
     ];
+
+    this.readOnlyQueues = [new Queue(queueNames.submission, { connection }), this.dlqQueue];
 
     this.healthServer = createWorkerHealthServer();
 
@@ -41,7 +81,23 @@ export class WorkerApp {
 
       worker.on("failed", (job, error) => {
         const prefix = error instanceof UnrecoverableError ? "permanent" : "retryable";
-        logger.error(`${prefix} job failure`, { jobName: job?.name ?? "unknown", err: error.message });
+        logger.error(`${prefix} job failure`, {
+          jobName: job?.name ?? "unknown",
+          err: error.message
+        });
+
+        if (job && job.attemptsMade >= (job.opts.attempts ?? defaultJobOptions.attempts)) {
+          this.dlqQueue
+            .add("failed-submission", {
+              originalJobId: job.id,
+              data: job.data as Record<string, unknown>,
+              failedReason: error.message,
+              failedAt: new Date().toISOString()
+            })
+            .catch((dlqError: unknown) => {
+              logger.error("failed to enqueue to DLQ", { err: String(dlqError) });
+            });
+        }
       });
     }
   }
@@ -54,7 +110,14 @@ export class WorkerApp {
       });
     });
 
-    logger.info("worker started", { redis: this.env.REDIS_URL, queues: Object.values(queueNames).join(", ") });
+    if (this.env.NODE_ENV === "development") {
+      await mountBullBoard(this.healthServer, this.readOnlyQueues);
+    }
+
+    logger.info("worker started", {
+      redis: this.env.REDIS_URL,
+      queues: Object.values(queueNames).join(", ")
+    });
     logger.info("health endpoint started", { port: this.env.PORT });
   }
 
@@ -67,7 +130,10 @@ export class WorkerApp {
 
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
-      await Promise.all(this.workers.map((w) => w.close()));
+      await Promise.all([
+        ...this.workers.map((w) => w.close()),
+        ...this.readOnlyQueues.map((q) => q.close())
+      ]);
     })();
 
     await this.shutdownPromise;
