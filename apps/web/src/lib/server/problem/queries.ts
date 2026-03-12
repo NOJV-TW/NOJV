@@ -253,10 +253,14 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
       },
       testcaseSets: {
         include: {
+          _count: {
+            select: { testcases: true }
+          },
           testcases: {
             orderBy: {
               ordinal: "asc"
-            }
+            },
+            take: 10
           }
         },
         orderBy: {
