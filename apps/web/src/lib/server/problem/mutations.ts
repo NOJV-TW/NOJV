@@ -129,6 +129,15 @@ export async function replaceTemplates(
   }
 }
 
+function assertProblemOwnership(
+  problem: { authorId: string | null },
+  actor: CompletedActorContext
+) {
+  if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
+    throw new ForbiddenError("Only the author or an admin can modify this problem.");
+  }
+}
+
 export async function updateProblemTemplates(
   actor: CompletedActorContext,
   problemSlug: string,
@@ -141,10 +150,7 @@ export async function updateProblemTemplates(
 ) {
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
-
-    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError("Only the author or an admin can update templates.");
-    }
+    assertProblemOwnership(problem, actor);
 
     await replaceTemplates(tx, problem.id, templates);
 
@@ -213,9 +219,7 @@ export async function updateProblemRecord(
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
 
-    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError("Only the author or an admin can update this problem.");
-    }
+    assertProblemOwnership(problem, actor);
 
     // Build the problem update data — only include fields that were provided
     const updateData: Record<string, unknown> = {};
@@ -284,11 +288,7 @@ export async function createProblemTestcaseSetRecord(
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
 
-    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError(
-        "Problem testcases can only be managed by the author or an admin."
-      );
-    }
+    assertProblemOwnership(problem, actor);
 
     const testcaseSet = await tx.testcaseSet.create({
       data: {

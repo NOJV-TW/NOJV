@@ -86,13 +86,24 @@ export { isReservedHandle } from "$lib/school";
 // --- Guards ---
 
 /**
+ * Require authentication for an API route handler.
+ * Throws HttpError (caught by apiHandler) instead of redirecting.
+ */
+export function requireApiAuth(event: RequestEvent): CompletedActorContext {
+  const actor = getActorContext(event);
+  if (!actor) throw new HttpError("Authentication required.", 401);
+  if (!hasActorHandle(actor)) throw new HttpError("Complete your profile first.", 403);
+  return actor;
+}
+
+/**
  * Require authentication for a server load function or page.
  * Redirects to the root if not authenticated.
  */
-export async function requireAuth(
+export function requireAuth(
   event: RequestEvent,
   redirectTo?: string
-): Promise<CompletedActorContext> {
+): CompletedActorContext {
   const actor = getActorContext(event);
 
   if (!actor) {

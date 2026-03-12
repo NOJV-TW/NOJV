@@ -39,9 +39,6 @@ export const GET: RequestHandler = (event) => {
       }
 
       try {
-        // Initial ownership check
-        await getSubmissionForUser(submissionId, userId, isAdmin);
-
         while (Date.now() - startTime < MAX_DURATION_MS) {
           const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
 

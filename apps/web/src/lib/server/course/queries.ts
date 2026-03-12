@@ -222,30 +222,7 @@ function mapPersistedCourse(course: {
 
 // ─── Public query functions ──────────────────────────────────────────
 
-export async function listCourseCards() {
-  const persistedCourses = await prisma.course.findMany({
-    include: {
-      _count: {
-        select: {
-          assessments: { where: { status: "published" } },
-          memberships: { where: { status: "active" } }
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
-
-  return persistedCourses.map((course) => ({
-    assessmentCount: course._count.assessments,
-    memberCount: course._count.memberships,
-    slug: course.slug,
-    title: course.title
-  }));
-}
-
-export async function listUserCourseCards(userId: string) {
+export async function listCourseCards(userId?: string) {
   const persistedCourses = await prisma.course.findMany({
     include: {
       _count: {
@@ -258,11 +235,15 @@ export async function listUserCourseCards(userId: string) {
     orderBy: {
       createdAt: "desc"
     },
-    where: {
-      memberships: {
-        some: { userId, status: "active" }
-      }
-    }
+    ...(userId
+      ? {
+          where: {
+            memberships: {
+              some: { userId, status: "active" }
+            }
+          }
+        }
+      : {})
   });
 
   return persistedCourses.map((course) => ({

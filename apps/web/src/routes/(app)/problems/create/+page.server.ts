@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
   create: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
 
     if (actor.platformRole === "student") {
       error(403, "Only teachers and admins can create problems.");
@@ -35,7 +35,7 @@ export const actions: Actions = {
   },
 
   createTestcaseSet: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const formData = await event.request.formData();
     const slugField = formData.get("slug");
     if (typeof slugField !== "string" || slugField.length === 0) error(400, "Missing slug");
