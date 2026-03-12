@@ -3,6 +3,7 @@ import type { PageServerLoad } from "./$types";
 import { getActiveExamForUser, getAssessmentContext } from "$lib/server/course/queries";
 import { getProblemPageData } from "$lib/server/problem/queries";
 import { listProblemSubmissions } from "$lib/server/submission/queries";
+import { assessmentPath } from "$lib/types";
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
   const { slug } = params;
@@ -11,21 +12,21 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const assessment = url.searchParams.get("assessment");
   const contest = url.searchParams.get("contest");
 
-  // ── Exam guard: if user is in a page-locked exam, enforce correct context ──
-  if (userId) {
-    const activeExam = await getActiveExamForUser(userId);
+  // ── Parallel: exam guard + problem data (independent) ──
+  const [activeExam, problem] = await Promise.all([
+    userId ? getActiveExamForUser(userId) : null,
+    getProblemPageData(slug)
+  ]);
 
-    if (activeExam) {
-      const isCorrectExamContext =
-        course === activeExam.course.slug && assessment === activeExam.slug;
+  if (activeExam) {
+    const isCorrectExamContext =
+      course === activeExam.course.slug && assessment === activeExam.slug;
 
-      if (!isCorrectExamContext) {
-        redirect(303, `/courses/${activeExam.course.slug}/exams/${activeExam.slug}`);
-      }
+    if (!isCorrectExamContext) {
+      redirect(303, assessmentPath(activeExam.course.slug, "exam", activeExam.slug));
     }
   }
 
-  const problem = await getProblemPageData(slug);
   if (!problem) {
     error(404, "Problem not found");
   }
@@ -35,10 +36,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
   const backLink = assessmentContext
     ? {
-        href:
-          assessmentContext.type === "exam"
-            ? `/courses/${assessmentContext.courseSlug}/exams/${assessmentContext.slug}`
-            : `/courses/${assessmentContext.courseSlug}/assignments/${assessmentContext.slug}`,
+        href: assessmentPath(assessmentContext.courseSlug, assessmentContext.type, assessmentContext.slug),
         type: assessmentContext.type
       }
     : undefined;

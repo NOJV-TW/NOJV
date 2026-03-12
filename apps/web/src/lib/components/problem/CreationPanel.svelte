@@ -12,14 +12,12 @@
   };
 
   import type { ProblemDetail, TemplateInfo } from "$lib/types";
+  import { inputClassName, monoTextareaClassName } from "$lib/utils";
   import { type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
   import CodeTemplateEditor from "./CodeTemplateEditor.svelte";
   import TestcaseSection from "./TestcaseSection.svelte";
 
-  const inputClassName =
-    "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
-  const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
   interface ExampleCase {
     stdin: string;
     expectedStdout: string;

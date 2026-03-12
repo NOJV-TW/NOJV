@@ -113,7 +113,7 @@ export async function requireAuth(
     redirect(302, "/complete-profile");
   }
 
-  return await Promise.resolve(actor);
+  return actor;
 }
 
 /**

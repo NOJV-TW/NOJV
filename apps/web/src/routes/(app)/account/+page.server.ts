@@ -1,7 +1,6 @@
 import { fail, redirect } from "@sveltejs/kit";
 
 import { isReservedHandle } from "$lib/school";
-import { readStringValue } from "$lib/server/auth";
 import { processSchoolVerification } from "$lib/server/shared/school-verification";
 import { parseSessionUser } from "$lib/session";
 
