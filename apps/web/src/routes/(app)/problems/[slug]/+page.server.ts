@@ -36,7 +36,11 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
   const backLink = assessmentContext
     ? {
-        href: assessmentPath(assessmentContext.courseSlug, assessmentContext.type, assessmentContext.slug),
+        href: assessmentPath(
+          assessmentContext.courseSlug,
+          assessmentContext.type,
+          assessmentContext.slug
+        ),
         type: assessmentContext.type
       }
     : undefined;

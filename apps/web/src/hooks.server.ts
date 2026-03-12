@@ -5,7 +5,14 @@ import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import { parseSessionUser } from "$lib/session";
 
 /** Route prefixes exempt from the complete-profile redirect. */
-const PROFILE_EXEMPT_PREFIXES = ["/api/", "/complete-profile", "/verify-school", "/signin", "/admin-signin", "/signup"];
+const PROFILE_EXEMPT_PREFIXES = [
+  "/api/",
+  "/complete-profile",
+  "/verify-school",
+  "/signin",
+  "/admin-signin",
+  "/signup"
+];
 
 /** Locale prefixes that paraglide may prepend to URLs (non-base locales). */
 const LOCALE_PREFIXES = ["/zh-TW"];
