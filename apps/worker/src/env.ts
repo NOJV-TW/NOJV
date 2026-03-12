@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-export const workerEnvSchema = z.object({
-  EXECUTION_BACKEND: z.enum(["docker", "kubernetes"]),
+const baseEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535),
   REDIS_URL: z.url(),
@@ -13,17 +12,36 @@ export const workerEnvSchema = z.object({
   SANDBOX_IMAGE: z.string().trim().min(1),
   SANDBOX_MEMORY_MB: z.coerce.number().int().min(128).max(4096),
   SANDBOX_PIDS_LIMIT: z.coerce.number().int().min(16).max(512),
-  // K8s executor settings (required only when EXECUTION_BACKEND=kubernetes)
-  K8S_NAMESPACE: z.string().trim().min(1).optional(),
-  K8S_CPU_REQUEST: z.string().trim().optional(),
-  K8S_CPU_LIMIT: z.string().trim().optional(),
-  K8S_MEMORY_REQUEST: z.string().trim().optional(),
-  K8S_MEMORY_LIMIT: z.string().trim().optional(),
   // Worker settings
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64)
 });
 
+const dockerEnvSchema = baseEnvSchema.extend({
+  EXECUTION_BACKEND: z.literal("docker"),
+  K8S_NAMESPACE: z.string().trim().min(1).optional(),
+  K8S_CPU_REQUEST: z.string().trim().optional(),
+  K8S_CPU_LIMIT: z.string().trim().optional(),
+  K8S_MEMORY_REQUEST: z.string().trim().optional(),
+  K8S_MEMORY_LIMIT: z.string().trim().optional()
+});
+
+const kubernetesEnvSchema = baseEnvSchema.extend({
+  EXECUTION_BACKEND: z.literal("kubernetes"),
+  K8S_NAMESPACE: z.string().trim().min(1),
+  K8S_CPU_REQUEST: z.string().trim().min(1),
+  K8S_CPU_LIMIT: z.string().trim().min(1),
+  K8S_MEMORY_REQUEST: z.string().trim().min(1),
+  K8S_MEMORY_LIMIT: z.string().trim().min(1)
+});
+
+export const workerEnvSchema = z.discriminatedUnion("EXECUTION_BACKEND", [
+  dockerEnvSchema,
+  kubernetesEnvSchema
+]);
+
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
+export type DockerWorkerEnv = z.infer<typeof dockerEnvSchema>;
+export type KubernetesWorkerEnv = z.infer<typeof kubernetesEnvSchema>;
 
 export function parseWorkerEnv(input: Record<string, string | undefined>): WorkerEnv {
   return workerEnvSchema.parse(input);

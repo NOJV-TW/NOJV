@@ -36,6 +36,7 @@ export interface SandboxRequest {
     checkerScript?: string;
     interactorScript?: string;
     checkerLanguage?: string;
+    interactorLanguage?: string;
   };
   limits: {
     timeoutMs: number;

@@ -3,32 +3,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
-
-/**
- * Parse interactor result following the existing submission-runner protocol:
- * - Exit code 0 → accepted
- * - Interactor stderr line 1: score (0-100)
- * - Interactor stderr line 2+: feedback
- */
-function parseInteractorOutput(
-  exitCode: number,
-  stderr: string
-): { accepted: boolean; score: number; feedback: string } {
-  const accepted = exitCode === 0;
-  const lines = stderr.trim().split("\n");
-
-  const scoreText = lines[0]?.trim() ?? "";
-  let score: number;
-  if (scoreText.length > 0) {
-    const parsed = parseInt(scoreText, 10);
-    score = Number.isFinite(parsed) ? Math.max(0, Math.min(100, parsed)) : accepted ? 100 : 0;
-  } else {
-    score = accepted ? 100 : 0;
-  }
-
-  const feedback = lines.slice(1).join("\n").trim();
-  return { accepted, score, feedback };
-}
+import { parseJudgeOutput } from "./run-process.js";
 
 /**
  * Interactive judge: bidirectional pipe between the solution and an interactor.
@@ -216,7 +191,13 @@ function runInteractive(
       }
 
       // Parse interactor's verdict
-      const parsed = parseInteractorOutput(interactorExitCode, intStderr);
+      // Interactor protocol: stderr line 1 = score, lines 2+ = feedback
+      const intLines = intStderr.trim().split("\n");
+      const parsed = parseJudgeOutput(
+        interactorExitCode,
+        intLines[0] ?? "",
+        intLines.slice(1).join("\n")
+      );
 
       const result: TestcaseResult = {
         index: testcase.index,

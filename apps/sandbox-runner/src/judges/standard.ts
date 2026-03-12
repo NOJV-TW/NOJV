@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
+import { runProcess } from "./run-process.js";
 
 /**
  * Normalize program output for comparison:
@@ -16,108 +16,70 @@ function normalizeOutput(output: string): string {
  * Standard judge: run the program with testcase input as stdin,
  * compare normalized stdout with expected output.
  */
-export function judgeStandard(
+export async function judgeStandard(
   runCommand: string[],
   testcase: TestcaseFiles,
   timeoutMs: number
 ): Promise<TestcaseResult> {
-  return new Promise((resolve) => {
-    const startTime = performance.now();
-    const [cmd, ...args] = runCommand;
+  const result = await runProcess(runCommand, { stdin: testcase.input, timeoutMs });
 
-    if (!cmd) {
-      resolve({
-        index: testcase.index,
-        verdict: "SE",
-        stdout: "",
-        stderr: "Empty run command.",
-        exitCode: -1,
-        timeMs: 0
-      });
-      return;
-    }
+  if (result.spawnError) {
+    return {
+      index: testcase.index,
+      verdict: "SE",
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      timeMs: result.timeMs
+    };
+  }
 
-    const proc = spawn(cmd, args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      timeout: timeoutMs
-    });
+  if (result.timedOut) {
+    return {
+      index: testcase.index,
+      verdict: "TLE",
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      timeMs: result.timeMs
+    };
+  }
 
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-    let killed = false;
+  // MLE: killed by external SIGKILL (e.g. OOM killer) before timeout
+  if (result.signal === "SIGKILL") {
+    return {
+      index: testcase.index,
+      verdict: "MLE",
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      timeMs: result.timeMs
+    };
+  }
 
-    proc.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
-    proc.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+  // RE: non-zero exit code
+  if (result.exitCode !== 0) {
+    return {
+      index: testcase.index,
+      verdict: "RE",
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      timeMs: result.timeMs
+    };
+  }
 
-    // Write testcase input to stdin
-    proc.stdin.on("error", () => {}); // Ignore EPIPE when process exits before stdin is consumed
-    proc.stdin.write(testcase.input);
-    proc.stdin.end();
+  // Compare output
+  const expected = testcase.expected ?? "";
+  const verdict = normalizeOutput(result.stdout) === normalizeOutput(expected) ? "AC" : "WA";
 
-    // Set up a manual timeout as a fallback (spawn timeout may not always fire)
-    const timer = setTimeout(() => {
-      killed = true;
-      proc.kill("SIGKILL");
-    }, timeoutMs + 500);
-
-    proc.on("close", (code, signal) => {
-      clearTimeout(timer);
-      const timeMs = Math.round(performance.now() - startTime);
-      const stdout = Buffer.concat(stdoutChunks).toString("utf-8");
-      const stderr = Buffer.concat(stderrChunks).toString("utf-8");
-      const exitCode = code ?? -1;
-
-      // TLE: killed by our timer, spawn timeout (SIGTERM), or elapsed time exceeded
-      if (killed || signal === "SIGTERM" || timeMs >= timeoutMs) {
-        resolve({ index: testcase.index, verdict: "TLE", stdout, stderr, exitCode, timeMs });
-        return;
-      }
-
-      // MLE: killed by external SIGKILL (e.g. OOM killer) before timeout
-      if (signal === "SIGKILL") {
-        resolve({ index: testcase.index, verdict: "MLE", stdout, stderr, exitCode, timeMs });
-        return;
-      }
-
-      // RE: non-zero exit code
-      if (exitCode !== 0) {
-        resolve({
-          index: testcase.index,
-          verdict: "RE",
-          stdout,
-          stderr,
-          exitCode,
-          timeMs
-        });
-        return;
-      }
-
-      // Compare output
-      const expected = testcase.expected ?? "";
-      const verdict = normalizeOutput(stdout) === normalizeOutput(expected) ? "AC" : "WA";
-
-      resolve({
-        index: testcase.index,
-        verdict,
-        stdout,
-        stderr,
-        exitCode,
-        timeMs,
-        score: verdict === "AC" ? 100 : 0
-      });
-    });
-
-    proc.on("error", (err) => {
-      clearTimeout(timer);
-      const timeMs = Math.round(performance.now() - startTime);
-      resolve({
-        index: testcase.index,
-        verdict: "SE",
-        stdout: "",
-        stderr: `Failed to spawn process: ${err.message}`,
-        exitCode: -1,
-        timeMs
-      });
-    });
-  });
+  return {
+    index: testcase.index,
+    verdict,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    timeMs: result.timeMs,
+    score: verdict === "AC" ? 100 : 0
+  };
 }

@@ -66,10 +66,10 @@ export async function listProblemSubmissions(
     },
     orderBy: { createdAt: "desc" },
     select: {
+      id: true,
       createdAt: true,
       language: true,
       score: true,
-      sourceCode: true,
       status: true,
       runtimeMs: true,
       verdictDetail: true
@@ -96,9 +96,9 @@ export async function listProblemSubmissions(
     const langParsed = languageSchema.safeParse(s.language);
 
     return {
+      id: s.id,
       language: langParsed.success ? langParsed.data : s.language,
       result,
-      sourceCode: s.sourceCode,
       submittedAt: s.createdAt.toISOString()
     };
   });

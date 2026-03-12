@@ -26,9 +26,10 @@
   };
 
   interface SubmissionEntry {
+    id?: string;
     language: string;
     result: SubmissionResult;
-    sourceCode: string;
+    sourceCode?: string;
     submittedAt: string;
   }
 
@@ -49,6 +50,32 @@
   let leftTab = $state<"description" | "submissions">("description");
   let submissions = $state<SubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
   let viewingIndex = $state<number | null>(null);
+  let loadingSourceId = $state<string | null>(null);
+
+  $effect(() => {
+    const idx = viewingIndex;
+    if (idx === null) return;
+
+    const entry = submissions[idx];
+    if (!entry || entry.sourceCode !== undefined || !entry.id) return;
+
+    const entryId = entry.id;
+    loadingSourceId = entryId;
+    fetch(`/api/submissions/${entryId}/source`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load source code.");
+        return res.json();
+      })
+      .then((data: { sourceCode: string }) => {
+        submissions[idx] = { ...submissions[idx]!, sourceCode: data.sourceCode };
+      })
+      .catch(() => {
+        submissions[idx] = { ...submissions[idx]!, sourceCode: "// Failed to load source code." };
+      })
+      .finally(() => {
+        if (loadingSourceId === entryId) loadingSourceId = null;
+      });
+  });
 
   function handleSubmissionComplete(
     result: SubmissionResult,
@@ -245,8 +272,17 @@
 
             <div class="mt-5">
               <p class="text-xs font-medium text-stone-400">{m.editor_code()}</p>
-              <pre
-                class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">{entry.sourceCode}</pre>
+              {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
+                <div class="mt-2 flex items-center gap-2 rounded-lg bg-stone-50 px-4 py-3">
+                  <div
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600"
+                  ></div>
+                  <span class="text-xs text-stone-400">{m.problemDetail_loadingSource()}</span>
+                </div>
+              {:else}
+                <pre
+                  class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">{entry.sourceCode ?? ""}</pre>
+              {/if}
             </div>
           </div>
         {:else}
