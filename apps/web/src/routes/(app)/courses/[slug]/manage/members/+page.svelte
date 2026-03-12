@@ -7,5 +7,6 @@
 <ManageMembers
   courseSlug={data.courseSlug}
   courseTitle={data.courseTitle}
+  form={data.form}
   members={data.members}
 />

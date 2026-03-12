@@ -9,5 +9,5 @@
   <h2 class="font-[family-name:var(--font-display)] text-3xl">
     {m.problemDetail_editProblem()}: {data.problem.title}
   </h2>
-  <ProblemCreationPanel mode="edit" initialData={data.problem} />
+  <ProblemCreationPanel mode="edit" initialData={data.problem} formData={data.form} />
 </div>

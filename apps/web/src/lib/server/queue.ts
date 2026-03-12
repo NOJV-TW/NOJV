@@ -1,6 +1,7 @@
 import { Queue } from "bullmq";
 import {
   defaultJobOptions,
+  parseRedisConnection,
   queueNames,
   submissionJudgeJobSchema,
   type SubmissionJudgeJob
@@ -18,13 +19,7 @@ interface QueueRegistry {
 }
 
 const environment = queueEnvSchema.parse(process.env);
-const redis = new URL(environment.REDIS_URL);
-const connection = {
-  host: redis.hostname,
-  maxRetriesPerRequest: null,
-  password: redis.password || undefined,
-  port: Number(redis.port || "6379")
-};
+const connection = parseRedisConnection(environment.REDIS_URL);
 
 const globalForQueues = globalThis as typeof globalThis & {
   __nojvQueueRegistry?: QueueRegistry;

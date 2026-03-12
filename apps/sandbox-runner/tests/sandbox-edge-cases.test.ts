@@ -682,8 +682,8 @@ print(a + b)`);
 
     expect(results).toHaveLength(4);
     expect(results.every((r) => r.verdict === "AC")).toBe(true);
-    expect(results[0].index).toBe(0);
-    expect(results[3].index).toBe(3);
+    expect(results[0]!.index).toBe(0);
+    expect(results[3]!.index).toBe(3);
   }, 30_000);
 
   it("mixed verdicts across testcases", async () => {
@@ -706,9 +706,9 @@ print(a + b)`);
       results.push(verdict);
     }
 
-    expect(results[0].verdict).toBe("AC");
-    expect(results[1].verdict).toBe("RE");
-    expect(results[2].verdict).toBe("WA");
+    expect(results[0]!.verdict).toBe("AC");
+    expect(results[1]!.verdict).toBe("RE");
+    expect(results[2]!.verdict).toBe("WA");
   }, 30_000);
 
   it("testcase weights preserved in results", async () => {

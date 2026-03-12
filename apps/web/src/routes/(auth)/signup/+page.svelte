@@ -61,7 +61,7 @@
         <input
           class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
           name="handle"
-          pattern="[a-z0-9._-]{3,64}"
+          pattern={'[a-z0-9._-]{3,64}'}
           required
           title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
           type="text"

@@ -14,6 +14,7 @@ import {
   deriveAssessmentWindowState,
   windowStateColorClass
 } from "$lib/types";
+import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -69,31 +70,6 @@ export interface CoursePageDetailData {
 
 // ─── Internal helper functions ───────────────────────────────────────
 
-function pickProblemStatement(
-  statements:
-    | {
-        bodyMarkdown: string;
-        inputFormat?: string;
-        locale: string;
-        outputFormat?: string;
-        title: string;
-      }[]
-    | undefined,
-  locale: string,
-  fallbackTitle: string,
-  fallbackStatement: string
-) {
-  const localized =
-    statements?.find((statement) => statement.locale === locale) ?? statements?.[0] ?? null;
-
-  return {
-    inputFormat: localized?.inputFormat ?? "",
-    outputFormat: localized?.outputFormat ?? "",
-    statement: localized?.bodyMarkdown ?? fallbackStatement,
-    title: localized?.title ?? fallbackTitle
-  };
-}
-
 function mapProblemShelfEntry(problem: {
   author?: { handle: string | null } | null;
   slug: string;
@@ -127,19 +103,14 @@ function mapAssessmentRecord(assessment: {
   closesAt: Date;
   dueAt: Date;
   opensAt: Date;
-  problems?: { ordinal: number; problem: { slug: string } }[];
-  problemLinks?: { ordinal: number; problem: { slug: string } }[];
+  problems: { ordinal: number; problem: { slug: string } }[];
   scoreboardMode: "frozen" | "hidden" | "live";
   slug: string;
   summary: string;
   title: string;
   type: "assignment" | "exam";
 }) {
-  const linkedProblems = Array.isArray(assessment.problems)
-    ? assessment.problems
-    : Array.isArray(assessment.problemLinks)
-      ? assessment.problemLinks
-      : [];
+  const linkedProblems = assessment.problems;
 
   return {
     closesAt: assessment.closesAt.toISOString(),
@@ -183,8 +154,7 @@ function mapPersistedCourse(course: {
     closesAt: Date;
     dueAt: Date;
     opensAt: Date;
-    problems?: { ordinal: number; problem: { slug: string } }[];
-    problemLinks?: { ordinal: number; problem: { slug: string } }[];
+    problems: { ordinal: number; problem: { slug: string } }[];
     scoreboardMode: "frozen" | "hidden" | "live";
     slug: string;
     summary: string;

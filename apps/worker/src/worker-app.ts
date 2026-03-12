@@ -1,12 +1,15 @@
-import { Worker } from "bullmq";
+import { UnrecoverableError, Worker } from "bullmq";
 
-import { queueNames } from "@nojv/queue";
+import { parseRedisConnection, queueNames } from "@nojv/queue";
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
+import { createLogger } from "./logger.js";
 import { createSubmissionProcessor } from "./processors/submission";
 import { closeServerSafely } from "./server-lifecycle";
 import { createExecutor } from "./services/executor-factory";
+
+const logger = createLogger("worker");
 
 export class WorkerApp {
   private readonly workers: Worker[];
@@ -17,13 +20,7 @@ export class WorkerApp {
   constructor(env: WorkerEnv) {
     this.env = env;
 
-    const redis = new URL(env.REDIS_URL);
-    const connection = {
-      host: redis.hostname,
-      maxRetriesPerRequest: null,
-      password: redis.password || undefined,
-      port: Number(redis.port || "6379")
-    };
+    const connection = parseRedisConnection(env.REDIS_URL);
 
     const executor = createExecutor(env);
     const processSubmission = createSubmissionProcessor(executor);
@@ -38,12 +35,13 @@ export class WorkerApp {
     this.healthServer = createWorkerHealthServer();
 
     for (const worker of this.workers) {
-      worker.on("completed", (job, result) => {
-        console.log(`[worker] completed ${job.name}`, result);
+      worker.on("completed", (job) => {
+        logger.info("job completed", { jobName: job.name });
       });
 
       worker.on("failed", (job, error) => {
-        console.error(`[worker] failed ${job?.name ?? "unknown"}`, error);
+        const prefix = error instanceof UnrecoverableError ? "permanent" : "retryable";
+        logger.error(`${prefix} job failure`, { jobName: job?.name ?? "unknown", err: error.message });
       });
     }
   }
@@ -56,10 +54,8 @@ export class WorkerApp {
       });
     });
 
-    console.log(
-      `[worker] listening on ${this.env.REDIS_URL} with queues: ${Object.values(queueNames).join(", ")}`
-    );
-    console.log(`[worker] health endpoint listening on port ${String(this.env.PORT)}`);
+    logger.info("worker started", { redis: this.env.REDIS_URL, queues: Object.values(queueNames).join(", ") });
+    logger.info("health endpoint started", { port: this.env.PORT });
   }
 
   async shutdown(signal: string): Promise<void> {
@@ -67,7 +63,7 @@ export class WorkerApp {
       return this.shutdownPromise;
     }
 
-    console.log(`[worker] shutting down due to ${signal}`);
+    logger.info("shutting down", { signal });
 
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);

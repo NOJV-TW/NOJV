@@ -12,24 +12,6 @@ export interface EnsureUserInput {
   platformRole?: "admin" | "student" | "teacher";
 }
 
-export interface CreateProblemDefinitionInput {
-  authorId?: string;
-  checkerScript?: string | undefined;
-  difficulty: "easy" | "hard" | "medium";
-  inputFormat?: string;
-  interactorScript?: string | undefined;
-  judgeType?: "checker" | "interactive" | "standard";
-  memoryLimitMb?: number;
-  outputFormat?: string;
-  statement?: string;
-  submissionType?: "full_source" | "function";
-  summary: string;
-  tags?: string[];
-  timeLimitMs?: number;
-  title: string;
-  visibility?: "private" | "public";
-}
-
 export function sanitizeIdentitySegment(value: string) {
   const normalized = value
     .toLowerCase()

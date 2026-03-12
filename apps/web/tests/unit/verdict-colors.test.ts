@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { verdictColor } from "$lib/types";
+import { formatVerdictLabel, verdictColor } from "$lib/types";
 
 describe("verdictColor", () => {
   it("maps accepted to emerald", () => {
@@ -42,5 +42,19 @@ describe("verdictColor", () => {
     ];
 
     expect(Object.keys(verdictColor).sort()).toEqual(expectedVerdicts);
+  });
+});
+
+describe("formatVerdictLabel", () => {
+  it("formats accepted", () => {
+    expect(formatVerdictLabel("accepted")).toBe("Accepted");
+  });
+
+  it("formats wrong_answer with spaces and capitalization", () => {
+    expect(formatVerdictLabel("wrong_answer")).toBe("Wrong Answer");
+  });
+
+  it("formats time_limit_exceeded", () => {
+    expect(formatVerdictLabel("time_limit_exceeded")).toBe("Time Limit Exceeded");
   });
 });

@@ -36,9 +36,9 @@
       assessmentSlug: string;
       courseSlug: string;
       kind: "assignment" | "exam";
-    };
-    backLink?: { href: string; label: string };
-    contestSlug?: string;
+    } | undefined;
+    backLink?: { href: string; label: string } | undefined;
+    contestSlug?: string | undefined;
     problem: ProblemDetail;
   }
 
@@ -127,7 +127,7 @@
               problem.judgeType
             ] ?? 'bg-stone-100 text-stone-600'}"
           >
-            {(judgeTypeBadge[problem.judgeType] ?? judgeTypeBadge.standard)()}
+            {(judgeTypeBadge[problem.judgeType] ?? judgeTypeBadge["standard"]!)()}
           </span>
           <span class="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">
             {problem.submissionType === "function"
@@ -192,7 +192,7 @@
             {m.problemDetail_noSubmissions()}
           </p>
         {:else if viewingIndex !== null && submissions[viewingIndex]}
-          {@const entry = submissions[viewingIndex]}
+          {@const entry = submissions[viewingIndex]!}
           {@const label = formatVerdictLabel(entry.result.verdict)}
           <div>
             <button

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
+  import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
 
   import type { CourseProblemCatalogEntry } from "$lib/server/course/queries";
@@ -7,43 +7,15 @@
   interface Props {
     courseSlug: string;
     courseTitle: string;
+    form: SuperValidated<{ problemSlug: string }>;
     problems: CourseProblemCatalogEntry[];
   }
 
-  let { courseSlug, courseTitle, problems }: Props = $props();
+  let { courseSlug, courseTitle, form: formData, problems }: Props = $props();
 
-  let problemSlug = $state("");
-  let status = $state<string | null>(null);
-  let error = $state<string | null>(null);
-  let isAttaching = $state(false);
-
-  async function handleAttachProblem() {
-    isAttaching = true;
-    error = null;
-    status = null;
-
-    try {
-      const payload = { problemSlug };
-
-      const formData = new FormData();
-      formData.set("data", JSON.stringify(payload));
-
-      const response = await fetch("?/attach", { method: "POST", body: formData });
-      const result = await response.json();
-
-      if (result.type === "failure") {
-        throw new Error(result.data?.error ?? "Problem attachment failed.");
-      }
-
-      status = `Attached ${problemSlug} to ${courseTitle}.`;
-      problemSlug = "";
-      void invalidateAll();
-    } catch (issue) {
-      error = issue instanceof Error ? issue.message : "Problem attachment failed.";
-    } finally {
-      isAttaching = false;
-    }
-  }
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+    invalidateAll: true
+  });
 </script>
 
 <div class="space-y-6">
@@ -90,31 +62,29 @@
     <h3 class="text-2xl font-semibold">{m.courseManage_attachProblem()}</h3>
     <form
       class="mt-4 grid gap-3"
-      onsubmit={(e) => {
-        e.preventDefault();
-        void handleAttachProblem();
-      }}
+      method="POST"
+      action="?/attach"
+      use:enhance
     >
       <input
         class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
-        bind:value={problemSlug}
+        name="problemSlug"
+        bind:value={$form.problemSlug}
         pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
         placeholder="problem-slug"
         required
       />
+      {#if $errors.problemSlug}<span class="text-sm text-red-700">{$errors.problemSlug}</span>{/if}
       <button
         class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={isAttaching}
+        disabled={$submitting}
         type="submit"
       >
-        {isAttaching ? m.common_attaching() : m.courseManage_attachProblem()}
+        {$submitting ? m.common_attaching() : m.courseManage_attachProblem()}
       </button>
     </form>
-    {#if status}
-      <p class="mt-4 text-sm text-emerald-700">{status}</p>
-    {/if}
-    {#if error}
-      <p class="mt-4 text-sm text-red-700">{error}</p>
+    {#if $formMessage}
+      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
     {/if}
   </section>
 </div>

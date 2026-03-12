@@ -2,10 +2,10 @@ import { prisma } from "@nojv/db";
 import type { SubmissionDraft } from "@nojv/core";
 
 import type { CompletedActorContext } from "../auth";
-import { ensureUser } from "../db";
+import { ensureUser } from "../user/mutations";
 import { requireCourseAssessment } from "../course/mutations";
 import { requireProblem } from "../problem/mutations";
-import { ensureContestParticipation } from "./helpers";
+import { ensureContestParticipation } from "../contest/mutations";
 
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,

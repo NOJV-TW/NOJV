@@ -9,6 +9,7 @@
   <CourseJoinCallToAction
     courseSlug={data.courseSlug}
     courseTitle={data.courseTitle}
+    form={data.form}
     joinMethod={data.joinMethod}
     joinToken={data.joinToken}
   />

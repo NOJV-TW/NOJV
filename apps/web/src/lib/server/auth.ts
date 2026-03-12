@@ -111,11 +111,11 @@ export async function requireAuth(
     redirect(302, redirectTo ?? "/");
   }
 
-  if (!actor.handle) {
+  if (!hasActorHandle(actor)) {
     redirect(302, "/complete-profile");
   }
 
-  return actor as CompletedActorContext;
+  return actor;
 }
 
 /**
@@ -164,21 +164,20 @@ export async function resolveCoursePermission(
   actor: ActorContext
 ) {
   const course = await tx.course.findUnique({
-    where: { slug: courseSlug }
+    where: { slug: courseSlug },
+    include: {
+      memberships: {
+        where: { userId: actor.userId },
+        take: 1
+      }
+    }
   });
 
   if (!course) {
     throw new NotFoundError(`Course not found: ${courseSlug}`);
   }
 
-  const membership = await tx.courseMembership.findUnique({
-    where: {
-      courseId_userId: {
-        courseId: course.id,
-        userId: actor.userId
-      }
-    }
-  });
+  const membership = course.memberships[0] ?? null;
 
   return {
     course,

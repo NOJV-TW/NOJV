@@ -1,17 +1,23 @@
 import { manualCourseEnrollmentSchema } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
+import { message, superValidate } from "sveltekit-superforms";
+import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canManageCourseMembership, getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { manuallyEnrollCourseMember } from "$lib/server/course/mutations";
 
+const enrollFormSchema = manualCourseEnrollmentSchema.omit({ courseSlug: true });
+
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { courseData } = await parent();
+  const form = await superValidate(zod4(enrollFormSchema));
 
   return {
     courseSlug: params.slug,
     courseTitle: courseData.course.title,
-    members: courseData.course.members
+    members: courseData.course.members,
+    form
   };
 };
 
@@ -25,18 +31,19 @@ export const actions = {
       return fail(403, { error: "Only course staff can manage members." });
     }
 
+    const form = await superValidate(event, zod4(enrollFormSchema));
+    if (!form.valid) return fail(400, { form });
+
     try {
-      const formData = await event.request.formData();
-      const data = JSON.parse(formData.get("data") as string);
       const payload = manualCourseEnrollmentSchema.parse({
-        ...data,
+        ...form.data,
         courseSlug: slug
       });
-      const result = await manuallyEnrollCourseMember(actor, payload);
-      return { success: true, member: result };
+      await manuallyEnrollCourseMember(actor, payload);
+      return message(form, `Enrolled ${payload.displayName}.`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Manual enrollment failed.";
-      return fail(400, { error: message });
+      const msg = err instanceof Error ? err.message : "Manual enrollment failed.";
+      return fail(400, { form, error: msg });
     }
   }
 } satisfies Actions;

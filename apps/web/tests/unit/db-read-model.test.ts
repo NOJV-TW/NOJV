@@ -107,7 +107,7 @@ describe("DB-backed read model", () => {
           closesAt: new Date("2026-03-25T15:00:00.000Z"),
           dueAt: new Date("2026-03-23T15:00:00.000Z"),
           opensAt: new Date("2026-03-17T09:00:00.000Z"),
-          problemLinks: [
+          problems: [
             {
               ordinal: 1,
               problem: {

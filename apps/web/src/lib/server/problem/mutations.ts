@@ -1,10 +1,28 @@
 import { prisma, type TransactionClient } from "@nojv/db";
-import type { ProblemCreate, ProblemTestcaseSetCreate, ProblemUpdate } from "@nojv/core";
+import type { Language, ProblemCreate, ProblemTestcaseSetCreate, ProblemUpdate } from "@nojv/core";
 
 import { DEFAULT_LOCALE } from "$lib/locale";
 import type { CompletedActorContext } from "../auth";
 import { ConflictError, ForbiddenError, NotFoundError } from "../auth";
-import { ensureUser, type CreateProblemDefinitionInput } from "../db";
+import { ensureUser } from "../user/mutations";
+
+export interface CreateProblemDefinitionInput {
+  authorId?: string;
+  checkerScript?: string | undefined;
+  difficulty: "easy" | "hard" | "medium";
+  inputFormat?: string;
+  interactorScript?: string | undefined;
+  judgeType?: "checker" | "interactive" | "standard";
+  memoryLimitMb?: number;
+  outputFormat?: string;
+  statement?: string;
+  submissionType?: "full_source" | "function";
+  summary: string;
+  tags?: string[];
+  timeLimitMs?: number;
+  title: string;
+  visibility?: "private" | "public";
+}
 
 // --- Shared problem helpers ---
 
@@ -82,6 +100,9 @@ export async function replaceTemplates(
   problemId: string,
   templates: { driverCode: string; insertionMarker: string; language: string; templateCode: string }[]
 ) {
+  // Lock the problem row to prevent concurrent template modifications
+  await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problemId} FOR UPDATE`;
+
   await tx.problemTemplate.deleteMany({ where: { problemId } });
 
   if (templates.length > 0) {
@@ -89,12 +110,33 @@ export async function replaceTemplates(
       data: templates.map((tpl) => ({
         driverCode: tpl.driverCode,
         insertionMarker: tpl.insertionMarker,
-        language: tpl.language as any,
+        language: tpl.language as Language,
         problemId,
         templateCode: tpl.templateCode
       }))
     });
   }
+}
+
+export async function updateProblemTemplates(
+  actor: CompletedActorContext,
+  problemSlug: string,
+  templates: { driverCode: string; insertionMarker: string; language: string; templateCode: string }[]
+) {
+  return prisma.$transaction(async (tx) => {
+    const problem = await requireProblem(tx, problemSlug);
+
+    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
+      throw new ForbiddenError("Only the author or an admin can update templates.");
+    }
+
+    await replaceTemplates(tx, problem.id, templates);
+
+    return tx.problemTemplate.findMany({
+      orderBy: { language: "asc" },
+      where: { problemId: problem.id }
+    });
+  });
 }
 
 export async function createProblemRecord(
