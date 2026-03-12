@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type * as Monaco from "monaco-editor";
   import { onMount, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale } from "$lib/paraglide/runtime.js";
@@ -67,8 +68,8 @@
 
   // Monaco editor
   let editorContainer: HTMLDivElement;
-  let monacoEditor: import("monaco-editor").editor.IStandaloneCodeEditor | undefined;
-  let monacoModule: typeof import("monaco-editor") | undefined;
+  let monacoEditor: Monaco.editor.IStandaloneCodeEditor | undefined;
+  let monacoModule: typeof Monaco | undefined;
 
   // Cleanup: abort in-flight polls when component is destroyed
   let destroyed = false;
