@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSubmissionProcessor } from "../src/processors/submission";
 
-const { markSubmissionRunning, completeSubmission, getSubmissionJudgeContext } = vi.hoisted(() => ({
-  markSubmissionRunning: vi.fn(),
-  completeSubmission: vi.fn(),
-  getSubmissionJudgeContext: vi.fn()
-}));
+const { markSubmissionRunning, completeSubmission, getSubmissionJudgeContext } = vi.hoisted(
+  () => ({
+    markSubmissionRunning: vi.fn(),
+    completeSubmission: vi.fn(),
+    getSubmissionJudgeContext: vi.fn()
+  })
+);
 
 vi.mock("../src/services/judge-db", () => {
   return {
