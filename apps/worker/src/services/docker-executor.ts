@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  sourceExtensions,
   sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
@@ -21,20 +22,9 @@ function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
-const languageExtensions: Record<SandboxRequest["language"], string> = {
-  c: ".c",
-  cpp: ".cpp",
-  go: ".go",
-  java: ".java",
-  javascript: ".js",
-  python: ".py",
-  rust: ".rs",
-  typescript: ".ts"
-};
-
 function resolveScriptExtension(language: string | undefined): string {
-  if (language && language in languageExtensions) {
-    return languageExtensions[language as SandboxRequest["language"]];
+  if (language && language in sourceExtensions) {
+    return `.${sourceExtensions[language as SandboxRequest["language"]]}`;
   }
   return ".py";
 }
@@ -69,6 +59,9 @@ export class DockerExecutor implements SandboxExecutor {
       ...(request.template ? { template: request.template } : {}),
       ...(request.judgeConfig.checkerLanguage
         ? { checkerLanguage: request.judgeConfig.checkerLanguage }
+        : {}),
+      ...(request.judgeConfig.interactorLanguage
+        ? { interactorLanguage: request.judgeConfig.interactorLanguage }
         : {})
     };
 
@@ -89,7 +82,7 @@ export class DockerExecutor implements SandboxExecutor {
     }
 
     if (request.judgeConfig.interactorScript) {
-      const interactorExt = resolveScriptExtension(request.judgeConfig.checkerLanguage);
+      const interactorExt = resolveScriptExtension(request.judgeConfig.interactorLanguage);
       fileWrites.push(
         writeFile(
           join(tempDir, `interactor${interactorExt}`),

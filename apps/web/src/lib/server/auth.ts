@@ -2,7 +2,6 @@ import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { prisma, type TransactionClient } from "@nojv/db";
 import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
-import { parseSessionUser } from "$lib/session";
 
 import {
   canEditProblem,
@@ -53,7 +52,7 @@ export interface ActorContext {
 export type CompletedActorContext = ActorContext & { handle: string };
 
 export function getActorContext(event: RequestEvent): ActorContext | null {
-  const sessionUser = parseSessionUser(event.locals.user);
+  const sessionUser = event.locals.sessionUser;
 
   if (!sessionUser) {
     return null;
@@ -74,15 +73,6 @@ export { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/validation";
 
 export function readStringValue(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
-}
-
-export function readHandleFromRawUser(raw: unknown): string | null {
-  const sessionUser = parseSessionUser(raw);
-  return sessionUser?.handle ?? null;
-}
-
-export function hasCompletedHandle(raw: unknown): boolean {
-  return readHandleFromRawUser(raw) !== null;
 }
 
 export function hasActorHandle<T extends { handle: string | null }>(

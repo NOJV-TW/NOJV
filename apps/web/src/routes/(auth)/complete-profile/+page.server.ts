@@ -1,6 +1,5 @@
 import { fail, redirect } from "@sveltejs/kit";
 
-import { hasCompletedHandle } from "$lib/server/auth";
 import { processSchoolVerification } from "$lib/server/shared/school-verification";
 
 import type { Actions, PageServerLoad } from "./$types";
@@ -12,7 +11,7 @@ export const load: PageServerLoad = ({ locals }) => {
     redirect(302, "/");
   }
 
-  if (hasCompletedHandle(user)) {
+  if (locals.sessionUser?.handle) {
     redirect(302, "/");
   }
 

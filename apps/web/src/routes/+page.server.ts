@@ -1,19 +1,10 @@
-import { redirect } from "@sveltejs/kit";
-
 import type { PageServerLoad } from "./$types";
 
-import { getActorContext, hasActorHandle } from "$lib/server/auth";
 import { listAnnouncements, listUpcomingAssessments } from "$lib/server/course/queries";
 import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
 
 export const load: PageServerLoad = async (event) => {
   const user = event.locals.user;
-
-  // If logged in but hasn't set a handle, redirect to complete profile
-  const actor = getActorContext(event);
-  if (actor && !hasActorHandle(actor)) {
-    redirect(302, "/complete-profile");
-  }
 
   if (!user) {
     const announcements = await listAnnouncements();

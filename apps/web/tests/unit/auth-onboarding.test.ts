@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   hasActorHandle,
-  hasCompletedHandle,
   isValidHandle,
-  readHandleFromRawUser,
   readStringValue
 } from "$lib/server/auth";
+import { parseSessionUser } from "$lib/session";
 
 /** Helper to build a minimal valid session-user-like object. */
 function fakeUser(overrides: Record<string, unknown> = {}) {
@@ -42,45 +41,26 @@ describe("readStringValue", () => {
   });
 });
 
-describe("readHandleFromRawUser", () => {
+describe("parseSessionUser", () => {
   it("reads the handle field from a valid user object", () => {
-    expect(readHandleFromRawUser(fakeUser({ handle: "alice" }))).toBe("alice");
+    expect(parseSessionUser(fakeUser({ handle: "alice" }))?.handle).toBe("alice");
   });
 
   it("falls back to username field when handle is absent", () => {
     const { handle: _, ...userWithoutHandle } = fakeUser();
-    expect(readHandleFromRawUser({ ...userWithoutHandle, username: "alice" })).toBe("alice");
+    expect(parseSessionUser({ ...userWithoutHandle, username: "alice" })?.handle).toBe("alice");
   });
 
-  it("returns null when handle is null and no username", () => {
-    expect(readHandleFromRawUser(fakeUser({ handle: null }))).toBeNull();
+  it("returns null handle when handle is null and no username", () => {
+    expect(parseSessionUser(fakeUser({ handle: null }))?.handle).toBeNull();
   });
 
   it("returns null when input is not a valid user object", () => {
-    expect(readHandleFromRawUser({})).toBeNull();
+    expect(parseSessionUser({})).toBeNull();
   });
 
   it("returns null when input is null", () => {
-    expect(readHandleFromRawUser(null)).toBeNull();
-  });
-});
-
-describe("hasCompletedHandle", () => {
-  it("returns true when user has a non-null handle", () => {
-    expect(hasCompletedHandle(fakeUser({ handle: "alice" }))).toBe(true);
-  });
-
-  it("returns true when user has username fallback", () => {
-    const { handle: _, ...userWithoutHandle } = fakeUser();
-    expect(hasCompletedHandle({ ...userWithoutHandle, username: "alice" })).toBe(true);
-  });
-
-  it("returns false when handle is null and no username", () => {
-    expect(hasCompletedHandle(fakeUser({ handle: null }))).toBe(false);
-  });
-
-  it("returns false for invalid input", () => {
-    expect(hasCompletedHandle({})).toBe(false);
+    expect(parseSessionUser(null)).toBeNull();
   });
 });
 

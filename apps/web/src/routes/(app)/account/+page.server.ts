@@ -2,7 +2,6 @@ import { fail, redirect } from "@sveltejs/kit";
 
 import { isReservedHandle } from "$lib/school";
 import { processSchoolVerification } from "$lib/server/shared/school-verification";
-import { parseSessionUser } from "$lib/session";
 
 import type { Actions, PageServerLoad } from "./$types";
 
@@ -11,7 +10,7 @@ export const load: PageServerLoad = ({ locals }) => {
     redirect(302, "/");
   }
 
-  const sessionUser = parseSessionUser(locals.user);
+  const sessionUser = locals.sessionUser;
   const handle = sessionUser?.handle ?? null;
   const platformRole = sessionUser?.platformRole ?? "student";
   const isSchoolVerified = handle !== null && isReservedHandle(handle);
