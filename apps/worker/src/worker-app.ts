@@ -39,7 +39,9 @@ async function mountBullBoard(
     boardServer.listen(BOARD_PORT, () => resolve());
   });
 
-  logger.info("bull-board dashboard started", { url: `http://localhost:${BOARD_PORT}/admin/queues` });
+  logger.info("bull-board dashboard started", {
+    url: `http://localhost:${BOARD_PORT}/admin/queues`
+  });
 }
 
 export class WorkerApp {
@@ -67,10 +69,7 @@ export class WorkerApp {
       })
     ];
 
-    this.readOnlyQueues = [
-      new Queue(queueNames.submission, { connection }),
-      this.dlqQueue
-    ];
+    this.readOnlyQueues = [new Queue(queueNames.submission, { connection }), this.dlqQueue];
 
     this.healthServer = createWorkerHealthServer();
 
@@ -81,7 +80,10 @@ export class WorkerApp {
 
       worker.on("failed", (job, error) => {
         const prefix = error instanceof UnrecoverableError ? "permanent" : "retryable";
-        logger.error(`${prefix} job failure`, { jobName: job?.name ?? "unknown", err: error.message });
+        logger.error(`${prefix} job failure`, {
+          jobName: job?.name ?? "unknown",
+          err: error.message
+        });
 
         if (job && job.attemptsMade >= (job.opts.attempts ?? defaultJobOptions.attempts)) {
           this.dlqQueue
@@ -111,7 +113,10 @@ export class WorkerApp {
       await mountBullBoard(this.healthServer, this.readOnlyQueues);
     }
 
-    logger.info("worker started", { redis: this.env.REDIS_URL, queues: Object.values(queueNames).join(", ") });
+    logger.info("worker started", {
+      redis: this.env.REDIS_URL,
+      queues: Object.values(queueNames).join(", ")
+    });
     logger.info("health endpoint started", { port: this.env.PORT });
   }
 
