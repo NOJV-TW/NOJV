@@ -43,7 +43,8 @@ describe("parseSessionUser", () => {
   });
 
   it("falls back to username field when handle is absent", () => {
-    const { handle: _, ...userWithoutHandle } = fakeUser();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { handle: _handle, ...userWithoutHandle } = fakeUser();
     expect(parseSessionUser({ ...userWithoutHandle, username: "alice" })?.handle).toBe("alice");
   });
 

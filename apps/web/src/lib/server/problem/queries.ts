@@ -223,7 +223,7 @@ export async function listEditableProblems(userId: string) {
   });
 
   return problems.map((problem) => ({
-    difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
     slug: problem.slug,
     tags: problem.tags,
     title: problem.defaultTitle,

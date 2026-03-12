@@ -32,7 +32,7 @@ export async function createQueuedSubmissionRecord(
       }
     });
 
-    if (!membership || membership.status !== "active") {
+    if (membership?.status !== "active") {
       throw new ForbiddenError("You are not enrolled in this course.");
     }
   }

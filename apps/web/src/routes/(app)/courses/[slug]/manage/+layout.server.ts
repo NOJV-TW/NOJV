@@ -3,7 +3,7 @@ import type { LayoutServerLoad } from "./$types";
 import { canViewManagePanel, requireAuth, getCoursePermissionRole } from "$lib/server/auth";
 
 export const load: LayoutServerLoad = async (event) => {
-  const actor = await requireAuth(event);
+  const actor = requireAuth(event);
   const role = await getCoursePermissionRole(event.params.slug, actor);
 
   if (!role || !canViewManagePanel(role)) {

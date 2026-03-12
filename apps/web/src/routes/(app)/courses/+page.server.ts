@@ -6,7 +6,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, getActorContext, requireAuth } from "$lib/server/auth";
 import { createCourseRecord } from "$lib/server/course/mutations";
-import { listCourseCards, listUserCourseCards } from "$lib/server/course/queries";
+import { listCourseCards } from "$lib/server/course/queries";
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
@@ -15,7 +15,7 @@ export const load: PageServerLoad = async (event) => {
   const courses = isStaff
     ? await listCourseCards()
     : actor
-      ? await listUserCourseCards(actor.userId)
+      ? await listCourseCards(actor.userId)
       : [];
 
   const form = await superValidate(zod4(courseCreateSchema));
@@ -25,7 +25,7 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions = {
   create: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
 
     if (!canCreateCourse(actor.platformRole)) {
       return fail(403, { error: "Only teachers or admins can create courses." });

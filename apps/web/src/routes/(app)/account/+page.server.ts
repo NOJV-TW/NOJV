@@ -32,7 +32,7 @@ export const actions = {
     }
 
     const formData = await request.formData();
-    const email = String(formData.get("email") ?? "").trim();
+    const email = ((formData.get("email") as string | null) ?? "").trim();
     const result = await processSchoolVerification(user.id, email);
 
     if ("error" in result) {

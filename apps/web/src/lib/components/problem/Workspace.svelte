@@ -90,7 +90,7 @@
         submittedAt: new Date().toISOString()
       },
       ...submissions
-    ];
+    ].slice(0, 50);
     leftTab = "submissions";
     viewingIndex = 0;
   }

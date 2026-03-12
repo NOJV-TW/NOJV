@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
 export const actions = {
   create: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const slug = event.params.slug;
     const role = await getCoursePermissionRole(slug, actor);
 

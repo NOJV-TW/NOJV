@@ -142,7 +142,7 @@ export function formatVerdictLabel(verdict: string): string {
 
 export function assessmentPath(
   courseSlug: string,
-  type: "assignment" | "exam" | string,
+  type: string,
   assessmentSlug: string
 ): string {
   const segment = type === "exam" ? "exams" : "assignments";
