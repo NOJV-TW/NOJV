@@ -423,21 +423,21 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
     parent
   }: {
     params: { assessmentSlug: string; slug: string };
-    parent: () => Promise<{ courseData: { course: any; problems: any[] } }>;
+    parent: () => Promise<{ courseData: CoursePageDetailData }>;
   }) => {
     const { assessmentSlug } = params;
 
     const { courseData } = await parent();
-    const course = courseData?.course;
-    const assessment = course?.assessments.find((entry: any) => entry.slug === assessmentSlug);
+    const course = courseData.course;
+    const assessment = course.assessments.find((entry) => entry.slug === assessmentSlug);
 
-    if (!course || assessment?.type !== type) {
+    if (assessment?.type !== type) {
       const label = type === "assignment" ? "Assignment" : "Exam";
       error(404, `${label} not found`);
     }
 
     const problemsBySlug = new Map(
-      (courseData?.problems ?? []).map((problem: any) => [problem.slug, problem])
+      courseData.problems.map((problem) => [problem.slug, problem])
     );
 
     const presentation = deriveAssessmentPresentation({
@@ -451,8 +451,8 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
     });
 
     const problems = assessment.problemSlugs
-      .map((ps: string) => problemsBySlug.get(ps))
-      .filter((p: any): p is NonNullable<typeof p> => p != null);
+      .map((ps) => problemsBySlug.get(ps))
+      .filter((p): p is NonNullable<typeof p> => p != null);
 
     return {
       assessment,

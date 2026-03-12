@@ -1,5 +1,6 @@
 {
   "name": "nojv",
+  "description": "Production-oriented Online Judge platform monorepo",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.28.0",
@@ -16,7 +17,7 @@
     "deploy:gcp": "bash infra/gcp/deploy.sh",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "ci:verify": "pnpm format && pnpm db:generate && pnpm lint && pnpm test && pnpm build && pnpm db:validate && docker compose config",
+    "ci:verify": "pnpm format && pnpm db:generate && pnpm build && pnpm lint && pnpm test && pnpm db:validate && docker compose config",
     "db:deploy": "pnpm --filter @nojv/db db:deploy",
     "db:generate": "pnpm --filter @nojv/db db:generate",
     "db:migrate": "pnpm --filter @nojv/db db:migrate",
@@ -25,15 +26,12 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "^1.54.1",
+    "@eslint/js": "^9.39.4",
     "@nojv/eslint-config": "workspace:*",
     "@nojv/prettier-config": "workspace:*",
-    "@eslint/js": "^9.39.4",
     "@types/node": "^25.3.5",
     "eslint": "^9.39.4",
     "globals": "^17.4.0",
-    "pino": "^10.3.1",
-    "pino-pretty": "^13.1.3",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",

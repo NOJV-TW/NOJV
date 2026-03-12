@@ -6,6 +6,7 @@
  * Judge types: standard, checker, interactive
  * Plus: function mode (template injection) for all languages
  */
+import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,8 +23,7 @@ const SHORT_TIMEOUT_MS = 500;
 
 // ─── Utilities ──────────────────────────────────────────────────────
 
-async function commandExists(cmd: string): Promise<boolean> {
-  const { execFile } = await import("node:child_process");
+function commandExists(cmd: string): Promise<boolean> {
   return new Promise((resolve) => {
     execFile("which", [cmd], (err) => resolve(!err));
   });

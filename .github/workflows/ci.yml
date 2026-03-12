@@ -37,5 +37,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create .env from example
+        run: cp .env.example .env
+
       - name: Verify monorepo
         run: pnpm ci:verify

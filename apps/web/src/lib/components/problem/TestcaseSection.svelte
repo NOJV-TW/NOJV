@@ -1,4 +1,5 @@
 <script lang="ts">
+  import JSZip from "jszip";
   import { m } from "$lib/paraglide/messages.js";
   import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
 
@@ -40,7 +41,6 @@
 
   async function handleZipUpload(file: File) {
     try {
-      const JSZip = (await import("jszip")).default;
       const zip = await JSZip.loadAsync(file);
 
       const allFiles: { name: string; content: string }[] = [];

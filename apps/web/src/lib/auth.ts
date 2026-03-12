@@ -5,51 +5,30 @@ import { username } from "better-auth/plugins";
 
 import { prisma } from "@nojv/db";
 
-// --- Environment warnings ---
-if (!process.env.BETTER_AUTH_SECRET) {
-  console.warn(
-    "[auth] BETTER_AUTH_SECRET is not set — using insecure default. Set this in production!"
-  );
-}
-
-if (process.env.GITHUB_CLIENT_ID && !process.env.GITHUB_CLIENT_SECRET) {
-  console.warn("[auth] GITHUB_CLIENT_ID is set but GITHUB_CLIENT_SECRET is missing");
-}
-
-if (process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_CLIENT_SECRET) {
-  console.warn("[auth] GOOGLE_CLIENT_ID is set but GOOGLE_CLIENT_SECRET is missing");
-}
-
-const githubProvider =
-  process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
-    ? {
-        github: {
-          clientId: process.env.GITHUB_CLIENT_ID,
-          clientSecret: process.env.GITHUB_CLIENT_SECRET
-        }
-      }
-    : {};
-
-const googleProvider =
-  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-    ? {
-        google: {
-          clientId: process.env.GOOGLE_CLIENT_ID,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET
-        }
-      }
-    : {};
+// --- Environment validation ---
+if (!process.env.BETTER_AUTH_SECRET) throw new Error("BETTER_AUTH_SECRET is required");
+if (!process.env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
+if (!process.env.GITHUB_CLIENT_ID) throw new Error("GITHUB_CLIENT_ID is required");
+if (!process.env.GITHUB_CLIENT_SECRET) throw new Error("GITHUB_CLIENT_SECRET is required");
+if (!process.env.GOOGLE_CLIENT_ID) throw new Error("GOOGLE_CLIENT_ID is required");
+if (!process.env.GOOGLE_CLIENT_SECRET) throw new Error("GOOGLE_CLIENT_SECRET is required");
 
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET ?? "dev-secret-change-in-production",
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:5173",
+  secret: process.env.BETTER_AUTH_SECRET,
+  baseURL: process.env.BETTER_AUTH_URL,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: {
     enabled: true
   },
   socialProviders: {
-    ...githubProvider,
-    ...googleProvider
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET
+    },
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET
+    }
   },
   user: {
     additionalFields: {

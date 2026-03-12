@@ -1,4 +1,9 @@
+import { createBullBoard } from "@bull-board/api";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
+import { ExpressAdapter } from "@bull-board/express";
 import { Queue, UnrecoverableError, Worker } from "bullmq";
+import express from "express";
+import { createServer } from "node:http";
 
 import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/queue";
 
@@ -12,14 +17,9 @@ import { createExecutor } from "./services/executor-factory";
 const logger = createLogger("worker");
 
 async function mountBullBoard(
-  app: ReturnType<typeof createWorkerHealthServer>,
+  _app: ReturnType<typeof createWorkerHealthServer>,
   queues: Queue[]
 ): Promise<void> {
-  const { createBullBoard } = await import("@bull-board/api");
-  const { BullMQAdapter } = await import("@bull-board/api/bullMQAdapter");
-  const { ExpressAdapter } = await import("@bull-board/express");
-  const express = await import("express");
-
   const serverAdapter = new ExpressAdapter();
   serverAdapter.setBasePath("/admin/queues");
 
@@ -28,12 +28,9 @@ async function mountBullBoard(
     serverAdapter
   });
 
-  const expressApp = express.default();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- bull-board getRouter() returns any
-  expressApp.use("/admin/queues", serverAdapter.getRouter());
+  const expressApp = express();
+  expressApp.use("/admin/queues", serverAdapter.getRouter() as express.RequestHandler);
 
-  // Proxy /admin requests on the health server to express
-  const { createServer } = await import("node:http");
   const boardServer = createServer(expressApp);
   const BOARD_PORT = 9999;
   await new Promise<void>((resolve) => {
