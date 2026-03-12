@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { locale, t } from "svelte-i18n";
+  import { onMount, untrack } from "svelte";
+  import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
   import {
     submissionDispatchResponseSchema,
     submissionOperationSchema,
@@ -9,7 +10,6 @@
     type Language,
     type SubmissionResult
   } from "@nojv/core";
-  import { DEFAULT_LOCALE } from "$lib/i18n";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
 
@@ -28,23 +28,24 @@
       assessmentSlug: string;
       courseSlug: string;
       kind: "assignment" | "exam";
-    };
-    contestSlug?: string;
-    onSubmissionComplete?: (
+    } | undefined;
+    contestSlug?: string | undefined;
+    onSubmissionComplete?: ((
       result: SubmissionResult,
       language: string,
       sourceCode: string
-    ) => void;
+    ) => void) | undefined;
     problem: ProblemDetail;
   }
 
   let { assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
+  const initialProblem = untrack(() => problem);
 
-  let currentLocale = $derived($locale ?? DEFAULT_LOCALE);
+  let currentLocale = $derived(getLocale());
   let isFunctionMode = $derived(problem.submissionType === "function");
 
   let language = $state<Language>("cpp");
-  let drafts = $state({ ...problem.starterByLanguage });
+  let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
 
@@ -53,7 +54,7 @@
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
   let testcases = $state(
-    problem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
+    initialProblem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
   );
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
@@ -66,25 +67,28 @@
 
   // Monaco editor
   let editorContainer: HTMLDivElement;
-  let monacoEditor: any;
-  let monacoModule: any;
+  let monacoEditor: import("monaco-editor").editor.IStandaloneCodeEditor | undefined;
+  let monacoModule: typeof import("monaco-editor") | undefined;
 
   // Cleanup: abort in-flight polls when component is destroyed
   let destroyed = false;
   let pollAbortController: AbortController | null = null;
 
-  onMount(async () => {
-    monacoModule = await import("monaco-editor");
-    monacoEditor = monacoModule.editor.create(editorContainer, {
-      ...editorOptions,
-      language: "cpp",
-      theme: "vs-light",
-      value: drafts[language]
-    });
+  onMount(() => {
+    void (async () => {
+      monacoModule = await import("monaco-editor");
+      monacoEditor = monacoModule.editor.create(editorContainer, {
+        ...editorOptions,
+        language: "cpp",
+        theme: "vs-light",
+        value: drafts[language]
+      });
 
-    monacoEditor.onDidChangeModelContent(() => {
-      drafts[language] = monacoEditor.getValue();
-    });
+      const editor = monacoEditor;
+      editor.onDidChangeModelContent(() => {
+        drafts[language] = editor.getValue();
+      });
+    })();
 
     return () => {
       destroyed = true;
@@ -141,8 +145,9 @@
 
     const dispatch = submissionDispatchResponseSchema.parse(await response.json());
     const startedAt = Date.now();
+    let pollDelay = 500;
 
-    while (Date.now() - startedAt < 20_000) {
+    while (Date.now() - startedAt < 30_000) {
       if (destroyed) return null;
 
       const poll = await fetch(dispatch.pollUrl, { cache: "no-store", signal });
@@ -159,8 +164,9 @@
       }
 
       await new Promise((resolve) => {
-        setTimeout(resolve, 700);
+        setTimeout(resolve, pollDelay);
       });
+      pollDelay = Math.min(pollDelay * 1.5, 3000);
     }
 
     throw new Error("Submission polling timed out.");
@@ -210,7 +216,7 @@
     class="flex items-center justify-between border-b border-[color:var(--color-border)] bg-white px-4 py-2"
   >
     <div class="flex items-center gap-3">
-      <span class="text-xs font-medium text-stone-500">&lt;/&gt; {$t("editor.code")}</span>
+      <span class="text-xs font-medium text-stone-500">&lt;/&gt; {m.editor_code()}</span>
       <select
         class="rounded-md border border-stone-200 bg-transparent px-2 py-1 text-xs"
         onchange={(e) => (language = (e.target as HTMLSelectElement).value as Language)}
@@ -222,16 +228,16 @@
       </select>
       <span class="text-xs text-stone-400">
         {#if contestSlug}
-          {$t("editor.contestMode")}
+          {m.editor_contestMode()}
         {:else if assessment}
-          {assessment.kind === "exam" ? $t("editor.examMode") : $t("editor.assignmentMode")}
+          {assessment.kind === "exam" ? m.editor_examMode() : m.editor_assignmentMode()}
         {:else}
-          {$t("editor.practiceMode")}
+          {m.editor_practiceMode()}
         {/if}
       </span>
       {#if isFunctionMode}
         <span class="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">
-          {$t("editor.functionModeHint")}
+          {m.editor_functionModeHint()}
         </span>
       {/if}
     </div>
@@ -247,7 +253,7 @@
     class="flex items-center justify-between border-t border-[color:var(--color-border)] bg-white px-4 py-2"
   >
     <span class="text-xs text-stone-400">
-      {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {$t("editor.chars")}
+      {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
     </span>
     <div class="flex items-center gap-2">
       <button
@@ -256,7 +262,7 @@
         onclick={() => void handleRun()}
         type="button"
       >
-        {isRunning ? $t("editor.running") : $t("editor.run")}
+        {isRunning ? m.editor_running() : m.editor_run()}
       </button>
       <button
         class="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -264,7 +270,7 @@
         onclick={() => void handleSubmit()}
         type="button"
       >
-        {isSubmitting ? $t("editor.submitting") : $t("editor.submitButton")}
+        {isSubmitting ? m.editor_submitting() : m.editor_submitButton()}
       </button>
     </div>
   </div>
@@ -282,7 +288,7 @@
         onclick={() => (bottomTab = "testcase")}
         type="button"
       >
-        {$t("editor.testcase")}
+        {m.editor_testcase()}
       </button>
       <button
         class="px-3 py-2 text-xs font-medium transition {bottomTab === 'result'
@@ -291,7 +297,7 @@
         onclick={() => (bottomTab = "result")}
         type="button"
       >
-        {$t("editor.testResult")}
+        {m.editor_testResult()}
       </button>
     </div>
 
@@ -340,7 +346,7 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-xs text-stone-400">{$t("editor.input")}</p>
+            <p class="text-xs text-stone-400">{m.editor_input()}</p>
             <textarea
               class="mt-1 w-full rounded-md bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700 outline-none focus:ring-1 focus:ring-stone-300"
               oninput={(e) => {
@@ -355,7 +361,7 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-xs text-stone-400">{$t("editor.expectedOutput")}</p>
+            <p class="text-xs text-stone-400">{m.editor_expectedOutput()}</p>
             <textarea
               class="mt-1 w-full rounded-md bg-stone-50 px-3 py-2 font-mono text-sm text-stone-600 outline-none focus:ring-1 focus:ring-stone-300"
               oninput={(e) => {
@@ -409,27 +415,27 @@
                 <div class="mt-3 space-y-3">
                   {#if testcases[selectedResultCase]}
                     <div>
-                      <p class="text-xs font-medium text-stone-400">{$t("editor.input")}</p>
+                      <p class="text-xs font-medium text-stone-400">{m.editor_input()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase].input}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase]!.input}</pre>
                     </div>
                   {/if}
 
                   {#if runResult.caseResults[selectedResultCase]}
                     <div>
-                      <p class="text-xs font-medium text-stone-400">{$t("editor.output")}</p>
+                      <p class="text-xs font-medium text-stone-400">{m.editor_output()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{runResult.caseResults[selectedResultCase].stdout || "(empty)"}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{runResult.caseResults[selectedResultCase]!.stdout || "(empty)"}</pre>
                     </div>
                   {/if}
 
                   {#if testcases[selectedResultCase]?.expectedOutput}
                     <div>
                       <p class="text-xs font-medium text-stone-400">
-                        {$t("editor.expectedOutput")}
+                        {m.editor_expectedOutput()}
                       </p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase].expectedOutput}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase]!.expectedOutput}</pre>
                     </div>
                   {/if}
                 </div>
@@ -451,7 +457,7 @@
               {runError}
             </div>
           {:else}
-            <p class="py-4 text-sm text-stone-400">{$t("editor.runFirst")}</p>
+            <p class="py-4 text-sm text-stone-400">{m.editor_runFirst()}</p>
           {/if}
         </div>
       {/if}

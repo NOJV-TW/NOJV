@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import type { SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
-  import MarkdownRenderer from "../MarkdownRenderer.svelte";
+  import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
 
   const difficultyColor: Record<string, string> = {
@@ -12,10 +12,10 @@
     medium: "bg-amber-500/15 text-amber-700"
   };
 
-  const judgeTypeBadgeKey: Record<string, string> = {
-    checker: "problemDetail.checkerBadge",
-    interactive: "problemDetail.interactiveBadge",
-    standard: "problemDetail.standardBadge"
+  const judgeTypeBadge: Record<string, () => string> = {
+    checker: () => m.problemDetail_checkerBadge(),
+    interactive: () => m.problemDetail_interactiveBadge(),
+    standard: () => m.problemDetail_standardBadge()
   };
 
   const judgeTypeBadgeColor: Record<string, string> = {
@@ -36,9 +36,9 @@
       assessmentSlug: string;
       courseSlug: string;
       kind: "assignment" | "exam";
-    };
-    backLink?: { href: string; label: string };
-    contestSlug?: string;
+    } | undefined;
+    backLink?: { href: string; label: string } | undefined;
+    contestSlug?: string | undefined;
     problem: ProblemDetail;
   }
 
@@ -88,7 +88,7 @@
       onclick={() => (leftTab = "description")}
       type="button"
     >
-      {$t("problemDetail.description")}
+      {m.problemDetail_description()}
     </button>
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'submissions'
@@ -97,7 +97,7 @@
       onclick={() => (leftTab = "submissions")}
       type="button"
     >
-      {$t("problemDetail.submissions")}
+      {m.problemDetail_submissions()}
       {#if submissions.length > 0}
         <span
           class="ml-1.5 rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] tabular-nums"
@@ -127,12 +127,12 @@
               problem.judgeType
             ] ?? 'bg-stone-100 text-stone-600'}"
           >
-            {$t(judgeTypeBadgeKey[problem.judgeType] ?? "problemDetail.standardBadge")}
+            {(judgeTypeBadge[problem.judgeType] ?? judgeTypeBadge["standard"]!)()}
           </span>
           <span class="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">
             {problem.submissionType === "function"
-              ? $t("problemDetail.functionBadge")
-              : $t("problemDetail.fullSourceBadge")}
+              ? m.problemDetail_functionBadge()
+              : m.problemDetail_fullSourceBadge()}
           </span>
           {#each problem.tags as tag (tag)}
             <span class="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs text-stone-500">
@@ -147,7 +147,7 @@
 
         {#if problem.inputFormat}
           <div class="mt-5">
-            <p class="text-sm font-semibold">{$t("problemDetail.inputFormat")}:</p>
+            <p class="text-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
             <div class="mt-1 text-sm leading-7 text-stone-600">
               <MarkdownRenderer content={problem.inputFormat} />
             </div>
@@ -156,7 +156,7 @@
 
         {#if problem.outputFormat}
           <div class="mt-4">
-            <p class="text-sm font-semibold">{$t("problemDetail.outputFormat")}:</p>
+            <p class="text-sm font-semibold">{m.problemDetail_outputFormat()}:</p>
             <div class="mt-1 text-sm leading-7 text-stone-600">
               <MarkdownRenderer content={problem.outputFormat} />
             </div>
@@ -166,19 +166,19 @@
         {#each problem.samples as sample, index (`sample-${index}`)}
           <div class="mt-6">
             <p class="text-sm font-semibold">
-              {$t("problemDetail.sample")} {index + 1}:
+              {m.problemDetail_sample()} {index + 1}:
             </p>
             <div class="mt-2 rounded-lg bg-stone-50 px-4 py-3 text-sm leading-7">
               <p>
-                <span class="font-semibold">{$t("problemDetail.input")}:</span>{" "}
+                <span class="font-semibold">{m.problemDetail_input()}:</span>{" "}
                 <code class="font-mono text-stone-600">{sample.input}</code>
               </p>
               <p class="mt-1">
-                <span class="font-semibold">{$t("problemDetail.output")}:</span>{" "}
+                <span class="font-semibold">{m.problemDetail_output()}:</span>{" "}
                 <code class="font-mono text-stone-600">{sample.output}</code>
               </p>
               {#if sample.explanation}
-                <p class="mt-2 font-semibold">{$t("problemDetail.explanation")}:</p>
+                <p class="mt-2 font-semibold">{m.problemDetail_explanation()}:</p>
                 <p class="mt-1 text-stone-600">{sample.explanation}</p>
               {/if}
             </div>
@@ -189,10 +189,10 @@
       <div class="p-5">
         {#if submissions.length === 0}
           <p class="py-8 text-center text-sm text-stone-400">
-            {$t("problemDetail.noSubmissions")}
+            {m.problemDetail_noSubmissions()}
           </p>
         {:else if viewingIndex !== null && submissions[viewingIndex]}
-          {@const entry = submissions[viewingIndex]}
+          {@const entry = submissions[viewingIndex]!}
           {@const label = formatVerdictLabel(entry.result.verdict)}
           <div>
             <button
@@ -200,7 +200,7 @@
               onclick={() => (viewingIndex = null)}
               type="button"
             >
-              &larr; {$t("problemDetail.allSubmissions")}
+              &larr; {m.problemDetail_allSubmissions()}
             </button>
 
             <div class="flex items-baseline gap-3">
@@ -242,7 +242,7 @@
             {/if}
 
             <div class="mt-5">
-              <p class="text-xs font-medium text-stone-400">{$t("editor.code")}</p>
+              <p class="text-xs font-medium text-stone-400">{m.editor_code()}</p>
               <pre
                 class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">{entry.sourceCode}</pre>
             </div>

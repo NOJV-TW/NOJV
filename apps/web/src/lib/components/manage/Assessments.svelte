@@ -1,16 +1,32 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { untrack } from "svelte";
+  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import { m } from "$lib/paraglide/messages.js";
 
-  import type { CourseAssessmentRecord } from "$lib/server/queries";
+  import type { CourseAssessmentRecord } from "$lib/server/course/queries";
 
   interface Props {
     assessments: CourseAssessmentRecord[];
     courseSlug: string;
+    form: SuperValidated<{
+      closesAt: string;
+      dueAt: string;
+      ipLockEnabled: boolean;
+      maxAttempts?: number | null | undefined;
+      opensAt: string;
+      pageLockEnabled: boolean;
+      problemSlugsText: string;
+      scoreboardMode?: "hidden" | "live" | "frozen" | undefined;
+      slug: string;
+      summary: string;
+      title: string;
+      type: "assignment" | "exam";
+    }>;
     problemSlugs: string[];
   }
 
-  let { assessments, courseSlug, problemSlugs }: Props = $props();
+  let { assessments, courseSlug, form: formData, problemSlugs }: Props = $props();
+  const initialProblemSlugs = untrack(() => problemSlugs);
 
   function toDateTimeLocalValue(date: Date) {
     const year = date.getFullYear();
@@ -38,60 +54,16 @@
 
   const defaultWindow = createDefaultAssessmentWindow();
 
-  let assessmentTitle = $state("");
-  let assessmentSlug = $state("");
-  let assessmentType = $state<"assignment" | "exam">("assignment");
-  let assessmentSummary = $state("");
-  let scoreboardMode = $state<"hidden" | "live" | "frozen">("hidden");
-  let problemSlugsText = $state(problemSlugs.join(", "));
-  let opensAt = $state(defaultWindow.opensAt);
-  let dueAt = $state(defaultWindow.dueAt);
-  let closesAt = $state(defaultWindow.closesAt);
-  let status = $state<string | null>(null);
-  let error = $state<string | null>(null);
-  let isPublishing = $state(false);
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+    invalidateAll: true
+  });
 
-  async function handlePublishAssessment() {
-    isPublishing = true;
-    error = null;
-    status = null;
-
-    try {
-      const payload = {
-        closesAt: new Date(closesAt).toISOString(),
-        dueAt: new Date(dueAt).toISOString(),
-        ipLockEnabled: false,
-        opensAt: new Date(opensAt).toISOString(),
-        pageLockEnabled: false,
-        problemSlugs: problemSlugsText
-          .split(",")
-          .map((entry) => entry.trim())
-          .filter(Boolean),
-        scoreboardMode,
-        slug: assessmentSlug,
-        summary: assessmentSummary,
-        title: assessmentTitle,
-        type: assessmentType
-      };
-
-      const formData = new FormData();
-      formData.set("data", JSON.stringify(payload));
-
-      const response = await fetch("?/create", { method: "POST", body: formData });
-      const result = await response.json();
-
-      if (result.type === "failure") {
-        throw new Error(result.data?.error ?? "Assessment publish failed.");
-      }
-
-      status = `Published ${assessmentTitle}.`;
-      void invalidateAll();
-    } catch (issue) {
-      error = issue instanceof Error ? issue.message : "Assessment publish failed.";
-    } finally {
-      isPublishing = false;
-    }
-  }
+  // Set defaults for datetime fields
+  if (!$form.opensAt) $form.opensAt = defaultWindow.opensAt;
+  if (!$form.dueAt) $form.dueAt = defaultWindow.dueAt;
+  if (!$form.closesAt) $form.closesAt = defaultWindow.closesAt;
+  if (!$form.problemSlugsText) $form.problemSlugsText = initialProblemSlugs.join(", ");
+  if (!$form.type) $form.type = "assignment";
 </script>
 
 <div class="space-y-6">
@@ -99,7 +71,7 @@
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-2xl font-semibold">{$t("courseManage.assessments")}</h3>
+      <h3 class="text-2xl font-semibold">{m.courseManage_assessments()}</h3>
       <span
         class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
       >
@@ -140,70 +112,91 @@
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
-    <h3 class="text-2xl font-semibold">{$t("courseManage.publishAssessment")}</h3>
+    <h3 class="text-2xl font-semibold">{m.courseManage_publishAssessment()}</h3>
     <form
       class="mt-4 grid gap-3"
-      onsubmit={(e) => {
-        e.preventDefault();
-        void handlePublishAssessment();
-      }}
+      method="POST"
+      action="?/create"
+      use:enhance
     >
       <div class="grid gap-3 md:grid-cols-2">
-        <input
-          class={inputClassName}
-          bind:value={assessmentTitle}
-          placeholder="Assessment title"
-          required
-        />
-        <input
-          class={inputClassName}
-          bind:value={assessmentSlug}
-          pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
-          placeholder="assessment-slug"
-          required
-        />
+        <div>
+          <input
+            class={inputClassName}
+            name="title"
+            bind:value={$form.title}
+            placeholder="Assessment title"
+            required
+          />
+          {#if $errors.title}<span class="text-sm text-red-700">{$errors.title}</span>{/if}
+        </div>
+        <div>
+          <input
+            class={inputClassName}
+            name="slug"
+            bind:value={$form.slug}
+            pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            placeholder="assessment-slug"
+            required
+          />
+          {#if $errors.slug}<span class="text-sm text-red-700">{$errors.slug}</span>{/if}
+        </div>
       </div>
       <div class="grid gap-3 md:grid-cols-2">
-        <select class={inputClassName} bind:value={assessmentType}>
+        <select class={inputClassName} name="type" bind:value={$form.type}>
           <option value="assignment">assignment</option>
           <option value="exam">exam</option>
         </select>
-        <select class={inputClassName} bind:value={scoreboardMode}>
+        <select class={inputClassName} name="scoreboardMode" bind:value={$form.scoreboardMode}>
           <option value="hidden">hidden</option>
           <option value="live">live</option>
           <option value="frozen">frozen</option>
         </select>
       </div>
-      <textarea
-        class={textareaClassName}
-        bind:value={assessmentSummary}
-        placeholder="Assessment summary"
-        required
-      ></textarea>
-      <textarea
-        class={textareaClassName}
-        bind:value={problemSlugsText}
-        placeholder="problem-one, problem-two"
-        required
-      ></textarea>
+      <div>
+        <textarea
+          class={textareaClassName}
+          name="summary"
+          bind:value={$form.summary}
+          placeholder="Assessment summary"
+          required
+        ></textarea>
+        {#if $errors.summary}<span class="text-sm text-red-700">{$errors.summary}</span>{/if}
+      </div>
+      <div>
+        <textarea
+          class={textareaClassName}
+          name="problemSlugsText"
+          bind:value={$form.problemSlugsText}
+          placeholder="problem-one, problem-two"
+          required
+        ></textarea>
+        {#if $errors.problemSlugsText}<span class="text-sm text-red-700">{$errors.problemSlugsText}</span>{/if}
+      </div>
       <div class="grid gap-3 md:grid-cols-3">
-        <input class={inputClassName} bind:value={opensAt} required type="datetime-local" />
-        <input class={inputClassName} bind:value={dueAt} required type="datetime-local" />
-        <input class={inputClassName} bind:value={closesAt} required type="datetime-local" />
+        <div>
+          <input class={inputClassName} name="opensAt" bind:value={$form.opensAt} required type="datetime-local" />
+          {#if $errors.opensAt}<span class="text-sm text-red-700">{$errors.opensAt}</span>{/if}
+        </div>
+        <div>
+          <input class={inputClassName} name="dueAt" bind:value={$form.dueAt} required type="datetime-local" />
+          {#if $errors.dueAt}<span class="text-sm text-red-700">{$errors.dueAt}</span>{/if}
+        </div>
+        <div>
+          <input class={inputClassName} name="closesAt" bind:value={$form.closesAt} required type="datetime-local" />
+          {#if $errors.closesAt}<span class="text-sm text-red-700">{$errors.closesAt}</span>{/if}
+        </div>
       </div>
       <button
         class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={isPublishing}
+        disabled={$submitting}
         type="submit"
       >
-        {isPublishing ? $t("common.publishing") : $t("courseManage.publishAssessment")}
+        {$submitting ? m.common_publishing() : m.courseManage_publishAssessment()}
       </button>
     </form>
-    {#if status}
-      <p class="mt-4 text-sm text-emerald-700">{status}</p>
-    {/if}
-    {#if error}
-      <p class="mt-4 text-sm text-red-700">{error}</p>
+    {#if $formMessage}
+      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
     {/if}
   </section>
 </div>

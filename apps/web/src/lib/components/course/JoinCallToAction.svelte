@@ -1,52 +1,47 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { readPlatformRole } from "$lib/validation";
+  import { superForm } from "sveltekit-superforms";
 
   interface Props {
     courseSlug: string;
     courseTitle: string;
+    form: any;
     joinMethod: "join_code" | "manual_invite" | "qr_code" | null;
     joinToken: string | null;
   }
 
-  let { courseSlug, courseTitle, joinMethod, joinToken }: Props = $props();
+  let { courseSlug, courseTitle, form, joinMethod, joinToken }: Props = $props();
 
-  let isJoining = $state(false);
   let error = $state<string | null>(null);
 
   let user = $derived($page.data.user as { name: string } | null);
   let platformRole = $derived(readPlatformRole(user));
 
-  async function handleJoin() {
-    if (!joinMethod || !joinToken || joinMethod === "manual_invite") {
-      error = $t("courseJoin.incompleteLink");
-      return;
-    }
-
-    isJoining = true;
-    error = null;
-
-    try {
-      const payload = { joinMethod, joinToken };
-
-      const formData = new FormData();
-      formData.set("data", JSON.stringify(payload));
-
-      const response = await fetch("?/join", { method: "POST", body: formData });
-      const result = await response.json();
-
-      if (result.type === "failure") {
-        throw new Error(result.data?.error ?? $t("courseJoin.joinFailed"));
+  const { enhance, submitting } = superForm(form, {
+    onResult({ result }) {
+      if (result.type === "success" || result.type === "redirect") {
+        goto(`/courses/${courseSlug}`);
+      } else if (result.type === "failure") {
+        error = (result.data as any)?.error ?? m.courseJoin_joinFailed();
+      } else if (result.type === "error") {
+        error = result.error?.message ?? m.courseJoin_joinFailed();
       }
-
-      goto(`/courses/${courseSlug}`);
-    } catch (issue) {
-      error = issue instanceof Error ? issue.message : $t("courseJoin.joinFailed");
-    } finally {
-      isJoining = false;
+    },
+    onError({ result }) {
+      error = result.error.message ?? m.courseJoin_joinFailed();
     }
+  });
+
+  function handlePreCheck() {
+    if (!joinMethod || !joinToken || joinMethod === "manual_invite") {
+      error = m.courseJoin_incompleteLink();
+      return false;
+    }
+    error = null;
+    return true;
   }
 </script>
 
@@ -54,11 +49,11 @@
   class="rounded-[2rem] border border-[color:var(--color-border)] bg-gradient-to-br from-white/90 to-stone-50/80 px-6 py-8 sm:px-8"
 >
   <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-    {$t("courseJoin.heading")}
+    {m.courseJoin_heading()}
   </p>
   <h2 class="mt-2 font-[family-name:var(--font-display)] text-4xl">{courseTitle}</h2>
   <p class="mt-4 max-w-2xl text-base leading-7 text-[color:var(--color-muted)]">
-    {$t("courseJoin.description", { values: { name: user?.name ?? "" } })}
+    {m.courseJoin_description({ name: user?.name ?? "" })}
   </p>
   <div class="mt-6 flex flex-wrap items-center gap-3">
     <span
@@ -72,25 +67,35 @@
       {platformRole}
     </span>
   </div>
-  <div class="mt-6 flex flex-wrap gap-3">
-    <button
-      class="rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={isJoining}
-      onclick={() => void handleJoin()}
-      type="button"
-    >
-      {isJoining ? $t("common.joining") : $t("courseJoin.joinButton")}
-    </button>
-    <a
-      class="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
-      href="/courses/{courseSlug}"
-    >
-      {$t("courseJoin.backToCourse")}
-    </a>
-  </div>
+  <form
+    action="?/join"
+    method="POST"
+    use:enhance
+    onsubmit={(e) => {
+      if (!handlePreCheck()) e.preventDefault();
+    }}
+  >
+    <input type="hidden" name="joinMethod" value={joinMethod ?? ""} />
+    <input type="hidden" name="joinToken" value={joinToken ?? ""} />
+    <div class="mt-6 flex flex-wrap gap-3">
+      <button
+        class="rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={$submitting}
+        type="submit"
+      >
+        {$submitting ? m.common_joining() : m.courseJoin_joinButton()}
+      </button>
+      <a
+        class="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+        href="/courses/{courseSlug}"
+      >
+        {m.courseJoin_backToCourse()}
+      </a>
+    </div>
+  </form>
   {#if joinToken}
     <p class="mt-4 text-sm text-[color:var(--color-muted)]">
-      {$t("courseJoin.token")}: {joinToken}
+      {m.courseJoin_token()}: {joinToken}
     </p>
   {/if}
   {#if error}

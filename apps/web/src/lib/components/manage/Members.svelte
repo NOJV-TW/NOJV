@@ -1,59 +1,26 @@
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import { m } from "$lib/paraglide/messages.js";
 
-  import type { CourseMemberRecord } from "$lib/server/queries";
+  import type { CourseMemberRecord } from "$lib/server/course/queries";
 
   interface Props {
     courseSlug: string;
     courseTitle: string;
+    form: SuperValidated<{
+      displayName: string;
+      email: string;
+      handle: string;
+      role: "student" | "ta" | "teacher";
+    }>;
     members: CourseMemberRecord[];
   }
 
-  let { courseSlug, courseTitle, members }: Props = $props();
+  let { courseSlug, courseTitle, form: formData, members }: Props = $props();
 
-  let enrollName = $state("");
-  let enrollEmail = $state("");
-  let enrollHandle = $state("");
-  let enrollRole = $state<"student" | "ta" | "teacher">("student");
-  let status = $state<string | null>(null);
-  let error = $state<string | null>(null);
-  let isEnrolling = $state(false);
-
-  async function handleManualEnrollment() {
-    isEnrolling = true;
-    error = null;
-    status = null;
-
-    try {
-      const payload = {
-        displayName: enrollName,
-        email: enrollEmail,
-        handle: enrollHandle,
-        role: enrollRole
-      };
-
-      const formData = new FormData();
-      formData.set("data", JSON.stringify(payload));
-
-      const response = await fetch("?/enroll", { method: "POST", body: formData });
-      const result = await response.json();
-
-      if (result.type === "failure") {
-        throw new Error(result.data?.error ?? "Manual enrollment failed.");
-      }
-
-      status = `Enrolled ${enrollName} into ${courseTitle}.`;
-      enrollName = "";
-      enrollEmail = "";
-      enrollHandle = "";
-      void invalidateAll();
-    } catch (issue) {
-      error = issue instanceof Error ? issue.message : "Manual enrollment failed.";
-    } finally {
-      isEnrolling = false;
-    }
-  }
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+    invalidateAll: true
+  });
 </script>
 
 <div class="space-y-6">
@@ -61,7 +28,7 @@
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-2xl font-semibold">{$t("courseManage.members")}</h3>
+      <h3 class="text-2xl font-semibold">{m.courseManage_members()}</h3>
       <span
         class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
       >
@@ -97,53 +64,59 @@
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
   >
-    <h3 class="text-2xl font-semibold">{$t("courseManage.enrollMember")}</h3>
+    <h3 class="text-2xl font-semibold">{m.courseManage_enrollMember()}</h3>
     <form
       class="mt-4 grid gap-3"
-      onsubmit={(e) => {
-        e.preventDefault();
-        void handleManualEnrollment();
-      }}
+      method="POST"
+      action="?/enroll"
+      use:enhance
     >
       <input
         class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
-        bind:value={enrollName}
+        name="displayName"
+        bind:value={$form.displayName}
         placeholder="Display name"
         required
       />
+      {#if $errors.displayName}<span class="text-sm text-red-700">{$errors.displayName}</span>{/if}
       <div class="grid gap-3 md:grid-cols-2">
-        <input
-          class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
-          bind:value={enrollEmail}
-          placeholder="Email"
-          required
-          type="email"
-        />
-        <input
-          class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
-          bind:value={enrollHandle}
-          placeholder="Handle"
-          required
-        />
+        <div>
+          <input
+            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            name="email"
+            bind:value={$form.email}
+            placeholder="Email"
+            required
+            type="email"
+          />
+          {#if $errors.email}<span class="text-sm text-red-700">{$errors.email}</span>{/if}
+        </div>
+        <div>
+          <input
+            class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+            name="handle"
+            bind:value={$form.handle}
+            placeholder="Handle"
+            required
+          />
+          {#if $errors.handle}<span class="text-sm text-red-700">{$errors.handle}</span>{/if}
+        </div>
       </div>
-      <select class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm" bind:value={enrollRole}>
+      <select class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm" name="role" bind:value={$form.role}>
         <option value="student">student</option>
         <option value="ta">ta</option>
         <option value="teacher">teacher</option>
       </select>
       <button
         class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={isEnrolling}
+        disabled={$submitting}
         type="submit"
       >
-        {isEnrolling ? $t("common.enrolling") : $t("courseManage.enrollMember")}
+        {$submitting ? m.common_enrolling() : m.courseManage_enrollMember()}
       </button>
     </form>
-    {#if status}
-      <p class="mt-4 text-sm text-emerald-700">{status}</p>
-    {/if}
-    {#if error}
-      <p class="mt-4 text-sm text-red-700">{error}</p>
+    {#if $formMessage}
+      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
     {/if}
   </section>
 </div>

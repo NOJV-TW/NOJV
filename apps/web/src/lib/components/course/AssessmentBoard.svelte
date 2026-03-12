@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
-  import type { CourseAssessmentRecord } from "$lib/server/queries";
+  import { m } from "$lib/paraglide/messages.js";
+  import type { CourseAssessmentRecord } from "$lib/server/course/queries";
   import {
     deriveAssessmentPresentation,
     deriveAssessmentWindowState
@@ -20,16 +20,16 @@
   <div class="flex items-center justify-between gap-4">
     <div>
       <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
-        {$t("courseDetail.assessmentBoard")}
+        {m.courseDetail_assessmentBoard()}
       </p>
       <h3 class="mt-1 text-2xl font-semibold">
-        {$t("courseDetail.assessmentBoardSubtitle")}
+        {m.courseDetail_assessmentBoardSubtitle()}
       </h3>
     </div>
     <span
       class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
     >
-      {assessments.length} {$t("common.assessments")}
+      {assessments.length} {m.common_assessments()}
     </span>
   </div>
   <div class="mt-5 grid gap-4">
@@ -70,20 +70,20 @@
               {windowState}
             </span>
             <p class="mt-2 text-sm text-[color:var(--color-muted)]">
-              {assessment.problemSlugs.length} {$t("contestDetail.problems")}
+              {assessment.problemSlugs.length} {m.contestDetail_problems()}
             </p>
           </div>
         </div>
         <div class="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <p class="text-sm text-[color:var(--color-muted)]">
-              {$t("courseDetail.framing")}
+              {m.courseDetail_framing()}
             </p>
             <p class="mt-1 font-semibold">{presentation.heroLabel}</p>
           </div>
           <div>
             <p class="text-sm text-[color:var(--color-muted)]">
-              {$t("courseDetail.window")}
+              {m.courseDetail_window()}
             </p>
             <p class="mt-1 font-semibold">
               {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}

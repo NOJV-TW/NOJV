@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
 
   let user = $derived(
@@ -79,7 +79,7 @@
           href="/account"
           onclick={() => (open = false)}
         >
-          {$t("navigation.account")}
+          {m.navigation_account()}
         </a>
       {/if}
 
@@ -88,7 +88,7 @@
         onclick={handleSignOut}
         type="button"
       >
-        {$t("auth.signOut")}
+        {m.auth_signOut()}
       </button>
     </div>
   {/if}

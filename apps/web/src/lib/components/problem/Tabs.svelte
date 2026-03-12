@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
 
   function formatAcceptanceRate(value: number): string {
     return `${String(Math.round(value * 100))}%`;
@@ -153,7 +153,7 @@
     }}
     type="button"
   >
-    {$t("problems.publicLibrary")}
+    {m.problems_publicLibrary()}
   </button>
   {#if editableProblems !== null}
     <button
@@ -166,7 +166,7 @@
       }}
       type="button"
     >
-      {$t("problems.myProblems")}
+      {m.problems_myProblems()}
     </button>
   {/if}
   {#if showCreate}
@@ -174,7 +174,7 @@
       class="ml-auto rounded-full border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-white/70"
       href="/problems/create"
     >
-      + {$t("problems.createNew")}
+      + {m.problems_createNew()}
     </a>
   {/if}
 </div>
@@ -195,7 +195,7 @@
     <input
       class="w-full rounded-full border border-[color:var(--color-border)] py-2 pl-9 pr-4 text-sm outline-none focus:border-[color:var(--color-accent)]"
       oninput={(e) => setActiveSearch((e.target as HTMLInputElement).value)}
-      placeholder={$t("problems.searchProblems")}
+      placeholder={m.problems_searchProblems()}
       type="text"
       value={activeSearch}
     />
@@ -203,11 +203,11 @@
 
   <div
     class="flex flex-wrap items-center gap-2"
-    aria-label={$t("problems.filterByDifficulty")}
+    aria-label={m.problems_filterByDifficulty()}
     role="group"
   >
     <span class="text-xs font-medium text-[color:var(--color-muted)]">
-      {$t("common.difficulty")}:
+      {m.common_difficulty()}:
     </span>
     {#each difficulties as d (d)}
       <button
@@ -218,7 +218,7 @@
         onclick={() => setActiveDifficulty(d)}
         type="button"
       >
-        {d === "all" ? $t("problems.allDifficulties") : d.charAt(0).toUpperCase() + d.slice(1)}
+        {d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1)}
       </button>
     {/each}
   </div>
@@ -226,7 +226,7 @@
   {#if activeAllTags.length > 0}
     <div
       class="flex flex-wrap items-center gap-2"
-      aria-label={$t("problems.filterByTag")}
+      aria-label={m.problems_filterByTag()}
       role="group"
     >
       {#each activeAllTags as tag (tag)}
@@ -249,10 +249,10 @@
 {#if tab === "public"}
   <section class="grid gap-4">
     {#if publicProblems.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">{$t("problems.empty")}</p>
+      <p class="text-sm text-[color:var(--color-muted)]">{m.problems_empty()}</p>
     {/if}
     {#if publicProblems.length > 0 && publicFiltered.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">{$t("problems.noResults")}</p>
+      <p class="text-sm text-[color:var(--color-muted)]">{m.problems_noResults()}</p>
     {/if}
     {#each publicFiltered as problem (problem.slug)}
       <a
@@ -268,11 +268,11 @@
           <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
         </div>
         <div>
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("common.difficulty")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.common_difficulty()}</p>
           <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
         <div class="sm:text-right">
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("common.acceptance")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.common_acceptance()}</p>
           <p class="mt-1 text-lg font-semibold">
             {formatAcceptanceRate(problem.acceptanceRate)}
           </p>
@@ -286,11 +286,11 @@
   <section class="grid gap-4">
     {#if editableProblems.length === 0}
       <p class="text-sm text-[color:var(--color-muted)]">
-        {$t("problems.myProblemsEmpty")}
+        {m.problems_myProblemsEmpty()}
       </p>
     {/if}
     {#if editableProblems.length > 0 && mineFiltered.length === 0}
-      <p class="text-sm text-[color:var(--color-muted)]">{$t("problems.noResults")}</p>
+      <p class="text-sm text-[color:var(--color-muted)]">{m.problems_noResults()}</p>
     {/if}
     {#each mineFiltered as problem (problem.slug)}
       <a
@@ -306,7 +306,7 @@
           <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
         </div>
         <div>
-          <p class="text-sm text-[color:var(--color-muted)]">{$t("common.difficulty")}</p>
+          <p class="text-sm text-[color:var(--color-muted)]">{m.common_difficulty()}</p>
           <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
         <div class="sm:text-right">

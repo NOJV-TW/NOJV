@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
-  import { t } from "svelte-i18n";
+  import { m } from "$lib/paraglide/messages.js";
   import { parseSchoolEmail } from "$lib/school";
 
   interface Props {
@@ -46,7 +46,7 @@
     error = "";
     const trimmed = schoolEmail.trim();
     if (!parseSchoolEmail(trimmed)) {
-      error = $t("account.invalidSchoolEmail");
+      error = m.account_invalidSchoolEmail();
       return false;
     }
     return true;
@@ -57,16 +57,16 @@
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6"
   >
-    <h3 class="text-sm font-medium">{$t("account.schoolVerification")}</h3>
-    <p class="mt-1 text-sm text-green-600">{$t("account.schoolVerified")}</p>
+    <h3 class="text-sm font-medium">{m.account_schoolVerification()}</h3>
+    <p class="mt-1 text-sm text-green-600">{m.account_schoolVerified()}</p>
   </section>
 {:else}
   <section
     class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-6 py-6"
   >
-    <h3 class="text-sm font-medium">{$t("account.schoolVerification")}</h3>
+    <h3 class="text-sm font-medium">{m.account_schoolVerification()}</h3>
     <p class="mt-1 text-sm text-[color:var(--color-muted)]">
-      {$t("account.schoolVerificationDesc")}
+      {m.account_schoolVerificationDesc()}
     </p>
 
     {#if phase === "idle"}
@@ -75,7 +75,7 @@
         onclick={() => (phase = "form")}
         type="button"
       >
-        {$t("account.startVerification")}
+        {m.account_startVerification()}
       </button>
     {/if}
 
@@ -105,17 +105,17 @@
         }}
       >
         <label class="flex flex-col gap-1 text-sm">
-          {$t("account.schoolEmailLabel")}
+          {m.account_schoolEmailLabel()}
           <input
             class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
             bind:value={schoolEmail}
             name="email"
-            placeholder={$t("account.schoolEmailPlaceholder")}
+            placeholder={m.account_schoolEmailPlaceholder()}
             required
             type="email"
           />
           <span class="text-xs text-[color:var(--color-muted)]">
-            {$t("account.acceptedDomains")}
+            {m.account_acceptedDomains()}
           </span>
         </label>
         {#if error}
@@ -127,7 +127,7 @@
             disabled={loading}
             type="submit"
           >
-            {loading ? $t("account.sending") : $t("account.sendVerification")}
+            {loading ? m.account_sending() : m.account_sendVerification()}
           </button>
           <button
             class="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:bg-white/70"
@@ -137,7 +137,7 @@
             }}
             type="button"
           >
-            {$t("common.cancel")}
+            {m.common_cancel()}
           </button>
         </div>
       </form>
@@ -145,7 +145,7 @@
 
     {#if phase === "sent"}
       <div class="mt-3 flex flex-col gap-2">
-        <p class="text-sm">{$t("account.verificationSent")}</p>
+        <p class="text-sm">{m.account_verificationSent()}</p>
         <form
           class="flex items-center gap-2"
           method="POST"
@@ -172,8 +172,8 @@
             type="submit"
           >
             {cooldown > 0
-              ? $t("account.resendCooldown", { values: { seconds: cooldown } })
-              : $t("account.resend")}
+              ? m.account_resendCooldown({ seconds: cooldown })
+              : m.account_resend()}
           </button>
           <button
             class="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm font-medium transition hover:bg-white/70"
@@ -183,7 +183,7 @@
             }}
             type="button"
           >
-            {$t("account.changeEmail")}
+            {m.account_changeEmail()}
           </button>
         </form>
         {#if error}
@@ -193,7 +193,7 @@
     {/if}
 
     {#if phase === "verified"}
-      <p class="mt-3 text-sm font-medium text-green-600">{$t("account.verified")}</p>
+      <p class="mt-3 text-sm font-medium text-green-600">{m.account_verified()}</p>
     {/if}
   </section>
 {/if}
