@@ -1,4 +1,4 @@
-import { UnrecoverableError, Worker } from "bullmq";
+import { Queue, UnrecoverableError, Worker } from "bullmq";
 
 import { parseRedisConnection, queueNames } from "@nojv/queue";
 
@@ -11,10 +11,42 @@ import { createExecutor } from "./services/executor-factory";
 
 const logger = createLogger("worker");
 
+async function mountBullBoard(
+  app: ReturnType<typeof createWorkerHealthServer>,
+  queues: Queue[]
+): Promise<void> {
+  const { createBullBoard } = await import("@bull-board/api");
+  const { BullMQAdapter } = await import("@bull-board/api/bullMQAdapter");
+  const { ExpressAdapter } = await import("@bull-board/express");
+  const express = await import("express");
+
+  const serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath("/admin/queues");
+
+  createBullBoard({
+    queues: queues.map((q) => new BullMQAdapter(q)),
+    serverAdapter
+  });
+
+  const expressApp = express.default();
+  expressApp.use("/admin/queues", serverAdapter.getRouter());
+
+  // Proxy /admin requests on the health server to express
+  const { createServer } = await import("node:http");
+  const boardServer = createServer(expressApp);
+  const BOARD_PORT = 9999;
+  await new Promise<void>((resolve) => {
+    boardServer.listen(BOARD_PORT, () => resolve());
+  });
+
+  logger.info("bull-board dashboard started", { url: `http://localhost:${BOARD_PORT}/admin/queues` });
+}
+
 export class WorkerApp {
   private readonly workers: Worker[];
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
+  private readonly readOnlyQueues: Queue[];
   private shutdownPromise: Promise<void> | null = null;
 
   constructor(env: WorkerEnv) {
@@ -31,6 +63,8 @@ export class WorkerApp {
         connection
       })
     ];
+
+    this.readOnlyQueues = [new Queue(queueNames.submission, { connection })];
 
     this.healthServer = createWorkerHealthServer();
 
@@ -54,6 +88,10 @@ export class WorkerApp {
       });
     });
 
+    if (this.env.NODE_ENV === "development") {
+      await mountBullBoard(this.healthServer, this.readOnlyQueues);
+    }
+
     logger.info("worker started", { redis: this.env.REDIS_URL, queues: Object.values(queueNames).join(", ") });
     logger.info("health endpoint started", { port: this.env.PORT });
   }
@@ -67,7 +105,10 @@ export class WorkerApp {
 
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
-      await Promise.all(this.workers.map((w) => w.close()));
+      await Promise.all([
+        ...this.workers.map((w) => w.close()),
+        ...this.readOnlyQueues.map((q) => q.close())
+      ]);
     })();
 
     await this.shutdownPromise;
