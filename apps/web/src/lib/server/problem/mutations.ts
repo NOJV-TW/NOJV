@@ -1,13 +1,16 @@
 import { prisma, type TransactionClient } from "@nojv/db";
 import type {
+  JudgeType,
   Language,
   ProblemCreate,
   ProblemDifficulty,
   ProblemTestcaseSetCreate,
-  ProblemUpdate
+  ProblemUpdate,
+  ProblemVisibility,
+  SubmissionType
 } from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 import type { CompletedActorContext } from "../auth";
 import { ConflictError, ForbiddenError, NotFoundError } from "../auth";
 import { ensureUser } from "../user/mutations";
@@ -18,16 +21,16 @@ export interface CreateProblemDefinitionInput {
   difficulty: ProblemDifficulty;
   inputFormat?: string;
   interactorScript?: string | undefined;
-  judgeType?: "checker" | "interactive" | "standard";
+  judgeType?: JudgeType;
   memoryLimitMb?: number;
   outputFormat?: string;
   statement?: string;
-  submissionType?: "full_source" | "function";
+  submissionType?: SubmissionType;
   summary: string;
   tags?: string[];
   timeLimitMs?: number;
   title: string;
-  visibility?: "private" | "public";
+  visibility?: ProblemVisibility;
 }
 
 // --- Shared problem helpers ---

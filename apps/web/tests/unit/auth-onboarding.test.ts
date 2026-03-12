@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { sessionUserSchema } from "@nojv/core";
 
-import { hasActorHandle, isValidHandle, readStringValue } from "$lib/server/auth";
-import { parseSessionUser } from "$lib/session";
+import { hasActorHandle } from "$lib/server/auth";
+import { isValidHandle } from "$lib/utils";
 
 /** Helper to build a minimal valid session-user-like object. */
 function fakeUser(overrides: Record<string, unknown> = {}) {
@@ -15,49 +16,19 @@ function fakeUser(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("readStringValue", () => {
-  it("returns the string when value is a string", () => {
-    expect(readStringValue("hello")).toBe("hello");
+describe("sessionUserSchema", () => {
+  it("parses a valid user object with handle", () => {
+    const result = sessionUserSchema.safeParse(fakeUser({ handle: "alice" }));
+    expect(result.success && result.data.handle).toBe("alice");
   });
 
-  it("returns undefined for numbers", () => {
-    expect(readStringValue(42)).toBeUndefined();
+  it("parses null handle", () => {
+    const result = sessionUserSchema.safeParse(fakeUser({ handle: null }));
+    expect(result.success && result.data.handle).toBeNull();
   });
 
-  it("returns undefined for null", () => {
-    expect(readStringValue(null)).toBeUndefined();
-  });
-
-  it("returns undefined for undefined", () => {
-    expect(readStringValue(undefined)).toBeUndefined();
-  });
-
-  it("returns empty string for empty string", () => {
-    expect(readStringValue("")).toBe("");
-  });
-});
-
-describe("parseSessionUser", () => {
-  it("reads the handle field from a valid user object", () => {
-    expect(parseSessionUser(fakeUser({ handle: "alice" }))?.handle).toBe("alice");
-  });
-
-  it("falls back to username field when handle is absent", () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { handle: _handle, ...userWithoutHandle } = fakeUser();
-    expect(parseSessionUser({ ...userWithoutHandle, username: "alice" })?.handle).toBe("alice");
-  });
-
-  it("returns null handle when handle is null and no username", () => {
-    expect(parseSessionUser(fakeUser({ handle: null }))?.handle).toBeNull();
-  });
-
-  it("returns null when input is not a valid user object", () => {
-    expect(parseSessionUser({})).toBeNull();
-  });
-
-  it("returns null when input is null", () => {
-    expect(parseSessionUser(null)).toBeNull();
+  it("rejects invalid input", () => {
+    expect(sessionUserSchema.safeParse({}).success).toBe(false);
   });
 });
 

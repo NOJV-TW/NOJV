@@ -1,22 +1,5 @@
 import type { JudgeType, Language, SubmissionType } from "@nojv/core";
 
-export interface SandboxConfig {
-  submissionId: string;
-  language: Language;
-  judgeType: JudgeType;
-  submissionType: SubmissionType;
-  limits: {
-    timeoutMs: number;
-    memoryMb: number;
-  };
-  template?: {
-    driverCode: string;
-    insertionMarker: string;
-  };
-  checkerLanguage?: string;
-  interactorLanguage?: string;
-}
-
 export interface SandboxTestcase {
   index: number;
   input: string;

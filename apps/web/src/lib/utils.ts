@@ -5,13 +5,29 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// --- Constants ---
+
+/** Default locale for database content (problem statements, user locale, etc.). */
+export const DEFAULT_LOCALE = "zh-TW";
+
+// --- Handle validation ---
+
+export const HANDLE_INPUT_PATTERN = "[a-z0-9._-]{3,64}";
+const handlePattern = /^[a-z0-9._-]{3,64}$/;
+
+export function isValidHandle(value: string): boolean {
+  return handlePattern.test(value);
+}
+
 // --- Shared form class names ---
 
 export const inputClassName =
   "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
 export const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
 
+// --- UI component type helpers (shadcn/svelte) ---
+
 export type WithoutChild<T> = T extends { child?: unknown } ? Omit<T, "child"> : T;
-export type WithoutChildren<T> = T extends { children?: unknown } ? Omit<T, "children"> : T;
+type WithoutChildren<T> = T extends { children?: unknown } ? Omit<T, "children"> : T;
 export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>;
 export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & { ref?: U | null };

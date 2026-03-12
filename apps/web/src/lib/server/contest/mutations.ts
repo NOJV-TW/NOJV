@@ -2,7 +2,7 @@ import type { TransactionClient } from "@nojv/db";
 
 import { ForbiddenError, NotFoundError } from "../auth";
 
-export async function requireContest(tx: TransactionClient, contestSlug: string) {
+async function requireContest(tx: TransactionClient, contestSlug: string) {
   const contest = await tx.contest.findUnique({
     where: { slug: contestSlug }
   });

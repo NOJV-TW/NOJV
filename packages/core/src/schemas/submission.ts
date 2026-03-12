@@ -49,6 +49,4 @@ export const submissionOperationSchema = z.object({
 });
 
 export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
-export type SubmissionDispatchResponse = z.infer<typeof submissionDispatchResponseSchema>;
-export type SubmissionOperation = z.infer<typeof submissionOperationSchema>;
 export type SubmissionResult = z.infer<typeof submissionResultSchema>;

@@ -40,8 +40,6 @@ export const workerEnvSchema = z.discriminatedUnion("EXECUTION_BACKEND", [
 ]);
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
-export type DockerWorkerEnv = z.infer<typeof dockerEnvSchema>;
-export type KubernetesWorkerEnv = z.infer<typeof kubernetesEnvSchema>;
 
 export function parseWorkerEnv(input: Record<string, string | undefined>): WorkerEnv {
   return workerEnvSchema.parse(input);

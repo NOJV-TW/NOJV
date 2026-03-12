@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import type { SubmissionResult } from "@nojv/core";
+  import type { CourseAssessmentType, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
@@ -37,9 +37,9 @@
     assessment?: {
       assessmentSlug: string;
       courseSlug: string;
-      kind: "assignment" | "exam";
+      kind: CourseAssessmentType;
     } | undefined;
-    backLink?: { href: string; type: "assignment" | "exam" } | undefined;
+    backLink?: { href: string; type: CourseAssessmentType } | undefined;
     contestSlug?: string | undefined;
     initialSubmissions?: SubmissionEntry[];
     problem: ProblemDetail;

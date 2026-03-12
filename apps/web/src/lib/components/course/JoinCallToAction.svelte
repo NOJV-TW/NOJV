@@ -4,7 +4,6 @@
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
   import { actionErrorSchema } from "@nojv/core";
-  import { readPlatformRole } from "$lib/validation";
   import { superForm } from "sveltekit-superforms";
 
   interface Props {
@@ -20,7 +19,7 @@
   let error = $state<string | null>(null);
 
   let user = $derived($page.data.user);
-  let platformRole = $derived(readPlatformRole(user));
+  let platformRole = $derived(user?.platformRole ?? "student");
 
   const { enhance, submitting } = superForm(untrack(() => form), {
     onResult({ result }) {

@@ -1,14 +1,16 @@
 import { error } from "@sveltejs/kit";
 import { prisma } from "@nojv/db";
 import type {
+  AssessmentScoreboardMode,
   CourseAssessmentType,
   CourseJoinMethod,
   CourseRole,
   LocaleCode,
-  PlatformRole
+  PlatformRole,
+  ProblemVisibility
 } from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState,
@@ -33,7 +35,7 @@ export interface CourseAssessmentRecord {
   dueAt: string;
   opensAt: string;
   problemSlugs: string[];
-  scoreboardMode: "frozen" | "hidden" | "live";
+  scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
   title: string;
@@ -45,7 +47,7 @@ export interface CourseProblemCatalogEntry {
   slug: string;
   summary: string;
   title: string;
-  visibility: "private" | "public";
+  visibility: ProblemVisibility;
 }
 
 export interface CoursePageData {
@@ -81,7 +83,7 @@ function mapProblemShelfEntry(problem: {
     title: string;
   }[];
   summary: string;
-  visibility: "private" | "public";
+  visibility: ProblemVisibility;
 }) {
   const localized = pickProblemStatement(
     problem.statements,
@@ -104,11 +106,11 @@ function mapAssessmentRecord(assessment: {
   dueAt: Date;
   opensAt: Date;
   problems: { ordinal: number; problem: { slug: string } }[];
-  scoreboardMode: "frozen" | "hidden" | "live";
+  scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
   title: string;
-  type: "assignment" | "exam";
+  type: CourseAssessmentType;
 }) {
   const linkedProblems = assessment.problems;
 
@@ -155,11 +157,11 @@ function mapPersistedCourse(course: {
     dueAt: Date;
     opensAt: Date;
     problems: { ordinal: number; problem: { slug: string } }[];
-    scoreboardMode: "frozen" | "hidden" | "live";
+    scoreboardMode: AssessmentScoreboardMode;
     slug: string;
     summary: string;
     title: string;
-    type: "assignment" | "exam";
+    type: CourseAssessmentType;
   }[];
   description: string;
   joinTokens: {
@@ -191,7 +193,7 @@ function mapPersistedCourse(course: {
         title: string;
       }[];
       summary: string;
-      visibility: "private" | "public";
+      visibility: ProblemVisibility;
     };
   }[];
   slug: string;

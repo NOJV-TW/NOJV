@@ -77,10 +77,10 @@ export type ProblemDifficulty = z.infer<typeof problemDifficultySchema>;
 export type JudgeType = z.infer<typeof judgeTypeSchema>;
 export type Language = z.infer<typeof languageSchema>;
 export type LocaleCode = z.infer<typeof localeCodeSchema>;
+export type AssessmentScoreboardMode = z.infer<typeof assessmentScoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type SubmissionType = z.infer<typeof submissionTypeSchema>;
-export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 
 export const sessionUserSchema = z.object({
   email: z.string(),
