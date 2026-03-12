@@ -6,7 +6,7 @@ import { processSchoolVerification } from "$lib/server/shared/school-verificatio
 
 import type { Actions, PageServerLoad } from "./$types";
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = ({ locals }) => {
   if (!locals.user) {
     redirect(302, "/");
   }

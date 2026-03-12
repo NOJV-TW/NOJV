@@ -4,5 +4,7 @@ export default defineConfig({
   entry: ["src/index.ts"],
   format: "esm",
   clean: true,
-  external: ["@prisma/client", "@prisma/adapter-pg"]
+  deps: {
+    neverBundle: ["@prisma/client", "@prisma/adapter-pg"]
+  }
 });

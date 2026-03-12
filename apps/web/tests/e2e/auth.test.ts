@@ -22,7 +22,7 @@ test.describe("Authentication flow", () => {
   });
 
   test("can register a new account", async ({ page }) => {
-    const timestamp = Date.now();
+    const timestamp = String(Date.now());
 
     await page.goto("/signup");
     await page.getByLabel("Display name").fill(`Test User ${timestamp}`);

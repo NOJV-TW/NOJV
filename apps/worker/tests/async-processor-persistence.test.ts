@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const markSubmissionRunning = vi.fn();
-const completeSubmission = vi.fn();
-const getSubmissionJudgeContext = vi.fn();
+import { createSubmissionProcessor } from "../src/processors/submission";
+
+const { markSubmissionRunning, completeSubmission, getSubmissionJudgeContext } = vi.hoisted(
+  () => ({
+    markSubmissionRunning: vi.fn(),
+    completeSubmission: vi.fn(),
+    getSubmissionJudgeContext: vi.fn()
+  })
+);
 
 vi.mock("../src/services/judge-db", () => {
   return {
@@ -54,7 +60,6 @@ describe("async processor persistence", () => {
       ]
     });
 
-    const { createSubmissionProcessor } = await import("../src/processors/submission");
     const processSubmission = createSubmissionProcessor({ execute: mockExecute } as never);
 
     await processSubmission({
