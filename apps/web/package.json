@@ -31,6 +31,7 @@
     "marked": "^17.0.4",
     "monaco-editor": "^0.52.2",
     "qrcode": "^1.5.4",
+    "rate-limiter-flexible": "^9.1.1",
     "resend": "^6.9.3",
     "svelte-markdown": "^0.4.1",
     "sveltekit-superforms": "^2.30.0",
