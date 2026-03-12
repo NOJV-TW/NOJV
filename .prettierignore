@@ -6,3 +6,4 @@ node_modules
 apps/web/.next
 apps/workspace/dist
 packages/db/generated
+apps/web/src/lib/paraglide

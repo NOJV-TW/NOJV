@@ -52,17 +52,21 @@ export async function processSchoolVerification(
     }
   });
 
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  if (!process.env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
+  if (!process.env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is required");
+  if (!process.env.EMAIL_FROM_DOMAIN) throw new Error("EMAIL_FROM_DOMAIN is required");
+
+  const appUrl = process.env.BETTER_AUTH_URL;
   const verifyUrl = `${appUrl}/verify-school?token=${token}`;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error } = await resend.emails.send({
-    from: `NOJV <noreply@${process.env.EMAIL_FROM_DOMAIN ?? ""}>`,
+    from: `NOJV <noreply@${process.env.EMAIL_FROM_DOMAIN}>`,
     to: email,
-    subject: "NOJV 三校聯盟帳號驗證",
+    subject: "NOJV 學生帳號驗證",
     html: `
       <h2>NOJV 帳號驗證</h2>
-      <p>請點擊以下連結完成三校聯盟帳號驗證：</p>
+      <p>請點擊以下連結完成學生帳號驗證：</p>
       <p><a href="${verifyUrl}">驗證我的帳號</a></p>
       <p>此連結將在 30 分鐘後失效。</p>
       <p>如果您沒有申請此驗證，請忽略這封信。</p>

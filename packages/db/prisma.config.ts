@@ -1,5 +1,8 @@
-import "dotenv/config";
 import { defineConfig } from "prisma/config";
+
+try {
+  process.loadEnvFile("../../.env");
+} catch {}
 
 export default defineConfig({
   datasource: {
