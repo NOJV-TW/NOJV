@@ -16,7 +16,7 @@ const TERMINAL_STATUSES = new Set([
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
 
-export const GET: RequestHandler = async (event) => {
+export const GET: RequestHandler = (event) => {
   const actor = getActorContext(event);
   if (!actor) {
     return new Response("Authentication required.", { status: 401 });

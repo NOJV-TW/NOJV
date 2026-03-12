@@ -71,7 +71,7 @@ export async function processSchoolVerification(
 
   if (error) {
     logger.error("email send failed", {
-      err: error instanceof Error ? error.message : String(error)
+      err: error.message
     });
     return { error: "Failed to send email", status: 500 };
   }
