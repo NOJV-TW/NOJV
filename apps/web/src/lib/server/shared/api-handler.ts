@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 
 import { HttpError } from "../auth";
 import { createLogger } from "../logger";
+import { apiRateLimiter } from "./rate-limiter";
 
 const logger = createLogger("api");
 
@@ -11,6 +12,14 @@ type ApiHandler = (event: RequestEvent) => Promise<Response>;
 
 export function apiHandler(handler: ApiHandler): ApiHandler {
   return async (event) => {
+    const ip = event.getClientAddress();
+
+    try {
+      await apiRateLimiter.consume(ip);
+    } catch {
+      return json({ error: "Too many requests" }, { status: 429 });
+    }
+
     try {
       return await handler(event);
     } catch (error) {
