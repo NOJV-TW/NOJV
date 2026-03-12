@@ -26,10 +26,9 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "^1.54.1",
+    "@eslint/js": "^9.39.4",
     "@nojv/eslint-config": "workspace:*",
     "@nojv/prettier-config": "workspace:*",
-    "@eslint/js": "^9.39.4",
     "@types/node": "^25.3.5",
     "eslint": "^9.39.4",
     "globals": "^17.4.0",

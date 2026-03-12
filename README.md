@@ -66,11 +66,11 @@ pnpm dev
 
 ### Local Ports
 
-| Service    | URL                    |
-| ---------- | ---------------------- |
+| Service    | URL                     |
+| ---------- | ----------------------- |
 | Web        | `http://localhost:3000` |
-| PostgreSQL | `localhost:5432`       |
-| Redis      | `localhost:6379`       |
+| PostgreSQL | `localhost:5432`        |
+| Redis      | `localhost:6379`        |
 
 ## Developer Workflow
 
@@ -124,16 +124,16 @@ The worker selects its executor via `EXECUTION_BACKEND` (`docker` locally, `kube
 
 ## GCP Deployment
 
-| Component  | Service                  |
-| ---------- | ------------------------ |
-| web        | Cloud Run                |
-| migrator   | Cloud Run Job            |
-| worker     | GKE deployment (KEDA)   |
-| sandbox    | Kubernetes Jobs          |
-| postgres   | Cloud SQL                |
-| redis      | Memorystore              |
-| images     | Artifact Registry        |
-| secrets    | Secret Manager           |
+| Component | Service               |
+| --------- | --------------------- |
+| web       | Cloud Run             |
+| migrator  | Cloud Run Job         |
+| worker    | GKE deployment (KEDA) |
+| sandbox   | Kubernetes Jobs       |
+| postgres  | Cloud SQL             |
+| redis     | Memorystore           |
+| images    | Artifact Registry     |
+| secrets   | Secret Manager        |
 
 ```bash
 # Via Cloud Build

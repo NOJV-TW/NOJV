@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 
 const queueEnvSchema = z.object({
-  REDIS_URL: z.url().default("redis://localhost:6379")
+  REDIS_URL: z.url()
 });
 
 interface QueueRegistry {
