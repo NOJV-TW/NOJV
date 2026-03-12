@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { createWorkerHealthServer } from "../src/health-server";
+import { closeServerSafely } from "../src/server-lifecycle";
+
 const servers: { close: () => void }[] = [];
 
 afterEach(() => {
@@ -10,7 +13,6 @@ afterEach(() => {
 
 describe("worker health server", () => {
   it("responds on /healthz for production probes", async () => {
-    const { createWorkerHealthServer } = await import("../src/health-server");
     const server = createWorkerHealthServer();
 
     await new Promise<void>((resolve) => {
@@ -32,8 +34,6 @@ describe("worker health server", () => {
   });
 
   it("allows repeated shutdown without server-not-running errors", async () => {
-    const { createWorkerHealthServer } = await import("../src/health-server");
-    const { closeServerSafely } = await import("../src/server-lifecycle");
     const server = createWorkerHealthServer();
 
     await new Promise<void>((resolve) => {
