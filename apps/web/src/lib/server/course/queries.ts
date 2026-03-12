@@ -418,7 +418,13 @@ export async function listUpcomingAssessments(userId: string) {
 // ─── Assessment detail loader ────────────────────────────────────────
 
 export function createAssessmentDetailLoader(type: CourseAssessmentType) {
-  return async ({ params, parent }: { params: { assessmentSlug: string; slug: string }; parent: () => Promise<{ courseData: { course: any; problems: any[] } }> }) => {
+  return async ({
+    params,
+    parent
+  }: {
+    params: { assessmentSlug: string; slug: string };
+    parent: () => Promise<{ courseData: { course: any; problems: any[] } }>;
+  }) => {
     const { assessmentSlug } = params;
 
     const { courseData } = await parent();

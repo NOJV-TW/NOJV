@@ -4,7 +4,10 @@ import { superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { createProblemRecord, createProblemTestcaseSetRecord } from "$lib/server/problem/mutations";
+import {
+  createProblemRecord,
+  createProblemTestcaseSetRecord
+} from "$lib/server/problem/mutations";
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) {

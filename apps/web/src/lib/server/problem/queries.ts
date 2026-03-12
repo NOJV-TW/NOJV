@@ -1,11 +1,7 @@
 import { prisma } from "@nojv/db";
 
 import { DEFAULT_LOCALE } from "$lib/locale";
-import {
-  starterByLanguage,
-  type ProblemDetail,
-  type TemplateInfo
-} from "$lib/types";
+import { starterByLanguage, type ProblemDetail, type TemplateInfo } from "$lib/types";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 // ─── Internal helpers ────────────────────────────────────────────────
@@ -125,7 +121,9 @@ function mapPersistedProblemDetail(
     problem.summary
   );
 
-  const submissionType = (problem.submissionType ?? "full_source") as "full_source" | "function";
+  const submissionType = (problem.submissionType ?? "full_source") as
+    | "full_source"
+    | "function";
   const problemTemplates = problem.templates ?? [];
 
   return {
@@ -253,10 +251,14 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
       },
       testcaseSets: {
         include: {
+          _count: {
+            select: { testcases: true }
+          },
           testcases: {
             orderBy: {
               ordinal: "asc"
-            }
+            },
+            take: 10
           }
         },
         orderBy: {

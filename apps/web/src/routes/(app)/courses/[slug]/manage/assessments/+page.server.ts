@@ -17,7 +17,10 @@ const assessmentFormSchema = z.object({
   pageLockEnabled: z.boolean().default(false),
   problemSlugsText: z.string().min(1),
   scoreboardMode: z.enum(["hidden", "live", "frozen"]).optional(),
-  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).min(3),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .min(3),
   summary: z.string().min(8).max(2_000),
   title: z.string().min(3).max(120),
   type: z.enum(["assignment", "exam"])
