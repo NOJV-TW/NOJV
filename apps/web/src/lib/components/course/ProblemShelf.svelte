@@ -11,11 +11,11 @@
 </script>
 
 <section
-  class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+  class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
 >
   <div class="flex items-center justify-between gap-4">
     <div>
-      <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
+      <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
         {m.courseDetail_problemShelf()}
       </p>
       <h3 class="mt-1 text-2xl font-semibold">
@@ -23,7 +23,7 @@
       </h3>
     </div>
     <span
-      class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+      class="rounded-full border border-border px-3 py-1 text-xs font-medium"
     >
       {problems.length} {m.courseDetail_linkedProblems()}
     </span>
@@ -31,23 +31,23 @@
   <div class="mt-5 grid gap-3">
     {#each problems as problem (problem.slug)}
       <a
-        class="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4 transition hover:-translate-y-0.5"
+        class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4 transition hover:-translate-y-0.5"
         href="/problems/{problem.slug}?course={courseSlug}"
       >
         <div class="flex items-center justify-between gap-4">
           <div>
             <p class="text-lg font-semibold">{problem.title}</p>
-            <p class="mt-2 text-sm leading-7 text-[color:var(--color-muted)]">
+            <p class="mt-2 text-sm leading-7 text-muted-foreground">
               {problem.summary}
             </p>
           </div>
           <div class="text-right">
             <span
-              class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+              class="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
               {problem.visibility}
             </span>
-            <p class="mt-2 text-sm text-[color:var(--color-muted)]">
+            <p class="mt-2 text-sm text-muted-foreground">
               {m.courseDetail_by()} {problem.authorHandle}
             </p>
           </div>

@@ -5,12 +5,6 @@ export function isValidHandle(value: string): boolean {
   return handlePattern.test(value);
 }
 
-function readStringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-export function readPlatformRole(user: unknown): string {
-  return (
-    readStringValue((user as Record<string, unknown> | undefined)?.platformRole) ?? "student"
-  );
+export function readPlatformRole(user: { platformRole?: string } | null | undefined): string {
+  return user?.platformRole ?? "student";
 }

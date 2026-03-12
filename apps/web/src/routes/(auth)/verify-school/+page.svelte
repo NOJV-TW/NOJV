@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
+
   let { data } = $props();
 
   // Notify the account page via BroadcastChannel on success
@@ -17,15 +19,15 @@
 
 <div class="flex min-h-[60vh] items-center justify-center">
   <div
-    class="max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-white p-8 text-center shadow-sm"
+    class="max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 text-center shadow-sm backdrop-blur-sm"
   >
     {#if data.status === "success"}
-      <h1 class="text-xl font-bold text-green-600">驗證成功</h1>
+      <h1 class="text-xl font-bold text-green-600">{m.verifySchool_success()}</h1>
       <p class="mt-2 text-sm">
-        你的 NOJV 帳號已設定為 <strong>{data.handle}</strong>。你可以關閉此頁面。
+        {m.verifySchool_successMessage({ handle: data.handle })}
       </p>
     {:else}
-      <h1 class="text-xl font-bold text-red-600">驗證失敗</h1>
+      <h1 class="text-xl font-bold text-red-600">{m.verifySchool_failed()}</h1>
       <p class="mt-2 text-sm">{data.detail}</p>
     {/if}
   </div>

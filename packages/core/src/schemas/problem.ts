@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   judgeTypeSchema,
   languageSchema,
+  problemDifficultySchema,
   problemVisibilitySchema,
   slugSchema,
   submissionTypeSchema
@@ -17,7 +18,7 @@ export const problemTemplateSchema = z.object({
 
 export const problemCreateSchema = z.object({
   checkerScript: z.string().max(200_000).optional(),
-  difficulty: z.enum(["easy", "medium", "hard"]),
+  difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().max(4_000).default(""),
   interactorScript: z.string().max(200_000).optional(),
   judgeType: judgeTypeSchema.default("standard"),
@@ -59,7 +60,7 @@ export const problemTestcaseSetCreateSchema = z.object({
 
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),
-  difficulty: z.enum(["easy", "medium", "hard"]),
+  difficulty: problemDifficultySchema,
   slug: slugSchema,
   title: z.string().min(1),
   totalSubmissions: z.number().int().nonnegative()

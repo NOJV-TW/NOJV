@@ -4,10 +4,21 @@ import {
   hasActorHandle,
   hasCompletedHandle,
   isValidHandle,
-  readHandleFromAuthUser,
-  readPlatformRole,
+  readHandleFromRawUser,
   readStringValue
 } from "$lib/server/auth";
+
+/** Helper to build a minimal valid session-user-like object. */
+function fakeUser(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "u1",
+    email: "test@example.com",
+    name: "Test",
+    handle: null,
+    platformRole: "student",
+    ...overrides
+  };
+}
 
 describe("readStringValue", () => {
   it("returns the string when value is a string", () => {
@@ -31,52 +42,44 @@ describe("readStringValue", () => {
   });
 });
 
-describe("readHandleFromAuthUser", () => {
-  it("reads the username field as handle", () => {
-    expect(readHandleFromAuthUser({ username: "alice" })).toBe("alice");
+describe("readHandleFromRawUser", () => {
+  it("reads the handle field from a valid user object", () => {
+    expect(readHandleFromRawUser(fakeUser({ handle: "alice" }))).toBe("alice");
   });
 
-  it("returns null for empty username", () => {
-    expect(readHandleFromAuthUser({ username: "" })).toBeNull();
+  it("falls back to username field when handle is absent", () => {
+    const { handle: _, ...userWithoutHandle } = fakeUser();
+    expect(readHandleFromRawUser({ ...userWithoutHandle, username: "alice" })).toBe("alice");
   });
 
-  it("returns null when username is missing", () => {
-    expect(readHandleFromAuthUser({})).toBeNull();
+  it("returns null when handle is null and no username", () => {
+    expect(readHandleFromRawUser(fakeUser({ handle: null }))).toBeNull();
   });
 
-  it("returns null when username is not a string", () => {
-    expect(readHandleFromAuthUser({ username: 123 })).toBeNull();
-  });
-});
-
-describe("readPlatformRole", () => {
-  it("reads platformRole from user object", () => {
-    expect(readPlatformRole({ platformRole: "teacher" })).toBe("teacher");
+  it("returns null when input is not a valid user object", () => {
+    expect(readHandleFromRawUser({})).toBeNull();
   });
 
-  it("defaults to student when platformRole is missing", () => {
-    expect(readPlatformRole({})).toBe("student");
-  });
-
-  it("defaults to student for null input", () => {
-    expect(readPlatformRole(null)).toBe("student");
-  });
-
-  it("defaults to student for undefined input", () => {
-    expect(readPlatformRole(undefined)).toBe("student");
+  it("returns null when input is null", () => {
+    expect(readHandleFromRawUser(null)).toBeNull();
   });
 });
 
 describe("hasCompletedHandle", () => {
-  it("returns true when user has a non-empty username", () => {
-    expect(hasCompletedHandle({ username: "alice" })).toBe(true);
+  it("returns true when user has a non-null handle", () => {
+    expect(hasCompletedHandle(fakeUser({ handle: "alice" }))).toBe(true);
   });
 
-  it("returns false when username is empty", () => {
-    expect(hasCompletedHandle({ username: "" })).toBe(false);
+  it("returns true when user has username fallback", () => {
+    const { handle: _, ...userWithoutHandle } = fakeUser();
+    expect(hasCompletedHandle({ ...userWithoutHandle, username: "alice" })).toBe(true);
   });
 
-  it("returns false when username is missing", () => {
+  it("returns false when handle is null and no username", () => {
+    expect(hasCompletedHandle(fakeUser({ handle: null }))).toBe(false);
+  });
+
+  it("returns false for invalid input", () => {
     expect(hasCompletedHandle({})).toBe(false);
   });
 });

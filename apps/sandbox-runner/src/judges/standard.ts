@@ -50,6 +50,7 @@ export function judgeStandard(
     proc.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 
     // Write testcase input to stdin
+    proc.stdin.on("error", () => {}); // Ignore EPIPE when process exits before stdin is consumed
     proc.stdin.write(testcase.input);
     proc.stdin.end();
 

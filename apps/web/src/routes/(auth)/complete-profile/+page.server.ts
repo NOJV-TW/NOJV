@@ -12,9 +12,7 @@ export const load: PageServerLoad = ({ locals }) => {
     redirect(302, "/");
   }
 
-  const userRecord = user as Record<string, unknown>;
-
-  if (hasCompletedHandle(userRecord)) {
+  if (hasCompletedHandle(user)) {
     redirect(302, "/");
   }
 
@@ -32,7 +30,7 @@ export const actions = {
     }
 
     const formData = await request.formData();
-    const email = (formData.get("email") as string | null)?.trim() ?? "";
+    const email = String(formData.get("email") ?? "").trim();
     const result = await processSchoolVerification(user.id, email);
 
     if ("error" in result) {

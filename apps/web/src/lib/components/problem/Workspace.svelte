@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import type { SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
@@ -37,15 +38,16 @@
       courseSlug: string;
       kind: "assignment" | "exam";
     } | undefined;
-    backLink?: { href: string; label: string } | undefined;
+    backLink?: { href: string; type: "assignment" | "exam" } | undefined;
     contestSlug?: string | undefined;
+    initialSubmissions?: SubmissionEntry[];
     problem: ProblemDetail;
   }
 
-  let { assessment, backLink, contestSlug, problem }: Props = $props();
+  let { assessment, backLink, contestSlug, initialSubmissions, problem }: Props = $props();
 
   let leftTab = $state<"description" | "submissions">("description");
-  let submissions = $state<SubmissionEntry[]>([]);
+  let submissions = $state<SubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
   let viewingIndex = $state<number | null>(null);
 
   function handleSubmissionComplete(
@@ -69,21 +71,21 @@
 
 <!-- Left panel -->
 <div
-  class="flex w-full shrink-0 flex-col overflow-hidden bg-white lg:w-[42%] lg:border-r lg:border-[color:var(--color-border)]"
+  class="flex w-full shrink-0 flex-col overflow-hidden bg-white lg:w-[42%] lg:border-r lg:border-border"
 >
   <!-- Tab bar -->
-  <div class="flex items-center border-b border-[color:var(--color-border)] px-2">
+  <div class="flex items-center border-b border-border px-2">
     {#if backLink}
       <a
         class="px-3 py-2.5 text-xs text-stone-400 transition hover:text-stone-600"
         href={backLink.href}
       >
-        &larr; {backLink.label}
+        &larr; {backLink.type === 'exam' ? m.problemDetail_backToExam() : m.problemDetail_backToAssignment()}
       </a>
     {/if}
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'description'
-        ? 'border-b-2 border-[color:var(--color-accent)] text-[color:var(--color-ink)]'
+        ? 'border-b-2 border-primary text-foreground'
         : 'text-stone-400 hover:text-stone-600'}"
       onclick={() => (leftTab = "description")}
       type="button"
@@ -92,7 +94,7 @@
     </button>
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'submissions'
-        ? 'border-b-2 border-[color:var(--color-accent)] text-[color:var(--color-ink)]'
+        ? 'border-b-2 border-primary text-foreground'
         : 'text-stone-400 hover:text-stone-600'}"
       onclick={() => (leftTab = "submissions")}
       type="button"
