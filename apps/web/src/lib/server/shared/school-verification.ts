@@ -26,12 +26,12 @@ export async function processSchoolVerification(
     return { error: "Invalid school email", status: 400 };
   }
 
-  const handle = extractStudentId(parsed.school, parsed.studentId);
+  const username = extractStudentId(parsed.school, parsed.studentId);
 
-  // Check if handle is already taken by another user
-  const existing = await prisma.user.findUnique({ where: { handle } });
+  // Check if username is already taken by another user
+  const existing = await prisma.user.findUnique({ where: { username } });
   if (existing && existing.id !== userId) {
-    return { error: "Handle already taken", status: 409 };
+    return { error: "Username already taken", status: 409 };
   }
 
   // Generate verification token (stored in Verification table)
@@ -44,7 +44,7 @@ export async function processSchoolVerification(
       identifier: userId,
       value: JSON.stringify({
         email,
-        handle,
+        username,
         school: parsed.school,
         studentId: parsed.studentId
       }),

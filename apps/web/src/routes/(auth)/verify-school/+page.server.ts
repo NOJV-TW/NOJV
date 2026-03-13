@@ -3,7 +3,7 @@ import { prisma } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
 
-const verificationDataSchema = z.object({ handle: z.string().min(1) });
+const verificationDataSchema = z.object({ username: z.string().min(1) });
 
 export const load: PageServerLoad = async ({ url }) => {
   const token = url.searchParams.get("token");
@@ -31,21 +31,21 @@ export const load: PageServerLoad = async ({ url }) => {
 
   const data = parsed.data;
 
-  // Check handle not taken by someone else
-  const existing = await prisma.user.findUnique({ where: { handle: data.handle } });
+  // Check username not taken by someone else
+  const existing = await prisma.user.findUnique({ where: { username: data.username } });
   if (existing && existing.id !== record.identifier) {
     await prisma.verification.delete({ where: { id: token } });
     return { status: "error" as const, detail: "此學號已被其他帳號使用" };
   }
 
-  // Update user handle
+  // Update user username
   await prisma.user.update({
     where: { id: record.identifier },
-    data: { handle: data.handle, displayHandle: data.handle }
+    data: { username: data.username, displayUsername: data.username }
   });
 
   // Delete used token
   await prisma.verification.delete({ where: { id: token } });
 
-  return { status: "success" as const, handle: data.handle };
+  return { status: "success" as const, username: data.username };
 };
