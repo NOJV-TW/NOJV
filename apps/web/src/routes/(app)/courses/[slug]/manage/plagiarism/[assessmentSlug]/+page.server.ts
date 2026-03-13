@@ -42,7 +42,10 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   });
 
   const problemMap = Object.fromEntries(
-    assessmentProblems.map((ap) => [ap.problemId, { slug: ap.problem.slug, title: ap.problem.defaultTitle }])
+    assessmentProblems.map((ap) => [
+      ap.problemId,
+      { slug: ap.problem.slug, title: ap.problem.defaultTitle }
+    ])
   );
 
   return {

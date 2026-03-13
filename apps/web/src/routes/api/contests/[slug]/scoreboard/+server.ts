@@ -15,8 +15,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   // Only admin/teacher can see unfrozen view
   const canUnfreeze =
-    actor != null &&
-    (actor.platformRole === "admin" || actor.platformRole === "teacher");
+    actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
 
   const scoreboard = await getScoreboard(slug, {
     unfrozen: unfrozen && canUnfreeze

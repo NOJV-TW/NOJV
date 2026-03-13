@@ -8,8 +8,7 @@ export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
 
   const canUnfreeze =
-    actor != null &&
-    (actor.platformRole === "admin" || actor.platformRole === "teacher");
+    actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
 
   const [scoreboard, chart] = await Promise.all([
     getScoreboard(slug),

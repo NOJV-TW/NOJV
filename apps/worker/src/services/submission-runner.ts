@@ -145,7 +145,15 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
       const feedback =
         tc.feedback ??
         `Failed on testcase ${String(tc.index + 1)}: ${verdict.replace(/_/g, " ")}`;
-      return { accepted: false, caseResults, feedback, runtimeMs, score, subtaskResults, verdict };
+      return {
+        accepted: false,
+        caseResults,
+        feedback,
+        runtimeMs,
+        score,
+        subtaskResults,
+        verdict
+      };
     }
   }
 
