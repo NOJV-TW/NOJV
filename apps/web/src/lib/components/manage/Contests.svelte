@@ -1,17 +1,22 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import type { ContestScoringMode } from "@nojv/core";
-  import { inputClassName } from "$lib/utils";
+  import { supportedLanguages, type AssessmentScoreboardMode, type ContestScoringMode } from "@nojv/core";
+  import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import type { ContestListItem } from "$lib/server/contest/queries";
 
   interface Props {
     contests: ContestListItem[];
     courseSlug: string;
     form: SuperValidated<{
+      allowedLanguages: string[];
       endsAt: string;
       frozenAt?: string | undefined;
+      ipLockEnabled: boolean;
+      maxAttempts?: number | null | undefined;
+      pageLockEnabled: boolean;
       problemSlugsText: string;
+      scoreboardMode: AssessmentScoreboardMode;
       scoringMode: ContestScoringMode;
       slug: string;
       startsAt: string;
@@ -25,13 +30,8 @@
   let { contests, courseSlug, form: formData, problemSlugs }: Props = $props();
   const initialProblemSlugs = untrack(() => problemSlugs);
 
-  function toDateTimeLocalValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
+  function toggleLanguage(lang: string) {
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
   const textareaClassName = `${inputClassName} min-h-24 resize-y`;
@@ -85,6 +85,17 @@
             {contest.startsAt.slice(0, 10)} &rarr; {contest.endsAt.slice(0, 10)}
             &middot; {contest.participantCount} participants
           </p>
+          <div class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            {#if contest.pageLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">page-lock</span>{/if}
+            {#if contest.ipLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-lock</span>{/if}
+            {#if contest.maxAttempts != null}<span class="rounded-full border border-border px-2 py-0.5">max {contest.maxAttempts} attempts</span>{/if}
+            <span class="rounded-full border border-border px-2 py-0.5">{contest.scoreboardMode} scoreboard</span>
+            {#if contest.allowedLanguages.length > 0}
+              <span class="rounded-full border border-border px-2 py-0.5">{contest.allowedLanguages.join(", ")}</span>
+            {:else}
+              <span class="rounded-full border border-border px-2 py-0.5">all languages</span>
+            {/if}
+          </div>
         </article>
       {:else}
         <p class="text-sm text-muted-foreground">No contests yet.</p>
@@ -137,6 +148,56 @@
             placeholder="Cooldown (sec)"
           />
         </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div>
+          <label class="text-xs text-muted-foreground" for="scoreboardMode">Scoreboard mode</label>
+          <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
+            <option value="live">Live</option>
+            <option value="frozen">Frozen</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted-foreground" for="maxAttempts">Max attempts (optional)</label>
+          <input
+            class={inputClassName}
+            id="maxAttempts"
+            name="maxAttempts"
+            type="number"
+            min="1"
+            max="999"
+            placeholder="Unlimited"
+            bind:value={$form.maxAttempts}
+          />
+          {#if $errors.maxAttempts}<span class="text-sm text-red-700">{$errors.maxAttempts}</span>{/if}
+        </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
+          Page lock (prevent tab switching)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="ipLockEnabled" bind:checked={$form.ipLockEnabled} />
+          IP lock (restrict to single IP)
+        </label>
+      </div>
+      <div>
+        <label class="text-xs text-muted-foreground">Allowed languages (leave empty for all)</label>
+        <div class="mt-2 flex flex-wrap gap-3">
+          {#each supportedLanguages as lang (lang)}
+            <label class="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={($form.allowedLanguages ?? []).includes(lang)}
+                onchange={() => toggleLanguage(lang)}
+              />
+              {lang}
+            </label>
+          {/each}
+        </div>
+        {#if $errors.allowedLanguages}<span class="text-sm text-red-700">{$errors.allowedLanguages}</span>{/if}
       </div>
       <div>
         <textarea

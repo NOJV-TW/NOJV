@@ -2,8 +2,8 @@
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
-  import type { AssessmentScoreboardMode, CourseAssessmentType } from "@nojv/core";
-  import { inputClassName } from "$lib/utils";
+  import { supportedLanguages, type AssessmentScoreboardMode, type Language } from "@nojv/core";
+  import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
 
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
 
@@ -13,6 +13,7 @@
     assessments: CourseAssessmentRecord[];
     courseSlug: string;
     form: SuperValidated<{
+      allowedLanguages?: Language[] | undefined;
       closesAt: string;
       dueAt: string;
       ipLockEnabled: boolean;
@@ -24,22 +25,12 @@
       slug: string;
       summary: string;
       title: string;
-      type: CourseAssessmentType;
     }>;
     problemSlugs: string[];
   }
 
   let { assessments, courseSlug, form: formData, problemSlugs }: Props = $props();
   const initialProblemSlugs = untrack(() => problemSlugs);
-
-  function toDateTimeLocalValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
-  }
 
   function createDefaultAssessmentWindow() {
     const opensAt = new Date();
@@ -65,7 +56,11 @@
   if (!$form.dueAt) $form.dueAt = defaultWindow.dueAt;
   if (!$form.closesAt) $form.closesAt = defaultWindow.closesAt;
   if (!$form.problemSlugsText) $form.problemSlugsText = initialProblemSlugs.join(", ");
-  if (!$form.type) $form.type = "assignment";
+  if (!$form.allowedLanguages) $form.allowedLanguages = [];
+
+  function toggleLanguage(lang: Language) {
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
+  }
 
   // Plagiarism check state per assessment
   let plagiarismStates: Record<string, PlagiarismStatus> = $state({});
@@ -176,11 +171,6 @@
         >
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p
-                class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
-              >
-                {assessment.type}
-              </p>
               <p class="mt-2 text-lg font-semibold">{assessment.title}</p>
               <p class="mt-2 text-sm text-muted-foreground">
                 {assessment.summary}
@@ -192,6 +182,11 @@
               {assessment.problemSlugs.length} problems
             </span>
           </div>
+          {#if assessment.allowedLanguages.length > 0}
+            <p class="mt-1 text-xs text-muted-foreground">
+              Languages: {assessment.allowedLanguages.join(", ")}
+            </p>
+          {/if}
           <div class="mt-3 flex items-center justify-between gap-4">
             <p class="text-sm text-muted-foreground">
               {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
@@ -252,16 +247,29 @@
           {#if $errors.slug}<span class="text-sm text-red-700">{$errors.slug}</span>{/if}
         </div>
       </div>
-      <div class="grid gap-3 md:grid-cols-2">
-        <select class={inputClassName} name="type" bind:value={$form.type}>
-          <option value="assignment">assignment</option>
-          <option value="exam">exam</option>
-        </select>
+      <div>
         <select class={inputClassName} name="scoreboardMode" bind:value={$form.scoreboardMode}>
           <option value="hidden">hidden</option>
           <option value="live">live</option>
           <option value="frozen">frozen</option>
         </select>
+      </div>
+      <div>
+        <p class="mb-1 text-xs text-muted-foreground">Allowed languages (empty = all)</p>
+        <div class="flex flex-wrap gap-3">
+          {#each supportedLanguages as lang (lang)}
+            <label class="inline-flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                name="allowedLanguages"
+                value={lang}
+                checked={($form.allowedLanguages ?? []).includes(lang)}
+                onchange={() => toggleLanguage(lang)}
+              />
+              {lang}
+            </label>
+          {/each}
+        </div>
       </div>
       <div>
         <textarea

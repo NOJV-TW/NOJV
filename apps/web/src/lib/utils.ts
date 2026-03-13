@@ -25,6 +25,25 @@ export const inputClassName =
   "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
 export const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
 
+// --- Date helpers ---
+
+export function toDateTimeLocalValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
+}
+
+// --- Array helpers ---
+
+export function toggleArrayItem<T>(array: T[], item: T): T[] {
+  return array.includes(item)
+    ? array.filter((i) => i !== item)
+    : [...array, item];
+}
+
 // --- UI component type helpers (shadcn/svelte) ---
 
 export type WithoutChild<T> = T extends { child?: unknown } ? Omit<T, "child"> : T;

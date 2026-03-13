@@ -9,8 +9,7 @@ export const load: PageServerLoad = async ({ params, parent, url }) => {
 
   const assessments = courseData.course.assessments.map((a) => ({
     slug: a.slug,
-    title: a.title,
-    type: a.type
+    title: a.title
   }));
 
   return {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import type { CourseAssessmentType, SubmissionResult } from "@nojv/core";
+  import type { Language, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
@@ -35,18 +35,18 @@
   }
 
   interface Props {
+    allowedLanguages?: Language[] | undefined;
     assessment?: {
       assessmentSlug: string;
       courseSlug: string;
-      kind: CourseAssessmentType;
     } | undefined;
-    backLink?: { href: string; type: CourseAssessmentType } | undefined;
+    backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     contestSlug?: string | undefined;
     initialSubmissions?: SubmissionEntry[];
     problem: ProblemDetail;
   }
 
-  let { assessment, backLink, contestSlug, initialSubmissions, problem }: Props = $props();
+  let { allowedLanguages, assessment, backLink, contestSlug, initialSubmissions, problem }: Props = $props();
 
   let leftTab = $state<"description" | "submissions">("description");
   let submissions = $state<SubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
@@ -108,7 +108,7 @@
         class="px-3 py-2.5 text-xs text-stone-400 transition hover:text-stone-600"
         href={backLink.href}
       >
-        &larr; {backLink.type === 'exam' ? m.problemDetail_backToExam() : m.problemDetail_backToAssignment()}
+        &larr; {backLink.type === 'contest' ? m.problemDetail_backToContest() : m.problemDetail_backToAssignment()}
       </a>
     {/if}
     <button
@@ -332,6 +332,7 @@
 <!-- Right panel (desktop only) -->
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
   <ProblemEditor
+    {allowedLanguages}
     {assessment}
     {contestSlug}
     onSubmissionComplete={handleSubmissionComplete}

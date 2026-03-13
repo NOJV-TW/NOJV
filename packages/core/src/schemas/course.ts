@@ -2,10 +2,10 @@ import { z } from "zod";
 
 import {
   assessmentScoreboardModeSchema,
-  courseAssessmentTypeSchema,
   courseJoinMethodSchema,
   courseRoleSchema,
   isoDateTimeSchema,
+  languageSchema,
   localeCodeSchema,
   slugSchema
 } from "../types";
@@ -43,12 +43,12 @@ export const manualCourseEnrollmentSchema = z.object({
 
 export const assessmentContextSchema = z.object({
   assessmentSlug: slugSchema,
-  courseSlug: slugSchema,
-  kind: courseAssessmentTypeSchema
+  courseSlug: slugSchema
 });
 
 export const courseAssessmentCreateSchema = z
   .object({
+    allowedLanguages: z.array(languageSchema).max(8).default([]),
     closesAt: isoDateTimeSchema,
     courseSlug: slugSchema,
     dueAt: isoDateTimeSchema,
@@ -60,8 +60,7 @@ export const courseAssessmentCreateSchema = z
     scoreboardMode: assessmentScoreboardModeSchema.optional(),
     slug: slugSchema,
     summary: z.string().trim().min(8).max(2_000),
-    title: z.string().trim().min(3).max(120),
-    type: courseAssessmentTypeSchema
+    title: z.string().trim().min(3).max(120)
   })
   .superRefine((value, ctx) => {
     const opensAt = new Date(value.opensAt);
