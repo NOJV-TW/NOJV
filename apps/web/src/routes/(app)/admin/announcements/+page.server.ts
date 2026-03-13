@@ -17,8 +17,8 @@ export const actions = {
     if (actor.platformRole !== "admin") return fail(403, { error: "Forbidden" });
 
     const formData = await event.request.formData();
-    const title = (formData.get("title") as string)?.trim();
-    const content = (formData.get("content") as string)?.trim();
+    const title = (formData.get("title") as string | null)?.trim();
+    const content = (formData.get("content") as string | null)?.trim();
     const pinned = formData.get("pinned") === "on";
     const published = formData.get("published") === "on";
 
@@ -39,8 +39,8 @@ export const actions = {
 
     const formData = await event.request.formData();
     const id = formData.get("id") as string;
-    const title = (formData.get("title") as string)?.trim();
-    const content = (formData.get("content") as string)?.trim();
+    const title = (formData.get("title") as string | null)?.trim();
+    const content = (formData.get("content") as string | null)?.trim();
     const pinned = formData.get("pinned") === "on";
     const published = formData.get("published") === "on";
 

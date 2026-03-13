@@ -92,12 +92,12 @@ export async function submitToMoss(
           for (const file of files) {
             fileIndex++;
             const size = Buffer.byteLength(file.content, "utf8");
-            socket.write(`file ${fileIndex} ${language} ${size} ${file.displayName}\n`);
+            socket.write(`file ${String(fileIndex)} ${language} ${String(size)} ${file.displayName}\n`);
             socket.write(file.content);
           }
 
           // Send query
-          socket.write(`query 0 ${maxMatches}\n`);
+          socket.write(`query 0 ${String(maxMatches)}\n`);
         }
         return;
       }

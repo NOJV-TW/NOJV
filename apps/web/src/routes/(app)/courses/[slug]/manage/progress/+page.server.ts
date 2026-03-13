@@ -8,7 +8,6 @@ export const load: PageServerLoad = async ({ params, parent, url }) => {
   const matrix = await getStudentProgressMatrix(params.slug, assessmentSlug);
 
   const assessments = courseData.course.assessments
-    .filter((a) => a.type === "assignment" || a.type === "exam")
     .map((a) => ({ slug: a.slug, title: a.title, type: a.type }));
 
   return {

@@ -177,9 +177,11 @@ export async function getStudentProgressMatrix(
     );
 
     for (let i = 0; i < pairsNeedingVerdict.length; i++) {
-      const pair = pairsNeedingVerdict[i]!;
+      const pair = pairsNeedingVerdict[i];
+      if (!pair) continue;
       const key = `${pair.userId}:${pair.problemId}`;
-      scores[key]!.bestVerdict = verdictResults[i]?.status ?? "";
+      const scoreEntry = scores[key];
+      if (scoreEntry) scoreEntry.bestVerdict = verdictResults[i]?.status ?? "";
     }
   }
 
@@ -191,7 +193,7 @@ export async function getStudentProgressMatrix(
     let acCount = 0;
     for (const student of students) {
       const entry = scores[`${student.userId}:${problem.problemId}`];
-      if (entry && entry.bestVerdict === "accepted") {
+      if (entry?.bestVerdict === "accepted") {
         acCount++;
       }
     }
