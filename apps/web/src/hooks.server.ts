@@ -39,6 +39,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
+
   const parsed = sessionUserSchema.safeParse(session?.user ?? null);
   event.locals.sessionUser = parsed.success ? parsed.data : null;
 
@@ -53,10 +54,10 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  // --- Guard: redirect users without a handle to /complete-profile ---
+  // --- Guard: redirect users without a username to /complete-profile ---
   if (
     event.locals.sessionUser &&
-    !event.locals.sessionUser.handle &&
+    !event.locals.sessionUser.username &&
     !isProfileExempt(event.url.pathname)
   ) {
     redirect(302, "/complete-profile");
