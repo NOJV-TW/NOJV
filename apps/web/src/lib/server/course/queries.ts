@@ -33,6 +33,7 @@ export interface CourseMemberRecord {
 export interface CourseAssessmentRecord {
   closesAt: string;
   dueAt: string;
+  id: string;
   opensAt: string;
   problemSlugs: string[];
   scoreboardMode: AssessmentScoreboardMode;
@@ -104,6 +105,7 @@ function mapProblemShelfEntry(problem: {
 function mapAssessmentRecord(assessment: {
   closesAt: Date;
   dueAt: Date;
+  id: string;
   opensAt: Date;
   problems: { ordinal: number; problem: { slug: string } }[];
   scoreboardMode: AssessmentScoreboardMode;
@@ -117,6 +119,7 @@ function mapAssessmentRecord(assessment: {
   return {
     closesAt: assessment.closesAt.toISOString(),
     dueAt: assessment.dueAt.toISOString(),
+    id: assessment.id,
     opensAt: assessment.opensAt.toISOString(),
     problemSlugs: [...linkedProblems]
       .sort((left, right) => left.ordinal - right.ordinal)
@@ -155,6 +158,7 @@ function mapPersistedCourse(course: {
   assessments: {
     closesAt: Date;
     dueAt: Date;
+    id: string;
     opensAt: Date;
     problems: { ordinal: number; problem: { slug: string } }[];
     scoreboardMode: AssessmentScoreboardMode;

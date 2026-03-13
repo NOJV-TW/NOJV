@@ -13,7 +13,8 @@
     { href: `/courses/${slug}/manage`, label: m.navigation_dashboard() },
     { href: `/courses/${slug}/manage/members`, label: m.courseManage_members() },
     { href: `/courses/${slug}/manage/problems`, label: m.navigation_problems() },
-    { href: `/courses/${slug}/manage/assessments`, label: m.courseManage_assessments() }
+    { href: `/courses/${slug}/manage/assessments`, label: m.courseManage_assessments() },
+    { href: `/courses/${slug}/manage/progress`, label: m.courseManage_progress() }
   ]);
 
   function isActive(itemHref: string, pathname: string): boolean {

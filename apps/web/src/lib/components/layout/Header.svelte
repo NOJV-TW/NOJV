@@ -13,7 +13,8 @@
           { href: "/problems", label: m.navigation_problems() },
           { href: "/courses", label: m.navigation_courses() },
           { href: "/assignments", label: m.navigation_assignments() },
-          { href: "/exams", label: m.navigation_exams() }
+          { href: "/exams", label: m.navigation_exams() },
+          ...(user.platformRole === "admin" ? [{ href: "/admin", label: "Admin" }] : [])
         ]
       : []
   );

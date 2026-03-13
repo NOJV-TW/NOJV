@@ -2,10 +2,12 @@ import { prisma } from "@nojv/db";
 import {
   languageSchema,
   submissionResultSchema,
+  subtaskResultItemSchema,
   submissionVerdicts,
   submissionVerdictSchema,
   type SubmissionResult
 } from "@nojv/core";
+import { z } from "zod";
 
 import { NotFoundError } from "../auth";
 
@@ -72,6 +74,7 @@ export async function listProblemSubmissions(
       score: true,
       status: true,
       runtimeMs: true,
+      subtaskResults: true,
       verdictDetail: true
     },
     take: 50
@@ -92,6 +95,14 @@ export async function listProblemSubmissions(
           score: s.score,
           verdict
         };
+
+    // Merge subtaskResults from the separate DB column if not already in verdictDetail
+    if (!result.subtaskResults && s.subtaskResults) {
+      const parsed = z.array(subtaskResultItemSchema).safeParse(s.subtaskResults);
+      if (parsed.success) {
+        result.subtaskResults = parsed.data;
+      }
+    }
 
     const langParsed = languageSchema.safeParse(s.language);
 

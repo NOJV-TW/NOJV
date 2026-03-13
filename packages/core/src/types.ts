@@ -19,6 +19,7 @@ export const problemDifficulties = ["easy", "medium", "hard"] as const;
 export const problemVisibilities = ["public", "private"] as const;
 export const courseAssessmentTypes = ["assignment", "exam"] as const;
 export const assessmentScoreboardModes = ["hidden", "live", "frozen"] as const;
+export const contestScoringModes = ["icpc", "ioi"] as const;
 export const courseMembershipStatuses = ["active", "invited", "pending", "removed"] as const;
 export const submissionModes = ["practice", "contest", "assignment", "exam"] as const;
 export const judgeTypes = ["standard", "checker", "interactive"] as const;
@@ -52,6 +53,7 @@ export const problemDifficultySchema = z.enum(problemDifficulties);
 export const problemVisibilitySchema = z.enum(problemVisibilities);
 export const courseAssessmentTypeSchema = z.enum(courseAssessmentTypes);
 export const assessmentScoreboardModeSchema = z.enum(assessmentScoreboardModes);
+export const contestScoringModeSchema = z.enum(contestScoringModes);
 export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
 export const languageSchema = z.enum(supportedLanguages);
 export const submissionModeSchema = z.enum(submissionModes);
@@ -80,9 +82,11 @@ export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type AssessmentScoreboardMode = z.infer<typeof assessmentScoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
+export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
 export type SubmissionType = z.infer<typeof submissionTypeSchema>;
 
 export const sessionUserSchema = z.object({
+  disabled: z.boolean().default(false),
   email: z.string(),
   handle: z.string().nullable(),
   id: z.string(),

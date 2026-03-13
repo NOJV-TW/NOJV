@@ -42,9 +42,19 @@ export const handle: Handle = async ({ event, resolve }) => {
   const parsed = sessionUserSchema.safeParse(session?.user ?? null);
   event.locals.sessionUser = parsed.success ? parsed.data : null;
 
+  // --- Guard: block disabled users ---
+  if (event.locals.sessionUser?.disabled) {
+    event.locals.session = null;
+    event.locals.user = null;
+    event.locals.sessionUser = null;
+    const clean = stripLocalePrefix(event.url.pathname);
+    if (!clean.startsWith("/signin") && !clean.startsWith("/signup")) {
+      redirect(302, "/signin?error=account-disabled");
+    }
+  }
+
   // --- Guard: redirect users without a handle to /complete-profile ---
-  const { sessionUser } = event.locals;
-  if (sessionUser && !sessionUser.handle && !isProfileExempt(event.url.pathname)) {
+  if (event.locals.sessionUser && !event.locals.sessionUser.handle && !isProfileExempt(event.url.pathname)) {
     redirect(302, "/complete-profile");
   }
 
