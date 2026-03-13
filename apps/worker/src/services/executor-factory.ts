@@ -5,16 +5,6 @@ import type { SandboxExecutor } from "@nojv/sandbox";
 
 export function createExecutor(env: WorkerEnv): SandboxExecutor {
   if (env.EXECUTION_BACKEND === "kubernetes") {
-    if (!env.K8S_NAMESPACE)
-      throw new Error("K8S_NAMESPACE is required when EXECUTION_BACKEND=kubernetes");
-    if (!env.K8S_CPU_REQUEST)
-      throw new Error("K8S_CPU_REQUEST is required when EXECUTION_BACKEND=kubernetes");
-    if (!env.K8S_CPU_LIMIT)
-      throw new Error("K8S_CPU_LIMIT is required when EXECUTION_BACKEND=kubernetes");
-    if (!env.K8S_MEMORY_REQUEST)
-      throw new Error("K8S_MEMORY_REQUEST is required when EXECUTION_BACKEND=kubernetes");
-    if (!env.K8S_MEMORY_LIMIT)
-      throw new Error("K8S_MEMORY_LIMIT is required when EXECUTION_BACKEND=kubernetes");
     return new K8sExecutor({
       namespace: env.K8S_NAMESPACE,
       image: env.SANDBOX_IMAGE,

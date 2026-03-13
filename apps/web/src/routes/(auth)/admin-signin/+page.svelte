@@ -13,8 +13,8 @@
     loading = true;
 
     const form = new FormData(event.currentTarget as HTMLFormElement);
-    const identity = (form.get("identity") as string).trim();
-    const password = form.get("password") as string;
+    const identity = String(form.get("identity") ?? "").trim();
+    const password = String(form.get("password") ?? "");
 
     const isEmail = identity.includes("@");
     const { error: signInError } = isEmail
@@ -34,29 +34,29 @@
 
 <div class="flex min-h-[60vh] items-center justify-center">
   <div
-    class="w-full max-w-sm rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-panel)] p-8"
+    class="w-full max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 backdrop-blur-sm"
   >
     <h1 class="mb-2 text-center text-2xl font-semibold">{m.auth_adminSignIn()}</h1>
-    <p class="mb-6 text-center text-xs text-[color:var(--color-muted)]">
-      Handle + password login for testing
+    <p class="mb-6 text-center text-xs text-muted-foreground">
+      {m.auth_adminDescription()}
     </p>
 
     <form class="flex flex-col gap-4" onsubmit={handleSubmit}>
       <label class="flex flex-col gap-1 text-sm">
-        Handle or Email
+        {m.auth_handleOrEmail()}
         <input
           autocomplete="username"
-          class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
+          class="rounded-2xl border border-border bg-white/60 px-3 py-3"
           name="identity"
           required
           type="text"
         />
       </label>
       <label class="flex flex-col gap-1 text-sm">
-        Password
+        {m.auth_password()}
         <input
           autocomplete="current-password"
-          class="rounded-lg border border-[color:var(--color-border)] px-3 py-2"
+          class="rounded-2xl border border-border bg-white/60 px-3 py-3"
           name="password"
           required
           type="password"
@@ -66,15 +66,15 @@
         <p class="text-sm text-red-600">{error}</p>
       {/if}
       <button
-        class="rounded-lg bg-[color:var(--color-accent)] py-2 text-sm font-medium text-white disabled:opacity-50"
+        class="rounded-full bg-primary py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
         disabled={loading}
         type="submit"
       >
-        {loading ? "Signing in..." : "Sign in"}
+        {loading ? m.auth_signingIn() : m.auth_signIn()}
       </button>
     </form>
     <div class="mt-4 text-center">
-      <a class="text-xs text-[color:var(--color-muted)] underline" href="/signin">
+      <a class="text-xs text-muted-foreground underline" href="/signin">
         {m.auth_signIn()}
       </a>
     </div>

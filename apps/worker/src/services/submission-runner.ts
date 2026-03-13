@@ -1,11 +1,12 @@
 import {
   submissionResultSchema,
+  type SubtaskResultItem,
   type SubmissionDraft,
   type SubmissionResult
 } from "@nojv/core";
 import type { SandboxExecutor, SandboxRequest, SandboxResult } from "@nojv/sandbox";
 
-import type { SubmissionJudgeContext } from "./judge-db.js";
+import type { SubmissionJudgeContext, TestcaseSetGroup } from "./judge-db.js";
 
 const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   WA: "wrong_answer",
@@ -22,9 +23,10 @@ export async function judgeSubmission(
   executor: SandboxExecutor
 ): Promise<SubmissionResult> {
   const template = judgeContext.templates.find((t) => t.language === draft.language);
-  const testcases = draft.sampleOnly
-    ? judgeContext.testcases.filter((tc) => !tc.isHidden)
-    : judgeContext.testcases;
+  const activeSets = draft.sampleOnly
+    ? judgeContext.testcaseSets.filter((ts) => !ts.isHidden)
+    : judgeContext.testcaseSets;
+  const testcases = activeSets.flatMap((ts) => ts.testcases);
 
   const request: SandboxRequest = {
     submissionId,
@@ -63,10 +65,41 @@ export async function judgeSubmission(
 
   const result = await executor.execute(request);
 
-  return submissionResultSchema.parse(mapResult(result));
+  return submissionResultSchema.parse(mapResult(result, activeSets));
 }
 
-function mapResult(result: SandboxResult): SubmissionResult {
+function buildSubtaskResults(
+  result: SandboxResult,
+  testcaseSets: TestcaseSetGroup[]
+): SubtaskResultItem[] {
+  let flatIndex = 0;
+  const subtaskResults: SubtaskResultItem[] = [];
+
+  for (const ts of testcaseSets) {
+    const cases: SubtaskResultItem["cases"] = [];
+    for (let ordinal = 0; ordinal < ts.testcases.length; ordinal++) {
+      const sandboxCase = result.testcaseResults[flatIndex++];
+      cases.push({
+        ordinal,
+        runtimeMs: sandboxCase?.timeMs ?? 0,
+        testcaseId: ts.testcases[ordinal]?.id ?? "",
+        verdict: sandboxCase?.verdict ?? "SE"
+      });
+    }
+
+    subtaskResults.push({
+      cases,
+      label: ts.name,
+      passed: cases.every((c) => c.verdict === "AC"),
+      testcaseSetId: ts.id,
+      weight: ts.weight
+    });
+  }
+
+  return subtaskResults;
+}
+
+function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): SubmissionResult {
   const caseResults = result.testcaseResults.map((t) => ({
     index: t.index,
     passed: t.verdict === "AC",
@@ -85,15 +118,14 @@ function mapResult(result: SandboxResult): SubmissionResult {
     };
   }
 
-  // Score: average of per-testcase scores (each 0-100).
-  // Falls back to binary 100/0 per testcase if score field is absent.
-  const totalCases = result.testcaseResults.length;
-  const scoreSum = result.testcaseResults.reduce(
-    (s, t) => s + (t.score ?? (t.verdict === "AC" ? 100 : 0)),
-    0
-  );
-  const score = totalCases > 0 ? Math.round(scoreSum / totalCases) : 0;
   const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
+  const subtaskResults = buildSubtaskResults(result, testcaseSets);
+
+  // Score: weighted sum across subtasks (testcaseSets).
+  // A subtask passes only if ALL its cases are AC.
+  const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
+  const passedWeight = subtaskResults.reduce((s, st) => s + (st.passed ? st.weight : 0), 0);
+  const score = totalWeight > 0 ? Math.round((passedWeight / totalWeight) * 100) : 0;
 
   if (result.testcaseResults.every((t) => t.verdict === "AC")) {
     return {
@@ -102,26 +134,37 @@ function mapResult(result: SandboxResult): SubmissionResult {
       feedback: "All testcases passed",
       runtimeMs,
       score: 100,
+      subtaskResults,
       verdict: "accepted"
     };
   }
 
-  const first = result.testcaseResults.find((t) => t.verdict !== "AC");
-  if (!first) {
-    return {
-      accepted: true,
-      caseResults,
-      feedback: "All testcases passed",
-      runtimeMs,
-      score: 100,
-      verdict: "accepted"
-    };
+  for (const tc of result.testcaseResults) {
+    if (tc.verdict !== "AC") {
+      const verdict = verdictMap[tc.verdict] ?? "runtime_error";
+      const feedback =
+        tc.feedback ??
+        `Failed on testcase ${String(tc.index + 1)}: ${verdict.replace(/_/g, " ")}`;
+      return {
+        accepted: false,
+        caseResults,
+        feedback,
+        runtimeMs,
+        score,
+        subtaskResults,
+        verdict
+      };
+    }
   }
 
-  const verdict = verdictMap[first.verdict] ?? "runtime_error";
-  const feedback =
-    first.feedback ??
-    `Failed on testcase ${String(first.index + 1)}: ${verdict.replace(/_/g, " ")}`;
-
-  return { accepted: false, caseResults, feedback, runtimeMs, score, verdict };
+  // Unreachable: the `every` check above already returned for all-AC
+  return {
+    accepted: false,
+    caseResults,
+    feedback: "Unknown error",
+    runtimeMs,
+    score,
+    subtaskResults,
+    verdict: "runtime_error" as const
+  };
 }

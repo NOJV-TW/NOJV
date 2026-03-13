@@ -2,8 +2,12 @@
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
+  import type { AssessmentScoreboardMode, CourseAssessmentType } from "@nojv/core";
+  import { inputClassName } from "$lib/utils";
 
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
+
+  type PlagiarismStatus = "idle" | "triggering" | "pending" | "running" | "completed" | "failed";
 
   interface Props {
     assessments: CourseAssessmentRecord[];
@@ -16,11 +20,11 @@
       opensAt: string;
       pageLockEnabled: boolean;
       problemSlugsText: string;
-      scoreboardMode?: "hidden" | "live" | "frozen" | undefined;
+      scoreboardMode?: AssessmentScoreboardMode | undefined;
       slug: string;
       summary: string;
       title: string;
-      type: "assignment" | "exam";
+      type: CourseAssessmentType;
     }>;
     problemSlugs: string[];
   }
@@ -48,13 +52,11 @@
     };
   }
 
-  const inputClassName =
-    "mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm";
   const textareaClassName = `${inputClassName} min-h-24 resize-y`;
 
   const defaultWindow = createDefaultAssessmentWindow();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
     invalidateAll: true
   });
 
@@ -64,16 +66,105 @@
   if (!$form.closesAt) $form.closesAt = defaultWindow.closesAt;
   if (!$form.problemSlugsText) $form.problemSlugsText = initialProblemSlugs.join(", ");
   if (!$form.type) $form.type = "assignment";
+
+  // Plagiarism check state per assessment
+  let plagiarismStates: Record<string, PlagiarismStatus> = $state({});
+  let activePollIntervals = new Map<string, ReturnType<typeof setInterval>>();
+
+  function isCheckInProgress(assessmentId: string): boolean {
+    const s = plagiarismStates[assessmentId];
+    return s === "triggering" || s === "pending" || s === "running";
+  }
+
+  function clearPollInterval(assessmentId: string) {
+    const id = activePollIntervals.get(assessmentId);
+    if (id) {
+      clearInterval(id);
+      activePollIntervals.delete(assessmentId);
+    }
+  }
+
+  function clearAllPolling() {
+    for (const id of activePollIntervals.values()) clearInterval(id);
+    activePollIntervals.clear();
+  }
+
+  $effect(() => {
+    // Pause polling when tab is hidden, resume when visible
+    function onVisibilityChange() {
+      if (document.hidden) {
+        clearAllPolling();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearAllPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  });
+
+  async function triggerPlagiarismCheck(assessmentId: string) {
+    clearPollInterval(assessmentId);
+    plagiarismStates[assessmentId] = "triggering";
+
+    try {
+      const res = await fetch(`/api/plagiarism/${assessmentId}`, { method: "POST" });
+      if (!res.ok) {
+        plagiarismStates[assessmentId] = "failed";
+        return;
+      }
+      plagiarismStates[assessmentId] = "pending";
+
+      let pollCount = 0;
+      const maxPolls = 200; // ~10 min at 3s intervals
+      const pollInterval = setInterval(async () => {
+        if (++pollCount > maxPolls) {
+          clearPollInterval(assessmentId);
+          plagiarismStates[assessmentId] = "failed";
+          return;
+        }
+        try {
+          const pollRes = await fetch(`/api/plagiarism/${assessmentId}`);
+          if (!pollRes.ok) return;
+
+          const { reports } = await pollRes.json();
+          const latest = reports?.[0];
+          if (!latest) return;
+
+          plagiarismStates[assessmentId] = latest.status;
+          if (latest.status === "completed" || latest.status === "failed") {
+            clearPollInterval(assessmentId);
+          }
+        } catch (err) {
+          console.warn(`Plagiarism poll failed for ${assessmentId}:`, err);
+        }
+      }, 3000);
+      activePollIntervals.set(assessmentId, pollInterval);
+    } catch {
+      plagiarismStates[assessmentId] = "failed";
+    }
+  }
+
+  function plagiarismLabel(status: PlagiarismStatus): string {
+    switch (status) {
+      case "triggering": return "Starting...";
+      case "pending": return "Pending...";
+      case "running": return "Running...";
+      case "completed": return "Completed";
+      case "failed": return "Failed";
+      default: return "Run Plagiarism Check";
+    }
+  }
 </script>
 
 <div class="space-y-6">
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-2xl font-semibold">{m.courseManage_assessments()}</h3>
       <span
-        class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+        class="rounded-full border border-border px-3 py-1 text-xs font-medium"
       >
         {assessments.length}
       </span>
@@ -81,36 +172,55 @@
     <div class="mt-5 grid gap-3">
       {#each assessments as assessment (assessment.slug)}
         <article
-          class="rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
+          class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
         >
           <div class="flex items-start justify-between gap-4">
             <div>
               <p
-                class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]"
+                class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
               >
                 {assessment.type}
               </p>
               <p class="mt-2 text-lg font-semibold">{assessment.title}</p>
-              <p class="mt-2 text-sm text-[color:var(--color-muted)]">
+              <p class="mt-2 text-sm text-muted-foreground">
                 {assessment.summary}
               </p>
             </div>
             <span
-              class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+              class="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
               {assessment.problemSlugs.length} problems
             </span>
           </div>
-          <p class="mt-3 text-sm text-[color:var(--color-muted)]">
-            {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
-          </p>
+          <div class="mt-3 flex items-center justify-between gap-4">
+            <p class="text-sm text-muted-foreground">
+              {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
+            </p>
+            <div class="flex items-center gap-2">
+              <button
+                class="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)] disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isCheckInProgress(assessment.id)}
+                onclick={() => triggerPlagiarismCheck(assessment.id)}
+              >
+                {plagiarismLabel(plagiarismStates[assessment.id] ?? "idle")}
+              </button>
+              {#if plagiarismStates[assessment.id] === "completed"}
+                <a
+                  href="/courses/{courseSlug}/manage/plagiarism/{assessment.slug}"
+                  class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white transition hover:-translate-y-0.5"
+                >
+                  View Results
+                </a>
+              {/if}
+            </div>
+          </div>
         </article>
       {/each}
     </div>
   </section>
 
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <h3 class="text-2xl font-semibold">{m.courseManage_publishAssessment()}</h3>
     <form
@@ -188,7 +298,7 @@
         </div>
       </div>
       <button
-        class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >

@@ -1,4 +1,4 @@
-export interface RedisConnectionOptions {
+interface RedisConnectionOptions {
   host: string;
   maxRetriesPerRequest: null;
   password: string | undefined;

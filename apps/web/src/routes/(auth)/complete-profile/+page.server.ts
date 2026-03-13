@@ -1,6 +1,5 @@
 import { fail, redirect } from "@sveltejs/kit";
 
-import { hasCompletedHandle } from "$lib/server/auth";
 import { processSchoolVerification } from "$lib/server/shared/school-verification";
 
 import type { Actions, PageServerLoad } from "./$types";
@@ -12,9 +11,7 @@ export const load: PageServerLoad = ({ locals }) => {
     redirect(302, "/");
   }
 
-  const userRecord = user as Record<string, unknown>;
-
-  if (hasCompletedHandle(userRecord)) {
+  if (locals.sessionUser?.handle) {
     redirect(302, "/");
   }
 
@@ -32,7 +29,7 @@ export const actions = {
     }
 
     const formData = await request.formData();
-    const email = (formData.get("email") as string | null)?.trim() ?? "";
+    const email = ((formData.get("email") as string | null) ?? "").trim();
     const result = await processSchoolVerification(user.id, email);
 
     if ("error" in result) {

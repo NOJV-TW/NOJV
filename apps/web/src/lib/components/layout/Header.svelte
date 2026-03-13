@@ -5,7 +5,7 @@
   import UserAuthMenu from "../auth/UserMenu.svelte";
 
   let currentLocale = $derived(getLocale());
-  let user = $derived($page.data.user as { name: string; handle?: string } | null);
+  let user = $derived($page.data.user);
 
   let navItems = $derived(
     user
@@ -13,14 +13,15 @@
           { href: "/problems", label: m.navigation_problems() },
           { href: "/courses", label: m.navigation_courses() },
           { href: "/assignments", label: m.navigation_assignments() },
-          { href: "/exams", label: m.navigation_exams() }
+          { href: "/exams", label: m.navigation_exams() },
+          ...(user.platformRole === "admin" ? [{ href: "/admin", label: "Admin" }] : [])
         ]
       : []
   );
 </script>
 
 <header
-  class="animate-[fade-up_700ms_cubic-bezier(0.22,1,0.36,1)_both] rounded-[2rem] border border-[color:var(--color-border)] bg-[color:var(--color-panel)] px-5 py-3 backdrop-blur-sm sm:px-6"
+  class="animate-[fade-up_700ms_cubic-bezier(0.22,1,0.36,1)_both] rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-3 backdrop-blur-sm sm:px-6"
 >
   <div class="flex flex-wrap items-center gap-4">
     <a
@@ -34,7 +35,7 @@
       <nav class="flex flex-wrap items-center gap-2 text-sm font-medium">
         {#each navItems as item (item.href)}
           <a
-            class="rounded-full border border-[color:var(--color-border)] px-4 py-2 transition hover:-translate-y-0.5 hover:bg-white/70"
+            class="rounded-full border border-border px-4 py-2 transition hover:-translate-y-0.5 hover:bg-white/70"
             href={item.href}
           >
             {item.label}
@@ -45,12 +46,12 @@
 
     <div class="ml-auto flex items-center gap-2">
       <div
-        class="flex items-center gap-1 rounded-full border border-[color:var(--color-border)] bg-white/60 p-1 text-sm"
+        class="flex items-center gap-1 rounded-full border border-border bg-white/60 p-1 text-sm"
       >
         {#each locales as entry (entry)}
           <button
             class="rounded-full px-3 py-1.5 {entry === currentLocale
-              ? 'bg-[color:var(--color-accent)] text-white'
+              ? 'bg-primary text-white'
               : ''}"
             onclick={() => setLocale(entry)}
             type="button"

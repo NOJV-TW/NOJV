@@ -1,12 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { prisma, type TransactionClient } from "@nojv/db";
-import {
-  platformRoleSchema,
-  type CourseRole,
-  type EffectiveCourseRole,
-  type PlatformRole
-} from "@nojv/core";
+import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
 
 import {
   canEditProblem,
@@ -57,41 +52,22 @@ export interface ActorContext {
 export type CompletedActorContext = ActorContext & { handle: string };
 
 export function getActorContext(event: RequestEvent): ActorContext | null {
-  const user = event.locals.user;
+  const sessionUser = event.locals.sessionUser;
 
-  if (!user) {
+  if (!sessionUser) {
     return null;
   }
 
-  const extra = user as Record<string, unknown>;
-  const parsedRole = platformRoleSchema.safeParse(extra.platformRole);
-
   return {
-    displayName: user.name,
-    email: user.email,
-    handle: readHandleFromAuthUser(extra),
-    platformRole: parsedRole.success ? parsedRole.data : "student",
-    userId: user.id
+    displayName: sessionUser.name,
+    email: sessionUser.email,
+    handle: sessionUser.handle,
+    platformRole: sessionUser.platformRole,
+    userId: sessionUser.id
   };
 }
 
 // --- Onboarding helpers ---
-
-export { HANDLE_INPUT_PATTERN, isValidHandle, readPlatformRole } from "$lib/validation";
-
-export function readStringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
-}
-
-export function readHandleFromAuthUser(user: Record<string, unknown>): string | null {
-  const handle = readStringValue(user.username);
-
-  return handle && handle.length > 0 ? handle : null;
-}
-
-export function hasCompletedHandle(user: Record<string, unknown>): boolean {
-  return readHandleFromAuthUser(user) !== null;
-}
 
 export function hasActorHandle<T extends { handle: string | null }>(
   actor: T
@@ -99,18 +75,24 @@ export function hasActorHandle<T extends { handle: string | null }>(
   return typeof actor.handle === "string" && actor.handle.length > 0;
 }
 
-export { isReservedHandle } from "$lib/school";
-
 // --- Guards ---
+
+/**
+ * Require authentication for an API route handler.
+ * Throws HttpError (caught by apiHandler) instead of redirecting.
+ */
+export function requireApiAuth(event: RequestEvent): CompletedActorContext {
+  const actor = getActorContext(event);
+  if (!actor) throw new HttpError("Authentication required.", 401);
+  if (!hasActorHandle(actor)) throw new HttpError("Complete your profile first.", 403);
+  return actor;
+}
 
 /**
  * Require authentication for a server load function or page.
  * Redirects to the root if not authenticated.
  */
-export async function requireAuth(
-  event: RequestEvent,
-  redirectTo?: string
-): Promise<CompletedActorContext> {
+export function requireAuth(event: RequestEvent, redirectTo?: string): CompletedActorContext {
   const actor = getActorContext(event);
 
   if (!actor) {
@@ -121,7 +103,7 @@ export async function requireAuth(
     redirect(302, "/complete-profile");
   }
 
-  return await Promise.resolve(actor);
+  return actor;
 }
 
 /**
@@ -131,24 +113,6 @@ export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[
   if (!roles.includes(actor.platformRole)) {
     throw new ForbiddenError("Insufficient platform role.");
   }
-}
-
-/**
- * Require specific course roles. Returns the resolved role.
- * Throws ForbiddenError if user has no role or role is not in the allowed list.
- */
-export async function requireCourseRole(
-  actor: ActorContext,
-  courseSlug: string,
-  ...roles: EffectiveCourseRole[]
-): Promise<EffectiveCourseRole> {
-  const role = await getCoursePermissionRole(courseSlug, actor);
-
-  if (!role || !roles.includes(role)) {
-    throw new ForbiddenError("Insufficient course role.");
-  }
-
-  return role;
 }
 
 // --- Course role resolution ---
@@ -201,11 +165,7 @@ export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);
 }
 
-export function isCourseStaff(role: EffectiveCourseRole) {
-  return canManageCourse(role);
-}
-
-export const canManageCourseMembership = isCourseStaff;
-export const canPublishAssessment = isCourseStaff;
-export const canManageCourseProblems = isCourseStaff;
-export const canViewManagePanel = isCourseStaff;
+export const isCourseStaff = canManageCourse;
+export const canManageCourseMembership = canManageCourse;
+export const canPublishAssessment = canManageCourse;
+export const canViewManagePanel = canManageCourse;

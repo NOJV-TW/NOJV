@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -13,19 +14,19 @@
 
   let { courseSlug, courseTitle, form: formData, problems }: Props = $props();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(formData, {
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
     invalidateAll: true
   });
 </script>
 
 <div class="space-y-6">
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <div class="flex items-center justify-between gap-4">
       <h3 class="text-2xl font-semibold">{m.courseManage_courseProblems()}</h3>
       <span
-        class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+        class="rounded-full border border-border px-3 py-1 text-xs font-medium"
       >
         {problems.length}
       </span>
@@ -33,21 +34,21 @@
     <div class="mt-5 grid gap-3">
       {#each problems as problem (problem.slug)}
         <article
-          class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-[color:var(--color-border)] bg-white/70 px-4 py-4"
+          class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
         >
           <div>
             <p class="text-lg font-semibold">{problem.title}</p>
-            <p class="mt-2 text-sm text-[color:var(--color-muted)]">
+            <p class="mt-2 text-sm text-muted-foreground">
               {problem.summary}
             </p>
           </div>
           <div class="text-right">
             <span
-              class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+              class="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
               {problem.visibility}
             </span>
-            <p class="mt-2 text-sm text-[color:var(--color-muted)]">
+            <p class="mt-2 text-sm text-muted-foreground">
               by {problem.authorHandle}
             </p>
           </div>
@@ -57,7 +58,7 @@
   </section>
 
   <section
-    class="rounded-[2rem] border border-[color:var(--color-border)] bg-white/70 px-5 py-5"
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
   >
     <h3 class="text-2xl font-semibold">{m.courseManage_attachProblem()}</h3>
     <form
@@ -67,7 +68,7 @@
       use:enhance
     >
       <input
-        class="mt-2 w-full rounded-2xl border border-[color:var(--color-border)] bg-white/80 px-3 py-3 text-sm"
+        class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
         name="problemSlug"
         bind:value={$form.problemSlug}
         pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
@@ -76,7 +77,7 @@
       />
       {#if $errors.problemSlug}<span class="text-sm text-red-700">{$errors.problemSlug}</span>{/if}
       <button
-        class="inline-flex w-fit rounded-full bg-[color:var(--color-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >

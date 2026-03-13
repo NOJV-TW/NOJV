@@ -3,16 +3,13 @@ import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { getActorContext, hasActorHandle } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import { dispatchSubmissionJob } from "$lib/server/queue";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 
 export const POST: RequestHandler = apiHandler(async (event) => {
-  const actor = getActorContext(event);
-  if (!actor) return json({ message: "Authentication required." }, { status: 401 });
-  if (!hasActorHandle(actor))
-    return json({ message: "Complete your profile first." }, { status: 403 });
+  const actor = requireApiAuth(event);
 
   const payload = submissionDraftSchema.parse(await event.request.json());
   const submission = await createQueuedSubmissionRecord(payload, actor);

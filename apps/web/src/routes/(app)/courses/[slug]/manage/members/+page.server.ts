@@ -27,7 +27,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
 export const actions = {
   enroll: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const slug = event.params.slug;
     const role = await getCoursePermissionRole(slug, actor);
 

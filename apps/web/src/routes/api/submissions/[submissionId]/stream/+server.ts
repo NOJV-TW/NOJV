@@ -3,15 +3,9 @@ import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorHandle } from "$lib/server/auth";
 import { getSubmissionForUser } from "$lib/server/submission/queries";
 
-const TERMINAL_STATUSES = new Set([
-  "accepted",
-  "compilation_error",
-  "memory_limit_exceeded",
-  "runtime_error",
-  "system_error",
-  "time_limit_exceeded",
-  "wrong_answer"
-]);
+import { submissionVerdicts } from "@nojv/core";
+
+const TERMINAL_STATUSES: ReadonlySet<string> = new Set(submissionVerdicts);
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
@@ -39,9 +33,6 @@ export const GET: RequestHandler = (event) => {
       }
 
       try {
-        // Initial ownership check
-        await getSubmissionForUser(submissionId, userId, isAdmin);
-
         while (Date.now() - startTime < MAX_DURATION_MS) {
           const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
 

@@ -2,16 +2,16 @@ import { prisma } from "@nojv/db";
 import type { SubmissionDraft } from "@nojv/core";
 
 import type { CompletedActorContext } from "../auth";
+import { ForbiddenError } from "../auth";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssessment } from "../course/mutations";
 import { requireProblem } from "../problem/mutations";
-import { ensureContestParticipation } from "../contest/mutations";
+import { checkSubmitCooldown, ensureContestParticipation } from "../contest/mutations";
 
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: CompletedActorContext
 ) {
-  // Reads outside transaction — pure lookups by slug, safe to run before tx
   const problem = await requireProblem(prisma, payload.problemSlug);
   const courseContext = payload.assessment
     ? await requireCourseAssessment(
@@ -21,11 +21,46 @@ export async function createQueuedSubmissionRecord(
       )
     : null;
 
+  // ── Authorization: verify user is enrolled in the course ──
+  if (courseContext) {
+    const membership = await prisma.courseMembership.findUnique({
+      where: {
+        courseId_userId: {
+          courseId: courseContext.course.id,
+          userId: actor.userId
+        }
+      }
+    });
+
+    if (membership?.status !== "active") {
+      throw new ForbiddenError("You are not enrolled in this course.");
+    }
+  }
+
+  // ── Derive mode from server context, ignore client-provided mode ──
+  const mode = payload.contestSlug
+    ? "contest"
+    : courseContext
+      ? courseContext.assessment.type
+      : "practice";
+
   return prisma.$transaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
-    const contestParticipation = payload.contestSlug
+    const contestResult = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug)
       : null;
+    const contestParticipation = contestResult?.participation ?? null;
+
+    // Enforce submit cooldown for contest submissions (not sampleOnly runs)
+    if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
+      await checkSubmitCooldown(
+        tx,
+        contestResult.contest.id,
+        user.id,
+        problem.id,
+        contestResult.contest.submitCooldownSec
+      );
+    }
 
     // Enforce attempt limit for assignment/exam submissions (not sampleOnly runs)
     if (courseContext?.assessment && !payload.sampleOnly) {
@@ -55,7 +90,7 @@ export async function createQueuedSubmissionRecord(
         courseAssessmentId: courseContext?.assessment.id ?? null,
         courseId: courseContext?.course.id ?? null,
         language: payload.language,
-        mode: payload.mode,
+        mode,
         problemId: problem.id,
         sampleOnly: payload.sampleOnly ?? false,
         sourceCode: payload.sourceCode,
