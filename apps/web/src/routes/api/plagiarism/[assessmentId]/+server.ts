@@ -58,7 +58,7 @@ async function resolvePlagiarismTarget(
 
 export const POST: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const assessmentId = event.params.assessmentId!;
+  const assessmentId = event.params.assessmentId;
   const type = event.url.searchParams.get("type");
 
   const { courseSlug, target } = await resolvePlagiarismTarget(assessmentId, type);
@@ -75,7 +75,7 @@ export const POST: RequestHandler = apiHandler(async (event) => {
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const assessmentId = event.params.assessmentId!;
+  const assessmentId = event.params.assessmentId;
   const type = event.url.searchParams.get("type");
 
   const { courseSlug, target } = await resolvePlagiarismTarget(assessmentId, type);
