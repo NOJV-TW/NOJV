@@ -88,7 +88,7 @@ export type SubmissionType = z.infer<typeof submissionTypeSchema>;
 export const sessionUserSchema = z.object({
   disabled: z.boolean().default(false),
   email: z.string(),
-  handle: z.string().nullable(),
+  username: z.string().nullable(),
   id: z.string(),
   name: z.string(),
   platformRole: platformRoleSchema

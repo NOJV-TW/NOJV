@@ -32,7 +32,7 @@ export const manualCourseEnrollmentSchema = z.object({
   courseSlug: slugSchema,
   displayName: z.string().trim().min(2).max(120),
   email: z.email(),
-  handle: z
+  username: z
     .string()
     .trim()
     .min(3)
