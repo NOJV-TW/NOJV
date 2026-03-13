@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   const memberMap = new Map(
     courseData.course.members.map((m) => [
       m.userId,
-      { displayName: m.displayName, handle: m.handle }
+      { displayName: m.displayName, username: m.username }
     ])
   );
 
