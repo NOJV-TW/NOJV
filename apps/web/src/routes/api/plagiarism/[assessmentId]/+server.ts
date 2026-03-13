@@ -24,7 +24,7 @@ async function getAssessmentWithCourse(assessmentId: string) {
 
 export const POST: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const assessmentId = event.params.assessmentId as string;
+  const { assessmentId } = event.params;
 
   const assessment = await getAssessmentWithCourse(assessmentId);
   const { role } = await resolveCoursePermission(prisma, assessment.course.slug, actor);
@@ -40,7 +40,7 @@ export const POST: RequestHandler = apiHandler(async (event) => {
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const assessmentId = event.params.assessmentId as string;
+  const { assessmentId } = event.params;
 
   const assessment = await getAssessmentWithCourse(assessmentId);
   const { role } = await resolveCoursePermission(prisma, assessment.course.slug, actor);

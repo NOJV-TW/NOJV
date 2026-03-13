@@ -38,7 +38,8 @@ async function resolveAndAttachContestProblems(
 
   await Promise.all(
     problemSlugs.map(async (slug, index) => {
-      const problem = problemBySlug.get(slug)!;
+      const problem = problemBySlug.get(slug);
+      if (!problem) return;
       await tx.contestProblem.create({
         data: {
           contestId,

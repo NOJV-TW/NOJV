@@ -39,7 +39,7 @@ export async function triggerPlagiarismCheck(
   });
 
   // Fire-and-forget: run the check in the background
-  runPlagiarismCheck(report.id, assessmentId).catch((err) => {
+  runPlagiarismCheck(report.id, assessmentId).catch((err: unknown) => {
     logger.error("Background plagiarism check crashed", {
       err: err instanceof Error ? err.message : String(err),
       reportId: report.id
@@ -131,7 +131,7 @@ async function runPlagiarismCheck(reportId: string, assessmentId: string): Promi
         try {
           const result = await submitToMoss(MOSS_USER_ID, group.mossLang, files);
           resultUrl = result.url;
-          if (!mossReportUrl) mossReportUrl = resultUrl;
+          mossReportUrl ??= resultUrl;
         } catch (err) {
           logger.warn("MOSS submission failed for group, skipping", {
             err: err instanceof Error ? err.message : String(err),
@@ -143,7 +143,7 @@ async function runPlagiarismCheck(reportId: string, assessmentId: string): Promi
       } else {
         // MOSS_USER_ID not set; produce placeholder results
         resultUrl = `https://moss.stanford.edu/results/placeholder/${reportId}`;
-        if (!mossReportUrl) mossReportUrl = resultUrl;
+        mossReportUrl ??= resultUrl;
         logger.info("MOSS_USER_ID not set, using placeholder results");
       }
 
@@ -160,7 +160,7 @@ async function runPlagiarismCheck(reportId: string, assessmentId: string): Promi
       data: {
         completedAt: new Date(),
         mossReportUrl,
-        results: JSON.parse(JSON.stringify(results)),
+        results: JSON.parse(JSON.stringify(results)) as Record<string, unknown>,
         status: "completed"
       },
       where: { id: reportId }
@@ -212,8 +212,9 @@ function generatePairsFromGroup(
 
   for (let i = 0; i < subs.length; i++) {
     for (let j = i + 1; j < subs.length; j++) {
-      const a = subs[i]!;
-      const b = subs[j]!;
+      const a = subs[i];
+      const b = subs[j];
+      if (!a || !b) continue;
 
       pairs.push({
         linesMatched: 0,

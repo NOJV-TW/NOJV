@@ -156,7 +156,7 @@ export async function getScoreboard(
     problemId: s.problemId,
     score: s.score,
     status: s.status,
-    userId: s.contestParticipation!.userId
+    userId: s.contestParticipation?.userId ?? ""
   }));
 
   const participants: ParticipantRow[] = contest.participations;
@@ -273,12 +273,12 @@ function buildIcpcScoreboard(
   // Assign ranks (same score+penalty = same rank)
   let rank = 1;
   for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!;
-    const prev = i > 0 ? entries[i - 1]! : null;
+    const entry = entries[i];
+    if (!entry) continue;
+    const prev = i > 0 ? entries[i - 1] : undefined;
     if (
-      prev &&
-      entry.totalScore === prev.totalScore &&
-      entry.totalPenalty === prev.totalPenalty
+      prev?.totalScore === entry.totalScore &&
+      prev.totalPenalty === entry.totalPenalty
     ) {
       entry.rank = prev.rank;
     } else {
@@ -389,9 +389,10 @@ function buildIoiScoreboard(
   // Assign ranks
   let rank = 1;
   for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!;
-    const prev = i > 0 ? entries[i - 1]! : null;
-    if (prev && entry.totalScore === prev.totalScore) {
+    const entry = entries[i];
+    if (!entry) continue;
+    const prev = i > 0 ? entries[i - 1] : undefined;
+    if (prev?.totalScore === entry.totalScore) {
       entry.rank = prev.rank;
     } else {
       entry.rank = rank;
@@ -456,7 +457,7 @@ export async function getScoreboardChart(
 
   const series = [...topUserIds].map((userId) => {
     const userSubs = submissions.filter(
-      (s) => participationUserMap.get(s.contestParticipationId!) === userId
+      (s) => participationUserMap.get(s.contestParticipationId ?? "") === userId
     );
 
     const points: { time: number; score: number }[] = [{ time: 0, score: 0 }];
