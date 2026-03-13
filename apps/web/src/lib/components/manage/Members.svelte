@@ -11,7 +11,7 @@
     form: SuperValidated<{
       displayName: string;
       email: string;
-      handle: string;
+      username: string;
       role: "student" | "ta" | "teacher";
     }>;
     members: CourseMemberRecord[];
@@ -44,7 +44,7 @@
           <div>
             <p class="text-lg font-semibold">{member.displayName}</p>
             <p class="mt-1 text-sm text-muted-foreground">
-              {member.handle ?? "\u2014"} &middot; {member.email}
+              {member.username ?? "\u2014"} &middot; {member.email}
             </p>
           </div>
           <div class="text-right">
@@ -95,12 +95,12 @@
         <div>
           <input
             class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
-            name="handle"
-            bind:value={$form.handle}
-            placeholder="Handle"
+            name="username"
+            bind:value={$form.username}
+            placeholder="Username"
             required
           />
-          {#if $errors.handle}<span class="text-sm text-red-700">{$errors.handle}</span>{/if}
+          {#if $errors.username}<span class="text-sm text-red-700">{$errors.username}</span>{/if}
         </div>
       </div>
       <select class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm" name="role" bind:value={$form.role}>

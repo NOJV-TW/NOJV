@@ -153,7 +153,7 @@
                 class="sticky left-0 z-10 bg-[color:var(--color-panel-strong)] px-4 py-2.5 font-medium"
               >
                 <div class="truncate max-w-[160px]" title={student.name}>
-                  {student.handle}
+                  {student.username}
                 </div>
               </td>
               {#each matrix.problems as problem (problem.problemId)}

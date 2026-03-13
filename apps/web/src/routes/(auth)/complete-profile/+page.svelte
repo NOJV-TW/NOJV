@@ -4,9 +4,9 @@
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
-  import { HANDLE_INPUT_PATTERN, isValidHandle } from "$lib/utils";
+  import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
 
-  import { isReservedHandle, parseSchoolEmail } from "$lib/school";
+  import { isReservedUsername, parseSchoolEmail } from "$lib/school";
   import { onMount } from "svelte";
 
   let { data } = $props();
@@ -23,7 +23,7 @@
   let verified = $state(false);
 
   // General flow state
-  let handle = $state("");
+  let username = $state("");
 
   // BroadcastChannel listener
   onMount(() => {
@@ -67,15 +67,15 @@
     event.preventDefault();
     error = "";
 
-    const normalized = handle.trim().toLowerCase();
+    const normalized = username.trim().toLowerCase();
 
-    if (!isValidHandle(normalized)) {
+    if (!isValidUsername(normalized)) {
       error = "Use 3-64 lowercase letters, digits, dots, hyphens, or underscores.";
       return;
     }
 
-    if (isReservedHandle(normalized)) {
-      error = m.onboarding_handleReserved();
+    if (isReservedUsername(normalized)) {
+      error = m.onboarding_usernameReserved();
       return;
     }
 
@@ -88,7 +88,7 @@
     loading = false;
 
     if (updateError) {
-      error = updateError.message ?? "Failed to save handle.";
+      error = updateError.message ?? "Failed to save username.";
       return;
     }
 
@@ -227,17 +227,17 @@
     {#if mode === "general"}
       <form class="mt-6 flex flex-col gap-4" onsubmit={handleGeneralSubmit}>
         <label class="flex flex-col gap-1 text-sm">
-          {m.onboarding_handleLabel()}
+          {m.onboarding_usernameLabel()}
           <input
             class="rounded-2xl border border-border bg-white/60 px-3 py-3"
             maxlength={64}
-            oninput={(e) => (handle = (e.target as HTMLInputElement).value)}
-            pattern={HANDLE_INPUT_PATTERN}
-            placeholder={m.onboarding_handlePlaceholder()}
+            oninput={(e) => (username = (e.target as HTMLInputElement).value)}
+            pattern={USERNAME_INPUT_PATTERN}
+            placeholder={m.onboarding_usernamePlaceholder()}
             required
             title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
             type="text"
-            value={handle}
+            value={username}
           />
         </label>
         {#if error}

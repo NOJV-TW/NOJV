@@ -9,7 +9,7 @@
 
     try {
       const bc = new BroadcastChannel("nojv-school-verify");
-      bc.postMessage({ type: "verified", handle: data.handle });
+      bc.postMessage({ type: "verified", username: data.username });
       bc.close();
     } catch {
       // BroadcastChannel not supported — no-op
@@ -24,7 +24,7 @@
     {#if data.status === "success"}
       <h1 class="text-xl font-bold text-green-600">{m.verifySchool_success()}</h1>
       <p class="mt-2 text-sm">
-        {m.verifySchool_successMessage({ handle: data.handle })}
+        {m.verifySchool_successMessage({ username: data.username })}
       </p>
     {:else}
       <h1 class="text-xl font-bold text-red-600">{m.verifySchool_failed()}</h1>

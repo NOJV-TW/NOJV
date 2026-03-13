@@ -49,7 +49,7 @@
               {problem.visibility}
             </span>
             <p class="mt-2 text-sm text-muted-foreground">
-              by {problem.authorHandle}
+              by {problem.authorUsername}
             </p>
           </div>
         </article>
