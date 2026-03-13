@@ -39,9 +39,7 @@ export function toDateTimeLocalValue(date: Date) {
 // --- Array helpers ---
 
 export function toggleArrayItem<T>(array: T[], item: T): T[] {
-  return array.includes(item)
-    ? array.filter((i) => i !== item)
-    : [...array, item];
+  return array.includes(item) ? array.filter((i) => i !== item) : [...array, item];
 }
 
 // --- UI component type helpers (shadcn/svelte) ---

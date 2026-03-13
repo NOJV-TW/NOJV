@@ -92,10 +92,7 @@ export function formatVerdictLabel(verdict: string): string {
 
 // --- Route helpers ---
 
-export function assessmentPath(
-  courseSlug: string,
-  assessmentSlug: string
-): string {
+export function assessmentPath(courseSlug: string, assessmentSlug: string): string {
   return `/courses/${courseSlug}/assignments/${assessmentSlug}`;
 }
 

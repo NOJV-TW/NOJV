@@ -251,6 +251,7 @@ model Contest {
   maxAttempts       Int?
   scoreboardMode    CourseAssessmentScoreboardMode @default(live)
   allowedLanguages  SupportedLanguage[]           @default([])
+  inviteCode        String?                       @unique
   createdByUserId   String?
   createdAt         DateTime                      @default(now())
   updatedAt         DateTime                      @updatedAt

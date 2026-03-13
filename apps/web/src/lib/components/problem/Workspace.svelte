@@ -257,7 +257,6 @@
               <div class="mt-4">
                 <SubtaskResults
                   subtaskResults={entry.result.subtaskResults}
-                  totalScore={entry.result.score}
                 />
               </div>
             {:else if entry.result.caseResults && entry.result.caseResults.length > 0}

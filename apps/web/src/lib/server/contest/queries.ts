@@ -1,9 +1,5 @@
 import { prisma } from "@nojv/db";
-import type {
-  AssessmentScoreboardMode,
-  ContestScoringMode,
-  Language
-} from "@nojv/core";
+import type { AssessmentScoreboardMode, ContestScoringMode, Language } from "@nojv/core";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -238,9 +234,14 @@ export async function getActiveContestForUser(userId: string) {
   });
 }
 
-export async function getContestAllowedLanguages(
-  contestSlug: string
-): Promise<Language[]> {
+export async function findContestByInviteCode(inviteCode: string) {
+  return prisma.contest.findUnique({
+    where: { inviteCode },
+    select: { courseId: true, slug: true, visibility: true }
+  });
+}
+
+export async function getContestAllowedLanguages(contestSlug: string): Promise<Language[]> {
   const contest = await prisma.contest.findUnique({
     where: { slug: contestSlug },
     select: { allowedLanguages: true }

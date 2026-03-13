@@ -15,6 +15,9 @@
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { registerCompletionProviders } from "./editor-completions";
+
+  const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
   const editorOptions = {
     automaticLayout: true,
@@ -61,7 +64,14 @@
     return langs;
   });
 
-  let language = $state<Language>("cpp");
+  let language = $state<Language>((() => {
+    try {
+      const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      const parsed = languageSchema.safeParse(saved);
+      if (parsed.success) return parsed.data;
+    } catch {}
+    return "cpp";
+  })());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
@@ -84,6 +94,13 @@
     }
   });
 
+  // Persist language choice to localStorage
+  $effect(() => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {}
+  });
+
   let currentSource = $derived(drafts[language]);
   let runVerdictLabel = $derived(
     runResult ? formatVerdictLabel(runResult.verdict) : undefined
@@ -101,6 +118,7 @@
   onMount(() => {
     void (async () => {
       monacoModule = await import("monaco-editor");
+      registerCompletionProviders(monacoModule);
       monacoEditor = monacoModule.editor.create(editorContainer, {
         ...editorOptions,
         language: "cpp",
@@ -122,21 +140,25 @@
   });
 
   $effect(() => {
-    if (monacoEditor && monacoModule) {
-      const model = monacoEditor.getModel();
-      if (model) {
-        const langMap: Record<string, string> = {
-          c: "c",
-          cpp: "cpp",
-          java: "java",
-          javascript: "javascript",
-          python: "python",
-          rust: "rust",
-          typescript: "typescript"
-        };
-        monacoModule.editor.setModelLanguage(model, langMap[language] ?? language);
-        monacoEditor.setValue(drafts[language]);
-      }
+    // Read reactive values BEFORE the guard so they are always tracked.
+    const lang = language;
+    const draft = drafts[lang];
+    if (!monacoEditor || !monacoModule) return;
+    const model = monacoEditor.getModel();
+    if (!model) return;
+    const langMap: Record<string, string> = {
+      c: "c",
+      cpp: "cpp",
+      go: "go",
+      java: "java",
+      javascript: "javascript",
+      python: "python",
+      rust: "rust",
+      typescript: "typescript"
+    };
+    monacoModule.editor.setModelLanguage(model, langMap[lang] ?? lang);
+    if (monacoEditor.getValue() !== draft) {
+      monacoEditor.setValue(draft);
     }
   });
 
@@ -449,11 +471,19 @@
                   {/if}
 
                   {#if runResult.caseResults[selectedResultCase]}
+                    {@const caseData = runResult.caseResults[selectedResultCase]!}
                     <div>
                       <p class="text-xs font-medium text-stone-400">{m.editor_output()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{runResult.caseResults[selectedResultCase]!.stdout || "(empty)"}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{caseData.stdout || "(empty)"}</pre>
                     </div>
+                    {#if caseData.stderr}
+                      <div>
+                        <p class="text-xs font-medium text-red-400">Stderr</p>
+                        <pre
+                          class="mt-1 overflow-x-auto rounded-lg bg-red-50 px-3 py-2 font-mono text-sm text-red-700">{caseData.stderr}</pre>
+                      </div>
+                    {/if}
                   {/if}
 
                   {#if testcases[selectedResultCase]?.expectedOutput}

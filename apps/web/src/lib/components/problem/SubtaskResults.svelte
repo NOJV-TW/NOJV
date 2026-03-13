@@ -3,14 +3,14 @@
 
   interface Props {
     subtaskResults: SubtaskResultItem[];
-    totalScore: number;
   }
 
-  let { subtaskResults, totalScore }: Props = $props();
+  let { subtaskResults }: Props = $props();
 
   let expanded = $state<Record<number, boolean>>({});
 
-  const maxScore = $derived(subtaskResults.reduce((sum, s) => sum + s.weight, 0) || 100);
+  const totalWeight = $derived(subtaskResults.reduce((sum, s) => sum + s.weight, 0));
+  const passedWeight = $derived(subtaskResults.reduce((sum, s) => sum + (s.passed ? s.weight : 0), 0));
 
   const verdictBadgeColor: Record<string, string> = {
     AC: "bg-emerald-50 text-emerald-700",
@@ -37,13 +37,13 @@
   <div class="flex items-baseline gap-2">
     <span class="text-sm font-semibold text-stone-700">Score:</span>
     <span
-      class="text-lg font-bold tabular-nums {totalScore === maxScore
+      class="text-lg font-bold tabular-nums {passedWeight === totalWeight
         ? 'text-emerald-600'
-        : totalScore > 0
+        : passedWeight > 0
           ? 'text-amber-600'
           : 'text-red-600'}"
     >
-      {totalScore}/{maxScore}
+      {passedWeight}/{totalWeight}
     </span>
   </div>
 
@@ -79,8 +79,8 @@
             {#each subtask.cases as caseResult, ci (`case-${caseResult.testcaseId}`)}
               {@const isLast = ci === subtask.cases.length - 1}
               <div class="flex items-center gap-2 text-xs">
-                <span class="text-stone-400">{isLast ? "\u2514" : "\u251C"}\u2500</span>
-                <span class="text-stone-500">Case {caseResult.ordinal}</span>
+                <span class="text-stone-400">{isLast ? "└─" : "├─"}</span>
+                <span class="w-12 tabular-nums text-stone-500">Case {caseResult.ordinal}</span>
                 <span
                   class="rounded px-1.5 py-0.5 font-medium {badgeColor(caseResult.verdict)}"
                 >
