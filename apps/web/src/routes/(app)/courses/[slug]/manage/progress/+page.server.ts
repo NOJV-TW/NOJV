@@ -7,8 +7,11 @@ export const load: PageServerLoad = async ({ params, parent, url }) => {
 
   const matrix = await getStudentProgressMatrix(params.slug, assessmentSlug);
 
-  const assessments = courseData.course.assessments
-    .map((a) => ({ slug: a.slug, title: a.title, type: a.type }));
+  const assessments = courseData.course.assessments.map((a) => ({
+    slug: a.slug,
+    title: a.title,
+    type: a.type
+  }));
 
   return {
     matrix,

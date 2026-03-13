@@ -276,10 +276,7 @@ function buildIcpcScoreboard(
     const entry = entries[i];
     if (!entry) continue;
     const prev = i > 0 ? entries[i - 1] : undefined;
-    if (
-      prev?.totalScore === entry.totalScore &&
-      prev.totalPenalty === entry.totalPenalty
-    ) {
+    if (prev?.totalScore === entry.totalScore && prev.totalPenalty === entry.totalPenalty) {
       entry.rank = prev.rank;
     } else {
       entry.rank = rank;
