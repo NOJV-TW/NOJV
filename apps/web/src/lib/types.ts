@@ -1,6 +1,4 @@
 import type {
-  AssessmentScoreboardMode,
-  CourseAssessmentType,
   JudgeType,
   Language,
   ProblemOverview,
@@ -96,11 +94,9 @@ export function formatVerdictLabel(verdict: string): string {
 
 export function assessmentPath(
   courseSlug: string,
-  type: CourseAssessmentType,
   assessmentSlug: string
 ): string {
-  const segment = type === "exam" ? "exams" : "assignments";
-  return `/courses/${courseSlug}/${segment}/${assessmentSlug}`;
+  return `/courses/${courseSlug}/assignments/${assessmentSlug}`;
 }
 
 // --- Assessment helpers ---
@@ -156,22 +152,7 @@ export function windowStateColorClass(state: AssessmentWindowState) {
   return windowStateColors[state];
 }
 
-export function deriveAssessmentPresentation(input: {
-  scoreboardMode: AssessmentScoreboardMode;
-  type: CourseAssessmentType;
-}): AssessmentPresentation {
-  if (input.type === "exam") {
-    return {
-      heroLabel:
-        input.scoreboardMode === "frozen"
-          ? "Frozen rank exam surface"
-          : "Live rank exam surface",
-      supportLabel: "Contest-grade timing, policy, and score visibility"
-    };
-  }
-
-  return {
-    heroLabel: "Deadline-driven assignment workspace",
-    supportLabel: "Coursework framing with open, due, and close windows"
-  };
-}
+export const assessmentPresentation: AssessmentPresentation = {
+  heroLabel: "Deadline-driven assignment workspace",
+  supportLabel: "Coursework framing with open, due, and close windows"
+};

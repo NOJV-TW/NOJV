@@ -2,9 +2,9 @@ import { error } from "@sveltejs/kit";
 import { prisma } from "@nojv/db";
 import type {
   AssessmentScoreboardMode,
-  CourseAssessmentType,
   CourseJoinMethod,
   CourseRole,
+  Language,
   LocaleCode,
   PlatformRole,
   ProblemVisibility
@@ -12,7 +12,7 @@ import type {
 
 import { DEFAULT_LOCALE } from "$lib/utils";
 import {
-  deriveAssessmentPresentation,
+  assessmentPresentation,
   deriveAssessmentWindowState,
   windowStateColorClass
 } from "$lib/types";
@@ -31,6 +31,7 @@ export interface CourseMemberRecord {
 }
 
 export interface CourseAssessmentRecord {
+  allowedLanguages: Language[];
   closesAt: string;
   dueAt: string;
   id: string;
@@ -40,7 +41,6 @@ export interface CourseAssessmentRecord {
   slug: string;
   summary: string;
   title: string;
-  type: CourseAssessmentType;
 }
 
 export interface CourseProblemCatalogEntry {
@@ -103,6 +103,7 @@ function mapProblemShelfEntry(problem: {
 }
 
 function mapAssessmentRecord(assessment: {
+  allowedLanguages: Language[];
   closesAt: Date;
   dueAt: Date;
   id: string;
@@ -112,11 +113,11 @@ function mapAssessmentRecord(assessment: {
   slug: string;
   summary: string;
   title: string;
-  type: CourseAssessmentType;
 }) {
   const linkedProblems = assessment.problems;
 
   return {
+    allowedLanguages: assessment.allowedLanguages,
     closesAt: assessment.closesAt.toISOString(),
     dueAt: assessment.dueAt.toISOString(),
     id: assessment.id,
@@ -127,8 +128,7 @@ function mapAssessmentRecord(assessment: {
     scoreboardMode: assessment.scoreboardMode,
     slug: assessment.slug,
     summary: assessment.summary,
-    title: assessment.title,
-    type: assessment.type
+    title: assessment.title
   } satisfies CourseAssessmentRecord;
 }
 
@@ -156,6 +156,7 @@ function mapCourseMember(member: {
 
 function mapPersistedCourse(course: {
   assessments: {
+    allowedLanguages: Language[];
     closesAt: Date;
     dueAt: Date;
     id: string;
@@ -165,7 +166,6 @@ function mapPersistedCourse(course: {
     slug: string;
     summary: string;
     title: string;
-    type: CourseAssessmentType;
   }[];
   description: string;
   joinTokens: {
@@ -324,7 +324,7 @@ export async function getCoursePageData(slug: string): Promise<CoursePageDetailD
   return mapPersistedCourse(persistedCourse);
 }
 
-export async function listUserAssessments(userId: string, type: CourseAssessmentType) {
+export async function listUserAssessments(userId: string) {
   const assessments = await prisma.courseAssessment.findMany({
     include: {
       _count: { select: { problems: true } },
@@ -337,8 +337,7 @@ export async function listUserAssessments(userId: string, type: CourseAssessment
           some: { userId, status: "active" }
         }
       },
-      status: "published",
-      type
+      status: "published"
     }
   });
 
@@ -397,14 +396,13 @@ export async function listUpcomingAssessments(userId: string) {
     dueAt: a.dueAt.toISOString(),
     opensAt: a.opensAt.toISOString(),
     slug: a.slug,
-    title: a.title,
-    type: a.type
+    title: a.title
   }));
 }
 
 // ─── Assessment detail loader ────────────────────────────────────────
 
-export function createAssessmentDetailLoader(type: CourseAssessmentType) {
+export function createAssessmentDetailLoader() {
   return async ({
     params,
     parent
@@ -418,19 +416,15 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
     const course = courseData.course;
     const assessment = course.assessments.find((entry) => entry.slug === assessmentSlug);
 
-    if (assessment?.type !== type) {
-      const label = type === "assignment" ? "Assignment" : "Exam";
-      error(404, `${label} not found`);
+    if (!assessment) {
+      error(404, "Assignment not found");
     }
 
     const problemsBySlug = new Map(
       courseData.problems.map((problem) => [problem.slug, problem])
     );
 
-    const presentation = deriveAssessmentPresentation({
-      scoreboardMode: assessment.scoreboardMode,
-      type: assessment.type
-    });
+    const presentation = assessmentPresentation;
     const windowState = deriveAssessmentWindowState({
       closesAt: assessment.closesAt,
       dueAt: assessment.dueAt,
@@ -446,7 +440,6 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
       course,
       presentation,
       problems,
-      type,
       windowState
     };
   };
@@ -457,9 +450,9 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
 export async function getAssessmentContext(courseSlug: string, assessmentSlug: string) {
   const assessment = await prisma.courseAssessment.findFirst({
     select: {
+      allowedLanguages: true,
       course: { select: { slug: true } },
-      slug: true,
-      type: true
+      slug: true
     },
     where: {
       course: { slug: courseSlug },
@@ -469,11 +462,15 @@ export async function getAssessmentContext(courseSlug: string, assessmentSlug: s
   });
 
   return assessment
-    ? { courseSlug: assessment.course.slug, slug: assessment.slug, type: assessment.type }
+    ? {
+        allowedLanguages: assessment.allowedLanguages as Language[],
+        courseSlug: assessment.course.slug,
+        slug: assessment.slug
+      }
     : null;
 }
 
-export function createAssessmentListLoader(type: CourseAssessmentType) {
+export function createAssessmentListLoader() {
   return async ({ locals }: { locals: App.Locals }) => {
     const userId = locals.user?.id ?? null;
 
@@ -481,7 +478,7 @@ export function createAssessmentListLoader(type: CourseAssessmentType) {
       return { items: null };
     }
 
-    const items = await listUserAssessments(userId, type);
+    const items = await listUserAssessments(userId);
     const now = new Date().toISOString();
 
     return {
@@ -502,25 +499,3 @@ export function createAssessmentListLoader(type: CourseAssessmentType) {
   };
 }
 
-export async function getActiveExamForUser(userId: string) {
-  const now = new Date();
-
-  return prisma.courseAssessment.findFirst({
-    where: {
-      type: "exam",
-      status: "published",
-      pageLockEnabled: true,
-      opensAt: { lte: now },
-      closesAt: { gte: now },
-      course: {
-        memberships: {
-          some: { userId, status: "active" }
-        }
-      }
-    },
-    select: {
-      slug: true,
-      course: { select: { slug: true } }
-    }
-  });
-}

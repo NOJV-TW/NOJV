@@ -1,13 +1,18 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm } from "sveltekit-superforms/client";
-  import { inputClassName } from "$lib/utils";
+  import { supportedLanguages, type Language } from "@nojv/core";
+  import { inputClassName, toggleArrayItem } from "$lib/utils";
 
   let { data } = $props();
 
   const { form, errors, enhance, message: formMessage } = superForm(untrack(() => data.form), {
     resetForm: false
   });
+
+  function toggleLanguage(lang: Language) {
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
+  }
 </script>
 
 <div class="space-y-6">
@@ -106,6 +111,15 @@
     </div>
 
     <div>
+      <label class="text-sm font-medium" for="scoreboardMode">Scoreboard mode</label>
+      <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
+        <option value="live">Live</option>
+        <option value="frozen">Frozen</option>
+        <option value="hidden">Hidden</option>
+      </select>
+    </div>
+
+    <div>
       <label class="text-sm font-medium" for="frozenAt">Freeze scoreboard at (optional)</label>
       <input
         class={inputClassName}
@@ -114,6 +128,49 @@
         type="datetime-local"
         bind:value={$form.frozenAt}
       />
+    </div>
+
+    <div>
+      <label class="text-sm font-medium" for="maxAttempts">Max attempts per problem (optional)</label>
+      <input
+        class={inputClassName}
+        id="maxAttempts"
+        name="maxAttempts"
+        type="number"
+        min="1"
+        max="999"
+        placeholder="Unlimited"
+        bind:value={$form.maxAttempts}
+      />
+      {#if $errors.maxAttempts}<p class="mt-1 text-xs text-red-600">{$errors.maxAttempts}</p>{/if}
+    </div>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
+        Page lock (prevent tab switching)
+      </label>
+      <label class="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="ipLockEnabled" bind:checked={$form.ipLockEnabled} />
+        IP lock (restrict to single IP)
+      </label>
+    </div>
+
+    <div>
+      <label class="text-sm font-medium">Allowed languages (leave empty for all)</label>
+      <div class="mt-2 flex flex-wrap gap-3">
+        {#each supportedLanguages as lang (lang)}
+          <label class="flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              checked={($form.allowedLanguages ?? []).includes(lang)}
+              onchange={() => toggleLanguage(lang)}
+            />
+            {lang}
+          </label>
+        {/each}
+      </div>
+      {#if $errors.allowedLanguages}<p class="mt-1 text-xs text-red-600">{$errors.allowedLanguages}</p>{/if}
     </div>
 
     <div>

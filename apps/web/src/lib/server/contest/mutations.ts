@@ -57,7 +57,9 @@ async function resolveAndAttachContestProblems(
 export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
-  contestSlug: string
+  contestSlug: string,
+  /** Pass problemId + sampleOnly to enforce maxAttempts; omit for participation-only */
+  attemptContext?: { problemId: string; sampleOnly: boolean }
 ) {
   const contest = await requireContest(tx, contestSlug);
 
@@ -106,6 +108,24 @@ export async function ensureContestParticipation(
       }
     }
   });
+
+  // Enforce per-problem attempt limit (non-sampleOnly submissions only)
+  if (attemptContext && !attemptContext.sampleOnly && contest.maxAttempts != null) {
+    const attemptCount = await tx.submission.count({
+      where: {
+        contestId: contest.id,
+        problemId: attemptContext.problemId,
+        sampleOnly: false,
+        userId
+      }
+    });
+
+    if (attemptCount >= contest.maxAttempts) {
+      throw new ForbiddenError(
+        `Attempt limit reached (${String(contest.maxAttempts)}/${String(contest.maxAttempts)}).`
+      );
+    }
+  }
 
   return { contest, participation };
 }
@@ -169,9 +189,15 @@ export async function createContestRecord(
 
     const contest = await tx.contest.create({
       data: {
+        allowedLanguages: payload.allowedLanguages,
         courseId,
+        createdByUserId: actor.userId,
         endsAt: new Date(payload.endsAt),
         frozenAt: payload.frozenAt ? new Date(payload.frozenAt) : null,
+        ipLockEnabled: payload.ipLockEnabled,
+        maxAttempts: payload.maxAttempts ?? null,
+        pageLockEnabled: payload.pageLockEnabled,
+        scoreboardMode: payload.scoreboardMode,
         scoringMode: payload.scoringMode,
         slug: payload.slug,
         startsAt: new Date(payload.startsAt),
@@ -208,6 +234,16 @@ export async function updateContestRecord(
       updateData.submitCooldownSec = payload.submitCooldownSec;
     if (payload.frozenAt !== undefined)
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
+    if (payload.allowedLanguages !== undefined)
+      updateData.allowedLanguages = payload.allowedLanguages;
+    if (payload.ipLockEnabled !== undefined)
+      updateData.ipLockEnabled = payload.ipLockEnabled;
+    if (payload.maxAttempts !== undefined)
+      updateData.maxAttempts = payload.maxAttempts ?? null;
+    if (payload.pageLockEnabled !== undefined)
+      updateData.pageLockEnabled = payload.pageLockEnabled;
+    if (payload.scoreboardMode !== undefined)
+      updateData.scoreboardMode = payload.scoreboardMode;
 
     if (payload.courseSlug !== undefined) {
       updateData.courseId = payload.courseSlug

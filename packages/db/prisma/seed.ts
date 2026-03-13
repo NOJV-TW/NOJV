@@ -704,7 +704,7 @@ if __name__ == "__main__":
     });
   }
 
-  console.log(`  Contests: 1 upserted with problem links`);
+  console.log(`  Contests: spring-qualifier-2026 upserted with problem links`);
 
   // --- Courses ---
   const osLabCourse = await prisma.course.upsert({
@@ -827,6 +827,7 @@ if __name__ == "__main__":
   // Course assessments
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
+      allowedLanguages: ["c", "cpp", "python"],
       closesAt: new Date("2026-03-25T15:00:00.000Z"),
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
@@ -837,8 +838,7 @@ if __name__ == "__main__":
       status: "published",
       summary:
         "Coursework-oriented assignment with a visible deadline and a private systems problem.",
-      title: "Homework 1: Process Trace",
-      type: "assignment"
+      title: "Homework 1: Process Trace"
     },
     update: {},
     where: {
@@ -849,36 +849,33 @@ if __name__ == "__main__":
     }
   });
 
-  const midterm = await prisma.courseAssessment.upsert({
+  // Midterm is now a course-linked Contest (exams are contests)
+  const midterm = await prisma.contest.upsert({
     create: {
-      closesAt: new Date("2026-04-02T12:00:00.000Z"),
+      allowedLanguages: ["c", "cpp"],
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
-      dueAt: new Date("2026-04-02T12:00:00.000Z"),
-      opensAt: new Date("2026-04-02T09:00:00.000Z"),
+      endsAt: new Date("2026-04-02T12:00:00.000Z"),
+      frozenBoard: false,
+      id: "contest_midterm-systems-lab",
+      ipLockEnabled: true,
+      pageLockEnabled: true,
       scoreboardMode: "live",
       slug: "midterm-systems-lab",
-      status: "published",
+      startsAt: new Date("2026-04-02T09:00:00.000Z"),
       summary:
-        "Exam-style assessment with contest-grade pacing, live ranking, and tighter shell policy.",
+        "Exam-style contest with page lock, IP lock, live ranking, and restricted languages.",
       title: "Midterm Systems Lab",
-      type: "exam"
+      visibility: "published"
     },
     update: {},
-    where: {
-      courseId_slug: {
-        courseId: osLabCourse.id,
-        slug: "midterm-systems-lab"
-      }
-    }
+    where: { slug: "midterm-systems-lab" }
   });
 
-  // Assessment problem links
+  // Assessment problem links (hw1 only — midterm is now a contest)
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemSlug: "warmup-sum", ordinal: 1 },
-    { assessmentId: hw1.id, problemSlug: "process-log-parser", ordinal: 2 },
-    { assessmentId: midterm.id, problemSlug: "graph-docking", ordinal: 1 },
-    { assessmentId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2 }
+    { assessmentId: hw1.id, problemSlug: "process-log-parser", ordinal: 2 }
   ];
 
   for (const link of assessmentProblemLinks) {
@@ -899,6 +896,37 @@ if __name__ == "__main__":
       where: {
         assessmentId_problemId: {
           assessmentId: link.assessmentId,
+          problemId: problem.id
+        }
+      }
+    });
+  }
+
+  // Midterm contest problem links
+  const midtermProblemLinks = [
+    { contestId: midterm.id, problemSlug: "graph-docking", ordinal: 1, points: 100 },
+    { contestId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2, points: 100 }
+  ];
+
+  for (const link of midtermProblemLinks) {
+    const problem = await prisma.problem.findUniqueOrThrow({
+      where: { slug: link.problemSlug }
+    });
+
+    await prisma.contestProblem.upsert({
+      create: {
+        contestId: link.contestId,
+        ordinal: link.ordinal,
+        points: link.points,
+        problemId: problem.id
+      },
+      update: {
+        ordinal: link.ordinal,
+        points: link.points
+      },
+      where: {
+        contestId_problemId: {
+          contestId: link.contestId,
           problemId: problem.id
         }
       }

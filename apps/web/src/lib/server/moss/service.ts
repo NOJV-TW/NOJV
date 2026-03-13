@@ -21,25 +21,35 @@ export interface PlagiarismResults {
   pairs: SimilarityPair[];
 }
 
+export type PlagiarismTarget =
+  | { type: "courseAssessment"; id: string }
+  | { type: "contest"; id: string };
+
+export function plagiarismTargetFilter(target: PlagiarismTarget) {
+  return target.type === "courseAssessment"
+    ? { courseAssessmentId: target.id }
+    : { contestId: target.id };
+}
+
 /**
- * Trigger a plagiarism check for a course assessment.
+ * Trigger a plagiarism check for a course assessment or contest.
  * Creates the report record immediately and runs the check in the background.
  * Returns the report ID.
  */
 export async function triggerPlagiarismCheck(
-  assessmentId: string,
+  target: PlagiarismTarget,
   triggeredById: string
 ): Promise<string> {
   const report = await prisma.plagiarismReport.create({
     data: {
-      courseAssessmentId: assessmentId,
+      ...plagiarismTargetFilter(target),
       status: "pending",
       triggeredById
     }
   });
 
   // Fire-and-forget: run the check in the background
-  runPlagiarismCheck(report.id, assessmentId).catch((err: unknown) => {
+  runPlagiarismCheck(report.id, target).catch((err: unknown) => {
     logger.error("Background plagiarism check crashed", {
       err: err instanceof Error ? err.message : String(err),
       reportId: report.id
@@ -49,17 +59,17 @@ export async function triggerPlagiarismCheck(
   return report.id;
 }
 
-async function runPlagiarismCheck(reportId: string, assessmentId: string): Promise<void> {
+async function runPlagiarismCheck(reportId: string, target: PlagiarismTarget): Promise<void> {
   try {
     await prisma.plagiarismReport.update({
       data: { status: "running" },
       where: { id: reportId }
     });
 
-    // Fetch all submissions for this assessment
+    // Fetch all submissions for this assessment or contest
     const submissions = await prisma.submission.findMany({
       where: {
-        courseAssessmentId: assessmentId,
+        ...plagiarismTargetFilter(target),
         status: "accepted"
       },
       select: {
@@ -160,7 +170,7 @@ async function runPlagiarismCheck(reportId: string, assessmentId: string): Promi
       data: {
         completedAt: new Date(),
         mossReportUrl,
-        results: JSON.parse(JSON.stringify(results)) as Record<string, unknown>,
+        results: JSON.parse(JSON.stringify(results)),
         status: "completed"
       },
       where: { id: reportId }

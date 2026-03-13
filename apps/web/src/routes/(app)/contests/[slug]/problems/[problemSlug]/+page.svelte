@@ -57,7 +57,8 @@
   class="flex h-[calc(100vh-9.5rem)] overflow-hidden rounded-[2rem] border border-border"
 >
   <ProblemWorkspace
-    backLink={{ href: `/contests/${data.contestSlug}`, type: "exam" }}
+    allowedLanguages={data.contestData.allowedLanguages}
+    backLink={{ href: `/contests/${data.contestSlug}`, type: "contest" }}
     contestSlug={data.contestSlug}
     initialSubmissions={data.submissions}
     problem={data.problem}

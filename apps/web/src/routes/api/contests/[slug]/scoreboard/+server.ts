@@ -18,6 +18,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
 
   const scoreboard = await getScoreboard(slug, {
+    isPrivileged: canUnfreeze,
     unfrozen: unfrozen && canUnfreeze
   });
 

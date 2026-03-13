@@ -1,24 +1,12 @@
-import { contestCreateSchema, contestScoringModeSchema, slugSchema } from "@nojv/core";
+import { contestCreateSchema } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
-import { z } from "zod";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, requirePlatformRole } from "$lib/server/auth";
 import { createContestRecord } from "$lib/server/contest/mutations";
-
-const contestFormSchema = z.object({
-  endsAt: z.string().min(1),
-  frozenAt: z.string().optional(),
-  problemSlugsText: z.string().min(1),
-  scoringMode: contestScoringModeSchema.default("icpc"),
-  slug: slugSchema,
-  startsAt: z.string().min(1),
-  submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
-  summary: z.string().min(8).max(4_000),
-  title: z.string().min(3).max(120)
-});
+import { contestFormSchema } from "$lib/server/contest/schemas";
 
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);

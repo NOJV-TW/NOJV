@@ -10,7 +10,6 @@
     submissionOperationSchema,
     submissionResultSchema,
     supportedLanguages,
-    type CourseAssessmentType,
     type Language,
     type SubmissionResult
   } from "@nojv/core";
@@ -28,10 +27,10 @@
   };
 
   interface Props {
+    allowedLanguages?: Language[] | undefined;
     assessment?: {
       assessmentSlug: string;
       courseSlug: string;
-      kind: CourseAssessmentType;
     } | undefined;
     contestSlug?: string | undefined;
     onSubmissionComplete?: ((
@@ -42,11 +41,25 @@
     problem: ProblemDetail;
   }
 
-  let { assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
+  let { allowedLanguages, assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
   let isFunctionMode = $derived(problem.submissionType === "function");
+
+  let availableLanguages = $derived.by(() => {
+    let langs = [...supportedLanguages];
+    // Filter by contest/assignment restriction
+    if (allowedLanguages && allowedLanguages.length > 0) {
+      langs = langs.filter((l) => allowedLanguages!.includes(l));
+    }
+    // Filter by template availability (function-mode problems)
+    if (problem.submissionType === "function") {
+      const templateLangs = Object.keys(problem.templates) as Language[];
+      langs = langs.filter((l) => templateLangs.includes(l));
+    }
+    return langs;
+  });
 
   let language = $state<Language>("cpp");
   let drafts = $state({ ...initialProblem.starterByLanguage });
@@ -63,6 +76,13 @@
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
+
+  // Auto-select first available language if current selection becomes invalid
+  $effect(() => {
+    if (availableLanguages.length > 0 && !availableLanguages.includes(language)) {
+      language = availableLanguages[0]!;
+    }
+  });
 
   let currentSource = $derived(drafts[language]);
   let runVerdictLabel = $derived(
@@ -131,7 +151,7 @@
         assessment,
         contestSlug,
         language,
-        mode: contestSlug ? "contest" : (assessment?.kind ?? "practice"),
+        mode: contestSlug ? "contest" : (assessment ? "assignment" : "practice"),
         problemSlug: problem.slug,
         sampleOnly: options?.sampleOnly ?? false,
         sourceCode: drafts[language],
@@ -229,7 +249,7 @@
         }}
         value={language}
       >
-        {#each supportedLanguages as entry (entry)}
+        {#each availableLanguages as entry (entry)}
           <option value={entry}>{entry}</option>
         {/each}
       </select>
@@ -237,7 +257,7 @@
         {#if contestSlug}
           {m.editor_contestMode()}
         {:else if assessment}
-          {assessment.kind === "exam" ? m.editor_examMode() : m.editor_assignmentMode()}
+          {m.editor_assignmentMode()}
         {:else}
           {m.editor_practiceMode()}
         {/if}
@@ -265,7 +285,7 @@
     <div class="flex items-center gap-2">
       <button
         class="rounded-lg border border-stone-200 bg-white px-4 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isRunning}
+        disabled={isRunning || availableLanguages.length === 0}
         onclick={() => void handleRun()}
         type="button"
       >
@@ -273,7 +293,7 @@
       </button>
       <button
         class="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isSubmitting}
+        disabled={isSubmitting || availableLanguages.length === 0}
         onclick={() => void handleSubmit()}
         type="button"
       >

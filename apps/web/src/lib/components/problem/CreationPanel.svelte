@@ -77,13 +77,6 @@ sys.stdout.flush()
       : {}
   );
 
-  // Starter code (for full_source mode)
-  let starterByLang = $state<Partial<Record<Language, string>>>(
-    init?.starterByLanguage
-      ? { ...init.starterByLanguage }
-      : {}
-  );
-
   // Example test cases (submitted separately via createTestcaseSet)
   let examples = $state<ExampleCase[]>(
     init?.samples?.map((s) => ({ stdin: s.input, expectedStdout: s.output })) ??
@@ -413,7 +406,6 @@ sys.stdout.flush()
     <CodeTemplateEditor
       submissionType={$form.submissionType ?? "full_source"}
       bind:templatesByLang
-      bind:starterByLang
     />
 
     <!-- Statement -->

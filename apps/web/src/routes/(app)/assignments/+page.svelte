@@ -4,4 +4,4 @@
   let { data } = $props();
 </script>
 
-<AssessmentListView items={data.items} type="assignment" />
+<AssessmentListView items={data.items} />

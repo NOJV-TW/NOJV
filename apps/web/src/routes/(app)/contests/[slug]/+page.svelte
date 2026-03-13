@@ -89,11 +89,33 @@
     </div>
   </div>
 
-  {#if contest.submitCooldownSec > 0}
-    <p class="text-xs text-muted-foreground">
-      Submit cooldown: {contest.submitCooldownSec} seconds between submissions per problem.
-    </p>
-  {/if}
+  <!-- Contest settings -->
+  <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
+    {#if contest.submitCooldownSec > 0}
+      <span class="rounded-full bg-stone-100 px-3 py-1">
+        Cooldown: {contest.submitCooldownSec}s
+      </span>
+    {/if}
+    {#if contest.maxAttempts != null}
+      <span class="rounded-full bg-stone-100 px-3 py-1">
+        Max attempts: {contest.maxAttempts}
+      </span>
+    {/if}
+    {#if contest.pageLockEnabled}
+      <span class="rounded-full bg-amber-50 px-3 py-1 text-amber-600">Page lock</span>
+    {/if}
+    {#if contest.ipLockEnabled}
+      <span class="rounded-full bg-amber-50 px-3 py-1 text-amber-600">IP lock</span>
+    {/if}
+    <span class="rounded-full bg-stone-100 px-3 py-1">
+      Scoreboard: {contest.scoreboardMode}
+    </span>
+    {#if contest.allowedLanguages.length > 0}
+      <span class="rounded-full bg-stone-100 px-3 py-1">
+        Languages: {contest.allowedLanguages.join(", ")}
+      </span>
+    {/if}
+  </div>
 
   <!-- Problems -->
   <div class="space-y-4">
