@@ -44,7 +44,7 @@ export const load: PageServerLoad = async () => {
       status: true,
       language: true,
       createdAt: true,
-      user: { select: { handle: true, name: true } },
+      user: { select: { username: true, name: true } },
       problem: { select: { slug: true, defaultTitle: true } }
     },
     orderBy: { createdAt: "desc" },

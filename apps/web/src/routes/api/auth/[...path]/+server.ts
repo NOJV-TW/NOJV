@@ -1,6 +1,5 @@
-import { auth } from "$lib/auth";
-import type { RequestHandler } from "@sveltejs/kit";
+import { handler } from "$lib/auth";
 
-export const GET: RequestHandler = async (event) => auth.handler(event.request);
+export const GET = handler;
 
-export const POST: RequestHandler = async (event) => auth.handler(event.request);
+export const POST = handler;

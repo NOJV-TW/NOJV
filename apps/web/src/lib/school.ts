@@ -49,15 +49,15 @@ function isStudentIdFormat(value: string): boolean {
   return NTNU_ID_RE.test(value) || NTU_NTUST_ID_RE.test(value);
 }
 
-/** Returns true if the handle is reserved for school verification */
-export function isReservedHandle(handle: string): boolean {
+/** Returns true if the username is reserved for school verification */
+export function isReservedUsername(username: string): boolean {
   // Direct student ID format
-  if (isStudentIdFormat(handle)) return true;
+  if (isStudentIdFormat(username)) return true;
 
   // Prefixed format: ntu_<id>, ntust_<id>, ntnu_<id>
   for (const prefix of ["ntu_", "ntust_", "ntnu_"]) {
-    if (handle.startsWith(prefix)) {
-      const rest = handle.slice(prefix.length);
+    if (username.startsWith(prefix)) {
+      const rest = username.slice(prefix.length);
       if (isStudentIdFormat(rest)) return true;
     }
   }

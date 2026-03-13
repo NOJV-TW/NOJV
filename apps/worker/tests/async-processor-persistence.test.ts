@@ -34,6 +34,23 @@ describe("async processor persistence", () => {
       problemSlug: "warmup-sum",
       submissionType: "full_source",
       templates: [],
+      testcaseSets: [
+        {
+          id: "ts_async_01",
+          isHidden: false,
+          name: "Sample",
+          weight: 1,
+          testcases: [
+            {
+              expectedStdout: "3\n",
+              id: "tc_async_01",
+              isHidden: false,
+              stdin: "1 2\n",
+              weight: 1
+            }
+          ]
+        }
+      ],
       testcases: [
         {
           expectedStdout: "3\n",

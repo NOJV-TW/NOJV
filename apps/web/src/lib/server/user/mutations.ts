@@ -7,7 +7,7 @@ import { DEFAULT_LOCALE } from "$lib/utils";
 export interface EnsureUserInput {
   displayName?: string;
   email?: string;
-  handle?: string;
+  username?: string;
   locale?: string;
   platformRole?: "admin" | "student" | "teacher";
 }
@@ -30,7 +30,7 @@ function createLocalDisplayName(userId: string) {
   return `Local ${userId.replaceAll(/[_-]+/g, " ")}`;
 }
 
-function createLocalHandle(userId: string) {
+function createLocalUsername(userId: string) {
   return sanitizeIdentitySegment(userId);
 }
 
@@ -46,7 +46,7 @@ export async function ensureUser(
     const updates: Record<string, string> = {};
     if (input.displayName) updates.name = input.displayName;
     if (input.email) updates.email = input.email;
-    if (input.handle) updates.handle = input.handle;
+    if (input.username) updates.username = input.username;
     if (input.locale) updates.locale = input.locale;
     if (input.platformRole) updates.platformRole = input.platformRole;
 
@@ -60,7 +60,7 @@ export async function ensureUser(
       id: userId,
       name: input.displayName ?? createLocalDisplayName(userId),
       email: input.email ?? createLocalEmail(userId),
-      handle: input.handle ?? createLocalHandle(userId),
+      username: input.username ?? createLocalUsername(userId),
       locale: input.locale ?? DEFAULT_LOCALE,
       platformRole: input.platformRole ?? "student"
     }

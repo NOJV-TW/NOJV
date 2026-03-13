@@ -62,7 +62,7 @@
         .join(" ");
       return {
         color: chartColors[i % chartColors.length],
-        handle: s.handle,
+        username: s.username,
         points
       };
     });
@@ -156,7 +156,7 @@
                 class="inline-block h-2.5 w-2.5 rounded-full"
                 style="background:{path.color}"
               ></span>
-              <span>{path.handle}</span>
+              <span>{path.username}</span>
             </div>
           {/each}
         </div>
@@ -193,7 +193,7 @@
             <tr class="border-b border-border last:border-b-0 {idx % 2 === 0 ? 'bg-[color:var(--color-panel)]' : 'bg-[color:var(--color-panel-strong)]/30'}">
               <td class="px-3 py-2 font-medium">{entry.rank}</td>
               <td class="px-3 py-2">
-                <span class="font-medium">{entry.handle}</span>
+                <span class="font-medium">{entry.username}</span>
                 {#if entry.isFirstBlood.some(Boolean)}
                   <span class="ml-1" title="First Blood">&#9733;</span>
                 {/if}
@@ -239,7 +239,7 @@
             <tr class="border-b border-border last:border-b-0 {idx % 2 === 0 ? 'bg-[color:var(--color-panel)]' : 'bg-[color:var(--color-panel-strong)]/30'}">
               <td class="px-3 py-2 font-medium">{entry.rank}</td>
               <td class="px-3 py-2">
-                <span class="font-medium">{entry.handle}</span>
+                <span class="font-medium">{entry.username}</span>
                 {#if entry.isFirstBlood.some(Boolean)}
                   <span class="ml-1 text-amber-500" title="First Blood">&#9733;</span>
                 {/if}

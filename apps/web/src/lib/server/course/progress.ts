@@ -13,7 +13,7 @@ export interface StudentProblemScore {
 
 export interface ProgressStudent {
   userId: string;
-  handle: string;
+  username: string;
   name: string;
 }
 
@@ -52,14 +52,14 @@ export async function getStudentProgressMatrix(
     where: { courseId: course.id, role: "student", status: "active" },
     select: {
       userId: true,
-      user: { select: { handle: true, name: true } }
+      user: { select: { username: true, name: true } }
     },
-    orderBy: { user: { handle: "asc" } }
+    orderBy: { user: { username: "asc" } }
   });
 
   const students: ProgressStudent[] = memberships.map((m) => ({
     userId: m.userId,
-    handle: m.user.handle ?? m.user.name,
+    username: m.user.username ?? m.user.name,
     name: m.user.name
   }));
 
