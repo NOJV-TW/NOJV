@@ -22,7 +22,7 @@
       <div>
         <dt class="text-sm text-muted-foreground">{m.account_userAccount()}</dt>
         <dd class="mt-1 flex items-center gap-1.5 font-medium">
-          {data.handle}
+          {data.username}
           {#if data.isSchoolVerified}
             <svg
               class="size-4 text-green-600"

@@ -103,7 +103,7 @@
                     {sub.problem.defaultTitle}
                   </a>
                 </td>
-                <td class="px-4 py-2 font-mono text-xs">{sub.user.handle ?? sub.user.name}</td>
+                <td class="px-4 py-2 font-mono text-xs">{sub.user.username ?? sub.user.name}</td>
                 <td class="px-4 py-2 text-xs">{sub.language}</td>
                 <td class="px-4 py-2">
                   <span

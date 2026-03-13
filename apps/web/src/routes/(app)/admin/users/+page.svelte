@@ -28,7 +28,7 @@
       <input
         id="search"
         class="w-full rounded-2xl border border-border bg-white/60 px-3 py-2 text-sm"
-        placeholder="Search by handle, email, or name..."
+        placeholder="Search by username, email, or name..."
         type="text"
         bind:value={searchValue}
         onkeydown={(e) => e.key === "Enter" && applyFilters()}
@@ -69,7 +69,7 @@
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-border text-left">
-          <th class="px-5 py-3 font-medium">Handle</th>
+          <th class="px-5 py-3 font-medium">Username</th>
           <th class="px-5 py-3 font-medium">Email</th>
           <th class="px-5 py-3 font-medium">Name</th>
           <th class="px-5 py-3 font-medium">Role</th>
@@ -81,7 +81,7 @@
       <tbody>
         {#each data.users as user (user.id)}
           <tr class="border-b border-border last:border-b-0">
-            <td class="px-5 py-3 font-mono text-xs">{user.handle ?? "—"}</td>
+            <td class="px-5 py-3 font-mono text-xs">{user.username ?? "—"}</td>
             <td class="px-5 py-3">{user.email}</td>
             <td class="px-5 py-3">{user.name}</td>
             <td class="px-5 py-3">

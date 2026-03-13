@@ -37,15 +37,11 @@
   }
 </script>
 
-{#if !session}
-  <!-- No session: render nothing (sign-in is handled elsewhere) -->
-{:else if !user}
-  <div
-    class="size-9 animate-pulse rounded-full border border-border bg-white/60"
-  ></div>
+{#if !session || !user}
+  <!-- No session or no user: render nothing -->
 {:else}
   {@const initial = (user.name.charAt(0) || "?").toUpperCase()}
-  {@const hasHandle = !!user.handle}
+  {@const hasUsername = !!user.username}
 
   <div class="relative">
     <button
@@ -70,7 +66,7 @@
           </p>
         </div>
 
-        {#if hasHandle}
+        {#if hasUsername}
           <a
             class="flex items-center gap-2 px-4 py-2 text-sm transition hover:bg-primary/10"
             href="/account"
