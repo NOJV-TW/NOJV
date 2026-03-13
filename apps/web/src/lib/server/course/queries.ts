@@ -24,7 +24,7 @@ export interface CourseMemberRecord {
   courseRole: CourseRole;
   displayName: string;
   email: string;
-  handle: string | null;
+  username: string | null;
   joinedVia: CourseJoinMethod;
   platformRole: PlatformRole;
   userId: string;
@@ -44,7 +44,7 @@ export interface CourseAssessmentRecord {
 }
 
 export interface CourseProblemCatalogEntry {
-  authorHandle: string;
+  authorUsername: string;
   slug: string;
   summary: string;
   title: string;
@@ -74,7 +74,7 @@ export interface CoursePageDetailData {
 // ─── Internal helper functions ───────────────────────────────────────
 
 function mapProblemShelfEntry(problem: {
-  author?: { handle: string | null } | null;
+  author?: { username: string | null } | null;
   slug: string;
   statements?: {
     bodyMarkdown: string;
@@ -94,7 +94,7 @@ function mapProblemShelfEntry(problem: {
   );
 
   return {
-    authorHandle: problem.author?.handle ?? "course_staff",
+    authorUsername: problem.author?.username ?? "course_staff",
     slug: problem.slug,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     title: localized.title,
@@ -138,7 +138,7 @@ function mapCourseMember(member: {
   user: {
     name: string;
     email: string;
-    handle: string | null;
+    username: string | null;
     platformRole: "admin" | "student" | "teacher";
   };
   userId: string;
@@ -147,7 +147,7 @@ function mapCourseMember(member: {
     courseRole: member.role,
     displayName: member.user.name,
     email: member.user.email,
-    handle: member.user.handle,
+    username: member.user.username,
     joinedVia: member.joinedVia ?? "manual_invite",
     platformRole: member.user.platformRole,
     userId: member.userId
@@ -180,14 +180,14 @@ function mapPersistedCourse(course: {
     user: {
       name: string;
       email: string;
-      handle: string | null;
+      username: string | null;
       platformRole: "admin" | "student" | "teacher";
     };
     userId: string;
   }[];
   problems: {
     problem: {
-      author?: { handle: string | null } | null;
+      author?: { username: string | null } | null;
       slug: string;
       statements?: {
         bodyMarkdown: string;
@@ -300,7 +300,7 @@ export async function getCoursePageData(slug: string): Promise<CoursePageDetailD
             include: {
               author: {
                 select: {
-                  handle: true
+                  username: true
                 }
               },
               statements: true
