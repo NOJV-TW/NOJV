@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { inputClassName } from "$lib/utils";
 
   let { data } = $props();
 
-  const { form, errors, enhance, message: formMessage } = superForm(data.form, {
+  const { form, errors, enhance, message: formMessage } = superForm(untrack(() => data.form), {
     resetForm: false
   });
 </script>
