@@ -663,6 +663,7 @@ if __name__ == "__main__":
       endsAt: new Date("2026-03-15T18:00:00+08:00"),
       frozenBoard: true,
       id: "contest_spring-qualifier-2026",
+      inviteCode: "spring2026",
       slug: "spring-qualifier-2026",
       startsAt: new Date("2026-03-15T14:00:00+08:00"),
       summary: "Qualifier contest with a frozen board in the final hour.",

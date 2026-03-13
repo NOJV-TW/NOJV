@@ -23,6 +23,7 @@ export const submissionDraftSchema = z.object({
 export const testcaseResultItemSchema = z.object({
   index: z.number().int().nonnegative(),
   passed: z.boolean(),
+  stderr: z.string().optional(),
   stdout: z.string(),
   timeMs: z.number().int().nonnegative()
 });

@@ -38,11 +38,7 @@ export async function createQueuedSubmissionRecord(
   }
 
   // ── Derive mode from server context, ignore client-provided mode ──
-  const mode = payload.contestSlug
-    ? "contest"
-    : courseContext
-      ? "assignment"
-      : "practice";
+  const mode = payload.contestSlug ? "contest" : courseContext ? "assignment" : "practice";
 
   return prisma.$transaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);

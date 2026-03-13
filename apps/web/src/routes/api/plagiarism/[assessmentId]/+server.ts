@@ -7,7 +7,11 @@ import { ForbiddenError, NotFoundError, requireApiAuth } from "$lib/server/auth"
 import { resolveCoursePermission } from "$lib/server/auth";
 import { canManageCourse } from "$lib/server/shared/permissions";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { plagiarismTargetFilter, triggerPlagiarismCheck, type PlagiarismTarget } from "$lib/server/moss/service";
+import {
+  plagiarismTargetFilter,
+  triggerPlagiarismCheck,
+  type PlagiarismTarget
+} from "$lib/server/moss/service";
 
 /**
  * Resolve the plagiarism target (course assessment or contest) from the assessmentId param
@@ -28,7 +32,9 @@ async function resolvePlagiarismTarget(
     }
 
     if (!contest.courseId || !contest.course) {
-      throw new ForbiddenError("Plagiarism checks are only available for course-linked contests.");
+      throw new ForbiddenError(
+        "Plagiarism checks are only available for course-linked contests."
+      );
     }
 
     return { courseSlug: contest.course.slug, target: { id: contest.id, type: "contest" } };

@@ -8,6 +8,7 @@ import { z } from "zod";
 
 export const contestFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
+  courseSlug: slugSchema.optional(),
   endsAt: z.string().min(1),
   frozenAt: z.string().optional(),
   ipLockEnabled: z.boolean().default(false),

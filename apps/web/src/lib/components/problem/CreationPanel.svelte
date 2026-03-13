@@ -129,36 +129,46 @@ sys.stdout.flush()
 
   // Populate templates/starterByLanguage into form data before submission via $effect
   $effect(() => {
-    if ($form.submissionType === "function") {
-      $form.templates = supportedLanguages
-        .filter((lang) => templatesByLang[lang]?.driverCode)
-        .map((lang) => ({
-          driverCode: templatesByLang[lang]!.driverCode,
-          insertionMarker: templatesByLang[lang]!.insertionMarker || "// __USER_CODE__",
-          language: lang,
-          templateCode: templatesByLang[lang]!.templateCode
-        }));
-    } else {
-      $form.templates = [];
-    }
+    const submissionType = $form.submissionType;
+    const tpl = templatesByLang;
+    untrack(() => {
+      if (submissionType === "function") {
+        $form.templates = supportedLanguages
+          .filter((lang) => tpl[lang]?.driverCode)
+          .map((lang) => ({
+            driverCode: tpl[lang]!.driverCode,
+            insertionMarker: tpl[lang]!.insertionMarker || "// __USER_CODE__",
+            language: lang,
+            templateCode: tpl[lang]!.templateCode
+          }));
+      } else {
+        $form.templates = [];
+      }
+    });
   });
 
   // Set slug for create mode (computed from title)
   $effect(() => {
-    if (!isEditMode && $form.title) {
-      const rawSlug = $form.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-      $form.slug = rawSlug.length >= 3 ? rawSlug : `problem-${String(Date.now())}`;
-    }
+    const title = $form.title;
+    untrack(() => {
+      if (!isEditMode && title) {
+        const rawSlug = title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+        $form.slug = rawSlug.length >= 3 ? rawSlug : `problem-${String(Date.now())}`;
+      }
+    });
   });
 
   // Ensure summary has a default
   $effect(() => {
-    if ($form.summary === undefined) {
-      $form.summary = "";
-    }
+    const summary = $form.summary;
+    untrack(() => {
+      if (summary === undefined) {
+        $form.summary = "";
+      }
+    });
   });
 
   async function handlePostSubmit(resultData: { slug?: unknown }) {

@@ -1,7 +1,10 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getAssessmentContext } from "$lib/server/course/queries";
-import { getActiveContestForUser, getContestAllowedLanguages } from "$lib/server/contest/queries";
+import {
+  getActiveContestForUser,
+  getContestAllowedLanguages
+} from "$lib/server/contest/queries";
 import { getProblemPageData } from "$lib/server/problem/queries";
 import { listProblemSubmissions } from "$lib/server/submission/queries";
 import { assessmentPath } from "$lib/types";
@@ -20,8 +23,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   ]);
 
   if (activeContest) {
-    const isCorrectContestContext =
-      contest === activeContest.slug;
+    const isCorrectContestContext = contest === activeContest.slug;
 
     if (!isCorrectContestContext) {
       redirect(303, `/contests/${activeContest.slug}`);
@@ -40,10 +42,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
   const backLink = assessmentContext
     ? {
-        href: assessmentPath(
-          assessmentContext.courseSlug,
-          assessmentContext.slug
-        ),
+        href: assessmentPath(assessmentContext.courseSlug, assessmentContext.slug),
         type: "assignment" as const
       }
     : undefined;
@@ -55,9 +54,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
       }
     : undefined;
 
-  const allowedLanguages = contestAllowedLanguages
-    ?? assessmentContext?.allowedLanguages
-    ?? [];
+  const allowedLanguages = contestAllowedLanguages ?? assessmentContext?.allowedLanguages ?? [];
 
   // ── Submissions (depends on assessmentContext for filtering) ──
   const submissions = userId

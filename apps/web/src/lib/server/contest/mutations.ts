@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import { prisma, type Prisma, type TransactionClient } from "@nojv/db";
 import type { ContestCreate, ContestUpdate } from "@nojv/core";
 
@@ -183,14 +185,23 @@ export async function createContestRecord(
 
     await ensureUser(tx, actor.userId, actor);
 
+    // Students cannot bind contests to courses (enforced at route level too)
+    if (payload.courseSlug && actor.platformRole === "student") {
+      throw new ForbiddenError("Students cannot bind contests to courses.");
+    }
+
     const courseId = payload.courseSlug
       ? (await requireCourse(tx, payload.courseSlug)).id
       : null;
+
+    // Public contests get an auto-generated invite code
+    const inviteCode = courseId ? null : crypto.randomBytes(4).toString("hex");
 
     const contest = await tx.contest.create({
       data: {
         allowedLanguages: payload.allowedLanguages,
         courseId,
+        inviteCode,
         createdByUserId: actor.userId,
         endsAt: new Date(payload.endsAt),
         frozenAt: payload.frozenAt ? new Date(payload.frozenAt) : null,
@@ -236,10 +247,8 @@ export async function updateContestRecord(
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     if (payload.allowedLanguages !== undefined)
       updateData.allowedLanguages = payload.allowedLanguages;
-    if (payload.ipLockEnabled !== undefined)
-      updateData.ipLockEnabled = payload.ipLockEnabled;
-    if (payload.maxAttempts !== undefined)
-      updateData.maxAttempts = payload.maxAttempts ?? null;
+    if (payload.ipLockEnabled !== undefined) updateData.ipLockEnabled = payload.ipLockEnabled;
+    if (payload.maxAttempts !== undefined) updateData.maxAttempts = payload.maxAttempts ?? null;
     if (payload.pageLockEnabled !== undefined)
       updateData.pageLockEnabled = payload.pageLockEnabled;
     if (payload.scoreboardMode !== undefined)
