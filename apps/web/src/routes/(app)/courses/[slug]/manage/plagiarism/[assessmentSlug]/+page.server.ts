@@ -27,11 +27,11 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     }
   });
 
-  // Build a lookup of userId -> handle/name for display
+  // Build a lookup of userId -> username/name for display
   const memberMap = new Map(
     courseData.course.members.map((m) => [
       m.userId,
-      { displayName: m.displayName, handle: m.handle }
+      { displayName: m.displayName, username: m.username }
     ])
   );
 

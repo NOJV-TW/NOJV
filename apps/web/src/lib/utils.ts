@@ -10,13 +10,13 @@ export function cn(...inputs: ClassValue[]) {
 /** Default locale for database content (problem statements, user locale, etc.). */
 export const DEFAULT_LOCALE = "zh-TW";
 
-// --- Handle validation ---
+// --- Username validation ---
 
-export const HANDLE_INPUT_PATTERN = "[a-z0-9._-]{3,64}";
-const handlePattern = /^[a-z0-9._-]{3,64}$/;
+export const USERNAME_INPUT_PATTERN = "[a-z0-9._-]{3,64}";
+const usernamePattern = /^[a-z0-9._-]{3,64}$/;
 
-export function isValidHandle(value: string): boolean {
-  return handlePattern.test(value);
+export function isValidUsername(value: string): boolean {
+  return usernamePattern.test(value);
 }
 
 // --- Shared form class names ---

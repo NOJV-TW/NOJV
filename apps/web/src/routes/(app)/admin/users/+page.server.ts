@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ url }) => {
 
   if (search) {
     where.OR = [
-      { handle: { contains: search, mode: "insensitive" } },
+      { username: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } },
       { name: { contains: search, mode: "insensitive" } }
     ];
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ url }) => {
       where,
       select: {
         id: true,
-        handle: true,
+        username: true,
         email: true,
         name: true,
         platformRole: true,

@@ -17,7 +17,7 @@ function makeActor(overrides: Partial<ActorContext> = {}): ActorContext {
   return {
     displayName: "Test User",
     email: "test@example.com",
-    handle: "testuser",
+    username: "testuser",
     platformRole: "student",
     userId: "user-1",
     ...overrides

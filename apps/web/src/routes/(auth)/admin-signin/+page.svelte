@@ -43,7 +43,7 @@
 
     <form class="flex flex-col gap-4" onsubmit={handleSubmit}>
       <label class="flex flex-col gap-1 text-sm">
-        {m.auth_handleOrEmail()}
+        {m.auth_usernameOrEmail()}
         <input
           autocomplete="username"
           class="rounded-2xl border border-border bg-white/60 px-3 py-3"

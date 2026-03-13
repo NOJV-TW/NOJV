@@ -48,7 +48,7 @@
               {problem.visibility}
             </span>
             <p class="mt-2 text-sm text-muted-foreground">
-              {m.courseDetail_by()} {problem.authorHandle}
+              {m.courseDetail_by()} {problem.authorUsername}
             </p>
           </div>
         </div>

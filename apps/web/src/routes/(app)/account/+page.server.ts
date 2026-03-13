@@ -1,6 +1,6 @@
 import { fail, redirect } from "@sveltejs/kit";
 
-import { isReservedHandle } from "$lib/school";
+import { isReservedUsername } from "$lib/school";
 import { processSchoolVerification } from "$lib/server/shared/school-verification";
 
 import type { Actions, PageServerLoad } from "./$types";
@@ -11,13 +11,13 @@ export const load: PageServerLoad = ({ locals }) => {
   }
 
   const sessionUser = locals.sessionUser;
-  const handle = sessionUser?.handle ?? null;
+  const username = sessionUser?.username ?? null;
   const platformRole = sessionUser?.platformRole ?? "student";
-  const isSchoolVerified = handle !== null && isReservedHandle(handle);
+  const isSchoolVerified = username !== null && isReservedUsername(username);
 
   return {
     email: locals.user.email,
-    handle: handle ?? "\u2014",
+    username: username ?? "\u2014",
     isSchoolVerified,
     name: locals.user.name,
     platformRole

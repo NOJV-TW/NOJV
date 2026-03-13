@@ -26,7 +26,7 @@
   function memberLabel(userId: string): string {
     const member = data.memberMap[userId];
     if (!member) return userId.slice(0, 8);
-    return member.handle ?? member.displayName;
+    return member.username ?? member.displayName;
   }
 
   function problemLabel(problemId: string): string {

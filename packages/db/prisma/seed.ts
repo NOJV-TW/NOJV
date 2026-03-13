@@ -18,7 +18,7 @@ async function main() {
     create: {
       name: "Admin",
       email: "admin@nojv.local",
-      handle: "admin",
+      username: "admin",
       id: "usr_admin",
       locale: "zh-TW",
       platformRole: "admin"
@@ -31,7 +31,7 @@ async function main() {
     create: {
       name: "Teacher",
       email: "teacher@nojv.local",
-      handle: "teacher",
+      username: "teacher",
       id: "usr_teacher",
       locale: "zh-TW",
       platformRole: "teacher"
@@ -44,7 +44,7 @@ async function main() {
     create: {
       name: "TA Student",
       email: "ta-student@nojv.local",
-      handle: "ta-student",
+      username: "ta-student",
       id: "usr_ta_student",
       locale: "zh-TW",
       platformRole: "student"
@@ -57,7 +57,7 @@ async function main() {
     create: {
       name: "Student",
       email: "student@nojv.local",
-      handle: "student",
+      username: "student",
       id: "usr_student",
       locale: "zh-TW",
       platformRole: "student"
@@ -72,14 +72,14 @@ async function main() {
   for (const u of users) {
     await prisma.account.upsert({
       create: {
-        id: `acct_${u.handle}`,
+        id: `acct_${u.username}`,
         accountId: u.id,
         providerId: "credential",
         userId: u.id,
         password: passwordHash
       },
       update: { password: passwordHash },
-      where: { id: `acct_${u.handle}` }
+      where: { id: `acct_${u.username}` }
     });
   }
 

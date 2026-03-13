@@ -11,7 +11,7 @@ export const load: PageServerLoad = ({ locals }) => {
     redirect(302, "/");
   }
 
-  if (locals.sessionUser?.handle) {
+  if (locals.sessionUser?.username) {
     redirect(302, "/");
   }
 

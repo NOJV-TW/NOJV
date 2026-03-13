@@ -43,14 +43,6 @@ export const auth = betterAuth({
   plugins: [
     username({
       maxUsernameLength: 64,
-      schema: {
-        user: {
-          fields: {
-            displayUsername: "displayHandle",
-            username: "handle"
-          }
-        }
-      },
       usernameValidator: (candidate) => {
         return /^[a-z0-9._-]+$/.test(candidate);
       }

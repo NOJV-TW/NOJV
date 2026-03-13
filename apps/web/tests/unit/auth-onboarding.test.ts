@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { sessionUserSchema } from "@nojv/core";
 
-import { hasActorHandle } from "$lib/server/auth";
-import { isValidHandle } from "$lib/utils";
+import { hasActorUsername } from "$lib/server/auth";
+import { isValidUsername } from "$lib/utils";
 
 /** Helper to build a minimal valid session-user-like object. */
 function fakeUser(overrides: Record<string, unknown> = {}) {
@@ -10,21 +10,21 @@ function fakeUser(overrides: Record<string, unknown> = {}) {
     id: "u1",
     email: "test@example.com",
     name: "Test",
-    handle: null,
+    username: null,
     platformRole: "student",
     ...overrides
   };
 }
 
 describe("sessionUserSchema", () => {
-  it("parses a valid user object with handle", () => {
-    const result = sessionUserSchema.safeParse(fakeUser({ handle: "alice" }));
-    expect(result.success && result.data.handle).toBe("alice");
+  it("parses a valid user object with username", () => {
+    const result = sessionUserSchema.safeParse(fakeUser({ username: "alice" }));
+    expect(result.success && result.data.username).toBe("alice");
   });
 
-  it("parses null handle", () => {
-    const result = sessionUserSchema.safeParse(fakeUser({ handle: null }));
-    expect(result.success && result.data.handle).toBeNull();
+  it("parses null username", () => {
+    const result = sessionUserSchema.safeParse(fakeUser({ username: null }));
+    expect(result.success && result.data.username).toBeNull();
   });
 
   it("rejects invalid input", () => {
@@ -32,60 +32,60 @@ describe("sessionUserSchema", () => {
   });
 });
 
-describe("hasActorHandle", () => {
-  it("returns true and narrows type when handle is a non-empty string", () => {
-    const actor = { handle: "alice" as string | null, userId: "u1" };
-    if (hasActorHandle(actor)) {
-      // Type should be narrowed - handle is string, not null
-      expect(actor.handle).toBe("alice");
+describe("hasActorUsername", () => {
+  it("returns true and narrows type when username is a non-empty string", () => {
+    const actor = { username: "alice" as string | null, userId: "u1" };
+    if (hasActorUsername(actor)) {
+      // Type should be narrowed - username is string, not null
+      expect(actor.username).toBe("alice");
     } else {
-      throw new Error("Expected hasActorHandle to return true");
+      throw new Error("Expected hasActorUsername to return true");
     }
   });
 
-  it("returns false when handle is null", () => {
-    expect(hasActorHandle({ handle: null })).toBe(false);
+  it("returns false when username is null", () => {
+    expect(hasActorUsername({ username: null })).toBe(false);
   });
 
-  it("returns false when handle is empty string", () => {
-    expect(hasActorHandle({ handle: "" })).toBe(false);
+  it("returns false when username is empty string", () => {
+    expect(hasActorUsername({ username: "" })).toBe(false);
   });
 });
 
-describe("isValidHandle", () => {
+describe("isValidUsername", () => {
   it("accepts lowercase alphanumeric with dots, underscores, and hyphens", () => {
-    expect(isValidHandle("alice_bob.test-123")).toBe(true);
+    expect(isValidUsername("alice_bob.test-123")).toBe(true);
   });
 
   it("accepts minimum length of 3", () => {
-    expect(isValidHandle("abc")).toBe(true);
+    expect(isValidUsername("abc")).toBe(true);
   });
 
-  it("rejects handles shorter than 3 characters", () => {
-    expect(isValidHandle("ab")).toBe(false);
+  it("rejects usernames shorter than 3 characters", () => {
+    expect(isValidUsername("ab")).toBe(false);
   });
 
   it("rejects empty string", () => {
-    expect(isValidHandle("")).toBe(false);
+    expect(isValidUsername("")).toBe(false);
   });
 
   it("rejects uppercase characters", () => {
-    expect(isValidHandle("Alice")).toBe(false);
+    expect(isValidUsername("Alice")).toBe(false);
   });
 
   it("rejects spaces", () => {
-    expect(isValidHandle("alice bob")).toBe(false);
+    expect(isValidUsername("alice bob")).toBe(false);
   });
 
   it("rejects special characters", () => {
-    expect(isValidHandle("alice@bob")).toBe(false);
+    expect(isValidUsername("alice@bob")).toBe(false);
   });
 
-  it("accepts handles at maximum length of 64", () => {
-    expect(isValidHandle("a".repeat(64))).toBe(true);
+  it("accepts usernames at maximum length of 64", () => {
+    expect(isValidUsername("a".repeat(64))).toBe(true);
   });
 
-  it("rejects handles over 64 characters", () => {
-    expect(isValidHandle("a".repeat(65))).toBe(false);
+  it("rejects usernames over 64 characters", () => {
+    expect(isValidUsername("a".repeat(65))).toBe(false);
   });
 });

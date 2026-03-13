@@ -130,8 +130,8 @@ enum CourseAssessmentScoreboardMode {
 model User {
   id                   String                 @id @default(cuid())
   email                String                 @unique
-  handle               String?                @unique
-  displayHandle        String?
+  username             String?                @unique
+  displayUsername      String?
   name                 String
   emailVerified        Boolean                @default(false)
   image                String?
