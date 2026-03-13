@@ -1,12 +1,12 @@
 import type * as Monaco from "monaco-editor";
 
-type CompletionEntry = {
+interface CompletionEntry {
   label: string;
   kind: "Function" | "Keyword" | "Snippet" | "Class" | "Module" | "Constant";
   insertText: string;
   detail?: string;
   isSnippet?: boolean;
-};
+}
 
 const kindMap: Record<CompletionEntry["kind"], number> = {
   Class: 5,

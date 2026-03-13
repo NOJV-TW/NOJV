@@ -294,7 +294,7 @@ export async function createCourseAssessmentRecord(
 
     const assessment = await tx.courseAssessment.create({
       data: {
-        allowedLanguages: payload.allowedLanguages ?? [],
+        allowedLanguages: payload.allowedLanguages,
         closesAt: new Date(payload.closesAt),
         courseId: course.id,
         createdByUserId: creator.id,

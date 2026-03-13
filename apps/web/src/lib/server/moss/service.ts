@@ -170,7 +170,7 @@ async function runPlagiarismCheck(reportId: string, target: PlagiarismTarget): P
       data: {
         completedAt: new Date(),
         mossReportUrl,
-        results: JSON.parse(JSON.stringify(results)),
+        results: JSON.parse(JSON.stringify(results)) as Record<string, unknown>,
         status: "completed"
       },
       where: { id: reportId }

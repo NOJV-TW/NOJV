@@ -23,7 +23,7 @@ export const actions = {
 
     const contest = await findContestByInviteCode(code);
 
-    if (!contest || contest.visibility !== "published" || contest.courseId != null) {
+    if (contest?.visibility !== "published" || contest.courseId !== null) {
       return fail(404, { codeError: "Invalid contest code." });
     }
 
