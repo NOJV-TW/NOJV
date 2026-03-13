@@ -44,12 +44,12 @@ export class ForbiddenError extends HttpError {
 export interface ActorContext {
   displayName: string;
   email: string;
-  handle: string | null;
+  username: string | null;
   platformRole: PlatformRole;
   userId: string;
 }
 
-export type CompletedActorContext = ActorContext & { handle: string };
+export type CompletedActorContext = ActorContext & { username: string };
 
 export function getActorContext(event: RequestEvent): ActorContext | null {
   const sessionUser = event.locals.sessionUser;
@@ -61,7 +61,7 @@ export function getActorContext(event: RequestEvent): ActorContext | null {
   return {
     displayName: sessionUser.name,
     email: sessionUser.email,
-    handle: sessionUser.handle,
+    username: sessionUser.username,
     platformRole: sessionUser.platformRole,
     userId: sessionUser.id
   };
@@ -69,10 +69,10 @@ export function getActorContext(event: RequestEvent): ActorContext | null {
 
 // --- Onboarding helpers ---
 
-export function hasActorHandle<T extends { handle: string | null }>(
+export function hasActorUsername<T extends { username: string | null }>(
   actor: T
-): actor is T & { handle: string } {
-  return typeof actor.handle === "string" && actor.handle.length > 0;
+): actor is T & { username: string } {
+  return typeof actor.username === "string" && actor.username.length > 0;
 }
 
 // --- Guards ---
@@ -84,7 +84,7 @@ export function hasActorHandle<T extends { handle: string | null }>(
 export function requireApiAuth(event: RequestEvent): CompletedActorContext {
   const actor = getActorContext(event);
   if (!actor) throw new HttpError("Authentication required.", 401);
-  if (!hasActorHandle(actor)) throw new HttpError("Complete your profile first.", 403);
+  if (!hasActorUsername(actor)) throw new HttpError("Complete your profile first.", 403);
   return actor;
 }
 
@@ -99,7 +99,7 @@ export function requireAuth(event: RequestEvent, redirectTo?: string): Completed
     redirect(302, redirectTo ?? "/");
   }
 
-  if (!hasActorHandle(actor)) {
+  if (!hasActorUsername(actor)) {
     redirect(302, "/complete-profile");
   }
 
