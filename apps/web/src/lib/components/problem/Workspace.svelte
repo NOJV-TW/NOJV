@@ -6,6 +6,7 @@
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
+  import SubtaskResults from "./SubtaskResults.svelte";
 
   const difficultyColor: Record<string, string> = {
     easy: "bg-emerald-500/15 text-emerald-700",
@@ -252,7 +253,14 @@
               <span>{new Date(entry.submittedAt).toLocaleTimeString()}</span>
             </div>
 
-            {#if entry.result.caseResults && entry.result.caseResults.length > 0}
+            {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
+              <div class="mt-4">
+                <SubtaskResults
+                  subtaskResults={entry.result.subtaskResults}
+                  totalScore={entry.result.score}
+                />
+              </div>
+            {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
               <div class="mt-4 flex flex-wrap items-center gap-1">
                 {#each entry.result.caseResults as cr, i (`cr-${i}`)}
                   <span

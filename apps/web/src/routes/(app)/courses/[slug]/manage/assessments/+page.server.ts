@@ -1,7 +1,9 @@
 import {
   assessmentScoreboardModeSchema,
+  contestCreateSchema,
   courseAssessmentCreateSchema,
   courseAssessmentTypeSchema,
+  contestScoringModeSchema,
   slugSchema
 } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
@@ -12,6 +14,8 @@ import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { canPublishAssessment, getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { createCourseAssessmentRecord } from "$lib/server/course/mutations";
+import { createContestRecord } from "$lib/server/contest/mutations";
+import { listCourseContests } from "$lib/server/contest/queries";
 
 const assessmentFormSchema = z.object({
   closesAt: z.string().min(1),
@@ -28,12 +32,30 @@ const assessmentFormSchema = z.object({
   type: courseAssessmentTypeSchema
 });
 
+const contestFormSchema = z.object({
+  endsAt: z.string().min(1),
+  frozenAt: z.string().optional(),
+  problemSlugsText: z.string().min(1),
+  scoringMode: contestScoringModeSchema.default("icpc"),
+  slug: slugSchema,
+  startsAt: z.string().min(1),
+  submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
+  summary: z.string().min(8).max(4_000),
+  title: z.string().min(3).max(120)
+});
+
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { courseData } = await parent();
-  const form = await superValidate(zod4(assessmentFormSchema));
+  const [form, contestForm, contests] = await Promise.all([
+    superValidate(zod4(assessmentFormSchema)),
+    superValidate(zod4(contestFormSchema)),
+    listCourseContests(params.slug)
+  ]);
 
   return {
     assessments: courseData.course.assessments,
+    contests,
+    contestForm,
     courseSlug: params.slug,
     problemSlugs: courseData.course.problemSlugs,
     form
@@ -71,6 +93,39 @@ export const actions = {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Assessment publish failed.";
       return fail(400, { form, error: msg });
+    }
+  },
+
+  createContest: async (event) => {
+    const actor = requireAuth(event);
+    const courseSlug = event.params.slug;
+    const role = await getCoursePermissionRole(courseSlug, actor);
+
+    if (!role || !canPublishAssessment(role)) {
+      return fail(403, { error: "Only course staff can create contests." });
+    }
+
+    const form = await superValidate(event, zod4(contestFormSchema));
+    if (!form.valid) return fail(400, { contestForm: form });
+
+    try {
+      const { problemSlugsText, startsAt, endsAt, frozenAt, ...rest } = form.data;
+      const payload = contestCreateSchema.parse({
+        ...rest,
+        courseSlug,
+        endsAt: new Date(endsAt).toISOString(),
+        frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
+        problemSlugs: problemSlugsText
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        startsAt: new Date(startsAt).toISOString()
+      });
+      await createContestRecord(actor, payload);
+      return message(form, `Contest "${payload.title}" created.`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Contest creation failed.";
+      return fail(400, { contestForm: form, error: msg });
     }
   }
 } satisfies Actions;

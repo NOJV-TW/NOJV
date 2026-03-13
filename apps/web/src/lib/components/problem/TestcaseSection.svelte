@@ -259,40 +259,54 @@
         </div>
 
         <div class="grid gap-4">
+          <div class="flex items-center justify-end gap-2 text-sm">
+            <span class="text-muted-foreground">{m.testcases_totalWeight()}:</span>
+            <span
+              class="font-bold tabular-nums {totalPoints === 100
+                ? 'text-emerald-600'
+                : 'text-amber-600'}"
+            >
+              {totalPoints}/100
+            </span>
+          </div>
           {#each subtasks as subtask, si (`subtask-${si}`)}
             <div
               class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4"
             >
               <div class="flex flex-wrap items-center gap-3">
-                <input
-                  class="rounded-[1.5rem] border border-border bg-white/60 px-3 py-2 text-sm font-semibold"
-                  oninput={(e) =>
-                    updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
-                  value={subtask.name}
-                />
-                <label
-                  class="flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  {m.testcases_subtaskPoints()}
+                <label class="grid gap-1">
+                  <span class="text-xs font-medium text-muted-foreground">{m.testcases_subtaskLabel()}</span>
                   <input
-                    class="w-20 rounded-[1.5rem] border border-border bg-white/60 px-2 py-2 text-sm"
-                    min="0"
+                    class="rounded-[1.5rem] border border-border bg-white/60 px-3 py-2 text-sm font-semibold"
                     oninput={(e) =>
-                      updateSubtask(si, {
-                        points: Number((e.target as HTMLInputElement).value) || 0
-                      })}
-                    type="number"
-                    value={subtask.points}
+                      updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
+                    value={subtask.name}
                   />
                 </label>
+                <label class="grid gap-1">
+                  <span class="text-xs font-medium text-muted-foreground">{m.testcases_subtaskWeight()}</span>
+                  <div class="flex items-center gap-1">
+                    <input
+                      class="w-20 rounded-[1.5rem] border-2 border-primary/30 bg-white/60 px-2 py-2 text-sm font-bold text-primary"
+                      min="0"
+                      oninput={(e) =>
+                        updateSubtask(si, {
+                          points: Number((e.target as HTMLInputElement).value) || 0
+                        })}
+                      type="number"
+                      value={subtask.points}
+                    />
+                    <span class="text-xs text-muted-foreground">pts</span>
+                  </div>
+                </label>
                 <span
-                  class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+                  class="mt-auto rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
                 >
                   {subtask.caseIndices.length} cases
                 </span>
                 {#if subtasks.length > 1}
                   <button
-                    class="ml-auto text-sm text-red-700 hover:text-red-900"
+                    class="ml-auto mt-auto text-sm text-red-700 hover:text-red-900"
                     onclick={() => (subtasks = subtasks.filter((_, i) => i !== si))}
                     type="button"
                   >

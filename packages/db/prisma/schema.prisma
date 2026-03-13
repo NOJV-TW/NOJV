@@ -55,6 +55,18 @@ enum ContestVisibility {
   archived
 }
 
+enum ContestScoringMode {
+  icpc
+  ioi
+}
+
+enum PlagiarismReportStatus {
+  pending
+  running
+  completed
+  failed
+}
+
 enum ContestParticipationStatus {
   registered
   active
@@ -125,6 +137,7 @@ model User {
   image                String?
   locale               String                 @default("zh-TW")
   platformRole         PlatformRole           @default(student)
+  disabled             Boolean                @default(false)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   sessions             Session[]
@@ -138,6 +151,7 @@ model User {
   createdJoinTokens    CourseJoinToken[]      @relation("CourseJoinTokenCreator")
   attachedCourseProblems CourseProblem[]      @relation("CourseProblemAttacher")
   createdCourseAssessments CourseAssessment[] @relation("CourseAssessmentCreator")
+  triggeredPlagiarismReports PlagiarismReport[] @relation("PlagiarismReportTriggeredBy")
 }
 
 model Problem {
@@ -225,18 +239,23 @@ model ProblemTemplate {
 }
 
 model Contest {
-  id             String                  @id @default(cuid())
-  slug           String                  @unique
-  title          String
-  summary        String                  @db.Text
-  startsAt       DateTime
-  endsAt         DateTime
-  frozenBoard    Boolean                 @default(true)
-  visibility     ContestVisibility       @default(draft)
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
-  problems       ContestProblem[]
-  participations ContestParticipation[]
+  id               String                  @id @default(cuid())
+  slug             String                  @unique
+  title            String
+  summary          String                  @db.Text
+  startsAt         DateTime
+  endsAt           DateTime
+  frozenBoard      Boolean                 @default(true)
+  visibility       ContestVisibility       @default(draft)
+  scoringMode      ContestScoringMode      @default(icpc)
+  courseId         String?
+  frozenAt         DateTime?
+  submitCooldownSec Int                    @default(0)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  course           Course?                 @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  problems         ContestProblem[]
+  participations   ContestParticipation[]
 }
 
 model ContestProblem {
@@ -269,6 +288,7 @@ model Course {
   problems          CourseProblem[]
   assessments       CourseAssessment[]
   submissions       Submission[]
+  contests          Contest[]
 }
 
 model CourseMembership {
@@ -342,8 +362,9 @@ model CourseAssessment {
   updatedAt       DateTime                       @updatedAt
   course          Course                         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   createdBy       User                           @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  problems        CourseAssessmentProblem[]
-  submissions     Submission[]
+  problems            CourseAssessmentProblem[]
+  submissions         Submission[]
+  plagiarismReports   PlagiarismReport[]
 
   @@unique([courseId, slug])
   @@index([courseId, type, status])
@@ -372,6 +393,7 @@ model ContestParticipation {
   submittedAt      DateTime?
   score            Int                          @default(0)
   penaltySeconds   Int                          @default(0)
+  subtaskScores    Json?
   createdAt        DateTime                     @default(now())
   updatedAt        DateTime                     @updatedAt
   contest          Contest                      @relation(fields: [contestId], references: [id], onDelete: Cascade)
@@ -398,6 +420,7 @@ model Submission {
   memoryKb               Int?
   compilerOutput         String?               @db.Text
   verdictDetail          Json?
+  subtaskResults         Json?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -409,6 +432,7 @@ model Submission {
   @@index([problemId, createdAt])
   @@index([userId, createdAt])
   @@index([courseId, courseAssessmentId, createdAt])
+  @@index([contestParticipationId, problemId, createdAt])
 }
 
 model Session {
@@ -454,6 +478,20 @@ model Announcement {
   title     String
   content   String   @db.Text
   pinned    Boolean  @default(false)
+  published Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PlagiarismReport {
+  id                  String                 @id @default(cuid())
+  courseAssessmentId   String
+  triggeredById       String
+  status              PlagiarismReportStatus @default(pending)
+  results             Json?
+  mossReportUrl       String?
+  createdAt           DateTime               @default(now())
+  completedAt         DateTime?
+  courseAssessment     CourseAssessment        @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
+  triggeredBy         User                   @relation("PlagiarismReportTriggeredBy", fields: [triggeredById], references: [id], onDelete: Cascade)
 }

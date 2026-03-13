@@ -7,6 +7,8 @@
 
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
 
+  type PlagiarismStatus = "idle" | "triggering" | "pending" | "running" | "completed" | "failed";
+
   interface Props {
     assessments: CourseAssessmentRecord[];
     courseSlug: string;
@@ -64,6 +66,95 @@
   if (!$form.closesAt) $form.closesAt = defaultWindow.closesAt;
   if (!$form.problemSlugsText) $form.problemSlugsText = initialProblemSlugs.join(", ");
   if (!$form.type) $form.type = "assignment";
+
+  // Plagiarism check state per assessment
+  let plagiarismStates: Record<string, PlagiarismStatus> = $state({});
+  let activePollIntervals = new Map<string, ReturnType<typeof setInterval>>();
+
+  function isCheckInProgress(assessmentId: string): boolean {
+    const s = plagiarismStates[assessmentId];
+    return s === "triggering" || s === "pending" || s === "running";
+  }
+
+  function clearPollInterval(assessmentId: string) {
+    const id = activePollIntervals.get(assessmentId);
+    if (id) {
+      clearInterval(id);
+      activePollIntervals.delete(assessmentId);
+    }
+  }
+
+  function clearAllPolling() {
+    for (const id of activePollIntervals.values()) clearInterval(id);
+    activePollIntervals.clear();
+  }
+
+  $effect(() => {
+    // Pause polling when tab is hidden, resume when visible
+    function onVisibilityChange() {
+      if (document.hidden) {
+        clearAllPolling();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      clearAllPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  });
+
+  async function triggerPlagiarismCheck(assessmentId: string) {
+    clearPollInterval(assessmentId);
+    plagiarismStates[assessmentId] = "triggering";
+
+    try {
+      const res = await fetch(`/api/plagiarism/${assessmentId}`, { method: "POST" });
+      if (!res.ok) {
+        plagiarismStates[assessmentId] = "failed";
+        return;
+      }
+      plagiarismStates[assessmentId] = "pending";
+
+      let pollCount = 0;
+      const maxPolls = 200; // ~10 min at 3s intervals
+      const pollInterval = setInterval(async () => {
+        if (++pollCount > maxPolls) {
+          clearPollInterval(assessmentId);
+          plagiarismStates[assessmentId] = "failed";
+          return;
+        }
+        try {
+          const pollRes = await fetch(`/api/plagiarism/${assessmentId}`);
+          if (!pollRes.ok) return;
+
+          const { reports } = await pollRes.json();
+          const latest = reports?.[0];
+          if (!latest) return;
+
+          plagiarismStates[assessmentId] = latest.status;
+          if (latest.status === "completed" || latest.status === "failed") {
+            clearPollInterval(assessmentId);
+          }
+        } catch (err) {
+          console.warn(`Plagiarism poll failed for ${assessmentId}:`, err);
+        }
+      }, 3000);
+      activePollIntervals.set(assessmentId, pollInterval);
+    } catch {
+      plagiarismStates[assessmentId] = "failed";
+    }
+  }
+
+  function plagiarismLabel(status: PlagiarismStatus): string {
+    switch (status) {
+      case "triggering": return "Starting...";
+      case "pending": return "Pending...";
+      case "running": return "Running...";
+      case "completed": return "Completed";
+      case "failed": return "Failed";
+      default: return "Run Plagiarism Check";
+    }
+  }
 </script>
 
 <div class="space-y-6">
@@ -101,9 +192,28 @@
               {assessment.problemSlugs.length} problems
             </span>
           </div>
-          <p class="mt-3 text-sm text-muted-foreground">
-            {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
-          </p>
+          <div class="mt-3 flex items-center justify-between gap-4">
+            <p class="text-sm text-muted-foreground">
+              {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
+            </p>
+            <div class="flex items-center gap-2">
+              <button
+                class="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)] disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isCheckInProgress(assessment.id)}
+                onclick={() => triggerPlagiarismCheck(assessment.id)}
+              >
+                {plagiarismLabel(plagiarismStates[assessment.id] ?? "idle")}
+              </button>
+              {#if plagiarismStates[assessment.id] === "completed"}
+                <a
+                  href="/courses/{courseSlug}/manage/plagiarism/{assessment.slug}"
+                  class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white transition hover:-translate-y-0.5"
+                >
+                  View Results
+                </a>
+              {/if}
+            </div>
+          </div>
         </article>
       {/each}
     </div>

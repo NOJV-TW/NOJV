@@ -6,7 +6,7 @@ import { ForbiddenError } from "../auth";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssessment } from "../course/mutations";
 import { requireProblem } from "../problem/mutations";
-import { ensureContestParticipation } from "../contest/mutations";
+import { checkSubmitCooldown, ensureContestParticipation } from "../contest/mutations";
 
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
@@ -46,9 +46,21 @@ export async function createQueuedSubmissionRecord(
 
   return prisma.$transaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
-    const contestParticipation = payload.contestSlug
+    const contestResult = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug)
       : null;
+    const contestParticipation = contestResult?.participation ?? null;
+
+    // Enforce submit cooldown for contest submissions (not sampleOnly runs)
+    if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
+      await checkSubmitCooldown(
+        tx,
+        contestResult.contest.id,
+        user.id,
+        problem.id,
+        contestResult.contest.submitCooldownSec
+      );
+    }
 
     // Enforce attempt limit for assignment/exam submissions (not sampleOnly runs)
     if (courseContext?.assessment && !payload.sampleOnly) {
