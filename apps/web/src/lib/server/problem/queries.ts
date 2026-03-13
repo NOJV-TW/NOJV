@@ -1,6 +1,12 @@
 import { prisma } from "@nojv/db";
+import {
+  judgeTypeSchema,
+  problemDifficultySchema,
+  submissionTypeSchema,
+  type ProblemVisibility
+} from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 import { starterByLanguage, type ProblemDetail, type TemplateInfo } from "$lib/types";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
@@ -108,7 +114,7 @@ function mapPersistedProblemDetail(
       }[];
     }[];
     timeLimitMs?: number;
-    visibility: "private" | "public";
+    visibility: ProblemVisibility;
   },
   locale: string,
   totalSubmissions: number,
@@ -121,19 +127,19 @@ function mapPersistedProblemDetail(
     problem.summary
   );
 
-  const submissionType = (problem.submissionType ?? "full_source") as
-    | "full_source"
-    | "function";
+  const submissionType = submissionTypeSchema
+    .catch("full_source")
+    .parse(problem.submissionType);
   const problemTemplates = problem.templates ?? [];
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorHandle: problem.author?.handle ?? "course_staff",
     ...(problem.checkerScript ? { checkerScript: problem.checkerScript } : {}),
-    difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
     ...(problem.interactorScript ? { interactorScript: problem.interactorScript } : {}),
     inputFormat: localized.inputFormat,
-    judgeType: (problem.judgeType ?? "standard") as "checker" | "interactive" | "standard",
+    judgeType: judgeTypeSchema.catch("standard").parse(problem.judgeType),
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
@@ -185,7 +191,7 @@ export async function listProblemCards() {
     const accepted = acceptedByProblemId.get(problem.id) ?? 0;
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
-      difficulty: problem.difficulty as "easy" | "hard" | "medium",
+      difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
       slug: problem.slug,
       tags: problem.tags,
       title: problem.defaultTitle,
@@ -222,7 +228,7 @@ export async function listEditableProblems(userId: string) {
   });
 
   return problems.map((problem) => ({
-    difficulty: problem.difficulty as "easy" | "hard" | "medium",
+    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
     slug: problem.slug,
     tags: problem.tags,
     title: problem.defaultTitle,
@@ -285,4 +291,14 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
     persistedProblem._count.submissions,
     acceptedCount
   );
+}
+
+export async function listSolvedProblemSlugs(userId: string): Promise<string[]> {
+  const rows = await prisma.submission.findMany({
+    distinct: ["problemId"],
+    select: { problem: { select: { slug: true } } },
+    where: { userId, status: "accepted", sampleOnly: false }
+  });
+
+  return rows.map((r) => r.problem.slug);
 }

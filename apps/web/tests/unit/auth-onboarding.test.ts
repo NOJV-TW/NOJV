@@ -1,83 +1,34 @@
 import { describe, expect, it } from "vitest";
+import { sessionUserSchema } from "@nojv/core";
 
-import {
-  hasActorHandle,
-  hasCompletedHandle,
-  isValidHandle,
-  readHandleFromAuthUser,
-  readPlatformRole,
-  readStringValue
-} from "$lib/server/auth";
+import { hasActorHandle } from "$lib/server/auth";
+import { isValidHandle } from "$lib/utils";
 
-describe("readStringValue", () => {
-  it("returns the string when value is a string", () => {
-    expect(readStringValue("hello")).toBe("hello");
+/** Helper to build a minimal valid session-user-like object. */
+function fakeUser(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "u1",
+    email: "test@example.com",
+    name: "Test",
+    handle: null,
+    platformRole: "student",
+    ...overrides
+  };
+}
+
+describe("sessionUserSchema", () => {
+  it("parses a valid user object with handle", () => {
+    const result = sessionUserSchema.safeParse(fakeUser({ handle: "alice" }));
+    expect(result.success && result.data.handle).toBe("alice");
   });
 
-  it("returns undefined for numbers", () => {
-    expect(readStringValue(42)).toBeUndefined();
+  it("parses null handle", () => {
+    const result = sessionUserSchema.safeParse(fakeUser({ handle: null }));
+    expect(result.success && result.data.handle).toBeNull();
   });
 
-  it("returns undefined for null", () => {
-    expect(readStringValue(null)).toBeUndefined();
-  });
-
-  it("returns undefined for undefined", () => {
-    expect(readStringValue(undefined)).toBeUndefined();
-  });
-
-  it("returns empty string for empty string", () => {
-    expect(readStringValue("")).toBe("");
-  });
-});
-
-describe("readHandleFromAuthUser", () => {
-  it("reads the username field as handle", () => {
-    expect(readHandleFromAuthUser({ username: "alice" })).toBe("alice");
-  });
-
-  it("returns null for empty username", () => {
-    expect(readHandleFromAuthUser({ username: "" })).toBeNull();
-  });
-
-  it("returns null when username is missing", () => {
-    expect(readHandleFromAuthUser({})).toBeNull();
-  });
-
-  it("returns null when username is not a string", () => {
-    expect(readHandleFromAuthUser({ username: 123 })).toBeNull();
-  });
-});
-
-describe("readPlatformRole", () => {
-  it("reads platformRole from user object", () => {
-    expect(readPlatformRole({ platformRole: "teacher" })).toBe("teacher");
-  });
-
-  it("defaults to student when platformRole is missing", () => {
-    expect(readPlatformRole({})).toBe("student");
-  });
-
-  it("defaults to student for null input", () => {
-    expect(readPlatformRole(null)).toBe("student");
-  });
-
-  it("defaults to student for undefined input", () => {
-    expect(readPlatformRole(undefined)).toBe("student");
-  });
-});
-
-describe("hasCompletedHandle", () => {
-  it("returns true when user has a non-empty username", () => {
-    expect(hasCompletedHandle({ username: "alice" })).toBe(true);
-  });
-
-  it("returns false when username is empty", () => {
-    expect(hasCompletedHandle({ username: "" })).toBe(false);
-  });
-
-  it("returns false when username is missing", () => {
-    expect(hasCompletedHandle({})).toBe(false);
+  it("rejects invalid input", () => {
+    expect(sessionUserSchema.safeParse({}).success).toBe(false);
   });
 });
 

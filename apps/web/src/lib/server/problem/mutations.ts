@@ -1,12 +1,16 @@
 import { prisma, type TransactionClient } from "@nojv/db";
 import type {
+  JudgeType,
   Language,
   ProblemCreate,
+  ProblemDifficulty,
   ProblemTestcaseSetCreate,
-  ProblemUpdate
+  ProblemUpdate,
+  ProblemVisibility,
+  SubmissionType
 } from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 import type { CompletedActorContext } from "../auth";
 import { ConflictError, ForbiddenError, NotFoundError } from "../auth";
 import { ensureUser } from "../user/mutations";
@@ -14,19 +18,19 @@ import { ensureUser } from "../user/mutations";
 export interface CreateProblemDefinitionInput {
   authorId?: string;
   checkerScript?: string | undefined;
-  difficulty: "easy" | "hard" | "medium";
+  difficulty: ProblemDifficulty;
   inputFormat?: string;
   interactorScript?: string | undefined;
-  judgeType?: "checker" | "interactive" | "standard";
+  judgeType?: JudgeType;
   memoryLimitMb?: number;
   outputFormat?: string;
   statement?: string;
-  submissionType?: "full_source" | "function";
+  submissionType?: SubmissionType;
   summary: string;
   tags?: string[];
   timeLimitMs?: number;
   title: string;
-  visibility?: "private" | "public";
+  visibility?: ProblemVisibility;
 }
 
 // --- Shared problem helpers ---
@@ -106,7 +110,7 @@ export async function replaceTemplates(
   templates: {
     driverCode: string;
     insertionMarker: string;
-    language: string;
+    language: Language;
     templateCode: string;
   }[]
 ) {
@@ -120,11 +124,20 @@ export async function replaceTemplates(
       data: templates.map((tpl) => ({
         driverCode: tpl.driverCode,
         insertionMarker: tpl.insertionMarker,
-        language: tpl.language as Language,
+        language: tpl.language,
         problemId,
         templateCode: tpl.templateCode
       }))
     });
+  }
+}
+
+function assertProblemOwnership(
+  problem: { authorId: string | null },
+  actor: CompletedActorContext
+) {
+  if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
+    throw new ForbiddenError("Only the author or an admin can modify this problem.");
   }
 }
 
@@ -134,16 +147,13 @@ export async function updateProblemTemplates(
   templates: {
     driverCode: string;
     insertionMarker: string;
-    language: string;
+    language: Language;
     templateCode: string;
   }[]
 ) {
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
-
-    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError("Only the author or an admin can update templates.");
-    }
+    assertProblemOwnership(problem, actor);
 
     await replaceTemplates(tx, problem.id, templates);
 
@@ -212,9 +222,7 @@ export async function updateProblemRecord(
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
 
-    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError("Only the author or an admin can update this problem.");
-    }
+    assertProblemOwnership(problem, actor);
 
     // Build the problem update data — only include fields that were provided
     const updateData: Record<string, unknown> = {};
@@ -283,11 +291,7 @@ export async function createProblemTestcaseSetRecord(
   return prisma.$transaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
 
-    if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
-      throw new ForbiddenError(
-        "Problem testcases can only be managed by the author or an admin."
-      );
-    }
+    assertProblemOwnership(problem, actor);
 
     const testcaseSet = await tx.testcaseSet.create({
       data: {

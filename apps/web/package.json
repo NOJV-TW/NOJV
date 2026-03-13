@@ -30,6 +30,7 @@
     "jszip": "^3.10.1",
     "katex": "^0.16.38",
     "marked": "^17.0.4",
+    "marked-katex-extension": "^5.1.7",
     "monaco-editor": "^0.52.2",
     "qrcode": "^1.5.4",
     "rate-limiter-flexible": "^9.1.1",

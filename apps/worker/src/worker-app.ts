@@ -16,10 +16,7 @@ import { createExecutor } from "./services/executor-factory";
 
 const logger = createLogger("worker");
 
-async function mountBullBoard(
-  _app: ReturnType<typeof createWorkerHealthServer>,
-  queues: Queue[]
-): Promise<void> {
+async function mountBullBoard(queues: Queue[]): Promise<void> {
   const serverAdapter = new ExpressAdapter();
   serverAdapter.setBasePath("/admin/queues");
 
@@ -108,7 +105,7 @@ export class WorkerApp {
     });
 
     if (this.env.NODE_ENV === "development") {
-      await mountBullBoard(this.healthServer, this.readOnlyQueues);
+      await mountBullBoard(this.readOnlyQueues);
     }
 
     logger.info("worker started", {

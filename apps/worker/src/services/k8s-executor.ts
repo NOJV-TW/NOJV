@@ -94,6 +94,9 @@ export class K8sExecutor implements SandboxExecutor {
       ...(request.template ? { template: request.template } : {}),
       ...(request.judgeConfig.checkerLanguage
         ? { checkerLanguage: request.judgeConfig.checkerLanguage }
+        : {}),
+      ...(request.judgeConfig.interactorLanguage
+        ? { interactorLanguage: request.judgeConfig.interactorLanguage }
         : {})
     });
 
@@ -114,13 +117,13 @@ export class K8sExecutor implements SandboxExecutor {
 
     if (request.judgeConfig.interactorScript) {
       const interactorExt =
-        request.judgeConfig.checkerLanguage === "cpp"
+        request.judgeConfig.interactorLanguage === "cpp"
           ? "cpp"
-          : request.judgeConfig.checkerLanguage === "c"
+          : request.judgeConfig.interactorLanguage === "c"
             ? "c"
-            : request.judgeConfig.checkerLanguage === "go"
+            : request.judgeConfig.interactorLanguage === "go"
               ? "go"
-              : request.judgeConfig.checkerLanguage === "rust"
+              : request.judgeConfig.interactorLanguage === "rust"
                 ? "rs"
                 : "py";
       data[`interactor.${interactorExt}`] = request.judgeConfig.interactorScript;

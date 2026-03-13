@@ -35,7 +35,7 @@ export const load: PageServerLoad = async ({ params, parent, url }) => {
 
 export const actions = {
   join: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const slug = event.params.slug;
 
     const form = await superValidate(event, zod4(joinFormSchema));

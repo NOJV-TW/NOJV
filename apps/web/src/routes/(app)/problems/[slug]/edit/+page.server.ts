@@ -55,7 +55,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 export const actions: Actions = {
   update: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const slug = event.params.slug;
     const form = await superValidate(event, zod4(problemUpdateSchema));
     if (!form.valid) return fail(400, { form });
@@ -65,7 +65,7 @@ export const actions: Actions = {
   },
 
   updateTemplates: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const slug = event.params.slug;
     const formData = await event.request.formData();
     const raw = formData.get("data");
@@ -77,7 +77,7 @@ export const actions: Actions = {
   },
 
   createTestcaseSet: async (event) => {
-    const actor = await requireAuth(event);
+    const actor = requireAuth(event);
     const slug = event.params.slug;
     const formData = await event.request.formData();
     const raw = formData.get("data");

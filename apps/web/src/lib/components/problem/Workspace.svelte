@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import type { SubmissionResult } from "@nojv/core";
+  import type { CourseAssessmentType, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
+  import SubtaskResults from "./SubtaskResults.svelte";
 
   const difficultyColor: Record<string, string> = {
     easy: "bg-emerald-500/15 text-emerald-700",
@@ -25,9 +27,10 @@
   };
 
   interface SubmissionEntry {
+    id?: string;
     language: string;
     result: SubmissionResult;
-    sourceCode: string;
+    sourceCode?: string;
     submittedAt: string;
   }
 
@@ -35,18 +38,45 @@
     assessment?: {
       assessmentSlug: string;
       courseSlug: string;
-      kind: "assignment" | "exam";
+      kind: CourseAssessmentType;
     } | undefined;
-    backLink?: { href: string; label: string } | undefined;
+    backLink?: { href: string; type: CourseAssessmentType } | undefined;
     contestSlug?: string | undefined;
+    initialSubmissions?: SubmissionEntry[];
     problem: ProblemDetail;
   }
 
-  let { assessment, backLink, contestSlug, problem }: Props = $props();
+  let { assessment, backLink, contestSlug, initialSubmissions, problem }: Props = $props();
 
   let leftTab = $state<"description" | "submissions">("description");
-  let submissions = $state<SubmissionEntry[]>([]);
+  let submissions = $state<SubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
   let viewingIndex = $state<number | null>(null);
+  let loadingSourceId = $state<string | null>(null);
+
+  $effect(() => {
+    const idx = viewingIndex;
+    if (idx === null) return;
+
+    const entry = submissions[idx];
+    if (!entry || entry.sourceCode !== undefined || !entry.id) return;
+
+    const entryId = entry.id;
+    loadingSourceId = entryId;
+    fetch(`/api/submissions/${entryId}/source`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load source code.");
+        return res.json();
+      })
+      .then((data: { sourceCode: string }) => {
+        submissions[idx] = { ...submissions[idx]!, sourceCode: data.sourceCode };
+      })
+      .catch(() => {
+        submissions[idx] = { ...submissions[idx]!, sourceCode: "// Failed to load source code." };
+      })
+      .finally(() => {
+        if (loadingSourceId === entryId) loadingSourceId = null;
+      });
+  });
 
   function handleSubmissionComplete(
     result: SubmissionResult,
@@ -61,7 +91,7 @@
         submittedAt: new Date().toISOString()
       },
       ...submissions
-    ];
+    ].slice(0, 50);
     leftTab = "submissions";
     viewingIndex = 0;
   }
@@ -69,21 +99,21 @@
 
 <!-- Left panel -->
 <div
-  class="flex w-full shrink-0 flex-col overflow-hidden bg-white lg:w-[42%] lg:border-r lg:border-[color:var(--color-border)]"
+  class="flex w-full shrink-0 flex-col overflow-hidden bg-white lg:w-[42%] lg:border-r lg:border-border"
 >
   <!-- Tab bar -->
-  <div class="flex items-center border-b border-[color:var(--color-border)] px-2">
+  <div class="flex items-center border-b border-border px-2">
     {#if backLink}
       <a
         class="px-3 py-2.5 text-xs text-stone-400 transition hover:text-stone-600"
         href={backLink.href}
       >
-        &larr; {backLink.label}
+        &larr; {backLink.type === 'exam' ? m.problemDetail_backToExam() : m.problemDetail_backToAssignment()}
       </a>
     {/if}
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'description'
-        ? 'border-b-2 border-[color:var(--color-accent)] text-[color:var(--color-ink)]'
+        ? 'border-b-2 border-primary text-foreground'
         : 'text-stone-400 hover:text-stone-600'}"
       onclick={() => (leftTab = "description")}
       type="button"
@@ -92,7 +122,7 @@
     </button>
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'submissions'
-        ? 'border-b-2 border-[color:var(--color-accent)] text-[color:var(--color-ink)]'
+        ? 'border-b-2 border-primary text-foreground'
         : 'text-stone-400 hover:text-stone-600'}"
       onclick={() => (leftTab = "submissions")}
       type="button"
@@ -223,7 +253,14 @@
               <span>{new Date(entry.submittedAt).toLocaleTimeString()}</span>
             </div>
 
-            {#if entry.result.caseResults && entry.result.caseResults.length > 0}
+            {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
+              <div class="mt-4">
+                <SubtaskResults
+                  subtaskResults={entry.result.subtaskResults}
+                  totalScore={entry.result.score}
+                />
+              </div>
+            {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
               <div class="mt-4 flex flex-wrap items-center gap-1">
                 {#each entry.result.caseResults as cr, i (`cr-${i}`)}
                   <span
@@ -243,16 +280,23 @@
 
             <div class="mt-5">
               <p class="text-xs font-medium text-stone-400">{m.editor_code()}</p>
-              <pre
-                class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">{entry.sourceCode}</pre>
+              {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
+                <div class="mt-2 flex items-center gap-2 rounded-lg bg-stone-50 px-4 py-3">
+                  <div
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600"
+                  ></div>
+                  <span class="text-xs text-stone-400">{m.problemDetail_loadingSource()}</span>
+                </div>
+              {:else}
+                <pre
+                  class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">{entry.sourceCode ?? ""}</pre>
+              {/if}
             </div>
           </div>
         {:else}
           <div class="grid gap-3">
             {#each submissions as entry, index (`sub-${index}`)}
-              {@const label = entry.result.verdict
-                .replace(/_/g, " ")
-                .replace(/\b\w/g, (char) => char.toUpperCase())}
+              {@const label = formatVerdictLabel(entry.result.verdict)}
               <button
                 class="rounded-lg border border-stone-200 px-4 py-3 text-left transition hover:border-stone-300 hover:bg-stone-50"
                 onclick={() => (viewingIndex = index)}

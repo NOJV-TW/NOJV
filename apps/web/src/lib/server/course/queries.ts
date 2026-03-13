@@ -1,14 +1,16 @@
 import { error } from "@sveltejs/kit";
 import { prisma } from "@nojv/db";
 import type {
+  AssessmentScoreboardMode,
   CourseAssessmentType,
   CourseJoinMethod,
   CourseRole,
   LocaleCode,
-  PlatformRole
+  PlatformRole,
+  ProblemVisibility
 } from "@nojv/core";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 import {
   deriveAssessmentPresentation,
   deriveAssessmentWindowState,
@@ -31,9 +33,10 @@ export interface CourseMemberRecord {
 export interface CourseAssessmentRecord {
   closesAt: string;
   dueAt: string;
+  id: string;
   opensAt: string;
   problemSlugs: string[];
-  scoreboardMode: "frozen" | "hidden" | "live";
+  scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
   title: string;
@@ -45,7 +48,7 @@ export interface CourseProblemCatalogEntry {
   slug: string;
   summary: string;
   title: string;
-  visibility: "private" | "public";
+  visibility: ProblemVisibility;
 }
 
 export interface CoursePageData {
@@ -81,7 +84,7 @@ function mapProblemShelfEntry(problem: {
     title: string;
   }[];
   summary: string;
-  visibility: "private" | "public";
+  visibility: ProblemVisibility;
 }) {
   const localized = pickProblemStatement(
     problem.statements,
@@ -102,19 +105,21 @@ function mapProblemShelfEntry(problem: {
 function mapAssessmentRecord(assessment: {
   closesAt: Date;
   dueAt: Date;
+  id: string;
   opensAt: Date;
   problems: { ordinal: number; problem: { slug: string } }[];
-  scoreboardMode: "frozen" | "hidden" | "live";
+  scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
   title: string;
-  type: "assignment" | "exam";
+  type: CourseAssessmentType;
 }) {
   const linkedProblems = assessment.problems;
 
   return {
     closesAt: assessment.closesAt.toISOString(),
     dueAt: assessment.dueAt.toISOString(),
+    id: assessment.id,
     opensAt: assessment.opensAt.toISOString(),
     problemSlugs: [...linkedProblems]
       .sort((left, right) => left.ordinal - right.ordinal)
@@ -153,13 +158,14 @@ function mapPersistedCourse(course: {
   assessments: {
     closesAt: Date;
     dueAt: Date;
+    id: string;
     opensAt: Date;
     problems: { ordinal: number; problem: { slug: string } }[];
-    scoreboardMode: "frozen" | "hidden" | "live";
+    scoreboardMode: AssessmentScoreboardMode;
     slug: string;
     summary: string;
     title: string;
-    type: "assignment" | "exam";
+    type: CourseAssessmentType;
   }[];
   description: string;
   joinTokens: {
@@ -191,7 +197,7 @@ function mapPersistedCourse(course: {
         title: string;
       }[];
       summary: string;
-      visibility: "private" | "public";
+      visibility: ProblemVisibility;
     };
   }[];
   slug: string;
@@ -222,30 +228,7 @@ function mapPersistedCourse(course: {
 
 // ─── Public query functions ──────────────────────────────────────────
 
-export async function listCourseCards() {
-  const persistedCourses = await prisma.course.findMany({
-    include: {
-      _count: {
-        select: {
-          assessments: { where: { status: "published" } },
-          memberships: { where: { status: "active" } }
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
-
-  return persistedCourses.map((course) => ({
-    assessmentCount: course._count.assessments,
-    memberCount: course._count.memberships,
-    slug: course.slug,
-    title: course.title
-  }));
-}
-
-export async function listUserCourseCards(userId: string) {
+export async function listCourseCards(userId?: string) {
   const persistedCourses = await prisma.course.findMany({
     include: {
       _count: {
@@ -258,11 +241,15 @@ export async function listUserCourseCards(userId: string) {
     orderBy: {
       createdAt: "desc"
     },
-    where: {
-      memberships: {
-        some: { userId, status: "active" }
-      }
-    }
+    ...(userId
+      ? {
+          where: {
+            memberships: {
+              some: { userId, status: "active" }
+            }
+          }
+        }
+      : {})
   });
 
   return persistedCourses.map((course) => ({
@@ -467,6 +454,25 @@ export function createAssessmentDetailLoader(type: CourseAssessmentType) {
 
 // ─── Assessment list loader ──────────────────────────────────────────
 
+export async function getAssessmentContext(courseSlug: string, assessmentSlug: string) {
+  const assessment = await prisma.courseAssessment.findFirst({
+    select: {
+      course: { select: { slug: true } },
+      slug: true,
+      type: true
+    },
+    where: {
+      course: { slug: courseSlug },
+      slug: assessmentSlug,
+      status: "published"
+    }
+  });
+
+  return assessment
+    ? { courseSlug: assessment.course.slug, slug: assessment.slug, type: assessment.type }
+    : null;
+}
+
 export function createAssessmentListLoader(type: CourseAssessmentType) {
   return async ({ locals }: { locals: App.Locals }) => {
     const userId = locals.user?.id ?? null;
@@ -494,4 +500,27 @@ export function createAssessmentListLoader(type: CourseAssessmentType) {
       })
     };
   };
+}
+
+export async function getActiveExamForUser(userId: string) {
+  const now = new Date();
+
+  return prisma.courseAssessment.findFirst({
+    where: {
+      type: "exam",
+      status: "published",
+      pageLockEnabled: true,
+      opensAt: { lte: now },
+      closesAt: { gte: now },
+      course: {
+        memberships: {
+          some: { userId, status: "active" }
+        }
+      }
+    },
+    select: {
+      slug: true,
+      course: { select: { slug: true } }
+    }
+  });
 }

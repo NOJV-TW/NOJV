@@ -1,6 +1,6 @@
 import { type TransactionClient } from "@nojv/db";
 
-import { DEFAULT_LOCALE } from "$lib/locale";
+import { DEFAULT_LOCALE } from "$lib/utils";
 
 // --- Shared helpers ---
 
@@ -12,7 +12,7 @@ export interface EnsureUserInput {
   platformRole?: "admin" | "student" | "teacher";
 }
 
-export function sanitizeIdentitySegment(value: string) {
+function sanitizeIdentitySegment(value: string) {
   const normalized = value
     .toLowerCase()
     .replaceAll(/[^a-z0-9._-]/g, "-")
@@ -22,11 +22,11 @@ export function sanitizeIdentitySegment(value: string) {
   return normalized.length > 0 ? normalized : "local-user";
 }
 
-export function createLocalEmail(userId: string) {
+function createLocalEmail(userId: string) {
   return `${sanitizeIdentitySegment(userId)}@local.nojv.dev`;
 }
 
-export function createLocalDisplayName(userId: string) {
+function createLocalDisplayName(userId: string) {
   return `Local ${userId.replaceAll(/[_-]+/g, " ")}`;
 }
 

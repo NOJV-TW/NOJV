@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
-  import { readPlatformRole } from "$lib/validation";
+  import { actionErrorSchema } from "@nojv/core";
   import { superForm } from "sveltekit-superforms";
 
   interface Props {
@@ -17,15 +18,16 @@
 
   let error = $state<string | null>(null);
 
-  let user = $derived($page.data.user as { name: string } | null);
-  let platformRole = $derived(readPlatformRole(user));
+  let user = $derived($page.data.user);
+  let platformRole = $derived(user?.platformRole ?? "student");
 
-  const { enhance, submitting } = superForm(form, {
+  const { enhance, submitting } = superForm(untrack(() => form), {
     onResult({ result }) {
       if (result.type === "success" || result.type === "redirect") {
         goto(`/courses/${courseSlug}`);
       } else if (result.type === "failure") {
-        error = (result.data as any)?.error ?? m.courseJoin_joinFailed();
+        const parsed = actionErrorSchema.safeParse(result.data);
+        error = parsed.success ? parsed.data.error : m.courseJoin_joinFailed();
       } else if (result.type === "error") {
         error = result.error?.message ?? m.courseJoin_joinFailed();
       }
@@ -46,23 +48,23 @@
 </script>
 
 <section
-  class="rounded-[2rem] border border-[color:var(--color-border)] bg-gradient-to-br from-white/90 to-stone-50/80 px-6 py-8 sm:px-8"
+  class="rounded-[2rem] border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 backdrop-blur-sm sm:px-8"
 >
-  <p class="text-sm uppercase tracking-[0.18em] text-[color:var(--color-muted)]">
+  <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
     {m.courseJoin_heading()}
   </p>
   <h2 class="mt-2 font-[family-name:var(--font-display)] text-4xl">{courseTitle}</h2>
-  <p class="mt-4 max-w-2xl text-base leading-7 text-[color:var(--color-muted)]">
+  <p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
     {m.courseJoin_description({ name: user?.name ?? "" })}
   </p>
   <div class="mt-6 flex flex-wrap items-center gap-3">
     <span
-      class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+      class="rounded-full border border-border px-3 py-1 text-xs font-medium"
     >
       {joinMethod ? joinMethod.replaceAll("_", " ") : "missing join method"}
     </span>
     <span
-      class="rounded-full border border-[color:var(--color-border)] px-3 py-1 text-xs font-medium"
+      class="rounded-full border border-border px-3 py-1 text-xs font-medium"
     >
       {platformRole}
     </span>
@@ -79,14 +81,14 @@
     <input type="hidden" name="joinToken" value={joinToken ?? ""} />
     <div class="mt-6 flex flex-wrap gap-3">
       <button
-        class="rounded-full bg-[color:var(--color-accent)] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >
         {$submitting ? m.common_joining() : m.courseJoin_joinButton()}
       </button>
       <a
-        class="rounded-full border border-[color:var(--color-border)] px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white/70"
+        class="rounded-full border border-border px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
         href="/courses/{courseSlug}"
       >
         {m.courseJoin_backToCourse()}
@@ -94,7 +96,7 @@
     </div>
   </form>
   {#if joinToken}
-    <p class="mt-4 text-sm text-[color:var(--color-muted)]">
+    <p class="mt-4 text-sm text-muted-foreground">
       {m.courseJoin_token()}: {joinToken}
     </p>
   {/if}

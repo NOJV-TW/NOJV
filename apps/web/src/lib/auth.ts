@@ -32,6 +32,7 @@ export const auth = betterAuth({
   },
   user: {
     additionalFields: {
+      disabled: { type: "boolean", defaultValue: false },
       platformRole: { type: "string", defaultValue: "student" },
       locale: { type: "string", defaultValue: "zh-TW" }
     }

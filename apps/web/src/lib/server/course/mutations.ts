@@ -1,7 +1,6 @@
 import { prisma, type TransactionClient } from "@nojv/db";
 import type {
   CourseAssessmentCreate,
-  CourseAssessmentType,
   CourseCreate,
   CourseJoinRequest,
   CourseProblemAttach,
@@ -54,18 +53,6 @@ export async function requireCourseAssessment(
   };
 }
 
-function buildJoinCode(slug: string) {
-  return slug.replaceAll(/-/g, "").toUpperCase().slice(0, 10);
-}
-
-function buildQrToken(slug: string) {
-  return `${slug}-qr`;
-}
-
-function defaultScoreboardMode(type: CourseAssessmentType) {
-  return type === "exam" ? "live" : "hidden";
-}
-
 // --- Course mutations ---
 
 export async function createCourseRecord(actor: CompletedActorContext, payload: CourseCreate) {
@@ -104,8 +91,8 @@ export async function createCourseRecord(actor: CompletedActorContext, payload: 
       }
     });
 
-    const joinCode = buildJoinCode(payload.slug);
-    const qrToken = buildQrToken(payload.slug);
+    const joinCode = payload.slug.replaceAll(/-/g, "").toUpperCase().slice(0, 10);
+    const qrToken = `${payload.slug}-qr`;
 
     const joinTokens = await Promise.all([
       tx.courseJoinToken.create({
@@ -314,7 +301,7 @@ export async function createCourseAssessmentRecord(
         ipLockEnabled: payload.ipLockEnabled,
         opensAt: new Date(payload.opensAt),
         pageLockEnabled: payload.pageLockEnabled,
-        scoreboardMode: payload.scoreboardMode ?? defaultScoreboardMode(payload.type),
+        scoreboardMode: payload.scoreboardMode ?? (payload.type === "exam" ? "live" : "hidden"),
         slug: payload.slug,
         status: "published",
         summary: payload.summary,

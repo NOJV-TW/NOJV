@@ -1,6 +1,9 @@
+import { z } from "zod";
 import { prisma } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
+
+const verificationDataSchema = z.object({ handle: z.string().min(1) });
 
 export const load: PageServerLoad = async ({ url }) => {
   const token = url.searchParams.get("token");
@@ -19,7 +22,14 @@ export const load: PageServerLoad = async ({ url }) => {
     return { status: "error" as const, detail: "驗證連結已過期或無效" };
   }
 
-  const data = JSON.parse(record.value) as { handle: string };
+  const parsed = verificationDataSchema.safeParse(JSON.parse(record.value));
+
+  if (!parsed.success) {
+    await prisma.verification.delete({ where: { id: token } });
+    return { status: "error" as const, detail: "驗證資料格式錯誤" };
+  }
+
+  const data = parsed.data;
 
   // Check handle not taken by someone else
   const existing = await prisma.user.findUnique({ where: { handle: data.handle } });

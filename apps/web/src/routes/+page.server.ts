@@ -1,0 +1,35 @@
+import type { PageServerLoad } from "./$types";
+
+import { listAnnouncements, listUpcomingAssessments } from "$lib/server/course/queries";
+import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
+
+export const load: PageServerLoad = async (event) => {
+  const user = event.locals.user;
+
+  if (!user) {
+    const announcements = await listAnnouncements();
+    return { announcements, assessments: [] };
+  }
+
+  const now = new Date().toISOString();
+  const [announcements, rawAssessments] = await Promise.all([
+    listAnnouncements(),
+    listUpcomingAssessments(user.id)
+  ]);
+
+  const assessments = rawAssessments.map((a) => {
+    const windowState = deriveAssessmentWindowState({
+      closesAt: a.closesAt,
+      dueAt: a.dueAt,
+      now,
+      opensAt: a.opensAt
+    });
+    return {
+      ...a,
+      windowState,
+      windowStateColor: windowStateColorClass(windowState)
+    };
+  });
+
+  return { announcements, assessments };
+};

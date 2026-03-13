@@ -2,7 +2,6 @@ import { z } from "zod";
 import { languageSchema, judgeTypeSchema, submissionTypeSchema } from "@nojv/core";
 
 export type {
-  SandboxConfig,
   SandboxResult,
   SandboxTestcase,
   SandboxTestcaseResult,

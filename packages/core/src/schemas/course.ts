@@ -85,19 +85,8 @@ export const courseAssessmentCreateSchema = z
     }
   });
 
-export const courseAssessmentSummarySchema = z.object({
-  closesAt: isoDateTimeSchema,
-  dueAt: isoDateTimeSchema,
-  opensAt: isoDateTimeSchema,
-  scoreboardMode: assessmentScoreboardModeSchema,
-  slug: slugSchema,
-  title: z.string().min(1),
-  type: courseAssessmentTypeSchema
-});
-
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
-export type CourseAssessmentSummary = z.infer<typeof courseAssessmentSummarySchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
 export type CourseJoinRequest = z.infer<typeof courseJoinRequestSchema>;
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
