@@ -92,7 +92,9 @@ export async function submitToMoss(
           for (const file of files) {
             fileIndex++;
             const size = Buffer.byteLength(file.content, "utf8");
-            socket.write(`file ${String(fileIndex)} ${language} ${String(size)} ${file.displayName}\n`);
+            socket.write(
+              `file ${String(fileIndex)} ${language} ${String(size)} ${file.displayName}\n`
+            );
             socket.write(file.content);
           }
 
