@@ -82,7 +82,7 @@ function buildStarterByLanguage(
 
 function mapPersistedProblemDetail(
   problem: {
-    author?: { handle: string | null } | null;
+    author?: { username: string | null } | null;
     checkerScript?: string | null;
     defaultTitle: string;
     difficulty: string;
@@ -134,7 +134,7 @@ function mapPersistedProblemDetail(
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
-    authorHandle: problem.author?.handle ?? "course_staff",
+    authorUsername: problem.author?.username ?? "course_staff",
     ...(problem.checkerScript ? { checkerScript: problem.checkerScript } : {}),
     difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
     ...(problem.interactorScript ? { interactorScript: problem.interactorScript } : {}),
@@ -246,7 +246,7 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
       },
       author: {
         select: {
-          handle: true
+          username: true
         }
       },
       statements: true,

@@ -17,7 +17,7 @@ export interface TemplateInfo {
 }
 
 export interface ProblemDetail extends ProblemOverview {
-  authorHandle: string;
+  authorUsername: string;
   checkerScript?: string;
   inputFormat: string;
   interactorScript?: string;

@@ -17,7 +17,7 @@ export interface ProblemScore {
 export interface ScoreboardEntry {
   rank: number;
   userId: string;
-  handle: string;
+  username: string;
   displayName: string;
   totalScore: number;
   totalPenalty: number;
@@ -44,7 +44,7 @@ export interface ScoreboardData {
 export interface ChartData {
   series: {
     userId: string;
-    handle: string;
+    username: string;
     points: { time: number; score: number }[];
   }[];
 }
@@ -76,7 +76,7 @@ interface SubmissionRow {
 
 interface ParticipantRow {
   userId: string;
-  user: { handle: string | null; displayHandle: string | null; name: string };
+  user: { username: string | null; displayUsername: string | null; name: string };
 }
 
 function secondsSince(base: Date, later: Date): number {
@@ -97,7 +97,7 @@ export async function getScoreboard(
       },
       participations: {
         include: {
-          user: { select: { displayHandle: true, handle: true, name: true } }
+          user: { select: { displayUsername: true, username: true, name: true } }
         },
         where: { status: { in: ["active", "submitted"] } }
       }
@@ -254,7 +254,7 @@ function buildIcpcScoreboard(
 
     return {
       displayName: p.user.name,
-      handle: p.user.displayHandle ?? p.user.handle ?? p.user.name,
+      username: p.user.displayUsername ?? p.user.username ?? p.user.name,
       isFirstBlood,
       problems: problemScores,
       rank: 0,
@@ -367,7 +367,7 @@ function buildIoiScoreboard(
 
     return {
       displayName: p.user.name,
-      handle: p.user.displayHandle ?? p.user.handle ?? p.user.name,
+      username: p.user.displayUsername ?? p.user.username ?? p.user.name,
       isFirstBlood,
       problems: problemScores,
       rank: 0,
@@ -450,7 +450,7 @@ export async function getScoreboardChart(
   });
 
   const scoringMode = scoreboard.scoringMode;
-  const handleMap = new Map(topEntries.map((e) => [e.userId, e.handle]));
+  const usernameMap = new Map(topEntries.map((e) => [e.userId, e.username]));
 
   const series = [...topUserIds].map((userId) => {
     const userSubs = submissions.filter(
@@ -493,7 +493,7 @@ export async function getScoreboardChart(
     }
 
     return {
-      handle: handleMap.get(userId) ?? userId,
+      username: usernameMap.get(userId) ?? userId,
       points,
       userId
     };

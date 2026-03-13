@@ -237,10 +237,10 @@ export async function manuallyEnrollCourseMember(
   return prisma.$transaction(async (tx) => {
     const course = await requireCourse(tx, payload.courseSlug);
     const manager = await ensureUser(tx, actor.userId, actor);
-    const user = await ensureUser(tx, `usr_${payload.handle}`, {
+    const user = await ensureUser(tx, `usr_${payload.username}`, {
       displayName: payload.displayName,
       email: payload.email,
-      handle: payload.handle,
+      username: payload.username,
       locale: "zh-TW",
       platformRole: payload.role === "teacher" ? "teacher" : "student"
     });
