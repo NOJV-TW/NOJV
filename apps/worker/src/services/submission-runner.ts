@@ -82,7 +82,7 @@ function buildSubtaskResults(
       cases.push({
         ordinal,
         runtimeMs: sandboxCase?.timeMs ?? 0,
-        testcaseId: ts.testcases[ordinal]!.id,
+        testcaseId: ts.testcases[ordinal]?.id ?? "",
         verdict: sandboxCase?.verdict ?? "SE"
       });
     }
