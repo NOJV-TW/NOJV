@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 
-import { getActorContext, hasActorHandle } from "$lib/server/auth";
+import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { getSubmissionForUser } from "$lib/server/submission/queries";
 
 import { submissionVerdicts } from "@nojv/core";
@@ -15,7 +15,7 @@ export const GET: RequestHandler = (event) => {
   if (!actor) {
     return new Response("Authentication required.", { status: 401 });
   }
-  if (!hasActorHandle(actor)) {
+  if (!hasActorUsername(actor)) {
     return new Response("Complete your profile first.", { status: 403 });
   }
 
