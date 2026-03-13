@@ -93,7 +93,10 @@ export const actions = {
       return fail(400, { error: "Cannot disable yourself." });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { disabled: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { disabled: true }
+    });
     if (!user) return fail(404, { error: "User not found." });
 
     await prisma.user.update({

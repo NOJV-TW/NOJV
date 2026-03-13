@@ -35,9 +35,7 @@ export const contestCreateSchema = contestCreateBaseSchema.refine(
   }
 );
 
-export const contestUpdateSchema = contestCreateBaseSchema
-  .omit({ slug: true })
-  .partial();
+export const contestUpdateSchema = contestCreateBaseSchema.omit({ slug: true }).partial();
 
 export type ContestCreate = z.infer<typeof contestCreateSchema>;
 export type ContestUpdate = z.infer<typeof contestUpdateSchema>;

@@ -96,7 +96,10 @@ async function runPlagiarismCheck(reportId: string, assessmentId: string): Promi
     }
 
     // Group by (problemId, mossLanguage)
-    const groups = new Map<string, { problemId: string; mossLang: string; subs: (typeof submissions)[number][] }>();
+    const groups = new Map<
+      string,
+      { problemId: string; mossLang: string; subs: (typeof submissions)[number][] }
+    >();
     for (const sub of bestSubmissions.values()) {
       const mossLang = getMossLanguage(sub.language);
       if (!mossLang) continue;
@@ -170,12 +173,14 @@ async function runPlagiarismCheck(reportId: string, assessmentId: string): Promi
       reportId
     });
 
-    await prisma.plagiarismReport.update({
-      data: { completedAt: new Date(), status: "failed" },
-      where: { id: reportId }
-    }).catch(() => {
-      // Swallow update error during failure handling
-    });
+    await prisma.plagiarismReport
+      .update({
+        data: { completedAt: new Date(), status: "failed" },
+        where: { id: reportId }
+      })
+      .catch(() => {
+        // Swallow update error during failure handling
+      });
   }
 }
 

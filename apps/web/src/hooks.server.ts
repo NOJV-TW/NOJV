@@ -54,7 +54,11 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   // --- Guard: redirect users without a handle to /complete-profile ---
-  if (event.locals.sessionUser && !event.locals.sessionUser.handle && !isProfileExempt(event.url.pathname)) {
+  if (
+    event.locals.sessionUser &&
+    !event.locals.sessionUser.handle &&
+    !isProfileExempt(event.url.pathname)
+  ) {
     redirect(302, "/complete-profile");
   }
 

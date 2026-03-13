@@ -79,7 +79,10 @@ export const actions = {
 
     if (!id) return fail(400, { error: "ID is required." });
 
-    const announcement = await prisma.announcement.findUnique({ where: { id }, select: { pinned: true } });
+    const announcement = await prisma.announcement.findUnique({
+      where: { id },
+      select: { pinned: true }
+    });
     if (!announcement) return fail(404, { error: "Not found." });
 
     await prisma.announcement.update({
@@ -99,7 +102,10 @@ export const actions = {
 
     if (!id) return fail(400, { error: "ID is required." });
 
-    const announcement = await prisma.announcement.findUnique({ where: { id }, select: { published: true } });
+    const announcement = await prisma.announcement.findUnique({
+      where: { id },
+      select: { published: true }
+    });
     if (!announcement) return fail(404, { error: "Not found." });
 
     await prisma.announcement.update({

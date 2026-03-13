@@ -219,12 +219,9 @@ function buildIcpcScoreboard(
 
     for (const prob of problems) {
       const probSubs = userSubs.filter((s) => s.problemId === prob.id);
-      const frozenSubs = frozenAt
-        ? probSubs.filter((s) => s.createdAt > frozenAt)
-        : [];
-      const visibleSubs = showFrozen && frozenAt
-        ? probSubs.filter((s) => s.createdAt <= frozenAt)
-        : probSubs;
+      const frozenSubs = frozenAt ? probSubs.filter((s) => s.createdAt > frozenAt) : [];
+      const visibleSubs =
+        showFrozen && frozenAt ? probSubs.filter((s) => s.createdAt <= frozenAt) : probSubs;
 
       let score = 0;
       let attempts = 0;
@@ -252,9 +249,7 @@ function buildIcpcScoreboard(
         score
       });
 
-      isFirstBlood.push(
-        firstAcByProblem.get(prob.id) === p.userId && firstAcTime != null
-      );
+      isFirstBlood.push(firstAcByProblem.get(prob.id) === p.userId && firstAcTime != null);
     }
 
     return {
@@ -336,12 +331,9 @@ function buildIoiScoreboard(
 
     for (const prob of problems) {
       const probSubs = userSubs.filter((s) => s.problemId === prob.id);
-      const frozenSubs = frozenAt
-        ? probSubs.filter((s) => s.createdAt > frozenAt)
-        : [];
-      const visibleSubs = showFrozen && frozenAt
-        ? probSubs.filter((s) => s.createdAt <= frozenAt)
-        : probSubs;
+      const frozenSubs = frozenAt ? probSubs.filter((s) => s.createdAt > frozenAt) : [];
+      const visibleSubs =
+        showFrozen && frozenAt ? probSubs.filter((s) => s.createdAt <= frozenAt) : probSubs;
 
       const isFrozen = showFrozen && frozenSubs.length > 0;
       const isPending = isFrozen;
@@ -373,9 +365,7 @@ function buildIoiScoreboard(
         score: bestScore
       });
 
-      isFirstBlood.push(
-        firstFullByProblem.get(prob.id) === p.userId && firstAcTime != null
-      );
+      isFirstBlood.push(firstFullByProblem.get(prob.id) === p.userId && firstAcTime != null);
     }
 
     return {
@@ -443,12 +433,8 @@ export async function getScoreboardChart(
   if (!contest) return { series: [] };
 
   const participationIds = contest.participations.map((p) => p.id);
-  const participationUserMap = new Map(
-    contest.participations.map((p) => [p.id, p.userId])
-  );
-  const pointsMap = new Map(
-    contest.problems.map((p) => [p.problemId, p.points])
-  );
+  const participationUserMap = new Map(contest.participations.map((p) => [p.id, p.userId]));
+  const pointsMap = new Map(contest.problems.map((p) => [p.problemId, p.points]));
 
   const submissions = await prisma.submission.findMany({
     orderBy: { createdAt: "asc" },
