@@ -112,7 +112,7 @@ describe("DB-backed read model", () => {
               ordinal: 1,
               problem: {
                 author: {
-                  handle: "teacher_amelia"
+                  username: "teacher_amelia"
                 },
                 slug: "compiler-intro",
                 statements: [
@@ -150,7 +150,7 @@ describe("DB-backed read model", () => {
           user: {
             name: "Amelia Chen",
             email: "amelia@nojv.local",
-            handle: "teacher_amelia",
+            username: "teacher_amelia",
             platformRole: "teacher"
           },
           userId: "usr_teacher_amelia"
@@ -160,7 +160,7 @@ describe("DB-backed read model", () => {
         {
           problem: {
             author: {
-              handle: "teacher_amelia"
+              username: "teacher_amelia"
             },
             slug: "compiler-intro",
             statements: [
@@ -216,7 +216,7 @@ describe("DB-backed read model", () => {
   it("returns problem detail with samples from visible testcase set", async () => {
     findUniqueProblem.mockResolvedValue({
       _count: { submissions: 10 },
-      author: { handle: "admin_user" },
+      author: { username: "admin_user" },
       defaultTitle: "A+B Problem",
       difficulty: "easy",
       id: "prob_ab",
@@ -250,7 +250,7 @@ describe("DB-backed read model", () => {
 
     expect(detail).not.toBeNull();
     expect(detail?.title).toBe("A+B Problem");
-    expect(detail?.authorHandle).toBe("admin_user");
+    expect(detail?.authorUsername).toBe("admin_user");
     expect(detail?.inputFormat).toBe("Two integers a and b");
     expect(detail?.outputFormat).toBe("A single integer");
     expect(detail?.tags).toEqual(["math", "beginner"]);
