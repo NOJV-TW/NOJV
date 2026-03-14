@@ -9,6 +9,7 @@
     "dev": "vite dev",
     "lint": "eslint .",
     "preview": "vite preview",
+    "start": "node build",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
