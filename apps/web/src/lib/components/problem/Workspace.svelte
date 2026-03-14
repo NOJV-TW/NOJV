@@ -9,9 +9,9 @@
   import SubtaskResults from "./SubtaskResults.svelte";
 
   const difficultyColor: Record<string, string> = {
-    easy: "bg-emerald-500/15 text-emerald-700",
-    hard: "bg-red-500/15 text-red-700",
-    medium: "bg-amber-500/15 text-amber-700"
+    easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    hard: "bg-red-500/15 text-red-700 dark:text-red-400",
+    medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400"
   };
 
   const judgeTypeBadge: Record<string, () => string> = {
@@ -21,9 +21,9 @@
   };
 
   const judgeTypeBadgeColor: Record<string, string> = {
-    checker: "bg-violet-500/15 text-violet-700",
-    interactive: "bg-sky-500/15 text-sky-700",
-    standard: "bg-stone-100 text-stone-600"
+    checker: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+    interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+    standard: "bg-muted text-muted-foreground"
   };
 
   interface SubmissionEntry {
@@ -99,13 +99,13 @@
 
 <!-- Left panel -->
 <div
-  class="flex w-full shrink-0 flex-col overflow-hidden bg-white lg:w-[42%] lg:border-r lg:border-border"
+  class="flex w-full shrink-0 flex-col overflow-hidden bg-card lg:w-[42%] lg:border-r lg:border-border"
 >
   <!-- Tab bar -->
   <div class="flex items-center border-b border-border px-2">
     {#if backLink}
       <a
-        class="px-3 py-2.5 text-xs text-stone-400 transition hover:text-stone-600"
+        class="px-3 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
         href={backLink.href}
       >
         &larr; {backLink.type === 'contest' ? m.problemDetail_backToContest() : m.problemDetail_backToAssignment()}
@@ -114,7 +114,7 @@
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'description'
         ? 'border-b-2 border-primary text-foreground'
-        : 'text-stone-400 hover:text-stone-600'}"
+        : 'text-muted-foreground hover:text-foreground'}"
       onclick={() => (leftTab = "description")}
       type="button"
     >
@@ -123,14 +123,14 @@
     <button
       class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'submissions'
         ? 'border-b-2 border-primary text-foreground'
-        : 'text-stone-400 hover:text-stone-600'}"
+        : 'text-muted-foreground hover:text-foreground'}"
       onclick={() => (leftTab = "submissions")}
       type="button"
     >
       {m.problemDetail_submissions()}
       {#if submissions.length > 0}
         <span
-          class="ml-1.5 rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] tabular-nums"
+          class="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums"
         >
           {submissions.length}
         </span>
@@ -148,37 +148,37 @@
           <span
             class="rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {difficultyColor[
               problem.difficulty
-            ] ?? 'bg-stone-100 text-stone-600'}"
+            ] ?? 'bg-muted text-muted-foreground'}"
           >
             {problem.difficulty}
           </span>
           <span
             class="rounded-full px-2.5 py-0.5 text-xs font-medium {judgeTypeBadgeColor[
               problem.judgeType
-            ] ?? 'bg-stone-100 text-stone-600'}"
+            ] ?? 'bg-muted text-muted-foreground'}"
           >
             {(judgeTypeBadge[problem.judgeType] ?? judgeTypeBadge["standard"]!)()}
           </span>
-          <span class="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-500">
+          <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {problem.submissionType === "function"
               ? m.problemDetail_functionBadge()
               : m.problemDetail_fullSourceBadge()}
           </span>
           {#each problem.tags as tag (tag)}
-            <span class="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs text-stone-500">
+            <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
               {tag}
             </span>
           {/each}
         </div>
 
-        <div class="mt-5 text-sm leading-7 text-stone-700">
+        <div class="mt-5 text-sm leading-7 text-foreground">
           <MarkdownRenderer content={problem.statement} />
         </div>
 
         {#if problem.inputFormat}
           <div class="mt-5">
             <p class="text-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
-            <div class="mt-1 text-sm leading-7 text-stone-600">
+            <div class="mt-1 text-sm leading-7 text-muted-foreground">
               <MarkdownRenderer content={problem.inputFormat} />
             </div>
           </div>
@@ -187,7 +187,7 @@
         {#if problem.outputFormat}
           <div class="mt-4">
             <p class="text-sm font-semibold">{m.problemDetail_outputFormat()}:</p>
-            <div class="mt-1 text-sm leading-7 text-stone-600">
+            <div class="mt-1 text-sm leading-7 text-muted-foreground">
               <MarkdownRenderer content={problem.outputFormat} />
             </div>
           </div>
@@ -198,18 +198,18 @@
             <p class="text-sm font-semibold">
               {m.problemDetail_sample()} {index + 1}:
             </p>
-            <div class="mt-2 rounded-lg bg-stone-50 px-4 py-3 text-sm leading-7">
+            <div class="mt-2 rounded-lg bg-muted px-4 py-3 text-sm leading-7">
               <p>
                 <span class="font-semibold">{m.problemDetail_input()}:</span>{" "}
-                <code class="font-mono text-stone-600">{sample.input}</code>
+                <code class="font-mono text-muted-foreground">{sample.input}</code>
               </p>
               <p class="mt-1">
                 <span class="font-semibold">{m.problemDetail_output()}:</span>{" "}
-                <code class="font-mono text-stone-600">{sample.output}</code>
+                <code class="font-mono text-muted-foreground">{sample.output}</code>
               </p>
               {#if sample.explanation}
                 <p class="mt-2 font-semibold">{m.problemDetail_explanation()}:</p>
-                <p class="mt-1 text-stone-600">{sample.explanation}</p>
+                <p class="mt-1 text-muted-foreground">{sample.explanation}</p>
               {/if}
             </div>
           </div>
@@ -218,7 +218,7 @@
     {:else}
       <div class="p-5">
         {#if submissions.length === 0}
-          <p class="py-8 text-center text-sm text-stone-400">
+          <p class="py-8 text-center text-sm text-muted-foreground">
             {m.problemDetail_noSubmissions()}
           </p>
         {:else if viewingIndex !== null && submissions[viewingIndex]}
@@ -226,7 +226,7 @@
           {@const label = formatVerdictLabel(entry.result.verdict)}
           <div>
             <button
-              class="mb-4 text-xs text-stone-400 transition hover:text-stone-600"
+              class="mb-4 text-xs text-muted-foreground transition hover:text-foreground"
               onclick={() => (viewingIndex = null)}
               type="button"
             >
@@ -236,18 +236,18 @@
             <div class="flex items-baseline gap-3">
               <span
                 class="text-lg font-semibold {verdictColor[entry.result.verdict] ??
-                  'text-stone-700'}"
+                  'text-foreground'}"
               >
                 {label}
               </span>
               {#if entry.result.runtimeMs > 0}
-                <span class="text-xs text-stone-400">
+                <span class="text-xs text-muted-foreground">
                   Runtime: {String(entry.result.runtimeMs)} ms
                 </span>
               {/if}
             </div>
 
-            <div class="mt-1 flex items-center gap-3 text-xs text-stone-400">
+            <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
               <span>{entry.language}</span>
               <span>{String(entry.result.score)}/100</span>
               <span>{new Date(entry.submittedAt).toLocaleTimeString()}</span>
@@ -264,31 +264,31 @@
                 {#each entry.result.caseResults as cr, i (`cr-${i}`)}
                   <span
                     class="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium {cr.passed
-                      ? 'bg-emerald-50 text-emerald-600'
-                      : 'bg-red-50 text-red-600'}"
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-red-500/15 text-red-600 dark:text-red-400'}"
                   >
                     {cr.passed ? "\u2714" : "\u2718"} Case {i + 1}
                   </span>
                 {/each}
               </div>
             {:else if entry.result.feedback}
-              <p class="mt-3 text-sm leading-6 text-stone-500">
+              <p class="mt-3 text-sm leading-6 text-muted-foreground">
                 {entry.result.feedback}
               </p>
             {/if}
 
             <div class="mt-5">
-              <p class="text-xs font-medium text-stone-400">{m.editor_code()}</p>
+              <p class="text-xs font-medium text-muted-foreground">{m.editor_code()}</p>
               {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
-                <div class="mt-2 flex items-center gap-2 rounded-lg bg-stone-50 px-4 py-3">
+                <div class="mt-2 flex items-center gap-2 rounded-lg bg-muted px-4 py-3">
                   <div
-                    class="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600"
+                    class="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground"
                   ></div>
-                  <span class="text-xs text-stone-400">{m.problemDetail_loadingSource()}</span>
+                  <span class="text-xs text-muted-foreground">{m.problemDetail_loadingSource()}</span>
                 </div>
               {:else}
                 <pre
-                  class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-stone-50 px-4 py-3 font-mono text-xs leading-5 text-stone-700">{entry.sourceCode ?? ""}</pre>
+                  class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-muted px-4 py-3 font-mono text-xs leading-5 text-foreground">{entry.sourceCode ?? ""}</pre>
               {/if}
             </div>
           </div>
@@ -297,22 +297,22 @@
             {#each submissions as entry, index (`sub-${index}`)}
               {@const label = formatVerdictLabel(entry.result.verdict)}
               <button
-                class="rounded-lg border border-stone-200 px-4 py-3 text-left transition hover:border-stone-300 hover:bg-stone-50"
+                class="rounded-lg border border-border px-4 py-3 text-left transition hover:border-primary/30 hover:bg-accent"
                 onclick={() => (viewingIndex = index)}
                 type="button"
               >
                 <div class="flex items-baseline justify-between gap-3">
                   <span
                     class="text-sm font-semibold {verdictColor[entry.result.verdict] ??
-                      'text-stone-700'}"
+                      'text-foreground'}"
                   >
                     {label}
                   </span>
-                  <span class="text-xs text-stone-400">
+                  <span class="text-xs text-muted-foreground">
                     {new Date(entry.submittedAt).toLocaleTimeString()}
                   </span>
                 </div>
-                <div class="mt-1 flex items-center gap-3 text-xs text-stone-400">
+                <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                   <span>{entry.language}</span>
                   {#if entry.result.runtimeMs > 0}
                     <span>{String(entry.result.runtimeMs)} ms</span>

@@ -232,14 +232,14 @@ sys.stdout.flush()
         bind:value={$form.title}
         required
       />
-      {#if $errors.title}<span class="text-sm text-red-700">{$errors.title}</span>{/if}
+      {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
     </label>
 
     <!-- Tags -->
     <div class="text-sm text-muted-foreground">
       <span>{m.admin_tags()}</span>
       <div
-        class="mt-2 flex min-h-[46px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-white/60 px-3 py-2"
+        class="mt-2 flex min-h-[46px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
         onclick={() => tagInputEl?.focus()}
         role="textbox"
         tabindex="-1"
@@ -268,7 +268,7 @@ sys.stdout.flush()
           value={tagInput}
         />
       </div>
-      {#if $errors.tags}<span class="text-sm text-red-700">{$errors.tags}</span>{/if}
+      {#if $errors.tags}<span class="text-sm text-red-700 dark:text-red-400">{$errors.tags}</span>{/if}
     </div>
 
     <!-- Difficulty + Visibility -->
@@ -283,7 +283,7 @@ sys.stdout.flush()
           <option value="medium">medium</option>
           <option value="hard">hard</option>
         </select>
-        {#if $errors.difficulty}<span class="text-sm text-red-700">{$errors.difficulty}</span>{/if}
+        {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{$errors.difficulty}</span>{/if}
       </label>
       <label class="text-sm text-muted-foreground">
         {m.admin_visibility()}
@@ -294,7 +294,7 @@ sys.stdout.flush()
           <option value="private">private</option>
           <option value="public">public</option>
         </select>
-        {#if $errors.visibility}<span class="text-sm text-red-700">{$errors.visibility}</span>{/if}
+        {#if $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{$errors.visibility}</span>{/if}
       </label>
     </div>
 
@@ -316,7 +316,7 @@ sys.stdout.flush()
           </label>
         {/each}
       </div>
-      {#if $errors.judgeType}<span class="text-sm text-red-700">{$errors.judgeType}</span>{/if}
+      {#if $errors.judgeType}<span class="text-sm text-red-700 dark:text-red-400">{$errors.judgeType}</span>{/if}
     </div>
 
     {#if $form.judgeType === "checker"}
@@ -327,7 +327,7 @@ sys.stdout.flush()
           bind:value={$form.checkerScript}
           placeholder={CHECKER_TEMPLATE}
         ></textarea>
-        {#if $errors.checkerScript}<span class="text-sm text-red-700">{$errors.checkerScript}</span>{/if}
+        {#if $errors.checkerScript}<span class="text-sm text-red-700 dark:text-red-400">{$errors.checkerScript}</span>{/if}
       </label>
     {/if}
 
@@ -339,7 +339,7 @@ sys.stdout.flush()
           bind:value={$form.interactorScript}
           placeholder={INTERACTOR_TEMPLATE}
         ></textarea>
-        {#if $errors.interactorScript}<span class="text-sm text-red-700">{$errors.interactorScript}</span>{/if}
+        {#if $errors.interactorScript}<span class="text-sm text-red-700 dark:text-red-400">{$errors.interactorScript}</span>{/if}
       </label>
     {/if}
 
@@ -368,7 +368,7 @@ sys.stdout.flush()
           bind:value={$form.timeLimitMs}
           type="number"
         />
-        {#if $errors.timeLimitMs}<span class="text-sm text-red-700">{$errors.timeLimitMs}</span>{/if}
+        {#if $errors.timeLimitMs}<span class="text-sm text-red-700 dark:text-red-400">{$errors.timeLimitMs}</span>{/if}
       </label>
       <label class="text-sm text-muted-foreground">
         {m.admin_memoryLimit()}
@@ -379,7 +379,7 @@ sys.stdout.flush()
           bind:value={$form.memoryLimitMb}
           type="number"
         />
-        {#if $errors.memoryLimitMb}<span class="text-sm text-red-700">{$errors.memoryLimitMb}</span>{/if}
+        {#if $errors.memoryLimitMb}<span class="text-sm text-red-700 dark:text-red-400">{$errors.memoryLimitMb}</span>{/if}
       </label>
     </div>
 
@@ -410,7 +410,7 @@ sys.stdout.flush()
           {m.admin_functionTemplate()}
         </label>
       </div>
-      {#if $errors.submissionType}<span class="text-sm text-red-700">{$errors.submissionType}</span>{/if}
+      {#if $errors.submissionType}<span class="text-sm text-red-700 dark:text-red-400">{$errors.submissionType}</span>{/if}
     </div>
 
     <CodeTemplateEditor
@@ -426,7 +426,7 @@ sys.stdout.flush()
         bind:value={$form.statement}
         required
       ></textarea>
-      {#if $errors.statement}<span class="text-sm text-red-700">{$errors.statement}</span>{/if}
+      {#if $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{$errors.statement}</span>{/if}
     </label>
 
     <!-- Input / Output Format -->
@@ -437,7 +437,7 @@ sys.stdout.flush()
           class={textareaClassName}
           bind:value={$form.inputFormat}
         ></textarea>
-        {#if $errors.inputFormat}<span class="text-sm text-red-700">{$errors.inputFormat}</span>{/if}
+        {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.inputFormat}</span>{/if}
       </label>
       <label class="text-sm text-muted-foreground">
         {m.admin_outputFormat()}
@@ -445,7 +445,7 @@ sys.stdout.flush()
           class={textareaClassName}
           bind:value={$form.outputFormat}
         ></textarea>
-        {#if $errors.outputFormat}<span class="text-sm text-red-700">{$errors.outputFormat}</span>{/if}
+        {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.outputFormat}</span>{/if}
       </label>
     </div>
 
@@ -470,14 +470,14 @@ sys.stdout.flush()
     </button>
     {#if $formMessage}
       <div
-        class="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+        class="rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400"
       >
         {$formMessage}
       </div>
     {/if}
     {#if postError}
       <div
-        class="rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"
+        class="rounded-2xl border border-red-300 dark:border-red-700 bg-red-500/15 px-4 py-3 text-sm text-red-700 dark:text-red-400"
       >
         {postError}
       </div>

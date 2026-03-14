@@ -4,6 +4,8 @@
   import { supportedLanguages, type AssessmentScoreboardMode, type ContestScoringMode } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import type { ContestListItem } from "$lib/server/contest/queries";
+  import { Trophy } from "@lucide/svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface Props {
     contests: ContestListItem[];
@@ -98,7 +100,11 @@
           </div>
         </article>
       {:else}
-        <p class="text-sm text-muted-foreground">No contests yet.</p>
+        <EmptyState
+          icon={Trophy}
+          title="No contests yet"
+          description="Create your first contest below."
+        />
       {/each}
     </div>
   </section>
@@ -118,7 +124,7 @@
             placeholder="Contest title"
             required
           />
-          {#if $errors.title}<span class="text-sm text-red-700">{$errors.title}</span>{/if}
+          {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
         </div>
         <div>
           <input
@@ -129,7 +135,7 @@
             placeholder="contest-slug"
             required
           />
-          {#if $errors.slug}<span class="text-sm text-red-700">{$errors.slug}</span>{/if}
+          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.slug}</span>{/if}
         </div>
       </div>
       <div class="grid gap-3 md:grid-cols-2">
@@ -170,7 +176,7 @@
             placeholder="Unlimited"
             bind:value={$form.maxAttempts}
           />
-          {#if $errors.maxAttempts}<span class="text-sm text-red-700">{$errors.maxAttempts}</span>{/if}
+          {#if $errors.maxAttempts}<span class="text-sm text-red-700 dark:text-red-400">{$errors.maxAttempts}</span>{/if}
         </div>
       </div>
       <div class="grid gap-3 md:grid-cols-2">
@@ -197,7 +203,7 @@
             </label>
           {/each}
         </div>
-        {#if $errors.allowedLanguages}<span class="text-sm text-red-700">{$errors.allowedLanguages}</span>{/if}
+        {#if $errors.allowedLanguages}<span class="text-sm text-red-700 dark:text-red-400">{$errors.allowedLanguages}</span>{/if}
       </div>
       <div>
         <textarea
@@ -207,7 +213,7 @@
           placeholder="Contest summary"
           required
         ></textarea>
-        {#if $errors.summary}<span class="text-sm text-red-700">{$errors.summary}</span>{/if}
+        {#if $errors.summary}<span class="text-sm text-red-700 dark:text-red-400">{$errors.summary}</span>{/if}
       </div>
       <div>
         <textarea
@@ -217,18 +223,18 @@
           placeholder="problem-one, problem-two"
           required
         ></textarea>
-        {#if $errors.problemSlugsText}<span class="text-sm text-red-700">{$errors.problemSlugsText}</span>{/if}
+        {#if $errors.problemSlugsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlugsText}</span>{/if}
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         <div>
           <label class="text-xs text-muted-foreground" for="startsAt">Starts at</label>
           <input class={inputClassName} name="startsAt" bind:value={$form.startsAt} required type="datetime-local" />
-          {#if $errors.startsAt}<span class="text-sm text-red-700">{$errors.startsAt}</span>{/if}
+          {#if $errors.startsAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.startsAt}</span>{/if}
         </div>
         <div>
           <label class="text-xs text-muted-foreground" for="endsAt">Ends at</label>
           <input class={inputClassName} name="endsAt" bind:value={$form.endsAt} required type="datetime-local" />
-          {#if $errors.endsAt}<span class="text-sm text-red-700">{$errors.endsAt}</span>{/if}
+          {#if $errors.endsAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.endsAt}</span>{/if}
         </div>
         <div>
           <label class="text-xs text-muted-foreground" for="frozenAt">Freeze at (optional)</label>
@@ -236,7 +242,7 @@
         </div>
       </div>
       <button
-        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >
@@ -244,7 +250,7 @@
       </button>
     </form>
     {#if $formMessage}
-      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
     {/if}
   </section>
 </div>

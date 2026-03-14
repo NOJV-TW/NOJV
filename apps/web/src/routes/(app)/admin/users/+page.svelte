@@ -27,7 +27,7 @@
       <label class="mb-1 block text-sm font-medium" for="search">Search</label>
       <input
         id="search"
-        class="w-full rounded-2xl border border-border bg-white/60 px-3 py-2 text-sm"
+        class="w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
         placeholder="Search by username, email, or name..."
         type="text"
         bind:value={searchValue}
@@ -38,7 +38,7 @@
       <label class="mb-1 block text-sm font-medium" for="role-filter">Role</label>
       <select
         id="role-filter"
-        class="rounded-2xl border border-border bg-white/60 px-3 py-2 text-sm"
+        class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
         bind:value={roleValue}
         onchange={applyFilters}
       >
@@ -49,7 +49,7 @@
       </select>
     </div>
     <button
-      class="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+      class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
       type="button"
       onclick={applyFilters}
     >
@@ -64,7 +64,7 @@
 
   <!-- Users table -->
   <div
-    class="overflow-x-auto rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm"
+    class="overflow-x-auto rounded-xl border border-border bg-[color:var(--color-panel)] backdrop-blur-sm"
   >
     <table class="w-full text-sm">
       <thead>
@@ -88,7 +88,7 @@
               <form method="POST" action="?/updateRole" use:enhance>
                 <input type="hidden" name="userId" value={user.id} />
                 <select
-                  class="rounded-lg border border-border bg-white/60 px-2 py-1 text-xs"
+                  class="rounded-lg border border-border bg-[color:var(--color-panel)] px-2 py-1 text-xs"
                   name="role"
                   value={user.platformRole}
                   onchange={(e) => e.currentTarget.form?.requestSubmit()}
@@ -113,7 +113,7 @@
               <form method="POST" action="?/toggleDisabled" use:enhance>
                 <input type="hidden" name="userId" value={user.id} />
                 <button
-                  class="rounded-full border border-border px-3 py-1 text-xs transition hover:-translate-y-0.5 {user.disabled ? 'hover:bg-emerald-50' : 'hover:bg-red-50'}"
+                  class="rounded-full border border-border px-3 py-1 text-xs transition hover:-translate-y-0.5 {user.disabled ? 'hover:bg-emerald-500/10' : 'hover:bg-destructive/10'}"
                   type="submit"
                 >
                   {user.disabled ? "Enable" : "Disable"}
@@ -135,7 +135,7 @@
     <div class="flex items-center justify-center gap-2">
       {#if data.page > 1}
         <a
-          class="rounded-full border border-border px-4 py-2 text-sm transition hover:-translate-y-0.5 hover:bg-white/70"
+          class="rounded-full border border-border px-4 py-2 text-sm transition hover:-translate-y-0.5 hover:bg-accent"
           href="/admin/users?page={data.page - 1}{data.search ? `&search=${data.search}` : ''}{data.roleFilter ? `&role=${data.roleFilter}` : ''}"
         >
           Previous
@@ -146,7 +146,7 @@
       </span>
       {#if data.page < data.totalPages}
         <a
-          class="rounded-full border border-border px-4 py-2 text-sm transition hover:-translate-y-0.5 hover:bg-white/70"
+          class="rounded-full border border-border px-4 py-2 text-sm transition hover:-translate-y-0.5 hover:bg-accent"
           href="/admin/users?page={data.page + 1}{data.search ? `&search=${data.search}` : ''}{data.roleFilter ? `&role=${data.roleFilter}` : ''}"
         >
           Next

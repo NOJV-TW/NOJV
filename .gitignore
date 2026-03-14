@@ -47,3 +47,6 @@ yarn-error.log*
 e2e/test-results/
 e2e/screenshots/*.png
 playwright-report/
+
+.github/prompts/
+.shared/

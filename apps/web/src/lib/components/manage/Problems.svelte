@@ -68,16 +68,16 @@
       use:enhance
     >
       <input
-        class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
+        class="mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm"
         name="problemSlug"
         bind:value={$form.problemSlug}
         pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
         placeholder="problem-slug"
         required
       />
-      {#if $errors.problemSlug}<span class="text-sm text-red-700">{$errors.problemSlug}</span>{/if}
+      {#if $errors.problemSlug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlug}</span>{/if}
       <button
-        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >
@@ -85,7 +85,7 @@
       </button>
     </form>
     {#if $formMessage}
-      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
     {/if}
   </section>
 </div>

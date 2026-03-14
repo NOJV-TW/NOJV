@@ -22,7 +22,7 @@ export function isValidUsername(value: string): boolean {
 // --- Shared form class names ---
 
 export const inputClassName =
-  "mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm";
+  "mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm";
 export const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
 
 // --- Date helpers ---

@@ -5,6 +5,9 @@
 @import "@fontsource/manrope/700.css";
 @import "@fontsource/fraunces/400.css";
 @import "@fontsource/fraunces/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/700.css";
 
 @import "tw-animate-css";
 
@@ -13,6 +16,7 @@
 :root {
   --font-sans: "Manrope", system-ui, sans-serif;
   --font-display: "Fraunces", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --radius: 0.625rem;
 
   /* Warm cream base */
@@ -164,6 +168,15 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      color 200ms ease !important;
+  }
   body {
     @apply text-foreground;
     font-family: var(--font-sans);
@@ -176,4 +189,15 @@
   ::selection {
     background: rgba(196, 104, 45, 0.18);
   }
+}
+
+:is(.dark) body {
+  background:
+    radial-gradient(circle at top left, rgba(212, 131, 74, 0.08), transparent 26%),
+    radial-gradient(circle at top right, rgba(77, 111, 143, 0.06), transparent 22%),
+    linear-gradient(180deg, #1a1412 0%, #151010 100%);
+}
+
+:is(.dark) ::selection {
+  background: rgba(212, 131, 74, 0.25);
 }
