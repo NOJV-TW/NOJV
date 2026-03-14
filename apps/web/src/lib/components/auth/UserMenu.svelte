@@ -78,7 +78,7 @@
         {/if}
 
         <button
-          class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
+          class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-destructive transition hover:bg-destructive/10"
           onclick={handleSignOut}
           type="button"
         >

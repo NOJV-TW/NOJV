@@ -43,7 +43,6 @@ describe("courseAssessmentCreateSchema", () => {
       slug: "hw1-process-warmup",
       summary: "First assignment",
       title: "Homework 1",
-      type: "assignment",
       dueAt: "2026-03-17T12:00:00.000Z"
     });
 
@@ -52,13 +51,13 @@ describe("courseAssessmentCreateSchema", () => {
 });
 
 describe("assessmentContextSchema", () => {
-  it("differentiates course exams from assignments", () => {
+  it("parses assessment context with course and assessment slugs", () => {
     const result = assessmentContextSchema.parse({
-      assessmentSlug: "midterm-exam",
-      courseSlug: "os-lab-spring-2026",
-      kind: "exam"
+      assessmentSlug: "hw1-process-warmup",
+      courseSlug: "os-lab-spring-2026"
     });
 
-    expect(result.kind).toBe("exam");
+    expect(result.assessmentSlug).toBe("hw1-process-warmup");
+    expect(result.courseSlug).toBe("os-lab-spring-2026");
   });
 });

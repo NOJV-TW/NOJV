@@ -10,16 +10,18 @@
     submissionOperationSchema,
     submissionResultSchema,
     supportedLanguages,
-    type CourseAssessmentType,
     type Language,
     type SubmissionResult
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { registerCompletionProviders } from "./editor-completions";
+
+  const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
   const editorOptions = {
     automaticLayout: true,
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
     fontSize: 14,
     minimap: { enabled: false },
     padding: { top: 16 },
@@ -28,10 +30,10 @@
   };
 
   interface Props {
+    allowedLanguages?: Language[] | undefined;
     assessment?: {
       assessmentSlug: string;
       courseSlug: string;
-      kind: CourseAssessmentType;
     } | undefined;
     contestSlug?: string | undefined;
     onSubmissionComplete?: ((
@@ -42,13 +44,34 @@
     problem: ProblemDetail;
   }
 
-  let { assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
+  let { allowedLanguages, assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
   let isFunctionMode = $derived(problem.submissionType === "function");
 
-  let language = $state<Language>("cpp");
+  let availableLanguages = $derived.by(() => {
+    let langs = [...supportedLanguages];
+    // Filter by contest/assignment restriction
+    if (allowedLanguages && allowedLanguages.length > 0) {
+      langs = langs.filter((l) => allowedLanguages!.includes(l));
+    }
+    // Filter by template availability (function-mode problems)
+    if (problem.submissionType === "function") {
+      const templateLangs = Object.keys(problem.templates) as Language[];
+      langs = langs.filter((l) => templateLangs.includes(l));
+    }
+    return langs;
+  });
+
+  let language = $state<Language>((() => {
+    try {
+      const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      const parsed = languageSchema.safeParse(saved);
+      if (parsed.success) return parsed.data;
+    } catch {}
+    return "cpp";
+  })());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
@@ -63,6 +86,20 @@
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
+
+  // Auto-select first available language if current selection becomes invalid
+  $effect(() => {
+    if (availableLanguages.length > 0 && !availableLanguages.includes(language)) {
+      language = availableLanguages[0]!;
+    }
+  });
+
+  // Persist language choice to localStorage
+  $effect(() => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {}
+  });
 
   let currentSource = $derived(drafts[language]);
   let runVerdictLabel = $derived(
@@ -79,12 +116,17 @@
   let pollAbortController: AbortController | null = null;
 
   onMount(() => {
+    let themeObserver: MutationObserver | undefined;
+
     void (async () => {
       monacoModule = await import("monaco-editor");
+      registerCompletionProviders(monacoModule);
+
+      const isDark = document.documentElement.classList.contains("dark");
       monacoEditor = monacoModule.editor.create(editorContainer, {
         ...editorOptions,
         language: "cpp",
-        theme: "vs-light",
+        theme: isDark ? "vs-dark" : "vs-light",
         value: drafts[language]
       });
 
@@ -92,31 +134,46 @@
       editor.onDidChangeModelContent(() => {
         drafts[language] = editor.getValue();
       });
+
+      // Watch for dark mode toggling on <html>
+      themeObserver = new MutationObserver(() => {
+        const dark = document.documentElement.classList.contains("dark");
+        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"]
+      });
     })();
 
     return () => {
       destroyed = true;
       pollAbortController?.abort();
+      themeObserver?.disconnect();
       monacoEditor?.dispose();
     };
   });
 
   $effect(() => {
-    if (monacoEditor && monacoModule) {
-      const model = monacoEditor.getModel();
-      if (model) {
-        const langMap: Record<string, string> = {
-          c: "c",
-          cpp: "cpp",
-          java: "java",
-          javascript: "javascript",
-          python: "python",
-          rust: "rust",
-          typescript: "typescript"
-        };
-        monacoModule.editor.setModelLanguage(model, langMap[language] ?? language);
-        monacoEditor.setValue(drafts[language]);
-      }
+    // Read reactive values BEFORE the guard so they are always tracked.
+    const lang = language;
+    const draft = drafts[lang];
+    if (!monacoEditor || !monacoModule) return;
+    const model = monacoEditor.getModel();
+    if (!model) return;
+    const langMap: Record<string, string> = {
+      c: "c",
+      cpp: "cpp",
+      go: "go",
+      java: "java",
+      javascript: "javascript",
+      python: "python",
+      rust: "rust",
+      typescript: "typescript"
+    };
+    monacoModule.editor.setModelLanguage(model, langMap[lang] ?? lang);
+    if (monacoEditor.getValue() !== draft) {
+      monacoEditor.setValue(draft);
     }
   });
 
@@ -131,7 +188,7 @@
         assessment,
         contestSlug,
         language,
-        mode: contestSlug ? "contest" : (assessment?.kind ?? "practice"),
+        mode: contestSlug ? "contest" : (assessment ? "assignment" : "practice"),
         problemSlug: problem.slug,
         sampleOnly: options?.sampleOnly ?? false,
         sourceCode: drafts[language],
@@ -214,36 +271,36 @@
   }
 </script>
 
-<div class="flex h-full flex-col bg-stone-50">
+<div class="flex h-full flex-col bg-muted">
   <!-- Top toolbar -->
   <div
-    class="flex items-center justify-between border-b border-border bg-white px-4 py-2"
+    class="flex items-center justify-between border-b border-border bg-card px-4 py-2"
   >
     <div class="flex items-center gap-3">
-      <span class="text-xs font-medium text-stone-500">&lt;/&gt; {m.editor_code()}</span>
+      <span class="text-xs font-medium text-muted-foreground">&lt;/&gt; {m.editor_code()}</span>
       <select
-        class="rounded-md border border-stone-200 bg-transparent px-2 py-1 text-xs"
+        class="rounded-md border border-border bg-transparent px-2 py-1 text-xs"
         onchange={(e) => {
           const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
           if (parsed.success) language = parsed.data;
         }}
         value={language}
       >
-        {#each supportedLanguages as entry (entry)}
+        {#each availableLanguages as entry (entry)}
           <option value={entry}>{entry}</option>
         {/each}
       </select>
-      <span class="text-xs text-stone-400">
+      <span class="text-xs text-muted-foreground">
         {#if contestSlug}
           {m.editor_contestMode()}
         {:else if assessment}
-          {assessment.kind === "exam" ? m.editor_examMode() : m.editor_assignmentMode()}
+          {m.editor_assignmentMode()}
         {:else}
           {m.editor_practiceMode()}
         {/if}
       </span>
       {#if isFunctionMode}
-        <span class="rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">
+        <span class="rounded-md bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
           {m.editor_functionModeHint()}
         </span>
       {/if}
@@ -257,15 +314,15 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border bg-white px-4 py-2"
+    class="flex items-center justify-between border-t border-border bg-card px-4 py-2"
   >
-    <span class="text-xs text-stone-400">
+    <span class="text-xs text-muted-foreground">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
     </span>
     <div class="flex items-center gap-2">
       <button
-        class="rounded-lg border border-stone-200 bg-white px-4 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isRunning}
+        class="rounded-lg border border-border bg-card px-4 py-1.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isRunning || availableLanguages.length === 0}
         onclick={() => void handleRun()}
         type="button"
       >
@@ -273,7 +330,7 @@
       </button>
       <button
         class="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isSubmitting}
+        disabled={isSubmitting || availableLanguages.length === 0}
         onclick={() => void handleSubmit()}
         type="button"
       >
@@ -284,14 +341,14 @@
 
   <!-- Bottom panel -->
   <div
-    class="flex h-[35%] min-h-[180px] flex-col border-t border-border bg-white"
+    class="flex h-[35%] min-h-[180px] flex-col border-t border-border bg-card"
   >
     <!-- Bottom tabs -->
-    <div class="flex items-center border-b border-stone-100 px-2">
+    <div class="flex items-center border-b border-border px-2">
       <button
         class="px-3 py-2 text-xs font-medium transition {bottomTab === 'testcase'
-          ? 'border-b-2 border-stone-700 text-stone-700'
-          : 'text-stone-400 hover:text-stone-600'}"
+          ? 'border-b-2 border-foreground text-foreground'
+          : 'text-muted-foreground hover:text-foreground'}"
         onclick={() => (bottomTab = "testcase")}
         type="button"
       >
@@ -299,8 +356,8 @@
       </button>
       <button
         class="px-3 py-2 text-xs font-medium transition {bottomTab === 'result'
-          ? 'border-b-2 border-stone-700 text-stone-700'
-          : 'text-stone-400 hover:text-stone-600'}"
+          ? 'border-b-2 border-foreground text-foreground'
+          : 'text-muted-foreground hover:text-foreground'}"
         onclick={() => (bottomTab = "result")}
         type="button"
       >
@@ -317,15 +374,15 @@
               <button
                 class="group relative rounded-md px-3 py-1 text-xs font-medium transition {selectedCase ===
                 index
-                  ? 'bg-stone-100 text-stone-700'
-                  : 'text-stone-400 hover:text-stone-600'}"
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'}"
                 onclick={() => (selectedCase = index)}
                 type="button"
               >
                 Case {index + 1}
                 {#if testcases.length > 1}
                   <span
-                    class="ml-1.5 hidden text-stone-300 hover:text-red-400 group-hover:inline"
+                    class="ml-1.5 hidden text-muted-foreground hover:text-red-400 group-hover:inline"
                     role="button"
                     tabindex="-1"
                     onclick={(e: MouseEvent) => {
@@ -341,7 +398,7 @@
               </button>
             {/each}
             <button
-              class="rounded-md px-2 py-1 text-xs text-stone-300 transition hover:text-stone-500"
+              class="rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:text-foreground"
               onclick={() => {
                 testcases = [...testcases, { input: "", expectedOutput: "" }];
                 selectedCase = testcases.length - 1;
@@ -353,9 +410,9 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-xs text-stone-400">{m.editor_input()}</p>
+            <p class="text-xs text-muted-foreground">{m.editor_input()}</p>
             <textarea
-              class="mt-1 w-full rounded-md bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700 outline-none focus:ring-1 focus:ring-stone-300"
+              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-sm text-foreground outline-none focus:ring-1 focus:ring-border"
               oninput={(e) => {
                 const val = (e.target as HTMLTextAreaElement).value;
                 testcases = testcases.map((tc, i) =>
@@ -368,9 +425,9 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-xs text-stone-400">{m.editor_expectedOutput()}</p>
+            <p class="text-xs text-muted-foreground">{m.editor_expectedOutput()}</p>
             <textarea
-              class="mt-1 w-full rounded-md bg-stone-50 px-3 py-2 font-mono text-sm text-stone-600 outline-none focus:ring-1 focus:ring-stone-300"
+              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-sm text-muted-foreground outline-none focus:ring-1 focus:ring-border"
               oninput={(e) => {
                 const val = (e.target as HTMLTextAreaElement).value;
                 testcases = testcases.map((tc, i) =>
@@ -389,12 +446,12 @@
               <div class="flex items-baseline gap-3">
                 <span
                   class="text-lg font-semibold {verdictColor[runResult.verdict] ??
-                    'text-stone-700'}"
+                    'text-foreground'}"
                 >
                   {runVerdictLabel}
                 </span>
                 {#if runResult.runtimeMs > 0}
-                  <span class="text-xs text-stone-400">
+                  <span class="text-xs text-muted-foreground">
                     Runtime: {String(runResult.runtimeMs)} ms
                   </span>
                 {/if}
@@ -406,8 +463,8 @@
                     <button
                       class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition {selectedResultCase ===
                       index
-                        ? 'bg-stone-100 text-stone-700'
-                        : 'text-stone-400 hover:text-stone-600'}"
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'}"
                       onclick={() => (selectedResultCase = index)}
                       type="button"
                     >
@@ -422,32 +479,40 @@
                 <div class="mt-3 space-y-3">
                   {#if testcases[selectedResultCase]}
                     <div>
-                      <p class="text-xs font-medium text-stone-400">{m.editor_input()}</p>
+                      <p class="text-xs font-medium text-muted-foreground">{m.editor_input()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase]!.input}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground">{testcases[selectedResultCase]!.input}</pre>
                     </div>
                   {/if}
 
                   {#if runResult.caseResults[selectedResultCase]}
+                    {@const caseData = runResult.caseResults[selectedResultCase]!}
                     <div>
-                      <p class="text-xs font-medium text-stone-400">{m.editor_output()}</p>
+                      <p class="text-xs font-medium text-muted-foreground">{m.editor_output()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{runResult.caseResults[selectedResultCase]!.stdout || "(empty)"}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
                     </div>
+                    {#if caseData.stderr}
+                      <div>
+                        <p class="text-xs font-medium text-red-400 dark:text-red-400">Stderr</p>
+                        <pre
+                          class="mt-1 overflow-x-auto rounded-lg bg-red-500/10 px-3 py-2 font-mono text-sm text-red-700 dark:text-red-400">{caseData.stderr}</pre>
+                      </div>
+                    {/if}
                   {/if}
 
                   {#if testcases[selectedResultCase]?.expectedOutput}
                     <div>
-                      <p class="text-xs font-medium text-stone-400">
+                      <p class="text-xs font-medium text-muted-foreground">
                         {m.editor_expectedOutput()}
                       </p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-stone-50 px-3 py-2 font-mono text-sm text-stone-700">{testcases[selectedResultCase]!.expectedOutput}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground">{testcases[selectedResultCase]!.expectedOutput}</pre>
                     </div>
                   {/if}
                 </div>
               {:else if runResult.feedback}
-                <p class="mt-2 text-sm leading-6 text-stone-500">
+                <p class="mt-2 text-sm leading-6 text-muted-foreground">
                   {runResult.feedback}
                 </p>
               {/if}
@@ -455,16 +520,16 @@
           {:else if runStatus}
             <div class="flex items-center gap-2 py-4">
               <div
-                class="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600"
+                class="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground"
               ></div>
-              <span class="text-sm text-stone-500">{runStatus}</span>
+              <span class="text-sm text-muted-foreground">{runStatus}</span>
             </div>
           {:else if runError}
-            <div class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div class="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
               {runError}
             </div>
           {:else}
-            <p class="py-4 text-sm text-stone-400">{m.editor_runFirst()}</p>
+            <p class="py-4 text-sm text-muted-foreground">{m.editor_runFirst()}</p>
           {/if}
         </div>
       {/if}

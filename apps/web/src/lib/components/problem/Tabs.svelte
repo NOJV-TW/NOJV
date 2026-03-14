@@ -1,6 +1,8 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
+  import { FileCode, Plus, Search } from "@lucide/svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   function formatAcceptanceRate(value: number): string {
     return `${String(Math.round(value * 100))}%`;
@@ -175,10 +177,11 @@
   {/if}
   {#if showCreate}
     <a
-      class="ml-auto rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
+      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
       href="/problems/create"
     >
-      + {m.problems_createNew()}
+      <Plus class="h-4 w-4" />
+      {m.problems_createNew()}
     </a>
   {/if}
 </div>
@@ -253,10 +256,15 @@
 {#if tab === "public"}
   <section class="grid gap-4">
     {#if publicProblems.length === 0}
-      <p class="text-sm text-muted-foreground">{m.problems_empty()}</p>
-    {/if}
-    {#if publicProblems.length > 0 && publicFiltered.length === 0}
-      <p class="text-sm text-muted-foreground">{m.problems_noResults()}</p>
+      <EmptyState
+        icon={FileCode}
+        title={m.problems_empty()}
+      />
+    {:else if publicFiltered.length === 0}
+      <EmptyState
+        icon={Search}
+        title={m.problems_noResults()}
+      />
     {/if}
     {#each publicFiltered as problem (problem.slug)}
       <a
@@ -264,21 +272,17 @@
         href="/problems/{problem.slug}"
       >
         <div>
-          <p
-            class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            {problem.slug}
-          </p>
-          <div class="mt-2 flex items-center gap-2">
+          <div class="flex items-center gap-2">
+            <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+              {problem.slug}
+            </p>
             {#if solvedSet.has(problem.slug)}
-              <span class="text-emerald-500" title="Solved">
-                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </span>
+              <svg class="h-5 w-5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor" aria-label="Solved">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
             {/if}
-            <h3 class="text-2xl font-semibold">{problem.title}</h3>
           </div>
+          <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
         </div>
         <div>
           <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
@@ -298,12 +302,17 @@
 {#if tab === "mine" && editableProblems !== null}
   <section class="grid gap-4">
     {#if editableProblems.length === 0}
-      <p class="text-sm text-muted-foreground">
-        {m.problems_myProblemsEmpty()}
-      </p>
-    {/if}
-    {#if editableProblems.length > 0 && mineFiltered.length === 0}
-      <p class="text-sm text-muted-foreground">{m.problems_noResults()}</p>
+      <EmptyState
+        icon={FileCode}
+        title={m.problems_myProblemsEmpty()}
+        actionHref="/problems/create"
+        actionLabel={m.problems_createNew()}
+      />
+    {:else if mineFiltered.length === 0}
+      <EmptyState
+        icon={Search}
+        title={m.problems_noResults()}
+      />
     {/if}
     {#each mineFiltered as problem (problem.slug)}
       <a
@@ -326,8 +335,8 @@
           <span
             class="rounded-full border border-border px-3 py-1 text-xs font-medium {problem.visibility ===
             'public'
-              ? 'text-emerald-600'
-              : 'text-amber-600'}"
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-amber-600 dark:text-amber-400'}"
           >
             {problem.visibility}
           </span>

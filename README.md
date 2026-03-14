@@ -41,34 +41,34 @@ infra/
 ```bash
 pnpm install
 
-# Copy env templates
-cp packages/db/.env.example packages/db/.env
-cp apps/worker/.env.example apps/worker/.env
-# Create apps/web/.env with DATABASE_URL, Redis, Better Auth, OAuth, Resend secrets
+# Copy env template
+cp .env.example .env
+# Edit .env with your DATABASE_URL, Redis, Better Auth, OAuth, Resend secrets
 
-# Start infra and build
-docker compose up -d postgres redis
-pnpm sandbox:build
+# Start infra (postgres + redis; web/worker run on host via pnpm dev)
+docker compose up -d
+
+# Build packages and push schema to DB
 pnpm db:generate
-pnpm db:deploy
+pnpm build
+pnpm db:push
 pnpm db:seed    # optional — seeds demo users, problems, contests, courses
+pnpm sandbox:build  # optional — only needed for submission judging
 
 pnpm dev
 ```
 
 ### Environment Files
 
-| File               | Purpose                                       |
-| ------------------ | --------------------------------------------- |
-| `packages/db/.env` | `DATABASE_URL` for Prisma migrations and seed |
-| `apps/web/.env`    | Database, Redis, Better Auth, OAuth, Resend   |
-| `apps/worker/.env` | Redis, sandbox execution settings             |
+| File   | Purpose                                                      |
+| ------ | ------------------------------------------------------------ |
+| `.env` | Database, Redis, Better Auth, OAuth, Resend, sandbox, worker |
 
 ### Local Ports
 
 | Service    | URL                     |
 | ---------- | ----------------------- |
-| Web        | `http://localhost:3000` |
+| Web        | `http://localhost:5173` |
 | PostgreSQL | `localhost:5432`        |
 | Redis      | `localhost:6379`        |
 
@@ -76,9 +76,9 @@ pnpm dev
 
 ```bash
 pnpm install
-docker compose up -d postgres redis
-pnpm sandbox:build
+docker compose up -d
 pnpm db:generate
+pnpm build
 pnpm dev
 
 # Before pushing
@@ -146,5 +146,5 @@ pnpm deploy:gcp
 
 ## Plans
 
-- [`docs/plans/2026-03-12-architecture-design.md`](docs/plans/2026-03-12-architecture-design.md)
-- [`docs/plans/2026-03-12-architecture-refactor-plan.md`](docs/plans/2026-03-12-architecture-refactor-plan.md)
+- [`docs/plans/2026-03-13-platform-expansion-design.md`](docs/plans/2026-03-13-platform-expansion-design.md)
+- [`docs/plans/2026-03-14-merge-contest-exam-language-restrictions.md`](docs/plans/2026-03-14-merge-contest-exam-language-restrictions.md)

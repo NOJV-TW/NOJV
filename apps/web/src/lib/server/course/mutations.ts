@@ -294,6 +294,7 @@ export async function createCourseAssessmentRecord(
 
     const assessment = await tx.courseAssessment.create({
       data: {
+        allowedLanguages: payload.allowedLanguages,
         closesAt: new Date(payload.closesAt),
         courseId: course.id,
         createdByUserId: creator.id,
@@ -301,12 +302,11 @@ export async function createCourseAssessmentRecord(
         ipLockEnabled: payload.ipLockEnabled,
         opensAt: new Date(payload.opensAt),
         pageLockEnabled: payload.pageLockEnabled,
-        scoreboardMode: payload.scoreboardMode ?? (payload.type === "exam" ? "live" : "hidden"),
+        scoreboardMode: payload.scoreboardMode ?? "hidden",
         slug: payload.slug,
         status: "published",
         summary: payload.summary,
-        title: payload.title,
-        type: payload.type
+        title: payload.title
       }
     });
 

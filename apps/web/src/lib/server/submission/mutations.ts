@@ -38,18 +38,46 @@ export async function createQueuedSubmissionRecord(
   }
 
   // ── Derive mode from server context, ignore client-provided mode ──
-  const mode = payload.contestSlug
-    ? "contest"
-    : courseContext
-      ? courseContext.assessment.type
-      : "practice";
+  const mode = payload.contestSlug ? "contest" : courseContext ? "assignment" : "practice";
 
   return prisma.$transaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
     const contestResult = payload.contestSlug
-      ? await ensureContestParticipation(tx, user.id, payload.contestSlug)
+      ? await ensureContestParticipation(tx, user.id, payload.contestSlug, {
+          problemId: problem.id,
+          sampleOnly: payload.sampleOnly ?? false
+        })
       : null;
     const contestParticipation = contestResult?.participation ?? null;
+
+    // ── Language restriction: contest ──
+    if (
+      contestResult &&
+      contestResult.contest.allowedLanguages.length > 0 &&
+      !contestResult.contest.allowedLanguages.includes(payload.language)
+    ) {
+      throw new ForbiddenError("Language not allowed in this contest");
+    }
+
+    // ── Language restriction: assignment ──
+    if (
+      courseContext?.assessment &&
+      courseContext.assessment.allowedLanguages.length > 0 &&
+      !courseContext.assessment.allowedLanguages.includes(payload.language)
+    ) {
+      throw new ForbiddenError("Language not allowed in this assignment");
+    }
+
+    // ── Language restriction: function-mode template availability ──
+    if (problem.submissionType === "function") {
+      const template = await tx.problemTemplate.findFirst({
+        where: { problemId: problem.id, language: payload.language },
+        select: { id: true }
+      });
+      if (!template) {
+        throw new ForbiddenError("No template available for this language");
+      }
+    }
 
     // Enforce submit cooldown for contest submissions (not sampleOnly runs)
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
@@ -62,7 +90,7 @@ export async function createQueuedSubmissionRecord(
       );
     }
 
-    // Enforce attempt limit for assignment/exam submissions (not sampleOnly runs)
+    // Enforce attempt limit for assignment submissions (not sampleOnly runs)
     if (courseContext?.assessment && !payload.sampleOnly) {
       const { maxAttempts } = courseContext.assessment;
 
@@ -86,6 +114,7 @@ export async function createQueuedSubmissionRecord(
 
     return tx.submission.create({
       data: {
+        contestId: contestResult?.contest.id ?? null,
         contestParticipationId: contestParticipation?.id ?? null,
         courseAssessmentId: courseContext?.assessment.id ?? null,
         courseId: courseContext?.course.id ?? null,

@@ -20,7 +20,7 @@
   <nav class="flex gap-2">
     {#each tabs as tab (tab.href)}
       <a
-        class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-white/70 {currentPath.startsWith(tab.href) ? 'bg-primary text-white hover:bg-primary/90' : ''}"
+        class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent {currentPath.startsWith(tab.href) ? 'bg-primary text-white hover:bg-primary/90' : ''}"
         href={tab.href}
       >
         {tab.label}

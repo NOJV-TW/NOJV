@@ -88,12 +88,9 @@
             <Select.Item value={assessment.slug} label={assessment.title}>
               <span class="inline-flex items-center gap-2">
                 <span
-                  class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider {assessment.type ===
-                  'exam'
-                    ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
-                    : 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'}"
+                  class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
                 >
-                  {assessment.type}
+                  assignment
                 </span>
                 {assessment.title}
               </span>

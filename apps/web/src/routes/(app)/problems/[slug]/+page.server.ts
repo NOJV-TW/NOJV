@@ -1,6 +1,10 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { getActiveExamForUser, getAssessmentContext } from "$lib/server/course/queries";
+import { getAssessmentContext } from "$lib/server/course/queries";
+import {
+  getActiveContestForUser,
+  getContestAllowedLanguages
+} from "$lib/server/contest/queries";
 import { getProblemPageData } from "$lib/server/problem/queries";
 import { listProblemSubmissions } from "$lib/server/submission/queries";
 import { assessmentPath } from "$lib/types";
@@ -12,18 +16,17 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const assessment = url.searchParams.get("assessment");
   const contest = url.searchParams.get("contest");
 
-  // ── Parallel: exam guard + problem data (independent) ──
-  const [activeExam, problem] = await Promise.all([
-    userId ? getActiveExamForUser(userId) : null,
+  // ── Parallel: active contest guard + problem data (independent) ──
+  const [activeContest, problem] = await Promise.all([
+    userId ? getActiveContestForUser(userId) : null,
     getProblemPageData(slug)
   ]);
 
-  if (activeExam) {
-    const isCorrectExamContext =
-      course === activeExam.course.slug && assessment === activeExam.slug;
+  if (activeContest) {
+    const isCorrectContestContext = contest === activeContest.slug;
 
-    if (!isCorrectExamContext) {
-      redirect(303, assessmentPath(activeExam.course.slug, "exam", activeExam.slug));
+    if (!isCorrectContestContext) {
+      redirect(303, `/contests/${activeContest.slug}`);
     }
   }
 
@@ -31,29 +34,29 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     error(404, "Problem not found");
   }
 
-  const assessmentContext =
-    course && assessment ? await getAssessmentContext(course, assessment) : null;
+  // ── Parallel: assessment context + contest languages (independent) ──
+  const [assessmentContext, contestAllowedLanguages] = await Promise.all([
+    course && assessment ? getAssessmentContext(course, assessment) : null,
+    contest ? getContestAllowedLanguages(contest) : null
+  ]);
 
   const backLink = assessmentContext
     ? {
-        href: assessmentPath(
-          assessmentContext.courseSlug,
-          assessmentContext.type,
-          assessmentContext.slug
-        ),
-        type: assessmentContext.type
+        href: assessmentPath(assessmentContext.courseSlug, assessmentContext.slug),
+        type: "assignment" as const
       }
     : undefined;
 
   const assessmentProp = assessmentContext
     ? {
         assessmentSlug: assessmentContext.slug,
-        courseSlug: assessmentContext.courseSlug,
-        kind: assessmentContext.type
+        courseSlug: assessmentContext.courseSlug
       }
     : undefined;
 
-  // ── Load submission history (filtered by assessment if present) ──
+  const allowedLanguages = contestAllowedLanguages ?? assessmentContext?.allowedLanguages ?? [];
+
+  // ── Submissions (depends on assessmentContext for filtering) ──
   const submissions = userId
     ? await listProblemSubmissions(
         userId,
@@ -65,6 +68,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     : [];
 
   return {
+    allowedLanguages,
     assessmentProp,
     backLink,
     contestSlug: contest ?? undefined,

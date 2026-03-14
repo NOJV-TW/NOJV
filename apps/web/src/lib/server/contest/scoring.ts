@@ -29,7 +29,7 @@ export async function updateContestScores(submissionId: string): Promise<void> {
   const { contest } = submission.contestParticipation;
   const participation = submission.contestParticipation;
 
-  // Fetch all non-sampleOnly submissions for this user in this contest
+  // Use contestId + userId for direct lookup (avoids relying solely on participationId)
   const allSubmissions = await prisma.submission.findMany({
     orderBy: { createdAt: "asc" },
     select: {
@@ -39,7 +39,8 @@ export async function updateContestScores(submissionId: string): Promise<void> {
       status: true
     },
     where: {
-      contestParticipationId: participation.id,
+      contestId: contest.id,
+      userId: submission.userId,
       sampleOnly: false
     }
   });

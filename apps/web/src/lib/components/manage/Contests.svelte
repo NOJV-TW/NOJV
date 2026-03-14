@@ -1,17 +1,24 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import type { ContestScoringMode } from "@nojv/core";
-  import { inputClassName } from "$lib/utils";
+  import { supportedLanguages, type AssessmentScoreboardMode, type ContestScoringMode } from "@nojv/core";
+  import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import type { ContestListItem } from "$lib/server/contest/queries";
+  import { Trophy } from "@lucide/svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface Props {
     contests: ContestListItem[];
     courseSlug: string;
     form: SuperValidated<{
+      allowedLanguages: string[];
       endsAt: string;
       frozenAt?: string | undefined;
+      ipLockEnabled: boolean;
+      maxAttempts?: number | null | undefined;
+      pageLockEnabled: boolean;
       problemSlugsText: string;
+      scoreboardMode: AssessmentScoreboardMode;
       scoringMode: ContestScoringMode;
       slug: string;
       startsAt: string;
@@ -25,13 +32,8 @@
   let { contests, courseSlug, form: formData, problemSlugs }: Props = $props();
   const initialProblemSlugs = untrack(() => problemSlugs);
 
-  function toDateTimeLocalValue(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
+  function toggleLanguage(lang: string) {
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
   const textareaClassName = `${inputClassName} min-h-24 resize-y`;
@@ -85,9 +87,24 @@
             {contest.startsAt.slice(0, 10)} &rarr; {contest.endsAt.slice(0, 10)}
             &middot; {contest.participantCount} participants
           </p>
+          <div class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            {#if contest.pageLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">page-lock</span>{/if}
+            {#if contest.ipLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-lock</span>{/if}
+            {#if contest.maxAttempts != null}<span class="rounded-full border border-border px-2 py-0.5">max {contest.maxAttempts} attempts</span>{/if}
+            <span class="rounded-full border border-border px-2 py-0.5">{contest.scoreboardMode} scoreboard</span>
+            {#if contest.allowedLanguages.length > 0}
+              <span class="rounded-full border border-border px-2 py-0.5">{contest.allowedLanguages.join(", ")}</span>
+            {:else}
+              <span class="rounded-full border border-border px-2 py-0.5">all languages</span>
+            {/if}
+          </div>
         </article>
       {:else}
-        <p class="text-sm text-muted-foreground">No contests yet.</p>
+        <EmptyState
+          icon={Trophy}
+          title="No contests yet"
+          description="Create your first contest below."
+        />
       {/each}
     </div>
   </section>
@@ -107,7 +124,7 @@
             placeholder="Contest title"
             required
           />
-          {#if $errors.title}<span class="text-sm text-red-700">{$errors.title}</span>{/if}
+          {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
         </div>
         <div>
           <input
@@ -118,7 +135,7 @@
             placeholder="contest-slug"
             required
           />
-          {#if $errors.slug}<span class="text-sm text-red-700">{$errors.slug}</span>{/if}
+          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.slug}</span>{/if}
         </div>
       </div>
       <div class="grid gap-3 md:grid-cols-2">
@@ -138,6 +155,56 @@
           />
         </div>
       </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div>
+          <label class="text-xs text-muted-foreground" for="scoreboardMode">Scoreboard mode</label>
+          <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
+            <option value="live">Live</option>
+            <option value="frozen">Frozen</option>
+            <option value="hidden">Hidden</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted-foreground" for="maxAttempts">Max attempts (optional)</label>
+          <input
+            class={inputClassName}
+            id="maxAttempts"
+            name="maxAttempts"
+            type="number"
+            min="1"
+            max="999"
+            placeholder="Unlimited"
+            bind:value={$form.maxAttempts}
+          />
+          {#if $errors.maxAttempts}<span class="text-sm text-red-700 dark:text-red-400">{$errors.maxAttempts}</span>{/if}
+        </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
+          Page lock (prevent tab switching)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="ipLockEnabled" bind:checked={$form.ipLockEnabled} />
+          IP lock (restrict to single IP)
+        </label>
+      </div>
+      <div>
+        <label class="text-xs text-muted-foreground">Allowed languages (leave empty for all)</label>
+        <div class="mt-2 flex flex-wrap gap-3">
+          {#each supportedLanguages as lang (lang)}
+            <label class="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={($form.allowedLanguages ?? []).includes(lang)}
+                onchange={() => toggleLanguage(lang)}
+              />
+              {lang}
+            </label>
+          {/each}
+        </div>
+        {#if $errors.allowedLanguages}<span class="text-sm text-red-700 dark:text-red-400">{$errors.allowedLanguages}</span>{/if}
+      </div>
       <div>
         <textarea
           class={textareaClassName}
@@ -146,7 +213,7 @@
           placeholder="Contest summary"
           required
         ></textarea>
-        {#if $errors.summary}<span class="text-sm text-red-700">{$errors.summary}</span>{/if}
+        {#if $errors.summary}<span class="text-sm text-red-700 dark:text-red-400">{$errors.summary}</span>{/if}
       </div>
       <div>
         <textarea
@@ -156,18 +223,18 @@
           placeholder="problem-one, problem-two"
           required
         ></textarea>
-        {#if $errors.problemSlugsText}<span class="text-sm text-red-700">{$errors.problemSlugsText}</span>{/if}
+        {#if $errors.problemSlugsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlugsText}</span>{/if}
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         <div>
           <label class="text-xs text-muted-foreground" for="startsAt">Starts at</label>
           <input class={inputClassName} name="startsAt" bind:value={$form.startsAt} required type="datetime-local" />
-          {#if $errors.startsAt}<span class="text-sm text-red-700">{$errors.startsAt}</span>{/if}
+          {#if $errors.startsAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.startsAt}</span>{/if}
         </div>
         <div>
           <label class="text-xs text-muted-foreground" for="endsAt">Ends at</label>
           <input class={inputClassName} name="endsAt" bind:value={$form.endsAt} required type="datetime-local" />
-          {#if $errors.endsAt}<span class="text-sm text-red-700">{$errors.endsAt}</span>{/if}
+          {#if $errors.endsAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.endsAt}</span>{/if}
         </div>
         <div>
           <label class="text-xs text-muted-foreground" for="frozenAt">Freeze at (optional)</label>
@@ -175,7 +242,7 @@
         </div>
       </div>
       <button
-        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >
@@ -183,7 +250,7 @@
       </button>
     </form>
     {#if $formMessage}
-      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
     {/if}
   </section>
 </div>
