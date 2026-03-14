@@ -40,3 +40,5 @@ jobs:
 
       - name: Verify monorepo
         run: pnpm ci:verify
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
