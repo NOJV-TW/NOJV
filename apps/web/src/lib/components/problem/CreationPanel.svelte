@@ -16,6 +16,7 @@
   import { type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
   import CodeTemplateEditor from "./CodeTemplateEditor.svelte";
   import TestcaseSection from "./TestcaseSection.svelte";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
   interface ExampleCase {
@@ -128,9 +129,15 @@ sys.stdout.flush()
   }
 
   // Populate templates/starterByLanguage into form data before submission via $effect
+  // Use a sync key from input dependencies to avoid infinite loops caused by
+  // reading and writing the same $form store (proxy serialisation mismatch).
+  let prevTemplateSyncKey = "";
   $effect(() => {
     const submissionType = $form.submissionType;
     const tpl = templatesByLang;
+    const syncKey = JSON.stringify({ submissionType, tpl });
+    if (syncKey === prevTemplateSyncKey) return;
+    prevTemplateSyncKey = syncKey;
     untrack(() => {
       if (submissionType === "function") {
         $form.templates = supportedLanguages
@@ -156,7 +163,10 @@ sys.stdout.flush()
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
-        $form.slug = rawSlug.length >= 3 ? rawSlug : `problem-${String(Date.now())}`;
+        const newSlug = rawSlug.length >= 3 ? rawSlug : `problem-${String(Date.now())}`;
+        if ($form.slug !== newSlug) {
+          $form.slug = newSlug;
+        }
       }
     });
   });
@@ -300,7 +310,7 @@ sys.stdout.flush()
 
     <!-- Judge Type -->
     <div class="text-sm text-muted-foreground">
-      <span>{m.admin_judgeType()}</span>
+      <span>{m.admin_judgeType()} <HelpTooltip text={m.admin_helpJudgeType()} /></span>
       <div class="mt-2 flex gap-4">
         {#each ["standard", "checker", "interactive"] as type (type)}
           <label class="flex items-center gap-2 text-sm">
@@ -321,7 +331,7 @@ sys.stdout.flush()
 
     {#if $form.judgeType === "checker"}
       <label class="text-sm text-muted-foreground">
-        {m.admin_checkerScript()}
+        {m.admin_checkerScript()} <HelpTooltip text={m.admin_helpCheckerScript()} />
         <textarea
           class="{monoTextareaClassName} min-h-40"
           bind:value={$form.checkerScript}
@@ -333,7 +343,7 @@ sys.stdout.flush()
 
     {#if $form.judgeType === "interactive"}
       <label class="text-sm text-muted-foreground">
-        {m.admin_interactorScript()}
+        {m.admin_interactorScript()} <HelpTooltip text={m.admin_helpInteractorScript()} />
         <textarea
           class="{monoTextareaClassName} min-h-40"
           bind:value={$form.interactorScript}
@@ -385,7 +395,7 @@ sys.stdout.flush()
 
     <!-- Submission Type -->
     <div class="text-sm text-muted-foreground">
-      <span>{m.admin_submissionType()}</span>
+      <span>{m.admin_submissionType()} <HelpTooltip text={m.admin_helpSubmissionType()} /></span>
       <div class="mt-2 flex gap-4">
         <label class="flex items-center gap-2 text-sm">
           <input
@@ -420,7 +430,7 @@ sys.stdout.flush()
 
     <!-- Statement -->
     <label class="text-sm text-muted-foreground">
-      {m.admin_statement()}
+      {m.admin_statement()} <HelpTooltip text={m.admin_helpStatement()} />
       <textarea
         class="{textareaClassName} min-h-40"
         bind:value={$form.statement}
@@ -432,7 +442,7 @@ sys.stdout.flush()
     <!-- Input / Output Format -->
     <div class="grid gap-4 md:grid-cols-2">
       <label class="text-sm text-muted-foreground">
-        {m.admin_inputFormat()}
+        {m.admin_inputFormat()} <HelpTooltip text={m.admin_helpInputFormat()} />
         <textarea
           class={textareaClassName}
           bind:value={$form.inputFormat}
@@ -440,7 +450,7 @@ sys.stdout.flush()
         {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.inputFormat}</span>{/if}
       </label>
       <label class="text-sm text-muted-foreground">
-        {m.admin_outputFormat()}
+        {m.admin_outputFormat()} <HelpTooltip text={m.admin_helpOutputFormat()} />
         <textarea
           class={textareaClassName}
           bind:value={$form.outputFormat}
