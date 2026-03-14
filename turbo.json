@@ -1,33 +1,23 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", ".svelte-kit/**"]
-    },
-    "@nojv/worker#build": {
-      "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": ["dist/**", ".svelte-kit/**"]
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^lint"],
-      "outputs": []
+      "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^test"],
-      "outputs": []
+      "dependsOn": ["^build"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "outputs": []
-    },
-    "prisma:validate": {
-      "outputs": []
+      "dependsOn": ["^build"]
     }
   }
 }
