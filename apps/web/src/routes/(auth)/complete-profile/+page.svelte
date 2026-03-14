@@ -116,7 +116,7 @@
           {m.onboarding_subtitle()}
         </p>
         <button
-          class="rounded-2xl border border-border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-white/60"
+          class="rounded-2xl border border-border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-accent"
           onclick={() => (mode = "school")}
           type="button"
         >
@@ -126,7 +126,7 @@
           </p>
         </button>
         <button
-          class="rounded-2xl border border-border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-white/60"
+          class="rounded-2xl border border-border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-accent"
           onclick={() => (mode = "general")}
           type="button"
         >
@@ -136,7 +136,7 @@
           </p>
         </button>
         <button
-          class="mt-2 rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-white/60"
+          class="mt-2 rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent"
           onclick={() => void handleSignOut()}
           type="button"
         >
@@ -190,7 +190,7 @@
             <label class="flex flex-col gap-1 text-sm">
               {m.onboarding_schoolEmailLabel()}
               <input
-                class="rounded-2xl border border-border bg-white/60 px-3 py-3"
+                class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
                 name="email"
                 oninput={(e) => (schoolEmail = (e.target as HTMLInputElement).value)}
                 placeholder={m.onboarding_schoolEmailPlaceholder()}
@@ -210,7 +210,7 @@
               {loading ? m.onboarding_sending() : m.onboarding_sendVerification()}
             </button>
             <button
-              class="rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-white/60"
+              class="rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent"
               onclick={() => {
                 mode = "choose";
                 error = "";
@@ -229,7 +229,7 @@
         <label class="flex flex-col gap-1 text-sm">
           {m.onboarding_usernameLabel()}
           <input
-            class="rounded-2xl border border-border bg-white/60 px-3 py-3"
+            class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
             maxlength={64}
             oninput={(e) => (username = (e.target as HTMLInputElement).value)}
             pattern={USERNAME_INPUT_PATTERN}
@@ -251,7 +251,7 @@
           {loading ? m.onboarding_saving() : m.onboarding_continue()}
         </button>
         <button
-          class="rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-white/60"
+          class="rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent"
           onclick={() => {
             mode = "choose";
             error = "";

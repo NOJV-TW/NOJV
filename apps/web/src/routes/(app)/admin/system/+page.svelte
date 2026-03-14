@@ -23,15 +23,15 @@
       {#if data.dbOk}
         <div class="mt-2 flex items-center gap-2">
           <span class="inline-block h-3 w-3 rounded-full bg-emerald-500"></span>
-          <span class="text-sm text-emerald-700">Connected</span>
+          <span class="text-sm text-emerald-700 dark:text-emerald-400">Connected</span>
         </div>
       {:else}
         <div class="mt-2 flex items-center gap-2">
           <span class="inline-block h-3 w-3 rounded-full bg-red-500"></span>
-          <span class="text-sm text-red-700">Disconnected</span>
+          <span class="text-sm text-red-700 dark:text-red-400">Disconnected</span>
         </div>
         {#if data.dbError}
-          <p class="mt-1 text-xs text-red-600">{data.dbError}</p>
+          <p class="mt-1 text-xs text-red-600 dark:text-red-400">{data.dbError}</p>
         {/if}
       {/if}
     </div>
@@ -43,15 +43,15 @@
       {#if data.queueCounts}
         <div class="mt-2 flex items-center gap-2">
           <span class="inline-block h-3 w-3 rounded-full bg-emerald-500"></span>
-          <span class="text-sm text-emerald-700">Connected</span>
+          <span class="text-sm text-emerald-700 dark:text-emerald-400">Connected</span>
         </div>
       {:else}
         <div class="mt-2 flex items-center gap-2">
           <span class="inline-block h-3 w-3 rounded-full bg-red-500"></span>
-          <span class="text-sm text-red-700">Unavailable</span>
+          <span class="text-sm text-red-700 dark:text-red-400">Unavailable</span>
         </div>
         {#if data.queueError}
-          <p class="mt-1 text-xs text-red-600">{data.queueError}</p>
+          <p class="mt-1 text-xs text-red-600 dark:text-red-400">{data.queueError}</p>
         {/if}
       {/if}
     </div>
@@ -65,7 +65,7 @@
       <h3 class="text-lg font-semibold">Submission Queue</h3>
       <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {#each Object.entries(data.queueCounts) as [key, count] (key)}
-          <div class="rounded-2xl border border-border bg-white/60 px-4 py-3 text-center">
+          <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-4 py-3 text-center">
             <p class="text-2xl font-bold">{count}</p>
             <p class="text-xs text-muted-foreground">{statusLabels[key] ?? key}</p>
           </div>
@@ -107,7 +107,7 @@
                 <td class="px-4 py-2 text-xs">{sub.language}</td>
                 <td class="px-4 py-2">
                   <span
-                    class="rounded-full px-2 py-0.5 text-xs font-medium {sub.status === 'compile_error' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}"
+                    class="rounded-full px-2 py-0.5 text-xs font-medium {sub.status === 'compile_error' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400' : 'bg-red-500/15 text-red-700 dark:text-red-400'}"
                   >
                     {sub.status.replaceAll("_", " ")}
                   </span>

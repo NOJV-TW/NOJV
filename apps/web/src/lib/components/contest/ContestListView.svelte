@@ -32,8 +32,8 @@
     const start = new Date(startsAt);
     const end = new Date(endsAt);
 
-    if (now < start) return { color: "text-blue-600", label: "Upcoming" };
-    if (now <= end) return { color: "text-emerald-600", label: "Active" };
+    if (now < start) return { color: "text-blue-600 dark:text-blue-400", label: "Upcoming" };
+    if (now <= end) return { color: "text-emerald-600 dark:text-emerald-400", label: "Active" };
     return { color: "text-[color:var(--color-muted-foreground)]", label: "Ended" };
   }
 

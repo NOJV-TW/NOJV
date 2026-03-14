@@ -102,7 +102,7 @@
   {/if}
   {#if error}
     <div
-      class="mt-4 rounded-2xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"
+      class="mt-4 rounded-2xl border border-red-300 dark:border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400"
     >
       {error}
     </div>

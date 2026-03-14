@@ -233,7 +233,7 @@
             placeholder="Assessment title"
             required
           />
-          {#if $errors.title}<span class="text-sm text-red-700">{$errors.title}</span>{/if}
+          {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
         </div>
         <div>
           <input
@@ -244,7 +244,7 @@
             placeholder="assessment-slug"
             required
           />
-          {#if $errors.slug}<span class="text-sm text-red-700">{$errors.slug}</span>{/if}
+          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.slug}</span>{/if}
         </div>
       </div>
       <div>
@@ -279,7 +279,7 @@
           placeholder="Assessment summary"
           required
         ></textarea>
-        {#if $errors.summary}<span class="text-sm text-red-700">{$errors.summary}</span>{/if}
+        {#if $errors.summary}<span class="text-sm text-red-700 dark:text-red-400">{$errors.summary}</span>{/if}
       </div>
       <div>
         <textarea
@@ -289,24 +289,24 @@
           placeholder="problem-one, problem-two"
           required
         ></textarea>
-        {#if $errors.problemSlugsText}<span class="text-sm text-red-700">{$errors.problemSlugsText}</span>{/if}
+        {#if $errors.problemSlugsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlugsText}</span>{/if}
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         <div>
           <input class={inputClassName} name="opensAt" bind:value={$form.opensAt} required type="datetime-local" />
-          {#if $errors.opensAt}<span class="text-sm text-red-700">{$errors.opensAt}</span>{/if}
+          {#if $errors.opensAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.opensAt}</span>{/if}
         </div>
         <div>
           <input class={inputClassName} name="dueAt" bind:value={$form.dueAt} required type="datetime-local" />
-          {#if $errors.dueAt}<span class="text-sm text-red-700">{$errors.dueAt}</span>{/if}
+          {#if $errors.dueAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.dueAt}</span>{/if}
         </div>
         <div>
           <input class={inputClassName} name="closesAt" bind:value={$form.closesAt} required type="datetime-local" />
-          {#if $errors.closesAt}<span class="text-sm text-red-700">{$errors.closesAt}</span>{/if}
+          {#if $errors.closesAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.closesAt}</span>{/if}
         </div>
       </div>
       <button
-        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >
@@ -314,7 +314,7 @@
       </button>
     </form>
     {#if $formMessage}
-      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
     {/if}
   </section>
 </div>

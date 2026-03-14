@@ -3,6 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
+  import ThemeToggle from "./ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());
   let user = $derived($page.data.user);
@@ -35,7 +36,7 @@
       <nav class="flex flex-wrap items-center gap-2 text-sm font-medium">
         {#each navItems as item (item.href)}
           <a
-            class="rounded-full border border-border px-4 py-2 transition hover:-translate-y-0.5 hover:bg-white/70"
+            class="rounded-full border border-border px-4 py-2 transition hover:-translate-y-0.5 hover:bg-accent/70"
             href={item.href}
           >
             {item.label}
@@ -46,7 +47,7 @@
 
     <div class="ml-auto flex items-center gap-2">
       <div
-        class="flex items-center gap-1 rounded-full border border-border bg-white/60 p-1 text-sm"
+        class="flex items-center gap-1 rounded-full border border-border bg-[color:var(--color-panel-strong)] p-1 text-sm"
       >
         {#each locales as entry (entry)}
           <button
@@ -60,6 +61,7 @@
           </button>
         {/each}
       </div>
+      <ThemeToggle />
       <UserAuthMenu />
     </div>
   </div>

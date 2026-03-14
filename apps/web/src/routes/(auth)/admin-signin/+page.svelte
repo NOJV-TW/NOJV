@@ -46,7 +46,7 @@
         {m.auth_usernameOrEmail()}
         <input
           autocomplete="username"
-          class="rounded-2xl border border-border bg-white/60 px-3 py-3"
+          class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
           name="identity"
           required
           type="text"
@@ -56,7 +56,7 @@
         {m.auth_password()}
         <input
           autocomplete="current-password"
-          class="rounded-2xl border border-border bg-white/60 px-3 py-3"
+          class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
           name="password"
           required
           type="password"

@@ -73,43 +73,43 @@
       use:enhance
     >
       <input
-        class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
+        class="mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm"
         name="displayName"
         bind:value={$form.displayName}
         placeholder="Display name"
         required
       />
-      {#if $errors.displayName}<span class="text-sm text-red-700">{$errors.displayName}</span>{/if}
+      {#if $errors.displayName}<span class="text-sm text-red-700 dark:text-red-400">{$errors.displayName}</span>{/if}
       <div class="grid gap-3 md:grid-cols-2">
         <div>
           <input
-            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm"
             name="email"
             bind:value={$form.email}
             placeholder="Email"
             required
             type="email"
           />
-          {#if $errors.email}<span class="text-sm text-red-700">{$errors.email}</span>{/if}
+          {#if $errors.email}<span class="text-sm text-red-700 dark:text-red-400">{$errors.email}</span>{/if}
         </div>
         <div>
           <input
-            class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm"
             name="username"
             bind:value={$form.username}
             placeholder="Username"
             required
           />
-          {#if $errors.username}<span class="text-sm text-red-700">{$errors.username}</span>{/if}
+          {#if $errors.username}<span class="text-sm text-red-700 dark:text-red-400">{$errors.username}</span>{/if}
         </div>
       </div>
-      <select class="mt-2 w-full rounded-2xl border border-border bg-white/60 px-3 py-3 text-sm" name="role" bind:value={$form.role}>
+      <select class="mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm" name="role" bind:value={$form.role}>
         <option value="student">student</option>
         <option value="ta">ta</option>
         <option value="teacher">teacher</option>
       </select>
       <button
-        class="inline-flex w-fit rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={$submitting}
         type="submit"
       >
@@ -117,7 +117,7 @@
       </button>
     </form>
     {#if $formMessage}
-      <p class="mt-4 text-sm text-emerald-700">{$formMessage}</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
     {/if}
   </section>
 </div>

@@ -2,6 +2,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { assessmentPath } from "$lib/types";
+  import { ClipboardList, LogIn } from "@lucide/svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface AssessmentItem {
     courseSlug: string;
@@ -36,11 +38,15 @@
   </h2>
 
   {#if items === null}
-    <p class="text-sm text-muted-foreground">
-      {labels.signInRequired}
-    </p>
+    <EmptyState
+      icon={LogIn}
+      title={labels.signInRequired}
+    />
   {:else if items.length === 0}
-    <p class="text-sm text-muted-foreground">{labels.empty}</p>
+    <EmptyState
+      icon={ClipboardList}
+      title={labels.empty}
+    />
   {:else}
     <section class="grid gap-4">
       {#each items as a (`${a.courseSlug}-${a.slug}`)}

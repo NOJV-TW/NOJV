@@ -82,7 +82,7 @@
         <button
           class="px-3 py-1.5 text-xs font-medium transition {activeTemplateLang === lang
             ? 'border-b-2 border-primary text-foreground'
-            : 'text-stone-400 hover:text-stone-600'}"
+            : 'text-muted-foreground hover:text-foreground'}"
           onclick={() => (activeTemplateLang = lang)}
           type="button"
         >
