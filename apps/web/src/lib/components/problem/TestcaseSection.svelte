@@ -3,6 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { monoTextareaClassName } from "$lib/utils";
   import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   const smallInputClassName =
     "w-full rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-xs font-mono";
   const pillButton =
@@ -178,7 +179,9 @@
     >
       <div class="flex flex-wrap items-end gap-3">
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">Regex</span>
+          <span class="text-xs text-muted-foreground">
+            {m.testcases_regex()} <HelpTooltip text={m.testcases_zipStructureHint()} />
+          </span>
           <input
             class="{smallInputClassName} w-48"
             oninput={(e) => (regexPattern = (e.target as HTMLInputElement).value)}
@@ -187,7 +190,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">Input Extension</span>
+          <span class="text-xs text-muted-foreground">{m.testcases_inputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (inExt = (e.target as HTMLInputElement).value)}
@@ -195,7 +198,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">Output Extension</span>
+          <span class="text-xs text-muted-foreground">{m.testcases_outputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (outExt = (e.target as HTMLInputElement).value)}
