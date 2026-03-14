@@ -1,11 +1,16 @@
 <script lang="ts">
-  import type { ContestScoringMode } from "@nojv/core";
+  import type { AssessmentScoreboardMode, ContestScoringMode, Language } from "@nojv/core";
   import { getLocale } from "$lib/paraglide/runtime.js";
 
   interface ContestItem {
+    allowedLanguages: Language[];
     endsAt: string;
+    ipLockEnabled: boolean;
+    maxAttempts: number | null;
+    pageLockEnabled: boolean;
     participantCount: number;
     problemCount: number;
+    scoreboardMode: AssessmentScoreboardMode;
     scoringMode: ContestScoringMode;
     slug: string;
     startsAt: string;
@@ -27,9 +32,19 @@
     const start = new Date(startsAt);
     const end = new Date(endsAt);
 
-    if (now < start) return { color: "text-blue-600", label: "Upcoming" };
-    if (now <= end) return { color: "text-emerald-600", label: "Active" };
+    if (now < start) return { color: "text-blue-600 dark:text-blue-400", label: "Upcoming" };
+    if (now <= end) return { color: "text-emerald-600 dark:text-emerald-400", label: "Active" };
     return { color: "text-[color:var(--color-muted-foreground)]", label: "Ended" };
+  }
+
+  function formatFeatures(c: ContestItem): string {
+    const parts = [c.scoringMode, `${c.problemCount} problems`, `${c.participantCount} participants`];
+    if (c.scoreboardMode === "frozen") parts.push("frozen scoreboard");
+    if (c.pageLockEnabled) parts.push("page lock");
+    if (c.ipLockEnabled) parts.push("IP lock");
+    if (c.maxAttempts != null) parts.push(`${c.maxAttempts} attempts`);
+    if (c.allowedLanguages.length > 0) parts.push(c.allowedLanguages.join(", "));
+    return parts.join(" \u00b7 ");
   }
 </script>
 
@@ -45,7 +60,7 @@
       >
         <div>
           <p class="text-xs text-muted-foreground uppercase tracking-wide">
-            {c.scoringMode} &middot; {c.problemCount} problems &middot; {c.participantCount} participants
+            {formatFeatures(c)}
           </p>
           <h3 class="mt-1 text-xl font-semibold">{c.title}</h3>
         </div>

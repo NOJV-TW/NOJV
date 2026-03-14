@@ -3,7 +3,7 @@
   import type { CourseAssessmentRecord } from "$lib/server/course/queries";
   import {
     assessmentPath,
-    deriveAssessmentPresentation,
+    assessmentPresentation,
     deriveAssessmentWindowState
   } from "$lib/types";
 
@@ -35,27 +35,19 @@
   </div>
   <div class="mt-5 grid gap-4">
     {#each assessments as assessment (assessment.slug)}
-      {@const presentation = deriveAssessmentPresentation({
-        scoreboardMode: assessment.scoreboardMode,
-        type: assessment.type
-      })}
+      {@const presentation = assessmentPresentation}
       {@const windowState = deriveAssessmentWindowState({
         closesAt: assessment.closesAt,
         dueAt: assessment.dueAt,
         opensAt: assessment.opensAt
       })}
-      {@const href = assessmentPath(courseSlug, assessment.type, assessment.slug)}
+      {@const href = assessmentPath(courseSlug, assessment.slug)}
       <a
         class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4 transition hover:-translate-y-0.5"
         {href}
       >
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p
-              class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
-            >
-              {assessment.type}
-            </p>
             <p class="mt-2 text-lg font-semibold">{assessment.title}</p>
             <p class="mt-3 text-sm leading-7 text-muted-foreground">
               {assessment.summary}

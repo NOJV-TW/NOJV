@@ -12,6 +12,5 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @nojv/db db:generate
-RUN pnpm --filter @nojv/worker build
 
 CMD ["pnpm", "--filter", "@nojv/worker", "start"]

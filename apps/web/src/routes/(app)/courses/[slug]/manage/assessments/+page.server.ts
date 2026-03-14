@@ -2,8 +2,7 @@ import {
   assessmentScoreboardModeSchema,
   contestCreateSchema,
   courseAssessmentCreateSchema,
-  courseAssessmentTypeSchema,
-  contestScoringModeSchema,
+  languageSchema,
   slugSchema
 } from "@nojv/core";
 import { fail } from "@sveltejs/kit";
@@ -16,8 +15,10 @@ import { canPublishAssessment, getCoursePermissionRole, requireAuth } from "$lib
 import { createCourseAssessmentRecord } from "$lib/server/course/mutations";
 import { createContestRecord } from "$lib/server/contest/mutations";
 import { listCourseContests } from "$lib/server/contest/queries";
+import { contestFormSchema } from "$lib/server/contest/schemas";
 
 const assessmentFormSchema = z.object({
+  allowedLanguages: z.array(languageSchema).max(8).default([]),
   closesAt: z.string().min(1),
   dueAt: z.string().min(1),
   ipLockEnabled: z.boolean().default(false),
@@ -28,19 +29,6 @@ const assessmentFormSchema = z.object({
   scoreboardMode: assessmentScoreboardModeSchema.optional(),
   slug: slugSchema,
   summary: z.string().min(8).max(2_000),
-  title: z.string().min(3).max(120),
-  type: courseAssessmentTypeSchema
-});
-
-const contestFormSchema = z.object({
-  endsAt: z.string().min(1),
-  frozenAt: z.string().optional(),
-  problemSlugsText: z.string().min(1),
-  scoringMode: contestScoringModeSchema.default("icpc"),
-  slug: slugSchema,
-  startsAt: z.string().min(1),
-  submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
-  summary: z.string().min(8).max(4_000),
   title: z.string().min(3).max(120)
 });
 
@@ -69,7 +57,7 @@ export const actions = {
     const role = await getCoursePermissionRole(slug, actor);
 
     if (!role || !canPublishAssessment(role)) {
-      return fail(403, { error: "Only course staff can publish assignments or exams." });
+      return fail(403, { error: "Only course staff can publish assignments." });
     }
 
     const form = await superValidate(event, zod4(assessmentFormSchema));

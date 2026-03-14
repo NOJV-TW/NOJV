@@ -36,9 +36,9 @@
 
   function statusColor(status: string): string {
     switch (status) {
-      case "completed": return "text-emerald-700";
-      case "failed": return "text-red-700";
-      case "running": return "text-amber-700";
+      case "completed": return "text-emerald-700 dark:text-emerald-400";
+      case "failed": return "text-red-700 dark:text-red-400";
+      case "running": return "text-amber-700 dark:text-amber-400";
       default: return "text-muted-foreground";
     }
   }
@@ -166,7 +166,7 @@
                   <td class="px-3 py-2 font-mono text-xs">{memberLabel(pair.userId2)}</td>
                   <td class="px-3 py-2">{problemLabel(pair.problemId)}</td>
                   <td class="px-3 py-2">
-                    <span class="font-semibold {Math.max(pair.similarity1, pair.similarity2) >= 80 ? 'text-red-700' : Math.max(pair.similarity1, pair.similarity2) >= 50 ? 'text-amber-700' : ''}">
+                    <span class="font-semibold {Math.max(pair.similarity1, pair.similarity2) >= 80 ? 'text-red-700 dark:text-red-400' : Math.max(pair.similarity1, pair.similarity2) >= 50 ? 'text-amber-700 dark:text-amber-400' : ''}">
                       {pair.similarity1}% / {pair.similarity2}%
                     </span>
                   </td>
@@ -207,7 +207,7 @@
       {:else if latestReport.status === "pending" || latestReport.status === "running"}
         <p class="mt-4 text-sm text-muted-foreground">Check is in progress. Refresh the page to see updated results.</p>
       {:else if latestReport.status === "failed"}
-        <p class="mt-4 text-sm text-red-700">The plagiarism check failed. Try running it again.</p>
+        <p class="mt-4 text-sm text-red-700 dark:text-red-400">The plagiarism check failed. Try running it again.</p>
       {/if}
     </section>
   {:else}
@@ -245,13 +245,13 @@
             <p class="mb-2 text-xs font-semibold text-muted-foreground">
               {memberLabel(comparisonPair.userId1)}
             </p>
-            <pre class="max-h-96 overflow-auto rounded-xl border border-border bg-white/60 p-3 text-xs"><code>{sourceCode1}</code></pre>
+            <pre class="max-h-96 overflow-auto rounded-xl border border-border bg-muted p-3 text-xs"><code>{sourceCode1}</code></pre>
           </div>
           <div>
             <p class="mb-2 text-xs font-semibold text-muted-foreground">
               {memberLabel(comparisonPair.userId2)}
             </p>
-            <pre class="max-h-96 overflow-auto rounded-xl border border-border bg-white/60 p-3 text-xs"><code>{sourceCode2}</code></pre>
+            <pre class="max-h-96 overflow-auto rounded-xl border border-border bg-muted p-3 text-xs"><code>{sourceCode2}</code></pre>
           </div>
         </div>
       {/if}

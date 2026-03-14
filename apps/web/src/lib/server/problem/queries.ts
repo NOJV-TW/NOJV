@@ -24,19 +24,16 @@ function buildProblemSamples(problem: {
   const visibleSet =
     problem.testcaseSets?.find((testcaseSet) => !testcaseSet.isHidden) ??
     problem.testcaseSets?.[0];
-  const sample = visibleSet?.testcases[0];
 
-  if (!sample) {
+  if (!visibleSet || visibleSet.testcases.length === 0) {
     return [];
   }
 
-  return [
-    {
-      explanation: "Sample case extracted from the authored testcase set.",
-      input: sample.stdin,
-      output: sample.expectedStdout ?? ""
-    }
-  ];
+  return visibleSet.testcases.map((tc) => ({
+    explanation: "",
+    input: tc.stdin,
+    output: tc.expectedStdout ?? ""
+  }));
 }
 
 function buildTemplatesMap(

@@ -3,10 +3,11 @@
   import { m } from "$lib/paraglide/messages.js";
   import { monoTextareaClassName } from "$lib/utils";
   import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "./detect-subtasks";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   const smallInputClassName =
-    "w-full rounded-[1.5rem] border border-border bg-white/60 px-2 py-1.5 text-xs font-mono";
+    "w-full rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-xs font-mono";
   const pillButton =
-    "inline-flex rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-white";
+    "inline-flex rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-accent";
 
   interface ExampleCase {
     stdin: string;
@@ -116,13 +117,13 @@
   <div class="mt-3 grid gap-3">
     {#each examples as ex, i (`example-${i}`)}
       <div
-        class="rounded-[1.5rem] border border-border bg-white/50 px-4 py-3"
+        class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-3"
       >
         <div class="flex items-center justify-between gap-4">
           <p class="text-sm font-semibold">{m.testcases_case()} {i + 1}</p>
           {#if examples.length > 1}
             <button
-              class="text-sm text-red-700"
+              class="text-sm text-red-700 dark:text-red-400"
               onclick={() => (examples = examples.filter((_, idx) => idx !== i))}
               type="button"
             >
@@ -174,11 +175,13 @@
     </p>
 
     <div
-      class="mt-3 rounded-[1.5rem] border border-dashed border-border bg-white/40 px-4 py-3"
+      class="mt-3 rounded-[1.5rem] border border-dashed border-border bg-[color:var(--color-panel)] px-4 py-3"
     >
       <div class="flex flex-wrap items-end gap-3">
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">Regex</span>
+          <span class="text-xs text-muted-foreground">
+            {m.testcases_regex()} <HelpTooltip text={m.testcases_zipStructureHint()} />
+          </span>
           <input
             class="{smallInputClassName} w-48"
             oninput={(e) => (regexPattern = (e.target as HTMLInputElement).value)}
@@ -187,7 +190,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">Input Extension</span>
+          <span class="text-xs text-muted-foreground">{m.testcases_inputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (inExt = (e.target as HTMLInputElement).value)}
@@ -195,7 +198,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">Output Extension</span>
+          <span class="text-xs text-muted-foreground">{m.testcases_outputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (outExt = (e.target as HTMLInputElement).value)}
@@ -208,7 +211,7 @@
           </span>
           <input
             accept=".zip"
-            class="text-xs file:mr-2 file:rounded-full file:border file:border-border file:bg-white/60 file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-white"
+            class="text-xs file:mr-2 file:rounded-full file:border file:border-border file:bg-[color:var(--color-panel)] file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-accent"
             onchange={(e) => {
               const file = (e.target as HTMLInputElement).files?.[0];
               if (file) void handleZipUpload(file);
@@ -223,7 +226,7 @@
       <div class="mt-4 space-y-4">
         <div class="flex flex-wrap items-center gap-3">
           <span
-            class="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700"
+            class="rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
           >
             {zipFileName} — {parsedCases.length} cases uploaded
           </span>
@@ -232,8 +235,8 @@
           </span>
           <span
             class="text-xs font-medium {totalPoints === 100
-              ? 'text-emerald-600'
-              : 'text-amber-600'}"
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-amber-600 dark:text-amber-400'}"
           >
             {totalPoints}/100 pts
           </span>
@@ -246,7 +249,7 @@
               class="rounded-full border px-3 py-1 text-xs font-medium transition {subtasks.length ===
               n
                 ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border hover:bg-white'}"
+                : 'border-border hover:bg-accent'}"
               onclick={() => autoSplitEvenly(n)}
               type="button"
             >
@@ -263,8 +266,8 @@
             <span class="text-muted-foreground">{m.testcases_totalWeight()}:</span>
             <span
               class="font-bold tabular-nums {totalPoints === 100
-                ? 'text-emerald-600'
-                : 'text-amber-600'}"
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-amber-600 dark:text-amber-400'}"
             >
               {totalPoints}/100
             </span>
@@ -277,7 +280,7 @@
                 <label class="grid gap-1">
                   <span class="text-xs font-medium text-muted-foreground">{m.testcases_subtaskLabel()}</span>
                   <input
-                    class="rounded-[1.5rem] border border-border bg-white/60 px-3 py-2 text-sm font-semibold"
+                    class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm font-semibold"
                     oninput={(e) =>
                       updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
                     value={subtask.name}
@@ -287,7 +290,7 @@
                   <span class="text-xs font-medium text-muted-foreground">{m.testcases_subtaskWeight()}</span>
                   <div class="flex items-center gap-1">
                     <input
-                      class="w-20 rounded-[1.5rem] border-2 border-primary/30 bg-white/60 px-2 py-2 text-sm font-bold text-primary"
+                      class="w-20 rounded-[1.5rem] border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-sm font-bold text-primary"
                       min="0"
                       oninput={(e) =>
                         updateSubtask(si, {
@@ -300,13 +303,13 @@
                   </div>
                 </label>
                 <span
-                  class="mt-auto rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+                  class="mt-auto rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-400"
                 >
                   {subtask.caseIndices.length} cases
                 </span>
                 {#if subtasks.length > 1}
                   <button
-                    class="ml-auto mt-auto text-sm text-red-700 hover:text-red-900"
+                    class="ml-auto mt-auto text-sm text-red-700 dark:text-red-400 hover:text-red-900"
                     onclick={() => (subtasks = subtasks.filter((_, i) => i !== si))}
                     type="button"
                   >
@@ -315,7 +318,7 @@
                 {/if}
               </div>
               <textarea
-                class="mt-3 w-full rounded-[1.5rem] border border-border bg-white/60 px-3 py-2 text-sm"
+                class="mt-3 w-full rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
                 oninput={(e) =>
                   updateSubtask(si, {
                     description: (e.target as HTMLTextAreaElement).value

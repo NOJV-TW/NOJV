@@ -108,7 +108,7 @@
         <label class="flex flex-col gap-1 text-sm">
           {m.account_schoolEmailLabel()}
           <input
-            class="rounded-2xl border border-border bg-white/60 px-3 py-3"
+            class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
             bind:value={schoolEmail}
             name="email"
             placeholder={m.account_schoolEmailPlaceholder()}

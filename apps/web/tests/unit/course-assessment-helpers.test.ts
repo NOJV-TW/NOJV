@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  deriveAssessmentPresentation,
+  assessmentPresentation,
   deriveAssessmentWindowState,
   windowStateColorClass
 } from "$lib/types";
@@ -95,32 +95,9 @@ describe("deriveAssessmentWindowState", () => {
   });
 });
 
-describe("deriveAssessmentPresentation", () => {
-  it("uses live rank framing for exams", () => {
-    expect(
-      deriveAssessmentPresentation({
-        scoreboardMode: "live",
-        type: "exam"
-      }).heroLabel
-    ).toContain("Live rank");
-  });
-
-  it("uses deadline framing for assignments", () => {
-    expect(
-      deriveAssessmentPresentation({
-        scoreboardMode: "hidden",
-        type: "assignment"
-      }).heroLabel
-    ).toContain("Deadline");
-  });
-
-  it("uses frozen rank framing for frozen exams", () => {
-    expect(
-      deriveAssessmentPresentation({
-        scoreboardMode: "frozen",
-        type: "exam"
-      }).heroLabel
-    ).toContain("Frozen rank");
+describe("assessmentPresentation", () => {
+  it("uses deadline framing", () => {
+    expect(assessmentPresentation.heroLabel).toContain("Deadline");
   });
 });
 

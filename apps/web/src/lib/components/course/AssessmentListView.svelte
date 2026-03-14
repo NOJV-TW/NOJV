@@ -1,8 +1,9 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import type { CourseAssessmentType } from "@nojv/core";
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { assessmentPath } from "$lib/types";
+  import { ClipboardList, LogIn } from "@lucide/svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface AssessmentItem {
     courseSlug: string;
@@ -17,29 +18,18 @@
 
   interface Props {
     items: AssessmentItem[] | null;
-    type: CourseAssessmentType;
   }
 
-  let { items, type }: Props = $props();
+  let { items }: Props = $props();
   let currentLocale = $derived(getLocale());
 
-  const labels = $derived(
-    type === "assignment"
-      ? {
-          heading: m.assignmentsList_heading(),
-          signInRequired: m.assignmentsList_signInRequired(),
-          empty: m.assignmentsList_empty(),
-          opens: m.assignmentsList_opens(),
-          due: m.assignmentsList_due()
-        }
-      : {
-          heading: m.examsList_heading(),
-          signInRequired: m.examsList_signInRequired(),
-          empty: m.examsList_empty(),
-          opens: m.examsList_opens(),
-          due: m.examsList_due()
-        }
-  );
+  const labels = $derived({
+    heading: m.assignmentsList_heading(),
+    signInRequired: m.assignmentsList_signInRequired(),
+    empty: m.assignmentsList_empty(),
+    opens: m.assignmentsList_opens(),
+    due: m.assignmentsList_due()
+  });
 </script>
 
 <div class="space-y-6">
@@ -48,17 +38,21 @@
   </h2>
 
   {#if items === null}
-    <p class="text-sm text-muted-foreground">
-      {labels.signInRequired}
-    </p>
+    <EmptyState
+      icon={LogIn}
+      title={labels.signInRequired}
+    />
   {:else if items.length === 0}
-    <p class="text-sm text-muted-foreground">{labels.empty}</p>
+    <EmptyState
+      icon={ClipboardList}
+      title={labels.empty}
+    />
   {:else}
     <section class="grid gap-4">
       {#each items as a (`${a.courseSlug}-${a.slug}`)}
         <a
           class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_0.4fr] sm:items-center transition hover:-translate-y-0.5"
-          href={assessmentPath(a.courseSlug, type, a.slug)}
+          href={assessmentPath(a.courseSlug, a.slug)}
         >
           <div>
             <p class="text-sm text-muted-foreground">{a.courseTitle}</p>

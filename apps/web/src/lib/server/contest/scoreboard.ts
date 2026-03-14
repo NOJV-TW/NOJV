@@ -1,5 +1,5 @@
 import { prisma } from "@nojv/db";
-import type { ContestScoringMode } from "@nojv/core";
+import type { AssessmentScoreboardMode, ContestScoringMode } from "@nojv/core";
 
 import { NotFoundError } from "../auth";
 
@@ -37,6 +37,7 @@ export interface ScoreboardData {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];
   scoringMode: ContestScoringMode;
+  scoreboardMode: AssessmentScoreboardMode;
   frozenAt: string | null;
   isFrozen: boolean;
 }
@@ -56,6 +57,7 @@ interface ContestRow {
   startsAt: Date;
   endsAt: Date;
   scoringMode: string;
+  scoreboardMode: string;
   frozenAt: Date | null;
   frozenBoard: boolean;
   problems: {
@@ -87,7 +89,7 @@ function secondsSince(base: Date, later: Date): number {
 
 export async function getScoreboard(
   contestSlug: string,
-  options?: { unfrozen?: boolean }
+  options?: { unfrozen?: boolean; isPrivileged?: boolean }
 ): Promise<ScoreboardData> {
   const contest = await prisma.contest.findUnique({
     include: {
@@ -110,11 +112,11 @@ export async function getScoreboard(
   }
 
   const now = new Date();
+  const scoreboardMode = contest.scoreboardMode as AssessmentScoreboardMode;
   const showFrozen =
     !options?.unfrozen &&
-    contest.frozenBoard &&
-    contest.frozenAt != null &&
-    now > contest.frozenAt;
+    (scoreboardMode === "frozen" ||
+      (contest.frozenBoard && contest.frozenAt != null && now > contest.frozenAt));
 
   const problems: ScoreboardProblem[] = contest.problems.map((cp) => ({
     id: cp.problemId,
@@ -124,13 +126,28 @@ export async function getScoreboard(
     title: cp.problem.defaultTitle
   }));
 
+  const scoringMode = contest.scoringMode as ContestScoringMode;
+
+  // When scoreboardMode is "hidden", only privileged users can see entries
+  if (scoreboardMode === "hidden" && !options?.isPrivileged) {
+    return {
+      entries: [],
+      frozenAt: contest.frozenAt?.toISOString() ?? null,
+      isFrozen: false,
+      problems,
+      scoreboardMode,
+      scoringMode
+    };
+  }
+
   if (contest.participations.length === 0) {
     return {
       entries: [],
       frozenAt: contest.frozenAt?.toISOString() ?? null,
       isFrozen: showFrozen,
       problems,
-      scoringMode: contest.scoringMode as ContestScoringMode
+      scoreboardMode,
+      scoringMode
     };
   }
 
@@ -161,8 +178,6 @@ export async function getScoreboard(
 
   const participants: ParticipantRow[] = contest.participations;
 
-  const scoringMode = contest.scoringMode as ContestScoringMode;
-
   const entries =
     scoringMode === "icpc"
       ? buildIcpcScoreboard(contest, participants, submissions, problems, showFrozen)
@@ -173,6 +188,7 @@ export async function getScoreboard(
     frozenAt: contest.frozenAt?.toISOString() ?? null,
     isFrozen: showFrozen,
     problems,
+    scoreboardMode,
     scoringMode
   };
 }

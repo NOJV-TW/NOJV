@@ -11,7 +11,7 @@ export const load: PageServerLoad = async (event) => {
     actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
 
   const [scoreboard, chart] = await Promise.all([
-    getScoreboard(slug),
+    getScoreboard(slug, { isPrivileged: canUnfreeze }),
     getScoreboardChart(slug, 10)
   ]);
 

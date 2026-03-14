@@ -1,6 +1,4 @@
 import type {
-  AssessmentScoreboardMode,
-  CourseAssessmentType,
   JudgeType,
   Language,
   ProblemOverview,
@@ -80,12 +78,12 @@ fn main() {
 // --- Verdict display ---
 
 export const verdictColor: Record<string, string> = {
-  accepted: "text-emerald-600",
-  compile_error: "text-amber-600",
-  memory_limit_exceeded: "text-red-600",
-  runtime_error: "text-amber-600",
-  time_limit_exceeded: "text-red-600",
-  wrong_answer: "text-red-600"
+  accepted: "text-emerald-600 dark:text-emerald-400",
+  compile_error: "text-amber-600 dark:text-amber-400",
+  memory_limit_exceeded: "text-red-600 dark:text-red-400",
+  runtime_error: "text-amber-600 dark:text-amber-400",
+  time_limit_exceeded: "text-red-600 dark:text-red-400",
+  wrong_answer: "text-red-600 dark:text-red-400"
 };
 
 export function formatVerdictLabel(verdict: string): string {
@@ -94,13 +92,8 @@ export function formatVerdictLabel(verdict: string): string {
 
 // --- Route helpers ---
 
-export function assessmentPath(
-  courseSlug: string,
-  type: CourseAssessmentType,
-  assessmentSlug: string
-): string {
-  const segment = type === "exam" ? "exams" : "assignments";
-  return `/courses/${courseSlug}/${segment}/${assessmentSlug}`;
+export function assessmentPath(courseSlug: string, assessmentSlug: string): string {
+  return `/courses/${courseSlug}/assignments/${assessmentSlug}`;
 }
 
 // --- Assessment helpers ---
@@ -147,31 +140,16 @@ export function deriveAssessmentWindowState({
 
 const windowStateColors: Record<AssessmentWindowState, string> = {
   closed: "text-[color:var(--color-muted-foreground)]",
-  grace: "text-amber-600",
-  open: "text-emerald-600",
-  upcoming: "text-blue-600"
+  grace: "text-amber-600 dark:text-amber-400",
+  open: "text-emerald-600 dark:text-emerald-400",
+  upcoming: "text-blue-600 dark:text-blue-400"
 };
 
 export function windowStateColorClass(state: AssessmentWindowState) {
   return windowStateColors[state];
 }
 
-export function deriveAssessmentPresentation(input: {
-  scoreboardMode: AssessmentScoreboardMode;
-  type: CourseAssessmentType;
-}): AssessmentPresentation {
-  if (input.type === "exam") {
-    return {
-      heroLabel:
-        input.scoreboardMode === "frozen"
-          ? "Frozen rank exam surface"
-          : "Live rank exam surface",
-      supportLabel: "Contest-grade timing, policy, and score visibility"
-    };
-  }
-
-  return {
-    heroLabel: "Deadline-driven assignment workspace",
-    supportLabel: "Coursework framing with open, due, and close windows"
-  };
-}
+export const assessmentPresentation: AssessmentPresentation = {
+  heroLabel: "Deadline-driven assignment workspace",
+  supportLabel: "Coursework framing with open, due, and close windows"
+};

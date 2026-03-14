@@ -114,7 +114,7 @@
         {:else}
           <div class="mt-6 space-y-3">
             {#each data.assessments as assessment (assessment.slug)}
-              {@const href = assessmentPath(assessment.courseSlug, assessment.type, assessment.slug)}
+              {@const href = assessmentPath(assessment.courseSlug, assessment.slug)}
               <a
                 href={href}
                 class="block rounded-2xl border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition hover:-translate-y-0.5"
@@ -143,7 +143,7 @@
                     <span
                       class="rounded-full border border-border px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground"
                     >
-                      {assessment.type === "exam" ? m.home_exam() : m.home_assignment()}
+                      {m.home_assignment()}
                     </span>
                   </div>
                 </div>

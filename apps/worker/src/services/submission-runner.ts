@@ -25,7 +25,7 @@ export async function judgeSubmission(
   const template = judgeContext.templates.find((t) => t.language === draft.language);
   const activeSets = draft.sampleOnly
     ? judgeContext.testcaseSets.filter((ts) => !ts.isHidden)
-    : judgeContext.testcaseSets;
+    : judgeContext.testcaseSets.filter((ts) => ts.isHidden);
   const testcases = activeSets.flatMap((ts) => ts.testcases);
 
   const request: SandboxRequest = {
@@ -103,6 +103,7 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
   const caseResults = result.testcaseResults.map((t) => ({
     index: t.index,
     passed: t.verdict === "AC",
+    ...(t.stderr ? { stderr: t.stderr } : {}),
     stdout: t.stdout,
     timeMs: t.timeMs
   }));
