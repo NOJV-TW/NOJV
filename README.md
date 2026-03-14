@@ -60,9 +60,9 @@ pnpm dev
 
 ### Environment Files
 
-| File      | Purpose                                                       |
-| --------- | ------------------------------------------------------------- |
-| `.env`    | Database, Redis, Better Auth, OAuth, Resend, sandbox, worker  |
+| File   | Purpose                                                      |
+| ------ | ------------------------------------------------------------ |
+| `.env` | Database, Redis, Better Auth, OAuth, Resend, sandbox, worker |
 
 ### Local Ports
 
