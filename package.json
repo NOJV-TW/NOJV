@@ -17,7 +17,7 @@
     "deploy:gcp": "bash infra/gcp/deploy.sh",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "ci:verify": "pnpm format && turbo run build lint test",
+    "ci:verify": "pnpm format && pnpm db:generate && turbo run build lint test",
     "db:deploy": "pnpm --filter @nojv/db db:deploy",
     "db:generate": "pnpm --filter @nojv/db db:generate",
     "db:migrate": "pnpm --filter @nojv/db db:migrate",
