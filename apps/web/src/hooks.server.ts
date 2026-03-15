@@ -1,7 +1,7 @@
 import { redirect, type Handle } from "@sveltejs/kit";
 import { sessionUserSchema } from "@nojv/core";
 
-import { auth } from "$lib/auth";
+import { getAuth } from "$lib/auth";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 
 /** Route prefixes exempt from the complete-profile redirect. */
@@ -33,7 +33,7 @@ function isProfileExempt(pathname: string): boolean {
 
 export const handle: Handle = async ({ event, resolve }) => {
   // --- Auth: populate event.locals with session/user/sessionUser ---
-  const session = await auth.api.getSession({
+  const session = await getAuth().api.getSession({
     headers: event.request.headers
   });
 

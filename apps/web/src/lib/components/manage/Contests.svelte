@@ -190,7 +190,7 @@
         </label>
       </div>
       <div>
-        <label class="text-xs text-muted-foreground">Allowed languages (leave empty for all)</label>
+        <span class="text-xs text-muted-foreground">Allowed languages (leave empty for all)</span>
         <div class="mt-2 flex flex-wrap gap-3">
           {#each supportedLanguages as lang (lang)}
             <label class="flex items-center gap-1.5 text-sm">
