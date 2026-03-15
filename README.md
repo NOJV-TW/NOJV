@@ -76,9 +76,9 @@ pnpm dev
 
 ```bash
 pnpm install
+pnpm build
 docker compose up -d
 pnpm db:generate
-pnpm build
 pnpm dev
 
 # Before pushing
