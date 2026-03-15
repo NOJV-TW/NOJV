@@ -28,6 +28,7 @@ services:
       - redis_data:/data
 
   web:
+    profiles: ["prod"]
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
@@ -37,10 +38,17 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nojv
       REDIS_URL: redis://redis:6379
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-in-production}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-placeholder}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-placeholder}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-placeholder}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-placeholder}
     ports:
       - "3000:3000"
 
   worker:
+    profiles: ["prod"]
     build:
       context: .
       dockerfile: infra/docker/worker.Dockerfile
