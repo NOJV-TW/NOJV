@@ -3,18 +3,13 @@
   import { m } from "$lib/paraglide/messages.js";
   import { supportedLanguages, type Language, type SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
-  import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { difficultyColor, formatVerdictLabel, verdictColor } from "$lib/types";
+  import { SSE_SUBMISSION_VERDICT } from "@nojv/queue";
   import { onSSEEvent } from "$lib/stores/sse";
   import { toasts } from "$lib/stores/toast";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
-
-  const difficultyColor: Record<string, string> = {
-    easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-    hard: "bg-red-500/15 text-red-700 dark:text-red-400",
-    medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-  };
 
   const judgeTypeBadge: Record<string, () => string> = {
     checker: () => m.problemDetail_checkerBadge(),
@@ -115,7 +110,7 @@
   let unsubVerdict: (() => void) | null = null;
 
   onMount(() => {
-    unsubVerdict = onSSEEvent("submission:verdict", (data) => {
+    unsubVerdict = onSSEEvent(SSE_SUBMISSION_VERDICT, (data) => {
       if (data.problemSlug !== problem.slug) return;
 
       const verdict = data.verdict as string;

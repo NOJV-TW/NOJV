@@ -1,6 +1,8 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import EChart from "$lib/components/charts/EChart.svelte";
+  import { difficultyColor, verdictColor, formatVerdictLabel } from "$lib/types";
+  import type { DailyActivity, LanguageDist, DifficultyDist } from "@nojv/core";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
@@ -15,9 +17,9 @@
 
   // -- Activity line chart (last 30 days) --
   const activityOption: EChartsOption = $derived.by(() => {
-    const raw = (stats.dailyActivity ?? []) as Array<{ date: string; count: number }>;
+    const raw = (stats.dailyActivity ?? []) as DailyActivity[];
     const dates = raw.map((d) => d.date);
-    const counts = raw.map((d) => d.count);
+    const counts = raw.map((d) => d.acCount);
 
     return {
       grid: { left: 40, right: 16, top: 16, bottom: 32 },
@@ -39,7 +41,7 @@
 
   // -- Language pie chart --
   const languageOption: EChartsOption = $derived.by(() => {
-    const dist = (stats.languageDist ?? {}) as Record<string, number>;
+    const dist = (stats.languageDist ?? {}) as LanguageDist;
     const pieData = Object.entries(dist).map(([name, value]) => ({ name, value }));
 
     return {
@@ -58,7 +60,7 @@
 
   // -- Difficulty bar chart --
   const difficultyOption: EChartsOption = $derived.by(() => {
-    const dist = (stats.difficultyDist ?? {}) as Record<string, number>;
+    const dist = (stats.difficultyDist ?? {}) as DifficultyDist;
     const categories = ["easy", "medium", "hard"];
     const colors: Record<string, string> = { easy: "#10b981", medium: "#f59e0b", hard: "#ef4444" };
     const values = categories.map((c) => ({
@@ -74,38 +76,6 @@
       tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
     };
   });
-
-  // -- Status colors --
-  const statusColor: Record<string, string> = {
-    accepted: "text-emerald-600 dark:text-emerald-400",
-    wrong_answer: "text-red-600 dark:text-red-400",
-    runtime_error: "text-red-600 dark:text-red-400",
-    compile_error: "text-red-600 dark:text-red-400",
-    time_limit_exceeded: "text-amber-600 dark:text-amber-400",
-    memory_limit_exceeded: "text-amber-600 dark:text-amber-400",
-    queued: "text-muted-foreground",
-    running: "text-muted-foreground",
-    compiling: "text-muted-foreground"
-  };
-
-  const statusLabel: Record<string, string> = {
-    accepted: "AC",
-    wrong_answer: "WA",
-    runtime_error: "RE",
-    compile_error: "CE",
-    time_limit_exceeded: "TLE",
-    memory_limit_exceeded: "MLE",
-    queued: "Queued",
-    running: "Running",
-    compiling: "Compiling"
-  };
-
-  // -- Difficulty badge colors --
-  const difficultyColor: Record<string, string> = {
-    easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-    medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-    hard: "bg-red-500/15 text-red-700 dark:text-red-400"
-  };
 
   function timeAgo(date: Date | string): string {
     const now = Date.now();
@@ -203,8 +173,8 @@
         {#each data.recentSubmissions as sub (sub.id)}
           <li class="flex items-center gap-3 text-sm">
             <span class="shrink-0 text-xs text-muted-foreground">{timeAgo(sub.createdAt)}</span>
-            <span class="shrink-0 font-semibold {statusColor[sub.status] ?? 'text-muted-foreground'}">
-              {statusLabel[sub.status] ?? sub.status}
+            <span class="shrink-0 font-semibold {verdictColor[sub.status] ?? 'text-muted-foreground'}">
+              {formatVerdictLabel(sub.status)}
             </span>
             <a
               href="/problems/{sub.problem.slug}"

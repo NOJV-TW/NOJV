@@ -1,7 +1,10 @@
-import { prisma } from "@nojv/db";
-import Redis from "ioredis";
+import { prisma, type Prisma } from "@nojv/db";
+import { createPublisher, publishEvent, userChannel, SSE_SUBMISSION_VERDICT } from "@nojv/queue";
 import type {
+  DailyActivity,
+  DifficultyDist,
   JudgeType,
+  LanguageDist,
   ProblemJudgeTestcase,
   SubmissionResult,
   SubmissionType
@@ -32,11 +35,11 @@ export async function completeSubmission(submissionId: string, result: Submissio
     await updateContestScoresAfterJudge(submission.contestParticipationId);
   }
 
-  // Update user stats (non-sample submissions only)
-  await updateUserStats(submission);
-
-  // Publish verdict event for real-time SSE (non-critical)
-  await publishSubmissionVerdict(submission);
+  // Update user stats and publish SSE event in parallel
+  await Promise.all([
+    updateUserStats(submission),
+    publishSubmissionVerdict(submission)
+  ]);
 
   return submission;
 }
@@ -86,9 +89,9 @@ async function updateUserStats(submission: {
     });
 
     if (!existing) {
-      const langDist: Record<string, number> = { [submission.language]: 1 };
-      const diffDist: Record<string, number> = {};
-      const daily: { date: string; acCount: number }[] = [];
+      const langDist: LanguageDist = { [submission.language]: 1 };
+      const diffDist: DifficultyDist = {};
+      const daily: DailyActivity[] = [];
 
       if (isFirstAc && difficulty) {
         diffDist[difficulty] = 1;
@@ -104,20 +107,20 @@ async function updateUserStats(submission: {
           totalAttempts: 1,
           languageDist: langDist,
           difficultyDist: diffDist,
-          dailyActivity: daily,
+          dailyActivity: daily as unknown as Prisma.InputJsonValue,
           lastSubmittedAt: new Date()
         }
       });
     } else {
-      const langDist = (existing.languageDist ?? {}) as Record<string, number>;
+      const langDist = (existing.languageDist ?? {}) as LanguageDist;
       langDist[submission.language] = (langDist[submission.language] ?? 0) + 1;
 
-      const diffDist = (existing.difficultyDist ?? {}) as Record<string, number>;
+      const diffDist = (existing.difficultyDist ?? {}) as DifficultyDist;
       if (isFirstAc && difficulty) {
         diffDist[difficulty] = (diffDist[difficulty] ?? 0) + 1;
       }
 
-      const daily = (existing.dailyActivity ?? []) as { date: string; acCount: number }[];
+      const daily = (existing.dailyActivity ?? []) as unknown as DailyActivity[];
       if (isAc) {
         const todayEntry = daily.find((d) => d.date === today);
         if (todayEntry) {
@@ -135,7 +138,7 @@ async function updateUserStats(submission: {
           totalAttempts: { increment: 1 },
           languageDist: langDist,
           difficultyDist: diffDist,
-          dailyActivity: daily,
+          dailyActivity: daily as unknown as Prisma.InputJsonValue,
           lastSubmittedAt: new Date()
         },
         where: { userId: submission.userId }
@@ -144,9 +147,11 @@ async function updateUserStats(submission: {
   });
 }
 
+import type Redis from "ioredis";
+
 let publisher: Redis | null = null;
 function getPublisher(): Redis {
-  publisher ??= new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+  publisher ??= createPublisher(process.env.REDIS_URL ?? "redis://localhost:6379");
   return publisher;
 }
 
@@ -162,18 +167,14 @@ async function publishSubmissionVerdict(submission: {
       select: { slug: true },
       where: { id: submission.problemId }
     });
-    const pub = getPublisher();
-    await pub.publish(
-      `user:${submission.userId}`,
-      JSON.stringify({
-        type: "submission:verdict",
-        submissionId: submission.id,
-        verdict: submission.status,
-        score: submission.score,
-        problemId: submission.problemId,
-        problemSlug: problem?.slug ?? null
-      })
-    );
+    await publishEvent(getPublisher(), userChannel(submission.userId), {
+      type: SSE_SUBMISSION_VERDICT,
+      submissionId: submission.id,
+      verdict: submission.status,
+      score: submission.score,
+      problemId: submission.problemId,
+      problemSlug: problem?.slug ?? null
+    });
   } catch {
     // Non-critical: don't fail the judge if publish fails
   }
