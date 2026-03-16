@@ -6,7 +6,25 @@ import type {
   SubmissionType
 } from "@nojv/core";
 
-export { difficultyColor, formatVerdictLabel, starterByLanguage, verdictColor } from "@nojv/core";
+export { formatVerdictLabel, starterByLanguage } from "@nojv/core";
+
+export const difficultyColor: Record<string, string> = {
+  easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  hard: "bg-red-500/15 text-red-700 dark:text-red-400"
+};
+
+export const verdictColor: Record<string, string> = {
+  accepted: "text-emerald-600 dark:text-emerald-400",
+  compile_error: "text-amber-600 dark:text-amber-400",
+  compiling: "text-muted-foreground",
+  memory_limit_exceeded: "text-red-600 dark:text-red-400",
+  queued: "text-muted-foreground",
+  running: "text-muted-foreground",
+  runtime_error: "text-amber-600 dark:text-amber-400",
+  time_limit_exceeded: "text-red-600 dark:text-red-400",
+  wrong_answer: "text-red-600 dark:text-red-400"
+};
 
 // --- Problem types ---
 
