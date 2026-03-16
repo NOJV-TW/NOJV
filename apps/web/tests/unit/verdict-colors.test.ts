@@ -31,17 +31,20 @@ describe("verdictColor", () => {
     expect(verdictColor.nonexistent_verdict).toBeUndefined();
   });
 
-  it("covers all six standard verdicts", () => {
-    const expectedVerdicts = [
+  it("covers all verdicts and operation statuses", () => {
+    const expectedKeys = [
       "accepted",
       "compile_error",
+      "compiling",
       "memory_limit_exceeded",
+      "queued",
+      "running",
       "runtime_error",
       "time_limit_exceeded",
       "wrong_answer"
     ];
 
-    expect(Object.keys(verdictColor).sort()).toEqual(expectedVerdicts);
+    expect(Object.keys(verdictColor).sort()).toEqual(expectedKeys);
   });
 });
 
