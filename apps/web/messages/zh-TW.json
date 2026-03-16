@@ -214,6 +214,7 @@
   "courseManage_enrollMember": "註冊成員",
   "courseManage_members": "成員",
   "courseManage_progress": "學習進度",
+  "progress_exportCsv": "匯出 CSV",
   "courseManage_publishAssessment": "發佈評量",
   "dashboard_acRate": "AC 率",
   "dashboard_activityChart": "解題成長曲線",
