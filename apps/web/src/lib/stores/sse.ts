@@ -1,9 +1,15 @@
 import { browser } from "$app/environment";
-import { SSE_CONTEST_STARTING, SSE_CONTEST_ENDING, SSE_ASSIGNMENT_DEADLINE } from "@nojv/queue";
+import {
+  SSE_CONTEST_STARTING,
+  SSE_CONTEST_ENDING,
+  SSE_ASSIGNMENT_DEADLINE,
+  sseEventSchema,
+  type SSEEvent
+} from "@nojv/queue";
 import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
-const listeners = new Map<string, Set<(data: Record<string, unknown>) => void>>();
+const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -15,12 +21,14 @@ export function connectSSE() {
 
   eventSource.onmessage = (event) => {
     try {
-      reconnectAttempts = 0; // Reset on successful message
-      const data = JSON.parse(event.data as string) as Record<string, unknown>;
-      const type = String(data.type);
+      reconnectAttempts = 0;
+      const parsed = sseEventSchema.safeParse(JSON.parse(String(event.data)));
+      if (!parsed.success) return;
+
+      const data = parsed.data;
 
       // Notify specific listeners
-      const typeListeners = listeners.get(type);
+      const typeListeners = listeners.get(data.type);
       if (typeListeners) {
         for (const listener of typeListeners) {
           listener(data);
@@ -55,10 +63,7 @@ export function disconnectSSE() {
   eventSource = null;
 }
 
-export function onSSEEvent(
-  type: string,
-  callback: (data: Record<string, unknown>) => void
-): () => void {
+export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): () => void {
   if (!listeners.has(type)) {
     listeners.set(type, new Set());
   }
@@ -70,7 +75,7 @@ export function onSSEEvent(
   };
 }
 
-function handleDefaultEvent(data: Record<string, unknown>) {
+function handleDefaultEvent(data: SSEEvent) {
   if (data.type === SSE_CONTEST_STARTING) {
     toasts.add({ message: "Contest starting soon!", type: "info" });
   }
