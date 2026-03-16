@@ -147,6 +147,8 @@ model User {
   createdCourseAssessments CourseAssessment[] @relation("CourseAssessmentCreator")
   createdContests    Contest[]          @relation("ContestCreator")
   triggeredPlagiarismReports PlagiarismReport[] @relation("PlagiarismReportTriggeredBy")
+  stats                      UserStats?
+  editorials                 Editorial[]
 }
 
 model Problem {
@@ -174,6 +176,7 @@ model Problem {
   courseLinks         CourseProblem[]
   assessmentLinks     CourseAssessmentProblem[]
   author              User?                   @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  editorials          Editorial[]
 }
 
 model ProblemStatementI18n {
@@ -504,4 +507,30 @@ model PlagiarismReport {
   courseAssessment     CourseAssessment?       @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
   contest             Contest?               @relation(fields: [contestId], references: [id], onDelete: Cascade)
   triggeredBy         User                   @relation("PlagiarismReportTriggeredBy", fields: [triggeredById], references: [id], onDelete: Cascade)
+}
+
+model UserStats {
+  userId          String   @id
+  user            User     @relation(fields: [userId], references: [id])
+  totalAc         Int      @default(0)
+  totalAttempts   Int      @default(0)
+  languageDist    Json     @default("{}")
+  difficultyDist  Json     @default("{}")
+  dailyActivity   Json     @default("[]")
+  lastSubmittedAt DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
+model Editorial {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  problemId String
+  problem   Problem           @relation(fields: [problemId], references: [id])
+  content   String            @db.Text
+  language  SupportedLanguage
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([userId, problemId])
 }
