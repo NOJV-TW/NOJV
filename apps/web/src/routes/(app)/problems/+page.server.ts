@@ -1,23 +1,24 @@
 import type { PageServerLoad } from "./$types";
-import {
-  listEditableProblems,
-  listProblemCards,
-  listSolvedProblemSlugs
-} from "$lib/server/problem/queries";
+import { listEditableProblems, listProblemCards } from "$lib/server/problem/queries";
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const userId = locals.user?.id ?? null;
 
-  const [publicProblems, editableProblems, solvedSlugs] = await Promise.all([
-    listProblemCards(),
-    userId ? listEditableProblems(userId) : Promise.resolve(null),
-    userId ? listSolvedProblemSlugs(userId) : Promise.resolve([])
+  const q = url.searchParams.get("q") ?? undefined;
+  const difficulty = url.searchParams.get("difficulty") ?? undefined;
+  const tagsParam = url.searchParams.get("tags");
+  const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : undefined;
+  const pageParam = url.searchParams.get("page");
+  const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  const [publicResult, editableProblems] = await Promise.all([
+    listProblemCards({ difficulty, page, q, tags, userId }),
+    userId ? listEditableProblems(userId) : Promise.resolve(null)
   ]);
 
   return {
     editableProblems,
-    publicProblems,
-    showCreate: !!userId,
-    solvedSlugs
+    publicResult,
+    showCreate: !!userId
   };
 };

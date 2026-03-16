@@ -11,6 +11,7 @@ export const contestFormSchema = z.object({
   courseSlug: slugSchema.optional(),
   endsAt: z.string().min(1),
   frozenAt: z.string().optional(),
+  inviteCode: z.string().max(32).optional(),
   ipLockEnabled: z.boolean().default(false),
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),

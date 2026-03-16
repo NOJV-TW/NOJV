@@ -6,6 +6,26 @@ import type {
   SubmissionType
 } from "@nojv/core";
 
+export { formatVerdictLabel, starterByLanguage } from "@nojv/core";
+
+export const difficultyColor: Record<string, string> = {
+  easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  hard: "bg-red-500/15 text-red-700 dark:text-red-400"
+};
+
+export const verdictColor: Record<string, string> = {
+  accepted: "text-emerald-600 dark:text-emerald-400",
+  compile_error: "text-amber-600 dark:text-amber-400",
+  compiling: "text-muted-foreground",
+  memory_limit_exceeded: "text-red-600 dark:text-red-400",
+  queued: "text-muted-foreground",
+  running: "text-muted-foreground",
+  runtime_error: "text-amber-600 dark:text-amber-400",
+  time_limit_exceeded: "text-red-600 dark:text-red-400",
+  wrong_answer: "text-red-600 dark:text-red-400"
+};
+
 // --- Problem types ---
 
 export interface TemplateInfo {
@@ -35,59 +55,6 @@ export interface ProblemDetail extends ProblemOverview {
   templates: Partial<Record<Language, TemplateInfo>>;
   timeLimitMs: number;
   visibility: ProblemVisibility;
-}
-
-export const starterByLanguage: Record<Language, string> = {
-  c: `#include <stdio.h>
-
-int main() {
-
-}
-`,
-  go: `package main
-
-func main() {
-}
-`,
-  cpp: `#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-
-}
-`,
-  java: `import java.util.Scanner;
-
-public class Main {
-  public static void main(String[] args) {
-
-  }
-}
-`,
-  rust: `use std::io::{self, Read};
-
-fn main() {
-
-}
-`,
-  javascript: ``,
-  typescript: ``,
-  python: ``
-};
-
-// --- Verdict display ---
-
-export const verdictColor: Record<string, string> = {
-  accepted: "text-emerald-600 dark:text-emerald-400",
-  compile_error: "text-amber-600 dark:text-amber-400",
-  memory_limit_exceeded: "text-red-600 dark:text-red-400",
-  runtime_error: "text-amber-600 dark:text-amber-400",
-  time_limit_exceeded: "text-red-600 dark:text-red-400",
-  wrong_answer: "text-red-600 dark:text-red-400"
-};
-
-export function formatVerdictLabel(verdict: string): string {
-  return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 // --- Route helpers ---

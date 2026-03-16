@@ -25,6 +25,7 @@ const contestCreateBaseSchema = z.object({
   courseSlug: slugSchema.optional(),
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
+  inviteCode: z.string().trim().max(32).optional(),
   ipLockEnabled: z.boolean().default(false),
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),

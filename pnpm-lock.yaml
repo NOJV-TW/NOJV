@@ -225,6 +225,9 @@ importers:
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      ioredis:
+        specifier: ^5.9.3
+        version: 5.9.3
       prom-client:
         specifier: ^15.1.3
         version: 15.1.3
@@ -282,6 +285,9 @@ importers:
       "@nojv/core":
         specifier: workspace:*
         version: link:../core
+      ioredis:
+        specifier: ^5.9.3
+        version: 5.9.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
