@@ -1,0 +1,175 @@
+import type { CompletionEntry } from "./index";
+
+export const rustCompletions: CompletionEntry[] = [
+  // I/O
+  {
+    label: "println!",
+    kind: "Function",
+    insertText: 'println!("${1}");',
+    detail: "macro",
+    isSnippet: true
+  },
+  {
+    label: "eprintln!",
+    kind: "Function",
+    insertText: 'eprintln!("${1}");',
+    detail: "macro",
+    isSnippet: true
+  },
+  {
+    label: "format!",
+    kind: "Function",
+    insertText: 'format!("${1}")',
+    detail: "macro",
+    isSnippet: true
+  },
+  {
+    label: "read line",
+    kind: "Snippet",
+    insertText:
+      "let mut ${1:input} = String::new();\nstd::io::stdin().read_line(&mut ${1:input}).unwrap();\nlet ${1:input} = ${1:input}.trim();",
+    detail: "stdin pattern",
+    isSnippet: true
+  },
+  // Use
+  {
+    label: "use std::io",
+    kind: "Snippet",
+    insertText: "use std::io::{self, Read};",
+    detail: "import"
+  },
+  {
+    label: "use std::collections",
+    kind: "Snippet",
+    insertText: "use std::collections::${1:HashMap};",
+    detail: "import",
+    isSnippet: true
+  },
+  // Collections
+  {
+    label: "Vec",
+    kind: "Class",
+    insertText: "Vec<${1:i64}>",
+    detail: "std::vec",
+    isSnippet: true
+  },
+  {
+    label: "vec!",
+    kind: "Function",
+    insertText: "vec![${1}]",
+    detail: "macro",
+    isSnippet: true
+  },
+  {
+    label: "HashMap",
+    kind: "Class",
+    insertText: "HashMap<${1:String}, ${2:i64}>",
+    detail: "std::collections",
+    isSnippet: true
+  },
+  {
+    label: "HashSet",
+    kind: "Class",
+    insertText: "HashSet<${1:i64}>",
+    detail: "std::collections",
+    isSnippet: true
+  },
+  {
+    label: "BTreeMap",
+    kind: "Class",
+    insertText: "BTreeMap<${1:i64}, ${2:i64}>",
+    detail: "std::collections",
+    isSnippet: true
+  },
+  {
+    label: "BTreeSet",
+    kind: "Class",
+    insertText: "BTreeSet<${1:i64}>",
+    detail: "std::collections",
+    isSnippet: true
+  },
+  {
+    label: "VecDeque",
+    kind: "Class",
+    insertText: "VecDeque<${1:i64}>",
+    detail: "std::collections",
+    isSnippet: true
+  },
+  {
+    label: "BinaryHeap",
+    kind: "Class",
+    insertText: "BinaryHeap<${1:i64}>",
+    detail: "std::collections",
+    isSnippet: true
+  },
+  // Iterators
+  { label: ".iter()", kind: "Function", insertText: ".iter()", detail: "iterator" },
+  {
+    label: ".iter().map()",
+    kind: "Function",
+    insertText: ".iter().map(|${1:x}| ${2})",
+    detail: "iterator",
+    isSnippet: true
+  },
+  {
+    label: ".iter().filter()",
+    kind: "Function",
+    insertText: ".iter().filter(|${1:x}| ${2})",
+    detail: "iterator",
+    isSnippet: true
+  },
+  {
+    label: ".iter().collect()",
+    kind: "Function",
+    insertText: ".iter().collect::<${1:Vec<_>>>()",
+    detail: "iterator",
+    isSnippet: true
+  },
+  {
+    label: ".iter().sum()",
+    kind: "Function",
+    insertText: ".iter().sum::<${1:i64}>()",
+    detail: "iterator",
+    isSnippet: true
+  },
+  {
+    label: ".iter().enumerate()",
+    kind: "Function",
+    insertText: ".iter().enumerate()",
+    detail: "iterator"
+  },
+  // Sort
+  { label: ".sort()", kind: "Function", insertText: ".sort();", detail: "slice" },
+  {
+    label: ".sort_by()",
+    kind: "Function",
+    insertText: ".sort_by(|a, b| ${1:a.cmp(b)});",
+    detail: "slice",
+    isSnippet: true
+  },
+  {
+    label: ".sort_unstable()",
+    kind: "Function",
+    insertText: ".sort_unstable();",
+    detail: "slice"
+  },
+  // Parse
+  {
+    label: ".parse()",
+    kind: "Function",
+    insertText: ".parse::<${1:i64}>().unwrap()",
+    detail: "str",
+    isSnippet: true
+  },
+  { label: ".trim()", kind: "Function", insertText: ".trim()", detail: "str" },
+  {
+    label: ".split_whitespace()",
+    kind: "Function",
+    insertText: ".split_whitespace()",
+    detail: "str"
+  },
+  // Numeric
+  { label: "i64::MAX", kind: "Constant", insertText: "i64::MAX", detail: "numeric" },
+  { label: "i64::MIN", kind: "Constant", insertText: "i64::MIN", detail: "numeric" },
+  { label: "usize::MAX", kind: "Constant", insertText: "usize::MAX", detail: "numeric" }
+];

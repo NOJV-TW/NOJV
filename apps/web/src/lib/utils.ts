@@ -1,14 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+export { DEFAULT_LOCALE } from "@nojv/core";
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-// --- Constants ---
-
-/** Default locale for database content (problem statements, user locale, etc.). */
-export const DEFAULT_LOCALE = "zh-TW";
 
 // --- Username validation ---
 
