@@ -6,34 +6,33 @@ import type { PageServerLoad } from "./$types";
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
 
-  // 1. Get UserStats (or defaults if not exist)
-  const stats = await prisma.userStats.findUnique({
-    where: { userId: actor.userId }
-  });
+  // 1. Parallel: UserStats, recent submissions, AC'd problem IDs
+  const [stats, recentSubmissions, acProblemIds] = await Promise.all([
+    prisma.userStats.findUnique({
+      where: { userId: actor.userId }
+    }),
+    prisma.submission.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      where: { userId: actor.userId, sampleOnly: false },
+      select: {
+        id: true,
+        status: true,
+        language: true,
+        createdAt: true,
+        problem: { select: { slug: true, defaultTitle: true } }
+      }
+    }),
+    prisma.submission.findMany({
+      where: { userId: actor.userId, status: "accepted", sampleOnly: false },
+      select: { problemId: true },
+      distinct: ["problemId"]
+    })
+  ]);
 
-  // 2. Recent 10 submissions with problem title
-  const recentSubmissions = await prisma.submission.findMany({
-    take: 10,
-    orderBy: { createdAt: "desc" },
-    where: { userId: actor.userId, sampleOnly: false },
-    select: {
-      id: true,
-      status: true,
-      language: true,
-      createdAt: true,
-      problem: { select: { slug: true, defaultTitle: true } }
-    }
-  });
-
-  // 3. Recommended problems (3 problems from tags user hasn't AC'd)
-  const acProblemIds = await prisma.submission.findMany({
-    where: { userId: actor.userId, status: "accepted", sampleOnly: false },
-    select: { problemId: true },
-    distinct: ["problemId"]
-  });
   const acIds = acProblemIds.map((s) => s.problemId);
 
-  // Get tags from AC'd problems
+  // 2. Parallel: AC'd problem tags + recommendations (tags query needed for recommendations)
   const acProblems =
     acIds.length > 0
       ? await prisma.problem.findMany({
@@ -43,7 +42,6 @@ export const load: PageServerLoad = async (event) => {
       : [];
   const acTags = [...new Set(acProblems.flatMap((p) => p.tags))];
 
-  // Find problems with those tags (or any public problem if no tags) that user hasn't AC'd
   const recommendations = await prisma.problem.findMany({
     where: {
       visibility: "public",

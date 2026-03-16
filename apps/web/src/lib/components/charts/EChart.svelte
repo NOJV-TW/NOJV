@@ -11,14 +11,14 @@
   let container: HTMLDivElement;
   let chart: any;
   let observer: ResizeObserver | undefined;
+  let ready = $state(false);
 
   onMount(() => {
     import("echarts").then((echarts) => {
       chart = echarts.init(container);
-      chart.setOption(option);
-
       observer = new ResizeObserver(() => chart?.resize());
       observer.observe(container);
+      ready = true;
     });
   });
 
@@ -28,7 +28,7 @@
   });
 
   $effect(() => {
-    chart?.setOption(option);
+    if (ready) chart?.setOption(option);
   });
 </script>
 

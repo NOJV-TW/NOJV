@@ -1,10 +1,6 @@
 import Redis from "ioredis";
 import { parseRedisConnection } from "./connection";
-
-export interface SSEEvent {
-  type: string;
-  [key: string]: unknown;
-}
+import type { SSEEvent } from "./events";
 
 export function createPublisher(redisUrl: string): Redis {
   const opts = parseRedisConnection(redisUrl);

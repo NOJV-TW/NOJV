@@ -191,24 +191,25 @@ export async function listProblemCards(params: ProblemListParams = {}): Promise<
   // Build the where clause
   const where: Prisma.ProblemWhereInput = { visibility: "public" };
 
-  // Full-text search: find matching problem IDs via GIN index
+  // Full-text search: find matching problem IDs via GIN index + LIKE fallback
   if (params.q && params.q.trim().length > 0) {
     const q = params.q.trim();
-    const matchingRows = await prisma.$queryRaw<{ problemId: string }[]>`
-      SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
-      WHERE to_tsvector('english', coalesce("title", '') || ' ' || coalesce("bodyMarkdown", ''))
-      @@ plainto_tsquery('english', ${q})
-    `;
-    // Also do a LIKE fallback for short/partial queries
-    const likeRows = await prisma.problemStatementI18n.findMany({
-      select: { problemId: true },
-      where: {
-        OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { bodyMarkdown: { contains: q, mode: "insensitive" } }
-        ]
-      }
-    });
+    const [matchingRows, likeRows] = await Promise.all([
+      prisma.$queryRaw<{ problemId: string }[]>`
+        SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
+        WHERE to_tsvector('english', coalesce("title", '') || ' ' || coalesce("bodyMarkdown", ''))
+        @@ plainto_tsquery('english', ${q})
+      `,
+      prisma.problemStatementI18n.findMany({
+        select: { problemId: true },
+        where: {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { bodyMarkdown: { contains: q, mode: "insensitive" } }
+          ]
+        }
+      })
+    ]);
     const allIds = new Set([
       ...matchingRows.map((r) => r.problemId),
       ...likeRows.map((r) => r.problemId)
@@ -244,36 +245,37 @@ export async function listProblemCards(params: ProblemListParams = {}): Promise<
 
   const problemIds = persistedProblems.map((p) => p.id);
 
-  // Batch-fetch accepted counts per problem
-  const acceptedCounts =
+  // Batch-fetch accepted counts + user status in parallel
+  const [acceptedCounts, userSubmissions] = await Promise.all([
     problemIds.length > 0
-      ? await prisma.submission.groupBy({
+      ? prisma.submission.groupBy({
           by: ["problemId"],
           _count: true,
           where: { problemId: { in: problemIds }, status: "accepted" }
         })
-      : [];
+      : [],
+    params.userId && problemIds.length > 0
+      ? prisma.submission.groupBy({
+          by: ["problemId", "status"],
+          _count: true,
+          where: {
+            problemId: { in: problemIds },
+            sampleOnly: false,
+            userId: params.userId
+          }
+        })
+      : []
+  ]);
+
   const acceptedByProblemId = new Map(acceptedCounts.map((r) => [r.problemId, r._count]));
 
-  // User status: ac / attempted / null
-  let statusByProblemId = new Map<string, ProblemUserStatus>();
-  if (params.userId && problemIds.length > 0) {
-    const userSubmissions = await prisma.submission.groupBy({
-      by: ["problemId", "status"],
-      _count: true,
-      where: {
-        problemId: { in: problemIds },
-        sampleOnly: false,
-        userId: params.userId
-      }
-    });
-    for (const row of userSubmissions) {
-      const current = statusByProblemId.get(row.problemId);
-      if (row.status === "accepted") {
-        statusByProblemId.set(row.problemId, "ac");
-      } else if (current !== "ac") {
-        statusByProblemId.set(row.problemId, "attempted");
-      }
+  const statusByProblemId = new Map<string, ProblemUserStatus>();
+  for (const row of userSubmissions) {
+    const current = statusByProblemId.get(row.problemId);
+    if (row.status === "accepted") {
+      statusByProblemId.set(row.problemId, "ac");
+    } else if (current !== "ac") {
+      statusByProblemId.set(row.problemId, "attempted");
     }
   }
 
@@ -385,14 +387,4 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
     persistedProblem._count.submissions,
     acceptedCount
   );
-}
-
-export async function listSolvedProblemSlugs(userId: string): Promise<string[]> {
-  const rows = await prisma.submission.findMany({
-    distinct: ["problemId"],
-    select: { problem: { select: { slug: true } } },
-    where: { userId, status: "accepted", sampleOnly: false }
-  });
-
-  return rows.map((r) => r.problem.slug);
 }

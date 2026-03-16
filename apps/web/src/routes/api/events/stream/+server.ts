@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
-import { createSubscriber } from "@nojv/queue";
+import { createSubscriber, userChannel } from "@nojv/queue";
 import { z } from "zod";
 
 const sseEnvSchema = z.object({
@@ -28,7 +28,7 @@ export const GET: RequestHandler = (event) => {
     start(controller) {
       const encoder = new TextEncoder();
       const subscriber = createSubscriber(redisUrl);
-      const channels = [`user:${userId}`];
+      const channels = [userChannel(userId)];
 
       function send(data: string) {
         try {
