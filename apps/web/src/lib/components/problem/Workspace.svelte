@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { supportedLanguages, type Language, type SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { onSSEEvent } from "$lib/stores/sse";
+  import { toasts } from "$lib/stores/toast";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
@@ -106,6 +108,31 @@
       editorialSubmitting = false;
     }
   }
+
+  // Listen for global SSE verdict events for this problem.
+  // The existing flow adds submissions locally via handleSubmissionComplete;
+  // this SSE listener surfaces a toast for background updates (e.g., other tabs).
+  let unsubVerdict: (() => void) | null = null;
+
+  onMount(() => {
+    unsubVerdict = onSSEEvent("submission:verdict", (data) => {
+      if (data.problemSlug !== problem.slug) return;
+
+      const verdict = data.verdict as string;
+      const score = data.score as number;
+      const isAc = verdict === "accepted";
+      toasts.add({
+        message: isAc
+          ? `Accepted! Score: ${String(score)}/100`
+          : `Verdict: ${verdict} (${String(score)}/100)`,
+        type: isAc ? "success" : "info"
+      });
+    });
+  });
+
+  onDestroy(() => {
+    unsubVerdict?.();
+  });
 
   $effect(() => {
     const idx = viewingIndex;

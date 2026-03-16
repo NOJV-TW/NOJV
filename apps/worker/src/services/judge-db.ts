@@ -1,4 +1,5 @@
 import { prisma } from "@nojv/db";
+import Redis from "ioredis";
 import type {
   JudgeType,
   ProblemJudgeTestcase,
@@ -33,6 +34,9 @@ export async function completeSubmission(submissionId: string, result: Submissio
 
   // Update user stats (non-sample submissions only)
   await updateUserStats(submission);
+
+  // Publish verdict event for real-time SSE (non-critical)
+  await publishSubmissionVerdict(submission);
 
   return submission;
 }
@@ -138,6 +142,41 @@ async function updateUserStats(submission: {
       });
     }
   });
+}
+
+let publisher: Redis | null = null;
+function getPublisher(): Redis {
+  publisher ??= new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+  return publisher;
+}
+
+async function publishSubmissionVerdict(submission: {
+  id: string;
+  problemId: string;
+  score: number;
+  status: string;
+  userId: string;
+}): Promise<void> {
+  try {
+    const problem = await prisma.problem.findUnique({
+      select: { slug: true },
+      where: { id: submission.problemId }
+    });
+    const pub = getPublisher();
+    await pub.publish(
+      `user:${submission.userId}`,
+      JSON.stringify({
+        type: "submission:verdict",
+        submissionId: submission.id,
+        verdict: submission.status,
+        score: submission.score,
+        problemId: submission.problemId,
+        problemSlug: problem?.slug ?? null
+      })
+    );
+  } catch {
+    // Non-critical: don't fail the judge if publish fails
+  }
 }
 
 async function updateContestScoresAfterJudge(contestParticipationId: string): Promise<void> {
