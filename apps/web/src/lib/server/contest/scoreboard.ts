@@ -202,7 +202,6 @@ function buildIcpcScoreboard(
   problems: ScoreboardProblem[],
   showFrozen: boolean
 ): ScoreboardEntry[] {
-  const problemIds = problems.map((p) => p.id);
   const frozenAt = contest.frozenAt;
 
   // Track first AC per problem (global, unfrozen)
@@ -214,15 +213,10 @@ function buildIcpcScoreboard(
     const existing = subsByUser.get(sub.userId) ?? [];
     existing.push(sub);
     subsByUser.set(sub.userId, existing);
-  }
 
-  // First pass: find global first AC per problem (ignoring frozen)
-  for (const problemId of problemIds) {
-    for (const sub of submissions) {
-      if (sub.problemId === problemId && sub.status === "accepted") {
-        firstAcByProblem.set(problemId, sub.userId);
-        break;
-      }
+    // Submissions are sorted by createdAt asc, so first AC seen is the global first
+    if (sub.status === "accepted" && !firstAcByProblem.has(sub.problemId)) {
+      firstAcByProblem.set(sub.problemId, sub.userId);
     }
   }
 
@@ -316,6 +310,7 @@ function buildIoiScoreboard(
 
   // Track first full-score per problem (global)
   const firstFullByProblem = new Map<string, string>();
+  const pointsByProblem = new Map(problems.map((p) => [p.id, p.points]));
 
   // Group submissions by userId
   const subsByUser = new Map<string, SubmissionRow[]>();
@@ -323,15 +318,11 @@ function buildIoiScoreboard(
     const existing = subsByUser.get(sub.userId) ?? [];
     existing.push(sub);
     subsByUser.set(sub.userId, existing);
-  }
 
-  // First pass: find global first full-score per problem
-  for (const prob of problems) {
-    for (const sub of submissions) {
-      if (sub.problemId === prob.id && sub.score >= prob.points) {
-        firstFullByProblem.set(prob.id, sub.userId);
-        break;
-      }
+    // Submissions are sorted by createdAt asc, so first full score seen is the global first
+    const maxPts = pointsByProblem.get(sub.problemId);
+    if (maxPts != null && sub.score >= maxPts && !firstFullByProblem.has(sub.problemId)) {
+      firstFullByProblem.set(sub.problemId, sub.userId);
     }
   }
 
@@ -432,14 +423,17 @@ export async function getScoreboardChart(
 
   const topUserIds = new Set(topEntries.map((e) => e.userId));
 
-  // Fetch contest for startsAt
+  // Reuse problem points from scoreboard instead of re-fetching contest
+  const pointsMap = new Map(scoreboard.problems.map((p) => [p.id, p.points]));
+
+  // Fetch only startsAt and participations for top users
   const contest = await prisma.contest.findUnique({
-    include: {
+    select: {
+      startsAt: true,
       participations: {
         where: { userId: { in: [...topUserIds] } },
         select: { id: true, userId: true }
-      },
-      problems: { select: { problemId: true, points: true } }
+      }
     },
     where: { slug: contestSlug }
   });
@@ -448,7 +442,6 @@ export async function getScoreboardChart(
 
   const participationIds = contest.participations.map((p) => p.id);
   const participationUserMap = new Map(contest.participations.map((p) => [p.id, p.userId]));
-  const pointsMap = new Map(contest.problems.map((p) => [p.problemId, p.points]));
 
   const submissions = await prisma.submission.findMany({
     orderBy: { createdAt: "asc" },

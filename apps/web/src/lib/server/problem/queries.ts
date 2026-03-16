@@ -1,14 +1,10 @@
 import { prisma, type Prisma } from "@nojv/db";
-import {
-  judgeTypeSchema,
-  problemDifficultySchema,
-  submissionTypeSchema,
-  type ProblemVisibility
-} from "@nojv/core";
+import type { ProblemVisibility } from "@nojv/core";
 
 import { DEFAULT_LOCALE } from "$lib/utils";
 import { starterByLanguage, type ProblemDetail, type TemplateInfo } from "$lib/types";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
+import { parseDifficulty, parseJudgeType, parseSubmissionType } from "../shared/schema-parsers";
 
 // ─── Internal helpers ────────────────────────────────────────────────
 
@@ -124,19 +120,17 @@ function mapPersistedProblemDetail(
     problem.summary
   );
 
-  const submissionType = submissionTypeSchema
-    .catch("full_source")
-    .parse(problem.submissionType);
+  const submissionType = parseSubmissionType(problem.submissionType);
   const problemTemplates = problem.templates ?? [];
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
     ...(problem.checkerScript ? { checkerScript: problem.checkerScript } : {}),
-    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
+    difficulty: parseDifficulty(problem.difficulty),
     ...(problem.interactorScript ? { interactorScript: problem.interactorScript } : {}),
     inputFormat: localized.inputFormat,
-    judgeType: judgeTypeSchema.catch("standard").parse(problem.judgeType),
+    judgeType: parseJudgeType(problem.judgeType),
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
@@ -284,7 +278,7 @@ export async function listProblemCards(params: ProblemListParams = {}): Promise<
     const accepted = acceptedByProblemId.get(problem.id) ?? 0;
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
-      difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
+      difficulty: parseDifficulty(problem.difficulty),
       slug: problem.slug,
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
@@ -324,7 +318,7 @@ export async function listEditableProblems(userId: string) {
   });
 
   return problems.map((problem) => ({
-    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
+    difficulty: parseDifficulty(problem.difficulty),
     slug: problem.slug,
     tags: problem.tags,
     title: problem.defaultTitle,

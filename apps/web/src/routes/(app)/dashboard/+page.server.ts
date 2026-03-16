@@ -6,7 +6,7 @@ import type { PageServerLoad } from "./$types";
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
 
-  // 1. Parallel: UserStats, recent submissions, AC'd problem IDs
+  // 1. Parallel: UserStats, recent submissions, AC'd problem IDs + tags
   const [stats, recentSubmissions, acProblemIds] = await Promise.all([
     prisma.userStats.findUnique({
       where: { userId: actor.userId }
@@ -25,23 +25,15 @@ export const load: PageServerLoad = async (event) => {
     }),
     prisma.submission.findMany({
       where: { userId: actor.userId, status: "accepted", sampleOnly: false },
-      select: { problemId: true },
+      select: { problemId: true, problem: { select: { tags: true } } },
       distinct: ["problemId"]
     })
   ]);
 
   const acIds = acProblemIds.map((s) => s.problemId);
+  const acTags = [...new Set(acProblemIds.flatMap((s) => s.problem.tags))];
 
-  // 2. Parallel: AC'd problem tags + recommendations (tags query needed for recommendations)
-  const acProblems =
-    acIds.length > 0
-      ? await prisma.problem.findMany({
-          where: { id: { in: acIds } },
-          select: { tags: true }
-        })
-      : [];
-  const acTags = [...new Set(acProblems.flatMap((p) => p.tags))];
-
+  // 2. Recommendations (no longer blocked by a separate tags query)
   const recommendations = await prisma.problem.findMany({
     where: {
       visibility: "public",
