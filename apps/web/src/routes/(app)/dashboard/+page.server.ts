@@ -63,6 +63,6 @@ export const load: PageServerLoad = async (event) => {
     },
     recentSubmissions,
     recommendations: picked,
-    username: actor.username ?? actor.displayName
+    username: actor.username
   };
 };

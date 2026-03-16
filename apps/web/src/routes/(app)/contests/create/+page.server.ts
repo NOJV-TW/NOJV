@@ -31,7 +31,7 @@ export const actions = {
       const payload = contestCreateSchema.parse({
         ...rest,
         courseSlug: canBindCourse ? courseSlug : undefined,
-        inviteCode: inviteCode || undefined,
+        inviteCode: inviteCode ?? undefined,
         endsAt: new Date(endsAt).toISOString(),
         frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
         problemSlugs: problemSlugsText
