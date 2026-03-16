@@ -1,10 +1,18 @@
 import { prisma, type Prisma } from "@nojv/db";
-import type { ProblemVisibility } from "@nojv/core";
+import {
+  judgeTypeSchema,
+  problemDifficultySchema,
+  submissionTypeSchema,
+  type ProblemVisibility
+} from "@nojv/core";
 
 import { DEFAULT_LOCALE } from "$lib/utils";
 import { starterByLanguage, type ProblemDetail, type TemplateInfo } from "$lib/types";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
-import { parseDifficulty, parseJudgeType, parseSubmissionType } from "../shared/schema-parsers";
+
+const parseDifficulty = (v: unknown) => problemDifficultySchema.catch("medium").parse(v);
+const parseJudgeType = (v: unknown) => judgeTypeSchema.catch("standard").parse(v);
+const parseSubmissionType = (v: unknown) => submissionTypeSchema.catch("full_source").parse(v);
 
 // ─── Internal helpers ────────────────────────────────────────────────
 
