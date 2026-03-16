@@ -11,6 +11,8 @@ import {
   type SandboxResult
 } from "@nojv/sandbox";
 
+import { parseSandboxResult } from "./sandbox-schema";
+
 export interface DockerExecutorConfig {
   cpuLimit: string;
   image: string;
@@ -204,8 +206,14 @@ export class DockerExecutor implements SandboxExecutor {
         }
 
         try {
-          const parsed = JSON.parse(stdout) as SandboxResult;
-          settle(parsed);
+          const parsed = parseSandboxResult(JSON.parse(stdout));
+          settle(
+            parsed.success
+              ? parsed.data
+              : systemError(
+                  `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`
+                )
+          );
         } catch {
           settle(
             systemError(`Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`)
