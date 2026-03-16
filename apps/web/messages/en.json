@@ -214,6 +214,7 @@
   "courseManage_enrollMember": "Enroll member",
   "courseManage_members": "Members",
   "courseManage_progress": "Progress",
+  "progress_exportCsv": "Export CSV",
   "courseManage_publishAssessment": "Publish assessment",
   "dashboard_acRate": "AC Rate",
   "dashboard_activityChart": "Solving Progress",
