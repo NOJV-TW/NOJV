@@ -186,7 +186,9 @@ export interface ProblemListResult {
   totalCount: number;
 }
 
-export async function listProblemCards(params: ProblemListParams = {}): Promise<ProblemListResult> {
+export async function listProblemCards(
+  params: ProblemListParams = {}
+): Promise<ProblemListResult> {
   const pageSize = params.pageSize ?? 30;
   const page = Math.max(1, params.page ?? 1);
 

@@ -1,8 +1,5 @@
 import type { PageServerLoad } from "./$types";
-import {
-  listEditableProblems,
-  listProblemCards
-} from "$lib/server/problem/queries";
+import { listEditableProblems, listProblemCards } from "$lib/server/problem/queries";
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const userId = locals.user?.id ?? null;

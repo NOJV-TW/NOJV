@@ -1,5 +1,10 @@
 import { prisma, type Prisma } from "@nojv/db";
-import { createPublisher, publishEvent, userChannel, SSE_SUBMISSION_VERDICT } from "@nojv/queue";
+import {
+  createPublisher,
+  publishEvent,
+  userChannel,
+  SSE_SUBMISSION_VERDICT
+} from "@nojv/queue";
 import type {
   DailyActivity,
   DifficultyDist,
@@ -156,13 +161,16 @@ function getPublisher(): Redis {
   return publisher;
 }
 
-async function publishSubmissionVerdict(submission: {
-  id: string;
-  problemId: string;
-  score: number;
-  status: string;
-  userId: string;
-}, problemSlug: string): Promise<void> {
+async function publishSubmissionVerdict(
+  submission: {
+    id: string;
+    problemId: string;
+    score: number;
+    status: string;
+    userId: string;
+  },
+  problemSlug: string
+): Promise<void> {
   try {
     await publishEvent(getPublisher(), userChannel(submission.userId), {
       type: SSE_SUBMISSION_VERDICT,
