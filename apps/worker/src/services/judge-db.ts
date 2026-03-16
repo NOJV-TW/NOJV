@@ -27,6 +27,7 @@ export async function completeSubmission(submissionId: string, result: Submissio
       verdictDetail: result,
       ...(result.subtaskResults ? { subtaskResults: result.subtaskResults } : {})
     },
+    include: { problem: { select: { slug: true } } },
     where: { id: submissionId }
   });
 
@@ -38,7 +39,7 @@ export async function completeSubmission(submissionId: string, result: Submissio
   // Update user stats and publish SSE event in parallel
   await Promise.all([
     updateUserStats(submission),
-    publishSubmissionVerdict(submission)
+    publishSubmissionVerdict(submission, submission.problem.slug)
   ]);
 
   return submission;
@@ -161,19 +162,15 @@ async function publishSubmissionVerdict(submission: {
   score: number;
   status: string;
   userId: string;
-}): Promise<void> {
+}, problemSlug: string): Promise<void> {
   try {
-    const problem = await prisma.problem.findUnique({
-      select: { slug: true },
-      where: { id: submission.problemId }
-    });
     await publishEvent(getPublisher(), userChannel(submission.userId), {
       type: SSE_SUBMISSION_VERDICT,
       submissionId: submission.id,
       verdict: submission.status,
       score: submission.score,
       problemId: submission.problemId,
-      problemSlug: problem?.slug ?? null
+      problemSlug: problemSlug
     });
   } catch {
     // Non-critical: don't fail the judge if publish fails
