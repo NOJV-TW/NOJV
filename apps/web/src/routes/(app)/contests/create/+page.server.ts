@@ -24,7 +24,8 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const { problemSlugsText, startsAt, endsAt, frozenAt, courseSlug, inviteCode, ...rest } = form.data;
+      const { problemSlugsText, startsAt, endsAt, frozenAt, courseSlug, inviteCode, ...rest } =
+        form.data;
       const canBindCourse = actor.platformRole === "admin" || actor.platformRole === "teacher";
 
       const payload = contestCreateSchema.parse({

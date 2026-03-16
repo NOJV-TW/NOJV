@@ -12,6 +12,10 @@ export function createSubscriber(redisUrl: string): Redis {
   return new Redis({ host: opts.host, port: opts.port, password: opts.password });
 }
 
-export function publishEvent(publisher: Redis, channel: string, event: SSEEvent): Promise<number> {
+export function publishEvent(
+  publisher: Redis,
+  channel: string,
+  event: SSEEvent
+): Promise<number> {
   return publisher.publish(channel, JSON.stringify(event));
 }

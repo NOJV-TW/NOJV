@@ -195,7 +195,8 @@ export async function createContestRecord(
       : null;
 
     // Use user-provided invite code, or auto-generate for public contests
-    const inviteCode = payload.inviteCode ?? (courseId ? null : crypto.randomBytes(4).toString("hex"));
+    const inviteCode =
+      payload.inviteCode ?? (courseId ? null : crypto.randomBytes(4).toString("hex"));
 
     const contest = await tx.contest.create({
       data: {
