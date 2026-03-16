@@ -21,7 +21,7 @@ function escapeCsvField(value: string): string {
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const slug = event.params.slug as string;
+  const slug = event.params.slug!;
 
   // Permission check: teacher/ta/admin only
   const role = await getCoursePermissionRole(slug, actor);
