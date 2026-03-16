@@ -16,8 +16,8 @@ export function connectSSE() {
   eventSource.onmessage = (event) => {
     try {
       reconnectAttempts = 0; // Reset on successful message
-      const data = JSON.parse(event.data) as Record<string, unknown>;
-      const type = data.type as string;
+      const data = JSON.parse(event.data as string) as Record<string, unknown>;
+      const type = String(data.type);
 
       // Notify specific listeners
       const typeListeners = listeners.get(type);
@@ -62,7 +62,7 @@ export function onSSEEvent(
   if (!listeners.has(type)) {
     listeners.set(type, new Set());
   }
-  listeners.get(type)!.add(callback);
+  listeners.get(type)?.add(callback);
 
   // Return unsubscribe function
   return () => {
