@@ -11,6 +11,8 @@ import {
   type SandboxResult
 } from "@nojv/sandbox";
 
+import { parseSandboxResult } from "./sandbox-schema";
+
 export interface K8sExecutorConfig {
   namespace: string;
   image: string;
@@ -275,7 +277,8 @@ export class K8sExecutor implements SandboxExecutor {
       const trimmed = line.trim();
       if (trimmed.startsWith("{")) {
         try {
-          return JSON.parse(trimmed) as SandboxResult;
+          const parsed = parseSandboxResult(JSON.parse(trimmed));
+          if (parsed.success) return parsed.data;
         } catch {
           // Not valid JSON, keep searching
         }

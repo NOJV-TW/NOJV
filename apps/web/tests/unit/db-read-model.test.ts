@@ -87,9 +87,9 @@ describe("DB-backed read model", () => {
     ]);
     groupBySubmissions.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
 
-    const cards = await listProblemCards();
+    const result = await listProblemCards();
 
-    expect(cards).toContainEqual(
+    expect(result.problems).toContainEqual(
       expect.objectContaining({
         acceptanceRate: 0.5,
         difficulty: "easy",
@@ -276,10 +276,10 @@ describe("DB-backed read model", () => {
     ]);
     groupBySubmissions.mockResolvedValue([{ _count: 3, problemId: "prob_hard" }]);
 
-    const cards = await listProblemCards();
+    const result = await listProblemCards();
 
-    expect(cards[0]?.acceptanceRate).toBeCloseTo(0.3);
-    expect(cards[0]?.totalSubmissions).toBe(10);
+    expect(result.problems[0]?.acceptanceRate).toBeCloseTo(0.3);
+    expect(result.problems[0]?.totalSubmissions).toBe(10);
   });
 
   it("returns zero acceptance rate when there are no submissions", async () => {
@@ -296,9 +296,9 @@ describe("DB-backed read model", () => {
       }
     ]);
 
-    const cards = await listProblemCards();
+    const result = await listProblemCards();
 
-    expect(cards[0]?.acceptanceRate).toBe(0);
+    expect(result.problems[0]?.acceptanceRate).toBe(0);
   });
 
   it("returns dashboard stats from count queries", async () => {
