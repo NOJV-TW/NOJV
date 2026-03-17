@@ -182,6 +182,22 @@
       </label>
     </div>
 
+    <div>
+      <label class="text-sm font-medium" for="inviteCode">{m.contestCreate_inviteCode()}</label>
+      <input
+        class={inputClassName}
+        id="inviteCode"
+        name="inviteCode"
+        type="text"
+        placeholder={m.contestCreate_inviteCodePlaceholder()}
+        bind:value={$form.inviteCode}
+      />
+      {#if $errors.inviteCode}<p class="mt-1 text-xs text-red-600">{$errors.inviteCode}</p>{/if}
+      <p class="mt-1 text-xs text-muted-foreground">
+        {m.contestCreate_inviteCodeHint()}
+      </p>
+    </div>
+
     <!-- Languages -->
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <CodeIcon class="h-4 w-4" />

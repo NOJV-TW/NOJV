@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
 
@@ -8,6 +9,16 @@
   let slug = $derived($page.params.slug);
 
   let unfreezing = $state(false);
+
+  // Auto-refresh scoreboard every 30 seconds
+  const AUTO_REFRESH_MS = 30_000;
+
+  onMount(() => {
+    const interval = setInterval(() => {
+      void invalidateAll();
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(interval);
+  });
 
   async function handleUnfreeze() {
     unfreezing = true;

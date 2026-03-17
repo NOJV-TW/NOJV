@@ -44,6 +44,9 @@ export const submissionOperationStatuses = [
 
 export const localeCodes = ["en", "zh-TW"] as const;
 
+/** Default locale for database content (problem statements, user locale, etc.). */
+export const DEFAULT_LOCALE = "zh-TW";
+
 export const platformRoleSchema = z.enum(platformRoles);
 export const courseRoleSchema = z.enum(courseRoles);
 export const effectiveCourseRoleSchema = z.enum(effectiveCourseRoles);
@@ -144,3 +147,47 @@ export function buildEditorSessionId(input: EditorSessionIdentifierInput) {
 
   return joinSessionSegments("editor", [input.problemSlug, "practice"]);
 }
+
+export function formatVerdictLabel(verdict: string): string {
+  return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+// --- Language starter templates ---
+
+export const starterByLanguage: Record<Language, string> = {
+  c: `#include <stdio.h>
+
+int main() {
+
+}
+`,
+  go: `package main
+
+func main() {
+}
+`,
+  cpp: `#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+
+}
+`,
+  java: `import java.util.Scanner;
+
+public class Main {
+  public static void main(String[] args) {
+
+  }
+}
+`,
+  rust: `use std::io::{self, Read};
+
+fn main() {
+
+}
+`,
+  javascript: ``,
+  typescript: ``,
+  python: ``
+};
