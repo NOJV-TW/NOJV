@@ -18,7 +18,6 @@
     "db:seed": "node --env-file=../../.env --import tsx prisma/seed.ts",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
-    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "prisma": {
