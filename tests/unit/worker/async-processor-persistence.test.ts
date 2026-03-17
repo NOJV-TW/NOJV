@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createSubmissionProcessor } from "../src/processors/submission";
+import { createSubmissionProcessor } from "../../../apps/worker/src/processors/submission";
 
 const { markSubmissionRunning, completeSubmission, getSubmissionJudgeContext } = vi.hoisted(
   () => ({
@@ -10,7 +10,7 @@ const { markSubmissionRunning, completeSubmission, getSubmissionJudgeContext } =
   })
 );
 
-vi.mock("../src/services/judge-db", () => {
+vi.mock("../../../apps/worker/src/services/judge-db", () => {
   return {
     completeSubmission,
     getSubmissionJudgeContext,

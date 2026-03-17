@@ -13,32 +13,89 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+
 jobs:
   verify:
     name: Verify Repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nojv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Create .env from example
-        run: cp .env.example .env
-
-      - name: Verify monorepo
+      - name: Verify monorepo (build, lint, per-package tests)
         run: pnpm ci:verify
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Run unit tests
+        run: pnpm test:unit
+
+      - name: Run integration tests
+        run: pnpm test:integration
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nojv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Run migrations and seed
+        run: |
+          pnpm --filter @nojv/db prisma migrate deploy
+          pnpm db:seed
+
+      - name: Build web app
+        run: pnpm build
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Run E2E tests
+        run: pnpm test:e2e

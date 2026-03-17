@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildEditorSessionId } from "../src/index";
+import { buildEditorSessionId } from "../../../packages/core/src/index";
 
 describe("buildEditorSessionId", () => {
   it("keeps contest telemetry distinct from practice telemetry for the same problem", () => {
