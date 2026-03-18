@@ -128,7 +128,7 @@ export async function createTestCourse(
       title: overrides.title ?? `Test Course ${id}`,
       description: overrides.description ?? "A test course",
       locale: overrides.locale ?? "en",
-      visibility: overrides.visibility ?? "public",
+      visibility: overrides.visibility ?? "listed",
       ...overrides,
       ownerId
     }
