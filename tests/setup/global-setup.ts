@@ -7,7 +7,7 @@ export default function globalSetup() {
   process.env.DATABASE_URL =
     process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL ?? DEFAULT_TEST_DB_URL;
 
-  execSync("pnpm --filter @nojv/db prisma migrate deploy", {
+  execSync("pnpm --filter @nojv/db db:deploy", {
     stdio: "inherit",
     env: { ...process.env }
   });
