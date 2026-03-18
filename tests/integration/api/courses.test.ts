@@ -73,7 +73,7 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           userId: student.id,
           role: "student",
-          status: "inactive",
+          status: "removed",
           joinedAt: new Date(),
           joinedVia: "join_code"
         }

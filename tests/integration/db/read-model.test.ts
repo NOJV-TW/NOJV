@@ -8,11 +8,7 @@ import {
   testPrisma
 } from "../../fixtures/factories";
 
-import {
-  listProblemCards,
-  getProblemPageData,
-  listSolvedProblemSlugs
-} from "$lib/server/problem/queries";
+import { listProblemCards, getProblemPageData } from "$lib/server/problem/queries";
 import { getCoursePageData, listCourseCards } from "$lib/server/course/queries";
 
 describe("read model (real DB)", () => {
@@ -23,14 +19,16 @@ describe("read model (real DB)", () => {
       await createTestProblem({ visibility: "public", defaultTitle: "Public P" });
       await createTestProblem({ visibility: "private", defaultTitle: "Private P" });
 
-      const cards = await listProblemCards();
-      expect(cards).toHaveLength(1);
-      expect(cards[0]!.title).toBe("Public P");
+      const result = await listProblemCards();
+      expect(result.problems).toHaveLength(1);
+      expect(result.totalCount).toBe(1);
+      expect(result.problems[0]!.title).toBe("Public P");
     });
 
     it("returns empty array when no problems exist", async () => {
-      const cards = await listProblemCards();
-      expect(cards).toEqual([]);
+      const result = await listProblemCards();
+      expect(result.problems).toEqual([]);
+      expect(result.totalCount).toBe(0);
     });
 
     it("includes correct totalSubmissions count", async () => {
@@ -53,9 +51,9 @@ describe("read model (real DB)", () => {
         mode: "practice"
       });
 
-      const cards = await listProblemCards();
-      expect(cards).toHaveLength(1);
-      expect(cards[0]!.totalSubmissions).toBe(2);
+      const result = await listProblemCards();
+      expect(result.problems).toHaveLength(1);
+      expect(result.problems[0]!.totalSubmissions).toBe(2);
     });
 
     it("calculates acceptance rate correctly", async () => {
@@ -78,15 +76,15 @@ describe("read model (real DB)", () => {
         mode: "practice"
       });
 
-      const cards = await listProblemCards();
-      expect(cards[0]!.acceptanceRate).toBe(0.5);
+      const result = await listProblemCards();
+      expect(result.problems[0]!.acceptanceRate).toBe(0.5);
     });
 
     it("returns 0 acceptance rate when no submissions", async () => {
       await createTestProblem({ visibility: "public" });
 
-      const cards = await listProblemCards();
-      expect(cards[0]!.acceptanceRate).toBe(0);
+      const result = await listProblemCards();
+      expect(result.problems[0]!.acceptanceRate).toBe(0);
     });
 
     it("includes slug, difficulty, and tags", async () => {
@@ -97,11 +95,11 @@ describe("read model (real DB)", () => {
         tags: ["array", "hash-table"]
       });
 
-      const cards = await listProblemCards();
-      expect(cards).toHaveLength(1);
-      expect(cards[0]!.slug).toBe("two-sum");
-      expect(cards[0]!.difficulty).toBe("hard");
-      expect(cards[0]!.tags).toEqual(["array", "hash-table"]);
+      const result = await listProblemCards();
+      expect(result.problems).toHaveLength(1);
+      expect(result.problems[0]!.slug).toBe("two-sum");
+      expect(result.problems[0]!.difficulty).toBe("hard");
+      expect(result.problems[0]!.tags).toEqual(["array", "hash-table"]);
     });
   });
 
@@ -190,66 +188,6 @@ describe("read model (real DB)", () => {
       expect(detail!.totalSubmissions).toBe(3);
       // 2 accepted out of 3
       expect(detail!.acceptanceRate).toBeCloseTo(2 / 3, 5);
-    });
-  });
-
-  // --- listSolvedProblemSlugs ---
-
-  describe("listSolvedProblemSlugs", () => {
-    it("returns slugs of problems the user has solved (accepted, non-sampleOnly)", async () => {
-      const user = await createTestUser();
-      const p1 = await createTestProblem({ slug: "solved-1", authorId: user.id });
-      const p2 = await createTestProblem({ slug: "solved-2", authorId: user.id });
-      const p3 = await createTestProblem({ slug: "unsolved", authorId: user.id });
-
-      await createTestSubmission({
-        userId: user.id,
-        problemId: p1.id,
-        status: "accepted",
-        sampleOnly: false,
-        mode: "practice"
-      });
-      await createTestSubmission({
-        userId: user.id,
-        problemId: p2.id,
-        status: "accepted",
-        sampleOnly: false,
-        mode: "practice"
-      });
-      // Only sampleOnly accepted -- should not count
-      await createTestSubmission({
-        userId: user.id,
-        problemId: p3.id,
-        status: "accepted",
-        sampleOnly: true,
-        mode: "practice"
-      });
-
-      const slugs = await listSolvedProblemSlugs(user.id);
-      expect(slugs).toContain("solved-1");
-      expect(slugs).toContain("solved-2");
-      expect(slugs).not.toContain("unsolved");
-    });
-
-    it("returns empty array for user with no accepted submissions", async () => {
-      const user = await createTestUser();
-      const problem = await createTestProblem({ authorId: user.id });
-
-      await createTestSubmission({
-        userId: user.id,
-        problemId: problem.id,
-        status: "wrong_answer",
-        sampleOnly: false,
-        mode: "practice"
-      });
-
-      const slugs = await listSolvedProblemSlugs(user.id);
-      expect(slugs).toEqual([]);
-    });
-
-    it("returns empty array for nonexistent user", async () => {
-      const slugs = await listSolvedProblemSlugs("nonexistent-user");
-      expect(slugs).toEqual([]);
     });
   });
 
