@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createWorkerHealthServer } from "../src/health-server";
-import { closeServerSafely } from "../src/server-lifecycle";
+import { createWorkerHealthServer } from "../../../apps/worker/src/health-server";
+import { closeServerSafely } from "../../../apps/worker/src/server-lifecycle";
 
 const servers: { close: () => void }[] = [];
 

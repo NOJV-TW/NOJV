@@ -1,0 +1,22 @@
+name: Setup monorepo
+description: Install pnpm/Node, install deps, create .env
+
+runs:
+  using: composite
+  steps:
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Create .env from example
+      shell: bash
+      run: cp .env.example .env

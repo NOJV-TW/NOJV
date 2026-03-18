@@ -5,7 +5,7 @@ import {
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   submissionDraftSchema
-} from "../src/index";
+} from "../../../packages/core/src/index";
 
 describe("submissionDraftSchema", () => {
   it("accepts practice submissions with explicit language and source", () => {
