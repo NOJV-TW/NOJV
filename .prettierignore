@@ -7,3 +7,5 @@ apps/web/.next
 apps/workspace/dist
 packages/db/generated
 apps/web/src/lib/paraglide
+apps/web/src/paraglide
+pnpm-lock.yaml
