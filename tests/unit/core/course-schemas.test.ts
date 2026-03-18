@@ -5,7 +5,7 @@ import {
   courseAssessmentCreateSchema,
   courseCreateSchema,
   courseJoinRequestSchema
-} from "../src/index";
+} from "../../../packages/core/src/index";
 
 describe("courseCreateSchema", () => {
   it("accepts teacher-authored course creation payloads", () => {

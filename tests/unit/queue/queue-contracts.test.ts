@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { queueNames, submissionJudgeJobSchema } from "../src/index";
+import { queueNames, submissionJudgeJobSchema } from "../../../packages/queue/src/index";
 
 describe("queue contracts", () => {
   it("uses explicit queue names for dashboard routing", () => {

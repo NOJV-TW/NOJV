@@ -12,6 +12,10 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "test": "turbo test",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+    "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "typecheck": "turbo typecheck",
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
     "deploy:gcp": "bash infra/gcp/deploy.sh",
@@ -34,10 +38,12 @@
     "globals": "^17.4.0",
     "playwright": "^1.58.2",
     "prettier": "^3.8.1",
+    "rate-limiter-flexible": "^9.1.1",
     "tsx": "^4.21.0",
     "turbo": "^2.8.14",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "zod": "^4.3.6"
   }
 }

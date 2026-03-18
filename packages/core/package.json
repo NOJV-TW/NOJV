@@ -12,7 +12,6 @@
   "scripts": {
     "build": "tsdown",
     "lint": "eslint .",
-    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
