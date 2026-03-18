@@ -88,7 +88,7 @@ jobs:
 
       - name: Run migrations and seed
         run: |
-          pnpm --filter @nojv/db prisma migrate deploy
+          pnpm --filter @nojv/db db:deploy
           pnpm db:seed
 
       - name: Build web app

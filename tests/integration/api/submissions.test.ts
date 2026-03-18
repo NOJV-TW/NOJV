@@ -11,7 +11,6 @@ import { getSubmissionForUser, listProblemSubmissions } from "$lib/server/submis
 import { NotFoundError } from "$lib/server/auth";
 
 describe("submission queries (real DB)", () => {
-
   // --- getSubmissionForUser ---
 
   describe("getSubmissionForUser", () => {
@@ -54,17 +53,17 @@ describe("submission queries (real DB)", () => {
         mode: "practice"
       });
 
-      await expect(
-        getSubmissionForUser(submission.id, other.id, false)
-      ).rejects.toThrow(NotFoundError);
+      await expect(getSubmissionForUser(submission.id, other.id, false)).rejects.toThrow(
+        NotFoundError
+      );
     });
 
     it("throws NotFoundError for nonexistent submission id", async () => {
       const user = await createTestUser();
 
-      await expect(
-        getSubmissionForUser("nonexistent-id", user.id, false)
-      ).rejects.toThrow(NotFoundError);
+      await expect(getSubmissionForUser("nonexistent-id", user.id, false)).rejects.toThrow(
+        NotFoundError
+      );
     });
   });
 

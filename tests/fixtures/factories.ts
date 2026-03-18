@@ -15,9 +15,7 @@ function uid() {
 }
 
 // --- User ---
-export async function createTestUser(
-  overrides: Partial<Prisma.UserCreateInput> = {}
-) {
+export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> = {}) {
   const id = uid();
   return testPrisma.user.create({
     data: {
