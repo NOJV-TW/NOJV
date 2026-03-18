@@ -1,4 +1,4 @@
-import { prisma } from "@nojv/db";
+import { prisma, type Prisma } from "@nojv/db";
 import {
   judgeTypeSchema,
   problemDifficultySchema,
@@ -9,6 +9,10 @@ import {
 import { DEFAULT_LOCALE } from "$lib/utils";
 import { starterByLanguage, type ProblemDetail, type TemplateInfo } from "$lib/types";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
+
+const parseDifficulty = (v: unknown) => problemDifficultySchema.catch("medium").parse(v);
+const parseJudgeType = (v: unknown) => judgeTypeSchema.catch("standard").parse(v);
+const parseSubmissionType = (v: unknown) => submissionTypeSchema.catch("full_source").parse(v);
 
 // ─── Internal helpers ────────────────────────────────────────────────
 
@@ -124,19 +128,17 @@ function mapPersistedProblemDetail(
     problem.summary
   );
 
-  const submissionType = submissionTypeSchema
-    .catch("full_source")
-    .parse(problem.submissionType);
+  const submissionType = parseSubmissionType(problem.submissionType);
   const problemTemplates = problem.templates ?? [];
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
     ...(problem.checkerScript ? { checkerScript: problem.checkerScript } : {}),
-    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
+    difficulty: parseDifficulty(problem.difficulty),
     ...(problem.interactorScript ? { interactorScript: problem.interactorScript } : {}),
     inputFormat: localized.inputFormat,
-    judgeType: judgeTypeSchema.catch("standard").parse(problem.judgeType),
+    judgeType: parseJudgeType(problem.judgeType),
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
@@ -156,45 +158,146 @@ function mapPersistedProblemDetail(
 
 // ─── Public query functions ──────────────────────────────────────────
 
-export async function listProblemCards() {
-  const persistedProblems = await prisma.problem.findMany({
-    include: {
-      _count: {
-        select: { submissions: true }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    },
-    where: {
-      visibility: "public"
-    }
-  });
+export interface ProblemListParams {
+  difficulty?: string | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+  q?: string | undefined;
+  tags?: string[] | undefined;
+  userId?: string | null | undefined;
+}
 
-  // Batch-fetch accepted counts per problem
+export type ProblemUserStatus = "ac" | "attempted" | null;
+
+export interface ProblemCardWithStatus {
+  acceptanceRate: number;
+  difficulty: string;
+  slug: string;
+  status: ProblemUserStatus;
+  tags: string[];
+  title: string;
+  totalSubmissions: number;
+}
+
+export interface ProblemListResult {
+  page: number;
+  pageSize: number;
+  problems: ProblemCardWithStatus[];
+  totalCount: number;
+}
+
+export async function listProblemCards(
+  params: ProblemListParams = {}
+): Promise<ProblemListResult> {
+  const pageSize = params.pageSize ?? 30;
+  const page = Math.max(1, params.page ?? 1);
+
+  // Build the where clause
+  const where: Prisma.ProblemWhereInput = { visibility: "public" };
+
+  // Full-text search: find matching problem IDs via GIN index + LIKE fallback
+  if (params.q && params.q.trim().length > 0) {
+    const q = params.q.trim();
+    const [matchingRows, likeRows] = await Promise.all([
+      prisma.$queryRaw<{ problemId: string }[]>`
+        SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
+        WHERE to_tsvector('english', coalesce("title", '') || ' ' || coalesce("bodyMarkdown", ''))
+        @@ plainto_tsquery('english', ${q})
+      `,
+      prisma.problemStatementI18n.findMany({
+        select: { problemId: true },
+        where: {
+          OR: [
+            { title: { contains: q, mode: "insensitive" } },
+            { bodyMarkdown: { contains: q, mode: "insensitive" } }
+          ]
+        }
+      })
+    ]);
+    const allIds = new Set([
+      ...matchingRows.map((r) => r.problemId),
+      ...likeRows.map((r) => r.problemId)
+    ]);
+    where.id = { in: [...allIds] };
+  }
+
+  // Difficulty filter
+  if (params.difficulty && params.difficulty !== "all") {
+    where.difficulty = params.difficulty;
+  }
+
+  // Tag filter
+  if (params.tags && params.tags.length > 0) {
+    where.tags = { hasEvery: params.tags };
+  }
+
+  // Count + fetch in parallel
+  const [totalCount, persistedProblems] = await Promise.all([
+    prisma.problem.count({ where }),
+    prisma.problem.findMany({
+      include: {
+        _count: {
+          select: { submissions: true }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      where
+    })
+  ]);
+
   const problemIds = persistedProblems.map((p) => p.id);
-  const acceptedCounts =
+
+  // Batch-fetch accepted counts + user status in parallel
+  const [acceptedCounts, userSubmissions] = await Promise.all([
     problemIds.length > 0
-      ? await prisma.submission.groupBy({
+      ? prisma.submission.groupBy({
           by: ["problemId"],
           _count: true,
           where: { problemId: { in: problemIds }, status: "accepted" }
         })
-      : [];
+      : [],
+    params.userId && problemIds.length > 0
+      ? prisma.submission.groupBy({
+          by: ["problemId", "status"],
+          _count: true,
+          where: {
+            problemId: { in: problemIds },
+            sampleOnly: false,
+            userId: params.userId
+          }
+        })
+      : []
+  ]);
+
   const acceptedByProblemId = new Map(acceptedCounts.map((r) => [r.problemId, r._count]));
 
-  return persistedProblems.map((problem) => {
+  const statusByProblemId = new Map<string, ProblemUserStatus>();
+  for (const row of userSubmissions) {
+    const current = statusByProblemId.get(row.problemId);
+    if (row.status === "accepted") {
+      statusByProblemId.set(row.problemId, "ac");
+    } else if (current !== "ac") {
+      statusByProblemId.set(row.problemId, "attempted");
+    }
+  }
+
+  const problems: ProblemCardWithStatus[] = persistedProblems.map((problem) => {
     const total = problem._count.submissions;
     const accepted = acceptedByProblemId.get(problem.id) ?? 0;
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
-      difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
+      difficulty: parseDifficulty(problem.difficulty),
       slug: problem.slug,
+      status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
       title: problem.defaultTitle,
       totalSubmissions: total
     };
   });
+
+  return { page, pageSize, problems, totalCount };
 }
 
 export async function listEditableProblems(userId: string) {
@@ -225,7 +328,7 @@ export async function listEditableProblems(userId: string) {
   });
 
   return problems.map((problem) => ({
-    difficulty: problemDifficultySchema.catch("medium").parse(problem.difficulty),
+    difficulty: parseDifficulty(problem.difficulty),
     slug: problem.slug,
     tags: problem.tags,
     title: problem.defaultTitle,
@@ -288,14 +391,4 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
     persistedProblem._count.submissions,
     acceptedCount
   );
-}
-
-export async function listSolvedProblemSlugs(userId: string): Promise<string[]> {
-  const rows = await prisma.submission.findMany({
-    distinct: ["problemId"],
-    select: { problem: { select: { slug: true } } },
-    where: { userId, status: "accepted", sampleOnly: false }
-  });
-
-  return rows.map((r) => r.problem.slug);
 }

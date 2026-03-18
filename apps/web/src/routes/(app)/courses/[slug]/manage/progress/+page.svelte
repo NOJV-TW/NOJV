@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { m } from "$lib/paraglide/messages.js";
   import * as Select from "$lib/components/ui/select";
 
   let { data } = $props();
@@ -70,34 +71,46 @@
     </div>
 
     {#if assessments.length > 0}
-      <Select.Root
-        type="single"
-        value={selectedAssessment ?? "__all__"}
-        onValueChange={onAssessmentChange}
-      >
-        <Select.Trigger class="w-[220px]">
-          {#if selectedAssessment}
-            {assessments.find((a) => a.slug === selectedAssessment)?.title ?? "All"}
-          {:else}
-            All assessments
-          {/if}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Item value="__all__" label="All assessments">All assessments</Select.Item>
-          {#each assessments as assessment (assessment.slug)}
-            <Select.Item value={assessment.slug} label={assessment.title}>
-              <span class="inline-flex items-center gap-2">
-                <span
-                  class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
-                >
-                  assignment
+      <div class="flex items-center gap-2">
+        <Select.Root
+          type="single"
+          value={selectedAssessment ?? "__all__"}
+          onValueChange={onAssessmentChange}
+        >
+          <Select.Trigger class="w-[220px]">
+            {#if selectedAssessment}
+              {assessments.find((a) => a.slug === selectedAssessment)?.title ?? "All"}
+            {:else}
+              All assessments
+            {/if}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="__all__" label="All assessments">All assessments</Select.Item>
+            {#each assessments as assessment (assessment.slug)}
+              <Select.Item value={assessment.slug} label={assessment.title}>
+                <span class="inline-flex items-center gap-2">
+                  <span
+                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
+                  >
+                    assignment
+                  </span>
+                  {assessment.title}
                 </span>
-                {assessment.title}
-              </span>
-            </Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+
+        {#if selectedAssessment}
+          <a
+            href="/courses/{data.courseSlug}/manage/progress/export?assessment={selectedAssessment}"
+            download="progress-{selectedAssessment}.csv"
+            class="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-[color:var(--color-panel)] px-3 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            {m.progress_exportCsv()}
+          </a>
+        {/if}
+      </div>
     {/if}
   </div>
 
