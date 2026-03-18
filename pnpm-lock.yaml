@@ -17,6 +17,12 @@ importers:
       '@nojv/prettier-config':
         specifier: workspace:*
         version: link:tooling/prettier
+      '@playwright/test':
+        specifier: ^1.58.2
+        version: 1.58.2
+      '@prisma/adapter-pg':
+        specifier: ^7.4.2
+        version: 7.4.2
       '@types/node':
         specifier: ^25.3.5
         version: 25.3.5
@@ -26,9 +32,6 @@ importers:
       globals:
         specifier: ^17.4.0
         version: 17.4.0
-      playwright:
-        specifier: ^1.58.2
-        version: 1.58.2
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
