@@ -1,6 +1,15 @@
-import { prisma } from "@nojv/db";
+import { prisma, type Prisma } from "@nojv/db";
+import {
+  createPublisher,
+  publishEvent,
+  userChannel,
+  SSE_SUBMISSION_VERDICT
+} from "@nojv/queue";
 import type {
+  DailyActivity,
+  DifficultyDist,
   JudgeType,
+  LanguageDist,
   ProblemJudgeTestcase,
   SubmissionResult,
   SubmissionType
@@ -23,6 +32,7 @@ export async function completeSubmission(submissionId: string, result: Submissio
       verdictDetail: result,
       ...(result.subtaskResults ? { subtaskResults: result.subtaskResults } : {})
     },
+    include: { problem: { select: { slug: true } } },
     where: { id: submissionId }
   });
 
@@ -31,7 +41,148 @@ export async function completeSubmission(submissionId: string, result: Submissio
     await updateContestScoresAfterJudge(submission.contestParticipationId);
   }
 
+  // Update user stats and publish SSE event in parallel
+  await Promise.all([
+    updateUserStats(submission),
+    publishSubmissionVerdict(submission, submission.problem.slug)
+  ]);
+
   return submission;
+}
+
+async function updateUserStats(submission: {
+  id: string;
+  language: string;
+  problemId: string;
+  sampleOnly: boolean;
+  status: string;
+  userId: string;
+}): Promise<void> {
+  if (submission.sampleOnly) return;
+
+  const isAc = submission.status === "accepted";
+
+  // Check if this is the user's first AC for this problem.
+  // The current submission has already been updated, so count >= 1 means it includes itself.
+  let isFirstAc = false;
+  if (isAc) {
+    const acCount = await prisma.submission.count({
+      where: {
+        userId: submission.userId,
+        problemId: submission.problemId,
+        status: "accepted",
+        sampleOnly: false
+      }
+    });
+    isFirstAc = acCount === 1; // only the current submission is AC
+  }
+
+  // Get problem difficulty for difficultyDist
+  let difficulty: string | null = null;
+  if (isFirstAc) {
+    const problem = await prisma.problem.findUnique({
+      select: { difficulty: true },
+      where: { id: submission.problemId }
+    });
+    difficulty = problem?.difficulty ?? null;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.userStats.findUnique({
+      where: { userId: submission.userId }
+    });
+
+    if (!existing) {
+      const langDist: LanguageDist = { [submission.language]: 1 };
+      const diffDist: DifficultyDist = {};
+      const daily: DailyActivity[] = [];
+
+      if (isFirstAc && difficulty) {
+        diffDist[difficulty] = 1;
+      }
+      if (isAc) {
+        daily.push({ date: today, acCount: 1 });
+      }
+
+      await tx.userStats.create({
+        data: {
+          userId: submission.userId,
+          totalAc: isFirstAc ? 1 : 0,
+          totalAttempts: 1,
+          languageDist: langDist,
+          difficultyDist: diffDist,
+          dailyActivity: daily as unknown as Prisma.InputJsonValue,
+          lastSubmittedAt: new Date()
+        }
+      });
+    } else {
+      const langDist = (existing.languageDist ?? {}) as LanguageDist;
+      langDist[submission.language] = (langDist[submission.language] ?? 0) + 1;
+
+      const diffDist = (existing.difficultyDist ?? {}) as DifficultyDist;
+      if (isFirstAc && difficulty) {
+        diffDist[difficulty] = (diffDist[difficulty] ?? 0) + 1;
+      }
+
+      const daily = (existing.dailyActivity ?? []) as unknown as DailyActivity[];
+      if (isAc) {
+        const todayEntry = daily.find((d) => d.date === today);
+        if (todayEntry) {
+          todayEntry.acCount += 1;
+        } else {
+          daily.push({ date: today, acCount: 1 });
+        }
+        // Keep only last 90 days
+        if (daily.length > 90) daily.shift();
+      }
+
+      await tx.userStats.update({
+        data: {
+          ...(isFirstAc ? { totalAc: { increment: 1 } } : {}),
+          totalAttempts: { increment: 1 },
+          languageDist: langDist,
+          difficultyDist: diffDist,
+          dailyActivity: daily as unknown as Prisma.InputJsonValue,
+          lastSubmittedAt: new Date()
+        },
+        where: { userId: submission.userId }
+      });
+    }
+  });
+}
+
+import type Redis from "ioredis";
+
+let publisher: Redis | null = null;
+function getPublisher(): Redis {
+  publisher ??= createPublisher(process.env.REDIS_URL ?? "redis://localhost:6379");
+  return publisher;
+}
+
+async function publishSubmissionVerdict(
+  submission: {
+    id: string;
+    problemId: string;
+    score: number;
+    status: string;
+    userId: string;
+  },
+  problemSlug: string
+): Promise<void> {
+  try {
+    await publishEvent(getPublisher(), userChannel(submission.userId), {
+      type: SSE_SUBMISSION_VERDICT,
+      submissionId: submission.id,
+      verdict: submission.status,
+      score: submission.score,
+      problemId: submission.problemId,
+      problemSlug: problemSlug
+    });
+  } catch {
+    // Non-critical: don't fail the judge if publish fails
+  }
 }
 
 async function updateContestScoresAfterJudge(contestParticipationId: string): Promise<void> {

@@ -10,8 +10,7 @@
 
   <ProblemsTabs
     editableProblems={data.editableProblems}
-    publicProblems={data.publicProblems}
+    publicResult={data.publicResult}
     showCreate={data.showCreate}
-    solvedSlugs={data.solvedSlugs}
   />
 </div>
