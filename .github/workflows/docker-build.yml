@@ -1,13 +1,7 @@
 name: Docker Build & Push
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "apps/**"
-      - "packages/**"
-      - "infra/docker/**"
-      - "pnpm-lock.yaml"
+  workflow_dispatch:
 
 concurrency:
   group: docker-${{ github.ref }}
@@ -26,7 +20,7 @@ jobs:
     name: Build & Push Images
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.GCP_PROJECT_ID != ''
+    if: github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Check out repository
