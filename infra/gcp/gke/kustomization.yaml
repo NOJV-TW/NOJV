@@ -3,5 +3,6 @@ kind: Kustomization
 namespace: nojv
 resources:
   - namespace.yaml
+  - worker-rbac.yaml
   - worker.deployment.yaml
   - worker.scaledobject.yaml
