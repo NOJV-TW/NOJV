@@ -15,7 +15,13 @@ import {
 import { joinCourseRecord } from "$lib/server/course/mutations";
 import { ForbiddenError, type CompletedActorContext } from "$lib/server/auth";
 
-function makeActor(user: { id: string; email: string; name: string; username: string | null; platformRole: string }): CompletedActorContext {
+function makeActor(user: {
+  id: string;
+  email: string;
+  name: string;
+  username: string | null;
+  platformRole: string;
+}): CompletedActorContext {
   return {
     displayName: user.name,
     email: user.email,
@@ -26,7 +32,6 @@ function makeActor(user: { id: string; email: string; name: string; username: st
 }
 
 describe("course queries (real DB)", () => {
-
   // --- listCourseCards ---
 
   describe("listCourseCards", () => {

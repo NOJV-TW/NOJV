@@ -16,7 +16,6 @@ import { getScoreboard } from "$lib/server/contest/scoreboard";
 import { NotFoundError } from "$lib/server/auth";
 
 describe("contest queries (real DB)", () => {
-
   // --- listPublicContests ---
 
   describe("listPublicContests", () => {

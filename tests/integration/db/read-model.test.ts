@@ -16,7 +16,6 @@ import {
 import { getCoursePageData, listCourseCards } from "$lib/server/course/queries";
 
 describe("read model (real DB)", () => {
-
   // --- listProblemCards ---
 
   describe("listProblemCards", () => {
