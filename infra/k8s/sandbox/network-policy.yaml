@@ -10,3 +10,5 @@ spec:
   policyTypes:
     - Ingress
     - Egress
+  ingress: [] # No inbound traffic allowed
+  egress: [] # No outbound traffic allowed (no DNS, no internet)

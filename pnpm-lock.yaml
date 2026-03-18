@@ -245,6 +245,9 @@ importers:
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
 
   packages/core:
     dependencies:
