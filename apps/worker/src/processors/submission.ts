@@ -1,8 +1,8 @@
 import { UnrecoverableError } from "bullmq";
 import type { Job } from "bullmq";
 
-import type { SubmissionJudgeJob } from "@nojv/queue";
-import type { SandboxExecutor } from "@nojv/sandbox";
+import type { SubmissionJudgeJob } from "@nojv/core";
+import type { SandboxExecutor } from "@nojv/core";
 
 import { activeJobs, submissionDurationSeconds, submissionJobsTotal } from "../metrics.js";
 import {

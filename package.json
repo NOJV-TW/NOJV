@@ -36,7 +36,7 @@
     "@types/node": "^25.3.5",
     "eslint": "^9.39.4",
     "globals": "^17.4.0",
-    "playwright": "^1.58.2",
+    "@prisma/adapter-pg": "^7.4.2",
     "prettier": "^3.8.1",
     "rate-limiter-flexible": "^9.1.1",
     "tsx": "^4.21.0",

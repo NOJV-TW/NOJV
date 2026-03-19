@@ -5,7 +5,7 @@ import {
   queueNames,
   submissionJudgeJobSchema,
   type SubmissionJudgeJob
-} from "@nojv/queue";
+} from "@nojv/core";
 import { z } from "zod";
 
 const queueEnvSchema = z.object({

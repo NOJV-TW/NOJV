@@ -75,6 +75,8 @@ IMAGE_TAG="$(resolve_image_tag)"
 require_env PROJECT_ID
 require_env DATABASE_URL
 require_env REDIS_URL
+require_env BETTER_AUTH_SECRET
+require_env BETTER_AUTH_URL
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
@@ -92,6 +94,14 @@ fi
 
 upsert_secret nojv-database-url "$DATABASE_URL"
 upsert_secret nojv-redis-url "$REDIS_URL"
+upsert_secret nojv-auth-secret "$BETTER_AUTH_SECRET"
+upsert_secret nojv-auth-url "$BETTER_AUTH_URL"
+
+# Optional OAuth — only upsert if set
+[[ -n "${GITHUB_CLIENT_ID:-}" ]] && upsert_secret nojv-github-client-id "$GITHUB_CLIENT_ID"
+[[ -n "${GITHUB_CLIENT_SECRET:-}" ]] && upsert_secret nojv-github-client-secret "$GITHUB_CLIENT_SECRET"
+[[ -n "${GOOGLE_CLIENT_ID:-}" ]] && upsert_secret nojv-google-client-id "$GOOGLE_CLIENT_ID"
+[[ -n "${GOOGLE_CLIENT_SECRET:-}" ]] && upsert_secret nojv-google-client-secret "$GOOGLE_CLIENT_SECRET"
 
 gcloud builds submit \
   --config infra/gcp/cloudbuild.yaml \
@@ -112,7 +122,33 @@ gcloud run deploy "${SERVICE_PREFIX}-web" \
   --image "${IMAGE_BASE}/web:${IMAGE_TAG}" \
   --port 3000 \
   --region "$REGION" \
-  --set-secrets "DATABASE_URL=nojv-database-url:latest,REDIS_URL=nojv-redis-url:latest"
+  --set-secrets "\
+DATABASE_URL=nojv-database-url:latest,\
+REDIS_URL=nojv-redis-url:latest,\
+BETTER_AUTH_SECRET=nojv-auth-secret:latest,\
+BETTER_AUTH_URL=nojv-auth-url:latest,\
+GITHUB_CLIENT_ID=nojv-github-client-id:latest,\
+GITHUB_CLIENT_SECRET=nojv-github-client-secret:latest,\
+GOOGLE_CLIENT_ID=nojv-google-client-id:latest,\
+GOOGLE_CLIENT_SECRET=nojv-google-client-secret:latest"
+
+# Verify deployment is serving
+WEB_URL="$(gcloud run services describe "${SERVICE_PREFIX}-web" --region "$REGION" --format='value(status.url)')"
+
+echo "Verifying deployment health..."
+RETRIES=5
+for i in $(seq 1 $RETRIES); do
+  HTTP_STATUS="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$WEB_URL" || true)"
+  if [[ "$HTTP_STATUS" =~ ^(200|301|302)$ ]]; then
+    echo "Health check passed (HTTP $HTTP_STATUS)"
+    break
+  fi
+  if [[ "$i" -eq "$RETRIES" ]]; then
+    echo "WARNING: Health check failed after $RETRIES attempts (last HTTP $HTTP_STATUS)" >&2
+    echo "The service may still be starting up. Check Cloud Run logs." >&2
+  fi
+  sleep 5
+done
 
 echo "Deployment completed:"
 echo "  image tag: ${IMAGE_TAG}"

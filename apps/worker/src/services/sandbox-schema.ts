@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SandboxResult } from "@nojv/sandbox";
+import type { SandboxResult } from "@nojv/core";
 
 const sandboxTestcaseResultSchema = z.object({
   index: z.number(),

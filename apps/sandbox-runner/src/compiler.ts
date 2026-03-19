@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import * as path from "node:path";
-import { sourceFileNames } from "@nojv/sandbox";
+import { sourceFileNames } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
 
 export type CompileResult =

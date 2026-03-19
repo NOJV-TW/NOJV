@@ -37,7 +37,7 @@ describe("contest queries (real DB)", () => {
           title: "Test Course",
           description: "Test",
           locale: "en",
-          visibility: "public",
+          visibility: "listed",
           ownerId: teacher.id
         }
       });

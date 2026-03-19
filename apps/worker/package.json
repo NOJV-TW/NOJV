@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit",
+    "build": "node build.mjs",
+    "build:check": "tsc -p tsconfig.json --noEmit",
     "dev": "node --env-file=../../.env --import tsx --watch src/index.ts",
     "lint": "eslint .",
-    "start": "node --import tsx src/index.ts",
+    "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -16,8 +17,6 @@
     "@kubernetes/client-node": "^1.0.0",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
-    "@nojv/queue": "workspace:*",
-    "@nojv/sandbox": "workspace:*",
     "bullmq": "^5.70.4",
     "ioredis": "^5.9.3",
     "express": "^5.2.1",
@@ -25,6 +24,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6"
+    "@types/express": "^5.0.6",
+    "esbuild": "^0.25.0"
   }
 }

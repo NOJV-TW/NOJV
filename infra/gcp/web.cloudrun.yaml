@@ -4,12 +4,24 @@ metadata:
   name: nojv-web
 spec:
   template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "5"
     spec:
+      containerConcurrency: 80
+      timeoutSeconds: 60
       containers:
         - image: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/web:latest
           ports:
             - containerPort: 3000
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
           env:
+            - name: NODE_ENV
+              value: production
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -20,3 +32,33 @@ spec:
                 secretKeyRef:
                   key: latest
                   name: nojv-redis-url
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-auth-secret
+            - name: BETTER_AUTH_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-auth-url
+            - name: GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-github-client-id
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-github-client-secret
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-google-client-id
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: nojv-google-client-secret
