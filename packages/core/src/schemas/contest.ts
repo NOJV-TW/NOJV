@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   assessmentScoreboardModeSchema,
   contestScoringModeSchema,
+  ipLockFields,
   isoDateTimeSchema,
   languageSchema,
   slugSchema
@@ -26,7 +27,7 @@ const contestCreateBaseSchema = z.object({
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
   inviteCode: z.string().trim().max(32).optional(),
-  ipLockEnabled: z.boolean().default(false),
+  ...ipLockFields,
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),
   problemSlugs: z.array(slugSchema).min(1).max(32),

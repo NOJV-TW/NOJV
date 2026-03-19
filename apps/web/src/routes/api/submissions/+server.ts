@@ -12,7 +12,7 @@ export const POST: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const payload = submissionDraftSchema.parse(await event.request.json());
-  const submission = await createQueuedSubmissionRecord(payload, actor);
+  const submission = await createQueuedSubmissionRecord(payload, actor, event.request);
   await dispatchSubmissionJob({
     draft: payload,
     submissionId: submission.id

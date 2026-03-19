@@ -5,7 +5,8 @@
   interface ContestItem {
     allowedLanguages: Language[];
     endsAt: string;
-    ipLockEnabled: boolean;
+    ipBindingEnabled: boolean;
+    ipWhitelistEnabled: boolean;
     maxAttempts: number | null;
     pageLockEnabled: boolean;
     participantCount: number;
@@ -41,7 +42,8 @@
     const parts = [c.scoringMode, `${c.problemCount} problems`, `${c.participantCount} participants`];
     if (c.scoreboardMode === "frozen") parts.push("frozen scoreboard");
     if (c.pageLockEnabled) parts.push("page lock");
-    if (c.ipLockEnabled) parts.push("IP lock");
+    if (c.ipWhitelistEnabled) parts.push("IP whitelist");
+    if (c.ipBindingEnabled) parts.push("IP binding");
     if (c.maxAttempts != null) parts.push(`${c.maxAttempts} attempts`);
     if (c.allowedLanguages.length > 0) parts.push(c.allowedLanguages.join(", "));
     return parts.join(" \u00b7 ");
