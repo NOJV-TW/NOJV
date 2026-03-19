@@ -3,6 +3,7 @@ import type { SubmissionDraft } from "@nojv/core";
 
 import type { CompletedActorContext } from "../auth";
 import { ForbiddenError } from "../auth";
+import { checkIpLock, getClientIp } from "../ip-utils";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssessment } from "../course/mutations";
 import { requireProblem } from "../problem/mutations";
@@ -10,7 +11,8 @@ import { checkSubmitCooldown, ensureContestParticipation } from "../contest/muta
 
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
-  actor: CompletedActorContext
+  actor: CompletedActorContext,
+  request: Request
 ) {
   const problem = await requireProblem(prisma, payload.problemSlug);
   const courseContext = payload.assessment
@@ -76,6 +78,56 @@ export async function createQueuedSubmissionRecord(
       });
       if (!template) {
         throw new ForbiddenError("No template available for this language");
+      }
+    }
+
+    // ── IP lock recheck ──
+    const clientIp = getClientIp(request);
+
+    if (contestResult && contestParticipation) {
+      const { contest } = contestResult;
+      if (contest.ipWhitelistEnabled || contest.ipBindingEnabled) {
+        const ipResult = await checkIpLock(
+          contest,
+          clientIp,
+          { id: contestParticipation.id, boundIp: contestParticipation.boundIp },
+          { userId: user.id, contestId: contest.id },
+          "contestParticipation"
+        );
+        if (!ipResult.allowed) {
+          throw new ForbiddenError("IP address not allowed for this contest");
+        }
+      }
+    }
+
+    if (courseContext?.assessment) {
+      const { assessment } = courseContext;
+      if (assessment.ipWhitelistEnabled || assessment.ipBindingEnabled) {
+        const participation = await tx.assessmentParticipation.upsert({
+          where: {
+            userId_assessmentId: {
+              userId: user.id,
+              assessmentId: assessment.id
+            }
+          },
+          create: {
+            userId: user.id,
+            assessmentId: assessment.id
+          },
+          update: {},
+          select: { id: true, boundIp: true }
+        });
+
+        const ipResult = await checkIpLock(
+          assessment,
+          clientIp,
+          participation,
+          { userId: user.id, assessmentId: assessment.id },
+          "assessmentParticipation"
+        );
+        if (!ipResult.allowed) {
+          throw new ForbiddenError("IP address not allowed for this assessment");
+        }
       }
     }
 

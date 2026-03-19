@@ -1,9 +1,4 @@
-import { createBullBoard } from "@bull-board/api";
-import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
-import { ExpressAdapter } from "@bull-board/express";
 import { Queue, UnrecoverableError, Worker } from "bullmq";
-import express from "express";
-import { createServer } from "node:http";
 
 import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/core";
 
@@ -16,34 +11,10 @@ import { createExecutor } from "./services/executor-factory";
 
 const logger = createLogger("worker");
 
-async function mountBullBoard(queues: Queue[]): Promise<void> {
-  const serverAdapter = new ExpressAdapter();
-  serverAdapter.setBasePath("/admin/queues");
-
-  createBullBoard({
-    queues: queues.map((q) => new BullMQAdapter(q)),
-    serverAdapter
-  });
-
-  const expressApp = express();
-  expressApp.use("/admin/queues", serverAdapter.getRouter() as express.RequestHandler);
-
-  const boardServer = createServer(expressApp);
-  const BOARD_PORT = 9999;
-  await new Promise<void>((resolve) => {
-    boardServer.listen(BOARD_PORT, () => resolve());
-  });
-
-  logger.info("bull-board dashboard started", {
-    url: `http://localhost:${String(BOARD_PORT)}/admin/queues`
-  });
-}
-
 export class WorkerApp {
   private readonly workers: Worker[];
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
-  private readonly readOnlyQueues: Queue[];
   private readonly dlqQueue: Queue;
   private shutdownPromise: Promise<void> | null = null;
 
@@ -63,8 +34,6 @@ export class WorkerApp {
         connection
       })
     ];
-
-    this.readOnlyQueues = [new Queue(queueNames.submission, { connection }), this.dlqQueue];
 
     this.healthServer = createWorkerHealthServer();
 
@@ -104,10 +73,6 @@ export class WorkerApp {
       });
     });
 
-    if (this.env.NODE_ENV === "development") {
-      await mountBullBoard(this.readOnlyQueues);
-    }
-
     logger.info("worker started", {
       redis: this.env.REDIS_URL,
       queues: Object.values(queueNames).join(", ")
@@ -124,10 +89,7 @@ export class WorkerApp {
 
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
-      await Promise.all([
-        ...this.workers.map((w) => w.close()),
-        ...this.readOnlyQueues.map((q) => q.close())
-      ]);
+      await Promise.all([...this.workers.map((w) => w.close()), this.dlqQueue.close()]);
     })();
 
     await this.shutdownPromise;

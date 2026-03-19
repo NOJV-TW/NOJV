@@ -85,6 +85,28 @@ export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
 export type SubmissionType = z.infer<typeof submissionTypeSchema>;
 
+// ─── IP Lock shared schema ──────────────────────────────────────────
+
+export const ipViolationModes = ["block", "notify"] as const;
+export const ipViolationModeSchema = z.enum(ipViolationModes);
+export type IpViolationMode = z.infer<typeof ipViolationModeSchema>;
+
+/** Shared Zod fields for IP lock configuration. Use with z.object({ ...ipLockFields, ... }) */
+export const ipLockFields = {
+  ipBindingEnabled: z.boolean().default(false),
+  ipViolationMode: ipViolationModeSchema.default("block"),
+  ipWhitelist: z.array(z.string().trim().min(1)).default([]),
+  ipWhitelistEnabled: z.boolean().default(false)
+} as const;
+
+/** Shared Zod fields for IP lock form (textarea variant for whitelist). */
+export const ipLockFormFields = {
+  ipBindingEnabled: z.boolean().default(false),
+  ipViolationMode: ipViolationModeSchema.default("block"),
+  ipWhitelistEnabled: z.boolean().default(false),
+  ipWhitelistText: z.string().default("")
+} as const;
+
 export const sessionUserSchema = z.object({
   disabled: z.boolean().default(false),
   email: z.string(),

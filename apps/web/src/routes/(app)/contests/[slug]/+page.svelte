@@ -124,8 +124,11 @@
     {#if contest.pageLockEnabled}
       <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">Page lock</span>
     {/if}
-    {#if contest.ipLockEnabled}
-      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">IP lock</span>
+    {#if contest.ipWhitelistEnabled}
+      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">IP whitelist</span>
+    {/if}
+    {#if contest.ipBindingEnabled}
+      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">IP binding</span>
     {/if}
     <span class="rounded-full bg-muted px-3 py-1">
       Scoreboard: {contest.scoreboardMode}

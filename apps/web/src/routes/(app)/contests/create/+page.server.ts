@@ -24,8 +24,16 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const { problemSlugsText, startsAt, endsAt, frozenAt, courseSlug, inviteCode, ...rest } =
-        form.data;
+      const {
+        problemSlugsText,
+        ipWhitelistText,
+        startsAt,
+        endsAt,
+        frozenAt,
+        courseSlug,
+        inviteCode,
+        ...rest
+      } = form.data;
       const canBindCourse = actor.platformRole === "admin" || actor.platformRole === "teacher";
 
       const payload = contestCreateSchema.parse({
@@ -34,6 +42,10 @@ export const actions = {
         inviteCode: inviteCode ?? undefined,
         endsAt: new Date(endsAt).toISOString(),
         frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
+        ipWhitelist: ipWhitelistText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
         problemSlugs: problemSlugsText
           .split(",")
           .map((s) => s.trim())

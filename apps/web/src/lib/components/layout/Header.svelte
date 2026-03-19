@@ -22,7 +22,7 @@
 </script>
 
 <header
-  class="animate-[fade-up_700ms_cubic-bezier(0.22,1,0.36,1)_both] rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-3 backdrop-blur-sm sm:px-6"
+  class="relative z-50 animate-[fade-up_700ms_cubic-bezier(0.22,1,0.36,1)_both] rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-3 backdrop-blur-sm sm:px-6"
 >
   <div class="flex flex-wrap items-center gap-4">
     <a
