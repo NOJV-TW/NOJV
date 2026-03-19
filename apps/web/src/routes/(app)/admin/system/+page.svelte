@@ -11,6 +11,26 @@
     prioritized: "Prioritized",
     "waiting-children": "Waiting Children"
   };
+
+  const jobStatuses = ["waiting", "active", "completed", "failed", "delayed"] as const;
+
+  function formatTimestamp(ms: number | undefined): string {
+    if (!ms) return "-";
+    return new Date(ms).toLocaleString();
+  }
+
+  function formatDuration(start: number | undefined, end: number | undefined): string {
+    if (!start || !end) return "-";
+    const diff = end - start;
+    if (diff < 1000) return `${diff}ms`;
+    if (diff < 60_000) return `${(diff / 1000).toFixed(1)}s`;
+    return `${(diff / 60_000).toFixed(1)}m`;
+  }
+
+  function truncateId(id: string | undefined): string {
+    if (!id) return "-";
+    return id.length > 12 ? id.slice(0, 12) + "..." : id;
+  }
 </script>
 
 <div class="space-y-6">
@@ -73,6 +93,112 @@
       </div>
     </div>
   {/if}
+
+  <!-- Queue Jobs -->
+  <div
+    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
+  >
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Queue Jobs</h3>
+      <form method="POST" action="?/cleanJobs">
+        <input type="hidden" name="status" value={data.jobStatus} />
+        <button
+          type="submit"
+          class="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+        >
+          Clean all {statusLabels[data.jobStatus] ?? data.jobStatus}
+        </button>
+      </form>
+    </div>
+
+    <!-- Status Tabs -->
+    <div class="mt-4 flex gap-2">
+      {#each jobStatuses as status}
+        <a
+          href="?jobStatus={status}"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors
+            {data.jobStatus === status
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted'}"
+        >
+          {statusLabels[status]}
+        </a>
+      {/each}
+    </div>
+
+    <!-- Jobs Table -->
+    {#if data.queueJobs.length > 0}
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-border text-left">
+              <th class="px-4 py-2 font-medium">ID</th>
+              <th class="px-4 py-2 font-medium">Name</th>
+              <th class="px-4 py-2 font-medium">Created</th>
+              <th class="px-4 py-2 font-medium">Duration</th>
+              <th class="px-4 py-2 font-medium">Attempts</th>
+              <th class="px-4 py-2 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.queueJobs as job (job.id)}
+              <tr class="border-b border-border last:border-b-0">
+                <td class="px-4 py-2 font-mono text-xs" title={job.id}>
+                  {truncateId(job.id)}
+                </td>
+                <td class="px-4 py-2 text-xs">{job.name}</td>
+                <td class="px-4 py-2 text-xs text-muted-foreground">
+                  {formatTimestamp(job.timestamp)}
+                </td>
+                <td class="px-4 py-2 text-xs text-muted-foreground">
+                  {formatDuration(job.processedOn, job.finishedOn)}
+                </td>
+                <td class="px-4 py-2 text-xs text-center">{job.attemptsMade}</td>
+                <td class="flex gap-1 px-4 py-2">
+                  {#if data.jobStatus === "failed"}
+                    <form method="POST" action="?/retryJob">
+                      <input type="hidden" name="jobId" value={job.id} />
+                      <button
+                        type="submit"
+                        class="rounded-md border border-border px-2 py-1 text-xs hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400"
+                      >
+                        Retry
+                      </button>
+                    </form>
+                  {/if}
+                  <form method="POST" action="?/removeJob">
+                    <input type="hidden" name="jobId" value={job.id} />
+                    <button
+                      type="submit"
+                      class="rounded-md border border-border px-2 py-1 text-xs hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {#if data.jobStatus === "failed" && job.failedReason}
+                <tr class="border-b border-border last:border-b-0">
+                  <td colspan="6" class="px-4 pb-3 pt-0">
+                    <details class="text-xs">
+                      <summary class="cursor-pointer text-muted-foreground hover:text-foreground">
+                        Error details
+                      </summary>
+                      <pre class="mt-1 overflow-x-auto rounded-lg bg-muted p-3 text-xs text-red-600 dark:text-red-400">{job.failedReason}</pre>
+                    </details>
+                  </td>
+                </tr>
+              {/if}
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {:else}
+      <p class="mt-4 text-sm text-muted-foreground">
+        No {statusLabels[data.jobStatus]?.toLowerCase() ?? data.jobStatus} jobs found.
+      </p>
+    {/if}
+  </div>
 
   <!-- Failed Submissions -->
   <div
