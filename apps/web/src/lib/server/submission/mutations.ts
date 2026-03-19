@@ -84,13 +84,13 @@ export async function createQueuedSubmissionRecord(
     // ── IP lock recheck ──
     const clientIp = getClientIp(request);
 
-    if (contestResult) {
+    if (contestResult && contestParticipation) {
       const { contest } = contestResult;
       if (contest.ipWhitelistEnabled || contest.ipBindingEnabled) {
         const ipResult = await checkIpLock(
           contest,
           clientIp,
-          { id: contestParticipation!.id, boundIp: contestParticipation!.boundIp },
+          { id: contestParticipation.id, boundIp: contestParticipation.boundIp },
           { userId: user.id, contestId: contest.id },
           "contestParticipation"
         );

@@ -1,4 +1,3 @@
-import type { IpViolationMode } from "@nojv/core";
 import { prisma } from "@nojv/db";
 import { dev } from "$app/environment";
 
@@ -30,8 +29,8 @@ export function getClientIp(request: Request): string {
 
 function ipToNumber(ip: string): number | null {
   // Handle IPv4-mapped IPv6 (::ffff:1.2.3.4)
-  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  if (mapped) ip = mapped[1]!;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+  if (mapped?.[1]) ip = mapped[1];
 
   const parts = ip.split(".");
   if (parts.length !== 4) return null;
@@ -72,7 +71,7 @@ export interface IpLockConfig {
   ipWhitelistEnabled: boolean;
   ipBindingEnabled: boolean;
   ipWhitelist: string[];
-  ipViolationMode: IpViolationMode | string;
+  ipViolationMode: string;
 }
 
 export interface IpCheckResult {
