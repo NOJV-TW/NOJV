@@ -6,7 +6,8 @@ import type { AssessmentScoreboardMode, ContestScoringMode, Language } from "@no
 export interface ContestListItem {
   allowedLanguages: Language[];
   endsAt: string;
-  ipLockEnabled: boolean;
+  ipBindingEnabled: boolean;
+  ipWhitelistEnabled: boolean;
   maxAttempts: number | null;
   pageLockEnabled: boolean;
   participantCount: number;
@@ -24,7 +25,11 @@ export interface ContestDetailData {
   courseSlug: string | null;
   endsAt: string;
   frozenAt: string | null;
-  ipLockEnabled: boolean;
+  id: string;
+  ipBindingEnabled: boolean;
+  ipViolationMode: "block" | "notify";
+  ipWhitelist: string[];
+  ipWhitelistEnabled: boolean;
   maxAttempts: number | null;
   pageLockEnabled: boolean;
   participantCount: number;
@@ -66,7 +71,8 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
   return {
     allowedLanguages: c.allowedLanguages as Language[],
     endsAt: c.endsAt.toISOString(),
-    ipLockEnabled: c.ipLockEnabled,
+    ipBindingEnabled: c.ipBindingEnabled,
+    ipWhitelistEnabled: c.ipWhitelistEnabled,
     maxAttempts: c.maxAttempts,
     pageLockEnabled: c.pageLockEnabled,
     participantCount: c._count.participations,
@@ -132,7 +138,11 @@ export async function getContestDetail(contestSlug: string): Promise<ContestDeta
     courseSlug: contest.course?.slug ?? null,
     endsAt: contest.endsAt.toISOString(),
     frozenAt: contest.frozenAt?.toISOString() ?? null,
-    ipLockEnabled: contest.ipLockEnabled,
+    id: contest.id,
+    ipBindingEnabled: contest.ipBindingEnabled,
+    ipViolationMode: contest.ipViolationMode as "block" | "notify",
+    ipWhitelist: contest.ipWhitelist,
+    ipWhitelistEnabled: contest.ipWhitelistEnabled,
     maxAttempts: contest.maxAttempts,
     pageLockEnabled: contest.pageLockEnabled,
     participantCount: contest._count.participations,
@@ -185,7 +195,11 @@ export async function getContestWorkspaceData(
     courseSlug: contest.course?.slug ?? null,
     endsAt: contest.endsAt.toISOString(),
     frozenAt: contest.frozenAt?.toISOString() ?? null,
-    ipLockEnabled: contest.ipLockEnabled,
+    id: contest.id,
+    ipBindingEnabled: contest.ipBindingEnabled,
+    ipViolationMode: contest.ipViolationMode as "block" | "notify",
+    ipWhitelist: contest.ipWhitelist,
+    ipWhitelistEnabled: contest.ipWhitelistEnabled,
     maxAttempts: contest.maxAttempts,
     pageLockEnabled: contest.pageLockEnabled,
     participation: participation
@@ -211,27 +225,6 @@ export async function getContestWorkspaceData(
     summary: contest.summary,
     title: contest.title
   };
-}
-
-export async function getActiveContestForUser(userId: string) {
-  const now = new Date();
-
-  return prisma.contest.findFirst({
-    where: {
-      pageLockEnabled: true,
-      visibility: "published",
-      startsAt: { lte: now },
-      endsAt: { gte: now },
-      participations: {
-        some: { userId, status: "active" }
-      }
-    },
-    select: {
-      courseId: true,
-      slug: true,
-      course: { select: { slug: true } }
-    }
-  });
 }
 
 export async function findContestByInviteCode(inviteCode: string) {

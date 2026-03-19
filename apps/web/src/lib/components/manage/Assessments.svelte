@@ -16,7 +16,10 @@
       allowedLanguages?: Language[] | undefined;
       closesAt: string;
       dueAt: string;
-      ipLockEnabled: boolean;
+      ipBindingEnabled: boolean;
+      ipViolationMode: string;
+      ipWhitelistEnabled: boolean;
+      ipWhitelistText: string;
       maxAttempts?: number | null | undefined;
       opensAt: string;
       pageLockEnabled: boolean;
@@ -304,6 +307,59 @@
           <input class={inputClassName} name="closesAt" bind:value={$form.closesAt} required type="datetime-local" />
           {#if $errors.closesAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.closesAt}</span>{/if}
         </div>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
+          Page lock (prevent tab switching)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="ipWhitelistEnabled" bind:checked={$form.ipWhitelistEnabled} />
+          IP Whitelist
+        </label>
+      </div>
+      {#if $form.ipWhitelistEnabled}
+        <div>
+          <textarea
+            class={textareaClassName}
+            name="ipWhitelistText"
+            bind:value={$form.ipWhitelistText}
+            placeholder="CIDR ranges, one per line&#10;e.g. 140.112.0.0/16"
+            rows="3"
+          ></textarea>
+        </div>
+      {/if}
+      <div class="grid gap-3 md:grid-cols-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="ipBindingEnabled" bind:checked={$form.ipBindingEnabled} />
+          IP First-Binding (lock to first IP used)
+        </label>
+      </div>
+      {#if $form.ipWhitelistEnabled || $form.ipBindingEnabled}
+        <div class="flex items-center gap-4 text-sm">
+          <span class="text-muted-foreground">When IP violation occurs:</span>
+          <label class="flex items-center gap-1.5">
+            <input type="radio" name="ipViolationMode" value="block" bind:group={$form.ipViolationMode} />
+            Block
+          </label>
+          <label class="flex items-center gap-1.5">
+            <input type="radio" name="ipViolationMode" value="notify" bind:group={$form.ipViolationMode} />
+            Notify only
+          </label>
+        </div>
+      {/if}
+      <div>
+        <label class="text-xs text-muted-foreground" for="maxAttempts">Max attempts (optional)</label>
+        <input
+          class={inputClassName}
+          id="maxAttempts"
+          name="maxAttempts"
+          type="number"
+          min="1"
+          max="999"
+          placeholder="Unlimited"
+          bind:value={$form.maxAttempts}
+        />
       </div>
       <button
         class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"

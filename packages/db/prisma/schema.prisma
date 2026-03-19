@@ -149,6 +149,8 @@ model User {
   triggeredPlagiarismReports PlagiarismReport[] @relation("PlagiarismReportTriggeredBy")
   stats                      UserStats?
   editorials                 Editorial[]
+  assessmentParticipations   AssessmentParticipation[]
+  ipViolationLogs            IpViolationLog[]
 }
 
 model Problem {
@@ -249,21 +251,25 @@ model Contest {
   courseId          String?
   frozenAt          DateTime?
   submitCooldownSec Int                           @default(0)
-  pageLockEnabled   Boolean                       @default(false)
-  ipLockEnabled     Boolean                       @default(false)
-  maxAttempts       Int?
-  scoreboardMode    CourseAssessmentScoreboardMode @default(live)
-  allowedLanguages  SupportedLanguage[]           @default([])
-  inviteCode        String?                       @unique
-  createdByUserId   String?
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
-  course            Course?                       @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  createdBy         User?                         @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  problems          ContestProblem[]
-  participations    ContestParticipation[]
-  submissions       Submission[]
-  plagiarismReports PlagiarismReport[]
+  pageLockEnabled    Boolean                       @default(false)
+  ipWhitelistEnabled Boolean                       @default(false)
+  ipBindingEnabled   Boolean                       @default(false)
+  ipWhitelist        String[]                      @default([])
+  ipViolationMode    String                        @default("block")
+  maxAttempts        Int?
+  scoreboardMode     CourseAssessmentScoreboardMode @default(live)
+  allowedLanguages   SupportedLanguage[]           @default([])
+  inviteCode         String?                       @unique
+  createdByUserId    String?
+  createdAt          DateTime                      @default(now())
+  updatedAt          DateTime                      @updatedAt
+  course             Course?                       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdBy          User?                         @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  problems           ContestProblem[]
+  participations     ContestParticipation[]
+  submissions        Submission[]
+  plagiarismReports  PlagiarismReport[]
+  ipViolationLogs    IpViolationLog[]              @relation("IpViolationContest")
 }
 
 model ContestProblem {
@@ -358,21 +364,26 @@ model CourseAssessment {
   summary          String                         @db.Text
   status           CourseAssessmentStatus         @default(draft)
   scoreboardMode   CourseAssessmentScoreboardMode @default(hidden)
-  pageLockEnabled  Boolean                       @default(false)
-  ipLockEnabled    Boolean                       @default(false)
-  maxAttempts      Int?
-  allowedLanguages SupportedLanguage[]           @default([])
-  opensAt          DateTime
-  dueAt            DateTime
-  closesAt         DateTime
-  createdByUserId  String
-  createdAt        DateTime                       @default(now())
-  updatedAt        DateTime                       @updatedAt
-  course           Course                         @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy        User                           @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  problems             CourseAssessmentProblem[]
-  submissions          Submission[]
-  plagiarismReports    PlagiarismReport[]
+  pageLockEnabled    Boolean                       @default(false)
+  ipWhitelistEnabled Boolean                       @default(false)
+  ipBindingEnabled   Boolean                       @default(false)
+  ipWhitelist        String[]                      @default([])
+  ipViolationMode    String                        @default("block")
+  maxAttempts        Int?
+  allowedLanguages   SupportedLanguage[]           @default([])
+  opensAt            DateTime
+  dueAt              DateTime
+  closesAt           DateTime
+  createdByUserId    String
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  course             Course                         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy          User                           @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  problems               CourseAssessmentProblem[]
+  submissions            Submission[]
+  plagiarismReports      PlagiarismReport[]
+  assessmentParticipations AssessmentParticipation[]
+  ipViolationLogs        IpViolationLog[]           @relation("IpViolationAssessment")
 
   @@unique([courseId, slug])
   @@index([courseId, status])
@@ -402,6 +413,8 @@ model ContestParticipation {
   score            Int                          @default(0)
   penaltySeconds   Int                          @default(0)
   subtaskScores    Json?
+  boundIp          String?
+  boundAt          DateTime?
   createdAt        DateTime                     @default(now())
   updatedAt        DateTime                     @updatedAt
   contest          Contest                      @relation(fields: [contestId], references: [id], onDelete: Cascade)
@@ -533,4 +546,31 @@ model Editorial {
   updatedAt DateTime          @updatedAt
 
   @@unique([userId, problemId])
+}
+
+model AssessmentParticipation {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id])
+  assessmentId String
+  assessment   CourseAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  boundIp      String?
+  boundAt      DateTime?
+  createdAt    DateTime         @default(now())
+
+  @@unique([userId, assessmentId])
+}
+
+model IpViolationLog {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  contestId     String?
+  contest       Contest?         @relation("IpViolationContest", fields: [contestId], references: [id], onDelete: Cascade)
+  assessmentId  String?
+  assessment    CourseAssessment? @relation("IpViolationAssessment", fields: [assessmentId], references: [id], onDelete: Cascade)
+  expectedIp    String?
+  actualIp      String
+  violationType String
+  createdAt     DateTime         @default(now())
 }
