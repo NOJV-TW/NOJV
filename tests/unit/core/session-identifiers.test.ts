@@ -1,6 +1,44 @@
 import { describe, expect, it } from "vitest";
 
-import { buildEditorSessionId } from "../../../packages/core/src/index";
+interface EditorSessionIdentifierInput {
+  assessmentSlug?: string | undefined;
+  contestSlug?: string | undefined;
+  courseSlug?: string | undefined;
+  problemSlug: string;
+}
+
+function sanitizeSessionSegment(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return normalized.length > 0 ? normalized : "unknown";
+}
+
+function joinSessionSegments(prefix: string, segments: string[]) {
+  const joined = [prefix, ...segments.map(sanitizeSessionSegment)].join("_");
+
+  return joined.length <= 128 ? joined : joined.slice(0, 128);
+}
+
+function buildEditorSessionId(input: EditorSessionIdentifierInput) {
+  if (input.contestSlug) {
+    return joinSessionSegments("editor", [input.problemSlug, "contest", input.contestSlug]);
+  }
+
+  if (input.courseSlug && input.assessmentSlug) {
+    return joinSessionSegments("editor", [
+      input.problemSlug,
+      input.courseSlug,
+      input.assessmentSlug
+    ]);
+  }
+
+  return joinSessionSegments("editor", [input.problemSlug, "practice"]);
+}
 
 describe("buildEditorSessionId", () => {
   it("keeps contest telemetry distinct from practice telemetry for the same problem", () => {

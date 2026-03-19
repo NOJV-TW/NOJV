@@ -9,7 +9,7 @@ import {
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult
-} from "@nojv/sandbox";
+} from "@nojv/core";
 
 import { parseSandboxResult } from "./sandbox-schema";
 

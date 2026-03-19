@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { parseRedisConnection, queueNames } from "@nojv/queue";
+import { parseRedisConnection, queueNames } from "@nojv/core";
 import { prisma } from "@nojv/db";
 import { z } from "zod";
 import type { PageServerLoad } from "./$types";

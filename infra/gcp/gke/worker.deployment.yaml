@@ -13,6 +13,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-worker
     spec:
+      serviceAccountName: nojv-worker
       containers:
         - name: worker
           image: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:latest

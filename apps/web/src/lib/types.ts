@@ -6,7 +6,47 @@ import type {
   SubmissionType
 } from "@nojv/core";
 
-export { formatVerdictLabel, starterByLanguage } from "@nojv/core";
+export function formatVerdictLabel(verdict: string): string {
+  return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export const starterByLanguage: Record<Language, string> = {
+  c: `#include <stdio.h>
+
+int main() {
+
+}
+`,
+  go: `package main
+
+func main() {
+}
+`,
+  cpp: `#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+
+}
+`,
+  java: `import java.util.Scanner;
+
+public class Main {
+  public static void main(String[] args) {
+
+  }
+}
+`,
+  rust: `use std::io::{self, Read};
+
+fn main() {
+
+}
+`,
+  javascript: ``,
+  typescript: ``,
+  python: ``
+};
 
 export const difficultyColor: Record<string, string> = {
   easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
