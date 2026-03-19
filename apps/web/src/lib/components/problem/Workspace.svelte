@@ -279,17 +279,17 @@
         {/if}
 
         {#each problem.samples as sample, index (`sample-${index}`)}
-          <div class="mt-6">
-            <p class="text-sm font-semibold">
-              {m.problemDetail_sample()} {index + 1}:
+          <div class="mt-6 {index > 0 ? 'border-t border-border pt-6' : ''}">
+            <p class="text-base font-semibold">
+              {m.problemDetail_sample()} {index + 1}
             </p>
-            <div class="mt-2 space-y-3 text-sm">
+            <div class="mt-3 space-y-3 text-sm">
               <div>
-                <p class="font-semibold">{m.problemDetail_input()}:</p>
+                <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_input()}</p>
                 <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.input}</pre>
               </div>
               <div>
-                <p class="font-semibold">{m.problemDetail_output()}:</p>
+                <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_output()}</p>
                 <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.output}</pre>
               </div>
               {#if sample.explanation}
