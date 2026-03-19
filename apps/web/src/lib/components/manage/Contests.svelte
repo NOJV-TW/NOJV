@@ -14,7 +14,10 @@
       allowedLanguages: string[];
       endsAt: string;
       frozenAt?: string | undefined;
-      ipLockEnabled: boolean;
+      ipBindingEnabled: boolean;
+      ipViolationMode: string;
+      ipWhitelistEnabled: boolean;
+      ipWhitelistText: string;
       maxAttempts?: number | null | undefined;
       pageLockEnabled: boolean;
       problemSlugsText: string;
@@ -89,7 +92,8 @@
           </p>
           <div class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
             {#if contest.pageLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">page-lock</span>{/if}
-            {#if contest.ipLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-lock</span>{/if}
+            {#if contest.ipWhitelistEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-whitelist</span>{/if}
+            {#if contest.ipBindingEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-binding</span>{/if}
             {#if contest.maxAttempts != null}<span class="rounded-full border border-border px-2 py-0.5">max {contest.maxAttempts} attempts</span>{/if}
             <span class="rounded-full border border-border px-2 py-0.5">{contest.scoreboardMode} scoreboard</span>
             {#if contest.allowedLanguages.length > 0}
@@ -184,11 +188,42 @@
           <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
           Page lock (prevent tab switching)
         </label>
+        <!-- IP Whitelist -->
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="ipLockEnabled" bind:checked={$form.ipLockEnabled} />
-          IP lock (restrict to single IP)
+          <input type="checkbox" name="ipWhitelistEnabled" bind:checked={$form.ipWhitelistEnabled} />
+          IP Whitelist
         </label>
       </div>
+      {#if $form.ipWhitelistEnabled}
+        <div class="col-span-full">
+          <textarea
+            class={textareaClassName}
+            name="ipWhitelistText"
+            bind:value={$form.ipWhitelistText}
+            placeholder="CIDR ranges, one per line&#10;e.g. 140.112.0.0/16&#10;     192.168.1.0/24"
+            rows="3"
+          ></textarea>
+        </div>
+      {/if}
+      <!-- IP Binding -->
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="ipBindingEnabled" bind:checked={$form.ipBindingEnabled} />
+        IP First-Binding (lock to first IP used)
+      </label>
+      <!-- Violation mode (show when any IP lock enabled) -->
+      {#if $form.ipWhitelistEnabled || $form.ipBindingEnabled}
+        <div class="col-span-full flex items-center gap-4 text-sm">
+          <span class="text-muted-foreground">When IP violation occurs:</span>
+          <label class="flex items-center gap-1.5">
+            <input type="radio" name="ipViolationMode" value="block" bind:group={$form.ipViolationMode} />
+            Block
+          </label>
+          <label class="flex items-center gap-1.5">
+            <input type="radio" name="ipViolationMode" value="notify" bind:group={$form.ipViolationMode} />
+            Notify only
+          </label>
+        </div>
+      {/if}
       <div>
         <span class="text-xs text-muted-foreground">Allowed languages (leave empty for all)</span>
         <div class="mt-2 flex flex-wrap gap-3">

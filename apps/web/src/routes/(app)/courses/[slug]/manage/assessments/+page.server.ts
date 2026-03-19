@@ -2,6 +2,7 @@ import {
   assessmentScoreboardModeSchema,
   contestCreateSchema,
   courseAssessmentCreateSchema,
+  ipLockFormFields,
   languageSchema,
   slugSchema
 } from "@nojv/core";
@@ -21,7 +22,7 @@ const assessmentFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   closesAt: z.string().min(1),
   dueAt: z.string().min(1),
-  ipLockEnabled: z.boolean().default(false),
+  ...ipLockFormFields,
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   opensAt: z.string().min(1),
   pageLockEnabled: z.boolean().default(false),
@@ -64,9 +65,13 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const { problemSlugsText, opensAt, dueAt, closesAt, ...rest } = form.data;
+      const { problemSlugsText, ipWhitelistText, opensAt, dueAt, closesAt, ...rest } = form.data;
       const payload = courseAssessmentCreateSchema.parse({
         ...rest,
+        ipWhitelist: ipWhitelistText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
         closesAt: new Date(closesAt).toISOString(),
         courseSlug: slug,
         dueAt: new Date(dueAt).toISOString(),
@@ -97,10 +102,14 @@ export const actions = {
     if (!form.valid) return fail(400, { contestForm: form });
 
     try {
-      const { problemSlugsText, startsAt, endsAt, frozenAt, ...rest } = form.data;
+      const { problemSlugsText, ipWhitelistText, startsAt, endsAt, frozenAt, ...rest } = form.data;
       const payload = contestCreateSchema.parse({
         ...rest,
         courseSlug,
+        ipWhitelist: ipWhitelistText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
         endsAt: new Date(endsAt).toISOString(),
         frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
         problemSlugs: problemSlugsText

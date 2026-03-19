@@ -16,6 +16,7 @@ import {
   deriveAssessmentWindowState,
   windowStateColorClass
 } from "$lib/types";
+import { checkIpLock, getClientIp } from "../ip-utils";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -35,7 +36,12 @@ export interface CourseAssessmentRecord {
   closesAt: string;
   dueAt: string;
   id: string;
+  ipBindingEnabled: boolean;
+  ipViolationMode: "block" | "notify";
+  ipWhitelist: string[];
+  ipWhitelistEnabled: boolean;
   opensAt: string;
+  pageLockEnabled: boolean;
   problemSlugs: string[];
   scoreboardMode: AssessmentScoreboardMode;
   slug: string;
@@ -107,7 +113,12 @@ function mapAssessmentRecord(assessment: {
   closesAt: Date;
   dueAt: Date;
   id: string;
+  ipBindingEnabled: boolean;
+  ipViolationMode: string;
+  ipWhitelist: string[];
+  ipWhitelistEnabled: boolean;
   opensAt: Date;
+  pageLockEnabled: boolean;
   problems: { ordinal: number; problem: { slug: string } }[];
   scoreboardMode: AssessmentScoreboardMode;
   slug: string;
@@ -121,7 +132,12 @@ function mapAssessmentRecord(assessment: {
     closesAt: assessment.closesAt.toISOString(),
     dueAt: assessment.dueAt.toISOString(),
     id: assessment.id,
+    ipBindingEnabled: assessment.ipBindingEnabled,
+    ipViolationMode: assessment.ipViolationMode as "block" | "notify",
+    ipWhitelist: assessment.ipWhitelist,
+    ipWhitelistEnabled: assessment.ipWhitelistEnabled,
     opensAt: assessment.opensAt.toISOString(),
+    pageLockEnabled: assessment.pageLockEnabled,
     problemSlugs: [...linkedProblems]
       .sort((left, right) => left.ordinal - right.ordinal)
       .map((link) => link.problem.slug),
@@ -160,7 +176,12 @@ function mapPersistedCourse(course: {
     closesAt: Date;
     dueAt: Date;
     id: string;
+    ipBindingEnabled: boolean;
+    ipViolationMode: string;
+    ipWhitelist: string[];
+    ipWhitelistEnabled: boolean;
     opensAt: Date;
+    pageLockEnabled: boolean;
     problems: { ordinal: number; problem: { slug: string } }[];
     scoreboardMode: AssessmentScoreboardMode;
     slug: string;
@@ -405,10 +426,14 @@ export async function listUpcomingAssessments(userId: string) {
 export function createAssessmentDetailLoader() {
   return async ({
     params,
-    parent
+    parent,
+    locals,
+    request
   }: {
+    locals: App.Locals;
     params: { assessmentSlug: string; slug: string };
     parent: () => Promise<{ courseData: CoursePageDetailData }>;
+    request: Request;
   }) => {
     const { assessmentSlug } = params;
 
@@ -434,6 +459,49 @@ export function createAssessmentDetailLoader() {
     const problems = assessment.problemSlugs
       .map((ps) => problemsBySlug.get(ps))
       .filter((p): p is NonNullable<typeof p> => p != null);
+
+    // ── IP lock check ──
+    const user = locals.user;
+
+    if (
+      user &&
+      (windowState === "open" || windowState === "grace") &&
+      (assessment.ipWhitelistEnabled || assessment.ipBindingEnabled)
+    ) {
+      const clientIp = getClientIp(request);
+
+      const participation = await prisma.assessmentParticipation.upsert({
+        where: {
+          userId_assessmentId: {
+            userId: user.id,
+            assessmentId: assessment.id
+          }
+        },
+        create: {
+          userId: user.id,
+          assessmentId: assessment.id
+        },
+        update: {},
+        select: { id: true, boundIp: true }
+      });
+
+      const ipResult = await checkIpLock(
+        assessment,
+        clientIp,
+        participation,
+        { userId: user.id, assessmentId: assessment.id },
+        "assessmentParticipation"
+      );
+
+      if (!ipResult.allowed && assessment.ipViolationMode === "block") {
+        error(
+          403,
+          ipResult.violationType === "whitelist"
+            ? "Your IP address is not in the allowed range for this assessment."
+            : "Your IP address does not match the one bound to your session."
+        );
+      }
+    }
 
     return {
       assessment,
