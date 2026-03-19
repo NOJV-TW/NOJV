@@ -37,7 +37,11 @@ export async function getPageLockedContext(userId: string): Promise<PageLockedCo
   });
 
   if (contest) {
-    return { type: "contest", contestSlug: contest.slug, courseSlug: contest.course?.slug ?? null };
+    return {
+      type: "contest",
+      contestSlug: contest.slug,
+      courseSlug: contest.course?.slug ?? null
+    };
   }
 
   // Check active course assessments with pageLockEnabled
@@ -61,7 +65,11 @@ export async function getPageLockedContext(userId: string): Promise<PageLockedCo
   });
 
   if (assessment) {
-    return { type: "assessment", assessmentSlug: assessment.slug, courseSlug: assessment.course.slug };
+    return {
+      type: "assessment",
+      assessmentSlug: assessment.slug,
+      courseSlug: assessment.course.slug
+    };
   }
 
   return null;

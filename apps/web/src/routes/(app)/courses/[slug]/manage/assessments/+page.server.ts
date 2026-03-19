@@ -65,7 +65,8 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const { problemSlugsText, ipWhitelistText, opensAt, dueAt, closesAt, ...rest } = form.data;
+      const { problemSlugsText, ipWhitelistText, opensAt, dueAt, closesAt, ...rest } =
+        form.data;
       const payload = courseAssessmentCreateSchema.parse({
         ...rest,
         ipWhitelist: ipWhitelistText
@@ -102,7 +103,8 @@ export const actions = {
     if (!form.valid) return fail(400, { contestForm: form });
 
     try {
-      const { problemSlugsText, ipWhitelistText, startsAt, endsAt, frozenAt, ...rest } = form.data;
+      const { problemSlugsText, ipWhitelistText, startsAt, endsAt, frozenAt, ...rest } =
+        form.data;
       const payload = contestCreateSchema.parse({
         ...rest,
         courseSlug,

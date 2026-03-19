@@ -140,6 +140,7 @@ To avoid querying the DB on every request, cache the active page-locked contest/
 ### 3.1 IP Extraction
 
 Create a utility `getClientIp(request: Request): string`:
+
 - Check `x-forwarded-for` header (first IP in chain)
 - Fallback to `request.headers.get('x-real-ip')`
 - Fallback to connection remote address
@@ -172,6 +173,7 @@ When a user enters a contest/assessment page (server load function):
 ### 3.3 Submission-Time Recheck
 
 In `POST /api/submissions`, if the contest/assessment has any IP lock enabled, run the same checks again. This prevents:
+
 - User loads page from valid IP, switches network, then submits
 - In `block` mode: reject the submission
 - In `notify` mode: log the violation, allow submission

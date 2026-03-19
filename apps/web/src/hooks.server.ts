@@ -33,31 +33,49 @@ function isProfileExempt(pathname: string): boolean {
 }
 
 /** In-memory cache for page lock checks (30s TTL per user, max 10k entries). */
-const pageLockCache = new Map<string, { context: PageLockedContext | null; expiresAt: number }>();
+const pageLockCache = new Map<
+  string,
+  { context: PageLockedContext | null; expiresAt: number }
+>();
 const PAGE_LOCK_CACHE_TTL = 30_000;
 const PAGE_LOCK_CACHE_MAX = 10_000;
 
 function isPageLockExempt(pathname: string): boolean {
-  return pathname.startsWith("/api/") || pathname.startsWith("/signin") || pathname.startsWith("/signup");
+  return (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/signin") ||
+    pathname.startsWith("/signup")
+  );
 }
 
-function isContestAllowed(pathname: string, searchParams: URLSearchParams, ctx: PageLockedContext & { type: "contest" }): boolean {
+function isContestAllowed(
+  pathname: string,
+  searchParams: URLSearchParams,
+  ctx: PageLockedContext & { type: "contest" }
+): boolean {
   // Contest main page, problems, scoreboard
   if (pathname.startsWith(`/contests/${ctx.contestSlug}`)) return true;
   // Problem pages with ?contest=slug
-  if (pathname.startsWith("/problems/") && searchParams.get("contest") === ctx.contestSlug) return true;
+  if (pathname.startsWith("/problems/") && searchParams.get("contest") === ctx.contestSlug)
+    return true;
   return false;
 }
 
-function isAssessmentAllowed(pathname: string, searchParams: URLSearchParams, ctx: PageLockedContext & { type: "assessment" }): boolean {
+function isAssessmentAllowed(
+  pathname: string,
+  searchParams: URLSearchParams,
+  ctx: PageLockedContext & { type: "assessment" }
+): boolean {
   // Assessment workspace page
-  if (pathname.startsWith(`/courses/${ctx.courseSlug}/assignments/${ctx.assessmentSlug}`)) return true;
+  if (pathname.startsWith(`/courses/${ctx.courseSlug}/assignments/${ctx.assessmentSlug}`))
+    return true;
   // Problem pages with ?course=slug&assessment=slug
   if (
     pathname.startsWith("/problems/") &&
     searchParams.get("course") === ctx.courseSlug &&
     searchParams.get("assessment") === ctx.assessmentSlug
-  ) return true;
+  )
+    return true;
   return false;
 }
 
@@ -123,7 +141,10 @@ export const handle: Handle = async ({ event, resolve }) => {
           }
         } else {
           if (!isAssessmentAllowed(clean, event.url.searchParams, lockCtx)) {
-            redirect(302, `/courses/${lockCtx.courseSlug}/assignments/${lockCtx.assessmentSlug}`);
+            redirect(
+              302,
+              `/courses/${lockCtx.courseSlug}/assignments/${lockCtx.assessmentSlug}`
+            );
           }
         }
       }
