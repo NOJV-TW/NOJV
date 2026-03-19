@@ -17,8 +17,6 @@
     "@kubernetes/client-node": "^1.0.0",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
-    "@nojv/queue": "workspace:*",
-    "@nojv/sandbox": "workspace:*",
     "bullmq": "^5.70.4",
     "ioredis": "^5.9.3",
     "express": "^5.2.1",

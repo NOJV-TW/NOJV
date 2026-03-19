@@ -13,21 +13,16 @@ COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
-COPY packages/queue/package.json packages/queue/
-COPY packages/sandbox/package.json packages/sandbox/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/worker...
 
 # 2. Copy source and build
 COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
-COPY packages/queue/ packages/queue/
-COPY packages/sandbox/ packages/sandbox/
 COPY apps/worker/ apps/worker/
 
 RUN pnpm --filter @nojv/db db:generate
 RUN pnpm --filter @nojv/core build
-RUN pnpm --filter @nojv/sandbox build
 RUN pnpm --filter @nojv/worker build
 
 # 3. Production image

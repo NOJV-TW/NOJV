@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
-    "@nojv/sandbox": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

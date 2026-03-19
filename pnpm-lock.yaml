@@ -59,9 +59,6 @@ importers:
       '@nojv/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@nojv/sandbox':
-        specifier: workspace:*
-        version: link:../../packages/sandbox
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -102,9 +99,6 @@ importers:
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@nojv/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
       better-auth:
         specifier: ^1.5.4
         version: 1.5.4(a3f646b285c502b77f360594e056b16b)
@@ -120,6 +114,9 @@ importers:
       echarts:
         specifier: ^6.0.0
         version: 6.0.0
+      ioredis:
+        specifier: ^5.9.3
+        version: 5.9.3
       isomorphic-dompurify:
         specifier: ^3.1.0
         version: 3.1.0(@noble/hashes@2.0.1)
@@ -220,12 +217,6 @@ importers:
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@nojv/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
-      '@nojv/sandbox':
-        specifier: workspace:*
-        version: link:../../packages/sandbox
       bullmq:
         specifier: ^5.70.4
         version: 5.70.4
@@ -289,38 +280,6 @@ importers:
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
-
-  packages/queue:
-    dependencies:
-      '@nojv/core':
-        specifier: workspace:*
-        version: link:../core
-      ioredis:
-        specifier: ^5.9.3
-        version: 5.9.3
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      tsdown:
-        specifier: ^0.21.2
-        version: 0.21.2(typescript@5.9.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  packages/sandbox:
-    dependencies:
-      '@nojv/core':
-        specifier: workspace:*
-        version: link:../core
-    devDependencies:
-      tsdown:
-        specifier: ^0.21.2
-        version: 0.21.2(typescript@5.9.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
 
   tooling/eslint:
     dependencies:
