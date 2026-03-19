@@ -283,18 +283,20 @@
             <p class="text-sm font-semibold">
               {m.problemDetail_sample()} {index + 1}:
             </p>
-            <div class="mt-2 rounded-lg bg-muted px-4 py-3 text-sm leading-7">
-              <p>
-                <span class="font-semibold">{m.problemDetail_input()}:</span>{" "}
-                <code class="font-mono text-muted-foreground">{sample.input}</code>
-              </p>
-              <p class="mt-1">
-                <span class="font-semibold">{m.problemDetail_output()}:</span>{" "}
-                <code class="font-mono text-muted-foreground">{sample.output}</code>
-              </p>
+            <div class="mt-2 space-y-3 text-sm">
+              <div>
+                <p class="font-semibold">{m.problemDetail_input()}:</p>
+                <pre class="mt-1 overflow-x-auto rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-muted-foreground">{sample.input}</pre>
+              </div>
+              <div>
+                <p class="font-semibold">{m.problemDetail_output()}:</p>
+                <pre class="mt-1 overflow-x-auto rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-muted-foreground">{sample.output}</pre>
+              </div>
               {#if sample.explanation}
-                <p class="mt-2 font-semibold">{m.problemDetail_explanation()}:</p>
-                <p class="mt-1 text-muted-foreground">{sample.explanation}</p>
+                <div>
+                  <p class="font-semibold">{m.problemDetail_explanation()}:</p>
+                  <p class="mt-1 text-muted-foreground">{sample.explanation}</p>
+                </div>
               {/if}
             </div>
           </div>
