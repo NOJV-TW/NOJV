@@ -63,14 +63,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           title: "Graph Docking",
           body: "為每艘船維護下一個可用碼頭。隱藏評審偏好使用 DSU 或貪心路徑壓縮方法。",
           inputFormat:
-            "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
+            "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。\n\n接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
           outputFormat: "一行，輸出無法成功停靠的船隻數量。"
         },
         en: {
           title: "Graph Docking",
           body: "Maintain the next available dock for each incoming ship. The hidden judge favors DSU or greedy path compression approaches.",
           inputFormat:
-            "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks. The next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks.\n\nThe next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
           outputFormat: "A single line containing the number of ships that could not dock."
         }
       },
@@ -107,14 +107,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           title: "Distributed Labyrinth",
           body: "在多層走廊中協調多個代理，同時保持最短路徑保證。一旦迷宮開始分支，需要高效的狀態壓縮和最短路徑推理。",
           inputFormat:
-            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
+            "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。\n\n接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。\n\n起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
           outputFormat: "一行，輸出從起點到終點的最短路徑長度。"
         },
         en: {
           title: "Distributed Labyrinth",
           body: "Coordinate multiple agents across layered corridors while preserving shortest-path guarantees. Efficient state compression and shortest-path reasoning are both required once the maze begins to branch.",
           inputFormat:
-            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns. The next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall. The start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
+            "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns.\n\nThe next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall.\n\nThe start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
           outputFormat:
             "A single line containing the length of the shortest path from start to goal."
         }
@@ -152,17 +152,17 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           title: "Process Log Parser",
           body: "解析作業系統行程追蹤並輸出正規化的生命週期日誌。這是一個私有題目，僅供課程作業使用。",
           inputFormat:
-            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
+            "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。\n\n接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
           outputFormat:
-            "每行一個事件的正規化描述：`fork` 事件輸出 `<parent>-><child> forked`，`exit` 事件輸出 `<pid> exited`，`wait` 事件輸出 `<pid> waited`。"
+            "每行一個事件的正規化描述：\n\n- `fork` 事件輸出 `<parent>-><child> forked`\n- `exit` 事件輸出 `<pid> exited`\n- `wait` 事件輸出 `<pid> waited`"
         },
         en: {
           title: "Process Log Parser",
           body: "Parse an operating-system process trace and emit a normalized lifecycle log. This private problem is meant for course-only usage.",
           inputFormat:
-            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events. The next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
+            "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events.\n\nThe next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
           outputFormat:
-            "One line per event: `fork` events produce `<parent>-><child> forked`, `exit` events produce `<pid> exited`, and `wait` events produce `<pid> waited`."
+            "One line per event:\n\n- `fork` events produce `<parent>-><child> forked`\n- `exit` events produce `<pid> exited`\n- `wait` events produce `<pid> waited`"
         }
       },
       testcases: {
@@ -205,14 +205,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           title: "Fork Bomb Safeguard",
           body: "計算在爆發約束下行程樹的最小成本隔離策略。這個題目在課程考試中保持私有。",
           inputFormat:
-            "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
+            "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。\n\n接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
           outputFormat: "一行，輸出最小隔離成本。"
         },
         en: {
           title: "Fork Bomb Safeguard",
           body: "Compute the minimum cost isolation strategy for a process tree under burst constraints. This problem stays private to the course exam.",
           inputFormat:
-            "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes. The next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
+            "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes.\n\nThe next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
           outputFormat: "A single line containing the minimum isolation cost."
         }
       },
