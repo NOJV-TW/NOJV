@@ -274,7 +274,7 @@
 <div class="flex h-full flex-col bg-muted">
   <!-- Top toolbar -->
   <div
-    class="flex items-center justify-between border-b border-border bg-card px-4 py-2"
+    class="flex items-center justify-between border-b border-border bg-card py-2 pr-4 pl-[62px]"
   >
     <div class="flex items-center gap-3">
       <span class="text-xs font-medium text-muted-foreground">&lt;/&gt; {m.editor_code()}</span>
@@ -314,7 +314,7 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border bg-card px-4 py-2"
+    class="flex items-center justify-between border-t border-border bg-card py-2 pr-4 pl-[62px]"
   >
     <span class="text-xs text-muted-foreground">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
