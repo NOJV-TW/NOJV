@@ -286,11 +286,11 @@
             <div class="mt-2 space-y-3 text-sm">
               <div>
                 <p class="font-semibold">{m.problemDetail_input()}:</p>
-                <pre class="mt-1 overflow-x-auto rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-muted-foreground">{sample.input}</pre>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.input}</pre>
               </div>
               <div>
                 <p class="font-semibold">{m.problemDetail_output()}:</p>
-                <pre class="mt-1 overflow-x-auto rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-muted-foreground">{sample.output}</pre>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.output}</pre>
               </div>
               {#if sample.explanation}
                 <div>
