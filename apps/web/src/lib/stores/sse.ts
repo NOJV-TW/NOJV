@@ -5,7 +5,7 @@ import {
   SSE_ASSIGNMENT_DEADLINE,
   sseEventSchema,
   type SSEEvent
-} from "@nojv/queue";
+} from "@nojv/core";
 import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;

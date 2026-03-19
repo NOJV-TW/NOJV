@@ -1,10 +1,6 @@
 import { prisma, type Prisma } from "@nojv/db";
-import {
-  createPublisher,
-  publishEvent,
-  userChannel,
-  SSE_SUBMISSION_VERDICT
-} from "@nojv/queue";
+import { userChannel, SSE_SUBMISSION_VERDICT } from "@nojv/core";
+import { createPublisher, publishEvent } from "./redis";
 import type {
   DailyActivity,
   DifficultyDist,

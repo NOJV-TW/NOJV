@@ -6,7 +6,7 @@ export type {
   SandboxTestcase,
   SandboxTestcaseResult,
   SandboxVerdict
-} from "@nojv/sandbox";
+} from "@nojv/core";
 
 // Config schema for validating /submission/config.json
 // Uses domain enums from @nojv/core for consistency
@@ -42,7 +42,7 @@ export interface TestcaseFiles {
 
 // Re-export for backward compatibility within sandbox-runner
 // (judges import TestcaseResult from types.ts)
-export type { SandboxTestcaseResult as TestcaseResult } from "@nojv/sandbox";
+export type { SandboxTestcaseResult as TestcaseResult } from "@nojv/core";
 
 // Re-export for index.ts which constructs SandboxOutput
-export type { SandboxResult as SandboxOutput } from "@nojv/sandbox";
+export type { SandboxResult as SandboxOutput } from "@nojv/core";

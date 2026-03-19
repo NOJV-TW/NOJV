@@ -1,6 +1,7 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
-import { createSubscriber, userChannel } from "@nojv/queue";
+import { createSubscriber } from "$lib/server/redis";
+import { userChannel } from "@nojv/core";
 import { z } from "zod";
 
 const sseEnvSchema = z.object({

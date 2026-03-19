@@ -5,7 +5,7 @@ import { Queue, UnrecoverableError, Worker } from "bullmq";
 import express from "express";
 import { createServer } from "node:http";
 
-import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/queue";
+import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/core";
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";

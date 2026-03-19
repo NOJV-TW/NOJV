@@ -4,7 +4,7 @@
   import { supportedLanguages, type Language, type SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { difficultyColor, formatVerdictLabel, verdictColor } from "$lib/types";
-  import { SSE_SUBMISSION_VERDICT } from "@nojv/queue";
+  import { SSE_SUBMISSION_VERDICT } from "@nojv/core";
   import { onSSEEvent } from "$lib/stores/sse";
   import { toasts } from "$lib/stores/toast";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";

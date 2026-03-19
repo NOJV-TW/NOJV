@@ -4,7 +4,7 @@ import {
   type SubmissionDraft,
   type SubmissionResult
 } from "@nojv/core";
-import type { SandboxExecutor, SandboxRequest, SandboxResult } from "@nojv/sandbox";
+import type { SandboxExecutor, SandboxRequest, SandboxResult } from "@nojv/core";
 
 import type { SubmissionJudgeContext, TestcaseSetGroup } from "./judge-db.js";
 
