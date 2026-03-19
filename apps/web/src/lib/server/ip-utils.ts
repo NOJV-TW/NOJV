@@ -1,5 +1,4 @@
 import { prisma } from "@nojv/db";
-import { dev } from "$app/environment";
 
 // ─── IP extraction ───────────────────────────────────────────────────
 
@@ -8,7 +7,7 @@ import { dev } from "$app/environment";
  * Checks x-forwarded-for, x-real-ip, and in dev mode x-dev-ip.
  */
 export function getClientIp(request: Request): string {
-  if (dev) {
+  if (process.env.NODE_ENV === "development") {
     const devIp = request.headers.get("x-dev-ip");
     if (devIp) return devIp.trim();
   }
