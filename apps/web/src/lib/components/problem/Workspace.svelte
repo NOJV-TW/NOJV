@@ -178,7 +178,7 @@
   class="flex w-full shrink-0 flex-col overflow-hidden bg-card lg:w-[42%] lg:border-r lg:border-border"
 >
   <!-- Tab bar -->
-  <div class="flex items-center border-b border-border px-2">
+  <div class="flex h-10 items-center border-b border-border px-2">
     {#if backLink}
       <a
         class="px-3 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
