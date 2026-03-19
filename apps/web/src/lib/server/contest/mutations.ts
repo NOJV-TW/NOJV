@@ -206,7 +206,10 @@ export async function createContestRecord(
         createdByUserId: actor.userId,
         endsAt: new Date(payload.endsAt),
         frozenAt: payload.frozenAt ? new Date(payload.frozenAt) : null,
-        ipLockEnabled: payload.ipLockEnabled,
+        ipBindingEnabled: payload.ipBindingEnabled,
+        ipViolationMode: payload.ipViolationMode,
+        ipWhitelist: payload.ipWhitelist,
+        ipWhitelistEnabled: payload.ipWhitelistEnabled,
         maxAttempts: payload.maxAttempts ?? null,
         pageLockEnabled: payload.pageLockEnabled,
         scoreboardMode: payload.scoreboardMode,
@@ -248,7 +251,13 @@ export async function updateContestRecord(
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     if (payload.allowedLanguages !== undefined)
       updateData.allowedLanguages = payload.allowedLanguages;
-    if (payload.ipLockEnabled !== undefined) updateData.ipLockEnabled = payload.ipLockEnabled;
+    if (payload.ipWhitelistEnabled !== undefined)
+      updateData.ipWhitelistEnabled = payload.ipWhitelistEnabled;
+    if (payload.ipBindingEnabled !== undefined)
+      updateData.ipBindingEnabled = payload.ipBindingEnabled;
+    if (payload.ipWhitelist !== undefined) updateData.ipWhitelist = payload.ipWhitelist;
+    if (payload.ipViolationMode !== undefined)
+      updateData.ipViolationMode = payload.ipViolationMode;
     if (payload.maxAttempts !== undefined) updateData.maxAttempts = payload.maxAttempts ?? null;
     if (payload.pageLockEnabled !== undefined)
       updateData.pageLockEnabled = payload.pageLockEnabled;

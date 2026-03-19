@@ -177,10 +177,38 @@
         {m.contestCreate_pageLock()}
       </label>
       <label class="flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" name="ipLockEnabled" bind:checked={$form.ipLockEnabled} />
-        {m.contestCreate_ipLock()}
+        <input type="checkbox" name="ipWhitelistEnabled" bind:checked={$form.ipWhitelistEnabled} />
+        IP Whitelist
+      </label>
+      <label class="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="ipBindingEnabled" bind:checked={$form.ipBindingEnabled} />
+        IP Binding
       </label>
     </div>
+    {#if $form.ipWhitelistEnabled}
+      <div>
+        <textarea
+          class="{inputClassName} min-h-24 resize-y"
+          name="ipWhitelistText"
+          bind:value={$form.ipWhitelistText}
+          placeholder="CIDR ranges, one per line&#10;e.g. 140.112.0.0/16&#10;     192.168.1.0/24"
+          rows="3"
+        ></textarea>
+      </div>
+    {/if}
+    {#if $form.ipWhitelistEnabled || $form.ipBindingEnabled}
+      <div class="flex items-center gap-4 text-sm">
+        <span class="text-muted-foreground">When IP violation occurs:</span>
+        <label class="flex items-center gap-1.5">
+          <input type="radio" name="ipViolationMode" value="block" bind:group={$form.ipViolationMode} />
+          Block
+        </label>
+        <label class="flex items-center gap-1.5">
+          <input type="radio" name="ipViolationMode" value="notify" bind:group={$form.ipViolationMode} />
+          Notify only
+        </label>
+      </div>
+    {/if}
 
     <div>
       <label class="text-sm font-medium" for="inviteCode">{m.contestCreate_inviteCode()}</label>

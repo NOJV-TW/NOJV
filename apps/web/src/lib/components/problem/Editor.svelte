@@ -274,12 +274,12 @@
 <div class="flex h-full flex-col bg-muted">
   <!-- Top toolbar -->
   <div
-    class="flex items-center justify-between border-b border-border bg-card px-4 py-2"
+    class="flex h-10 items-center justify-between border-b border-border bg-card px-2"
   >
     <div class="flex items-center gap-3">
       <span class="text-xs font-medium text-muted-foreground">&lt;/&gt; {m.editor_code()}</span>
       <select
-        class="rounded-md border border-border bg-transparent px-2 py-1 text-xs"
+        class="rounded-md border border-border bg-transparent px-2 text-xs"
         onchange={(e) => {
           const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
           if (parsed.success) language = parsed.data;
@@ -314,7 +314,7 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border bg-card px-4 py-2"
+    class="flex items-center justify-between border-t border-border bg-card px-4 py-2.5"
   >
     <span class="text-xs text-muted-foreground">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}

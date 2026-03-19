@@ -1,10 +1,7 @@
-import { error, redirect } from "@sveltejs/kit";
+import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getAssessmentContext } from "$lib/server/course/queries";
-import {
-  getActiveContestForUser,
-  getContestAllowedLanguages
-} from "$lib/server/contest/queries";
+import { getContestAllowedLanguages } from "$lib/server/contest/queries";
 import { getProblemPageData } from "$lib/server/problem/queries";
 import { listProblemSubmissions } from "$lib/server/submission/queries";
 import { assessmentPath } from "$lib/types";
@@ -16,19 +13,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const assessment = url.searchParams.get("assessment");
   const contest = url.searchParams.get("contest");
 
-  // ── Parallel: active contest guard + problem data (independent) ──
-  const [activeContest, problem] = await Promise.all([
-    userId ? getActiveContestForUser(userId) : null,
-    getProblemPageData(slug)
-  ]);
-
-  if (activeContest) {
-    const isCorrectContestContext = contest === activeContest.slug;
-
-    if (!isCorrectContestContext) {
-      redirect(303, `/contests/${activeContest.slug}`);
-    }
-  }
+  const problem = await getProblemPageData(slug);
 
   if (!problem) {
     error(404, "Problem not found");

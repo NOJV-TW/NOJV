@@ -171,14 +171,42 @@
     leftTab = "submissions";
     viewingIndex = 0;
   }
+
+  // ── Resizable panels ──
+  let leftPanelWidth = $state(42);
+
+  function startResize(e: MouseEvent) {
+    e.preventDefault();
+    const container = (e.target as HTMLElement).parentElement;
+    if (!container) return;
+
+    const onMove = (ev: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      leftPanelWidth = Math.max(20, Math.min(80, pct));
+    };
+
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
 </script>
 
 <!-- Left panel -->
 <div
-  class="flex w-full shrink-0 flex-col overflow-hidden bg-card lg:w-[42%] lg:border-r lg:border-border"
+  class="flex w-full shrink-0 flex-col overflow-hidden bg-card lg:border-r lg:border-border"
+  style="width: {leftPanelWidth}%"
 >
   <!-- Tab bar -->
-  <div class="flex items-center border-b border-border px-2">
+  <div class="flex h-10 items-center border-b border-border px-2">
     {#if backLink}
       <a
         class="px-3 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
@@ -279,22 +307,24 @@
         {/if}
 
         {#each problem.samples as sample, index (`sample-${index}`)}
-          <div class="mt-6">
-            <p class="text-sm font-semibold">
-              {m.problemDetail_sample()} {index + 1}:
+          <div class="mt-6 {index > 0 ? 'border-t border-border pt-6' : ''}">
+            <p class="text-base font-semibold">
+              {m.problemDetail_sample()} {index + 1}
             </p>
-            <div class="mt-2 rounded-lg bg-muted px-4 py-3 text-sm leading-7">
-              <p>
-                <span class="font-semibold">{m.problemDetail_input()}:</span>{" "}
-                <code class="font-mono text-muted-foreground">{sample.input}</code>
-              </p>
-              <p class="mt-1">
-                <span class="font-semibold">{m.problemDetail_output()}:</span>{" "}
-                <code class="font-mono text-muted-foreground">{sample.output}</code>
-              </p>
+            <div class="mt-3 space-y-3 text-sm">
+              <div>
+                <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_input()}</p>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.input}</pre>
+              </div>
+              <div>
+                <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_output()}</p>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.output}</pre>
+              </div>
               {#if sample.explanation}
-                <p class="mt-2 font-semibold">{m.problemDetail_explanation()}:</p>
-                <p class="mt-1 text-muted-foreground">{sample.explanation}</p>
+                <div>
+                  <p class="font-semibold">{m.problemDetail_explanation()}:</p>
+                  <p class="mt-1 text-muted-foreground">{sample.explanation}</p>
+                </div>
               {/if}
             </div>
           </div>
@@ -495,6 +525,19 @@
     {/if}
   </div>
 </div>
+
+<!-- Resize handle (desktop only) -->
+<div
+  class="hidden w-1 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 active:bg-primary/60 lg:flex"
+  role="separator"
+  aria-orientation="vertical"
+  tabindex="0"
+  onmousedown={startResize}
+  onkeydown={(e) => {
+    if (e.key === "ArrowLeft") leftPanelWidth = Math.max(20, leftPanelWidth - 2);
+    if (e.key === "ArrowRight") leftPanelWidth = Math.min(80, leftPanelWidth + 2);
+  }}
+></div>
 
 <!-- Right panel (desktop only) -->
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">

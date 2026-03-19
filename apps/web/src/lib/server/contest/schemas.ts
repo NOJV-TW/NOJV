@@ -1,6 +1,7 @@
 import {
   assessmentScoreboardModeSchema,
   contestScoringModeSchema,
+  ipLockFormFields,
   languageSchema,
   slugSchema
 } from "@nojv/core";
@@ -12,7 +13,7 @@ export const contestFormSchema = z.object({
   endsAt: z.string().min(1),
   frozenAt: z.string().optional(),
   inviteCode: z.string().max(32).optional(),
-  ipLockEnabled: z.boolean().default(false),
+  ...ipLockFormFields,
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),
   problemSlugsText: z.string().min(1),
