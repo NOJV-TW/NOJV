@@ -1,12 +1,103 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { BarChart3, Download, Languages, PieChart, Table2, Users } from "@lucide/svelte";
   import EChart from "$lib/components/charts/EChart.svelte";
-  import { m } from "$lib/paraglide/messages.js";
   import * as Select from "$lib/components/ui/select";
   import type { EChartsOption } from "echarts";
+  import { onMount } from "svelte";
 
   let { data } = $props();
+
+  type UiLang = "zh" | "en";
+  let uiLang = $state<UiLang>("zh");
+
+  const text = {
+    en: {
+      acRate: "AC rate",
+      acceptedCells: "accepted cells",
+      all: "All",
+      allAssessments: "All assessments",
+      assignment: "assignment",
+      attemptedCells: "cells attempted",
+      avgBestScore: "Avg best score",
+      avgBestScoreByProblem: "Average Best Score By Problem",
+      avgSubmissionsPerAttempted: "Avg submissions per attempted cell",
+      acrossAttempted: "Across attempted cells",
+      bestVerdict: "Best Verdict Distribution",
+      coverage: "Coverage",
+      english: "English",
+      exportCsv: "Export CSV",
+      noProblemsForAssessment: "No problems found for this assessment.",
+      noProblemsForCourse: "No problems linked to this course yet.",
+      noStudents: "No students enrolled in this course.",
+      problemAcAttempt: "Problem AC vs Attempt Rate",
+      progress: "Student Progress",
+      solved: "Solved",
+      solvedRatio: "Solved ratio",
+      solveDistribution: "Solve Distribution",
+      submissionIntensity: "Submission intensity",
+      systemText: "System Text",
+      topStudents: "Top Students (By Total Best Score)",
+      unsolved: "Unsolved",
+      students: "students",
+      problems: "problems",
+      student: "Student",
+      zh: "中文"
+    },
+    zh: {
+      acRate: "AC 比率",
+      acceptedCells: "格 AC",
+      all: "全部",
+      allAssessments: "所有測驗",
+      assignment: "測驗",
+      attemptedCells: "格有嘗試",
+      avgBestScore: "平均最佳分數",
+      avgBestScoreByProblem: "各題平均最佳分數",
+      avgSubmissionsPerAttempted: "每個有嘗試格平均提交數",
+      acrossAttempted: "在有嘗試的格子中",
+      bestVerdict: "最佳判定分布",
+      coverage: "覆蓋率",
+      english: "English",
+      exportCsv: "匯出 CSV",
+      noProblemsForAssessment: "此測驗目前沒有題目。",
+      noProblemsForCourse: "此課程尚未連結題目。",
+      noStudents: "此課程目前沒有學生。",
+      problemAcAttempt: "各題 AC 與嘗試率",
+      progress: "學生進度",
+      solved: "已解",
+      solvedRatio: "解題比例",
+      solveDistribution: "解題分布",
+      submissionIntensity: "提交強度",
+      systemText: "系統文字",
+      topStudents: "前段學生（依總最佳分數）",
+      unsolved: "未解",
+      students: "名學生",
+      problems: "題",
+      student: "學生",
+      zh: "中文"
+    }
+  } as const;
+
+  function t<K extends keyof (typeof text)["en"]>(key: K): string {
+    return text[uiLang][key];
+  }
+
+  onMount(() => {
+    if (!browser) return;
+    const saved = localStorage.getItem("nojv-system-text-lang");
+    if (saved === "zh" || saved === "en") {
+      uiLang = saved;
+    }
+  });
+
+  function setUiLang(next: UiLang): void {
+    uiLang = next;
+    if (browser) {
+      localStorage.setItem("nojv-system-text-lang", next);
+    }
+  }
 
   let matrix = $derived(data.matrix);
   let assessments = $derived(data.assessments);
@@ -126,7 +217,7 @@
     series: [
       {
         type: "bar",
-        name: "AC rate",
+        name: t("acRate"),
         data: problemPerformanceRows.map((row) => row.acRate),
         itemStyle: { color: "#10b981" },
         barMaxWidth: 28
@@ -176,13 +267,13 @@
     legend: { bottom: 0 },
     series: [
       {
-        name: "Solve distribution",
+        name: t("solveDistribution"),
         type: "pie",
         radius: ["40%", "68%"],
         label: { formatter: "{b}: {d}%" },
         data: [
-          { name: "Solved", value: verdictRows.solved, itemStyle: { color: "#10b981" } },
-          { name: "Unsolved", value: verdictRows.unsolved, itemStyle: { color: "#ef4444" } }
+          { name: t("solved"), value: verdictRows.solved, itemStyle: { color: "#10b981" } },
+          { name: t("unsolved"), value: verdictRows.unsolved, itemStyle: { color: "#ef4444" } }
         ]
       }
     ]
@@ -193,7 +284,7 @@
     legend: { bottom: 0 },
     series: [
       {
-        name: "Best verdict",
+        name: t("bestVerdict"),
         type: "pie",
         radius: ["40%", "68%"],
         label: { formatter: "{b}: {c}" },
@@ -283,11 +374,33 @@
 <section
   class="rounded-4xl border border-border bg-(--color-panel-strong) px-6 py-8 backdrop-blur-sm"
 >
+  <div class="mb-3 flex justify-end">
+    <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+      <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
+        <Languages class="h-3.5 w-3.5" /> {t("systemText")}
+      </span>
+      <button
+        type="button"
+        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
+        onclick={() => setUiLang("zh")}
+      >
+        {t("zh")}
+      </button>
+      <button
+        type="button"
+        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
+        onclick={() => setUiLang("en")}
+      >
+        {t("english")}
+      </button>
+    </div>
+  </div>
+
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
-      <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">Student Progress</p>
+      <p class="inline-flex items-center gap-1 text-sm uppercase tracking-[0.18em] text-muted-foreground"><Users class="h-4 w-4" /> {t("progress")}</p>
       <p class="mt-1 text-sm text-muted-foreground">
-        {matrix.students.length} students, {matrix.problems.length} problems
+        {matrix.students.length} {t("students")}, {matrix.problems.length} {t("problems")}
       </p>
     </div>
 
@@ -300,20 +413,20 @@
         >
           <Select.Trigger class="w-55">
             {#if selectedAssessment}
-              {assessments.find((a) => a.slug === selectedAssessment)?.title ?? "All"}
+              {assessments.find((a) => a.slug === selectedAssessment)?.title ?? t("all")}
             {:else}
-              All assessments
+              {t("allAssessments")}
             {/if}
           </Select.Trigger>
           <Select.Content>
-            <Select.Item value="__all__" label="All assessments">All assessments</Select.Item>
+            <Select.Item value="__all__" label={t("allAssessments")}>{t("allAssessments")}</Select.Item>
             {#each assessments as assessment (assessment.slug)}
               <Select.Item value={assessment.slug} label={assessment.title}>
                 <span class="inline-flex items-center gap-2">
                   <span
                     class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
                   >
-                    assignment
+                    {t("assignment")}
                   </span>
                   {assessment.title}
                 </span>
@@ -328,7 +441,7 @@
             download="progress-{selectedAssessment}.csv"
             class="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-(--color-panel) px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
-            {m.progress_exportCsv()}
+            <Download class="h-4 w-4" /> {t("exportCsv")}
           </a>
         {/if}
       </div>
@@ -338,63 +451,63 @@
   {#if matrix.problems.length === 0}
     <div class="mt-8 text-center text-muted-foreground">
       {#if selectedAssessment}
-        No problems found for this assessment.
+        {t("noProblemsForAssessment")}
       {:else}
-        No problems linked to this course yet.
+        {t("noProblemsForCourse")}
       {/if}
     </div>
   {:else if matrix.students.length === 0}
-    <div class="mt-8 text-center text-muted-foreground">No students enrolled in this course.</div>
+    <div class="mt-8 text-center text-muted-foreground">{t("noStudents")}</div>
   {:else}
     <!-- KPI cards -->
     <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">Coverage</p>
+        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("coverage")}</p>
         <p class="mt-1 text-2xl font-semibold">{attemptedRate}%</p>
-        <p class="text-xs text-muted-foreground">{attemptedCells}/{totalCells} cells attempted</p>
+        <p class="text-xs text-muted-foreground">{attemptedCells}/{totalCells} {t("attemptedCells")}</p>
       </div>
       <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">Solved ratio</p>
+        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("solvedRatio")}</p>
         <p class="mt-1 text-2xl font-semibold">{solvedRate}%</p>
-        <p class="text-xs text-muted-foreground">{solvedCells}/{totalCells} accepted cells</p>
+        <p class="text-xs text-muted-foreground">{solvedCells}/{totalCells} {t("acceptedCells")}</p>
       </div>
       <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">Avg best score</p>
+        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("avgBestScore")}</p>
         <p class="mt-1 text-2xl font-semibold">{avgBestScore}</p>
-        <p class="text-xs text-muted-foreground">Across attempted cells</p>
+        <p class="text-xs text-muted-foreground">{t("acrossAttempted")}</p>
       </div>
       <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">Submission intensity</p>
+        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("submissionIntensity")}</p>
         <p class="mt-1 text-2xl font-semibold">{avgSubmissionsPerCell}</p>
-        <p class="text-xs text-muted-foreground">Avg submissions per attempted cell</p>
+        <p class="text-xs text-muted-foreground">{t("avgSubmissionsPerAttempted")}</p>
       </div>
     </div>
 
     <!-- Chart dashboard -->
     <div class="mt-6 grid gap-4 xl:grid-cols-2">
       <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="text-sm font-semibold text-muted-foreground">Problem AC vs Attempt Rate</h3>
+        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><BarChart3 class="h-4 w-4" /> {t("problemAcAttempt")}</h3>
         <EChart option={problemStatusOption} class="mt-3 h-64 w-full" />
       </section>
 
       <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="text-sm font-semibold text-muted-foreground">Average Best Score By Problem</h3>
+        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><BarChart3 class="h-4 w-4" /> {t("avgBestScoreByProblem")}</h3>
         <EChart option={problemScoreOption} class="mt-3 h-64 w-full" />
       </section>
 
       <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="text-sm font-semibold text-muted-foreground">Solve Distribution</h3>
+        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><PieChart class="h-4 w-4" /> {t("solveDistribution")}</h3>
         <EChart option={solveDistributionOption} class="mt-3 h-64 w-full" />
       </section>
 
       <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="text-sm font-semibold text-muted-foreground">Best Verdict Distribution</h3>
+        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><PieChart class="h-4 w-4" /> {t("bestVerdict")}</h3>
         <EChart option={verdictDistributionOption} class="mt-3 h-64 w-full" />
       </section>
     </div>
 
     <section class="mt-4 rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h3 class="text-sm font-semibold text-muted-foreground">Top Students (By Total Best Score)</h3>
+      <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><Users class="h-4 w-4" /> {t("topStudents")}</h3>
       <EChart option={leaderboardOption} class="mt-3 h-72 w-full" />
     </section>
 
@@ -419,7 +532,7 @@
             <th
               class="sticky left-0 z-10 bg-(--color-panel) px-4 py-3 text-left font-medium text-muted-foreground"
             >
-              Student
+              <span class="inline-flex items-center gap-1"><Table2 class="h-4 w-4" /> {t("student")}</span>
             </th>
             {#each matrix.problems as problem (problem.problemId)}
               <th class="px-4 py-3 text-center font-medium text-muted-foreground">
