@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
+  pipelineConfigSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   submissionDraftSchema
@@ -17,6 +18,54 @@ describe("submissionDraftSchema", () => {
     });
 
     expect(result.problemSlug).toBe("two-sum-plus");
+  });
+
+  it("accepts multi-file submissions with entry file", () => {
+    const result = submissionDraftSchema.parse({
+      language: "typescript",
+      mode: "practice",
+      problemSlug: "multi-file-ts",
+      sourceCode: "// fallback entry source",
+      entryFile: "src/main.ts",
+      sourceFiles: [
+        {
+          path: "src/main.ts",
+          content: "import { sum } from './sum.ts'; console.log(sum(1,2));"
+        },
+        {
+          path: "src/sum.ts",
+          content: "export const sum = (a:number,b:number)=>a+b;"
+        }
+      ]
+    });
+
+    expect(result.entryFile).toBe("src/main.ts");
+    expect(result.sourceFiles).toHaveLength(2);
+  });
+});
+
+describe("pipelineConfigSchema", () => {
+  it("accepts custom-script stage configuration", () => {
+    const result = pipelineConfigSchema.parse({
+      stages: [
+        { type: "compile" },
+        {
+          type: "custom-script",
+          name: "project-policy",
+          continueOnFail: false,
+          config: {
+            runAt: "before-compile",
+            language: "python",
+            timeoutMs: 5000,
+            script: "print('ok')"
+          }
+        },
+        { type: "execute" },
+        { type: "check" }
+      ]
+    });
+
+    expect(result.stages[1]?.type).toBe("custom-script");
   });
 });
 

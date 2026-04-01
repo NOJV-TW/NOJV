@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/Users/suenl/Desktop/資料收集/github/NOJV/packages/*/package.json)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"const path = require\\('path'\\); console.log\\(path.resolve\\('node_modules/typescript/lib/tsc.js'\\)\\); const fs = require\\('fs'\\); console.log\\(fs.existsSync\\(path.resolve\\('node_modules/typescript/lib/tsc.js'\\)\\)\\)\")"
+    ]
+  }
+}
