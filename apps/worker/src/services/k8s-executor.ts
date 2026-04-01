@@ -105,7 +105,7 @@ export class K8sExecutor implements SandboxExecutor {
     request: SandboxRequest
   ): Promise<void> {
     const data: Record<string, string> = {};
-    const sourceFileMap: Array<{ path: string; key: string }> = [];
+    const sourceFileMap: { path: string; key: string }[] = [];
     const mainSourceName = sourceFileNames[request.language];
     let wroteMainSource = false;
 

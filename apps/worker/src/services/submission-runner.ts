@@ -101,12 +101,7 @@ export async function judgeSubmission(
  * Searches the pipeline for a "static-analysis" stage and returns its config.
  */
 function extractStaticAnalysisConfig(pipelineConfig: PipelineConfig | null) {
-  if (!pipelineConfig) return undefined;
-
-  const stage = pipelineConfig.stages.find((s) => s.type === "static-analysis");
-  if (!stage || stage.type !== "static-analysis") return undefined;
-
-  return stage.config;
+  return pipelineConfig?.stages.find((s) => s.type === "static-analysis")?.config;
 }
 
 function buildSubtaskResults(

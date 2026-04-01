@@ -13,6 +13,10 @@ import type {
   SubmissionType
 } from "@nojv/core";
 
+type SubmissionWithProblemSlug = Prisma.SubmissionGetPayload<{
+  include: { problem: { select: { slug: true } } };
+}>;
+
 export async function markSubmissionRunning(submissionId: string) {
   return prisma.submission.update({
     data: { status: "running" },
@@ -21,7 +25,7 @@ export async function markSubmissionRunning(submissionId: string) {
 }
 
 export async function completeSubmission(submissionId: string, result: SubmissionResult) {
-  const submission = await prisma.submission.update({
+  const submission: SubmissionWithProblemSlug = await prisma.submission.update({
     data: {
       compilerOutput: result.verdict === "compile_error" ? result.feedback : null,
       runtimeMs: result.runtimeMs,
