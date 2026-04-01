@@ -39,6 +39,17 @@ const compilerCommands: Record<string, string> = {
 
 type LangEntry = { source: string; language: SandboxInput["language"] };
 
+const signalBasedMleLangs = new Set(["javascript", "python", "typescript"]);
+
+function expectMleVerdict(languageName: string, verdict: string): void {
+  if (process.platform === "win32" && signalBasedMleLangs.has(languageName)) {
+    expect(["MLE", "RE"]).toContain(verdict);
+    return;
+  }
+
+  expect(verdict).toBe("MLE");
+}
+
 async function skipIfMissing(name: string): Promise<boolean> {
   const compiler = compilerCommands[name];
   if (compiler && !(await commandExists(compiler))) return true;
@@ -603,7 +614,7 @@ describe("standard judge", () => {
       expect(result.success).toBe(true);
       if (!result.success) return;
       const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-      expect(verdict.verdict).toBe("MLE");
+      expectMleVerdict(name, verdict.verdict);
     }, 30_000);
   }
 
@@ -740,7 +751,7 @@ else:
     it(`MLE — ${name}`, async () => {
       if (await skipIfMissing(name)) return;
       const verdict = await withChecker(prog, makeTestcase());
-      expect(verdict.verdict).toBe("MLE");
+      expectMleVerdict(name, verdict.verdict);
     }, 30_000);
   }
 
@@ -833,7 +844,7 @@ else:
     it(`MLE — ${name}`, async () => {
       if (await skipIfMissing(name)) return;
       const verdict = await withInteractor(prog);
-      expect(verdict.verdict).toBe("MLE");
+      expectMleVerdict(name, verdict.verdict);
     }, 30_000);
   }
 

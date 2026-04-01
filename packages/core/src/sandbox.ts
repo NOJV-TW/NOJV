@@ -1,4 +1,14 @@
 import type { JudgeType, Language, SubmissionType } from "./types";
+import type {
+  ArtifactConfig,
+  ArtifactEntry,
+  CustomScriptStageResult,
+  NetworkAccessConfig,
+  PipelineConfig,
+  ScoringConfig,
+  StaticAnalysisConfig,
+  StaticAnalysisResult
+} from "./pipeline";
 
 // --- Sandbox request ---
 
@@ -10,9 +20,16 @@ export interface SandboxTestcase {
   isSample: boolean;
 }
 
+export interface SandboxSourceFile {
+  path: string;
+  content: string;
+}
+
 export interface SandboxRequest {
   submissionId: string;
   sourceCode: string;
+  sourceFiles?: SandboxSourceFile[];
+  entryFile?: string;
   language: Language;
   submissionType: SubmissionType;
   testcases: SandboxTestcase[];
@@ -31,6 +48,11 @@ export interface SandboxRequest {
     driverCode: string;
     insertionMarker: string;
   };
+  pipeline?: PipelineConfig;
+  staticAnalysis?: StaticAnalysisConfig;
+  scoring?: ScoringConfig;
+  artifactCollection?: ArtifactConfig;
+  networkAccess?: NetworkAccessConfig;
 }
 
 // --- Sandbox result ---
@@ -51,7 +73,13 @@ export interface SandboxTestcaseResult {
 
 export interface SandboxResult {
   compilationError?: string;
+  pipelineError?: string;
   testcaseResults: SandboxTestcaseResult[];
+  staticAnalysis?: StaticAnalysisResult;
+  artifacts?: ArtifactEntry[];
+  customStageResults?: CustomScriptStageResult[];
+  customScore?: number;
+  scoringFeedback?: string;
 }
 
 export interface SandboxExecutor {
