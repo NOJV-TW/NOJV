@@ -78,7 +78,9 @@ export const load: PageServerLoad = async (event) => {
     ]);
 
     const total7d = submissions7d.length;
-    const accepted7d = submissions7d.filter((submission) => submission.status === "accepted").length;
+    const accepted7d = submissions7d.filter(
+      (submission) => submission.status === "accepted"
+    ).length;
     const acceptedRate7d = total7d > 0 ? Math.round((accepted7d / total7d) * 100) : 0;
 
     const byAssessment = new Map<

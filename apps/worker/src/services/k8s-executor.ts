@@ -37,10 +37,7 @@ function normalizeRelativePath(rawPath: string): string | null {
     segments.length === 0 ||
     segments.some(
       (segment) =>
-        segment === "." ||
-        segment === ".." ||
-        segment.includes("\0") ||
-        segment.includes(":")
+        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
     )
   ) {
     return null;
@@ -108,7 +105,7 @@ export class K8sExecutor implements SandboxExecutor {
     request: SandboxRequest
   ): Promise<void> {
     const data: Record<string, string> = {};
-    const sourceFileMap: Array<{ path: string; key: string }> = [];
+    const sourceFileMap: { path: string; key: string }[] = [];
     const mainSourceName = sourceFileNames[request.language];
     let wroteMainSource = false;
 

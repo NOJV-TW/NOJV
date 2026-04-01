@@ -96,19 +96,21 @@ export const load: PageServerLoad = async () => {
       where: {
         sampleOnly: false,
         createdAt: { gte: from7d },
-        status: { in: ["compile_error", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded"] }
+        status: {
+          in: ["compile_error", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded"]
+        }
       },
       _count: { _all: true },
       orderBy: { _count: { problemId: "desc" } },
       take: 8
     }),
-    prisma.$queryRaw`SELECT 1`
-      .then(() => true)
-      .catch(() => false),
+    prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
     prisma.submission.findMany({
       where: {
         sampleOnly: false,
-        status: { in: ["compile_error", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded"] }
+        status: {
+          in: ["compile_error", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded"]
+        }
       },
       orderBy: { createdAt: "desc" },
       take: 20,
@@ -159,7 +161,8 @@ export const load: PageServerLoad = async () => {
 
   const submissions7dTotal = statusGroups7d.reduce((sum, row) => sum + row._count._all, 0);
   const accepted7d = statusGroups7d.find((row) => row.status === "accepted")?._count._all ?? 0;
-  const acceptedRate7d = submissions7dTotal > 0 ? Math.round((accepted7d / submissions7dTotal) * 100) : 0;
+  const acceptedRate7d =
+    submissions7dTotal > 0 ? Math.round((accepted7d / submissions7dTotal) * 100) : 0;
 
   const problemIds = failureGroups.map((row) => row.problemId);
   const failureProblems =
@@ -170,7 +173,10 @@ export const load: PageServerLoad = async () => {
         })
       : [];
   const problemMap = new Map(
-    failureProblems.map((problem) => [problem.id, { slug: problem.slug, title: problem.defaultTitle }])
+    failureProblems.map((problem) => [
+      problem.id,
+      { slug: problem.slug, title: problem.defaultTitle }
+    ])
   );
 
   const topFailingProblems = failureGroups.map((row) => {
@@ -195,7 +201,10 @@ export const load: PageServerLoad = async () => {
       acceptedRate7d
     },
     roleCounts,
-    statusBreakdown: statusGroups7d.map((row) => ({ name: row.status, value: row._count._all })),
+    statusBreakdown: statusGroups7d.map((row) => ({
+      name: row.status,
+      value: row._count._all
+    })),
     dailySeries,
     topFailingProblems,
     recentErrors,
