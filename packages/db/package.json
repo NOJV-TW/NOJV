@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "node --env-file=../../.env --import tsx prisma/seed.ts",
+    "db:seed:validate": "node --import tsx prisma/seeds/validate.ts",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc -p tsconfig.json --noEmit"

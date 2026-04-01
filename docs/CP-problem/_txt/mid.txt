@@ -1,0 +1,291 @@
+                                   C Programming I
+                                      2024 Fall
+                                       Midterm
+                                   Instructor: Po-Wen Chi
+                               Date: 2024.10.26 PM 2:00-6:00
+
+
+        Policies:
+        • Online test.
+
+        • Do not forget to include your Makefile. TA will only use the command make to build
+          your program. If make fails, you will get zero points and no room for bargaining. So
+          if you do not know how to solve a problem, please, do not include it in your
+          Makefile.
+
+        • I do not care your source code file names, but the executive binary names should be
+          mid01, mid02, mid03, mid04, mid05.
+
+        • You can ask TA if you do not understand the problems.
+
+
+    1     Multiplication (20 pts)
+    Remember that you have developed a program to solve a basic mathematical addition prob-
+    lem in HW01. This time, I want you to develop a multiplication version. The input operand
+    has one variable and the product has two variables. I promise the variables’ names are
+    a, b, c, d. Moreover, I will not fix the variable location this time. That is, any digits
+    of the operand can be a variable. For your convenience, I promise all variables will be in
+    [0 − 9]. Please list all possible solutions.
+1  $ ./ mid01
+2  Please enter the first operand : a11
+ 3 Please enter the second operand : b22
+ 4 Please enter the product        : cd042
+ 5 Solutions :
+ 6 1. a = 0, b = 8, c = 0, d = 9
+ 7 2. a = 1, b = 6, c = 6, d = 9
+
+ 8 3. a = 2, b = 4, c = 8, d = 9
+ 9 4. 311 x 222 = 69042
+10 5. 411 x 022 = 9042
+11 6. 911 x 022 = 20042
+
+
+
+
+                                                 1
+     Figure 1: Colorful Card Sequence. The color sequence will be red, yellow, green, blue and
+     then repeated.
+
+
+         If there is any invalid input, print an error message and terminate your program. If there
+     is no possible solutions, print ”No solutions” and terminate your program.
+
+
+     2    Colorful Card Sequence (20 pts)
+     In this problem, I want you to display a colorful card sequence as shown in Fig. 1.
+         You will make the user input the card size and the number of cards. An example is
+     shown in Fig. 2. For your simplicity, the width should be in [7 − 40], the height should be in
+     [4 − 10] and the number should be in [1, 40]. For any invalid inputs, print an error message
+     and terminate the program.
+
+
+     3    Parallelogram (20 pts)
+     You know what Parallelogram （平行四邊形） is, right? This time, I want you to develop
+     a library for Parallelogram related operations.
+1 // Setup three points for a parallelogram .
+2 // Success : return 1; Fail: return 0
+3 int32_t setP1 ( int32_t x, int32_t y);
+4 int32_t setP2 ( int32_t x, int32_t y);
+5 int32_t setP3 ( int32_t x, int32_t y);
+
+6
+7 // Check if the current setting is a valid parallelogram .
+8 // Yes: return 1; No: return 0
+9 int check( void );
+10
+11   // Return the perimeter of the parallelogram .
+
+
+                                                   2
+     Figure 2: Mid02 example. Note that the name should be mid02 instead of mid03 in
+     this figure.
+
+12   // If the current setting is not a parallelogram , return < 0
+13   double getPerimeter ( void );
+14
+15 // Return the area of the parallelogram .
+16 // If the current setting is not a parallelogram , return < 0
+17 double getArea ( void );
+18
+19 // Get the degrees (0 -360) of P1
+20 // If the current setting is not a parallelogram , return < 0
+21 double getP1Degree ( void );
+
+
+         For your convenience, I promise that P2 and P3 are connected to P1 and P2 and P3 are
+     not connected, as shown in Fig. 3.
+         You need to prepare a header file called parallelogram.h. Our TAs will prepare mid03.c
+     for you. You MUST build mid03.c to mid in your Makefile!! The objective of this problem
+     is to train you how to develop a library.
+
+
+     4     Car Driving (20 pts)
+     Do you have a driving license? This time I want you to develop a driving emulator. In the
+     beginning, the car is at the origin and the moving direction is up. For your convenience, we
+     assume the origin is at (0, 0). Then, you should make the user input a destination (x, y),
+     where the unit is km. The user will try to reach the destination in the driving emulator.
+     You should provide the following controls for the user:
+
+         1. Parking: Do nothing and return to the control panel directly.
+         2. Drive: Move forward in the current direction. The user should enter the car velocity
+            and the time duration.
+         3. Reverse: Move backward in the current direction. The user should enter the car
+            velocity and the time duration.
+
+                                                  3
+                               Figure 3: Parallelogram input example.
+
+
+       4. Turn Right: The user should enter the degree (0-360) and change the car direction
+          clockwise according to the current direction.
+
+       5. Turn Left: The user should enter the degree (0-360) and change the car direction
+          counterclockwise according to the current direction.
+
+        Once the car reaches the destination, print ”Arrived” and terminate the program. Since
+    there is the precision problem in C, we define that the car reach the destination if the distance
+    between the car and the destination is less than 0.5 km. I promise that our TAs will not
+    intentionally use a test case will precision boundary. For any invalid inputs, print a warning
+    message and return to the control panel. The program interface is at follows.
+1  $ ./ mid04
+2  Please enter the destination (x,y): (10 ,10)
+ 3 =====
+ 4 Car is at (0 ,0)
+ 5 Control Panel :
+ 6 1) Parking
+ 7 2) Drive
+
+ 8 3) Reverse
+ 9 4) Turn Right
+10 5) Turn Left
+11 Your Choice : 1
+12 =====
+13 Car is at (0 ,0)
+
+14 Control Panel :
+15 1) Parking
+16 2) Drive
+17 3) Reverse
+18 4) Turn Right
+19 5) Turn Left
+
+
+
+
+                                                   4
+20 Your Choice : 2
+21 Velocity (km/hr): 5
+22 Duration (hr): 2
+23 =====
+24 Car is at (0 ,10)
+25 Control Panel :
+26 1) Parking
+27 2) Drive
+
+28 3) Reverse
+29 4) Turn Right
+30 5) Turn Left
+31 Your Choice : 3
+32 Velocity (km/hr): 5
+33 Duration (hr): 2
+
+34 =====
+35 Car is at (0 ,0)
+36 Control Panel :
+37 1) Parking
+38 2) Drive
+39 3) Reverse
+
+40 4) Turn Right
+41 5) Turn Left
+42 Your Choice : 4
+43 Degree : 45
+44 =====
+45 Car is at (0 ,0)
+
+46 Control Panel :
+47 1) Parking
+48 2) Drive
+49 3) Reverse
+50 4) Turn Right
+51 5) Turn Left
+
+52 Your Choice : 2
+53 Velocity (km/hr): 14.14214
+54 Duration (hr): 1
+55 Arrived
+
+
+        You should use double for location, velocity, duration in this problem. Choice and
+     degree should be int32_t.
+
+
+     5    Regular Expression(20 pts)
+     Panda is currently studying Automata, but he is really bad at regular expression, he want
+     to know if he have a regular expression, what sequence looks like will accept with the given
+     regular expression. Your task is given the regular ((01∗ (2 ∪ 3)∗ 4) ∪ (10∗ 4∗ 2))∗ , and you will
+     input a sequence, that might be very long, and input -1 mean end of sequence, you should
+     output ”accept” or ”reject”.
+1 $./ mid05
+2 Please enter now symbol : 0
+3 Please enter now symbol : 1
+4 Please enter now symbol : 1
+
+
+
+
+                                                     5
+5 Please enter now       symbol : 2
+6 Please enter now       symbol : 3
+7 Please enter now       symbol : 4
+8 Please enter now       symbol : -1
+9 this sequence is       accepted .
+    explanation:
+    consider with (01∗ (2 ∪ 3)∗ 4)
+    0→0
+    11 → 1∗
+    2→2∪3
+    3→2∪3
+    4→4
+
+1 $./ mid04
+2 Please enter now symbol : -1
+3 this sequence is accepted .
+
+
+    explanation:
+    because ((01∗ (2 ∪ 3)∗ 4) ∪ (10∗ 4∗ 2))∗ with a star
+    that mean any number of ((01∗ (2 ∪ 3)∗ 4) ∪ (10∗ 4∗ 2)) will be accepted
+    therefore the empty set will be accepted
+
+1 $./ mid04
+2 Please enter now       symbol : 0
+3 Please enter now       symbol : 1
+4 Please enter now       symbol : 4
+5 Please enter now       symbol : 1
+6 Please enter now       symbol : 0
+7 Please enter now       symbol : 4
+8 Please enter now       symbol : -1
+9 this sequence is       rejected .
+    explanation:
+    this is not matching neither (01∗ (2 ∪ 3)∗ 4) nor ((10∗ 4∗ 2)) , so it will be rejected.
+        you said you don’t know what is regular expression? don’t worry, I can teach you.
+
+    5.1    Regular Expression
+    A regular expression is a tool used to describe text patterns. It helps us quickly find or
+    match specific strings or symbols, such as finding all words that start with ”1” or strings
+    that contain numbers. don’t worry, you don’t need to process character, there have only
+    number there have some symbol in regular expression, see Table 1
+        Hint:
+    1. It is very similar to your homework 2.2.
+    2. you can make a subset of them.
+    3. if only done (01∗ (2 ∪ 3)∗ 4) or ((10∗ 4∗ 2)) , I will give part of points
+    4. I promise that I will only input a 32-bit integer as a symbol. 5. there have only [0 4] in
+    my regular expression
+
+                                                    6
+ Symbol Meaning                 Example Explanation
+ ∗      Any number of the       1∗      Any number of ”1” is ac-
+        symbol                          cepted, e.g., 1, 11, or empty
+                                        string
+                                      ∗
+ ∪       Union of two regular   12 ∪ 3  Either ”12” or ”3*” is ac-
+                                        cepted
+                                     ∗
+ ()      a sub regular          1(12)   The string starts with ”1”
+                                        followed by zero or more oc-
+                                        currences of ”12”, e.g., ”1”,
+                                        ”112”, ”11212”, etc.
+
+                         Table 1: Regular Expression Symbols
+
+
+6     Bonus: Your Comments (5 pts)
+Your comments about this class. Any comments are welcomed. Do not worry about typos
+or any grammar errors. However, you will get nothing if you leave this question blank.
+
+
+
+
+                                          7
+

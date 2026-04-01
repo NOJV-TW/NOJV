@@ -1,11 +1,18 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
 
 
   let error = $state("");
   let loading = $state(false);
+
+  $effect(() => {
+    const incomingError = $page.url.searchParams.get("error");
+    if (incomingError === "account-disabled") {
+      error = "Account is disabled. Please contact an administrator.";
+    }
+  });
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
@@ -28,13 +35,21 @@
       return;
     }
 
-    goto("/");
+    // Confirm cookie/session is actually persisted before leaving sign-in page.
+    const { data: sessionData } = await authClient.getSession();
+    if (!sessionData?.session) {
+      error =
+        "Signed in, but session cookie was not persisted. Check HTTPS, reverse proxy Set-Cookie, and BETTER_AUTH_URL.";
+      return;
+    }
+
+    window.location.assign("/");
   }
 </script>
 
 <div class="flex min-h-[60vh] items-center justify-center">
   <div
-    class="w-full max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 backdrop-blur-sm"
+    class="w-full max-w-sm rounded-4xl border border-border bg-(--color-panel) p-8 backdrop-blur-sm"
   >
     <h1 class="mb-2 text-center text-2xl font-semibold">{m.auth_adminSignIn()}</h1>
     <p class="mb-6 text-center text-xs text-muted-foreground">
@@ -46,7 +61,7 @@
         {m.auth_usernameOrEmail()}
         <input
           autocomplete="username"
-          class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
+          class="rounded-2xl border border-border bg-(--color-panel) px-3 py-3"
           name="identity"
           required
           type="text"
@@ -56,7 +71,7 @@
         {m.auth_password()}
         <input
           autocomplete="current-password"
-          class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
+          class="rounded-2xl border border-border bg-(--color-panel) px-3 py-3"
           name="password"
           required
           type="password"
