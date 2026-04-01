@@ -33,14 +33,13 @@ export async function judgeSubmission(
   const staticAnalysisConfig = extractStaticAnalysisConfig(judgeContext.pipelineConfig);
 
   // Build scoring config from problem fields
-  const scoringConfig =
-    judgeContext.scoringScript
-      ? {
-          script: judgeContext.scoringScript,
-          language: (judgeContext.scoringLanguage ?? "python") as "python",
-          timeoutMs: 30_000
-        }
-      : undefined;
+  const scoringConfig = judgeContext.scoringScript
+    ? {
+        script: judgeContext.scoringScript,
+        language: (judgeContext.scoringLanguage ?? "python") as "python",
+        timeoutMs: 30_000
+      }
+    : undefined;
 
   // Build artifact collection config from problem fields
   const artifactConfig =
@@ -87,7 +86,9 @@ export async function judgeSubmission(
     ...(staticAnalysisConfig ? { staticAnalysis: staticAnalysisConfig } : {}),
     ...(scoringConfig ? { scoring: scoringConfig } : {}),
     ...(artifactConfig ? { artifactCollection: artifactConfig } : {}),
-    ...(judgeContext.networkAccessConfig ? { networkAccess: judgeContext.networkAccessConfig } : {})
+    ...(judgeContext.networkAccessConfig
+      ? { networkAccess: judgeContext.networkAccessConfig }
+      : {})
   };
 
   const result = await executor.execute(request);

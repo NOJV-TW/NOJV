@@ -86,11 +86,7 @@ export async function compile(
           ? ["go", "build", "-o", path.join(workDir, "main"), "."]
           : ["go", "build", "-o", path.join(workDir, "main"), sourcePath];
 
-      return compileWithCommand(
-        goCompileCommand,
-        [path.join(workDir, "main")],
-        workDir
-      );
+      return compileWithCommand(goCompileCommand, [path.join(workDir, "main")], workDir);
     }
     case "java": {
       const javaSources = await collectSourceFiles(workDir, [".java"]);
