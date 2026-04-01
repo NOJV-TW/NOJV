@@ -99,6 +99,9 @@ importers:
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       better-auth:
         specifier: ^1.5.4
         version: 1.5.4(a3f646b285c502b77f360594e056b16b)
@@ -181,6 +184,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.2.1(vite@6.4.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
+      '@types/bcryptjs':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
