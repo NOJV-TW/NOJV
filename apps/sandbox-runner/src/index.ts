@@ -12,8 +12,20 @@ import { assembleSource, compile, compileChecker, sourceFileName } from "./compi
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
+import { runStaticAnalysis } from "./stages/static-analysis.js";
+import { runCustomScoring, type ScoringInput } from "./stages/score.js";
+import { collectArtifacts } from "./stages/artifact.js";
+import { runCustomScriptStage, type CustomScriptContext } from "./stages/custom-script.js";
+import type {
+  StaticAnalysisResult,
+  ArtifactEntry,
+  CustomScriptRunAt,
+  CustomScriptStage,
+  CustomScriptStageResult
+} from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
+const ARTIFACT_DIR = "/submission/artifacts";
 
 /** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
@@ -27,9 +39,94 @@ async function readConfig(): Promise<SandboxInput> {
 }
 
 /** Read the user's source code file. */
-async function readSourceCode(language: SandboxInput["language"]): Promise<string> {
-  const fileName = sourceFileName(language);
-  return fs.readFile(path.join(SUBMISSION_DIR, fileName), "utf-8");
+async function readSourceCode(
+  language: SandboxInput["language"],
+  entryFile?: string
+): Promise<string> {
+  const fileCandidates = [entryFile, sourceFileName(language)].filter(
+    (value, index, values): value is string => Boolean(value) && values.indexOf(value) === index
+  );
+
+  for (const fileName of fileCandidates) {
+    try {
+      return await fs.readFile(path.join(SUBMISSION_DIR, fileName), "utf-8");
+    } catch {
+      // try next candidate
+    }
+  }
+
+  throw new Error(`Source file not found. Tried: ${fileCandidates.join(", ")}`);
+}
+
+function normalizeRelativePath(rawPath: string | undefined): string | null {
+  if (!rawPath) {
+    return null;
+  }
+
+  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
+  if (!normalized || normalized.startsWith("/")) {
+    return null;
+  }
+
+  const segments = normalized.split("/").filter((segment) => segment.length > 0);
+  if (
+    segments.length === 0 ||
+    segments.some(
+      (segment) =>
+        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
+    )
+  ) {
+    return null;
+  }
+
+  return segments.join("/");
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function writeWorkFile(
+  workDir: string,
+  relativePath: string,
+  content: string
+): Promise<void> {
+  const fullPath = path.join(workDir, relativePath);
+  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  await fs.writeFile(fullPath, content, "utf-8");
+}
+
+async function materializeConfiguredSources(
+  config: SandboxInput,
+  workDir: string
+): Promise<void> {
+  for (const sourceFile of config.sourceFiles ?? []) {
+    const normalizedPath = normalizeRelativePath(sourceFile.path);
+    if (!normalizedPath) {
+      continue;
+    }
+    await writeWorkFile(workDir, normalizedPath, sourceFile.content);
+  }
+
+  for (const fileRef of config.sourceFileMap ?? []) {
+    const normalizedPath = normalizeRelativePath(fileRef.path);
+    const normalizedKey = normalizeRelativePath(fileRef.key);
+    if (!normalizedPath || !normalizedKey) {
+      continue;
+    }
+
+    try {
+      const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
+      await writeWorkFile(workDir, normalizedPath, content);
+    } catch {
+      // Ignore missing mapped entries and continue with available files.
+    }
+  }
 }
 
 /**
@@ -137,6 +234,36 @@ async function findScript(prefix: string): Promise<string | null> {
   return match ? path.join(SUBMISSION_DIR, match) : null;
 }
 
+function pipelineCustomStages(
+  config: SandboxInput,
+  runAt: CustomScriptRunAt
+): CustomScriptStage[] {
+  return (config.pipeline?.stages ?? []).filter(
+    (stage): stage is CustomScriptStage =>
+      stage.type === "custom-script" && stage.config.runAt === runAt
+  );
+}
+
+async function runCustomStagesAtHook(
+  config: SandboxInput,
+  runAt: CustomScriptRunAt,
+  context: CustomScriptContext,
+  results: CustomScriptStageResult[]
+): Promise<string | undefined> {
+  const stages = pipelineCustomStages(config, runAt);
+  for (const stage of stages) {
+    log(`Running custom stage '${stage.name}' (${runAt})...`);
+    const stageResult = await runCustomScriptStage(stage, runAt, context);
+    results.push(stageResult);
+    if (!stageResult.passed && !stage.continueOnFail) {
+      const reason = stageResult.feedback ?? `exitCode=${String(stageResult.exitCode)}`;
+      return `Pipeline stage '${stage.name}' failed: ${reason}`;
+    }
+  }
+
+  return undefined;
+}
+
 async function main(): Promise<void> {
   // 1. Read config
   log("Reading config...");
@@ -145,35 +272,113 @@ async function main(): Promise<void> {
     `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
   );
 
-  // 2. Read source code and assemble (function mode → inject into template)
-  log("Reading source code...");
-  const rawSource = await readSourceCode(config.language);
+  // 2. Prepare source files in a work directory
+  const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
+  await materializeConfiguredSources(config, workDir);
+  const customStageResults: CustomScriptStageResult[] = [];
 
-  let assembledSource: string;
-  try {
-    assembledSource = assembleSource(rawSource, config);
-  } catch (err) {
+  const defaultEntry = sourceFileName(config.language);
+  const entryFile = normalizeRelativePath(config.entryFile) ?? defaultEntry;
+  const srcFile = path.join(workDir, entryFile);
+
+  if (config.submissionType === "function") {
+    // Function mode always assembles user code into the entry file using the template.
+    log("Reading source code...");
+
+    let rawSource: string;
+    if (await pathExists(srcFile)) {
+      rawSource = await fs.readFile(srcFile, "utf-8");
+    } else {
+      rawSource = await readSourceCode(config.language, entryFile);
+    }
+
+    let assembledSource: string;
+    try {
+      assembledSource = assembleSource(rawSource, config);
+    } catch (err) {
+      const output: SandboxOutput = {
+        compilationError: err instanceof Error ? err.message : "Source assembly failed.",
+        testcaseResults: []
+      };
+      process.stdout.write(JSON.stringify(output));
+      return;
+    }
+
+    await writeWorkFile(workDir, entryFile, assembledSource);
+  } else if (!(await pathExists(srcFile))) {
+    // Full-source mode can run from uploaded project files; fallback to the canonical source file.
+    log("Reading source code...");
+    const rawSource = await readSourceCode(config.language, entryFile);
+    await writeWorkFile(workDir, entryFile, rawSource);
+  }
+
+  // ─── Pipeline Stage: Static Analysis ───────────────────────────
+  let staticAnalysisResult: StaticAnalysisResult | undefined;
+
+  if (config.staticAnalysis) {
+    log("Running static analysis...");
+    staticAnalysisResult = await runStaticAnalysis(srcFile, config.staticAnalysis);
+    log(
+      `Static analysis: ${staticAnalysisResult.passed ? "PASSED" : "FAILED"} (${String(staticAnalysisResult.violations.length)} violations)`
+    );
+
+    // If static analysis fails and pipeline doesn't have continueOnFail, abort
+    if (!staticAnalysisResult.passed) {
+      const saStage = config.pipeline?.stages.find((s) => s.type === "static-analysis");
+      const continueOnFail = saStage ? saStage.continueOnFail : false;
+
+      if (!continueOnFail) {
+        const violationMessages = staticAnalysisResult.violations
+          .filter((v) => v.severity === "error")
+          .map((v) => `Line ${String(v.line ?? "?")}: ${v.message}`)
+          .join("\n");
+
+        const output: SandboxOutput = {
+          compilationError: `Static analysis failed:\n${violationMessages}`,
+          testcaseResults: [],
+          staticAnalysis: staticAnalysisResult,
+          ...(customStageResults.length > 0 ? { customStageResults } : {})
+        };
+        process.stdout.write(JSON.stringify(output));
+        return;
+      }
+    }
+  }
+
+  const beforeCompileError = await runCustomStagesAtHook(
+    config,
+    "before-compile",
+    {
+      submissionId: config.submissionId,
+      language: config.language,
+      judgeType: config.judgeType,
+      workDir,
+      sourcePath: srcFile
+    },
+    customStageResults
+  );
+
+  if (beforeCompileError) {
     const output: SandboxOutput = {
-      compilationError: err instanceof Error ? err.message : "Source assembly failed.",
-      testcaseResults: []
+      pipelineError: beforeCompileError,
+      testcaseResults: [],
+      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+      ...(customStageResults.length > 0 ? { customStageResults } : {})
     };
     process.stdout.write(JSON.stringify(output));
     return;
   }
 
-  // 3. Write assembled source to a work directory
-  const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
-  const srcFile = path.join(workDir, sourceFileName(config.language));
-  await fs.writeFile(srcFile, assembledSource);
-
-  // 4. Compile source
+  // ─── Pipeline Stage: Compile ───────────────────────────────────
   log("Compiling...");
   const compileResult = await compile(config, srcFile, workDir);
 
   if (!compileResult.success) {
     const output: SandboxOutput = {
       compilationError: compileResult.error,
-      testcaseResults: []
+      testcaseResults: [],
+      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+      ...(customStageResults.length > 0 ? { customStageResults } : {})
     };
     process.stdout.write(JSON.stringify(output));
     return;
@@ -188,7 +393,9 @@ async function main(): Promise<void> {
     if (!checkerPath) {
       const output: SandboxOutput = {
         compilationError: "Checker judge requires a checker script in /submission/.",
-        testcaseResults: []
+        testcaseResults: [],
+        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+        ...(customStageResults.length > 0 ? { customStageResults } : {})
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -199,7 +406,9 @@ async function main(): Promise<void> {
     if (!checkerResult.success) {
       const output: SandboxOutput = {
         compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
-        testcaseResults: []
+        testcaseResults: [],
+        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+        ...(customStageResults.length > 0 ? { customStageResults } : {})
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -212,7 +421,9 @@ async function main(): Promise<void> {
     if (!interactorPath) {
       const output: SandboxOutput = {
         compilationError: "Interactive judge requires an interactor script in /submission/.",
-        testcaseResults: []
+        testcaseResults: [],
+        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+        ...(customStageResults.length > 0 ? { customStageResults } : {})
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -228,7 +439,9 @@ async function main(): Promise<void> {
     if (!interactorResult.success) {
       const output: SandboxOutput = {
         compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,
-        testcaseResults: []
+        testcaseResults: [],
+        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+        ...(customStageResults.length > 0 ? { customStageResults } : {})
       };
       process.stdout.write(JSON.stringify(output));
       return;
@@ -236,12 +449,35 @@ async function main(): Promise<void> {
     interactorCommand = interactorResult.runCommand;
   }
 
-  // 6. Load testcases
+  const afterCompileError = await runCustomStagesAtHook(
+    config,
+    "after-compile",
+    {
+      submissionId: config.submissionId,
+      language: config.language,
+      judgeType: config.judgeType,
+      workDir,
+      sourcePath: srcFile
+    },
+    customStageResults
+  );
+
+  if (afterCompileError) {
+    const output: SandboxOutput = {
+      pipelineError: afterCompileError,
+      testcaseResults: [],
+      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+      ...(customStageResults.length > 0 ? { customStageResults } : {})
+    };
+    process.stdout.write(JSON.stringify(output));
+    return;
+  }
+
+  // ─── Pipeline Stage: Execute + Check ───────────────────────────
   log("Loading testcases...");
   const testcases = await loadTestcases();
   log(`Found ${String(testcases.length)} testcase(s).`);
 
-  // 7. Judge each testcase
   const results: TestcaseResult[] = [];
 
   for (const testcase of testcases) {
@@ -281,11 +517,87 @@ async function main(): Promise<void> {
     log(`Testcase ${String(testcase.index)}: ${result.verdict} (${String(result.timeMs)}ms)`);
   }
 
-  // 8. Output JSON result to stdout
+  const afterCheckError = await runCustomStagesAtHook(
+    config,
+    "after-check",
+    {
+      submissionId: config.submissionId,
+      language: config.language,
+      judgeType: config.judgeType,
+      workDir,
+      sourcePath: srcFile,
+      rawScore: computeRawScore(results),
+      testcaseResults: results
+    },
+    customStageResults
+  );
+
+  if (afterCheckError) {
+    const output: SandboxOutput = {
+      pipelineError: afterCheckError,
+      testcaseResults: results,
+      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+      ...(customStageResults.length > 0 ? { customStageResults } : {})
+    };
+    process.stdout.write(JSON.stringify(output));
+    return;
+  }
+
+  // ─── Pipeline Stage: Artifact Collection ───────────────────────
+  let artifacts: ArtifactEntry[] | undefined;
+
+  if (config.artifactCollection) {
+    log("Collecting artifacts...");
+    try {
+      artifacts = await collectArtifacts(workDir, ARTIFACT_DIR, config.artifactCollection);
+      log(`Collected ${String(artifacts.length)} artifact(s).`);
+    } catch (err) {
+      log(`Artifact collection failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // ─── Pipeline Stage: Custom Scoring ────────────────────────────
+  let customScore: number | undefined;
+  let scoringFeedback: string | undefined;
+
+  if (config.scoring) {
+    log("Running custom scoring...");
+    const rawScore = computeRawScore(results);
+    const scoringInput: ScoringInput = {
+      submissionId: config.submissionId,
+      language: config.language,
+      rawScore,
+      testcaseResults: results,
+      submittedAt: new Date().toISOString()
+    };
+
+    try {
+      const scoringOutput = await runCustomScoring(config.scoring, scoringInput);
+      customScore = scoringOutput.finalScore;
+      scoringFeedback = scoringOutput.feedback;
+      log(`Custom scoring: ${String(customScore)} (raw: ${String(rawScore)})`);
+    } catch (err) {
+      log(`Custom scoring failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // ─── Output JSON result to stdout ──────────────────────────────
   const output: SandboxOutput = {
-    testcaseResults: results
+    testcaseResults: results,
+    ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
+    ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
+    ...(customStageResults.length > 0 ? { customStageResults } : {}),
+    ...(customScore !== undefined ? { customScore } : {}),
+    ...(scoringFeedback ? { scoringFeedback } : {})
   };
   process.stdout.write(JSON.stringify(output));
+}
+
+/** Compute a raw score from testcase results (percentage of AC). */
+function computeRawScore(results: TestcaseResult[]): number {
+  if (results.length === 0) return 0;
+  const passed = results.filter((r) => r.verdict === "AC").length;
+  return Math.round((passed / results.length) * 100);
 }
 
 // Run and handle any unhandled errors as SE

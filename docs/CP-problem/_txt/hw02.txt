@@ -1,0 +1,354 @@
+                                                        Assignment
+
+
+                                                             2
+National Taiwan Normal University
+CSIE Computer Programming I
+Instructor: Po-Wen Chi
+Due Date: 2024.10.22 PM 11:59
+
+
+Policies:
+
+  • Zero tolerance for late submission.
+
+  • Please pack all your submissions in one zip file. RAR is not al-
+    lowed!!
+
+  • For convenience, your executable programs must be named following
+    the rule hwXXYY, where the red part is the homework number and
+    the blue part is the problem number. For example, hw0102 is the
+    executable program for homework #1 problem 2.
+
+  • I only accept PDF or TEXT. MS Word is not allowed.
+
+  • Do not forget your Makefile. For convenience, each assignment needs
+    only one Makefile.
+
+  • Please provide a README file. The README file should have at
+    least the following information:
+
+        – Your student ID and your name.
+        – How to build your code.
+        – How to execute your built programs.
+        – Anything that you want to notify our TAs.
+
+  • DO NOT BE A COPYCAT!! You will get ZERO if you are
+    caught.
+
+
+2.1     Golden Ratio (20 pts)
+In mathematics, two quantities are in the golden ratio if their ratio is the
+same as the ratio of their sum to the larger of the two quantities. That is,
+                            a+b     a
+                                 = = ϕ,
+                              a     b
+   where the Greek letter ϕ denotes the golden ratio. It is easily shown
+that
+                                  √
+                              1+ 5
+                         ϕ=           = 1.618033988749 . . . .
+                                 2
+        The golden ratio is an irrational number and therefore, it is impossible
+    to store the value as a floating point in your computer. What we can do is
+    to make an approximation. I will show you an approach called Continued
+    fraction .
+                                                1
+                                 ϕ=1+
+                                          1 + 1+ 1 1
+                                                   ..
+                                                    1+    .
+        The sequence will be 1, 2, 1.5, 1.666 . . . , . . . where you can verify them
+    as follows:
+                              1       1          1
+                        1, 1 + , 1 +    1,1 +           ,....
+                              1      1+ 1     1 + 1+1 1
+                                                         1
+
+        In mathematics, this sequence will finally converge to a constant. Is
+    this true in programming? Please develop a program to calculate the value
+    of ϕ from 1 to n. For your simplicity, I promise that n is a 16-bits unsigned
+    integer. You should also calculate the difference between the value and
+    1.61803398874989484820.
+1 $ ./ hw0201
+2 Please enter n (16 - bits unsigned ): 2
+3 n = 1: 1.00000000000000000000 (0.61803398874989484820)
+
+4 n = 2: 2.00000000000000000000 ( -0. xxxx) // 我 懶 的 算 了
+
+
+       Note that you should use double instead of float. The precision should
+    be 20. This problem is to remind you that precision of the floating
+    point is a big issue in C language.
+
+
+    2.2     DNA Sequence (20 pts)
+    The canonical structure of DNA has four bases: thymine (T), adenine
+    (A), cytosine (C), and guanine (G). DNA sequencing is the determina-
+    tion of the physical order of these bases in a molecule of DNA. Many
+    researches show that DNA sequence segment can be used to determine
+    diseases. For example, suppose there is disease which has a DNA se-
+    quence segment as TAACCCGGG, then the molecule of DNA AGCT-
+    TAGTAACCCGGGCCAATG will show that the patient may have the
+    disease.
+        First, the encoding of four bases is as follows:
+
+       • thymine (T): 1
+
+                                          2-2
+                       Figure 2.1: DNA sequence pattern.
+
+       • adenine (A): 2
+
+       • cytosine (C): 3
+
+       • guanine (G): 4
+
+        Undoubtedly, the DNA sequence segment may have more complex pat-
+    tern. In this problem, I want to show you how to check if a given DNA
+    sequence satisfies some complex pattern. Please see Fig. 2.1. The input
+    starts from S0 and transits to different states according to the inputs. Af-
+    ter the last input, if the state is in S7 , it implies the given DNA sequence
+    match this pattern. Here we use 0 to indicate the end of input.
+        The example is as follows.
+1  $ ./ hw0202
+2  Please enter    DNA base: 1
+ 3 Please enter    DNA base: 1
+ 4 Please enter    DNA base: 2
+ 5 Please enter    DNA base: 2
+ 6 Please enter    DNA base: 4
+ 7 Please enter    DNA base: 3
+ 8 Please enter    DNA base: 0
+ 9 The state is    in S7 , the sequence satisfies the pattern .
+10 $ ./ hw0202
+11 Please enter    DNA   base: 2
+12 Please enter    DNA   base: 3
+13 Please enter    DNA   base: 3
+14 Please enter    DNA   base: 3
+
+
+                                        2-3
+15 Please enter     DNA base: 3
+16 Please enter     DNA base: 3
+17 Please enter     DNA base: 0
+18 The state is     in S2 , the sequence does not satisfy the pattern .
+
+        Note that if there is an invalid input, you should make the user
+     re-input the base.
+        PS. I am not familiar with DNA. So do not challenge me about DNA
+     common sense.
+
+
+     2.3     Climate Change (20 pts)
+     Human-induced climate change includes both global warming driven by
+     emissions of greenhouse gases and the resulting large-scale shifts in weather
+     patterns. Though there have been previous periods of climatic change,
+     since the mid-20th century humans have had an unprecedented impact on
+     Earth’s climate system and caused change on a global scale.
+         In this homework, I want you to implement a program to predict the
+     temperature in the future. The user will input some past temperature data
+     and you need to use the linear model to simulate the temperature change.
+     That is, you need to use the following equation to predict the temperature.
+
+                                    T (t) = at + b,
+         where t is the year and T (t) is the temperature of the year. Your job is
+     to derive a and b from inputs based on the least squares approach. Do
+     not worry, this is not a mathematics class, so you can learn how to get a
+     and b from wikipedia.
+         The user input ends with -1.
+1  $ ./ hw0203
+2  Please enter the year: 2000
+ 3 Temperature : 29.5
+ 4 Please enter the year: 2001
+ 5 Temperature : 29.7
+ 6 Please enter the year: 2002
+
+ 7 Temperature : 29.6
+ 8 Please enter the year: 2003
+ 9 Temperature : 31.2
+10 Please enter the year: 2004
+11 Temperature : 30.5
+12 Please enter the year: -1
+
+13 Please enter the prediction year: 2022
+14 Temperature : XXX
+
+
+
+
+                                         2-4
+                         Figure 2.2: Colorful Gradient.
+
+
+
+
+                  Figure 2.3: Colorful Gradient on Terminal.
+
+    2.4     Colorful Gradient (20 pts)
+    Do you know what gradient is? If no, that is fine. You can see Fig. 2.2.
+       This time, I want you to print a colorful gradient on your terminal like
+    Fig. 2.3.
+       The input interface is defined as follows.
+1 $ ./ hw0204
+2 Please enter     the   width (10 -80):   16
+3 Please enter     the   height (10 -20):  16
+4 Please enter     the   top left RGB:     255 ,255 ,255
+5 Please enter     the   top right RGB:    255 ,0 ,0
+6 Please enter     the   bottom left RGB: 255 ,255 ,0
+7 Please enter     the   bottom right RGB: 0,0,0
+
+       Note that the RGB values must be between 0 to 255. For all invalid
+    inputs, make the user to re-input again.
+
+
+
+
+                                       2-5
+                Figure 2.4: A tmux window tith 3 panes
+
+2.5     Tmux is a Terminal Multiplexer (20 pts)
+See HackMD version here.
+    In this problem, you CAN’T use any type of array..
+    Our TA G36 is a DevOps specialist. While configuring a new machine
+cluster using the terminal, he noticed that a single command line can only
+handle one operation at a time unless the task is sent to the background.
+    G36 is enthusiastic about tmux because it allows him to SSH into
+the machine, perform multiple tasks simultaneously, and avoid connection
+timeouts.
+    Tmux is an open-source terminal multiplexer for Unix-like operating
+systems. It allows multiple terminal sessions to be accessed simultaneously
+in a single window, which is useful for running more than one command-line
+program at a time.
+    Each terminal inside tmux belongs to a pane, which is a rectangular
+area that displays the terminal’s contents. Multiple panes can appear
+within a single window, and each window is made up of one or more panes
+that cover its entire area.
+    Today, G36 wants to complete a task using tmux in a situation where
+multiple tasks need to be handled. Help him resize the panes into an equal
+layout and execute the final job on the machine:
+    Usefastfetch to print the Arch Linux logo, because he uses Arch BTW.
+
+2.5.1    Example:
+see figure 3,4 and 5
+
+                                   2-6
+        Figure 2.5: A tmux window with a complex pane layout
+
+2.5.2    Explanation
+Your task is to display a window with multiple panes, equally dividing the
+window into panes of the same size. Each pane should be separated by
+box-drawing characters from Unicode.
+    For each pane, print a single character $ to represent the shell. At the
+bottom of the window, print [0] 0:bash* at the bottom left with black
+text on a green background.
+    You should divide the panes to fill the window, allowing only a one-
+character difference in height and width per pane.
+    The number of panes should be arranged in a near-square layout, al-
+lowing only one pane to differ in height and width when handling extra
+panes.
+    You don’t need to worry about commands that fill all the space in a
+line; this is not a test case.
+
+2.5.3    Handling Extra Panes:
+  • If the number of extra panes is less than or equal to the number of
+    panes in the width, display them at the bottom from left to right.
+    These panes don’t need to be divided; the last one can be larger and
+    take up extra space.(see testcase 2)
+
+  • If the number of extra panes is greater than the number of panes in
+    the width, increase the number of panes per row by 1, then resize
+    and display them at the bottom from left to right.(see testcase 3)
+
+
+                                    2-7
+                              Figure 2.6: testcase1
+
+      • Note that when increasing the number of panes per row or column,
+        they should be resized to maintain a uniform appearance, allowing
+        only a one-character difference.
+
+    2.5.4    Task: Print the Arch Linux Logo
+    In the specified pane, print the Arch Linux logo using fastfetch. For
+    simplicity, the logo is redesigned to contain only /,o,\, forming a triangle
+    with a smaller empty triangle with 1/3 size inside.
+        You should automatically resize the logo’s height and width to fit
+    within the pane after printing fastfetch. The bottleneck can determine the
+    size.
+        The logo should be printed in Arch Linux’ s Curious Blue (Hex: #1793d1,
+    RGB: 23, 147, 209).
+1  $ fastfetch
+2             /\
+ 3           /oo\
+ 4          /oooo\
+ 5        / oooooo \
+ 6      / oooooooo \
+ 7    / oooooooooo \
+ 8   /ooooo /\ ooooo \
+ 9  /ooooo / \ ooooo \
+10 /ooooo /       \ ooooo \
+
+       Examples: see example at here
+
+
+
+                                        2-8
+Figure 2.7: testcase2
+
+
+
+
+Figure 2.8: testcase3
+
+
+
+
+         2-9
+2.5.5    Box-drawing characters
+  • (U+2500) Box Drawings Light Horizontal
+
+  • (U+2502) Box Drawings Light Vertical
+
+  • (U+250C) Box Drawings Light Down and Right
+
+  • (U+2510) Box Drawings Light Down and Left
+
+  • (U+2514) Box Drawings Light Up and Right
+
+  • (U+2518) Box Drawings Light Up and Left
+
+  • (U+251C) Box Drawings Light Vertical and Right
+
+  • (U+2524) Box Drawings Light Vertical and Left
+
+  • (U+252C) Box Drawings Light Down and Horizontal
+
+  • (U+2534) Box Drawings Light Up and Horizontal
+
+  • (U+253C) Box Drawings Light Vertical and Horizontal
+
+2.5.6    reference
+  • Wikipedia:tmux (EN)
+
+  • tmux(1)-linux manual page
+
+  • Box-drawing characters (Unicode)
+
+  • fastfetch
+
+
+2.6     Bonus: How Conversion Works? (5 pts)
+In this class, I have told you that standard C allows conversion between
+different numeric types, like int, unsigned int, float double. Please
+describe how conversion works between the following pairs.
+
+  • float ↔ int32_t
+
+  • int32_t ↔ uint32_t
+
+  • double ↔ float
+
+   Please look up the specification instead of guess from observation. You
+should also provide examples to show your description.
+
+                                  2-10
+
