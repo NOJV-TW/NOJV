@@ -4,6 +4,7 @@
   let { children } = $props();
 
   const tabs = [
+    { href: "/admin", label: "Overview" },
     { href: "/admin/users", label: "Users" },
     { href: "/admin/system", label: "System" },
     { href: "/admin/announcements", label: "Announcements" }
@@ -19,8 +20,12 @@
 
   <nav class="flex gap-2">
     {#each tabs as tab (tab.href)}
+      {@const isOverview = tab.href === "/admin"}
+      {@const isActive = isOverview
+        ? currentPath === "/admin"
+        : currentPath.startsWith(tab.href)}
       <a
-        class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent {currentPath.startsWith(tab.href) ? 'bg-primary text-white hover:bg-primary/90' : ''}"
+        class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent {isActive ? 'bg-primary text-white hover:bg-primary/90' : ''}"
         href={tab.href}
       >
         {tab.label}
