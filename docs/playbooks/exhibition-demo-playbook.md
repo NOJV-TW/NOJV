@@ -247,29 +247,29 @@ print(a + b)
 2. 檢視：可看到或體驗此功能，但無法管理
 3. 無：一般流程中不預期可使用
 
-| 功能 | 管理員 | 教師 | 助教 | 學生 |
-| --- | --- | --- | --- | --- |
-| 平台管理後台（`/admin/users`, `/admin/system`, `/admin/announcements`） | 完整 | 無 | 無 | 無 |
-| 建立題目（`/problems/create`） | 完整 | 完整 | 無 | 無 |
-| 進階評測模式（standard/checker/interactive） | 完整 | 完整 | 檢視 | 檢視 |
-| Function template 編修 | 完整 | 完整 | 檢視 | 檢視 |
-| 高難 seed 題（`stateful-dhcp-parser`, `memory-leak-forensics`, `noisy-oracle-hunt`） | 完整 | 完整 | 檢視 | 檢視 |
-| 建立課程（`/courses`） | 完整 | 完整 | 無 | 無 |
-| 課程管理面板（`/courses/{slug}/manage/*`） | 完整 | 完整 | 完整 | 無 |
-| 課程成員管理 | 完整 | 完整 | 完整 | 無 |
-| 課程題庫掛載與管理 | 完整 | 完整 | 完整 | 無 |
-| 發布作業 | 完整 | 完整 | 完整 | 無 |
-| 課程進度矩陣與 CSV 匯出 | 完整 | 完整 | 完整 | 檢視 |
-| 觸發抄襲檢查 | 完整 | 完整 | 完整 | 無 |
-| 抄襲結果與並排原始碼比對 | 完整 | 完整 | 完整 | 無 |
-| 建立公開競賽（`/contests/create`） | 完整 | 完整 | 完整（僅未綁課） | 完整（僅未綁課） |
-| 將競賽綁定課程 | 完整 | 完整 | 無 | 無 |
-| 參與競賽（`/contests/{slug}`） | 檢視 | 檢視 | 檢視 | 檢視 |
-| Scoreboard 解凍（`/contests/{slug}/scoreboard`） | 完整 | 完整 | 無 | 無 |
-| 競賽安全控制（page lock、IP whitelist、IP binding、violation mode） | 完整 | 完整 | 完整（課程範圍） | 檢視/受控 |
-| 語言限制策略（contest/assessment） | 設定 + 檢視 | 設定 + 檢視 | 設定 + 檢視（課程範圍） | 受控 |
-| 提交冷卻 / 嘗試次數限制 | 設定 + 檢視 | 設定 + 檢視 | 設定 + 檢視（課程範圍） | 受控 |
-| Seed 可靠性閘門（`pnpm db:seed:validate`） | 完整 | 完整 | 檢視 | 檢視 |
+| 功能                                                                                 | 管理員      | 教師        | 助教                    | 學生             |
+| ------------------------------------------------------------------------------------ | ----------- | ----------- | ----------------------- | ---------------- |
+| 平台管理後台（`/admin/users`, `/admin/system`, `/admin/announcements`）              | 完整        | 無          | 無                      | 無               |
+| 建立題目（`/problems/create`）                                                       | 完整        | 完整        | 無                      | 無               |
+| 進階評測模式（standard/checker/interactive）                                         | 完整        | 完整        | 檢視                    | 檢視             |
+| Function template 編修                                                               | 完整        | 完整        | 檢視                    | 檢視             |
+| 高難 seed 題（`stateful-dhcp-parser`, `memory-leak-forensics`, `noisy-oracle-hunt`） | 完整        | 完整        | 檢視                    | 檢視             |
+| 建立課程（`/courses`）                                                               | 完整        | 完整        | 無                      | 無               |
+| 課程管理面板（`/courses/{slug}/manage/*`）                                           | 完整        | 完整        | 完整                    | 無               |
+| 課程成員管理                                                                         | 完整        | 完整        | 完整                    | 無               |
+| 課程題庫掛載與管理                                                                   | 完整        | 完整        | 完整                    | 無               |
+| 發布作業                                                                             | 完整        | 完整        | 完整                    | 無               |
+| 課程進度矩陣與 CSV 匯出                                                              | 完整        | 完整        | 完整                    | 檢視             |
+| 觸發抄襲檢查                                                                         | 完整        | 完整        | 完整                    | 無               |
+| 抄襲結果與並排原始碼比對                                                             | 完整        | 完整        | 完整                    | 無               |
+| 建立公開競賽（`/contests/create`）                                                   | 完整        | 完整        | 完整（僅未綁課）        | 完整（僅未綁課） |
+| 將競賽綁定課程                                                                       | 完整        | 完整        | 無                      | 無               |
+| 參與競賽（`/contests/{slug}`）                                                       | 檢視        | 檢視        | 檢視                    | 檢視             |
+| Scoreboard 解凍（`/contests/{slug}/scoreboard`）                                     | 完整        | 完整        | 無                      | 無               |
+| 競賽安全控制（page lock、IP whitelist、IP binding、violation mode）                  | 完整        | 完整        | 完整（課程範圍）        | 檢視/受控        |
+| 語言限制策略（contest/assessment）                                                   | 設定 + 檢視 | 設定 + 檢視 | 設定 + 檢視（課程範圍） | 受控             |
+| 提交冷卻 / 嘗試次數限制                                                              | 設定 + 檢視 | 設定 + 檢視 | 設定 + 檢視（課程範圍） | 受控             |
+| Seed 可靠性閘門（`pnpm db:seed:validate`）                                           | 完整        | 完整        | 檢視                    | 檢視             |
 
 ## 8. Demo 後重置（可選）
 

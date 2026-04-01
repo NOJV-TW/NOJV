@@ -5,9 +5,7 @@ function createMockPrisma() {
 
   return {
     problem: {
-      upsert: async (args: {
-        create: { id: string; slug: string };
-      }) => {
+      upsert: async (args: { create: { id: string; slug: string } }) => {
         const record = {
           id: String(args.create.id),
           slug: String(args.create.slug)

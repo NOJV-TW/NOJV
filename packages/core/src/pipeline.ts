@@ -44,7 +44,14 @@ export const scoringConfigSchema = z.object({
 
 export type ScoringConfig = z.infer<typeof scoringConfigSchema>;
 
-export const customScriptLanguageSchema = z.enum(["python", "python3", "c", "cpp", "go", "rust"]);
+export const customScriptLanguageSchema = z.enum([
+  "python",
+  "python3",
+  "c",
+  "cpp",
+  "go",
+  "rust"
+]);
 export type CustomScriptLanguage = z.infer<typeof customScriptLanguageSchema>;
 
 export const customScriptRunAtSchema = z.enum([

@@ -59,7 +59,11 @@ type SeedFunctionTemplateDef = {
   templates: SeedFunctionTemplate[];
 };
 
-const hardenedSlugs = ["stateful-dhcp-parser", "memory-leak-forensics", "noisy-oracle-hunt"] as const;
+const hardenedSlugs = [
+  "stateful-dhcp-parser",
+  "memory-leak-forensics",
+  "noisy-oracle-hunt"
+] as const;
 
 export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void {
   const ids = new Set<string>();
@@ -586,15 +590,14 @@ if __name__ == "__main__":
       statements: {
         "zh-TW": {
           title: "Stateful DHCP Option Parser",
-          body: "這是一題函式題。你要實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `[\"ERROR\"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。",
+          body: '這是一題函式題。你要實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
           inputFormat:
             "評測 driver 會先讀入整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
-          outputFormat:
-            "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。"
+          outputFormat: "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。"
         },
         en: {
           title: "Stateful DHCP Option Parser",
-          body: "This is a function-mode problem. Implement `parse_dhcp_options(hex_payload)`, where the input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `[\"ERROR\"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.",
+          body: 'This is a function-mode problem. Implement `parse_dhcp_options(hex_payload)`, where the input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `["ERROR"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.',
           inputFormat:
             "The judge driver reads an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
           outputFormat:
@@ -652,8 +655,7 @@ if __name__ == "__main__":
           body: "This is a function-mode problem. Implement `analyze_trace(events)`, where each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
           inputFormat:
             "The judge driver reads an integer $N$, then $N$ event lines, and calls `analyze_trace`.",
-          outputFormat:
-            "Print three integers: `peak_bytes leaked_blocks invalid_free_count`."
+          outputFormat: "Print three integers: `peak_bytes leaked_blocks invalid_free_count`."
         }
       },
       testcases: {
@@ -674,7 +676,8 @@ if __name__ == "__main__":
           isHidden: true,
           cases: [
             {
-              stdin: "8\nALLOC p1 100\nALLOC p2 200\nFREE p1\nALLOC p3 50\nALLOC p2 30\nFREE p3\nFREE p9\nFREE p2\n",
+              stdin:
+                "8\nALLOC p1 100\nALLOC p2 200\nFREE p1\nALLOC p3 50\nALLOC p2 30\nFREE p3\nFREE p9\nFREE p2\n",
               expectedStdout: "300 1 1"
             },
             {
