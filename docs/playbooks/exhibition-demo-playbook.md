@@ -1,28 +1,28 @@
-# NOJV Exhibition Demo Playbook
+# NOJV 展覽 Demo 操作手冊
 
-This playbook is for on-stage demos to general audiences and technical visitors.
-It is designed to showcase end-to-end platform value in one flow: authoring -> delivery -> anti-cheat -> operations.
+這份手冊用於現場對一般觀眾與技術觀眾進行展示。
+整體設計是用一條完整流程呈現平台價值：出題 -> 交付 -> 反作弊 -> 營運。
 
-## 1. Demo Goal
+## 1. Demo 目標
 
-Show these capabilities in one coherent story:
+透過一個連貫故事展示以下能力：
 
-1. Create and manage problems (including non-trivial judge modes).
-2. Operate course assessments and contest workflows.
-3. Demonstrate security controls (page lock, IP policy, language restriction, cooldown/attempt limits).
-4. Run plagiarism checks and inspect side-by-side source comparisons.
-5. Demonstrate operational visibility (queue/system/admin controls).
-6. Show engineering reliability checks added in this iteration (seed validation and hardening).
+1. 建立與管理題目（含較進階的 judge 模式）。
+2. 操作課程作業與競賽流程。
+3. 展示安全控制（頁面鎖定、IP 策略、語言限制、冷卻與嘗試次數限制）。
+4. 執行抄襲檢查並查看並排原始碼比對。
+5. 展示系統可觀測性與營運面（queue/system/admin 控制）。
+6. 展示本次迭代新增的工程可靠性機制（seed validation 與 hardening）。
 
-## 2. Runtime And Accounts
+## 2. 執行環境與帳號
 
-## Environment
+## 環境需求
 
 1. Node.js >= 24
 2. pnpm 10.x
-3. Docker Desktop running
+3. Docker Desktop 已啟動
 
-## Boot commands
+## 啟動指令
 
 ```bash
 pnpm install
@@ -35,245 +35,245 @@ pnpm sandbox:build
 pnpm dev
 ```
 
-## Demo accounts (from seed)
+## Demo 帳號（來自 seed）
 
-All accounts use password `password123`.
+所有帳號密碼皆為 `password123`。
 
-1. Admin: `admin` or `admin@nojv.local`
-2. Teacher: `teacher` or `teacher@nojv.local`
-3. TA Student: `ta-student` or `ta-student@nojv.local`
-4. Student: `student` or `student@nojv.local`
+1. 管理員：`admin` 或 `admin@nojv.local`
+2. 教師：`teacher` 或 `teacher@nojv.local`
+3. 助教學生：`ta-student` 或 `ta-student@nojv.local`
+4. 學生：`student` 或 `student@nojv.local`
 
-Login page for credential demo: `/admin-signin`
+帳密登入頁面：`/admin-signin`
 
-## Seeded entities to use on stage
+## 現場可直接使用的 seed 資料
 
-1. Course: `os-lab-spring-2026`
-2. Course assessment: `hw1-process-trace`
-3. Course-linked contest: `midterm-systems-lab`
-4. Public contest: `spring-qualifier-2026` (invite code `spring2026`)
-5. Newly added hard problems:
-   - `stateful-dhcp-parser` (function)
-   - `memory-leak-forensics` (function)
-   - `noisy-oracle-hunt` (interactive)
+1. 課程：`os-lab-spring-2026`
+2. 課程作業：`hw1-process-trace`
+3. 綁定課程的競賽：`midterm-systems-lab`
+4. 公開競賽：`spring-qualifier-2026`（邀請碼 `spring2026`）
+5. 新增的高難題目：
+   - `stateful-dhcp-parser`（function）
+   - `memory-leak-forensics`（function）
+   - `noisy-oracle-hunt`（interactive）
 
-## 3. 10-Minute Pre-Show Checklist
+## 3. 展前 10 分鐘檢查清單
 
-Run this before audience entry.
+請在觀眾入場前完成。
 
-1. Open 3 browser profiles/windows:
-   - Window A: Admin
-   - Window B: Teacher
-   - Window C: Student/TA Student
-2. Verify seed hardening gate:
+1. 開 3 個瀏覽器 profile/視窗：
+   - 視窗 A：管理員
+   - 視窗 B：教師
+   - 視窗 C：學生/助教學生
+2. 先確認 seed hardening gate：
 
 ```bash
 pnpm db:seed:validate
 ```
 
-3. In Teacher window, open `/courses/os-lab-spring-2026/manage/assessments` and create a live demo assessment:
-   - Title: `Demo HW Live`
-   - Slug: `demo-hw-live`
-   - Scoreboard mode: `hidden`
-   - Problems: `warmup-sum, process-log-parser`
-   - Opens: now - 5 min
-   - Due: now + 20 min
-   - Closes: now + 30 min
-   - Enable `pageLockEnabled` (optional for lock redirect demo)
-   - Enable `ipBindingEnabled` with `notify` if you want to show policy setup
-4. In Teacher window, open `/contests/create` and create a live contest:
-   - Slug: `demo-live-contest`
-   - Title: `Demo Live Contest`
-   - Problems: `warmup-sum, graph-docking`
-   - Starts: now - 2 min
-   - Ends: now + 25 min
-   - Scoreboard mode: `frozen`
-   - Freeze at: now + 15 min
-   - Enable `pageLockEnabled`
-   - Enable `ipBindingEnabled` (notify)
-   - Set `submitCooldownSec` to `20` to demonstrate cooldown protection
-5. Generate demo data:
-   - Student and TA Student each submit accepted code once on `warmup-sum` in `demo-hw-live`.
-   - Student submit once in `demo-live-contest` to populate scoreboard.
-6. Quick accepted code snippet for `warmup-sum`:
+3. 在教師視窗開啟 `/courses/os-lab-spring-2026/manage/assessments`，建立即時展示作業：
+   - Title：`Demo HW Live`
+   - Slug：`demo-hw-live`
+   - Scoreboard mode：`hidden`
+   - Problems：`warmup-sum, process-log-parser`
+   - Opens：現在 - 5 分鐘
+   - Due：現在 + 20 分鐘
+   - Closes：現在 + 30 分鐘
+   - 啟用 `pageLockEnabled`（可選，用於展示 lock redirect）
+   - 啟用 `ipBindingEnabled` 並選 `notify`（可展示策略設定）
+4. 在教師視窗開啟 `/contests/create`，建立即時展示競賽：
+   - Slug：`demo-live-contest`
+   - Title：`Demo Live Contest`
+   - Problems：`warmup-sum, graph-docking`
+   - Starts：現在 - 2 分鐘
+   - Ends：現在 + 25 分鐘
+   - Scoreboard mode：`frozen`
+   - Freeze at：現在 + 15 分鐘
+   - 啟用 `pageLockEnabled`
+   - 啟用 `ipBindingEnabled`（notify）
+   - 設定 `submitCooldownSec` 為 `20`（展示冷卻保護）
+5. 產生展示資料：
+   - 學生與助教學生各自對 `demo-hw-live` 的 `warmup-sum` 提交一次 AC。
+   - 學生在 `demo-live-contest` 再提交一次，讓 scoreboard 有資料。
+6. `warmup-sum` 可用的快速 AC 程式碼：
 
 ```python
 a, b = map(int, input().split())
 print(a + b)
 ```
 
-## 4. On-Stage Timeline (25 minutes)
+## 4. 台上展示時間軸（25 分鐘）
 
-## Minute 0-2: Platform framing
+## 第 0-2 分鐘：平台定位
 
-Screen: landing/dashboard + quick architecture slide.
+畫面：landing/dashboard + 架構簡報一頁。
 
-Say:
-"This is one platform for contests, coursework, anti-cheat, and operations."
+台詞：
+"這是一個同時處理競賽、課程、反作弊與營運的整合平台。"
 
-Show:
+操作：
 
-1. `/dashboard`
-2. One-sentence architecture summary from README
+1. 開 `/dashboard`
+2. 用一句話帶過 README 架構重點
 
-## Minute 2-5: Reliability and hardening proof
+## 第 2-5 分鐘：可靠性與防呆
 
-Screen: terminal.
+畫面：terminal。
 
-Show:
+操作：
 
-1. `pnpm db:seed:validate` success
-2. Explain: seed fails fast before DB writes, catches missing scripts/templates/testcases and invariant violations.
+1. 顯示 `pnpm db:seed:validate` 成功
+2. 說明：seed 會在寫入 DB 前先 fail-fast，擋下 script/template/testcase 缺漏與 invariant 問題
 
-Say:
-"Before we demo features, we verify data integrity as a deployment guardrail."
+台詞：
+"我們先驗證資料完整性，再進入功能展示，這是上線前的保護閘。"
 
-## Minute 5-9: Problem authoring power
+## 第 5-9 分鐘：出題能力展示
 
-Screen: `/problems/create`
+畫面：`/problems/create`
 
-Show:
+操作：
 
-1. Judge modes: standard/checker/interactive.
-2. Submission modes: full source/function template.
-3. Template editor + testcase section.
+1. 切換 judge modes：standard/checker/interactive
+2. 切換 submission modes：full source/function template
+3. 展示 template editor 與 testcase 區塊
 
-Then switch to `/problems` and open these slugs:
+接著切到 `/problems` 並打開這三題：
 
 1. `stateful-dhcp-parser`
 2. `memory-leak-forensics`
 3. `noisy-oracle-hunt`
 
-Say:
-"These are intentionally non-trivial tasks, including function-mode and adversarial interactive judging."
+台詞：
+"這些題目刻意偏離基本 IO，包含 function-mode 與對抗式互動評測。"
 
-## Minute 9-14: Course operations
+## 第 9-14 分鐘：課程營運面
 
-Screen: Teacher window `/courses/os-lab-spring-2026/manage`
+畫面：教師視窗 `/courses/os-lab-spring-2026/manage`
 
-Walk through tabs:
+依序走訪分頁：
 
-1. Members: `/courses/os-lab-spring-2026/manage/members`
-2. Problems: `/courses/os-lab-spring-2026/manage/problems`
-3. Assessments: `/courses/os-lab-spring-2026/manage/assessments`
-4. Progress matrix: `/courses/os-lab-spring-2026/manage/progress`
+1. 成員：`/courses/os-lab-spring-2026/manage/members`
+2. 題庫：`/courses/os-lab-spring-2026/manage/problems`
+3. 作業：`/courses/os-lab-spring-2026/manage/assessments`
+4. 進度矩陣：`/courses/os-lab-spring-2026/manage/progress`
 
-Say:
-"This gives a teacher one cockpit for roster, assignment publishing, and learning progress visibility."
+台詞：
+"教師可以在同一個 cockpit 裡管理名單、發布作業與追蹤學習進度。"
 
-## Minute 14-18: Contest and security controls
+## 第 14-18 分鐘：競賽與安全控制
 
-Screen: `/contests/demo-live-contest` then `/contests/demo-live-contest/scoreboard`
+畫面：`/contests/demo-live-contest`，再切到 `/contests/demo-live-contest/scoreboard`
 
-Show:
+操作：
 
-1. Contest timer and status.
-2. Security tags (page lock/IP policy/language restrictions if set).
-3. Frozen scoreboard behavior.
-4. In Admin or Teacher role, open `/contests/demo-live-contest/scoreboard` and click `Unfreeze Board`.
+1. 展示競賽計時器與狀態
+2. 展示安全標籤（page lock/IP policy/language restrictions）
+3. 展示 frozen scoreboard
+4. 用管理員或教師開 `/contests/demo-live-contest/scoreboard`，點 `Unfreeze Board`
 
-Optional page-lock redirect demo:
+可選的 page-lock redirect 展示：
 
-1. In Student window (already inside active contest), manually navigate to `/dashboard`.
-2. Show redirect back to contest context.
+1. 在學生視窗（已進入 active contest）手動前往 `/dashboard`
+2. 展示被重新導回 contest 上下文
 
-## Minute 18-23: Plagiarism workflow
+## 第 18-23 分鐘：抄襲檢查流程
 
-Screen: Teacher window `/courses/os-lab-spring-2026/manage/assessments`
+畫面：教師視窗 `/courses/os-lab-spring-2026/manage/assessments`
 
-Flow:
+流程：
 
-1. Click `Run Plagiarism Check` for `Demo HW Live`.
-2. Narrate status transitions: `Starting -> Pending -> Running -> Completed`.
-3. Click `View Results`.
-4. In results page, lower similarity threshold to `0` when running without MOSS credentials.
-5. Click `Compare` to open side-by-side code.
+1. 在 `Demo HW Live` 點 `Run Plagiarism Check`
+2. 口述狀態變化：`Starting -> Pending -> Running -> Completed`
+3. 點 `View Results`
+4. 若未接 MOSS，將 similarity threshold 調到 `0`
+5. 點 `Compare` 開啟並排原始碼
 
-Say:
-"Teachers can trigger anti-cheat checks on demand and inspect suspicious pairs without leaving the platform."
+台詞：
+"老師可以在平台內直接觸發反作弊，並做可解釋的比對檢視。"
 
-## Minute 23-25: Admin operations close
+## 第 23-25 分鐘：管理後台收尾
 
-Screen sequence:
+畫面切換順序：
 
-1. `/admin/users` (role update / disable toggle)
-2. `/admin/announcements` (publish/pin workflow)
-3. `/admin/system` (DB + queue health, failed jobs and retry/remove actions)
+1. `/admin/users`（角色調整 / 停用切換）
+2. `/admin/announcements`（發布與置頂）
+3. `/admin/system`（DB + queue 健康度、失敗任務重試/移除）
 
-Close line:
-"This is not only an OJ UI. It is an operationally managed learning and contest platform."
+收尾台詞：
+"這不只是 OJ 介面，而是一個可營運、可維護、可治理的學習與競賽平台。"
 
-## 5. Demo Script Prompts (Speaker Notes)
+## 5. Demo 台詞提示（Speaker Notes）
 
-Use these short lines to keep pacing.
+可用以下短句維持節奏：
 
-1. "I will show the full lifecycle: create, submit, rank, detect anomalies, and operate."
-2. "First, we verify data integrity guardrails, then we show product behavior."
-3. "Now we switch from author view to teacher operations."
-4. "This step is anti-cheat: trigger, monitor, inspect, and compare source."
-5. "Finally, this admin console is what makes the system survivable in production."
+1. "我會展示完整生命週期：建立、提交、排名、異常偵測與營運。"
+2. "先做資料完整性驗證，再展示產品行為。"
+3. "接著從作者視角切到教師營運視角。"
+4. "這一步是反作弊：觸發、監看、檢查、比對。"
+5. "最後這個管理後台，才是系統能長期存活的關鍵。"
 
-## 6. Failure Handling (Plan B)
+## 6. 故障備援（Plan B）
 
-## If plagiarism returns no rows
+## 若抄襲結果沒有資料
 
-1. Set threshold slider to `0`.
-2. Confirm at least two accepted submissions exist for the same problem and scope.
-3. Re-run from assessments page.
+1. 將 threshold slider 調到 `0`
+2. 確認同一題、同一範圍至少有兩筆 accepted submissions
+3. 從 assessments 頁面重新觸發
 
-## If queue or worker is delayed
+## 若 queue 或 worker 延遲
 
-1. Use `/admin/system` to show queue backlog.
-2. Continue with already completed submissions/reports.
-3. Narrate async architecture: web remains responsive while jobs are processed.
+1. 到 `/admin/system` 展示 queue backlog
+2. 先切回展示已完成的 submissions/reports
+3. 補充說明：架構為非同步，web 仍可回應
 
-## If contest not active
+## 若 contest 不在 active 時段
 
-1. Open `/contests/create` and create a short live contest starting now.
-2. Re-run page lock/frozen board segment on the new contest.
+1. 到 `/contests/create` 立刻建立一場現在開始的短競賽
+2. 在新競賽重跑 page lock/frozen board 展示
 
-## If role permission blocks action
+## 若遇到權限阻擋
 
-1. Verify current user in top-right/account context.
-2. Switch to correct window profile (Admin or Teacher).
+1. 確認右上角目前登入身份
+2. 切到對應 profile 視窗（管理員或教師）
 
-## 7. Feature Coverage Matrix
+## 7. 功能覆蓋矩陣
 
-Use this table to ensure "all current work" is covered on stage.
+用下表確認「目前所有工作項目」都有被展示。
 
-Legend:
+圖例：
 
-1. Full: can operate this feature directly in demo.
-2. View: can view or experience the feature but not manage it.
-3. No: not expected to access this feature in normal flow.
+1. 完整：可直接在 demo 中操作此功能
+2. 檢視：可看到或體驗此功能，但無法管理
+3. 無：一般流程中不預期可使用
 
-| Feature | Admin | Teacher | TA | Student |
+| 功能 | 管理員 | 教師 | 助教 | 學生 |
 | --- | --- | --- | --- | --- |
-| Platform admin panel (`/admin/users`, `/admin/system`, `/admin/announcements`) | Full | No | No | No |
-| Create problem (`/problems/create`) | Full | Full | No | No |
-| Advanced judge modes (standard/checker/interactive) | Full | Full | View | View |
-| Function template authoring | Full | Full | View | View |
-| High-difficulty seeded problems (`stateful-dhcp-parser`, `memory-leak-forensics`, `noisy-oracle-hunt`) | Full | Full | View | View |
-| Create course (`/courses`) | Full | Full | No | No |
-| Course manage panel (`/courses/{slug}/manage/*`) | Full | Full | Full | No |
-| Course members management | Full | Full | Full | No |
-| Attach/manage course problem set | Full | Full | Full | No |
-| Publish assessment | Full | Full | Full | No |
-| Course progress matrix + CSV export | Full | Full | Full | View |
-| Trigger plagiarism check | Full | Full | Full | No |
-| Plagiarism results + side-by-side source compare | Full | Full | Full | No |
-| Create public contest (`/contests/create`) | Full | Full | Full (unbound only) | Full (unbound only) |
-| Bind contest to course | Full | Full | No | No |
-| Contest participation (`/contests/{slug}`) | View | View | View | View |
-| Scoreboard unfreeze (`/contests/{slug}/scoreboard`) | Full | Full | No | No |
-| Contest security controls (page lock, IP whitelist, IP binding, violation mode) | Full | Full | Full (course scope) | View/Enforced |
-| Language restriction enforcement (contest/assessment) | Configure + View | Configure + View | Configure + View (course scope) | Enforced |
-| Submit cooldown / max attempts enforcement | Configure + View | Configure + View | Configure + View (course scope) | Enforced |
-| Seed reliability gate (`pnpm db:seed:validate`) | Full | Full | View | View |
+| 平台管理後台（`/admin/users`, `/admin/system`, `/admin/announcements`） | 完整 | 無 | 無 | 無 |
+| 建立題目（`/problems/create`） | 完整 | 完整 | 無 | 無 |
+| 進階評測模式（standard/checker/interactive） | 完整 | 完整 | 檢視 | 檢視 |
+| Function template 編修 | 完整 | 完整 | 檢視 | 檢視 |
+| 高難 seed 題（`stateful-dhcp-parser`, `memory-leak-forensics`, `noisy-oracle-hunt`） | 完整 | 完整 | 檢視 | 檢視 |
+| 建立課程（`/courses`） | 完整 | 完整 | 無 | 無 |
+| 課程管理面板（`/courses/{slug}/manage/*`） | 完整 | 完整 | 完整 | 無 |
+| 課程成員管理 | 完整 | 完整 | 完整 | 無 |
+| 課程題庫掛載與管理 | 完整 | 完整 | 完整 | 無 |
+| 發布作業 | 完整 | 完整 | 完整 | 無 |
+| 課程進度矩陣與 CSV 匯出 | 完整 | 完整 | 完整 | 檢視 |
+| 觸發抄襲檢查 | 完整 | 完整 | 完整 | 無 |
+| 抄襲結果與並排原始碼比對 | 完整 | 完整 | 完整 | 無 |
+| 建立公開競賽（`/contests/create`） | 完整 | 完整 | 完整（僅未綁課） | 完整（僅未綁課） |
+| 將競賽綁定課程 | 完整 | 完整 | 無 | 無 |
+| 參與競賽（`/contests/{slug}`） | 檢視 | 檢視 | 檢視 | 檢視 |
+| Scoreboard 解凍（`/contests/{slug}/scoreboard`） | 完整 | 完整 | 無 | 無 |
+| 競賽安全控制（page lock、IP whitelist、IP binding、violation mode） | 完整 | 完整 | 完整（課程範圍） | 檢視/受控 |
+| 語言限制策略（contest/assessment） | 設定 + 檢視 | 設定 + 檢視 | 設定 + 檢視（課程範圍） | 受控 |
+| 提交冷卻 / 嘗試次數限制 | 設定 + 檢視 | 設定 + 檢視 | 設定 + 檢視（課程範圍） | 受控 |
+| Seed 可靠性閘門（`pnpm db:seed:validate`） | 完整 | 完整 | 檢視 | 檢視 |
 
-## 8. Post-Demo Reset (Optional)
+## 8. Demo 後重置（可選）
 
-If you need a clean rerun environment:
+若要快速回到可重演環境：
 
 ```bash
 pnpm db:push
@@ -281,4 +281,4 @@ pnpm db:seed:validate
 pnpm db:seed
 ```
 
-Then recreate `demo-hw-live` and `demo-live-contest` using the pre-show checklist.
+接著依照展前清單重新建立 `demo-hw-live` 與 `demo-live-contest`。
