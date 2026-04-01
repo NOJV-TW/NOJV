@@ -9,6 +9,8 @@ import {
   submissionTypeSchema
 } from "../types";
 
+import { pipelineConfigSchema, networkAccessConfigSchema } from "../pipeline";
+
 export const problemTemplateSchema = z.object({
   driverCode: z.string().min(1).max(200_000),
   insertionMarker: z.string().min(1).max(200).default("// __USER_CODE__"),
@@ -32,7 +34,12 @@ export const problemCreateSchema = z.object({
   templates: z.array(problemTemplateSchema).max(10).default([]),
   timeLimitMs: z.coerce.number().int().min(100).max(30_000).default(1_000),
   title: z.string().trim().min(3).max(120),
-  visibility: problemVisibilitySchema
+  visibility: problemVisibilitySchema,
+  pipelineConfig: pipelineConfigSchema.optional(),
+  scoringScript: z.string().max(200_000).optional(),
+  scoringLanguage: z.string().max(20).optional(),
+  artifactPatterns: z.array(z.string().min(1).max(500)).max(50).default([]),
+  networkAccessConfig: networkAccessConfigSchema.optional()
 });
 
 export const problemUpdateSchema = problemCreateSchema.omit({ slug: true }).partial();
