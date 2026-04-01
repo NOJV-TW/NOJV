@@ -1,7 +1,15 @@
 <script lang="ts">
+  import { browser } from "$app/environment";
+  import {
+    BookOpenCheck,
+    CalendarRange,
+    Languages,
+    Shield,
+    Sparkles
+  } from "@lucide/svelte";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import { m } from "$lib/paraglide/messages.js";
+  import { onMount } from "svelte";
   import { supportedLanguages, type AssessmentScoreboardMode, type Language } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
 
@@ -34,6 +42,91 @@
 
   let { assessments, courseSlug, form: formData, problemSlugs }: Props = $props();
   const initialProblemSlugs = untrack(() => problemSlugs);
+
+  type UiLang = "zh" | "en";
+  let uiLang = $state<UiLang>("zh");
+
+  const text = {
+    en: {
+      all: "all",
+      allowedLanguages: "Allowed languages (empty = all)",
+      assessmentSummary: "Assessment summary",
+      assessmentTitle: "Assessment title",
+      assessments: "Assessments",
+      block: "Block",
+      createAssessment: "Create assessment",
+      english: "English",
+      maxAttempts: "Max attempts (optional)",
+      noLimit: "Unlimited",
+      notifyOnly: "Notify only",
+      pageLock: "Page lock (prevent tab switching)",
+      plagiarismCheck: "Run Plagiarism Check",
+      plagiarismCompleted: "Completed",
+      plagiarismFailed: "Failed",
+      plagiarismPending: "Pending...",
+      plagiarismRunning: "Running...",
+      plagiarismStarting: "Starting...",
+      problems: "problems",
+      publishAssessment: "Publish assessment",
+      publishing: "Publishing...",
+      scoreboardMode: "Scoreboard mode",
+      systemText: "System Text",
+      viewResults: "View results",
+      whenIpViolation: "When IP violation occurs:",
+      whitelist: "IP Whitelist",
+      ipBinding: "IP First-Binding (lock to first IP used)",
+      zh: "中文"
+    },
+    zh: {
+      all: "全部",
+      allowedLanguages: "允許語言（留空代表全部）",
+      assessmentSummary: "測驗摘要",
+      assessmentTitle: "測驗標題",
+      assessments: "測驗列表",
+      block: "封鎖",
+      createAssessment: "建立測驗",
+      english: "English",
+      maxAttempts: "最大嘗試次數（可選）",
+      noLimit: "不限制",
+      notifyOnly: "僅通知",
+      pageLock: "分頁鎖定（避免切換分頁）",
+      plagiarismCheck: "執行抄襲檢查",
+      plagiarismCompleted: "完成",
+      plagiarismFailed: "失敗",
+      plagiarismPending: "等待中...",
+      plagiarismRunning: "執行中...",
+      plagiarismStarting: "啟動中...",
+      problems: "題",
+      publishAssessment: "發布測驗",
+      publishing: "發布中...",
+      scoreboardMode: "記分板模式",
+      systemText: "系統文字",
+      viewResults: "查看結果",
+      whenIpViolation: "發生 IP 違規時：",
+      whitelist: "IP 白名單",
+      ipBinding: "IP 首次綁定（鎖定首次使用 IP）",
+      zh: "中文"
+    }
+  } as const;
+
+  function t<K extends keyof (typeof text)["en"]>(key: K): string {
+    return text[uiLang][key];
+  }
+
+  onMount(() => {
+    if (!browser) return;
+    const saved = localStorage.getItem("nojv-system-text-lang");
+    if (saved === "zh" || saved === "en") {
+      uiLang = saved;
+    }
+  });
+
+  function setUiLang(next: UiLang): void {
+    uiLang = next;
+    if (browser) {
+      localStorage.setItem("nojv-system-text-lang", next);
+    }
+  }
 
   function createDefaultAssessmentWindow() {
     const opensAt = new Date();
@@ -145,22 +238,44 @@
 
   function plagiarismLabel(status: PlagiarismStatus): string {
     switch (status) {
-      case "triggering": return "Starting...";
-      case "pending": return "Pending...";
-      case "running": return "Running...";
-      case "completed": return "Completed";
-      case "failed": return "Failed";
-      default: return "Run Plagiarism Check";
+      case "triggering": return t("plagiarismStarting");
+      case "pending": return t("plagiarismPending");
+      case "running": return t("plagiarismRunning");
+      case "completed": return t("plagiarismCompleted");
+      case "failed": return t("plagiarismFailed");
+      default: return t("plagiarismCheck");
     }
   }
 </script>
 
 <div class="space-y-6">
+  <div class="flex justify-end">
+    <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
+      <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
+        <Languages class="h-3.5 w-3.5" /> {t("systemText")}
+      </span>
+      <button
+        type="button"
+        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
+        onclick={() => setUiLang("zh")}
+      >
+        {t("zh")}
+      </button>
+      <button
+        type="button"
+        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
+        onclick={() => setUiLang("en")}
+      >
+        {t("english")}
+      </button>
+    </div>
+  </div>
+
   <section
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
+    class="rounded-4xl border border-border bg-(--color-panel) px-5 py-5 backdrop-blur-sm"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="text-2xl font-semibold">{m.courseManage_assessments()}</h3>
+      <h3 class="inline-flex items-center gap-2 text-2xl font-semibold"><BookOpenCheck class="h-5 w-5 text-muted-foreground" /> {t("assessments")}</h3>
       <span
         class="rounded-full border border-border px-3 py-1 text-xs font-medium"
       >
@@ -170,7 +285,7 @@
     <div class="mt-5 grid gap-3">
       {#each assessments as assessment (assessment.slug)}
         <article
-          class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
+          class="rounded-3xl border border-border bg-(--color-panel) px-4 py-4"
         >
           <div class="flex items-start justify-between gap-4">
             <div>
@@ -182,12 +297,12 @@
             <span
               class="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
-              {assessment.problemSlugs.length} problems
+              {assessment.problemSlugs.length} {t("problems")}
             </span>
           </div>
           {#if assessment.allowedLanguages.length > 0}
             <p class="mt-1 text-xs text-muted-foreground">
-              Languages: {assessment.allowedLanguages.join(", ")}
+              {t("allowedLanguages")}: {assessment.allowedLanguages.join(", ")}
             </p>
           {/if}
           <div class="mt-3 flex items-center justify-between gap-4">
@@ -196,7 +311,7 @@
             </p>
             <div class="flex items-center gap-2">
               <button
-                class="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)] disabled:cursor-not-allowed disabled:opacity-70"
+                class="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-(--color-panel) disabled:cursor-not-allowed disabled:opacity-70"
                 disabled={isCheckInProgress(assessment.id)}
                 onclick={() => triggerPlagiarismCheck(assessment.id)}
               >
@@ -207,7 +322,7 @@
                   href="/courses/{courseSlug}/manage/plagiarism/{assessment.slug}"
                   class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white transition hover:-translate-y-0.5"
                 >
-                  View Results
+                  {t("viewResults")}
                 </a>
               {/if}
             </div>
@@ -218,9 +333,9 @@
   </section>
 
   <section
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
+    class="rounded-4xl border border-border bg-(--color-panel) px-5 py-5 backdrop-blur-sm"
   >
-    <h3 class="text-2xl font-semibold">{m.courseManage_publishAssessment()}</h3>
+    <h3 class="inline-flex items-center gap-2 text-2xl font-semibold"><Sparkles class="h-5 w-5 text-muted-foreground" /> {t("createAssessment")}</h3>
     <form
       class="mt-4 grid gap-3"
       method="POST"
@@ -233,7 +348,7 @@
             class={inputClassName}
             name="title"
             bind:value={$form.title}
-            placeholder="Assessment title"
+            placeholder={t("assessmentTitle")}
             required
           />
           {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
@@ -251,6 +366,7 @@
         </div>
       </div>
       <div>
+        <label class="mb-1 inline-flex items-center gap-1 text-xs text-muted-foreground" for="scoreboardMode"><CalendarRange class="h-3.5 w-3.5" /> {t("scoreboardMode")}</label>
         <select class={inputClassName} name="scoreboardMode" bind:value={$form.scoreboardMode}>
           <option value="hidden">hidden</option>
           <option value="live">live</option>
@@ -258,7 +374,7 @@
         </select>
       </div>
       <div>
-        <p class="mb-1 text-xs text-muted-foreground">Allowed languages (empty = all)</p>
+        <p class="mb-1 text-xs text-muted-foreground">{t("allowedLanguages")}</p>
         <div class="flex flex-wrap gap-3">
           {#each supportedLanguages as lang (lang)}
             <label class="inline-flex items-center gap-1.5 text-sm">
@@ -279,7 +395,7 @@
           class={textareaClassName}
           name="summary"
           bind:value={$form.summary}
-          placeholder="Assessment summary"
+          placeholder={t("assessmentSummary")}
           required
         ></textarea>
         {#if $errors.summary}<span class="text-sm text-red-700 dark:text-red-400">{$errors.summary}</span>{/if}
@@ -311,11 +427,11 @@
       <div class="grid gap-3 md:grid-cols-2">
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
-          Page lock (prevent tab switching)
+          {t("pageLock")}
         </label>
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="ipWhitelistEnabled" bind:checked={$form.ipWhitelistEnabled} />
-          IP Whitelist
+          {t("whitelist")}
         </label>
       </div>
       {#if $form.ipWhitelistEnabled}
@@ -332,24 +448,24 @@
       <div class="grid gap-3 md:grid-cols-2">
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="ipBindingEnabled" bind:checked={$form.ipBindingEnabled} />
-          IP First-Binding (lock to first IP used)
+          {t("ipBinding")}
         </label>
       </div>
       {#if $form.ipWhitelistEnabled || $form.ipBindingEnabled}
         <div class="flex items-center gap-4 text-sm">
-          <span class="text-muted-foreground">When IP violation occurs:</span>
+          <span class="inline-flex items-center gap-1 text-muted-foreground"><Shield class="h-3.5 w-3.5" /> {t("whenIpViolation")}</span>
           <label class="flex items-center gap-1.5">
             <input type="radio" name="ipViolationMode" value="block" bind:group={$form.ipViolationMode} />
-            Block
+            {t("block")}
           </label>
           <label class="flex items-center gap-1.5">
             <input type="radio" name="ipViolationMode" value="notify" bind:group={$form.ipViolationMode} />
-            Notify only
+            {t("notifyOnly")}
           </label>
         </div>
       {/if}
       <div>
-        <label class="text-xs text-muted-foreground" for="maxAttempts">Max attempts (optional)</label>
+        <label class="text-xs text-muted-foreground" for="maxAttempts">{t("maxAttempts")}</label>
         <input
           class={inputClassName}
           id="maxAttempts"
@@ -357,7 +473,7 @@
           type="number"
           min="1"
           max="999"
-          placeholder="Unlimited"
+          placeholder={t("noLimit")}
           bind:value={$form.maxAttempts}
         />
       </div>
@@ -366,7 +482,7 @@
         disabled={$submitting}
         type="submit"
       >
-        {$submitting ? m.common_publishing() : m.courseManage_publishAssessment()}
+        {$submitting ? t("publishing") : t("publishAssessment")}
       </button>
     </form>
     {#if $formMessage}
