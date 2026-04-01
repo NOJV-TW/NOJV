@@ -1,7 +1,154 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 
+type SeedLocale = "en" | "zh-TW";
+
+type SeedStatement = {
+  title: string;
+  body: string;
+  inputFormat?: string;
+  outputFormat?: string;
+};
+
+type SeedTestcase = {
+  stdin: string;
+  expectedStdout: string;
+};
+
+type SeedTestcaseSet = {
+  isHidden: boolean;
+  cases: SeedTestcase[];
+};
+
+type SeedStatements = Record<SeedLocale, SeedStatement>;
+
+type SeedTestcaseSets = {
+  sample: SeedTestcaseSet;
+  hidden: SeedTestcaseSet;
+};
+
+type SeedJudgeType = "standard" | "checker" | "interactive";
+type SeedSubmissionType = "full_source" | "function";
+
+type SeedProblemDef = {
+  authorId: string;
+  defaultTitle: string;
+  difficulty: string;
+  id: string;
+  memoryLimitMb: number;
+  slug: string;
+  summary: string;
+  timeLimitMs: number;
+  visibility: "public" | "private";
+  statements: SeedStatements;
+  testcases: SeedTestcaseSets;
+  submissionType?: SeedSubmissionType;
+  judgeType?: SeedJudgeType;
+  checkerScript?: string;
+  interactorScript?: string;
+};
+
+type SeedFunctionTemplate = {
+  driverCode: string;
+  insertionMarker: string;
+  language: "python" | "cpp";
+  templateCode: string;
+};
+
+type SeedFunctionTemplateDef = {
+  slug: string;
+  templates: SeedFunctionTemplate[];
+};
+
+const hardenedSlugs = ["stateful-dhcp-parser", "memory-leak-forensics", "noisy-oracle-hunt"] as const;
+
+export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void {
+  const ids = new Set<string>();
+  const slugs = new Set<string>();
+
+  for (const def of problemDefs) {
+    if (ids.has(def.id)) {
+      throw new Error(`Duplicate seed problem id: ${def.id}`);
+    }
+    ids.add(def.id);
+
+    if (slugs.has(def.slug)) {
+      throw new Error(`Duplicate seed problem slug: ${def.slug}`);
+    }
+    slugs.add(def.slug);
+
+    if (!def.statements.en?.title || !def.statements["zh-TW"]?.title) {
+      throw new Error(`Missing required locales for problem: ${def.slug}`);
+    }
+
+    if (def.testcases.sample.cases.length === 0 || def.testcases.hidden.cases.length === 0) {
+      throw new Error(`Sample/hidden testcase sets must be non-empty: ${def.slug}`);
+    }
+
+    if (def.judgeType === "checker" && !def.checkerScript?.trim()) {
+      throw new Error(`Checker judge requires checkerScript: ${def.slug}`);
+    }
+
+    if (def.judgeType === "interactive" && !def.interactorScript?.trim()) {
+      throw new Error(`Interactive judge requires interactorScript: ${def.slug}`);
+    }
+  }
+
+  for (const slug of hardenedSlugs) {
+    const def = problemDefs.find((entry) => entry.slug === slug);
+    if (!def) {
+      throw new Error(`Missing hardened seed problem: ${slug}`);
+    }
+    if (def.difficulty !== "hard") {
+      throw new Error(`Hardened problem must be hard difficulty: ${slug}`);
+    }
+  }
+}
+
+export function validateTemplateDefinitions(
+  problemDefs: SeedProblemDef[],
+  functionTemplateDefs: SeedFunctionTemplateDef[]
+): void {
+  const problemBySlug = new Map(problemDefs.map((def) => [def.slug, def]));
+  const templateSlugs = new Set<string>();
+
+  for (const bundle of functionTemplateDefs) {
+    if (templateSlugs.has(bundle.slug)) {
+      throw new Error(`Duplicate template bundle slug: ${bundle.slug}`);
+    }
+    templateSlugs.add(bundle.slug);
+
+    const problem = problemBySlug.get(bundle.slug);
+    if (!problem) {
+      throw new Error(`Template references unknown problem slug: ${bundle.slug}`);
+    }
+
+    if (bundle.templates.length === 0) {
+      throw new Error(`Template bundle must include at least one template: ${bundle.slug}`);
+    }
+
+    for (const template of bundle.templates) {
+      if (!template.templateCode.trim()) {
+        throw new Error(`Template code cannot be empty: ${bundle.slug}`);
+      }
+
+      const markerCount = template.driverCode.split(template.insertionMarker).length - 1;
+      if (markerCount !== 1) {
+        throw new Error(
+          `Template marker must appear exactly once for ${bundle.slug} (${template.language})`
+        );
+      }
+    }
+  }
+
+  for (const problem of problemDefs) {
+    if (problem.submissionType === "function" && !templateSlugs.has(problem.slug)) {
+      throw new Error(`Function-mode problem is missing templates: ${problem.slug}`);
+    }
+  }
+}
+
 export async function seedProblems(prisma: PrismaClient, teacherId: string) {
-  const problemDefs = [
+  const problemDefs: SeedProblemDef[] = [
     {
       authorId: teacherId,
       defaultTitle: "Warmup Sum",
@@ -422,8 +569,203 @@ if __name__ == "__main__":
           ]
         }
       }
+    },
+    {
+      authorId: teacherId,
+      defaultTitle: "Stateful DHCP Option Parser",
+      difficulty: "hard",
+      id: "problem_stateful-dhcp-parser",
+      memoryLimitMb: 256,
+      slug: "stateful-dhcp-parser",
+      submissionType: "function" as const,
+      judgeType: "standard" as const,
+      summary:
+        "Implement a resilient TLV parser over DHCP option bytes with malformed-stream handling and canonical formatting.",
+      timeLimitMs: 1500,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "Stateful DHCP Option Parser",
+          body: "這是一題函式題。你要實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `[\"ERROR\"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。",
+          inputFormat:
+            "評測 driver 會先讀入整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
+          outputFormat:
+            "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。"
+        },
+        en: {
+          title: "Stateful DHCP Option Parser",
+          body: "This is a function-mode problem. Implement `parse_dhcp_options(hex_payload)`, where the input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `[\"ERROR\"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.",
+          inputFormat:
+            "The judge driver reads an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
+          outputFormat:
+            "Print one line per payload. A returned list `[a, b, c]` must be printed as `a|b|c`."
+        }
+      },
+      testcases: {
+        sample: {
+          isHidden: false,
+          cases: [
+            {
+              stdin: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
+              expectedStdout: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
+            }
+          ]
+        },
+        hidden: {
+          isHidden: true,
+          cases: [
+            {
+              stdin: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
+              expectedStdout: "12:6:6E6F6A762D31\nERROR"
+            },
+            {
+              stdin: "1\n00000608C0A80101C0A801FEFF\n",
+              expectedStdout: "6:8:192.168.1.1,192.168.1.254"
+            }
+          ]
+        }
+      }
+    },
+    {
+      authorId: teacherId,
+      defaultTitle: "Memory Leak Forensics",
+      difficulty: "hard",
+      id: "problem_memory-leak-forensics",
+      memoryLimitMb: 256,
+      slug: "memory-leak-forensics",
+      submissionType: "function" as const,
+      judgeType: "standard" as const,
+      summary:
+        "Analyze allocator event streams and report peak allocation, leaked block count, and invalid free attempts.",
+      timeLimitMs: 2000,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "Memory Leak Forensics",
+          body: "這是一題函式題。實作 `analyze_trace(events)`，每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
+          inputFormat:
+            "評測 driver 會先讀入整數 $N$，再讀 $N$ 行事件，最後呼叫 `analyze_trace`。",
+          outputFormat: "輸出三個整數：`peak_bytes leaked_blocks invalid_free_count`。"
+        },
+        en: {
+          title: "Memory Leak Forensics",
+          body: "This is a function-mode problem. Implement `analyze_trace(events)`, where each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
+          inputFormat:
+            "The judge driver reads an integer $N$, then $N$ event lines, and calls `analyze_trace`.",
+          outputFormat:
+            "Print three integers: `peak_bytes leaked_blocks invalid_free_count`."
+        }
+      },
+      testcases: {
+        sample: {
+          isHidden: false,
+          cases: [
+            {
+              stdin: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
+              expectedStdout: "48 0 0"
+            },
+            {
+              stdin: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
+              expectedStdout: "10 1 2"
+            }
+          ]
+        },
+        hidden: {
+          isHidden: true,
+          cases: [
+            {
+              stdin: "8\nALLOC p1 100\nALLOC p2 200\nFREE p1\nALLOC p3 50\nALLOC p2 30\nFREE p3\nFREE p9\nFREE p2\n",
+              expectedStdout: "300 1 1"
+            },
+            {
+              stdin: "4\nFREE z\nALLOC z 1\nALLOC z 2\nALLOC z 3\n",
+              expectedStdout: "3 2 1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      authorId: teacherId,
+      defaultTitle: "Noisy Oracle Hunt",
+      difficulty: "hard",
+      id: "problem_noisy-oracle-hunt",
+      memoryLimitMb: 256,
+      slug: "noisy-oracle-hunt",
+      submissionType: "full_source" as const,
+      judgeType: "interactive" as const,
+      interactorScript: `import sys
+
+def main():
+    input_path = sys.argv[1]
+    with open(input_path) as f:
+        secret = int(f.read().strip())
+
+    lo, hi = 1, 1_000_000
+    max_turns = 35
+    lie_period = 5
+
+    print(f"{lo} {hi} {max_turns} {lie_period}", flush=True)
+
+    for turn in range(1, max_turns + 1):
+        line = input().strip()
+        guess = int(line)
+
+        if guess == secret:
+            print("correct", flush=True)
+            sys.exit(0)
+
+        truthful = "higher" if guess < secret else "lower"
+        if turn % lie_period == 0:
+            truthful = "lower" if truthful == "higher" else "higher"
+
+        print(truthful, flush=True)
+
+    print(f"Failed to find {secret} in {max_turns} turns", file=sys.stderr)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+`,
+      summary:
+        "Interactive search under periodic adversarial lies: every 5th non-terminal response is inverted.",
+      timeLimitMs: 2500,
+      visibility: "public" as const,
+      statements: {
+        "zh-TW": {
+          title: "Noisy Oracle Hunt",
+          body: "這是一道高難互動題。你要找出區間內秘密數字，但 oracle 並非完全誠實。\n\n互動器第一行輸出：`lo hi maxTurns liePeriod`。\n你每回合輸出一個猜測整數，互動器回應：\n- `higher`：你的猜測太小\n- `lower`：你的猜測太大\n- `correct`：猜中\n\n陷阱：每逢第 `liePeriod` 回合（例如 5,10,15...），若尚未猜中，回應會故意反轉。",
+          inputFormat: "互動器先輸出四個整數 `lo hi maxTurns liePeriod`。",
+          outputFormat: "每回合輸出一個整數猜測，並立即 flush。"
+        },
+        en: {
+          title: "Noisy Oracle Hunt",
+          body: "This is a hard interactive problem. You must find a hidden number in range, but the oracle is not always truthful.\n\nThe interactor first prints: `lo hi maxTurns liePeriod`.\nEach turn, print one integer guess, and receive:\n- `higher`: your guess is too small\n- `lower`: your guess is too large\n- `correct`: guessed exactly\n\nTrap: on every `liePeriod`-th turn (5, 10, 15, ...), if not already correct, the response is intentionally inverted.",
+          inputFormat: "The interactor first outputs `lo hi maxTurns liePeriod`.",
+          outputFormat: "Print one integer guess per turn and flush immediately."
+        }
+      },
+      testcases: {
+        sample: {
+          isHidden: false,
+          cases: [
+            { stdin: "42", expectedStdout: "" },
+            { stdin: "777777", expectedStdout: "" }
+          ]
+        },
+        hidden: {
+          isHidden: true,
+          cases: [
+            { stdin: "1", expectedStdout: "" },
+            { stdin: "1000000", expectedStdout: "" },
+            { stdin: "314159", expectedStdout: "" }
+          ]
+        }
+      }
     }
   ];
+
+  validateProblemDefinitions(problemDefs);
 
   for (const def of problemDefs) {
     const problem = await prisma.problem.upsert({
@@ -523,52 +865,120 @@ if __name__ == "__main__":
   }
 
   // --- Problem Templates (for function-mode problems) ---
-  const addProblem = await prisma.problem.findUnique({ where: { slug: "add-two-numbers" } });
-  if (addProblem) {
-    await prisma.problemTemplate.upsert({
-      create: {
-        driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
-        insertionMarker: "# __USER_CODE__",
-        language: "python",
-        problemId: addProblem.id,
-        templateCode: "def add(a, b):\n    # Write your solution here\n    pass\n"
-      },
-      update: {
-        driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
-        templateCode: "def add(a, b):\n    # Write your solution here\n    pass\n"
-      },
-      where: {
-        problemId_language: {
-          language: "python",
-          problemId: addProblem.id
+  const functionTemplateDefs: SeedFunctionTemplateDef[] = [
+    {
+      slug: "add-two-numbers",
+      templates: [
+        {
+          driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
+          insertionMarker: "# __USER_CODE__",
+          language: "python" as const,
+          templateCode: "def add(a, b):\n    # Write your solution here\n    pass\n"
+        },
+        {
+          driverCode:
+            "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
+          insertionMarker: "// __USER_CODE__",
+          language: "cpp" as const,
+          templateCode:
+            "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
         }
-      }
-    });
+      ]
+    },
+    {
+      slug: "stateful-dhcp-parser",
+      templates: [
+        {
+          driverCode: `# __USER_CODE__
+def main():
+    import sys
 
-    await prisma.problemTemplate.upsert({
-      create: {
-        driverCode:
-          "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
-        insertionMarker: "// __USER_CODE__",
-        language: "cpp",
-        problemId: addProblem.id,
-        templateCode:
-          "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
-      },
-      update: {
-        driverCode:
-          "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
-        templateCode:
-          "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
-      },
-      where: {
-        problemId_language: {
-          language: "cpp",
-          problemId: addProblem.id
+    lines = sys.stdin.read().strip().splitlines()
+    if not lines:
+        return
+
+    q = int(lines[0])
+    out = []
+    for i in range(1, q + 1):
+        payload = lines[i].strip() if i < len(lines) else ""
+        result = parse_dhcp_options(payload)
+        out.append("|".join(result))
+
+    print("\\n".join(out))
+
+if __name__ == "__main__":
+    main()
+`,
+          insertionMarker: "# __USER_CODE__",
+          language: "python" as const,
+          templateCode: `def parse_dhcp_options(hex_payload: str) -> list[str]:
+    # Return canonical entries: CODE:LEN:VALUE
+    # Return ["ERROR"] on malformed payload.
+    return []
+`
         }
-      }
-    });
+      ]
+    },
+    {
+      slug: "memory-leak-forensics",
+      templates: [
+        {
+          driverCode: `# __USER_CODE__
+def main():
+    import sys
 
-    console.log(`  Templates: 2 upserted for add-two-numbers (python, cpp)`);
+    lines = sys.stdin.read().strip().splitlines()
+    if not lines:
+        return
+
+    n = int(lines[0])
+    events = lines[1:1 + n]
+    peak, leaked, invalid = analyze_trace(events)
+    print(peak, leaked, invalid)
+
+if __name__ == "__main__":
+    main()
+`,
+          insertionMarker: "# __USER_CODE__",
+          language: "python" as const,
+          templateCode: `def analyze_trace(events: list[str]) -> tuple[int, int, int]:
+    # Return: (peak_bytes, leaked_blocks, invalid_free_count)
+    return (0, 0, 0)
+`
+        }
+      ]
+    }
+  ];
+
+  validateTemplateDefinitions(problemDefs, functionTemplateDefs);
+
+  for (const tplDef of functionTemplateDefs) {
+    const problem = await prisma.problem.findUnique({ where: { slug: tplDef.slug } });
+    if (!problem) continue;
+
+    for (const tpl of tplDef.templates) {
+      await prisma.problemTemplate.upsert({
+        create: {
+          driverCode: tpl.driverCode,
+          insertionMarker: tpl.insertionMarker,
+          language: tpl.language,
+          problemId: problem.id,
+          templateCode: tpl.templateCode
+        },
+        update: {
+          driverCode: tpl.driverCode,
+          insertionMarker: tpl.insertionMarker,
+          templateCode: tpl.templateCode
+        },
+        where: {
+          problemId_language: {
+            language: tpl.language,
+            problemId: problem.id
+          }
+        }
+      });
+    }
+
+    console.log(`  Templates: ${tplDef.templates.length} upserted for ${tplDef.slug}`);
   }
 }

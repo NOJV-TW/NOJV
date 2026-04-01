@@ -70,6 +70,7 @@ docker compose up -d
 pnpm db:generate
 pnpm build
 pnpm db:push
+pnpm db:seed:validate
 pnpm db:seed
 
 # 6. Build sandbox image (needed for submission judging)
@@ -114,6 +115,7 @@ pnpm test:integration
 pnpm build
 pnpm typecheck
 pnpm db:validate
+pnpm db:seed:validate
 ```
 
 Troubleshooting:
