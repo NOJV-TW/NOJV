@@ -1,5 +1,6 @@
 import {
   submissionResultSchema,
+  type PipelineConfig,
   type SubtaskResultItem,
   type SubmissionDraft,
   type SubmissionResult
@@ -28,9 +29,30 @@ export async function judgeSubmission(
     : judgeContext.testcaseSets.filter((ts) => ts.isHidden);
   const testcases = activeSets.flatMap((ts) => ts.testcases);
 
+  // Extract static analysis config from pipeline if present
+  const staticAnalysisConfig = extractStaticAnalysisConfig(judgeContext.pipelineConfig);
+
+  // Build scoring config from problem fields
+  const scoringConfig = judgeContext.scoringScript
+    ? {
+        script: judgeContext.scoringScript,
+        language: (judgeContext.scoringLanguage ?? "python") as "python",
+        timeoutMs: 30_000
+      }
+    : undefined;
+
+  // Build artifact collection config from problem fields
+  const artifactPatterns = judgeContext.artifactPatterns ?? [];
+  const artifactConfig =
+    artifactPatterns.length > 0
+      ? { patterns: artifactPatterns, maxTotalSizeBytes: 10_000_000 }
+      : undefined;
+
   const request: SandboxRequest = {
     submissionId,
     sourceCode: draft.sourceCode,
+    ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
+    ...(draft.entryFile ? { entryFile: draft.entryFile } : {}),
     language: draft.language,
     submissionType: judgeContext.submissionType,
     testcases: testcases.map((tc, i) => ({
@@ -60,12 +82,27 @@ export async function judgeSubmission(
             insertionMarker: template.insertionMarker
           }
         }
+      : {}),
+    ...(judgeContext.pipelineConfig ? { pipeline: judgeContext.pipelineConfig } : {}),
+    ...(staticAnalysisConfig ? { staticAnalysis: staticAnalysisConfig } : {}),
+    ...(scoringConfig ? { scoring: scoringConfig } : {}),
+    ...(artifactConfig ? { artifactCollection: artifactConfig } : {}),
+    ...(judgeContext.networkAccessConfig
+      ? { networkAccess: judgeContext.networkAccessConfig }
       : {})
   };
 
   const result = await executor.execute(request);
 
   return submissionResultSchema.parse(mapResult(result, activeSets));
+}
+
+/**
+ * Extract static analysis config from pipeline stages.
+ * Searches the pipeline for a "static-analysis" stage and returns its config.
+ */
+function extractStaticAnalysisConfig(pipelineConfig: PipelineConfig | null) {
+  return pipelineConfig?.stages.find((s) => s.type === "static-analysis")?.config;
 }
 
 function buildSubtaskResults(
@@ -108,6 +145,17 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
     timeMs: t.timeMs
   }));
 
+  // Build pipeline result metadata
+  const pipelineResult: Record<string, unknown> = {};
+  if (result.staticAnalysis) pipelineResult.staticAnalysis = result.staticAnalysis;
+  if (result.artifacts) pipelineResult.artifacts = result.artifacts;
+  if (result.customStageResults) pipelineResult.customStageResults = result.customStageResults;
+  if (result.customScore !== undefined) pipelineResult.customScore = result.customScore;
+  if (result.scoringFeedback) pipelineResult.scoringFeedback = result.scoringFeedback;
+
+  const hasPipelineResult = Object.keys(pipelineResult).length > 0;
+  const artifactPaths = result.artifacts?.map((a) => a.path);
+
   if (result.compilationError) {
     return {
       accepted: false,
@@ -115,7 +163,22 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
       feedback: result.compilationError,
       runtimeMs: 0,
       score: 0,
-      verdict: "compile_error"
+      verdict: "compile_error",
+      ...(hasPipelineResult ? { pipelineResult } : {}),
+      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+    };
+  }
+
+  if (result.pipelineError) {
+    return {
+      accepted: false,
+      caseResults,
+      feedback: result.pipelineError,
+      runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
+      score: 0,
+      verdict: "runtime_error",
+      ...(hasPipelineResult ? { pipelineResult } : {}),
+      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
     };
   }
 
@@ -126,17 +189,24 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
   // A subtask passes only if ALL its cases are AC.
   const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
   const passedWeight = subtaskResults.reduce((s, st) => s + (st.passed ? st.weight : 0), 0);
-  const score = totalWeight > 0 ? Math.round((passedWeight / totalWeight) * 100) : 0;
+  let score = totalWeight > 0 ? Math.round((passedWeight / totalWeight) * 100) : 0;
+
+  // Apply custom score override if provided by scoring stage
+  if (result.customScore !== undefined) {
+    score = result.customScore;
+  }
 
   if (result.testcaseResults.every((t) => t.verdict === "AC")) {
     return {
       accepted: true,
       caseResults,
-      feedback: "All testcases passed",
+      feedback: result.scoringFeedback ?? "All testcases passed",
       runtimeMs,
-      score: 100,
+      score: result.customScore ?? 100,
       subtaskResults,
-      verdict: "accepted"
+      verdict: "accepted",
+      ...(hasPipelineResult ? { pipelineResult } : {}),
+      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
     };
   }
 
@@ -144,6 +214,7 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
     if (tc.verdict !== "AC") {
       const verdict = verdictMap[tc.verdict] ?? "runtime_error";
       const feedback =
+        result.scoringFeedback ??
         tc.feedback ??
         `Failed on testcase ${String(tc.index + 1)}: ${verdict.replace(/_/g, " ")}`;
       return {
@@ -153,7 +224,9 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
         runtimeMs,
         score,
         subtaskResults,
-        verdict
+        verdict,
+        ...(hasPipelineResult ? { pipelineResult } : {}),
+        ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
       };
     }
   }
@@ -166,6 +239,8 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
     runtimeMs,
     score,
     subtaskResults,
-    verdict: "runtime_error" as const
+    verdict: "runtime_error" as const,
+    ...(hasPipelineResult ? { pipelineResult } : {}),
+    ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
   };
 }

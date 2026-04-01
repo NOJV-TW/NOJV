@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { username } from "better-auth/plugins";
+import bcrypt from "bcryptjs";
 
 import { prisma } from "@nojv/db";
 
@@ -16,7 +17,12 @@ function createAuth() {
     baseURL: requiredEnv("BETTER_AUTH_URL"),
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     emailAndPassword: {
-      enabled: true
+      enabled: true,
+      // Seeded credential accounts store bcrypt hashes; configure auth to match.
+      password: {
+        hash: async (plain) => bcrypt.hash(plain, 10),
+        verify: async ({ hash, password }) => bcrypt.compare(password, hash)
+      }
     },
     socialProviders: {
       github: {

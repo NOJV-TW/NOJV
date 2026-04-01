@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { sourceFileNames } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
@@ -47,30 +48,54 @@ export async function compile(
   workDir: string
 ): Promise<CompileResult> {
   switch (input.language) {
-    case "c":
+    case "c": {
+      const cSources = await collectSourceFiles(workDir, [".c"]);
       return compileWithCommand(
-        ["gcc", "-O2", "-std=c17", "-o", path.join(workDir, "main"), sourcePath],
+        [
+          "gcc",
+          "-O2",
+          "-std=c17",
+          "-o",
+          path.join(workDir, "main"),
+          ...(cSources.length > 0 ? cSources : [sourcePath])
+        ],
         [path.join(workDir, "main")],
         workDir
       );
-    case "cpp":
+    }
+    case "cpp": {
+      const cppSources = await collectSourceFiles(workDir, [".cpp", ".cc", ".cxx", ".c++"]);
       return compileWithCommand(
-        ["g++", "-O2", "-std=c++20", "-o", path.join(workDir, "main"), sourcePath],
+        [
+          "g++",
+          "-O2",
+          "-std=c++20",
+          "-o",
+          path.join(workDir, "main"),
+          ...(cppSources.length > 0 ? cppSources : [sourcePath])
+        ],
         [path.join(workDir, "main")],
         workDir
       );
-    case "go":
+    }
+    case "go": {
+      const goSources = await collectSourceFiles(workDir, [".go"]);
+      const hasGoMod = await pathExists(path.join(workDir, "go.mod"));
+      const goCompileCommand =
+        hasGoMod || goSources.length > 1
+          ? ["go", "build", "-o", path.join(workDir, "main"), "."]
+          : ["go", "build", "-o", path.join(workDir, "main"), sourcePath];
+
+      return compileWithCommand(goCompileCommand, [path.join(workDir, "main")], workDir);
+    }
+    case "java": {
+      const javaSources = await collectSourceFiles(workDir, [".java"]);
       return compileWithCommand(
-        ["go", "build", "-o", path.join(workDir, "main"), sourcePath],
-        [path.join(workDir, "main")],
-        workDir
-      );
-    case "java":
-      return compileWithCommand(
-        ["javac", "-d", workDir, sourcePath],
+        ["javac", "-d", workDir, ...(javaSources.length > 0 ? javaSources : [sourcePath])],
         ["java", "-cp", workDir, "Main"],
         workDir
       );
+    }
     case "javascript":
       return { success: true, runCommand: ["node", sourcePath] };
     case "python":
@@ -175,4 +200,45 @@ function compileWithCommand(
       });
     });
   });
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function collectSourceFiles(baseDir: string, extensions: string[]): Promise<string[]> {
+  const results: string[] = [];
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if (extensions.includes(ext)) {
+          results.push(fullPath);
+        }
+      }
+    }
+  };
+
+  await walk(baseDir);
+  results.sort();
+  return results;
 }

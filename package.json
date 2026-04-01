@@ -27,6 +27,7 @@
     "db:migrate": "pnpm --filter @nojv/db db:migrate",
     "db:push": "pnpm --filter @nojv/db db:push",
     "db:seed": "pnpm --filter @nojv/db db:seed",
+    "db:seed:validate": "pnpm --filter @nojv/db db:seed:validate",
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "devDependencies": {
