@@ -73,7 +73,7 @@ export class DockerExecutor implements SandboxExecutor {
 
   private async writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
     const fileWrites: Promise<void>[] = [];
-    const sourceFileMap: Array<{ path: string; key: string }> = [];
+    const sourceFileMap: { path: string; key: string }[] = [];
 
     const defaultSourcePath = sourceFileNames[request.language];
     let wroteDefaultSource = false;
