@@ -7,7 +7,9 @@ export const load = async ({ parent }) => {
   const courseSlug = courseData.course.slug;
   const now = new Date();
 
-  const students = courseData.course.members.filter((member) => member.courseRole === "student");
+  const students = courseData.course.members.filter(
+    (member) => member.courseRole === "student"
+  );
   const studentIds = new Set(students.map((student) => student.userId));
   const studentNameMap = new Map(
     students.map((student) => [student.userId, student.username ?? student.displayName])
@@ -138,10 +140,13 @@ export const load = async ({ parent }) => {
 
     const avgBestScore =
       bestScores.length > 0
-        ? Number((bestScores.reduce((sum, score) => sum + score, 0) / bestScores.length).toFixed(1))
+        ? Number(
+            (bestScores.reduce((sum, score) => sum + score, 0) / bestScores.length).toFixed(1)
+          )
         : 0;
 
-    const participantRate = students.length > 0 ? Math.round((participants / students.length) * 100) : 0;
+    const participantRate =
+      students.length > 0 ? Math.round((participants / students.length) * 100) : 0;
     const acceptedStudentRate =
       students.length > 0 ? Math.round((acceptedStudents / students.length) * 100) : 0;
 
@@ -166,16 +171,21 @@ export const load = async ({ parent }) => {
   });
 
   const totalSubmissions = submissions.length;
-  const acceptedSubmissionsTotal = submissions.filter((submission) => submission.status === "accepted").length;
+  const acceptedSubmissionsTotal = submissions.filter(
+    (submission) => submission.status === "accepted"
+  ).length;
   const pendingJudgeCount =
     (statusMap.get("queued") ?? 0) +
     (statusMap.get("compiling") ?? 0) +
     (statusMap.get("running") ?? 0);
 
   const activeStudents = new Set(
-    submissions.filter((submission) => studentIds.has(submission.userId)).map((submission) => submission.userId)
+    submissions
+      .filter((submission) => studentIds.has(submission.userId))
+      .map((submission) => submission.userId)
   );
-  const participationRate = students.length > 0 ? Math.round((activeStudents.size / students.length) * 100) : 0;
+  const participationRate =
+    students.length > 0 ? Math.round((activeStudents.size / students.length) * 100) : 0;
 
   const acceptedRate =
     totalSubmissions > 0 ? Math.round((acceptedSubmissionsTotal / totalSubmissions) * 100) : 0;
@@ -204,7 +214,8 @@ export const load = async ({ parent }) => {
     })
     .sort((left, right) => {
       if (right.totalScore !== left.totalScore) return right.totalScore - left.totalScore;
-      if (right.acceptedCells !== left.acceptedCells) return right.acceptedCells - left.acceptedCells;
+      if (right.acceptedCells !== left.acceptedCells)
+        return right.acceptedCells - left.acceptedCells;
       return left.username.localeCompare(right.username);
     })
     .slice(0, 12);
@@ -218,8 +229,10 @@ export const load = async ({ parent }) => {
     }))
     .filter((student) => student.submissionCount === 0 || student.acceptedCount === 0)
     .sort((left, right) => {
-      if (left.submissionCount !== right.submissionCount) return left.submissionCount - right.submissionCount;
-      if (left.acceptedCount !== right.acceptedCount) return left.acceptedCount - right.acceptedCount;
+      if (left.submissionCount !== right.submissionCount)
+        return left.submissionCount - right.submissionCount;
+      if (left.acceptedCount !== right.acceptedCount)
+        return left.acceptedCount - right.acceptedCount;
       return left.username.localeCompare(right.username);
     })
     .slice(0, 8);

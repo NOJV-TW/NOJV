@@ -195,7 +195,10 @@ rl.on("line", (line: string) => {
   rl.close();
 });`
     );
-    await writeFile(helperFile, `export function add(a: number, b: number): number { return a + b; }`);
+    await writeFile(
+      helperFile,
+      `export function add(a: number, b: number): number { return a + b; }`
+    );
 
     const compileResult = await compile(input, srcFile, workDir);
     expect(compileResult.success).toBe(true);

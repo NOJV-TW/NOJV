@@ -42,10 +42,7 @@ function normalizeRelativePath(rawPath: string): string | null {
     segments.length === 0 ||
     segments.some(
       (segment) =>
-        segment === "." ||
-        segment === ".." ||
-        segment.includes("\0") ||
-        segment.includes(":")
+        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
     )
   ) {
     return null;
@@ -76,7 +73,7 @@ export class DockerExecutor implements SandboxExecutor {
 
   private async writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
     const fileWrites: Promise<void>[] = [];
-    const sourceFileMap: Array<{ path: string; key: string }> = [];
+    const sourceFileMap: { path: string; key: string }[] = [];
 
     const defaultSourcePath = sourceFileNames[request.language];
     let wroteDefaultSource = false;
@@ -309,7 +306,10 @@ export class DockerExecutor implements SandboxExecutor {
     // If network access is enabled but no specific rules, use bridge with DNS
     // The firewall rules should be enforced at the Docker network or iptables level
     // For security, we log that network access is being granted
-    if (request.networkAccess?.firewallRules && request.networkAccess.firewallRules.length > 0) {
+    if (
+      request.networkAccess?.firewallRules &&
+      request.networkAccess.firewallRules.length > 0
+    ) {
       // In a production deployment, this would:
       // 1. Create a Docker network with specific iptables rules
       // 2. Only allow traffic to specified hosts/ports

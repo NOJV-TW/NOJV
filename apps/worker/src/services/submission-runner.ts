@@ -33,19 +33,19 @@ export async function judgeSubmission(
   const staticAnalysisConfig = extractStaticAnalysisConfig(judgeContext.pipelineConfig);
 
   // Build scoring config from problem fields
-  const scoringConfig =
-    judgeContext.scoringScript
-      ? {
-          script: judgeContext.scoringScript,
-          language: (judgeContext.scoringLanguage ?? "python") as "python",
-          timeoutMs: 30_000
-        }
-      : undefined;
+  const scoringConfig = judgeContext.scoringScript
+    ? {
+        script: judgeContext.scoringScript,
+        language: (judgeContext.scoringLanguage ?? "python") as "python",
+        timeoutMs: 30_000
+      }
+    : undefined;
 
   // Build artifact collection config from problem fields
+  const artifactPatterns = judgeContext.artifactPatterns ?? [];
   const artifactConfig =
-    judgeContext.artifactPatterns.length > 0
-      ? { patterns: judgeContext.artifactPatterns, maxTotalSizeBytes: 10_000_000 }
+    artifactPatterns.length > 0
+      ? { patterns: artifactPatterns, maxTotalSizeBytes: 10_000_000 }
       : undefined;
 
   const request: SandboxRequest = {
@@ -87,7 +87,9 @@ export async function judgeSubmission(
     ...(staticAnalysisConfig ? { staticAnalysis: staticAnalysisConfig } : {}),
     ...(scoringConfig ? { scoring: scoringConfig } : {}),
     ...(artifactConfig ? { artifactCollection: artifactConfig } : {}),
-    ...(judgeContext.networkAccessConfig ? { networkAccess: judgeContext.networkAccessConfig } : {})
+    ...(judgeContext.networkAccessConfig
+      ? { networkAccess: judgeContext.networkAccessConfig }
+      : {})
   };
 
   const result = await executor.execute(request);
@@ -100,12 +102,7 @@ export async function judgeSubmission(
  * Searches the pipeline for a "static-analysis" stage and returns its config.
  */
 function extractStaticAnalysisConfig(pipelineConfig: PipelineConfig | null) {
-  if (!pipelineConfig) return undefined;
-
-  const stage = pipelineConfig.stages.find((s) => s.type === "static-analysis");
-  if (!stage || stage.type !== "static-analysis") return undefined;
-
-  return stage.config;
+  return pipelineConfig?.stages.find((s) => s.type === "static-analysis")?.config;
 }
 
 function buildSubtaskResults(
