@@ -44,6 +44,9 @@ jobs:
       - name: Setup monorepo
         uses: ./.github/actions/setup
 
+      - name: Validate problem seed definitions (dry-run)
+        run: pnpm db:seed:validate
+
       - name: Verify monorepo (build, lint, per-package tests)
         run: pnpm ci:verify
         env:

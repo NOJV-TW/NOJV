@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { languageSchema, judgeTypeSchema, submissionTypeSchema } from "@nojv/core";
+import {
+  languageSchema,
+  judgeTypeSchema,
+  submissionTypeSchema,
+  staticAnalysisConfigSchema,
+  scoringConfigSchema,
+  artifactConfigSchema,
+  pipelineConfigSchema
+} from "@nojv/core";
 
 export type {
   SandboxResult,
@@ -15,6 +23,25 @@ export const SandboxInputSchema = z.object({
   language: languageSchema,
   judgeType: judgeTypeSchema,
   submissionType: submissionTypeSchema,
+  entryFile: z.string().min(1).max(300).optional(),
+  sourceFiles: z
+    .array(
+      z.object({
+        path: z.string().min(1).max(300),
+        content: z.string()
+      })
+    )
+    .max(200)
+    .optional(),
+  sourceFileMap: z
+    .array(
+      z.object({
+        path: z.string().min(1).max(300),
+        key: z.string().min(1).max(300)
+      })
+    )
+    .max(200)
+    .optional(),
   limits: z.object({
     timeoutMs: z.number(),
     memoryMb: z.number()
@@ -26,7 +53,11 @@ export const SandboxInputSchema = z.object({
     })
     .optional(),
   checkerLanguage: z.string().optional(),
-  interactorLanguage: z.string().optional()
+  interactorLanguage: z.string().optional(),
+  pipeline: pipelineConfigSchema.optional(),
+  staticAnalysis: staticAnalysisConfigSchema.optional(),
+  scoring: scoringConfigSchema.optional(),
+  artifactCollection: artifactConfigSchema.optional()
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
