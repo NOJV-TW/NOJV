@@ -1,5 +1,9 @@
 import * as fs from "node:fs/promises";
-import type { StaticAnalysisConfig, StaticAnalysisResult, StaticAnalysisViolation } from "@nojv/core";
+import type {
+  StaticAnalysisConfig,
+  StaticAnalysisResult,
+  StaticAnalysisViolation
+} from "@nojv/core";
 import { runProcess } from "../judges/run-process.js";
 
 /**
@@ -41,11 +45,11 @@ export async function runStaticAnalysis(
   // 2. Check banned imports
   for (const imp of config.bannedImports) {
     const importPatterns = [
-      new RegExp(`#include\\s*[<"]${escapeRegex(imp)}[>"]`),      // C/C++
-      new RegExp(`\\bimport\\s+${escapeRegex(imp)}\\b`),           // Python/Java/Go
-      new RegExp(`\\bfrom\\s+${escapeRegex(imp)}\\b`),             // Python
+      new RegExp(`#include\\s*[<"]${escapeRegex(imp)}[>"]`), // C/C++
+      new RegExp(`\\bimport\\s+${escapeRegex(imp)}\\b`), // Python/Java/Go
+      new RegExp(`\\bfrom\\s+${escapeRegex(imp)}\\b`), // Python
       new RegExp(`\\brequire\\s*\\(\\s*['"]${escapeRegex(imp)}['"]`), // JS/TS
-      new RegExp(`\\bimport\\s+.*['"]${escapeRegex(imp)}['"]`)     // JS/TS ES modules
+      new RegExp(`\\bimport\\s+.*['"]${escapeRegex(imp)}['"]`) // JS/TS ES modules
     ];
 
     for (let i = 0; i < lines.length; i++) {

@@ -15,10 +15,7 @@ import { judgeInteractive } from "./judges/interactive.js";
 import { runStaticAnalysis } from "./stages/static-analysis.js";
 import { runCustomScoring, type ScoringInput } from "./stages/score.js";
 import { collectArtifacts } from "./stages/artifact.js";
-import {
-  runCustomScriptStage,
-  type CustomScriptContext
-} from "./stages/custom-script.js";
+import { runCustomScriptStage, type CustomScriptContext } from "./stages/custom-script.js";
 import type {
   StaticAnalysisResult,
   ArtifactEntry,
@@ -76,10 +73,7 @@ function normalizeRelativePath(rawPath: string | undefined): string | null {
     segments.length === 0 ||
     segments.some(
       (segment) =>
-        segment === "." ||
-        segment === ".." ||
-        segment.includes("\0") ||
-        segment.includes(":")
+        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
     )
   ) {
     return null;
@@ -97,13 +91,20 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-async function writeWorkFile(workDir: string, relativePath: string, content: string): Promise<void> {
+async function writeWorkFile(
+  workDir: string,
+  relativePath: string,
+  content: string
+): Promise<void> {
   const fullPath = path.join(workDir, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, content, "utf-8");
 }
 
-async function materializeConfiguredSources(config: SandboxInput, workDir: string): Promise<void> {
+async function materializeConfiguredSources(
+  config: SandboxInput,
+  workDir: string
+): Promise<void> {
   for (const sourceFile of config.sourceFiles ?? []) {
     const normalizedPath = normalizeRelativePath(sourceFile.path);
     if (!normalizedPath) {
@@ -233,9 +234,13 @@ async function findScript(prefix: string): Promise<string | null> {
   return match ? path.join(SUBMISSION_DIR, match) : null;
 }
 
-function pipelineCustomStages(config: SandboxInput, runAt: CustomScriptRunAt): CustomScriptStage[] {
+function pipelineCustomStages(
+  config: SandboxInput,
+  runAt: CustomScriptRunAt
+): CustomScriptStage[] {
   return (config.pipeline?.stages ?? []).filter(
-    (stage): stage is CustomScriptStage => stage.type === "custom-script" && stage.config.runAt === runAt
+    (stage): stage is CustomScriptStage =>
+      stage.type === "custom-script" && stage.config.runAt === runAt
   );
 }
 
@@ -325,10 +330,7 @@ async function main(): Promise<void> {
       if (!continueOnFail) {
         const violationMessages = staticAnalysisResult.violations
           .filter((v) => v.severity === "error")
-          .map(
-            (v) =>
-              `Line ${String(v.line ?? "?")}: ${v.message}`
-          )
+          .map((v) => `Line ${String(v.line ?? "?")}: ${v.message}`)
           .join("\n");
 
         const output: SandboxOutput = {

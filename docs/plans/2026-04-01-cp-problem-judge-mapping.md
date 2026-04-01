@@ -13,6 +13,7 @@ Convert the CP problem sets in `docs/CP-problem` (HW01-HW05, Midterm, Final) int
 - Better handled as manual or semi-manual bonus tasks: 5 problems
 
 Notes:
+
 - The 5 manual/semi-manual tasks are all subjective bonus-style questions.
 - Core non-bonus algorithm/library/system problems can be covered by existing judge modes plus the newly added custom pipeline stages.
 

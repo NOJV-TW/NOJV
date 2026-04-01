@@ -254,11 +254,15 @@ export async function updateProblemRecord(
     if (payload.interactorScript !== undefined)
       updateData.interactorScript = payload.interactorScript;
     if (payload.summary !== undefined) updateData.summary = payload.summary;
-    if (payload.pipelineConfig !== undefined) updateData.pipelineConfig = payload.pipelineConfig;
+    if (payload.pipelineConfig !== undefined)
+      updateData.pipelineConfig = payload.pipelineConfig;
     if (payload.scoringScript !== undefined) updateData.scoringScript = payload.scoringScript;
-    if (payload.scoringLanguage !== undefined) updateData.scoringLanguage = payload.scoringLanguage;
-    if (payload.artifactPatterns !== undefined) updateData.artifactPatterns = payload.artifactPatterns;
-    if (payload.networkAccessConfig !== undefined) updateData.networkAccessConfig = payload.networkAccessConfig;
+    if (payload.scoringLanguage !== undefined)
+      updateData.scoringLanguage = payload.scoringLanguage;
+    if (payload.artifactPatterns !== undefined)
+      updateData.artifactPatterns = payload.artifactPatterns;
+    if (payload.networkAccessConfig !== undefined)
+      updateData.networkAccessConfig = payload.networkAccessConfig;
 
     if (Object.keys(updateData).length > 0) {
       await tx.problem.update({

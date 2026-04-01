@@ -37,10 +37,7 @@ function normalizeRelativePath(rawPath: string): string | null {
     segments.length === 0 ||
     segments.some(
       (segment) =>
-        segment === "." ||
-        segment === ".." ||
-        segment.includes("\0") ||
-        segment.includes(":")
+        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
     )
   ) {
     return null;

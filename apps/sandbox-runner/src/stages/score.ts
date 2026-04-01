@@ -37,7 +37,10 @@ export async function runCustomScoring(
 
   try {
     // Write the scoring script to disk
-    const ext = config.language === "python" || config.language === "python3" ? ".py" : `.${config.language}`;
+    const ext =
+      config.language === "python" || config.language === "python3"
+        ? ".py"
+        : `.${config.language}`;
     const scriptPath = path.join(tmpDir, `scoring${ext}`);
     await fs.writeFile(scriptPath, config.script, "utf-8");
 

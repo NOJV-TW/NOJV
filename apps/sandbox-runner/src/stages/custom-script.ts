@@ -1,11 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import type {
-  CustomScriptRunAt,
-  CustomScriptStage,
-  CustomScriptStageResult
-} from "@nojv/core";
+import type { CustomScriptRunAt, CustomScriptStage, CustomScriptStageResult } from "@nojv/core";
 import { compileChecker } from "../compiler.js";
 import { runProcess } from "../judges/run-process.js";
 
@@ -31,7 +27,12 @@ export async function runCustomScriptStage(
     const scriptPath = path.join(tmpDir, `${stage.name}${scriptExt}`);
     await fs.writeFile(scriptPath, stage.config.script, "utf-8");
 
-    const compileResult = await compileChecker(scriptPath, stage.config.language, tmpDir, stage.name);
+    const compileResult = await compileChecker(
+      scriptPath,
+      stage.config.language,
+      tmpDir,
+      stage.name
+    );
     if (!compileResult.success) {
       return {
         name: stage.name,
@@ -100,7 +101,10 @@ function extensionForLanguage(language: string): string {
   }
 }
 
-function parseStageOutput(stdout: string, stderr: string): {
+function parseStageOutput(
+  stdout: string,
+  stderr: string
+): {
   passed?: boolean;
   feedback?: string;
   metadata?: unknown;
