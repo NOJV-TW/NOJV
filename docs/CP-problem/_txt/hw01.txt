@@ -1,0 +1,394 @@
+                                                         Assignment
+
+
+                                                               1
+National Taiwan Normal University
+CSIE Computer Programming I
+Instructor: Po-Wen Chi
+Due Date: 2024.10.08 PM 11:59
+
+
+Policies:
+
+   • Zero tolerance for late submission.
+
+   • Please pack all your submissions in one zip file. RAR is not al-
+     lowed!!
+
+   • For convenience, your executable programs must be named following
+     the rule hwXXYY, where the red part is the homework number and
+     the blue part is the problem number. For example, hw0102 is the
+     executable program for homework #1 problem 2.
+
+   • I only accept PDF or TEXT. MS Word is not allowed.
+
+   • Do not forget your Makefile. For convenience, each assignment needs
+     only one Makefile.
+
+   • Please provide a README file. The README file should have at
+     least the following information:
+
+        – Your student ID and your name.
+        – How to build your code.
+        – How to execute your built programs.
+        – Anything that you want to notify our TAs.
+
+   • DO NOT BE A COPYCAT!! You will get ZERO if you are
+     caught.
+
+
+1.1     Print Colorful Words (20 pts)
+In this class, I have shown you how to print strings on your screen. However,
+it is very boring to use the same color all the time. Can I print strings with
+different colors? Absolutely yes! But how to do this? The keyword is
+ANSI escape codes.
+     Please write a program to show the following message on the screen,
+including punctuation marks. Then you should color all Kim’s lyrics with
+red, all Chris’s lyrics with blue and all duet’s lyrics with green.
+1 $ ./ hw0101
+2 [KIM]
+3 You are sunlight and I moon
+4 Joined by the gods of fortune
+5 Midnight and high noon sharing the sky
+6 We have been blessed , you and I
+7
+8  [CHRIS ]
+9  You are here like a mystery
+10 I'm from a world that 's so different from all that you are
+11 How in the light of one night did we come so far?
+12
+13   [KIM]
+14   Outside day starts to dawn
+15
+16   [CHRIS ]
+17   Your moon still floats on high
+18
+19   [KIM]
+20   The birds awake
+21
+22   [CHRIS ]
+23   The stars shine too
+24
+25 [KIM]
+26 My hands still shake
+27 See upcoming pop shows
+28 Get tickets for your favorite artists
+29
+30 You might also like
+31 My Boy Only Breaks His Favorite Toys
+32 Taylor Swift
+
+33 Who ’ s Afraid of Little Old Me?
+34 Taylor Swift
+35 Guilty as Sin?
+36 Taylor Swift
+37
+
+38   [CHRIS ]
+39   I reach for you
+40
+41   [KIM & CHRIS ]
+42   And we meet in the sky
+43
+
+44 [KIM]
+45 You are sunlight and I moon
+46 Joined here
+47 Brightening the sky with the flame of love
+48
+49 [KIM & CHRIS ]
+50 Made of
+51 Sunlight
+52 Moonlight
+
+
+
+
+                                      1-2
+    1.2     A Simple Math Problem (20 pts)
+    Have you ever solved the following problem in your elementary school?
+
+                                     1 △ 3
+                                  +) □ 5 ⃝
+                                     5 7 9
+       I believe that you know that □ = 4, △ = 2, ⃝ = 6. This time, I want
+    you to develop a program to solve this kind of problem.
+1  $ ./ hw0102
+2  Please enter the first operand : 1x3
+ 3 Please enter the second operand : y5z
+ 4 Please enter the sum             : 579
+ 5 Ans: x = 2, y = 4, z = 6
+ 6 $ ./ hw0102
+ 7 Please enter the first   operand : 1x3
+ 8 Please enter the second operand : y5z
+ 9 Please enter the sum             : 1029
+10 Ans: x = 7, y = 8, z = 6
+
+
+        If there is any invalid input, print an error message and terminate your
+    program. For example, 12x4 is not an allowed operand. For your simplicity,
+    I promise
+
+      • The three variables are definitely x, y, z.
+
+      • The first operand is defined as the format int-x-int.
+
+      • The second operand is defined as the format y-int-z.
+
+      • y can be zero.
+
+
+    1.3     Flip an Octal Number (20 pts)
+    Please write a program for a user to input an unsigned 16-bits integer and
+    flip the number’s octal form.
+1 $ ./ hw0103
+2 Please enter an unsigned 16- bits number : 668
+3 Before Flip:
+4 668 _10 = 1234 _8
+5 After   Flip:
+6 4321 _8 = 2257 _10
+
+
+       Currently, you do not need to consider the case that the input is not
+    an unsigned 16-bits integer.
+
+
+
+                                        1-3
+1.4     Poker Hands (20 pts)
+In poker, players form sets of five playing cards, called hands, according
+to the rules of the game. Each hand belongs to a category determined
+by the patterns formed by its cards. A hand in a higher-ranking category
+always ranks higher than a hand in a lower-ranking category. A hand is
+ranked within its category using the ranks of its cards. Individual cards
+are ranked, from highest to lowest: A, K, Q, J, 10, 9, 8, 7, 6, 5, 4, 3 and 2.
+There are nine categories of hand and I list them in figure 1.1.
+
+
+
+
+                     Figure 1.1: Ranking Category.
+
+   Please write a program to determine the rank of the given five cards.
+The card is encoded as follows:
+   • 1-13: ♠ Ace to King.
+
+                                     1-4
+      • 14-26: ♡ Ace to King.
+
+      • 27-39: ♢ Ace to King.
+
+      • 40-52: ♣ Ace to King.
+
+1 $ ./ hw0104
+2 Please enter 5 cards : 1 2 3 4 5
+3 Straight Flush
+
+
+
+
+    1.5     Binary Variable (20 pts)
+    Panda is a student in CSIE. He is very interested in computer science so he
+    wants to learn how computers store variables. But he is really bad at math,
+    so you need to help him create a program that converts binary numbers
+    into different types of variables.
+        Please write a program that allows the user to convert a binary number,
+    inputted as hex, to a desired variable type. The input hex will always be
+    a 16-bit number.
+        If you don’t know how computers store numbers, don’t worry. The
+    following sections will serve as a lesson on binary numbers, and extra re-
+    sources will be provided.
+        you may only use syntax that has already been taught in class.
+        You might not be able to calculate 2n . So you only need to print float
+    numbers in scientific notation.
+        Hint:
+    1. You can find how to input hex in scanf’s manual.
+    2. You can extract bits from a number by multiplying it with 2n or by
+    using the mod operator.
+        Example:
+1  sample 1:
+2  $ ./ hw0105
+ 3 Please input a hex:DCEF
+ 4 Please choose the output type (1: integer ,2: unsigned integer ,3:
+      float ):3
+ 5 Binary of DCEF is: 1101 1100 1110 1111
+ 6 Converted float is: -1.233398*2^8
+ 7 sample 2:
+
+ 8 $ ./ hw0105
+ 9 Please input a hex:DAD1
+10 Please choose the output type (1: integer ,2: unsigned integer ,3:
+      float ):2
+11 Binary of DAD1 is: 1101 1010 1101 0001
+12 Converted unsigned integer is: 56017
+
+13 sample 3:
+
+
+
+
+                                       1-5
+14 $ ./ hw0105
+15 Please input a hex:DAD1
+16 Please choose the output type (1: integer ,2: unsigned integer ,3:
+      float ):1
+17 Binary of DAD1 is: 1101 1010 1101 0001
+18 Converted unsigned integer is: -9519
+19 sample 4:
+20 $ ./ hw0105
+
+21 Please input a hex :78 E7
+22 Please choose the output type (1: integer ,2: unsigned integer ,3:
+      float ):1
+23 Binary of DAD1 is: 0111 1000 1110 0111
+24 Converted unsigned integer is: 30951
+
+
+
+
+     1.5.1     Binary and Hex
+     Binary:
+         Similar to decimal, when a digit reaches 2, it is carried over to the next
+     digit.
+     Example: 1(2) + 1(2) will be 10(2) because 2 is greater than 1 so it will be
+     carried over to the next digit.
+         All data in computers are binary. Each digit is called a “bit,”and 8
+     bits make a “byte.”Therefore, a byte’s max value is 11111111(2) , which
+     is 127 in decimal.
+         Hex:
+         By grouping every 4 digits of a binary number, we can convert it to 1
+     hex digit represented by 0 ∼ 9 then A∼F (resembles 10 ∼ 16).
+         Example 1: 1010(2) = 10(10) = A(16) .
+         Example 2: 1010101111001101(2) = ABCD(16) .
+
+     1.5.2     Computer-Stored Data
+     Here’s an example of a 16 bit variable:
+
+     1.5.2.1   Unsigned Integer
+     The range of an unsigned 16-bit integer is from 0 to 216 − 1.
+         Example 1: Given 0001000101001101(2) , starting from the right, bits 0,
+     2, 3, 6, 8, and 12 are 1. Therefore, we can obtain the decimal value by
+     doing the following: 20 + 22 + 23 + 26 + 28 + 212 = 4429
+         Example 2: Given 0000000001001101(2) , starting from the right, bits 0,
+     2, 3, and 6 are 1. Therefore, we can obtain the decimal value by doing the
+     following: 20 + 22 + 23 + 26 = 77
+
+
+
+
+                                          1-6
+1.5.2.2   Signed Integer
+The first bit of a signed integer represents its sign, where 1 means negative,
+and 0 means positive.
+    Positive:
+It works just like an unsigned integer.
+    Negative:
+The scheme for negative numbers is called ”two’s complement.” In this
+scheme, to convert a positive number x into -x, we flip all the bits and
+then add 1. The reasoning behind this will be taught in later courses.
+    Note: Flip means reversing 1s and 0s.
+    Example:
+12 in binary is 0000000000001100(2) .
+To turn 12 into −12, first:
+flip(12) → 1111111111110011(2) .
+Then add 1, which equals:
+1111111111110100(2) .
+Therefore, −12 in binary is 1111111111110100(2) .
+
+
+1.5.2.3   Float
+In binary, floats are stored in scientific notation using the following format:
+S(1.F ) × 2EXP −15
+Looking at a float in binary from left to right:
+Bit 1: Sign bit (1 for negative, 0 for positive) (S)
+Bits 2∼6: Exponent(EXP)
+Bits 7∼16: Fraction(F)
+
+   Example 1: F = 101, 1.F is 20 + 2−1 + 2−3 = 1.625
+   Example 2: Given 0100011010000000(2) :
+
+
+   • The first bit is 0, which means it’s a positive number.
+
+
+   • EXP = 10001(2) = 17
+
+
+   • F = 1010000000(2)
+
+
+Therefore this binary represents:
+1.101(2) × 2(17−15) = 1.101(2) × 22 = 2.625 × 22 = 6.5
+Binary float 0100011010000000(2) is +6.5 in decimal.
+
+
+                                     1-7
+      number      EXP         F
+      ±0          0           0
+      ±∞          111112      0
+      NAN         111112      non 0
+
+
+         Note: Some specific EXP and F values have special meanings:
+        Still confused?
+     Don’t worry, partial points will be given to signed and unsigned types.
+
+
+     1.5.3      Reference
+     The IEEE-754 standard describes how computers store floats in binary:
+     https://en.wikipedia.org/wiki/IEEE_754
+        Use this tool to double-check your answers:
+     https://www.h-schmidt.net/FloatConverter/IEEE754.html
+
+
+     1.6       Bonus: Makefile for Multiple files (5 pts)
+     Please read the following two codes.
+1    // a.c
+2    # include <stdio .h>
+3
+4 int main ()
+5 {
+6     printf ( " Hello Kitty " )
+7     return 0;
+8 }
+9
+10   // b.c
+11    # include <stdio .h>
+12
+13 int main ()
+14 {
+15     printf ( " Hello World " );
+16     return 0;
+17 }
+
+          I believe that you can see that a.c has an error. In this case, if you write a Makefile
+     as follows, you will find that building a.c fails and b.c will not be built. How to modify
+     this Makefile to make b.c be built even a.c fails. You cannot switch the compiling
+     order.
+1 $ cat Makefile
+2 all:
+3   gcc a.c -o a
+4   gcc b.c -o b
+5 $ make
+6 gcc a.c -o a
+
+7 a.c: In function ‘ main ’ :
+
+8 a.c :5:28: error : expected ‘ ; ’ before ‘ return ’
+
+
+
+
+                                                 1-8
+9      5 |      printf ( "Hello Kitty " )
+10       |                                ^
+11       |                                ;
+12     6 |      return 0;
+13       |      ~~~~~~
+14 make: *** [ Makefile :2 ： all] 錯 誤 1
+
+
+
+
+                                    1-9
+
