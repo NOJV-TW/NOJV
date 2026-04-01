@@ -6,6 +6,8 @@ import type {
   DifficultyDist,
   JudgeType,
   LanguageDist,
+  NetworkAccessConfig,
+  PipelineConfig,
   ProblemJudgeTestcase,
   SubmissionResult,
   SubmissionType
@@ -26,7 +28,9 @@ export async function completeSubmission(submissionId: string, result: Submissio
       score: result.score,
       status: result.verdict,
       verdictDetail: result,
-      ...(result.subtaskResults ? { subtaskResults: result.subtaskResults } : {})
+      ...(result.subtaskResults ? { subtaskResults: result.subtaskResults } : {}),
+      ...(result.pipelineResult ? { pipelineResult: result.pipelineResult } : {}),
+      ...(result.artifactPaths ? { artifactPaths: result.artifactPaths } : {})
     },
     include: { problem: { select: { slug: true } } },
     where: { id: submissionId }
@@ -295,6 +299,11 @@ export interface SubmissionJudgeContext {
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
+  pipelineConfig: PipelineConfig | null;
+  scoringScript: string | null;
+  scoringLanguage: string | null;
+  artifactPatterns: string[];
+  networkAccessConfig: NetworkAccessConfig | null;
 }
 
 export async function getSubmissionJudgeContext(
@@ -349,6 +358,11 @@ export async function getSubmissionJudgeContext(
     })),
     testcaseSets,
     testcases: testcaseSets.flatMap((ts) => ts.testcases),
-    timeLimitMs: submission.problem.timeLimitMs
+    timeLimitMs: submission.problem.timeLimitMs,
+    pipelineConfig: submission.problem.pipelineConfig as PipelineConfig | null,
+    scoringScript: submission.problem.scoringScript,
+    scoringLanguage: submission.problem.scoringLanguage,
+    artifactPatterns: submission.problem.artifactPatterns,
+    networkAccessConfig: submission.problem.networkAccessConfig as NetworkAccessConfig | null
   };
 }

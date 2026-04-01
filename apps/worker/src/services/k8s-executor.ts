@@ -5,7 +5,7 @@ import type * as k8s from "@kubernetes/client-node";
 const require = createRequire(import.meta.url);
 
 import {
-  sourceExtensions,
+  sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult
@@ -25,6 +25,29 @@ export interface K8sExecutorConfig {
 const JOB_DEADLINE_SECONDS = 120;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
+
+function normalizeRelativePath(rawPath: string): string | null {
+  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
+  if (!normalized || normalized.startsWith("/")) {
+    return null;
+  }
+
+  const segments = normalized.split("/").filter((segment) => segment.length > 0);
+  if (
+    segments.length === 0 ||
+    segments.some(
+      (segment) =>
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("\0") ||
+        segment.includes(":")
+    )
+  ) {
+    return null;
+  }
+
+  return segments.join("/");
+}
 
 export class K8sExecutor implements SandboxExecutor {
   private coreApi: k8s.CoreV1Api;
@@ -85,26 +108,50 @@ export class K8sExecutor implements SandboxExecutor {
     request: SandboxRequest
   ): Promise<void> {
     const data: Record<string, string> = {};
+    const sourceFileMap: Array<{ path: string; key: string }> = [];
+    const mainSourceName = sourceFileNames[request.language];
+    let wroteMainSource = false;
 
-    // Judge config
+    // Source code and optional project files
+    for (const sourceFile of request.sourceFiles ?? []) {
+      const normalizedPath = normalizeRelativePath(sourceFile.path);
+      if (!normalizedPath) {
+        continue;
+      }
+
+      if (normalizedPath === mainSourceName) {
+        wroteMainSource = true;
+      }
+
+      const key = `source-file-${String(sourceFileMap.length)}`;
+      data[key] = sourceFile.content;
+      sourceFileMap.push({ path: normalizedPath, key });
+    }
+
+    if (!wroteMainSource) {
+      data[mainSourceName] = request.sourceCode;
+    }
+
     data["config.json"] = JSON.stringify({
       submissionId: request.submissionId,
       language: request.language,
       judgeType: request.judgeType,
       submissionType: request.submissionType,
       limits: request.limits,
+      ...(request.entryFile ? { entryFile: request.entryFile } : {}),
       ...(request.template ? { template: request.template } : {}),
       ...(request.judgeConfig.checkerLanguage
         ? { checkerLanguage: request.judgeConfig.checkerLanguage }
         : {}),
       ...(request.judgeConfig.interactorLanguage
         ? { interactorLanguage: request.judgeConfig.interactorLanguage }
-        : {})
+        : {}),
+      ...(request.pipeline ? { pipeline: request.pipeline } : {}),
+      ...(request.staticAnalysis ? { staticAnalysis: request.staticAnalysis } : {}),
+      ...(request.scoring ? { scoring: request.scoring } : {}),
+      ...(request.artifactCollection ? { artifactCollection: request.artifactCollection } : {}),
+      ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
     });
-
-    // Source code
-    const ext = sourceExtensions[request.language];
-    data[`source.${ext}`] = request.sourceCode;
 
     // Checker / interactor scripts (if applicable)
     if (request.judgeConfig.checkerScript) {

@@ -36,25 +36,47 @@ infra/
 - **Testing**: Vitest, Playwright
 - **Build**: Turborepo, pnpm workspaces, tsdown, esbuild
 
+## Prerequisites
+
+- Node.js >= 24.0.0
+- pnpm 10.x
+- Docker Desktop (for local Postgres/Redis and sandbox image builds)
+
+Verify your tooling:
+
+```bash
+node -v
+pnpm -v
+```
+
 ## Local Setup
 
 ```bash
+# 1. Install dependencies
 pnpm install
 
-# Copy env template
+# 2. Copy env template (macOS/Linux)
 cp .env.example .env
-# Edit .env with your DATABASE_URL, Redis, Better Auth, OAuth, Resend secrets
 
-# Start infra (postgres + redis; web/worker run on host via pnpm dev)
+# 2-alt. Copy env template (Windows PowerShell)
+Copy-Item .env.example .env
+
+# 3. Edit .env with your DATABASE_URL, Redis, Better Auth, OAuth, Resend secrets
+
+# 4. Start infra (postgres + redis)
 docker compose up -d
 
-# Build packages and push schema to DB
+# 5. Build packages and prepare DB
 pnpm db:generate
 pnpm build
 pnpm db:push
-pnpm db:seed    # optional — seeds demo users, problems, contests, courses
-pnpm sandbox:build  # optional — only needed for submission judging
+pnpm db:seed:validate
+pnpm db:seed
 
+# 6. Build sandbox image (needed for submission judging)
+pnpm sandbox:build
+
+# 7. Start dev services
 pnpm dev
 ```
 
@@ -74,28 +96,32 @@ pnpm dev
 
 ## Developer Workflow
 
-```bash
-pnpm install
-pnpm build
-docker compose up -d
-pnpm db:generate
-pnpm dev
+Quick verify for judge/pipeline changes:
 
-# Before pushing
-pnpm ci:verify
+```bash
+pnpm -C packages/core build
+pnpm -C apps/sandbox-runner typecheck
+pnpm -C apps/sandbox-runner test
 ```
 
-Individual checks:
+Full verify before pushing:
 
 ```bash
 pnpm format        # prettier check
 pnpm format:write  # prettier fix
 pnpm lint
-pnpm test
+pnpm test:unit
+pnpm test:integration
 pnpm build
 pnpm typecheck
 pnpm db:validate
+pnpm db:seed:validate
 ```
+
+Troubleshooting:
+
+- If `vitest` or `tsc` is not found, run `pnpm install` and retry.
+- If commands still fail, re-check Node and pnpm versions against Prerequisites.
 
 ## Sandbox Runtime
 

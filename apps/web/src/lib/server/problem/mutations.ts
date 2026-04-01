@@ -31,6 +31,11 @@ export interface CreateProblemDefinitionInput {
   timeLimitMs?: number;
   title: string;
   visibility?: ProblemVisibility;
+  pipelineConfig?: unknown;
+  scoringScript?: string;
+  scoringLanguage?: string;
+  artifactPatterns?: string[];
+  networkAccessConfig?: unknown;
 }
 
 // --- Shared problem helpers ---
@@ -55,7 +60,12 @@ export async function createProblemDefinition(
       summary: input.summary,
       tags: input.tags ?? [],
       timeLimitMs: input.timeLimitMs ?? 1_000,
-      visibility: input.visibility ?? "public"
+      visibility: input.visibility ?? "public",
+      pipelineConfig: input.pipelineConfig ?? undefined,
+      scoringScript: input.scoringScript ?? null,
+      scoringLanguage: input.scoringLanguage ?? null,
+      artifactPatterns: input.artifactPatterns ?? [],
+      networkAccessConfig: input.networkAccessConfig ?? undefined
     }
   });
 
@@ -203,7 +213,12 @@ export async function createProblemRecord(
       tags: payload.tags,
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
-      visibility: payload.visibility
+      visibility: payload.visibility,
+      pipelineConfig: payload.pipelineConfig,
+      scoringScript: payload.scoringScript,
+      scoringLanguage: payload.scoringLanguage,
+      artifactPatterns: payload.artifactPatterns,
+      networkAccessConfig: payload.networkAccessConfig
     });
 
     if (payload.templates.length > 0) {
@@ -239,6 +254,11 @@ export async function updateProblemRecord(
     if (payload.interactorScript !== undefined)
       updateData.interactorScript = payload.interactorScript;
     if (payload.summary !== undefined) updateData.summary = payload.summary;
+    if (payload.pipelineConfig !== undefined) updateData.pipelineConfig = payload.pipelineConfig;
+    if (payload.scoringScript !== undefined) updateData.scoringScript = payload.scoringScript;
+    if (payload.scoringLanguage !== undefined) updateData.scoringLanguage = payload.scoringLanguage;
+    if (payload.artifactPatterns !== undefined) updateData.artifactPatterns = payload.artifactPatterns;
+    if (payload.networkAccessConfig !== undefined) updateData.networkAccessConfig = payload.networkAccessConfig;
 
     if (Object.keys(updateData).length > 0) {
       await tx.problem.update({
