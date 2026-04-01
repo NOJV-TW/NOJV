@@ -306,7 +306,7 @@ export interface SubmissionJudgeContext {
   pipelineConfig: PipelineConfig | null;
   scoringScript: string | null;
   scoringLanguage: string | null;
-  artifactPatterns: string[];
+  artifactPatterns?: string[];
   networkAccessConfig: NetworkAccessConfig | null;
 }
 
