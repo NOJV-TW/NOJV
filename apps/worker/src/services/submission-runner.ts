@@ -42,9 +42,10 @@ export async function judgeSubmission(
     : undefined;
 
   // Build artifact collection config from problem fields
+  const artifactPatterns = judgeContext.artifactPatterns ?? [];
   const artifactConfig =
-    judgeContext.artifactPatterns.length > 0
-      ? { patterns: judgeContext.artifactPatterns, maxTotalSizeBytes: 10_000_000 }
+    artifactPatterns.length > 0
+      ? { patterns: artifactPatterns, maxTotalSizeBytes: 10_000_000 }
       : undefined;
 
   const request: SandboxRequest = {
