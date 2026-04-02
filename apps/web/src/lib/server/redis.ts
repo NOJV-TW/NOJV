@@ -54,11 +54,12 @@ export async function getScoreboard(
   const key = `nojv:scoreboard:${contestId}`;
   const results = await getRedis().zrevrange(key, start, stop, "WITHSCORES");
   const entries: { participationId: string; score: number }[] = [];
-  for (let i = 0; i < results.length; i += 2) {
-    entries.push({
-      participationId: results[i]!,
-      score: Number(results[i + 1]!)
-    });
+  for (let i = 0; i + 1 < results.length; i += 2) {
+    const participationId = results[i];
+    const scoreStr = results[i + 1];
+    if (participationId != null && scoreStr != null) {
+      entries.push({ participationId, score: Number(scoreStr) });
+    }
   }
   return entries;
 }
