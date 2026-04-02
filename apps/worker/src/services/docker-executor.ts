@@ -187,7 +187,7 @@ export class DockerExecutor implements SandboxExecutor {
     // Determine network mode based on networkAccess config
     const hasNetworkAccess = request.networkAccess?.enabled === true;
     const networkArgs = hasNetworkAccess
-      ? this.buildNetworkArgs(request)
+      ? this.buildNetworkArgs()
       : ["--network", "none"];
 
     const args = [
@@ -302,7 +302,7 @@ export class DockerExecutor implements SandboxExecutor {
    * For now, we use the default bridge network. In production, a dedicated
    * Docker network with iptables firewall rules should be configured.
    */
-  private buildNetworkArgs(request: SandboxRequest): string[] {
+  private buildNetworkArgs(): string[] {
     // TODO: Bridge network should only be enabled once host-level iptables
     // enforcement is implemented. Until then, default to --network none
     // to prevent unrestricted internet access from sandboxed submissions.
