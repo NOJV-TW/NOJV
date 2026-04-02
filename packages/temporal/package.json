@@ -1,0 +1,41 @@
+{
+  "name": "@nojv/temporal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./workflows": {
+      "types": "./src/workflows/index.ts",
+      "import": "./src/workflows/index.ts"
+    },
+    "./activities": {
+      "types": "./src/activities/index.ts",
+      "import": "./src/activities/index.ts"
+    },
+    "./activities/judge": {
+      "types": "./src/activities/judge-bundle.ts",
+      "import": "./src/activities/judge-bundle.ts"
+    },
+    "./activities/platform": {
+      "types": "./src/activities/platform-bundle.ts",
+      "import": "./src/activities/platform-bundle.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@temporalio/activity": "^1.11.7",
+    "@temporalio/client": "^1.11.7",
+    "@temporalio/common": "^1.11.7",
+    "@temporalio/workflow": "^1.11.7",
+    "@nojv/core": "workspace:*",
+    "@nojv/db": "workspace:*",
+    "ioredis": "^5.9.3",
+    "zod": "^4.3.6"
+  }
+}

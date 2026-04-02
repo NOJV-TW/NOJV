@@ -42,6 +42,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 .claude/worktrees/
+.claude/settings.local.json
 
 # playwright
 e2e/test-results/

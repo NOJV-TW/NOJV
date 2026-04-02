@@ -14,35 +14,35 @@ export async function createQueuedSubmissionRecord(
   actor: CompletedActorContext,
   request: Request
 ) {
-  const problem = await requireProblem(prisma, payload.problemSlug);
-  const courseContext = payload.assessment
-    ? await requireCourseAssessment(
-        prisma,
-        payload.assessment.courseSlug,
-        payload.assessment.assessmentSlug
-      )
-    : null;
-
-  // ── Authorization: verify user is enrolled in the course ──
-  if (courseContext) {
-    const membership = await prisma.courseMembership.findUnique({
-      where: {
-        courseId_userId: {
-          courseId: courseContext.course.id,
-          userId: actor.userId
-        }
-      }
-    });
-
-    if (membership?.status !== "active") {
-      throw new ForbiddenError("You are not enrolled in this course.");
-    }
-  }
-
-  // ── Derive mode from server context, ignore client-provided mode ──
-  const mode = payload.contestSlug ? "contest" : courseContext ? "assignment" : "practice";
-
   return prisma.$transaction(async (tx) => {
+    const problem = await requireProblem(tx, payload.problemSlug);
+    const courseContext = payload.assessment
+      ? await requireCourseAssessment(
+          tx,
+          payload.assessment.courseSlug,
+          payload.assessment.assessmentSlug
+        )
+      : null;
+
+    // ── Authorization: verify user is enrolled in the course ──
+    if (courseContext) {
+      const membership = await tx.courseMembership.findUnique({
+        where: {
+          courseId_userId: {
+            courseId: courseContext.course.id,
+            userId: actor.userId
+          }
+        }
+      });
+
+      if (membership?.status !== "active") {
+        throw new ForbiddenError("You are not enrolled in this course.");
+      }
+    }
+
+    // ── Derive mode from server context, ignore client-provided mode ──
+    const mode = payload.contestSlug ? "contest" : courseContext ? "assignment" : "practice";
+
     const user = await ensureUser(tx, actor.userId, actor);
     const contestResult = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug, {

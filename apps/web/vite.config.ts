@@ -8,9 +8,6 @@ try {
 } catch {}
 
 export default defineConfig({
-  server: {
-    allowedHosts: ["nojv.ntnu.cc"]
-  },
   plugins: [
     paraglideVitePlugin({
       project: "./project.inlang",

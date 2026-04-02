@@ -186,9 +186,7 @@ export class DockerExecutor implements SandboxExecutor {
 
     // Determine network mode based on networkAccess config
     const hasNetworkAccess = request.networkAccess?.enabled === true;
-    const networkArgs = hasNetworkAccess
-      ? this.buildNetworkArgs(request)
-      : ["--network", "none"];
+    const networkArgs = hasNetworkAccess ? this.buildNetworkArgs() : ["--network", "none"];
 
     const args = [
       "run",
@@ -302,23 +300,11 @@ export class DockerExecutor implements SandboxExecutor {
    * For now, we use the default bridge network. In production, a dedicated
    * Docker network with iptables firewall rules should be configured.
    */
-  private buildNetworkArgs(request: SandboxRequest): string[] {
-    // If network access is enabled but no specific rules, use bridge with DNS
-    // The firewall rules should be enforced at the Docker network or iptables level
-    // For security, we log that network access is being granted
-    if (
-      request.networkAccess?.firewallRules &&
-      request.networkAccess.firewallRules.length > 0
-    ) {
-      // In a production deployment, this would:
-      // 1. Create a Docker network with specific iptables rules
-      // 2. Only allow traffic to specified hosts/ports
-      // 3. Log all traffic for audit
-      // For now, use bridge network (administrator must configure host firewall)
-      return ["--network", "bridge"];
-    }
-
-    return ["--network", "bridge"];
+  private buildNetworkArgs(): string[] {
+    // TODO: Bridge network should only be enabled once host-level iptables
+    // enforcement is implemented. Until then, default to --network none
+    // to prevent unrestricted internet access from sandboxed submissions.
+    return ["--network", "none"];
   }
 }
 

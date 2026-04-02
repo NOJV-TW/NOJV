@@ -189,7 +189,7 @@ export interface ProblemListResult {
 export async function listProblemCards(
   params: ProblemListParams = {}
 ): Promise<ProblemListResult> {
-  const pageSize = params.pageSize ?? 30;
+  const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 30));
   const page = Math.max(1, params.page ?? 1);
 
   // Build the where clause
