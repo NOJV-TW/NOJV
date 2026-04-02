@@ -1,95 +1,94 @@
-import { Queue, UnrecoverableError, Worker } from "bullmq";
+import { createRequire } from "node:module";
 
-import { defaultJobOptions, parseRedisConnection, queueNames } from "@nojv/core";
+import { NativeConnection, Worker } from "@temporalio/worker";
+
+import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "@nojv/temporal";
+
+const require = createRequire(import.meta.url);
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
 import { createLogger } from "./logger.js";
-import { createSubmissionProcessor } from "./processors/submission";
 import { closeServerSafely } from "./server-lifecycle";
 import { createExecutor } from "./services/executor-factory";
 
 const logger = createLogger("worker");
 
 export class WorkerApp {
-  private readonly workers: Worker[];
+  private readonly workers: Worker[] = [];
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
-  private readonly dlqQueue: Queue;
   private shutdownPromise: Promise<void> | null = null;
 
   constructor(env: WorkerEnv) {
     this.env = env;
-
-    const connection = parseRedisConnection(env.REDIS_URL);
-
-    const executor = createExecutor(env);
-    const processSubmission = createSubmissionProcessor(executor);
-
-    this.dlqQueue = new Queue(queueNames.submissionDlq, { connection });
-
-    this.workers = [
-      new Worker(queueNames.submission, processSubmission, {
-        concurrency: env.WORKER_CONCURRENCY,
-        connection
-      })
-    ];
-
     this.healthServer = createWorkerHealthServer();
-
-    for (const worker of this.workers) {
-      worker.on("completed", (job) => {
-        logger.info("job completed", { jobName: job.name });
-      });
-
-      worker.on("failed", (job, error) => {
-        const prefix = error instanceof UnrecoverableError ? "permanent" : "retryable";
-        logger.error(`${prefix} job failure`, {
-          jobName: job?.name ?? "unknown",
-          err: error.message
-        });
-
-        if (job && job.attemptsMade >= (job.opts.attempts ?? defaultJobOptions.attempts)) {
-          this.dlqQueue
-            .add("failed-submission", {
-              originalJobId: job.id,
-              data: job.data as Record<string, unknown>,
-              failedReason: error.message,
-              failedAt: new Date().toISOString()
-            })
-            .catch((dlqError: unknown) => {
-              logger.error("failed to enqueue to DLQ", { err: String(dlqError) });
-            });
-        }
-      });
-    }
   }
 
   async start(): Promise<void> {
-    await Promise.all(this.workers.map((w) => w.waitUntilReady()));
-    await new Promise<void>((resolve) => {
-      this.healthServer.listen(this.env.PORT, () => {
-        resolve();
+    const address = this.env.TEMPORAL_ADDRESS;
+    const namespace = this.env.TEMPORAL_NAMESPACE;
+    const mode = this.env.WORKER_MODE;
+    const connection = await NativeConnection.connect({ address });
+
+    if (mode === "all" || mode === "judge") {
+      const { setExecutor } = await import("@nojv/temporal/activities/judge");
+      const executor = createExecutor(this.env);
+      setExecutor(executor);
+
+      const judgeWorker = await Worker.create({
+        connection,
+        namespace,
+        taskQueue: JUDGE_TASK_QUEUE,
+        workflowsPath: require.resolve("@nojv/temporal/workflows"),
+        activities: await import("@nojv/temporal/activities/judge"),
+        maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY
       });
+      this.workers.push(judgeWorker);
+    }
+
+    if (mode === "all" || mode === "platform") {
+      const platformWorker = await Worker.create({
+        connection,
+        namespace,
+        taskQueue: PLATFORM_TASK_QUEUE,
+        workflowsPath: require.resolve("@nojv/temporal/workflows"),
+        activities: await import("@nojv/temporal/activities/platform"),
+        maxConcurrentActivityTaskExecutions: 10
+      });
+      this.workers.push(platformWorker);
+    }
+
+    await new Promise<void>((resolve) => {
+      this.healthServer.listen(this.env.PORT, () => resolve());
     });
 
-    logger.info("worker started", {
-      redis: this.env.REDIS_URL,
-      queues: Object.values(queueNames).join(", ")
+    const taskQueues = this.workers.map((_, i) =>
+      mode === "all"
+        ? [JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE][i]
+        : mode === "judge" ? JUDGE_TASK_QUEUE : PLATFORM_TASK_QUEUE
+    );
+
+    logger.info("temporal worker started", {
+      address,
+      mode,
+      namespace,
+      taskQueues: taskQueues.join(", ")
     });
-    logger.info("health endpoint started", { port: this.env.PORT });
+
+    await Promise.all(this.workers.map((w) => w.run()));
   }
 
   async shutdown(signal: string): Promise<void> {
-    if (this.shutdownPromise) {
-      return this.shutdownPromise;
-    }
+    if (this.shutdownPromise) return this.shutdownPromise;
 
     logger.info("shutting down", { signal });
 
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
-      await Promise.all([...this.workers.map((w) => w.close()), this.dlqQueue.close()]);
+      for (const w of this.workers) {
+        w.shutdown();
+      }
     })();
 
     await this.shutdownPromise;
