@@ -25,7 +25,7 @@ import type {
 } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
-const ARTIFACT_DIR = "/submission/artifacts";
+const ARTIFACT_DIR = "/workspace/artifacts";
 
 /** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
@@ -593,7 +593,12 @@ async function main(): Promise<void> {
   process.stdout.write(JSON.stringify(output));
 }
 
-/** Compute a raw score from testcase results (percentage of AC). */
+/**
+ * Compute an unweighted raw score from testcase results (percentage of AC).
+ * NOTE: This is an approximation for use by custom scoring scripts. The
+ * authoritative weighted score is computed by submission-runner.ts using
+ * per-subtask weights. Do not use this value for final grading.
+ */
 function computeRawScore(results: TestcaseResult[]): number {
   if (results.length === 0) return 0;
   const passed = results.filter((r) => r.verdict === "AC").length;

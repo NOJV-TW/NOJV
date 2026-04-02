@@ -157,31 +157,38 @@ export async function getStudentProgressMatrix(
     pairsNeedingVerdict.push({ userId: row.userId, problemId: row.problemId, bestScore });
   }
 
-  // Batch-fetch the verdict for the best submission of each pair
+  // Batch-fetch the verdict for the best submission of each pair using a single query
   if (pairsNeedingVerdict.length > 0) {
-    const verdictResults = await Promise.all(
-      pairsNeedingVerdict.map((pair) =>
-        prisma.submission.findFirst({
-          where: {
-            courseId: course.id,
-            sampleOnly: false,
-            userId: pair.userId,
-            problemId: pair.problemId,
-            score: pair.bestScore,
-            ...(assessmentId ? { courseAssessmentId: assessmentId } : {})
-          },
-          select: { status: true },
-          orderBy: { createdAt: "desc" }
-        })
-      )
-    );
+    const orConditions = pairsNeedingVerdict.map((pair) => ({
+      userId: pair.userId,
+      problemId: pair.problemId,
+      score: pair.bestScore
+    }));
 
-    for (let i = 0; i < pairsNeedingVerdict.length; i++) {
-      const pair = pairsNeedingVerdict[i];
-      if (!pair) continue;
+    const bestSubmissions = await prisma.submission.findMany({
+      where: {
+        courseId: course.id,
+        sampleOnly: false,
+        ...(assessmentId ? { courseAssessmentId: assessmentId } : {}),
+        OR: orConditions
+      },
+      select: { userId: true, problemId: true, status: true, createdAt: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    // Pick the most recent submission per (userId, problemId) pair
+    const verdictMap = new Map<string, string>();
+    for (const sub of bestSubmissions) {
+      const key = `${sub.userId}:${sub.problemId}`;
+      if (!verdictMap.has(key)) {
+        verdictMap.set(key, sub.status);
+      }
+    }
+
+    for (const pair of pairsNeedingVerdict) {
       const key = `${pair.userId}:${pair.problemId}`;
       const scoreEntry = scores[key];
-      if (scoreEntry) scoreEntry.bestVerdict = verdictResults[i]?.status ?? "";
+      if (scoreEntry) scoreEntry.bestVerdict = verdictMap.get(key) ?? "";
     }
   }
 

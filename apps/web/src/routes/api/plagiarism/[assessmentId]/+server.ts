@@ -7,11 +7,9 @@ import { ForbiddenError, NotFoundError, requireApiAuth } from "$lib/server/auth"
 import { resolveCoursePermission } from "$lib/server/auth";
 import { canManageCourse } from "$lib/server/shared/permissions";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import {
-  plagiarismTargetFilter,
-  triggerPlagiarismCheck,
-  type PlagiarismTarget
-} from "$lib/server/moss/service";
+import { plagiarismTargetFilter, type PlagiarismTarget } from "$lib/server/moss/service";
+import { getTemporalClient, PLATFORM_TASK_QUEUE } from "@nojv/temporal";
+import type { PlagiarismCheckInput } from "@nojv/temporal";
 
 /**
  * Resolve the plagiarism target (course assessment or contest) from the assessmentId param
@@ -68,9 +66,31 @@ export const POST: RequestHandler = apiHandler(async (event) => {
     throw new ForbiddenError("Only course staff can trigger plagiarism checks.");
   }
 
-  const reportId = await triggerPlagiarismCheck(target, actor.userId);
+  const report = await prisma.plagiarismReport.create({
+    data: {
+      ...(target.type === "courseAssessment"
+        ? { courseAssessmentId: target.id }
+        : { contestId: target.id }),
+      status: "pending",
+      triggeredById: actor.userId
+    }
+  });
 
-  return json({ reportId, status: "pending" }, { status: 202 });
+  const client = await getTemporalClient();
+  const workflowInput: PlagiarismCheckInput = {
+    reportId: report.id,
+    targetId: target.id,
+    targetType: target.type,
+    triggeredById: actor.userId
+  };
+
+  await client.workflow.start("plagiarismCheckWorkflow", {
+    taskQueue: PLATFORM_TASK_QUEUE,
+    workflowId: `plagiarism-${report.id}`,
+    args: [workflowInput]
+  });
+
+  return json({ reportId: report.id, status: "pending" }, { status: 202 });
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
