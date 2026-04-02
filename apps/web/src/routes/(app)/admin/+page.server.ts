@@ -1,5 +1,3 @@
-import { Queue } from "bullmq";
-import { parseRedisConnection, queueNames } from "@nojv/core";
 import { prisma } from "@nojv/db";
 import type { PageServerLoad } from "./$types";
 
@@ -21,39 +19,6 @@ function subDays(date: Date, days: number): Date {
   return next;
 }
 
-async function readQueueSummary() {
-  const redisUrl = process.env.REDIS_URL;
-  if (!redisUrl) {
-    return {
-      queueCounts: null,
-      queueError: "REDIS_URL is not set."
-    };
-  }
-
-  try {
-    const connection = parseRedisConnection(redisUrl);
-    const queue = new Queue(queueNames.submission, { connection });
-    const counts = await queue.getJobCounts();
-    await queue.close();
-
-    return {
-      queueCounts: {
-        waiting: counts.waiting ?? 0,
-        active: counts.active ?? 0,
-        completed: counts.completed ?? 0,
-        failed: counts.failed ?? 0,
-        delayed: counts.delayed ?? 0
-      },
-      queueError: null
-    };
-  } catch (err) {
-    return {
-      queueCounts: null,
-      queueError: err instanceof Error ? err.message : "Failed to connect to queue."
-    };
-  }
-}
-
 export const load: PageServerLoad = async () => {
   const now = new Date();
   const today = startOfDay(now);
@@ -72,8 +37,7 @@ export const load: PageServerLoad = async () => {
     statusGroups7d,
     failureGroups,
     dbOk,
-    recentErrors,
-    queueSummary
+    recentErrors
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { disabled: true } }),
@@ -122,8 +86,7 @@ export const load: PageServerLoad = async () => {
         user: { select: { username: true, name: true } },
         problem: { select: { slug: true, defaultTitle: true } }
       }
-    }),
-    readQueueSummary()
+    })
   ]);
 
   const roleCounts = {
@@ -208,8 +171,6 @@ export const load: PageServerLoad = async () => {
     dailySeries,
     topFailingProblems,
     recentErrors,
-    queueCounts: queueSummary.queueCounts,
-    queueError: queueSummary.queueError,
     dbOk
   };
 };

@@ -6,7 +6,6 @@
   const tabs = [
     { href: "/admin", label: "Overview" },
     { href: "/admin/users", label: "Users" },
-    { href: "/admin/system", label: "System" },
     { href: "/admin/announcements", label: "Announcements" }
   ];
 
