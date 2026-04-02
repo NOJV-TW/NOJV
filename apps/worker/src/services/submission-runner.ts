@@ -173,10 +173,10 @@ function mapResult(result: SandboxResult, testcaseSets: TestcaseSetGroup[]): Sub
     return {
       accepted: false,
       caseResults,
-      feedback: result.pipelineError,
+      feedback: `[Pipeline Error] ${result.pipelineError}`,
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
       score: 0,
-      verdict: "runtime_error",
+      verdict: "compile_error",
       ...(hasPipelineResult ? { pipelineResult } : {}),
       ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
     };
