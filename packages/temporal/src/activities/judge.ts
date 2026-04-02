@@ -248,10 +248,18 @@ export async function completeSubmission(
       status: result.verdict,
       verdictDetail: JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue,
       ...(result.subtaskResults
-        ? { subtaskResults: JSON.parse(JSON.stringify(result.subtaskResults)) as Prisma.InputJsonValue }
+        ? {
+            subtaskResults: JSON.parse(
+              JSON.stringify(result.subtaskResults)
+            ) as Prisma.InputJsonValue
+          }
         : {}),
       ...(result.pipelineResult
-        ? { pipelineResult: JSON.parse(JSON.stringify(result.pipelineResult)) as Prisma.InputJsonValue }
+        ? {
+            pipelineResult: JSON.parse(
+              JSON.stringify(result.pipelineResult)
+            ) as Prisma.InputJsonValue
+          }
         : {}),
       ...(result.artifactPaths ? { artifactPaths: result.artifactPaths } : {})
     },

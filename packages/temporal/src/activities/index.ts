@@ -22,22 +22,14 @@ export {
 } from "./contest";
 export type { ContestInfo } from "./contest";
 
-export {
-  getAssessmentInfo,
-  activateAssessment,
-  closeAssessment
-} from "./assessment";
+export { getAssessmentInfo, activateAssessment, closeAssessment } from "./assessment";
 export type { AssessmentInfo } from "./assessment";
 
 export { runPlagiarismCheck } from "./plagiarism";
 
 // --- Shared activities (used by both judge and platform) ---
 
-export {
-  publishVerdict,
-  publishContestEvent,
-  publishAssessmentDeadline
-} from "./notification";
+export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
 
 export {
   getRedis,

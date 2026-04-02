@@ -7,7 +7,8 @@ const plagiarism = proxyActivities<typeof plagiarismActivities>({
   retry: { maximumAttempts: 3 }
 });
 
-export const getPlagiarismStatusQuery = defineQuery<PlagiarismCheckStatus>("getPlagiarismStatus");
+export const getPlagiarismStatusQuery =
+  defineQuery<PlagiarismCheckStatus>("getPlagiarismStatus");
 
 export async function plagiarismCheckWorkflow(input: PlagiarismCheckInput): Promise<void> {
   let status: PlagiarismCheckStatus = "pending";

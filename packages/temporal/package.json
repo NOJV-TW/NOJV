@@ -4,11 +4,26 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": { "types": "./src/index.ts", "import": "./src/index.ts" },
-    "./workflows": { "types": "./src/workflows/index.ts", "import": "./src/workflows/index.ts" },
-    "./activities": { "types": "./src/activities/index.ts", "import": "./src/activities/index.ts" },
-    "./activities/judge": { "types": "./src/activities/judge-bundle.ts", "import": "./src/activities/judge-bundle.ts" },
-    "./activities/platform": { "types": "./src/activities/platform-bundle.ts", "import": "./src/activities/platform-bundle.ts" }
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./workflows": {
+      "types": "./src/workflows/index.ts",
+      "import": "./src/workflows/index.ts"
+    },
+    "./activities": {
+      "types": "./src/activities/index.ts",
+      "import": "./src/activities/index.ts"
+    },
+    "./activities/judge": {
+      "types": "./src/activities/judge-bundle.ts",
+      "import": "./src/activities/judge-bundle.ts"
+    },
+    "./activities/platform": {
+      "types": "./src/activities/platform-bundle.ts",
+      "import": "./src/activities/platform-bundle.ts"
+    }
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"

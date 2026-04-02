@@ -29,23 +29,23 @@ Web (SvelteKit) → Temporal Client → Temporal Server → Worker (Temporal Wor
 
 ### Component Changes
 
-| Component | Before | After |
-|-----------|--------|-------|
-| `apps/worker` | BullMQ Worker + prom-client | Temporal Worker (Workflows + Activities) |
-| `apps/web` queue.ts | BullMQ `dispatchSubmissionJob()` | Temporal Client `startWorkflow()` |
-| `apps/web` submission polling | DB polling every 1s | `workflow.query()` on Temporal workflow |
-| `packages/core` queue.ts | BullMQ queue names, job schema | SSE event constants only (workflow types move to `packages/temporal`) |
-| Docker Compose | PostgreSQL + Redis | PostgreSQL + Redis + Temporal Server + Temporal UI |
-| Monitoring | Custom prom-client | Temporal Server built-in metrics + Temporal UI |
-| Admin system page | BullMQ queue management UI | Removed (use Temporal UI directly) |
+| Component                     | Before                           | After                                                                 |
+| ----------------------------- | -------------------------------- | --------------------------------------------------------------------- |
+| `apps/worker`                 | BullMQ Worker + prom-client      | Temporal Worker (Workflows + Activities)                              |
+| `apps/web` queue.ts           | BullMQ `dispatchSubmissionJob()` | Temporal Client `startWorkflow()`                                     |
+| `apps/web` submission polling | DB polling every 1s              | `workflow.query()` on Temporal workflow                               |
+| `packages/core` queue.ts      | BullMQ queue names, job schema   | SSE event constants only (workflow types move to `packages/temporal`) |
+| Docker Compose                | PostgreSQL + Redis               | PostgreSQL + Redis + Temporal Server + Temporal UI                    |
+| Monitoring                    | Custom prom-client               | Temporal Server built-in metrics + Temporal UI                        |
+| Admin system page             | BullMQ queue management UI       | Removed (use Temporal UI directly)                                    |
 
 ### Dependencies
 
-| | Removed | Added |
-|--|---------|-------|
-| `apps/web` | `bullmq` | `@temporalio/client` |
+|               | Removed                 | Added                                                                |
+| ------------- | ----------------------- | -------------------------------------------------------------------- |
+| `apps/web`    | `bullmq`                | `@temporalio/client`                                                 |
 | `apps/worker` | `bullmq`, `prom-client` | `@temporalio/worker`, `@temporalio/workflow`, `@temporalio/activity` |
-| New package | — | `packages/temporal` with `@temporalio/common` |
+| New package   | —                       | `packages/temporal` with `@temporalio/common`                        |
 
 ### Infrastructure
 
@@ -59,10 +59,10 @@ TypeScript SDK — consistent with existing codebase, shared Zod schemas and Pri
 
 ## Task Queues
 
-| Task Queue | Purpose | Worker Requirements |
-|------------|---------|---------------------|
-| `judge` | Submission judging, rejudge | Docker/K8s access for sandbox |
-| `platform` | Contest/assessment lifecycle, plagiarism | DB + network only |
+| Task Queue | Purpose                                  | Worker Requirements           |
+| ---------- | ---------------------------------------- | ----------------------------- |
+| `judge`    | Submission judging, rejudge              | Docker/K8s access for sandbox |
+| `platform` | Contest/assessment lifecycle, plagiarism | DB + network only             |
 
 ## Workflow Definitions
 
@@ -250,7 +250,7 @@ Modified:
   src/lib/server/redis.ts                                → Add scoreboard, cache, cooldown operations
   src/routes/api/submissions/[submissionId]/stream/      → Temporal workflow.query(getStatus)
   src/routes/api/plagiarism/[assessmentId]/              → startPlagiarismCheckWorkflow(), query progress
-  
+
 Deleted:
   src/routes/(app)/admin/system/                         → Use Temporal UI instead
 ```
@@ -297,29 +297,34 @@ Kept:
 ## Migration Phases
 
 ### Phase 1: Infrastructure
+
 - Docker Compose: add Temporal Server + Temporal UI
 - Create `packages/temporal` package
 - Temporal Client helper
 
 ### Phase 2: Submission Judge Migration
+
 - SubmissionJudgeWorkflow + Activities
 - Web: dispatchJob → startWorkflow
 - Submission polling → workflow query
 - Remove BullMQ dependency
 
 ### Phase 3: Redis Features
+
 - Rate limiting Redis backend
 - Scoreboard Sorted Set
 - Submit cooldown (cross-instance)
 - Hot data cache (cache-aside)
 
 ### Phase 4: New Workflows
+
 - ContestLifecycleWorkflow
 - AssessmentLifecycleWorkflow
 - PlagiarismCheckWorkflow
 - RejudgeWorkflow
 
 ### Phase 5: Cleanup
+
 - Remove admin system monitoring page
 - Remove prom-client
 - Remove all BullMQ residual code

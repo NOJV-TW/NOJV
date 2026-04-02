@@ -20,7 +20,11 @@ export function createSubscriber(redisUrl: string): Redis {
 
 // --- Submit Cooldown ---
 
-export async function setCooldown(userId: string, problemId: string, seconds: number): Promise<boolean> {
+export async function setCooldown(
+  userId: string,
+  problemId: string,
+  seconds: number
+): Promise<boolean> {
   const key = `nojv:cooldown:${userId}:${problemId}`;
   const result = await getRedis().set(key, "1", "EX", seconds, "NX");
   return result === "OK";

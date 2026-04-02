@@ -68,7 +68,9 @@ export const POST: RequestHandler = apiHandler(async (event) => {
 
   const report = await prisma.plagiarismReport.create({
     data: {
-      ...(target.type === "courseAssessment" ? { courseAssessmentId: target.id } : { contestId: target.id }),
+      ...(target.type === "courseAssessment"
+        ? { courseAssessmentId: target.id }
+        : { contestId: target.id }),
       status: "pending",
       triggeredById: actor.userId
     }

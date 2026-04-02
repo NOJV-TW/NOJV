@@ -40,9 +40,7 @@ export async function publishContestEvent(
   eventType: "starting" | "ending"
 ): Promise<void> {
   const event: SSEEvent =
-    eventType === "starting"
-      ? { type: SSE_CONTEST_STARTING }
-      : { type: SSE_CONTEST_ENDING };
+    eventType === "starting" ? { type: SSE_CONTEST_STARTING } : { type: SSE_CONTEST_ENDING };
 
   try {
     await publishEvent(`contest:${contestId}`, event);

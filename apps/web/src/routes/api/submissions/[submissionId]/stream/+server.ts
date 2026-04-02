@@ -10,7 +10,8 @@ const TERMINAL_STATUSES = new Set(["completed", "failed"]);
 export const GET: RequestHandler = (event) => {
   const actor = getActorContext(event);
   if (!actor) return new Response("Authentication required.", { status: 401 });
-  if (!hasActorUsername(actor)) return new Response("Complete your profile first.", { status: 403 });
+  if (!hasActorUsername(actor))
+    return new Response("Complete your profile first.", { status: 403 });
 
   const { submissionId } = event.params;
   const userId = actor.userId;

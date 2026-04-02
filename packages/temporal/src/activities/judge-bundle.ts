@@ -11,15 +11,9 @@ export {
 
 export { updateUserStats } from "./stats";
 
-export {
-  publishVerdict,
-  publishContestEvent,
-  publishAssessmentDeadline
-} from "./notification";
+export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
 
-export {
-  updateContestScores
-} from "./contest";
+export { updateContestScores } from "./contest";
 
 export {
   getRedis,

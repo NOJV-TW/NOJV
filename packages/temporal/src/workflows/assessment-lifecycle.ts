@@ -15,7 +15,9 @@ const notification = proxyActivities<typeof notificationActivities>({
 
 const DEADLINE_REMINDER_HOURS = 24;
 
-export async function assessmentLifecycleWorkflow(input: AssessmentLifecycleInput): Promise<void> {
+export async function assessmentLifecycleWorkflow(
+  input: AssessmentLifecycleInput
+): Promise<void> {
   const info = await assessment.getAssessmentInfo(input.assessmentId);
 
   // 1. Wait until opens

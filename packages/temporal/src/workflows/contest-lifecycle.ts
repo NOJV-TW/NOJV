@@ -1,4 +1,10 @@
-import { proxyActivities, defineSignal, setHandler, sleep, condition } from "@temporalio/workflow";
+import {
+  proxyActivities,
+  defineSignal,
+  setHandler,
+  sleep,
+  condition
+} from "@temporalio/workflow";
 import type { ContestLifecycleInput, AdminOverrideSignal } from "../types";
 import type * as contestActivities from "../activities/contest";
 import type * as notificationActivities from "../activities/notification";

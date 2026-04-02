@@ -10,19 +10,11 @@ export {
   updateContestScores
 } from "./contest";
 
-export {
-  getAssessmentInfo,
-  activateAssessment,
-  closeAssessment
-} from "./assessment";
+export { getAssessmentInfo, activateAssessment, closeAssessment } from "./assessment";
 
 export { runPlagiarismCheck } from "./plagiarism";
 
-export {
-  publishVerdict,
-  publishContestEvent,
-  publishAssessmentDeadline
-} from "./notification";
+export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
 
 export {
   getRedis,
