@@ -208,5 +208,5 @@ function safeRegex(pattern: string): RegExp | null {
 /** Rough heuristic: skip lines that look like single-line comments. */
 function isCommentLine(line: string): boolean {
   const trimmed = line.trim();
-  return trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("*");
+  return trimmed.startsWith("//") || trimmed.startsWith("*");
 }

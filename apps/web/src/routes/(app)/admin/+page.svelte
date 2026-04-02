@@ -10,7 +10,6 @@
     Database,
     Languages,
     PieChart,
-    Server,
     ShieldCheck,
     Trophy,
     UserCog,
@@ -42,7 +41,7 @@
       events: "Events",
       failed: "failed",
       health: "System Health",
-      healthSubtitle: "DB / Queue availability and queue snapshot",
+      healthSubtitle: "Database availability check",
       last14d: "Last 14 days",
       noRecentErrors: "No recent error submissions.",
       noTopFail: "No compile/runtime type failures in last 7 days.",
@@ -204,36 +203,6 @@
     ]
   }));
 
-  const queueOption: EChartsOption = $derived.by(() => ({
-    grid: { left: 40, right: 16, top: 24, bottom: 36 },
-    tooltip: { trigger: "axis" },
-    xAxis: {
-      type: "category",
-      data: ["waiting", "active", "completed", t("failed"), t("delayed")]
-    },
-    yAxis: {
-      type: "value",
-      minInterval: 1
-    },
-    series: [
-      {
-        type: "bar",
-        data: [
-          data.queueCounts?.waiting ?? 0,
-          data.queueCounts?.active ?? 0,
-          data.queueCounts?.completed ?? 0,
-          data.queueCounts?.failed ?? 0,
-          data.queueCounts?.delayed ?? 0
-        ],
-        barMaxWidth: 32,
-        itemStyle: {
-          color: (params: { dataIndex: number }) =>
-            ["#60a5fa", "#22c55e", "#14b8a6", "#ef4444", "#f59e0b"][params.dataIndex] ?? "#6b7280"
-        }
-      }
-    ]
-  }));
-
   function pct(value: number, total: number): string {
     if (total <= 0) return "0%";
     return `${Math.round((value / total) * 100)}%`;
@@ -327,22 +296,6 @@
             {data.dbOk ? t("connected") : t("disconnected")}
           </span>
         </div>
-        <div class="rounded-lg border border-border px-3 py-2">
-          <div class="flex items-center justify-between">
-            <span class="inline-flex items-center gap-1"><Server class="h-3.5 w-3.5" /> {t("queue")}</span>
-            <span class={data.queueCounts ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
-              {data.queueCounts ? t("connected") : t("unavailable")}
-            </span>
-          </div>
-          {#if data.queueError}
-            <p class="mt-1 text-xs text-red-600 dark:text-red-400">{data.queueError}</p>
-          {/if}
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <h3 class="text-xs uppercase tracking-wider text-muted-foreground">{t("queueSnapshot")}</h3>
-        <EChart option={queueOption} class="mt-2 h-50 w-full" />
       </div>
     </div>
   </section>
