@@ -7,7 +7,17 @@ try {
   process.loadEnvFile("../../.env");
 } catch {}
 
+const allowedHostsEnv = process.env.ALLOWED_HOSTS?.trim();
+const allowedHosts =
+  allowedHostsEnv === "*"
+    ? true
+    : allowedHostsEnv
+        ?.split(",")
+        .map((host) => host.trim())
+        .filter(Boolean);
+
 export default defineConfig({
+  server: allowedHosts ? { allowedHosts } : undefined,
   plugins: [
     paraglideVitePlugin({
       project: "./project.inlang",
