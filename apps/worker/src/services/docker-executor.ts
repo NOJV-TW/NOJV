@@ -186,9 +186,7 @@ export class DockerExecutor implements SandboxExecutor {
 
     // Determine network mode based on networkAccess config
     const hasNetworkAccess = request.networkAccess?.enabled === true;
-    const networkArgs = hasNetworkAccess
-      ? this.buildNetworkArgs()
-      : ["--network", "none"];
+    const networkArgs = hasNetworkAccess ? this.buildNetworkArgs() : ["--network", "none"];
 
     const args = [
       "run",
