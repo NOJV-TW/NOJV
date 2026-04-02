@@ -1,47 +1,20 @@
-import { Queue } from "bullmq";
-import {
-  defaultJobOptions,
-  parseRedisConnection,
-  queueNames,
-  submissionJudgeJobSchema,
-  type SubmissionJudgeJob
-} from "@nojv/core";
-import { z } from "zod";
-
-const queueEnvSchema = z.object({
-  REDIS_URL: z.url()
-});
-
-interface QueueRegistry {
-  queues: {
-    submission: Queue<SubmissionJudgeJob>;
-  };
-}
-
-const environment = queueEnvSchema.parse(process.env);
-const connection = parseRedisConnection(environment.REDIS_URL);
-
-const globalForQueues = globalThis as typeof globalThis & {
-  __nojvQueueRegistry?: QueueRegistry;
-};
-
-function createQueueRegistry(): QueueRegistry {
-  return {
-    queues: {
-      submission: new Queue(queueNames.submission, { connection })
-    }
-  };
-}
-
-function getQueueRegistry() {
-  globalForQueues.__nojvQueueRegistry ??= createQueueRegistry();
-
-  return globalForQueues.__nojvQueueRegistry;
-}
+import { getTemporalClient, JUDGE_TASK_QUEUE } from "@nojv/temporal";
+import type { SubmissionJudgeInput } from "@nojv/temporal";
+import { submissionJudgeJobSchema } from "@nojv/core";
+import type { SubmissionJudgeJob } from "@nojv/core";
 
 export async function dispatchSubmissionJob(payload: SubmissionJudgeJob): Promise<void> {
   const validated = submissionJudgeJobSchema.parse(payload);
-  const registry = getQueueRegistry();
+  const client = await getTemporalClient();
 
-  await registry.queues.submission.add(queueNames.submission, validated, defaultJobOptions);
+  const input: SubmissionJudgeInput = {
+    submissionId: validated.submissionId,
+    draft: validated.draft
+  };
+
+  await client.workflow.start("submissionJudgeWorkflow", {
+    taskQueue: JUDGE_TASK_QUEUE,
+    workflowId: `judge-${validated.submissionId}`,
+    args: [input]
+  });
 }

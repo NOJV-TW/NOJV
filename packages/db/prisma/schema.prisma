@@ -531,7 +531,7 @@ model PlagiarismReport {
 
 model UserStats {
   userId          String   @id
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   totalAc         Int      @default(0)
   totalAttempts   Int      @default(0)
   languageDist    Json     @default("{}")
@@ -544,9 +544,9 @@ model UserStats {
 model Editorial {
   id        String            @id @default(cuid())
   userId    String
-  user      User              @relation(fields: [userId], references: [id])
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   problemId String
-  problem   Problem           @relation(fields: [problemId], references: [id])
+  problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
   content   String            @db.Text
   language  SupportedLanguage
   createdAt DateTime          @default(now())
@@ -558,7 +558,7 @@ model Editorial {
 model AssessmentParticipation {
   id           String           @id @default(cuid())
   userId       String
-  user         User             @relation(fields: [userId], references: [id])
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   assessmentId String
   assessment   CourseAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   boundIp      String?
@@ -571,7 +571,7 @@ model AssessmentParticipation {
 model IpViolationLog {
   id            String           @id @default(cuid())
   userId        String
-  user          User             @relation(fields: [userId], references: [id])
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   contestId     String?
   contest       Contest?         @relation("IpViolationContest", fields: [contestId], references: [id], onDelete: Cascade)
   assessmentId  String?
