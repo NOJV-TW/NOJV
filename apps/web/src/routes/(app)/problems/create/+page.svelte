@@ -8,9 +8,7 @@
 
   let { data } = $props();
 
-  const { form, errors, submitting, enhance } = superForm(data.form, {
-    dataType: "json"
-  });
+  const { form, errors, submitting, enhance } = superForm(data.form);
 
   let showAdvanced = $state(false);
   const disabledTabs = ["submission", "testcase", "judge", "scoring"];
@@ -30,6 +28,7 @@
             <span>{m.admin_title()} <span class="text-red-500">*</span></span>
             <input
               class={inputClassName}
+              name="title"
               bind:value={$form.title}
               required
             />
@@ -40,37 +39,19 @@
           <div class="grid gap-4 md:grid-cols-2">
             <div class="space-y-1.5">
               <span class="text-sm text-muted-foreground">{m.admin_difficulty()} <span class="text-red-500">*</span></span>
-              <Select.Root
-                type="single"
-                value={$form.difficulty}
-                onValueChange={(v) => { $form.difficulty = v as typeof $form.difficulty; }}
-              >
-                <Select.Trigger class="w-full">
-                  {({ easy: m.admin_difficultyEasy, medium: m.admin_difficultyMedium, hard: m.admin_difficultyHard } as Record<string, () => string>)[$form.difficulty]?.() ?? $form.difficulty}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Item value="easy" label={m.admin_difficultyEasy()}>{m.admin_difficultyEasy()}</Select.Item>
-                  <Select.Item value="medium" label={m.admin_difficultyMedium()}>{m.admin_difficultyMedium()}</Select.Item>
-                  <Select.Item value="hard" label={m.admin_difficultyHard()}>{m.admin_difficultyHard()}</Select.Item>
-                </Select.Content>
-              </Select.Root>
+              <select class={inputClassName} name="difficulty" bind:value={$form.difficulty}>
+                <option value="easy">{m.admin_difficultyEasy()}</option>
+                <option value="medium">{m.admin_difficultyMedium()}</option>
+                <option value="hard">{m.admin_difficultyHard()}</option>
+              </select>
               {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{$errors.difficulty}</span>{/if}
             </div>
             <div class="space-y-1.5">
               <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
-              <Select.Root
-                type="single"
-                value={$form.visibility}
-                onValueChange={(v) => { $form.visibility = v as typeof $form.visibility; }}
-              >
-                <Select.Trigger class="w-full">
-                  {({ private: m.admin_visibilityPrivate, public: m.admin_visibilityPublic } as Record<string, () => string>)[$form.visibility]?.() ?? $form.visibility}
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Item value="private" label={m.admin_visibilityPrivate()}>{m.admin_visibilityPrivate()}</Select.Item>
-                  <Select.Item value="public" label={m.admin_visibilityPublic()}>{m.admin_visibilityPublic()}</Select.Item>
-                </Select.Content>
-              </Select.Root>
+              <select class={inputClassName} name="visibility" bind:value={$form.visibility}>
+                <option value="private">{m.admin_visibilityPrivate()}</option>
+                <option value="public">{m.admin_visibilityPublic()}</option>
+              </select>
               {#if $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{$errors.visibility}</span>{/if}
             </div>
           </div>
@@ -80,6 +61,7 @@
             <span>{m.admin_statement()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_statementTooltip()} /></span>
             <textarea
               class="{inputClassName} min-h-40 resize-y"
+              name="statement"
               bind:value={$form.statement}
               required
             ></textarea>
@@ -92,6 +74,7 @@
               <span>{m.admin_inputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
               <textarea
                 class="{inputClassName} min-h-20 resize-y"
+                name="inputFormat"
                 bind:value={$form.inputFormat}
                 required
               ></textarea>
@@ -101,6 +84,7 @@
               <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
               <textarea
                 class="{inputClassName} min-h-20 resize-y"
+                name="outputFormat"
                 bind:value={$form.outputFormat}
                 required
               ></textarea>
@@ -122,6 +106,7 @@
                 <span>{m.admin_slug()} <HelpTooltip text={m.admin_slugTooltip()} /></span>
                 <input
                   class={inputClassName}
+                  name="slug"
                   bind:value={$form.slug}
                   placeholder={m.admin_slugPlaceholder()}
                 />
@@ -131,6 +116,7 @@
                 <span>{m.admin_summaryLabel()} <HelpTooltip text={m.admin_summaryTooltip()} /></span>
                 <textarea
                   class="{inputClassName} min-h-20 resize-y"
+                  name="summary"
                   bind:value={$form.summary}
                 ></textarea>
               </label>
