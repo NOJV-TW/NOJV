@@ -134,12 +134,9 @@ It shares the same PostgreSQL instance as the application (separate schema).
 ### Deployment Command
 
 ```bash
-# Via Cloud Build
+# Build and push images via Cloud Build (manual, optional)
 gcloud builds submit --config infra/gcp/cloudbuild.yaml \
   --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260312
-
-# Via convenience script
-pnpm deploy:gcp
 ```
 
 ### Dockerfiles
@@ -206,7 +203,7 @@ pnpm db:migrate
 pnpm db:validate
 ```
 
-In production, migrations run as a Cloud Run Job before the new application version starts.
+In production, migrations run in the deployment workflow before new `web`/`worker` containers are rolled out.
 
 ## CI Pipeline
 
@@ -227,89 +224,72 @@ Additional validations:
 - Prisma schema validation (`pnpm db:validate`)
 - Docker Compose config validation
 
-## GitHub CD Strategy (Homelab -> Cloud)
+## GitHub CD Strategy (Single Path)
 
-Development and release deployment are intentionally split into two workflows.
-
-1. Homelab continuous deploy
-2. Cloud production release
-
-### Homelab continuous deploy
+There is one deployment workflow only:
 
 - Workflow: `.github/workflows/deploy.yml`
-- Trigger: CI workflow success on `main` (`workflow_run`)
-- Target: self-hosted Linux runner (dorm server)
+- Trigger: CI workflow success (`workflow_run`) for pushes to `main`
+- Target: self-hosted Linux runner on your remote server
+- Source code: exact commit SHA that passed CI (`workflow_run.head_sha`)
 - Runtime: Docker Compose profiles (`sandbox-build`, `deploy`, `prod`)
-- Purpose: fast integration verification in a long-running server environment
 
-### Cloud production release
+### Required runner setup
 
-- Workflow: `.github/workflows/release-cloud.yml`
-- Trigger: manual (`workflow_dispatch`)
-- Target: GCP (Cloud Run + Cloud Run Job + Artifact Registry)
-- Runtime: `bash infra/gcp/deploy.sh`
-- Purpose: controlled production rollout with explicit operator action
+The self-hosted runner must have:
 
-Required GitHub configuration for this workflow:
+1. Docker Engine and Docker Compose
+2. Persistent workspace checkout permissions for the repository
+3. Network access for dependencies used during Docker image build
+4. Enough disk space for image builds and local cache
 
-- Secrets: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`
-- Secrets: `PROD_DATABASE_URL`, `PROD_REDIS_URL`, `PROD_BETTER_AUTH_SECRET`, `PROD_BETTER_AUTH_URL`
-- Optional secrets: `PROD_GITHUB_CLIENT_ID`, `PROD_GITHUB_CLIENT_SECRET`, `PROD_GOOGLE_CLIENT_ID`, `PROD_GOOGLE_CLIENT_SECRET`
-- Variables (optional): `GCP_REGION`, `GCP_REPOSITORY`, `GCP_SERVICE_PREFIX`
+### Required Environment On Runner
 
-### Recommended release sequence
+1. `BETTER_AUTH_SECRET`
+2. `BETTER_AUTH_URL`
 
-1. Merge to `main`, let CI and homelab deploy complete.
-2. Verify homelab health and key flows.
-3. Trigger `Release Cloud Production` workflow from GitHub Actions.
-4. Confirm web health endpoint and Cloud Run Job status.
-5. Roll out worker/sandbox manifests on GKE if image tag changed.
+Optional OAuth environment variables:
 
-## Rollback Procedure
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
 
-### Cloud Run (Web)
+### Deployment steps executed by workflow
 
-```bash
-# List recent revisions
-gcloud run revisions list --service nojv-web --region asia-east1
+1. Checkout the exact commit SHA that passed CI
+2. Start/verify infra services (`postgres`, `redis`, `temporal`, `temporal-ui`)
+3. Build runtime images (`sandbox-image`, `migrator`, `web`, `worker`)
+4. Run database migrations using `migrator`
+5. Roll out `web` and `worker` with `--wait --remove-orphans`
+6. Verify web reachability and container health status
+7. Dump diagnostics automatically if any step fails
 
-# Route 100% traffic to a previous revision
-gcloud run services update-traffic nojv-web \
-  --region asia-east1 \
-  --to-revisions REVISION_NAME=100
-```
+## Rollback Procedure (Remote Docker Compose)
 
-### GKE (Worker)
+Rollback is commit-based. Re-run deployment for an older known-good commit SHA.
 
-```bash
-# Check rollout history
-kubectl rollout history deployment/nojv-worker -n nojv
-
-# Roll back to previous revision
-kubectl rollout undo deployment/nojv-worker -n nojv
-
-# Roll back to a specific revision
-kubectl rollout undo deployment/nojv-worker -n nojv --to-revision=N
-```
+1. In GitHub Actions, open `CI` run for the target commit on `main`
+2. Re-run `CD Deploy To Remote Server` using that commit SHA context
+3. Confirm `docker compose --profile prod ps` shows healthy `web` and `worker`
+4. Validate key flows and monitor logs for at least 15 minutes
 
 ### Database Rollback
 
 Prisma does not auto-generate down migrations. If a migration causes issues:
 
-1. **Identify the breaking migration** in `packages/db/prisma/migrations/`
-2. **Write a manual rollback SQL** and apply via `psql` or Cloud SQL Studio
-3. **Mark the migration as rolled back** in the `_prisma_migrations` table
-4. **Deploy the previous application version** that matches the old schema
-
-For critical data issues, restore from Cloud SQL automated backups (point-in-time recovery).
+1. Identify the breaking migration in `packages/db/prisma/migrations/`
+2. Write manual rollback SQL and apply it on the production database
+3. Mark migration state correctly in `_prisma_migrations` when needed
+4. Deploy the previous application commit compatible with the restored schema
 
 ### Pre-Rollback Checklist
 
-1. Confirm the issue is deployment-related (not upstream: DB, Redis, Temporal)
-2. Check health endpoints: `/api/healthz` (web), `/healthz` (worker)
-3. Check Temporal UI for stuck/failing workflows
-4. If rolling back web only, verify the worker is compatible with the previous web version
-5. After rollback, verify health checks pass and monitor for 15 minutes
+1. Confirm issue is deployment-related, not upstream infrastructure instability
+2. Check web and worker health endpoints
+3. Check Temporal workflows for stuck executions
+4. Verify web and worker versions are schema-compatible before rollback
+5. After rollback, monitor logs, queue drain behavior, and health checks
 
 ## Related Docs
 
