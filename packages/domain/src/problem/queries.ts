@@ -225,7 +225,7 @@ function mapPersistedProblemDetail(
     slug: problem.slug,
     starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),
     statement: localized.statement,
-    status: (problem.status as ProblemStatus) ?? "published",
+    status: (problem.status as ProblemStatus | undefined) ?? "published",
     submissionType,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     tags: problem.tags ?? [],

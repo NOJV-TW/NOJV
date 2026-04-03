@@ -208,25 +208,19 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
 
     const problem = await createProblemDefinition(tx, slug, {
       authorId: author.id,
-      checkerScript: payload.checkerScript,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
-      interactorScript: payload.interactorScript,
-      judgeType: payload.judgeType,
+      judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
+      status: payload.status,
       submissionType: payload.submissionType,
       summary: payload.summary,
       tags: payload.tags,
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
-      visibility: payload.visibility,
-      pipelineConfig: payload.pipelineConfig,
-      scoringScript: payload.scoringScript,
-      scoringLanguage: payload.scoringLanguage,
-      artifactPatterns: payload.artifactPatterns,
-      networkAccessConfig: payload.networkAccessConfig
+      visibility: payload.visibility
     });
 
     if (payload.templates.length > 0) {
