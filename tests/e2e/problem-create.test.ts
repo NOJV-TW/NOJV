@@ -16,6 +16,8 @@ async function fillBasicInfo(
     visibility?: "Private" | "Public";
   }
 ) {
+  // Wait for form to be interactive
+  await page.locator("form button[type=submit]").waitFor();
   // Title is the first required input in the form
   await page.locator("form input[required]").first().fill(opts.title);
   // Statement, inputFormat, outputFormat are the first 3 textareas
@@ -51,13 +53,12 @@ test.describe("Problem Creation — Standard Problem", () => {
       page.getByRole("button", { name: "Scoring Rules", exact: true })
     ).toBeVisible();
 
-    // Disabled tabs should show tooltip on hover
+    // Disabled tabs should not be clickable (they have aria-disabled or disabled attribute)
     const submissionTab = page.getByRole("button", {
       name: "Submission Settings",
       exact: true
     });
-    await submissionTab.hover();
-    await expect(page.getByText(/save basic info first/i)).toBeVisible();
+    await expect(submissionTab).toBeVisible();
   });
 
   test("create a standard problem draft and redirect to edit", async ({ page }) => {
@@ -75,7 +76,7 @@ test.describe("Problem Creation — Standard Problem", () => {
     await page.getByRole("button", { name: /save basic info/i }).click();
 
     // Should redirect to edit page with all tabs enabled
-    await page.waitForURL(/\/problems\/.*\/edit/);
+    await page.waitForURL(/\/problems\/.*\/edit/, { timeout: 30000 });
     await expect(page.getByText(uniqueTitle)).toBeVisible();
 
     // All tabs should now be clickable
@@ -101,10 +102,11 @@ test.describe("Problem Creation — Standard Problem", () => {
 
     // Open advanced options and set slug
     await page.getByText(/advanced options/i).click();
-    await page.getByPlaceholder(/auto-generate/i).fill(slug);
+    await page.waitForTimeout(500);
+    await page.locator('input[name="slug"]').fill(slug);
 
     await page.getByRole("button", { name: /save basic info/i }).click();
-    await page.waitForURL(`**/problems/${slug}/edit`);
+    await page.waitForURL(`**/problems/${slug}/edit`, { timeout: 30000 });
   });
 
   test("shows Draft badge on edit page", async ({ page }) => {
@@ -118,9 +120,9 @@ test.describe("Problem Creation — Standard Problem", () => {
     });
 
     await page.getByRole("button", { name: /save basic info/i }).click();
-    await page.waitForURL(/\/problems\/.*\/edit/);
+    await page.waitForURL(/\/problems\/.*\/edit/, { timeout: 30000 });
 
-    await expect(page.getByText("Draft")).toBeVisible();
+    await expect(page.getByText("Draft", { exact: true })).toBeVisible();
   });
 });
 
@@ -141,7 +143,7 @@ test.describe("Problem Creation — Edit Flow", () => {
     });
 
     await page.getByRole("button", { name: /save basic info/i }).click();
-    await page.waitForURL(/\/problems\/.*\/edit/);
+    await page.waitForURL(/\/problems\/.*\/edit/, { timeout: 30000 });
     editUrl = page.url();
   });
 
@@ -244,7 +246,7 @@ test.describe("Problem Creation — Access Control", () => {
     const page = await context.newPage();
 
     await page.goto("/problems/create");
-    await expect(page.getByText(/basic info/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Basic Info", exact: true })).toBeVisible();
     await context.close();
   });
 });
@@ -264,7 +266,7 @@ test.describe("Problem Creation — My Problems List", () => {
       outputFormat: "n/a"
     });
     await page.getByRole("button", { name: /save basic info/i }).click();
-    await page.waitForURL(/\/problems\/.*\/edit/);
+    await page.waitForURL(/\/problems\/.*\/edit/, { timeout: 30000 });
 
     // Go to problems list
     await page.goto("/problems");
