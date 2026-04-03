@@ -229,7 +229,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       visibility: "published"
     });
 
-    await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs as string[]);
+    await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs);
 
     return contest;
   });
@@ -284,7 +284,7 @@ export async function updateContestRecord(
     if (payload.problemSlugs !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
-      await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs as string[]);
+      await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs);
     }
 
     return { id: contest.id };
