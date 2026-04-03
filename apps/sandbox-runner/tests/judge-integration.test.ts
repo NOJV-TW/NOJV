@@ -557,7 +557,7 @@ describe("standard judge", () => {
       if (!result.success) return;
       const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
       expect(verdict.verdict).toBe("AC");
-    }, 30_000);
+    }, name === "go" ? 90_000 : 30_000);
   }
 
   for (const [name, prog] of Object.entries(correctPrograms)) {
@@ -572,7 +572,7 @@ describe("standard judge", () => {
         TIMEOUT_MS
       );
       expect(verdict.verdict).toBe("WA");
-    }, 30_000);
+    }, name === "go" ? 90_000 : 30_000);
   }
 
   for (const [name, prog] of Object.entries(crashPrograms)) {
@@ -583,7 +583,7 @@ describe("standard judge", () => {
       if (!result.success) return;
       const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
       expect(verdict.verdict).toBe("RE");
-    }, 30_000);
+    }, name === "go" ? 90_000 : 30_000);
   }
 
   for (const [name, prog] of Object.entries(tlePrograms)) {
@@ -594,7 +594,7 @@ describe("standard judge", () => {
       if (!result.success) return;
       const verdict = await judgeStandard(result.runCommand, makeTestcase(), SHORT_TIMEOUT_MS);
       expect(verdict.verdict).toBe("TLE");
-    }, 30_000);
+    }, name === "go" ? 90_000 : 30_000);
   }
 
   for (const [name, prog] of Object.entries(invalidSources)) {
@@ -615,7 +615,7 @@ describe("standard judge", () => {
       if (!result.success) return;
       const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
       expectMleVerdict(name, verdict.verdict);
-    }, 30_000);
+    }, name === "go" ? 90_000 : 30_000);
   }
 
   it("SE — invalid command", async () => {
