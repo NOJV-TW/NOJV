@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import ProblemTabs from "$lib/components/problem/ProblemTabs.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
@@ -10,15 +11,43 @@
   let { data } = $props();
 
   let activeTab = $state("basic");
+  let publishing = $state(false);
+
+  // Publish requires: at least one testcase set
+  let canPublish = $derived(
+    data.problem.status === "draft" && data.testcaseSets.length > 0
+  );
+
+  function handlePublish() {
+    publishing = true;
+    const fd = new FormData();
+    fetch(`?/publish`, { method: "POST", body: fd }).then(async (res) => {
+      if (res.ok) await invalidateAll();
+      publishing = false;
+    });
+  }
 </script>
 
 <div class="mx-auto max-w-4xl space-y-6">
-  <h2 class="font-[family-name:var(--font-display)] text-3xl">
-    {m.problemDetail_editProblem()}: {data.problem.title}
-  </h2>
+  <div class="flex items-center gap-3">
+    <h2 class="font-[family-name:var(--font-display)] text-3xl">
+      {m.problemDetail_editProblem()}: {data.problem.title}
+    </h2>
+    {#if data.problem.status === "draft"}
+      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+        Draft
+      </span>
+    {/if}
+  </div>
 
   <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-    <ProblemTabs bind:activeTab>
+    <ProblemTabs
+      bind:activeTab
+      showPublish={data.problem.status === "draft"}
+      {canPublish}
+      {publishing}
+      onpublish={handlePublish}
+    >
       {#snippet basic()}
         <BasicInfoTab problem={data.problem} formData={data.form} />
       {/snippet}
