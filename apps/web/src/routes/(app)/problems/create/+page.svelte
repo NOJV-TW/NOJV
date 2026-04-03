@@ -98,14 +98,14 @@
           <!-- Input/Output Format -->
           <div class="grid gap-4 md:grid-cols-2">
             <label class="text-sm text-muted-foreground">
-              <span>{m.admin_inputFormat()}</span>
+              <span>{m.admin_inputFormat()} <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
               <textarea
                 class="{inputClassName} min-h-20 resize-y"
                 bind:value={$form.inputFormat}
               ></textarea>
             </label>
             <label class="text-sm text-muted-foreground">
-              <span>{m.admin_outputFormat()}</span>
+              <span>{m.admin_outputFormat()} <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
               <textarea
                 class="{inputClassName} min-h-20 resize-y"
                 bind:value={$form.outputFormat}
@@ -143,17 +143,19 @@
           {/if}
 
           <!-- Submit -->
-          <button
-            class="mt-2 inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={$submitting}
-            type="submit"
-          >
-            {#if $submitting}
-              {m.common_creating()}
-            {:else}
-              {m.admin_createProblem()}
-            {/if}
-          </button>
+          <div class="mt-2 flex justify-end">
+            <button
+              class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={$submitting}
+              type="submit"
+            >
+              {#if $submitting}
+                {m.common_saving()}
+              {:else}
+                {m.admin_saveBasicInfo()}
+              {/if}
+            </button>
+          </div>
         </form>
       {/snippet}
     </ProblemTabs>
