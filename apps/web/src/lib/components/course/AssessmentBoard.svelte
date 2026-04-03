@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import type { CourseAssessmentRecord } from "$lib/server/course/queries";
+  import type { courseDomain } from "@nojv/domain";
+  type CourseAssessmentRecord = courseDomain.CourseAssessmentRecord;
   import {
     assessmentPath,
     assessmentPresentation,

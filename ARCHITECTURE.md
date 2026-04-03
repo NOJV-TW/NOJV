@@ -2,6 +2,40 @@
 
 NOJV is a production-oriented Online Judge platform. It supports competitive programming contests (ICPC/IOI scoring), course-based assessments, practice submissions, and plagiarism detection.
 
+## Multi-Tier Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1st Tier                                                            │
+│                                                                     │
+│  User Interface    Svelte components (browser rendering)            │
+│                                                                     │
+│  Presentation      SvelteKit server load / form actions (BFF)       │
+│                    Temporal activities (worker-side controllers)    │
+├─────────────────────────────────────────────────────────────────────┤
+│ 2nd Tier                                                            │
+│                                                                     │
+│  Service           @nojv/domain                                     │
+│                    contest/ course/ problem/ submission/ user/      │
+│                    editorial/ plagiarism/ announcement/             │
+├─────────────────────────────────────────────────────────────────────┤
+│ 3rd Tier                                                            │
+│                                                                     │
+│  Persistence       @nojv/db (repositories, not raw Prisma client)   │
+│                                                                     │
+│  Data              PostgreSQL 17, Redis 8                           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Infrastructure (cross-cutting, any layer may use)                   │
+│                                                                     │
+│  @nojv/core          Zod schemas, DTO types, enums, contracts       │
+│  @nojv/redis         Pub/sub, cache, key registry, TTL policies     │
+│  @nojv/job-dispatch  Temporal client wrapper, stable dispatch API   │
+│  tooling/            ESLint, Prettier, TypeScript configs           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Dependency direction is strictly top-down: `UI → Presentation → Service → Persistence → Data`. Infrastructure is cross-cutting and may be used by any layer.
+
 ## System Domains
 
 | Domain          | Purpose                                                                  |
@@ -14,41 +48,68 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 | **Plagiarism**  | MOSS-based similarity detection for assessments and contests             |
 | **Stats**       | Per-user statistics: AC count, language distribution, daily activity     |
 
-## Layers
+## Package Structure
 
 ```
-┌──────────────────────────────────────────────────────┐
-│  Browser (SvelteKit SSR + client hydration)          │
-│  Monaco editor, SSE streaming, Tailwind CSS 4        │
-├──────────────────────────────────────────────────────┤
-│  SvelteKit Server (apps/web)                         │
-│  Page loads, API routes, auth, Redis pub/sub         │
-├──────────────────────────────────────────────────────┤
-│  Temporal Server                                     │
-│  Workflow orchestration, task queues, durable timers  │
-├──────────────────────────────────────────────────────┤
-│  Temporal Worker (apps/worker)                       │
-│  Judge activities, lifecycle activities, sandbox exec │
-├──────────────────────────────────────────────────────┤
-│  PostgreSQL 17          │  Redis 8                   │
-│  Source of truth        │  Pub/sub, cache, scoreboard│
-└──────────────────────────────────────────────────────┘
+packages/
+  core/             Zod schemas, DTO types, enums, contracts (zero deps)
+  db/               Prisma schema, migrations, repositories (depends: core)
+  redis/            Connection, key registry, pub/sub, cache (depends: core)
+  job-dispatch/     Temporal client wrapper, dispatch API (depends: core)
+  temporal/         Workflows + activities (depends: core, domain, redis)
+  domain/           Business logic (depends: core, db, redis, job-dispatch)
+
+apps/
+  web/              SvelteKit BFF (depends: core, domain)
+  worker/           Temporal worker boot (depends: core, temporal, db, redis)
+  sandbox-runner/   Isolated sandbox (depends: core only)
 ```
+
+### Dependency Graph
+
+```
+                    core
+                   ↗  ↑  ↖
+                 db  redis  job-dispatch
+                  ↖   ↑   ↗
+                   domain
+                  ↗       ↖
+           temporal        web
+              ↑
+           worker
+```
+
+No cycles. `domain` → `job-dispatch` for dispatching workflows. `temporal` → `domain` for activity logic. `domain` never imports `temporal`.
+
+### Dependency Rules
+
+| Package          | May import                            | Must NOT import                   |
+| ---------------- | ------------------------------------- | --------------------------------- |
+| `core`           | (nothing)                             | everything                        |
+| `db`             | `core`                                | domain, redis, job-dispatch       |
+| `redis`          | `core`                                | domain, db, job-dispatch          |
+| `job-dispatch`   | `core`                                | domain, db, redis, temporal       |
+| `domain`         | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker             |
+| `temporal`       | `core`, `domain`, `redis`             | db, job-dispatch, web             |
+| `web`            | `core`, `domain`                      | db, redis, job-dispatch, temporal |
+| `worker`         | `core`, `temporal`, `db`, `redis`     | domain, job-dispatch, web         |
+| `sandbox-runner` | `core`                                | everything else                   |
 
 ## Runtime Entry Points
 
-### apps/web — SvelteKit Frontend + API
+### apps/web — SvelteKit BFF
 
 Port 5173 (dev) / 3000 (production).
 
 Responsibilities:
 
-- Server-rendered pages with client hydration
-- RESTful API routes (`/api/*`)
-- Authentication via better-auth (session + OAuth)
-- Temporal workflow dispatch (submissions, plagiarism)
-- Redis pub/sub for SSE real-time events
+- Server-rendered pages with client hydration (User Interface tier)
+- Server load functions and form actions as Presentation layer
+- Session validation via better-auth
+- Calls `@nojv/domain` for all business logic — **zero business logic in this layer**
 - Role-based access control (platform + course roles)
+
+Does NOT directly access: database, Redis, Temporal.
 
 ### apps/worker — Temporal Worker
 
@@ -57,9 +118,9 @@ Port 8080 (health check only).
 Responsibilities:
 
 - Registers Temporal workflows and activities
+- Activities act as Presentation layer (worker-side controllers)
+- Activities call `@nojv/domain` data functions for business logic
 - Executes sandbox code in Docker or Kubernetes
-- Manages contest/assessment lifecycle timers
-- Runs plagiarism detection (MOSS)
 
 Supports three deployment modes via `WORKER_MODE`:
 
@@ -76,33 +137,74 @@ Runs inside a container with:
 - PID, memory, CPU limits
 - seccomp restrictions
 
+Only depends on `@nojv/core` for the sandbox contract. Can be rewritten in any language.
+
 ## Shared Packages
 
 ### @nojv/core
 
-Zod schemas and TypeScript types shared across all apps. Contains:
+Zod schemas and TypeScript types shared across all apps. Zero dependencies. Contains:
 
 - Domain enums (languages, roles, statuses, verdicts)
+- DTO type definitions (all domain functions return these)
 - Validation schemas (problem, contest, course, submission)
 - Judge pipeline stage definitions and configuration schemas
 - Sandbox request/result interfaces and executor contract
 - SSE event types and Redis connection parsing
+- Shared event config schema (used by both Contest and CourseAssessment)
 
 ### @nojv/db
 
-Prisma 7 client, schema (584 lines, 20+ models), migrations, and seed script. PostgreSQL with the `pg` adapter. See [Database Schema](docs/DATABASE.md).
+Prisma 7 schema, migrations, and **repository objects**. PostgreSQL with the `pg` adapter.
+
+- Prisma client is internal — not exported from the package
+- Only repositories are exported (one per domain entity)
+- Domain layer accesses data exclusively through repositories
+
+See [Database Schema](docs/DATABASE.md).
+
+### @nojv/redis
+
+Centralized Redis operations. Contains:
+
+- Key registry — all Redis key patterns defined as functions
+- Pub/sub — SSE event publishing and subscription
+- Cache — domain-scoped get/set/del with TTL policies
+- Cooldown — rate limiting for submissions and actions
+- Scoreboard — contest ranking storage and retrieval
+
+### @nojv/job-dispatch
+
+Stable dispatch API wrapping Temporal client. Contains:
+
+- `submitJudge()` — dispatch submission judge workflow
+- `startContestLifecycle()` — dispatch contest lifecycle workflow
+- `startAssessmentLifecycle()` — dispatch assessment lifecycle workflow
+- `triggerPlagiarismCheck()` — dispatch MOSS plagiarism workflow
+- `startRejudge()` — dispatch rejudge workflow
+
+Domain and web layers never see Temporal internals (workflow IDs, task queues, gRPC).
 
 ### @nojv/temporal
 
-Temporal workflow and activity definitions. Exports:
+Temporal workflow and activity definitions. Used only by `apps/worker`.
 
-- `.` — Types, task queue constants, client factory
-- `./workflows` — All workflow functions
-- `./activities` — All activity functions (full bundle)
-- `./activities/judge` — Judge-only activity bundle (for microservice split)
-- `./activities/platform` — Platform-only activity bundle
+- Workflows: submission judge, rejudge, contest lifecycle, assessment lifecycle, plagiarism
+- Activities call `@nojv/domain` data functions for business logic
+- Activities call `@nojv/redis` for event publishing
+- Activities never dispatch workflows (no accidental recursion)
 
 See [Temporal Workflows](docs/TEMPORAL.md).
+
+### @nojv/domain
+
+Single source of all business logic. Organized by domain:
+
+- Each domain has `queries.ts` (read) and `commands.ts` (write)
+- All functions return DTO types defined in `@nojv/core`
+- Two function categories:
+  - **Orchestration functions** — called by web, may dispatch workflows via job-dispatch
+  - **Data functions** — called by temporal activities, pure DB + event operations
 
 ## Cross-Cutting Concerns
 
@@ -134,7 +236,7 @@ Zod 4 schemas defined in `@nojv/core`, used in:
 ### Real-Time Events
 
 - **Transport**: Server-Sent Events (SSE) via `/api/events/stream`
-- **Broker**: Redis pub/sub on `user:{userId}` channel
+- **Broker**: Redis pub/sub via `@nojv/redis`
 - **Events**: submission verdict, contest starting/ending, assignment deadline
 - **Submission polling**: Temporal `workflow.query("getStatus")` with DB fallback
 
@@ -148,3 +250,4 @@ Zod 4 schemas defined in `@nojv/core`, used in:
 - [Security Requirements](docs/SECURITY.md)
 - [Reliability Invariants](docs/RELIABILITY.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
+- [Architecture Redesign Plan](docs/plans/2026-04-02-microservice-architecture-redesign.md)

@@ -1,37 +1,15 @@
-type LogLevel = "debug" | "info" | "warn" | "error";
+import pino from "pino";
 
-function log(
-  level: LogLevel,
-  context: string,
-  message: string,
-  data?: Record<string, unknown>
-) {
-  const entry = {
-    context,
-    level,
-    message,
-    timestamp: new Date().toISOString(),
-    ...data
-  };
-
-  if (level === "error") {
-    console.error(JSON.stringify(entry));
-  } else if (level === "warn") {
-    console.warn(JSON.stringify(entry));
-  } else {
-    console.log(JSON.stringify(entry));
-  }
-}
+const base = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
 export function createLogger(context: string) {
+  const child = base.child({ context });
+
   return {
     debug: (message: string, data?: Record<string, unknown>) =>
-      log("debug", context, message, data),
-    error: (message: string, data?: Record<string, unknown>) =>
-      log("error", context, message, data),
-    info: (message: string, data?: Record<string, unknown>) =>
-      log("info", context, message, data),
-    warn: (message: string, data?: Record<string, unknown>) =>
-      log("warn", context, message, data)
+      child.debug(data ?? {}, message),
+    info: (message: string, data?: Record<string, unknown>) => child.info(data ?? {}, message),
+    warn: (message: string, data?: Record<string, unknown>) => child.warn(data ?? {}, message),
+    error: (message: string, data?: Record<string, unknown>) => child.error(data ?? {}, message)
   };
 }

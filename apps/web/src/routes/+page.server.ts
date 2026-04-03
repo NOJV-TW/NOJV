@@ -1,6 +1,8 @@
 import type { PageServerLoad } from "./$types";
 
-import { listAnnouncements, listUpcomingAssessments } from "$lib/server/course/queries";
+import { courseDomain } from "@nojv/domain";
+
+const { listAnnouncements, listUpcomingAssessments } = courseDomain;
 import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
 
 export const load: PageServerLoad = async (event) => {

@@ -4,7 +4,7 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { prisma } from "@nojv/db";
+import { listIpViolations } from "@nojv/domain";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -21,16 +21,9 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     return json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const violations = await prisma.ipViolationLog.findMany({
-    where: {
-      ...(contestId ? { contestId } : {}),
-      ...(assessmentId ? { assessmentId } : {})
-    },
-    include: {
-      user: { select: { displayUsername: true, email: true, name: true } }
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200
+  const violations = await listIpViolations({
+    ...(contestId ? { contestId } : {}),
+    ...(assessmentId ? { assessmentId } : {})
   });
 
   return json({ violations });
