@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { difficultyColor } from "$lib/types";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import { FileCode, Plus, Search } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
@@ -329,7 +330,13 @@
         </div>
         <div>
           <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
-          <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
+          <span
+            class="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {difficultyColor[
+              problem.difficulty
+            ] ?? 'bg-muted text-muted-foreground'}"
+          >
+            {problem.difficulty}
+          </span>
         </div>
         <div class="sm:text-right">
           <p class="text-sm text-muted-foreground">{m.common_acceptance()}</p>
@@ -480,7 +487,13 @@
         </div>
         <div>
           <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
-          <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
+          <span
+            class="mt-1 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {difficultyColor[
+              problem.difficulty
+            ] ?? 'bg-muted text-muted-foreground'}"
+          >
+            {problem.difficulty}
+          </span>
         </div>
         <div class="sm:text-right">
           <span
