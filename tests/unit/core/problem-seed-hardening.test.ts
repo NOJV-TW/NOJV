@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   seedProblems,
@@ -12,22 +12,21 @@ function createMockPrisma() {
     templateUpserts: [] as any[]
   };
 
-  const problemBySlug = new Map<string, { id: string; slug: string }>();
+  const problemById = new Map<string, { id: string }>();
 
   const prisma = {
     problem: {
       upsert: async (args: any) => {
         captured.problemUpserts.push(args);
         const record = {
-          id: String(args.create.id),
-          slug: String(args.create.slug)
+          id: String(args.create.id)
         };
-        problemBySlug.set(record.slug, record);
+        problemById.set(record.id, record);
         return record;
       },
       findUnique: async (args: any) => {
-        const slug = String(args.where.slug);
-        return problemBySlug.get(slug) ?? null;
+        const id = String(args.where.id);
+        return problemById.get(id) ?? null;
       }
     },
     problemStatementI18n: {
@@ -63,7 +62,6 @@ describe("problem seed hardening", () => {
           difficulty: "hard",
           id: "problem_broken-interactive",
           memoryLimitMb: 256,
-          slug: "broken-interactive",
           summary: "broken",
           timeLimitMs: 1000,
           visibility: "public",
@@ -95,7 +93,6 @@ describe("problem seed hardening", () => {
         difficulty: "hard",
         id: "problem_function-task",
         memoryLimitMb: 256,
-        slug: "function-task",
         summary: "function",
         timeLimitMs: 1000,
         visibility: "public" as const,
@@ -120,7 +117,7 @@ describe("problem seed hardening", () => {
     expect(() =>
       validateTemplateDefinitions(problems, [
         {
-          slug: "function-task",
+          problemId: "problem_function-task",
           templates: [
             {
               language: "python",
@@ -140,9 +137,9 @@ describe("problem seed hardening", () => {
     await seedProblems(prisma, "teacher_1");
 
     const creates = captured.problemUpserts.map((entry) => entry.create);
-    const dhcp = creates.find((entry) => entry.slug === "stateful-dhcp-parser");
-    const memory = creates.find((entry) => entry.slug === "memory-leak-forensics");
-    const noisy = creates.find((entry) => entry.slug === "noisy-oracle-hunt");
+    const dhcp = creates.find((entry) => entry.id === "problem_stateful-dhcp-parser");
+    const memory = creates.find((entry) => entry.id === "problem_memory-leak-forensics");
+    const noisy = creates.find((entry) => entry.id === "problem_noisy-oracle-hunt");
 
     expect(dhcp).toBeDefined();
     expect(dhcp.submissionType).toBe("function");
