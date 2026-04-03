@@ -19,7 +19,6 @@
     "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "typecheck": "turbo typecheck",
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
-    "deploy:gcp": "bash infra/gcp/deploy.sh",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "ci:verify": "pnpm format && pnpm db:generate && turbo run build lint test",
