@@ -5,7 +5,10 @@ import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { joinCourseRecord } from "$lib/server/course/mutations";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { courseDomain } from "@nojv/domain";
+
+const { joinCourseRecord } = courseDomain;
 
 const joinFormSchema = courseJoinRequestSchema.omit({ courseSlug: true });
 
@@ -35,6 +38,9 @@ export const load: PageServerLoad = async ({ params, parent, url }) => {
 
 export const actions = {
   join: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const slug = event.params.slug;
 

@@ -1,9 +1,10 @@
 import { error } from "@sveltejs/kit";
-import { prisma } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
-import { getContestDetail } from "$lib/server/contest/queries";
-import { checkIpLock, getClientIp } from "$lib/server/ip-utils";
+import { contestDomain, checkIpLock, getClientIp } from "@nojv/domain";
+import { runTransaction } from "@nojv/db";
+
+const { getContestDetail, getContestParticipationForIpCheck } = contestDomain;
 
 export const load: PageServerLoad = async ({ params, locals, request }) => {
   const contest = await getContestDetail(params.slug);
@@ -21,32 +22,27 @@ export const load: PageServerLoad = async ({ params, locals, request }) => {
     if (isActive) {
       const clientIp = getClientIp(request);
 
-      const participation = await prisma.contestParticipation.findUnique({
-        select: { id: true, boundIp: true },
-        where: {
-          contestId_userId: {
-            contestId: contest.id,
-            userId: user.id
-          }
+      const participation = await getContestParticipationForIpCheck(contest.id, user.id);
+
+      await runTransaction(async (tx) => {
+        const ipResult = await checkIpLock(
+          tx,
+          contest,
+          clientIp,
+          participation,
+          { userId: user.id, contestId: contest.id },
+          "contestParticipation"
+        );
+
+        if (!ipResult.allowed && contest.ipViolationMode === "block") {
+          error(
+            403,
+            ipResult.violationType === "whitelist"
+              ? "Your IP address is not in the allowed range for this contest."
+              : "Your IP address does not match the one bound to your session."
+          );
         }
       });
-
-      const ipResult = await checkIpLock(
-        contest,
-        clientIp,
-        participation,
-        { userId: user.id, contestId: contest.id },
-        "contestParticipation"
-      );
-
-      if (!ipResult.allowed && contest.ipViolationMode === "block") {
-        error(
-          403,
-          ipResult.violationType === "whitelist"
-            ? "Your IP address is not in the allowed range for this contest."
-            : "Your IP address does not match the one bound to your session."
-        );
-      }
     }
   }
 

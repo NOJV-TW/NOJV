@@ -1,17 +1,15 @@
 import { z } from "zod";
 import { json } from "@sveltejs/kit";
-import { prisma } from "@nojv/db";
 import { languageSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth, ForbiddenError, NotFoundError } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import {
-  hasUserAcProblem,
-  listEditorials,
-  upsertEditorial
-} from "$lib/server/problem/editorial-queries";
+import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
+import { problemDomain } from "@nojv/domain";
+
+const { findProblemIdBySlug, hasUserAcProblem, listEditorials, upsertEditorial } = problemDomain;
 
 const editorialSubmitSchema = z.object({
   content: z.string().min(10).max(50000),
@@ -19,10 +17,7 @@ const editorialSubmitSchema = z.object({
 });
 
 async function requireProblemWithAc(userId: string, slug: string) {
-  const problem = await prisma.problem.findUnique({
-    where: { slug },
-    select: { id: true }
-  });
+  const problem = await findProblemIdBySlug(slug);
 
   if (!problem) throw new NotFoundError("Problem not found.");
 
@@ -45,6 +40,13 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
 export const POST: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
+
+  try {
+    await writeApiRateLimiter.consume(event.getClientAddress());
+  } catch {
+    return json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { slug } = event.params;
   if (!slug) return json({ message: "Missing problem slug." }, { status: 400 });
 

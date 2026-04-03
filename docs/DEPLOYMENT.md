@@ -227,6 +227,52 @@ Additional validations:
 - Prisma schema validation (`pnpm db:validate`)
 - Docker Compose config validation
 
+## Rollback Procedure
+
+### Cloud Run (Web)
+
+```bash
+# List recent revisions
+gcloud run revisions list --service nojv-web --region asia-east1
+
+# Route 100% traffic to a previous revision
+gcloud run services update-traffic nojv-web \
+  --region asia-east1 \
+  --to-revisions REVISION_NAME=100
+```
+
+### GKE (Worker)
+
+```bash
+# Check rollout history
+kubectl rollout history deployment/nojv-worker -n nojv
+
+# Roll back to previous revision
+kubectl rollout undo deployment/nojv-worker -n nojv
+
+# Roll back to a specific revision
+kubectl rollout undo deployment/nojv-worker -n nojv --to-revision=N
+```
+
+### Database Rollback
+
+Prisma does not auto-generate down migrations. If a migration causes issues:
+
+1. **Identify the breaking migration** in `packages/db/prisma/migrations/`
+2. **Write a manual rollback SQL** and apply via `psql` or Cloud SQL Studio
+3. **Mark the migration as rolled back** in the `_prisma_migrations` table
+4. **Deploy the previous application version** that matches the old schema
+
+For critical data issues, restore from Cloud SQL automated backups (point-in-time recovery).
+
+### Pre-Rollback Checklist
+
+1. Confirm the issue is deployment-related (not upstream: DB, Redis, Temporal)
+2. Check health endpoints: `/api/healthz` (web), `/healthz` (worker)
+3. Check Temporal UI for stuck/failing workflows
+4. If rolling back web only, verify the worker is compatible with the previous web version
+5. After rollback, verify health checks pass and monitor for 15 minutes
+
 ## Related Docs
 
 - [Architecture Overview](../ARCHITECTURE.md)

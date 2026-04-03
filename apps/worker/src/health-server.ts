@@ -1,4 +1,8 @@
 import { createServer, type Server, type ServerResponse } from "node:http";
+import { runTransaction } from "@nojv/db";
+import Redis from "ioredis";
+
+const CHECK_TIMEOUT_MS = 3000;
 
 function writeJson(response: ServerResponse, statusCode: number, payload: unknown) {
   response.statusCode = statusCode;
@@ -6,10 +10,61 @@ function writeJson(response: ServerResponse, statusCode: number, payload: unknow
   response.end(JSON.stringify(payload));
 }
 
-export function createWorkerHealthServer(): Server {
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+  ]);
+}
+
+async function checkPostgres(): Promise<string> {
+  try {
+    await withTimeout(runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")), CHECK_TIMEOUT_MS);
+    return "ok";
+  } catch (err) {
+    return `error: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+async function checkRedis(redisUrl: string): Promise<string> {
+  let client: Redis | undefined;
+  try {
+    client = new Redis(redisUrl, { lazyConnect: true, connectTimeout: CHECK_TIMEOUT_MS });
+    await withTimeout(client.connect(), CHECK_TIMEOUT_MS);
+    await withTimeout(client.ping(), CHECK_TIMEOUT_MS);
+    return "ok";
+  } catch (err) {
+    return `error: ${err instanceof Error ? err.message : String(err)}`;
+  } finally {
+    await client?.quit().catch(() => undefined);
+  }
+}
+
+export interface HealthDeps {
+  redisUrl: string;
+  isTemporalConnected: () => boolean;
+}
+
+async function handleHealthz(deps: HealthDeps, response: ServerResponse): Promise<void> {
+  const [postgres, redis] = await Promise.all([
+    checkPostgres(),
+    checkRedis(deps.redisUrl)
+  ]);
+
+  const temporal = deps.isTemporalConnected() ? "ok" : "error: not connected";
+  const checks = { postgres, redis, temporal };
+  const healthy = postgres === "ok" && redis === "ok" && temporal === "ok";
+
+  writeJson(response, healthy ? 200 : 503, {
+    status: healthy ? "healthy" : "unhealthy",
+    checks
+  });
+}
+
+export function createWorkerHealthServer(deps: HealthDeps): Server {
   return createServer((request, response) => {
     if (request.url === "/healthz" && request.method === "GET") {
-      writeJson(response, 200, { ok: true });
+      void handleHealthz(deps, response);
       return;
     }
 
