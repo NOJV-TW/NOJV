@@ -1,38 +1,15 @@
-import { prisma } from "@nojv/db";
+import { assessmentDomain } from "@nojv/domain";
 
-export interface AssessmentInfo {
-  closesAt: string;
-  dueAt: string;
-  opensAt: string;
-}
+export type AssessmentInfo = Awaited<ReturnType<typeof assessmentDomain.getAssessmentInfo>>;
 
-export async function getAssessmentInfo(assessmentId: string): Promise<AssessmentInfo> {
-  const assessment = await prisma.courseAssessment.findUniqueOrThrow({
-    select: {
-      closesAt: true,
-      dueAt: true,
-      opensAt: true
-    },
-    where: { id: assessmentId }
-  });
-
-  return {
-    closesAt: assessment.closesAt.toISOString(),
-    dueAt: assessment.dueAt.toISOString(),
-    opensAt: assessment.opensAt.toISOString()
-  };
+export async function getAssessmentInfo(assessmentId: string) {
+  return assessmentDomain.getAssessmentInfo(assessmentId);
 }
 
 export async function activateAssessment(assessmentId: string): Promise<void> {
-  await prisma.courseAssessment.update({
-    data: { status: "published" },
-    where: { id: assessmentId }
-  });
+  await assessmentDomain.activateAssessment(assessmentId);
 }
 
 export async function closeAssessment(assessmentId: string): Promise<void> {
-  await prisma.courseAssessment.update({
-    data: { status: "archived" },
-    where: { id: assessmentId }
-  });
+  await assessmentDomain.closeAssessment(assessmentId);
 }

@@ -1,43 +1,21 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { prisma, type TransactionClient } from "@nojv/db";
+import { courseRepo } from "@nojv/db";
 import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
 
 import {
   canEditProblem,
   canManageCourse,
-  resolveEffectiveCourseRole
-} from "./shared/permissions";
+  resolveEffectiveCourseRole,
+  HttpError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError
+} from "@nojv/domain";
 
-// --- Error classes ---
+// --- Error classes (re-exported from @nojv/domain) ---
 
-export class HttpError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number
-  ) {
-    super(message);
-    this.name = this.constructor.name;
-  }
-}
-
-export class NotFoundError extends HttpError {
-  constructor(message = "Not found.") {
-    super(message, 404);
-  }
-}
-
-export class ConflictError extends HttpError {
-  constructor(message = "Resource already exists.") {
-    super(message, 409);
-  }
-}
-
-export class ForbiddenError extends HttpError {
-  constructor(message = "Forbidden.") {
-    super(message, 403);
-  }
-}
+export { HttpError, NotFoundError, ConflictError, ForbiddenError };
 
 // --- Actor context ---
 
@@ -124,20 +102,8 @@ export function resolveCoursePermissionRole(input: {
   return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
 }
 
-export async function resolveCoursePermission(
-  tx: TransactionClient,
-  courseSlug: string,
-  actor: ActorContext
-) {
-  const course = await tx.course.findUnique({
-    where: { slug: courseSlug },
-    include: {
-      memberships: {
-        where: { userId: actor.userId },
-        take: 1
-      }
-    }
-  });
+export async function resolveCoursePermission(courseSlug: string, actor: ActorContext) {
+  const course = await courseRepo.findBySlugWithUserMembership(courseSlug, actor.userId);
 
   if (!course) {
     throw new NotFoundError(`Course not found: ${courseSlug}`);
@@ -155,7 +121,7 @@ export async function resolveCoursePermission(
 }
 
 export async function getCoursePermissionRole(courseSlug: string, actor: ActorContext) {
-  const { role } = await resolveCoursePermission(prisma, courseSlug, actor);
+  const { role } = await resolveCoursePermission(courseSlug, actor);
   return role;
 }
 

@@ -1,5 +1,7 @@
 import type { PageServerLoad } from "./$types";
-import { getStudentProgressMatrix } from "$lib/server/course/progress";
+import { courseDomain } from "@nojv/domain";
+
+const { getStudentProgressMatrix } = courseDomain;
 
 export const load: PageServerLoad = async ({ params, parent, url }) => {
   const { courseData } = await parent();

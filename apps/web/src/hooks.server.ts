@@ -2,8 +2,31 @@ import { redirect, type Handle } from "@sveltejs/kit";
 import { sessionUserSchema } from "@nojv/core";
 
 import { getAuth } from "$lib/auth";
+import { createLogger } from "$lib/server/logger";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import { getPageLockedContext, type PageLockedContext } from "$lib/server/page-lock";
+import { getWebEnv } from "$lib/server/env";
+
+// Validate environment variables eagerly on startup.
+getWebEnv();
+
+// --- Process-level error handlers ---
+const processLogger = createLogger("process");
+
+process.on("unhandledRejection", (reason) => {
+  processLogger.warn("Unhandled promise rejection", {
+    err: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined
+  });
+});
+
+process.on("uncaughtException", (err) => {
+  processLogger.error("Uncaught exception — exiting", {
+    err: err.message,
+    stack: err.stack
+  });
+  process.exit(1);
+});
 
 /** Route prefixes exempt from the complete-profile redirect. */
 const PROFILE_EXEMPT_PREFIXES = [

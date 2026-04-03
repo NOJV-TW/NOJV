@@ -28,17 +28,21 @@ RUN pnpm --filter @nojv/worker build
 # 3. Production image
 FROM node:24-alpine
 
-RUN apk add --no-cache docker-cli
+RUN apk add --no-cache docker-cli \
+  && addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 --ingroup nodejs appuser
 
 WORKDIR /app
 
-COPY --from=builder /build/apps/worker/dist/ ./dist/
-COPY --from=builder /build/apps/worker/package.json .
-COPY --from=builder /build/apps/worker/node_modules/ ./node_modules/
-COPY --from=builder /build/packages/db/node_modules/.prisma/ ./node_modules/.prisma/
+COPY --from=builder --chown=appuser:nodejs /build/apps/worker/dist/ ./dist/
+COPY --from=builder --chown=appuser:nodejs /build/apps/worker/package.json .
+COPY --from=builder --chown=appuser:nodejs /build/apps/worker/node_modules/ ./node_modules/
+COPY --from=builder --chown=appuser:nodejs /build/packages/db/node_modules/.prisma/ ./node_modules/.prisma/
 
 ENV NODE_ENV=production
 EXPOSE 8080
+
+USER appuser
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD node -e "fetch('http://localhost:8080/healthz').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"
