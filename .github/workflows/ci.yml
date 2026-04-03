@@ -55,6 +55,9 @@ jobs:
       - name: Run unit tests
         run: pnpm test:unit
 
+      - name: Push schema to test database
+        run: pnpm db:push
+
       - name: Run integration tests
         run: pnpm test:integration
 
@@ -88,6 +91,9 @@ jobs:
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+
+      - name: Push schema to test database
+        run: pnpm db:generate && pnpm db:push
 
       - name: Build application
         run: pnpm build
