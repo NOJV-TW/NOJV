@@ -69,6 +69,18 @@ services:
     ports:
       - "8080:8080"
 
+  migrator:
+    profiles: ["deploy"]
+    build:
+      context: .
+      dockerfile: infra/docker/migrator.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nojv
+    restart: "no"
+
   web:
     profiles: ["prod"]
     build:
