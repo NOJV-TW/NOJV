@@ -22,7 +22,6 @@ export { HttpError, NotFoundError, ConflictError, ForbiddenError };
 export interface ActorContext {
   displayName: string;
   email: string;
-  emailVerified: boolean;
   username: string | null;
   platformRole: PlatformRole;
   userId: string;
@@ -40,7 +39,6 @@ export function getActorContext(event: RequestEvent): ActorContext | null {
   return {
     displayName: sessionUser.name,
     email: sessionUser.email,
-    emailVerified: sessionUser.emailVerified,
     username: sessionUser.username,
     platformRole: sessionUser.platformRole,
     userId: sessionUser.id
