@@ -9,7 +9,8 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { problemDomain } from "@nojv/domain";
 
-const { findProblemIdBySlug, hasUserAcProblem, listEditorials, upsertEditorial } = problemDomain;
+const { findProblemIdBySlug, hasUserAcProblem, listEditorials, upsertEditorial } =
+  problemDomain;
 
 const editorialSubmitSchema = z.object({
   content: z.string().min(10).max(50000),

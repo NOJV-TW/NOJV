@@ -1,9 +1,4 @@
-import {
-  problemRepo,
-  problemStatementRepo,
-  submissionRepo,
-  type Prisma
-} from "@nojv/db";
+import { problemRepo, problemStatementRepo, submissionRepo, type Prisma } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
   judgeTypeSchema,
@@ -316,9 +311,7 @@ export async function listProblemCards(
 
   // Batch-fetch accepted counts + user status in parallel
   const [acceptedCounts, userSubmissions] = await Promise.all([
-    problemIds.length > 0
-      ? submissionRepo.groupAcceptedByProblem(problemIds)
-      : [],
+    problemIds.length > 0 ? submissionRepo.groupAcceptedByProblem(problemIds) : [],
     params.userId && problemIds.length > 0
       ? submissionRepo.groupByProblemAndStatus(params.userId, problemIds)
       : []
@@ -373,7 +366,8 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
   }
 
   const acceptedCount = await submissionRepo.count({
-    problemId: persistedProblem.id, status: "accepted"
+    problemId: persistedProblem.id,
+    status: "accepted"
   });
 
   return mapPersistedProblemDetail(

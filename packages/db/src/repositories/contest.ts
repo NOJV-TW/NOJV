@@ -25,7 +25,6 @@ export const contestRepo = {
     });
   },
 
-
   findByIdOrThrow(id: string, select?: Prisma.ContestSelect) {
     return prisma.contest.findUniqueOrThrow({
       ...(select ? { select } : {}),

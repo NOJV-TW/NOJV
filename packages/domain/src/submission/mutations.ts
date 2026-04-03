@@ -13,10 +13,7 @@ import { ForbiddenError } from "../shared/errors";
 import { checkIpLock } from "../shared/ip-utils";
 import { ensureUser } from "../user/mutations";
 import { requireProblem } from "../problem/mutations";
-import {
-  ensureContestParticipation,
-  checkSubmitCooldown
-} from "../contest/mutations";
+import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
 import { requireCourseAssessment } from "../course/mutations";
 
 export type { ActorContext };
@@ -47,10 +44,9 @@ export async function createQueuedSubmissionRecord(
 
     // ── Authorization: verify user is enrolled in the course ──
     if (courseContext) {
-      const membership = await courseMembershipRepo.withTx(tx).findByComposite(
-        courseContext.course.id,
-        actor.userId
-      );
+      const membership = await courseMembershipRepo
+        .withTx(tx)
+        .findByComposite(courseContext.course.id, actor.userId);
 
       if (membership?.status !== "active") {
         throw new ForbiddenError("You are not enrolled in this course.");
@@ -89,10 +85,9 @@ export async function createQueuedSubmissionRecord(
 
     // ── Language restriction: function-mode template availability ──
     if (problem.submissionType === "function") {
-      const template = await problemTemplateRepo.withTx(tx).findByProblemAndLanguage(
-        problem.id,
-        payload.language
-      );
+      const template = await problemTemplateRepo
+        .withTx(tx)
+        .findByProblemAndLanguage(problem.id, payload.language);
       if (!template) {
         throw new ForbiddenError("No template available for this language");
       }
@@ -119,10 +114,9 @@ export async function createQueuedSubmissionRecord(
     if (courseContext?.assessment) {
       const { assessment } = courseContext;
       if (assessment.ipWhitelistEnabled || assessment.ipBindingEnabled) {
-        const participation = await assessmentParticipationRepo.withTx(tx).upsert(
-          user.id,
-          assessment.id
-        );
+        const participation = await assessmentParticipationRepo
+          .withTx(tx)
+          .upsert(user.id, assessment.id);
 
         const ipResult = await checkIpLock(
           tx,

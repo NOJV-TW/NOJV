@@ -112,7 +112,10 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 }
 
-export async function updateSubmissionStatus(submissionId: string, status: string): Promise<void> {
+export async function updateSubmissionStatus(
+  submissionId: string,
+  status: string
+): Promise<void> {
   await submissionRepo.updateStatus(submissionId, status);
 }
 

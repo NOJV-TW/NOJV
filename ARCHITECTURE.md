@@ -38,15 +38,15 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 
 ## System Domains
 
-| Domain           | Purpose                                                                  |
-| ---------------- | ------------------------------------------------------------------------ |
-| **Problems**     | Problem statements (i18n), testcase sets, templates, judge configuration |
-| **Submissions**  | Code submission, sandbox execution, verdict computation                  |
-| **Contests**     | Timed competitions with scoreboard, freeze, IP lock, page lock           |
-| **Courses**      | Course management, memberships, join tokens, assessments                 |
-| **Auth**         | Email/password + OAuth (GitHub, Google), session management, roles       |
-| **Plagiarism**   | MOSS-based similarity detection for assessments and contests             |
-| **Stats**        | Per-user statistics: AC count, language distribution, daily activity     |
+| Domain          | Purpose                                                                  |
+| --------------- | ------------------------------------------------------------------------ |
+| **Problems**    | Problem statements (i18n), testcase sets, templates, judge configuration |
+| **Submissions** | Code submission, sandbox execution, verdict computation                  |
+| **Contests**    | Timed competitions with scoreboard, freeze, IP lock, page lock           |
+| **Courses**     | Course management, memberships, join tokens, assessments                 |
+| **Auth**        | Email/password + OAuth (GitHub, Google), session management, roles       |
+| **Plagiarism**  | MOSS-based similarity detection for assessments and contests             |
+| **Stats**       | Per-user statistics: AC count, language distribution, daily activity     |
 
 ## Package Structure
 
@@ -83,17 +83,17 @@ No cycles. `domain` → `job-dispatch` for dispatching workflows. `temporal` →
 
 ### Dependency Rules
 
-| Package          | May import                            | Must NOT import              |
-| ---------------- | ------------------------------------- | ---------------------------- |
-| `core`           | (nothing)                             | everything                   |
-| `db`             | `core`                                | domain, redis, job-dispatch  |
-| `redis`          | `core`                                | domain, db, job-dispatch     |
-| `job-dispatch`   | `core`                                | domain, db, redis, temporal  |
-| `domain`         | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker        |
-| `temporal`       | `core`, `domain`, `redis`             | db, job-dispatch, web        |
+| Package          | May import                            | Must NOT import                   |
+| ---------------- | ------------------------------------- | --------------------------------- |
+| `core`           | (nothing)                             | everything                        |
+| `db`             | `core`                                | domain, redis, job-dispatch       |
+| `redis`          | `core`                                | domain, db, job-dispatch          |
+| `job-dispatch`   | `core`                                | domain, db, redis, temporal       |
+| `domain`         | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker             |
+| `temporal`       | `core`, `domain`, `redis`             | db, job-dispatch, web             |
 | `web`            | `core`, `domain`                      | db, redis, job-dispatch, temporal |
-| `worker`         | `core`, `temporal`, `db`, `redis`     | domain, job-dispatch, web    |
-| `sandbox-runner` | `core`                                | everything else              |
+| `worker`         | `core`, `temporal`, `db`, `redis`     | domain, job-dispatch, web         |
+| `sandbox-runner` | `core`                                | everything else                   |
 
 ## Runtime Entry Points
 

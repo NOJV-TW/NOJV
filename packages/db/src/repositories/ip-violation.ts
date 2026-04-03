@@ -24,7 +24,6 @@ export const ipViolationLogRepo = {
     });
   },
 
-
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.IpViolationLogUncheckedCreateInput) {

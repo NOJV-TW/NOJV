@@ -6,7 +6,7 @@ export {
   dispatchPlagiarismCheck,
   querySubmissionStatus,
   queryRejudgeProgress,
-  queryPlagiarismStatus,
+  queryPlagiarismStatus
 } from "./dispatch";
 
 export type {
@@ -17,7 +17,7 @@ export type {
   PlagiarismCheckInput,
   SubmissionJudgeStatus,
   PlagiarismCheckStatus,
-  RejudgeProgress,
+  RejudgeProgress
 } from "./dispatch";
 
 export { closeClient } from "./client";

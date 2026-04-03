@@ -59,7 +59,10 @@ export async function getAdminDashboard() {
     submissionRepo.findInDateRange(from14d),
     submissionRepo.groupByStatus(from7d),
     submissionRepo.groupFailuresByProblem(from7d, 8),
-    contestRepo.healthCheck().then(() => true).catch(() => false),
+    contestRepo
+      .healthCheck()
+      .then(() => true)
+      .catch(() => false),
     submissionRepo.findRecentErrors(20)
   ]);
 
@@ -102,10 +105,7 @@ export async function getAdminDashboard() {
     submissions7dTotal > 0 ? Math.round((accepted7d / submissions7dTotal) * 100) : 0;
 
   const problemIds = failureGroups.map((row) => row.problemId);
-  const failureProblems =
-    problemIds.length > 0
-      ? await problemRepo.findByIds(problemIds)
-      : [];
+  const failureProblems = problemIds.length > 0 ? await problemRepo.findByIds(problemIds) : [];
   const problemMap = new Map(
     failureProblems.map((problem) => [
       problem.id,

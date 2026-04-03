@@ -65,13 +65,13 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
 
   const input: SubmissionJudgeInput = {
     submissionId: validated.submissionId,
-    draft: validated.draft,
+    draft: validated.draft
   };
 
   await client.workflow.start("submissionJudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `judge-${validated.submissionId}`,
-    args: [input],
+    args: [input]
   });
 }
 
@@ -82,7 +82,7 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<void> {
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `rejudge-${suffix}-${Date.now()}`,
-    args: [input],
+    args: [input]
   });
 }
 
@@ -92,17 +92,19 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${input.contestId}`,
-    args: [input],
+    args: [input]
   });
 }
 
-export async function dispatchAssessmentLifecycle(input: AssessmentLifecycleInput): Promise<void> {
+export async function dispatchAssessmentLifecycle(
+  input: AssessmentLifecycleInput
+): Promise<void> {
   const client = await getClient();
 
   await client.workflow.start("assessmentLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `assessment-lifecycle-${input.assessmentId}`,
-    args: [input],
+    args: [input]
   });
 }
 
@@ -112,7 +114,7 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `plagiarism-${input.reportId}`,
-    args: [input],
+    args: [input]
   });
 }
 
@@ -121,24 +123,20 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
 // ---------------------------------------------------------------------------
 
 export async function querySubmissionStatus(
-  submissionId: string,
+  submissionId: string
 ): Promise<SubmissionJudgeStatus> {
   const client = await getClient();
   const handle = client.workflow.getHandle(`judge-${submissionId}`);
   return handle.query<SubmissionJudgeStatus>("getStatus");
 }
 
-export async function queryRejudgeProgress(
-  workflowId: string,
-): Promise<RejudgeProgress> {
+export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress> {
   const client = await getClient();
   const handle = client.workflow.getHandle(workflowId);
   return handle.query<RejudgeProgress>("getProgress");
 }
 
-export async function queryPlagiarismStatus(
-  reportId: string,
-): Promise<PlagiarismCheckStatus> {
+export async function queryPlagiarismStatus(reportId: string): Promise<PlagiarismCheckStatus> {
   const client = await getClient();
   const handle = client.workflow.getHandle(`plagiarism-${reportId}`);
   return handle.query<PlagiarismCheckStatus>("getPlagiarismStatus");

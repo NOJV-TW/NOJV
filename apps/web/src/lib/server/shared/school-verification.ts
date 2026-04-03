@@ -26,11 +26,12 @@ export async function processSchoolVerification(
 
   const username = extractStudentId(parsed.school, parsed.studentId);
 
-  const result = await verificationDomain.initiateSchoolVerification(
-    userId,
+  const result = await verificationDomain.initiateSchoolVerification(userId, username, {
+    email,
     username,
-    { email, username, school: parsed.school, studentId: parsed.studentId }
-  );
+    school: parsed.school,
+    studentId: parsed.studentId
+  });
 
   if (result.status === "error") {
     return { error: result.detail, status: result.httpStatus };

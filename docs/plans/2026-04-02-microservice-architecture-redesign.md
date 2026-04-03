@@ -94,17 +94,17 @@ infra/              Docker, GCP, K8s (unchanged)
 
 ### Dependency Rules
 
-| Package        | May import                          | Must NOT import              |
-| -------------- | ----------------------------------- | ---------------------------- |
-| `core`         | (nothing)                           | everything                   |
-| `db`           | `core`                              | domain, redis, job-dispatch  |
-| `redis`        | `core`                              | domain, db, job-dispatch     |
-| `job-dispatch` | `core`                              | domain, db, redis, temporal  |
-| `domain`       | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker      |
-| `temporal`     | `core`, `domain`, `redis`           | db, job-dispatch, web        |
-| `web`          | `core`, `domain`                    | db, redis, job-dispatch, temporal |
-| `worker`       | `core`, `temporal`, `db`, `redis`   | domain, job-dispatch, web    |
-| `sandbox-runner` | `core`                            | everything else              |
+| Package          | May import                            | Must NOT import                   |
+| ---------------- | ------------------------------------- | --------------------------------- |
+| `core`           | (nothing)                             | everything                        |
+| `db`             | `core`                                | domain, redis, job-dispatch       |
+| `redis`          | `core`                                | domain, db, job-dispatch          |
+| `job-dispatch`   | `core`                                | domain, db, redis, temporal       |
+| `domain`         | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker             |
+| `temporal`       | `core`, `domain`, `redis`             | db, job-dispatch, web             |
+| `web`            | `core`, `domain`                      | db, redis, job-dispatch, temporal |
+| `worker`         | `core`, `temporal`, `db`, `redis`     | domain, job-dispatch, web         |
+| `sandbox-runner` | `core`                                | everything else                   |
 
 ## Key Design Decisions
 
@@ -124,27 +124,28 @@ Domain layer cannot bypass repositories to access raw Prisma.
 
 ```typescript
 // packages/db/src/repositories/submission.ts
-import { prisma } from '../client'
+import { prisma } from "../client";
 
 export const submissionRepo = {
   create(data: CreateSubmissionData) {
-    return prisma.submission.create({ data })
+    return prisma.submission.create({ data });
   },
   findById(id: string) {
-    return prisma.submission.findUnique({ where: { id } })
+    return prisma.submission.findUnique({ where: { id } });
   },
   updateVerdict(id: string, data: UpdateVerdictData) {
-    return prisma.submission.update({ where: { id }, data })
-  },
-}
+    return prisma.submission.update({ where: { id }, data });
+  }
+};
 
 // packages/db/src/index.ts — public API
-export { submissionRepo } from './repositories/submission'
-export { contestRepo } from './repositories/contest'
+export { submissionRepo } from "./repositories/submission";
+export { contestRepo } from "./repositories/contest";
 // prisma client is NOT exported
 ```
 
 Repositories per domain:
+
 - `submissionRepo`
 - `contestRepo`
 - `problemRepo`
@@ -163,20 +164,20 @@ Repositories per domain:
 // Orchestration — called by web (Presentation layer)
 // May dispatch workflows via job-dispatch
 export async function submit(draft: SubmissionDraft): Promise<SubmissionDTO> {
-  const submission = await submissionRepo.create(draft)
-  await jobDispatch.submitJudge({ submissionId: submission.id, draft })
-  return toDTO(submission)
+  const submission = await submissionRepo.create(draft);
+  await jobDispatch.submitJudge({ submissionId: submission.id, draft });
+  return toDTO(submission);
 }
 
 // Data — called by temporal activities (Presentation layer, worker-side)
 // Pure DB operations + event publishing, never dispatches workflows
 export async function complete(id: string, verdict: Verdict, score: number) {
-  await submissionRepo.updateVerdict(id, { verdict, score })
-  await redis.pubsub.publishVerdict(userId, { submissionId: id, verdict, score })
+  await submissionRepo.updateVerdict(id, { verdict, score });
+  await redis.pubsub.publishVerdict(userId, { submissionId: id, verdict, score });
 }
 
 export async function getJudgeContext(submissionId: string): Promise<JudgeContext> {
-  return problemRepo.findWithTestcases(submissionId)
+  return problemRepo.findWithTestcases(submissionId);
 }
 ```
 
@@ -323,6 +324,7 @@ DB enforces context mutual exclusivity. No extension tables needed.
 ### 8. Sandbox Isolation (unchanged)
 
 Sandbox-runner remains fully isolated:
+
 - Only depends on `@nojv/core` (sandbox contract)
 - Communicates via Docker/K8s stdio (JSON in/out)
 - Can be rewritten in any language (Rust, Go) without affecting other packages
@@ -368,22 +370,27 @@ domain.submission.submit(draft) (Service)
 Incremental migration, one package at a time. Each step is independently deployable.
 
 ### Phase 1: Infrastructure packages
+
 1. Create `packages/redis` — extract Redis logic from web + temporal
 2. Create `packages/job-dispatch` — extract Temporal client from web
 
 ### Phase 2: Persistence layer
+
 3. Add repositories to `packages/db` — wrap Prisma in repo functions
 4. Stop exporting Prisma client from `@nojv/db`
 
 ### Phase 3: Service layer
+
 5. Create `packages/domain` — migrate business logic from `apps/web/src/lib/server/`
 6. Update `apps/web` to call domain functions only
 
 ### Phase 4: Worker refactor
+
 7. Update `packages/temporal` activities to call domain data functions
 8. Remove direct DB access from temporal activities
 
 ### Phase 5: Schema hardening
+
 9. Add Submission CHECK constraint migration
 10. Cleanup: remove dead code, verify dependency rules
 
@@ -391,10 +398,10 @@ Each phase can be merged independently. No big-bang migration.
 
 ## Future Upgrade Paths
 
-| When                          | Action                                                    |
-| ----------------------------- | --------------------------------------------------------- |
-| Need REST API for mobile/3rd party | Add `apps/api` wrapping domain functions              |
-| Sandbox needs Rust/Go rewrite | Replace `apps/sandbox-runner`, contract in `@nojv/core` unchanged |
-| Contest domain grows too large | Extract `packages/domain/contest` → `packages/domain-contest` → `apps/contest-service` |
-| Need separate DB per domain   | Add DB connection per repository, domain code unchanged   |
-| Different team owns judge     | `apps/worker` + `packages/temporal` already deployable independently |
+| When                               | Action                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| Need REST API for mobile/3rd party | Add `apps/api` wrapping domain functions                                               |
+| Sandbox needs Rust/Go rewrite      | Replace `apps/sandbox-runner`, contract in `@nojv/core` unchanged                      |
+| Contest domain grows too large     | Extract `packages/domain/contest` → `packages/domain-contest` → `apps/contest-service` |
+| Need separate DB per domain        | Add DB connection per repository, domain code unchanged                                |
+| Different team owns judge          | `apps/worker` + `packages/temporal` already deployable independently                   |

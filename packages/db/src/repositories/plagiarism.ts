@@ -39,7 +39,6 @@ export const plagiarismReportRepo = {
     return prisma.plagiarismReport.create({ data });
   },
 
-
   updateStatus(id: string, status: string) {
     return prisma.plagiarismReport.update({
       data: { status } as Prisma.PlagiarismReportUncheckedUpdateInput,

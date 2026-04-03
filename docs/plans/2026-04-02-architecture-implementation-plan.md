@@ -19,6 +19,7 @@ Extract all Redis operations from `apps/web/src/lib/server/redis.ts` and `packag
 ### Task 1.1: Scaffold `@nojv/redis` package
 
 **Files:**
+
 - Create: `packages/redis/package.json`
 - Create: `packages/redis/tsconfig.json`
 - Create: `packages/redis/tsdown.config.ts`
@@ -74,6 +75,7 @@ Run: `pnpm install`
 ### Task 1.2: Create Redis connection module
 
 **Files:**
+
 - Create: `packages/redis/src/connection.ts`
 
 **Source logic from:** `apps/web/src/lib/server/redis.ts:1-14` and `packages/temporal/src/activities/redis.ts:1-15`
@@ -93,7 +95,9 @@ export function getRedis(): Redis {
 }
 
 export function createSubscriber(redisUrl?: string): Redis {
-  const opts = parseRedisConnection(redisUrl ?? process.env.REDIS_URL ?? "redis://localhost:6379");
+  const opts = parseRedisConnection(
+    redisUrl ?? process.env.REDIS_URL ?? "redis://localhost:6379"
+  );
   return new Redis({ host: opts.host, port: opts.port, password: opts.password });
 }
 ```
@@ -101,6 +105,7 @@ export function createSubscriber(redisUrl?: string): Redis {
 ### Task 1.3: Create key registry
 
 **Files:**
+
 - Create: `packages/redis/src/keys.ts`
 
 Centralize all Redis key patterns currently scattered across codebase:
@@ -113,7 +118,7 @@ export const keys = {
   scoreboard: (contestId: string) => `${PREFIX}:scoreboard:${contestId}`,
   scoreboardFrozen: (contestId: string) => `${PREFIX}:scoreboard:${contestId}:frozen`,
   cooldown: (userId: string, problemId: string) => `${PREFIX}:cooldown:${userId}:${problemId}`,
-  cache: (key: string) => `${PREFIX}:cache:${key}`,
+  cache: (key: string) => `${PREFIX}:cache:${key}`
 } as const;
 ```
 
@@ -122,6 +127,7 @@ Note: The existing code uses `userChannel()` from `@nojv/core` (returns `user:{u
 ### Task 1.4: Create pub/sub module
 
 **Files:**
+
 - Create: `packages/redis/src/pubsub.ts`
 
 **Source logic from:** `packages/temporal/src/activities/notification.ts` (full file)
@@ -132,7 +138,7 @@ import {
   SSE_ASSIGNMENT_DEADLINE,
   SSE_CONTEST_ENDING,
   SSE_CONTEST_STARTING,
-  SSE_SUBMISSION_VERDICT,
+  SSE_SUBMISSION_VERDICT
 } from "@nojv/core";
 
 import { getRedis } from "./connection";
@@ -157,7 +163,7 @@ export async function publishVerdict(submission: {
       verdict: submission.status,
       score: submission.score,
       problemId: submission.problemId,
-      problemSlug: submission.problemSlug,
+      problemSlug: submission.problemSlug
     });
   } catch {
     // Non-critical
@@ -189,6 +195,7 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
 ### Task 1.5: Create cooldown, scoreboard, cache modules
 
 **Files:**
+
 - Create: `packages/redis/src/cooldown.ts`
 - Create: `packages/redis/src/scoreboard.ts`
 - Create: `packages/redis/src/cache.ts`
@@ -196,12 +203,23 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
 **Source logic from:** `apps/web/src/lib/server/redis.ts:22-88` (identical logic in both web and temporal redis files)
 
 **cooldown.ts:**
+
 ```typescript
 import { getRedis } from "./connection";
 import { keys } from "./keys";
 
-export async function setCooldown(userId: string, problemId: string, seconds: number): Promise<boolean> {
-  const result = await getRedis().set(keys.cooldown(userId, problemId), "1", "EX", seconds, "NX");
+export async function setCooldown(
+  userId: string,
+  problemId: string,
+  seconds: number
+): Promise<boolean> {
+  const result = await getRedis().set(
+    keys.cooldown(userId, problemId),
+    "1",
+    "EX",
+    seconds,
+    "NX"
+  );
   return result === "OK";
 }
 
@@ -211,20 +229,30 @@ export async function checkCooldown(userId: string, problemId: string): Promise<
 ```
 
 **scoreboard.ts:**
+
 ```typescript
 import { getRedis } from "./connection";
 import { keys } from "./keys";
 
 export async function updateScoreboard(
-  contestId: string, participationId: string, score: number
+  contestId: string,
+  participationId: string,
+  score: number
 ): Promise<void> {
   await getRedis().zadd(keys.scoreboard(contestId), score.toString(), participationId);
 }
 
 export async function getScoreboard(
-  contestId: string, start = 0, stop = -1
+  contestId: string,
+  start = 0,
+  stop = -1
 ): Promise<{ participationId: string; score: number }[]> {
-  const results = await getRedis().zrevrange(keys.scoreboard(contestId), start, stop, "WITHSCORES");
+  const results = await getRedis().zrevrange(
+    keys.scoreboard(contestId),
+    start,
+    stop,
+    "WITHSCORES"
+  );
   const entries: { participationId: string; score: number }[] = [];
   for (let i = 0; i + 1 < results.length; i += 2) {
     const participationId = results[i];
@@ -250,6 +278,7 @@ export async function unfreezeScoreboard(contestId: string): Promise<void> {
 ```
 
 **cache.ts:**
+
 ```typescript
 import { getRedis } from "./connection";
 import { keys } from "./keys";
@@ -272,6 +301,7 @@ export async function cacheDel(key: string): Promise<void> {
 ### Task 1.6: Create package index
 
 **Files:**
+
 - Create: `packages/redis/src/index.ts`
 
 ```typescript
@@ -291,18 +321,15 @@ Run: `cd packages/redis && pnpm build && pnpm typecheck`
 ### Task 1.8: Update temporal activities to use `@nojv/redis`
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/redis.ts` — replace with re-exports from `@nojv/redis`
 - Modify: `packages/temporal/src/activities/notification.ts` — replace with re-exports from `@nojv/redis`
 - Modify: `packages/temporal/package.json` — add `@nojv/redis` dependency
 
 **redis.ts** becomes:
+
 ```typescript
-export {
-  getRedis,
-  scoreboard,
-  cooldown,
-  cache,
-} from "@nojv/redis";
+export { getRedis, scoreboard, cooldown, cache } from "@nojv/redis";
 
 // Re-export flat functions for backward compatibility with activity bundles
 export const updateScoreboard = (await import("@nojv/redis")).scoreboard.updateScoreboard;
@@ -312,6 +339,7 @@ export const updateScoreboard = (await import("@nojv/redis")).scoreboard.updateS
 Actually, simpler approach: keep the activity files as thin wrappers that call `@nojv/redis` functions. This way bundle exports don't break. Update each function body to delegate.
 
 **notification.ts** becomes:
+
 ```typescript
 import { pubsub } from "@nojv/redis";
 
@@ -323,10 +351,12 @@ export const publishAssessmentDeadline = pubsub.publishAssessmentDeadline;
 ### Task 1.9: Update web app to use `@nojv/redis`
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/redis.ts` — replace implementation with re-exports from `@nojv/redis`
 - Modify: `apps/web/package.json` — add `@nojv/redis`, remove `ioredis`
 
 **redis.ts** becomes thin re-export:
+
 ```typescript
 export { createSubscriber } from "@nojv/redis";
 export { setCooldown, checkCooldown } from "@nojv/redis/cooldown";
@@ -358,10 +388,12 @@ Extract Temporal client dispatch logic from `apps/web/src/lib/server/queue.ts`.
 ### Task 2.1: Scaffold `@nojv/job-dispatch` package
 
 **Files:**
+
 - Create: `packages/job-dispatch/package.json`
 - Create: `packages/job-dispatch/tsconfig.json`
 
 **package.json:**
+
 ```json
 {
   "name": "@nojv/job-dispatch",
@@ -394,6 +426,7 @@ Run: `pnpm install`
 ### Task 2.2: Create Temporal client wrapper
 
 **Files:**
+
 - Create: `packages/job-dispatch/src/client.ts`
 
 **Source logic from:** `packages/temporal/src/client.ts` (singleton pattern)
@@ -425,6 +458,7 @@ export async function closeClient(): Promise<void> {
 ### Task 2.3: Create dispatch functions
 
 **Files:**
+
 - Create: `packages/job-dispatch/src/dispatch.ts`
 
 **Source logic from:** `apps/web/src/lib/server/queue.ts` + type imports from `packages/temporal/src/types.ts`
@@ -445,7 +479,7 @@ export async function submitJudge(payload: SubmissionJudgeJob): Promise<void> {
   await client.workflow.start("submissionJudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `judge-${validated.submissionId}`,
-    args: [{ submissionId: validated.submissionId, draft: validated.draft }],
+    args: [{ submissionId: validated.submissionId, draft: validated.draft }]
   });
 }
 
@@ -454,7 +488,7 @@ export async function startContestLifecycle(contestId: string): Promise<void> {
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${contestId}`,
-    args: [{ contestId }],
+    args: [{ contestId }]
   });
 }
 
@@ -463,7 +497,7 @@ export async function startAssessmentLifecycle(assessmentId: string): Promise<vo
   await client.workflow.start("assessmentLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `assessment-lifecycle-${assessmentId}`,
-    args: [{ assessmentId }],
+    args: [{ assessmentId }]
   });
 }
 
@@ -477,7 +511,7 @@ export async function triggerPlagiarismCheck(input: {
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `plagiarism-${input.reportId}`,
-    args: [input],
+    args: [input]
   });
 }
 
@@ -491,7 +525,7 @@ export async function startRejudge(input: {
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `rejudge-${id}-${Date.now()}`,
-    args: [input],
+    args: [input]
   });
 }
 ```
@@ -501,6 +535,7 @@ Important: Verify the workflow names and args match exactly what `packages/tempo
 ### Task 2.4: Create package index
 
 **Files:**
+
 - Create: `packages/job-dispatch/src/index.ts`
 
 ```typescript
@@ -509,7 +544,7 @@ export {
   startContestLifecycle,
   startAssessmentLifecycle,
   triggerPlagiarismCheck,
-  startRejudge,
+  startRejudge
 } from "./dispatch";
 
 export { closeClient } from "./client";
@@ -522,10 +557,12 @@ Run: `cd packages/job-dispatch && pnpm build && pnpm typecheck`
 ### Task 2.6: Update web app to use `@nojv/job-dispatch`
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/queue.ts` — replace with re-export from `@nojv/job-dispatch`
 - Modify: `apps/web/package.json` — add `@nojv/job-dispatch` dep, remove `@nojv/temporal`
 
 **queue.ts** becomes:
+
 ```typescript
 export { submitJudge as dispatchSubmissionJob } from "@nojv/job-dispatch";
 ```
@@ -554,6 +591,7 @@ Wrap Prisma client in repository objects. After this phase, `prisma` is no longe
 ### Task 3.1: Create repository files
 
 **Files:**
+
 - Create: `packages/db/src/repositories/submission.ts`
 - Create: `packages/db/src/repositories/contest.ts`
 - Create: `packages/db/src/repositories/problem.ts`
@@ -572,6 +610,7 @@ For each repository, audit ALL Prisma calls in `apps/web/src/lib/server/` and `p
 **Example: `packages/db/src/repositories/submission.ts`**
 
 Audit these source files for `prisma.submission.*` calls:
+
 - `apps/web/src/lib/server/submission/queries.ts`
 - `apps/web/src/lib/server/submission/mutations.ts`
 - `packages/temporal/src/activities/judge.ts`
@@ -600,11 +639,11 @@ export const submissionRepo = {
             templates: true,
             testcaseSets: {
               include: { testcases: { orderBy: { createdAt: "asc" } } },
-              orderBy: { createdAt: "asc" },
-            },
-          },
-        },
-      },
+              orderBy: { createdAt: "asc" }
+            }
+          }
+        }
+      }
     });
   },
 
@@ -620,7 +659,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: opts?.take,
+      take: opts?.take
     });
   },
 
@@ -628,15 +667,15 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { contestParticipationId, sampleOnly: false },
       orderBy: { createdAt: "asc" },
-      select: { createdAt: true, problemId: true, score: true, status: true },
+      select: { createdAt: true, problemId: true, score: true, status: true }
     });
   },
 
   countAc(userId: string, problemId: string) {
     return prisma.submission.count({
-      where: { userId, problemId, status: "accepted", sampleOnly: false },
+      where: { userId, problemId, status: "accepted", sampleOnly: false }
     });
-  },
+  }
 
   // Add more methods as discovered during audit
 };
@@ -645,6 +684,7 @@ export const submissionRepo = {
 **Important:** This is an iterative process. During Phase 4 (domain creation), you'll discover additional queries that need repo methods. Add them as needed.
 
 **Pattern for all repositories:**
+
 1. Read the current Prisma calls for that entity
 2. Create a method for each unique query pattern
 3. Use descriptive method names (not just `findMany`)
@@ -656,10 +696,12 @@ For `contest`, `course`, `problem`, `assessment`, `user`, `editorial`, `plagiari
 ### Task 3.2: Create repositories index and update package exports
 
 **Files:**
+
 - Create: `packages/db/src/repositories/index.ts`
 - Modify: `packages/db/src/index.ts`
 
 **repositories/index.ts:**
+
 ```typescript
 export { submissionRepo } from "./submission";
 export { contestRepo } from "./contest";
@@ -673,6 +715,7 @@ export { announcementRepo } from "./announcement";
 ```
 
 **index.ts** — add repo exports, keep prisma export temporarily:
+
 ```typescript
 import type { Prisma } from "../generated/prisma/client";
 
@@ -708,14 +751,15 @@ export const submissionRepo = {
     return {
       create(data: Prisma.SubmissionCreateInput) {
         return tx.submission.create({ data });
-      },
+      }
       // ... same methods but using tx instead of prisma
     };
-  },
+  }
 };
 ```
 
 Also export a transaction runner:
+
 ```typescript
 // packages/db/src/transaction.ts
 import { prisma } from "./client";
@@ -723,14 +767,13 @@ import type { Prisma } from "../generated/prisma/client";
 
 export type TransactionClient = Prisma.TransactionClient;
 
-export function runTransaction<T>(
-  fn: (tx: TransactionClient) => Promise<T>
-): Promise<T> {
+export function runTransaction<T>(fn: (tx: TransactionClient) => Promise<T>): Promise<T> {
   return prisma.$transaction(fn);
 }
 ```
 
 Add to `packages/db/src/index.ts`:
+
 ```typescript
 export { runTransaction, type TransactionClient } from "./transaction";
 ```
@@ -755,10 +798,12 @@ This is the largest phase. Move ALL business logic from `apps/web/src/lib/server
 ### Task 4.1: Scaffold `@nojv/domain` package
 
 **Files:**
+
 - Create: `packages/domain/package.json`
 - Create: `packages/domain/tsconfig.json`
 
 **package.json:**
+
 ```json
 {
   "name": "@nojv/domain",
@@ -794,34 +839,47 @@ Run: `pnpm install`
 ### Task 4.2: Create shared domain utilities
 
 **Files:**
+
 - Create: `packages/domain/src/shared/errors.ts`
 - Create: `packages/domain/src/shared/permissions.ts`
 
 **errors.ts** — move from `apps/web/src/lib/server/auth.ts:14-40`:
+
 ```typescript
 export class HttpError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number
+  ) {
     super(message);
     this.name = this.constructor.name;
   }
 }
 export class NotFoundError extends HttpError {
-  constructor(message = "Not found.") { super(message, 404); }
+  constructor(message = "Not found.") {
+    super(message, 404);
+  }
 }
 export class ConflictError extends HttpError {
-  constructor(message = "Resource already exists.") { super(message, 409); }
+  constructor(message = "Resource already exists.") {
+    super(message, 409);
+  }
 }
 export class ForbiddenError extends HttpError {
-  constructor(message = "Forbidden.") { super(message, 403); }
+  constructor(message = "Forbidden.") {
+    super(message, 403);
+  }
 }
 ```
 
 **permissions.ts** — move from `apps/web/src/lib/server/shared/permissions.ts` (full file):
+
 ```typescript
 import type { CourseRole, EffectiveCourseRole, PlatformRole } from "@nojv/core";
 
 export function resolveEffectiveCourseRole(
-  platformRole: PlatformRole, courseRole: CourseRole | null
+  platformRole: PlatformRole,
+  courseRole: CourseRole | null
 ): EffectiveCourseRole | null {
   if (platformRole === "admin") return "admin";
   return courseRole;
@@ -840,14 +898,14 @@ export function canEditProblem(platformRole: PlatformRole): boolean {
 
 For each domain, move the corresponding files from `apps/web/src/lib/server/`:
 
-| Domain module | Source files to move |
-|---|---|
-| `packages/domain/src/problem/` | `apps/web/src/lib/server/problem/queries.ts`, `mutations.ts`, `editorial-queries.ts` |
-| `packages/domain/src/submission/` | `apps/web/src/lib/server/submission/queries.ts`, `mutations.ts` |
-| `packages/domain/src/contest/` | `apps/web/src/lib/server/contest/queries.ts`, `mutations.ts`, `scoreboard.ts`, `schemas.ts` |
-| `packages/domain/src/course/` | `apps/web/src/lib/server/course/queries.ts`, `mutations.ts`, `progress.ts` |
-| `packages/domain/src/user/` | `apps/web/src/lib/server/user/mutations.ts` |
-| `packages/domain/src/shared/` | `ip-utils.ts`, `page-lock.ts`, `permissions.ts`, errors |
+| Domain module                     | Source files to move                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `packages/domain/src/problem/`    | `apps/web/src/lib/server/problem/queries.ts`, `mutations.ts`, `editorial-queries.ts`        |
+| `packages/domain/src/submission/` | `apps/web/src/lib/server/submission/queries.ts`, `mutations.ts`                             |
+| `packages/domain/src/contest/`    | `apps/web/src/lib/server/contest/queries.ts`, `mutations.ts`, `scoreboard.ts`, `schemas.ts` |
+| `packages/domain/src/course/`     | `apps/web/src/lib/server/course/queries.ts`, `mutations.ts`, `progress.ts`                  |
+| `packages/domain/src/user/`       | `apps/web/src/lib/server/user/mutations.ts`                                                 |
+| `packages/domain/src/shared/`     | `ip-utils.ts`, `page-lock.ts`, `permissions.ts`, errors                                     |
 
 **Migration procedure for each domain module:**
 
@@ -869,6 +927,7 @@ Some functions in `apps/web/src/lib/server/` use SvelteKit types (e.g., `redirec
 - **Adapter function** (stays in `apps/web`): Extracts params from SvelteKit types, calls domain, handles redirect/error
 
 Example split for `requireAuth`:
+
 ```typescript
 // @nojv/domain — does not exist, this is a web-only concern
 // requireAuth stays in apps/web, but calls domain for permission checks
@@ -882,6 +941,7 @@ import { redirect } from "@sveltejs/kit";
 ### Task 4.4: Create domain index
 
 **Files:**
+
 - Create: `packages/domain/src/index.ts`
 
 ```typescript
@@ -896,6 +956,7 @@ export * from "./shared/permissions";
 ```
 
 Each domain module has its own `index.ts` that re-exports queries and commands:
+
 ```typescript
 // packages/domain/src/problem/index.ts
 export * from "./queries";
@@ -908,6 +969,7 @@ export * from "./editorial-queries";
 Run: `cd packages/domain && pnpm build && pnpm typecheck`
 
 Fix any type errors. Most will be:
+
 - Missing repository methods → add to `@nojv/db`
 - SvelteKit imports → split function, keep adapter in web
 - TransactionClient usage → use `runTransaction` from `@nojv/db`
@@ -915,11 +977,13 @@ Fix any type errors. Most will be:
 ### Task 4.6: Update web app to use `@nojv/domain`
 
 **Files:**
+
 - Modify: `apps/web/package.json` — add `@nojv/domain`, keep `@nojv/core`
 - Modify: ALL files in `apps/web/src/lib/server/` that had business logic
 - Modify: ALL SvelteKit route files (`+page.server.ts`, `+server.ts`) that imported from `$lib/server/<domain>/`
 
 **Pattern:**
+
 ```typescript
 // Before (in +page.server.ts):
 import { listProblemCards } from "$lib/server/problem/queries";
@@ -930,6 +994,7 @@ import { problemDomain } from "@nojv/domain";
 ```
 
 For files in `apps/web/src/lib/server/` that were moved to domain:
+
 - Delete the file if ALL logic moved
 - Keep it as thin adapter if some SvelteKit-specific code remains
 - Update imports in the adapter to use `@nojv/domain`
@@ -954,6 +1019,7 @@ Update activities that directly access Prisma to call `@nojv/domain` data functi
 ### Task 5.1: Update `@nojv/temporal` dependencies
 
 **Files:**
+
 - Modify: `packages/temporal/package.json` — add `@nojv/domain`, remove `@nojv/db`
 
 ```json
@@ -974,13 +1040,18 @@ Note: `ioredis` removed (now in `@nojv/redis`). `@nojv/db` removed (accessed thr
 ### Task 5.2: Refactor `assessment.ts` activities
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/assessment.ts`
 
 ```typescript
 import { assessmentDomain } from "@nojv/domain";
 
 // Types stay the same
-export interface AssessmentInfo { closesAt: string; dueAt: string; opensAt: string; }
+export interface AssessmentInfo {
+  closesAt: string;
+  dueAt: string;
+  opensAt: string;
+}
 
 export async function getAssessmentInfo(assessmentId: string): Promise<AssessmentInfo> {
   return assessmentDomain.getAssessmentInfo(assessmentId);
@@ -996,6 +1067,7 @@ export async function closeAssessment(assessmentId: string): Promise<void> {
 ```
 
 Corresponding domain functions needed in `packages/domain/src/assessment/`:
+
 - `getAssessmentInfo(id)` — wraps `assessmentRepo.findById()`, returns ISO strings
 - `activate(id)` — wraps `assessmentRepo.updateStatus(id, "published")`
 - `close(id)` — wraps `assessmentRepo.updateStatus(id, "archived")`
@@ -1003,9 +1075,11 @@ Corresponding domain functions needed in `packages/domain/src/assessment/`:
 ### Task 5.3: Refactor `contest.ts` activities
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/contest.ts`
 
 Replace all `prisma.*` calls with domain function calls:
+
 - `getContestInfo()` → `contestDomain.getContestInfo()`
 - `activateContest()` → `contestDomain.activate()`
 - `freezeScoreboard()` → `contestDomain.freezeBoard()` (uses domain which calls both repo + `@nojv/redis/scoreboard`)
@@ -1024,9 +1098,11 @@ export async function updateContestScores(contestParticipationId: string): Promi
 ### Task 5.4: Refactor `judge.ts` activities
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/judge.ts`
 
 This is the most complex activity file (464 lines). Split into:
+
 - **Domain functions** (business logic → `@nojv/domain`):
   - `fetchJudgeContext()` → `problemDomain.getJudgeContext(submissionId)` (the complex Prisma query with deep includes)
   - `completeSubmission()` → `submissionDomain.complete(submissionId, result)` (write verdict + publish event)
@@ -1038,19 +1114,23 @@ This is the most complex activity file (464 lines). Split into:
 **Split plan for `judge.ts`:**
 
 Move to `packages/domain/src/submission/judge-context.ts`:
+
 - `fetchJudgeContext()` function body (Prisma query + data shaping)
 - `SubmissionJudgeContext` type
 - `TestcaseSetGroup` type
 
 Move to `packages/domain/src/submission/complete.ts`:
+
 - `completeSubmission()` function body (DB update)
 - `CompletedSubmission` type
 
 Move to `packages/domain/src/submission/result-mapper.ts`:
+
 - `mapResult()` helper
 - `buildSubtaskResults()` helper
 
 Keep in `packages/temporal/src/activities/judge.ts`:
+
 - `executeSandbox()` — calls domain for result mapping, uses executor for sandbox
 - `setExecutor()`/`getExecutor()`
 - Re-export types from domain
@@ -1058,6 +1138,7 @@ Keep in `packages/temporal/src/activities/judge.ts`:
 ### Task 5.5: Refactor `stats.ts` activities
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/stats.ts`
 
 Move the entire `updateUserStats()` logic to `packages/domain/src/user/stats.ts`:
@@ -1069,6 +1150,7 @@ import { userRepo, submissionRepo, problemRepo, runTransaction } from "@nojv/db"
 ```
 
 Activity becomes:
+
 ```typescript
 import { userDomain } from "@nojv/domain";
 
@@ -1080,22 +1162,26 @@ export async function updateUserStats(submission: { ... }): Promise<void> {
 ### Task 5.6: Refactor `plagiarism.ts` activities
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/plagiarism.ts`
 
 The MOSS client logic (socket protocol) is infrastructure, but the DB queries (fetch submissions, update report) are business logic.
 
 Move to `packages/domain/src/plagiarism/`:
+
 - `fetchSubmissionsForCheck(targetId, targetType)` — the Prisma query
 - `updateReportStatus(reportId, status)` — status updates
 - `saveResults(reportId, results)` — save pairs
 
 Keep in activity:
+
 - MOSS socket connection and protocol handling (infrastructure)
 - But call domain for DB operations
 
 ### Task 5.7: Update activity bundles
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/index.ts`
 - Modify: `packages/temporal/src/activities/judge-bundle.ts`
 - Modify: `packages/temporal/src/activities/platform-bundle.ts`
@@ -1120,6 +1206,7 @@ git commit -m "refactor: temporal activities delegate to @nojv/domain"
 ### Task 6.1: Remove `prisma` export from `@nojv/db`
 
 **Files:**
+
 - Modify: `packages/db/src/index.ts`
 
 ```typescript
@@ -1138,6 +1225,7 @@ Run: `pnpm build` — any remaining direct `prisma` import will fail. Fix each o
 ### Task 6.2: Add Submission CHECK constraint
 
 **Files:**
+
 - Create: new Prisma migration
 
 ```bash
@@ -1159,6 +1247,7 @@ ALTER TABLE "Submission" ADD CONSTRAINT submission_context_check CHECK (
 ### Task 6.3: Remove dead code from web app
 
 **Files:**
+
 - Delete: `apps/web/src/lib/server/problem/queries.ts` (if fully moved to domain)
 - Delete: `apps/web/src/lib/server/problem/mutations.ts` (if fully moved)
 - Delete: `apps/web/src/lib/server/submission/queries.ts` (if fully moved)
@@ -1173,6 +1262,7 @@ ALTER TABLE "Submission" ADD CONSTRAINT submission_context_check CHECK (
 - Delete: `apps/web/src/lib/server/shared/permissions.ts` (moved to domain)
 
 Keep in web (SvelteKit-specific):
+
 - `auth.ts` — actor context extraction from `RequestEvent`, guards with `redirect()`
 - `shared/api-handler.ts` — SvelteKit response formatting
 - `shared/rate-limiter.ts` — app-specific config
@@ -1182,9 +1272,11 @@ Keep in web (SvelteKit-specific):
 ### Task 6.4: Update web app dependency list
 
 **Files:**
+
 - Modify: `apps/web/package.json`
 
 Remove dependencies no longer needed:
+
 - `@nojv/temporal` — replaced by `@nojv/job-dispatch` (via domain)
 - `ioredis` — replaced by `@nojv/redis` (via domain)
 
@@ -1233,6 +1325,7 @@ Already done in design phase. Verify it matches final implementation.
 ### Task 7.2: Update CLAUDE.md
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 
 Update Repository Layout to reflect new packages:
@@ -1250,6 +1343,7 @@ packages/
 ### Task 7.3: Update related docs
 
 **Files:**
+
 - Modify: `docs/TEMPORAL.md` — note that activities now delegate to `@nojv/domain`
 - Modify: `docs/REDIS.md` — note `@nojv/redis` package as the source of truth
 - Modify: `docs/DATABASE.md` — note repository pattern, CHECK constraint
@@ -1266,19 +1360,25 @@ git commit -m "docs: update documentation for new architecture"
 ## Execution Notes
 
 ### Order matters
+
 Phases MUST be executed in order (1 → 2 → 3 → 4 → 5 → 6 → 7). Within each phase, tasks are sequential.
 
 ### Incremental verification
+
 After each phase, run `pnpm build && pnpm lint`. Fix errors before proceeding.
 
 ### Repository method discovery
+
 Phase 3 (repositories) will be iteratively expanded during Phase 4 (domain). When a domain function needs a query that doesn't exist yet in a repository, add it immediately.
 
 ### SvelteKit boundary
+
 The hardest part is splitting functions that mix SvelteKit types with business logic. The rule: if it takes `RequestEvent` or calls `redirect()`, it stays in web. Extract the business logic into a domain function that takes plain params.
 
 ### Testing
+
 After the migration is complete, run existing tests to verify no regressions:
+
 ```bash
 pnpm test:unit
 pnpm test:integration

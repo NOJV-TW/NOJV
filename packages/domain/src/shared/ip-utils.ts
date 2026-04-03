@@ -122,7 +122,9 @@ export async function checkIpLock(
       if (participationModel === "contestParticipation") {
         await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
       } else {
-        await assessmentParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
+        await assessmentParticipationIpRepo
+          .withTx(tx)
+          .updateBoundIp(participation.id, clientIp);
       }
     } else if (participation.boundIp !== clientIp) {
       if (config.ipViolationMode === "block") {

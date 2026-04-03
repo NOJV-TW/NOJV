@@ -94,10 +94,7 @@ export async function resolvePlagiarismTarget(
   };
 }
 
-export async function createPlagiarismReport(
-  target: PlagiarismTarget,
-  triggeredById: string
-) {
+export async function createPlagiarismReport(target: PlagiarismTarget, triggeredById: string) {
   return plagiarismReportRepo.create({
     ...(target.type === "courseAssessment"
       ? { courseAssessmentId: target.id }

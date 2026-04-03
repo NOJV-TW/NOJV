@@ -2,7 +2,8 @@ import { contestParticipationRepo, submissionRepo } from "@nojv/db";
 import { scoreboard } from "@nojv/redis";
 
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
-  const participation = await contestParticipationRepo.findByIdWithContest(contestParticipationId);
+  const participation =
+    await contestParticipationRepo.findByIdWithContest(contestParticipationId);
 
   if (!participation) return;
 

@@ -19,7 +19,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 async function checkPostgres(): Promise<string> {
   try {
-    await withTimeout(runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")), CHECK_TIMEOUT_MS);
+    await withTimeout(
+      runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
+      CHECK_TIMEOUT_MS
+    );
     return "ok";
   } catch (err) {
     return `error: ${err instanceof Error ? err.message : String(err)}`;
@@ -46,10 +49,7 @@ export interface HealthDeps {
 }
 
 async function handleHealthz(deps: HealthDeps, response: ServerResponse): Promise<void> {
-  const [postgres, redis] = await Promise.all([
-    checkPostgres(),
-    checkRedis(deps.redisUrl)
-  ]);
+  const [postgres, redis] = await Promise.all([checkPostgres(), checkRedis(deps.redisUrl)]);
 
   const temporal = deps.isTemporalConnected() ? "ok" : "error: not connected";
   const checks = { postgres, redis, temporal };

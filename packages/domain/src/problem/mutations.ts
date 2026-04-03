@@ -188,10 +188,7 @@ export async function updateProblemTemplates(
   });
 }
 
-export async function createProblemRecord(
-  actor: ProblemActorContext,
-  payload: ProblemCreate
-) {
+export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
   const slug =
     payload.slug ||
     payload.title
