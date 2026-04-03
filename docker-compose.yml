@@ -52,7 +52,11 @@ services:
     ports:
       - "7233:7233"
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      test:
+        [
+          "CMD-SHELL",
+          "if command -v temporal >/dev/null 2>&1; then temporal operator cluster health --address localhost:7233 >/dev/null 2>&1; elif command -v tctl >/dev/null 2>&1; then tctl --address localhost:7233 cluster health >/dev/null 2>&1; else exit 1; fi"
+        ]
       interval: 10s
       timeout: 5s
       retries: 15

@@ -227,6 +227,44 @@ Additional validations:
 - Prisma schema validation (`pnpm db:validate`)
 - Docker Compose config validation
 
+## GitHub CD Strategy (Homelab -> Cloud)
+
+Development and release deployment are intentionally split into two workflows.
+
+1. Homelab continuous deploy
+2. Cloud production release
+
+### Homelab continuous deploy
+
+- Workflow: `.github/workflows/deploy.yml`
+- Trigger: CI workflow success on `main` (`workflow_run`)
+- Target: self-hosted Linux runner (dorm server)
+- Runtime: Docker Compose profiles (`sandbox-build`, `deploy`, `prod`)
+- Purpose: fast integration verification in a long-running server environment
+
+### Cloud production release
+
+- Workflow: `.github/workflows/release-cloud.yml`
+- Trigger: manual (`workflow_dispatch`)
+- Target: GCP (Cloud Run + Cloud Run Job + Artifact Registry)
+- Runtime: `bash infra/gcp/deploy.sh`
+- Purpose: controlled production rollout with explicit operator action
+
+Required GitHub configuration for this workflow:
+
+- Secrets: `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `GCP_PROJECT_ID`
+- Secrets: `PROD_DATABASE_URL`, `PROD_REDIS_URL`, `PROD_BETTER_AUTH_SECRET`, `PROD_BETTER_AUTH_URL`
+- Optional secrets: `PROD_GITHUB_CLIENT_ID`, `PROD_GITHUB_CLIENT_SECRET`, `PROD_GOOGLE_CLIENT_ID`, `PROD_GOOGLE_CLIENT_SECRET`
+- Variables (optional): `GCP_REGION`, `GCP_REPOSITORY`, `GCP_SERVICE_PREFIX`
+
+### Recommended release sequence
+
+1. Merge to `main`, let CI and homelab deploy complete.
+2. Verify homelab health and key flows.
+3. Trigger `Release Cloud Production` workflow from GitHub Actions.
+4. Confirm web health endpoint and Cloud Run Job status.
+5. Roll out worker/sandbox manifests on GKE if image tag changed.
+
 ## Rollback Procedure
 
 ### Cloud Run (Web)
