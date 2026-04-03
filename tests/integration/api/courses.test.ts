@@ -7,12 +7,10 @@ import {
   testPrisma
 } from "../../fixtures/factories";
 
-import {
-  listCourseCards,
-  getCoursePageData,
-  getDashboardStats
-} from "$lib/server/course/queries";
-import { joinCourseRecord } from "$lib/server/course/mutations";
+import { courseDomain } from "@nojv/domain";
+
+const { listCourseCards, getCoursePageData, getDashboardStats, joinCourseRecord } =
+  courseDomain;
 import { ForbiddenError, type CompletedActorContext } from "$lib/server/auth";
 
 function makeActor(user: {

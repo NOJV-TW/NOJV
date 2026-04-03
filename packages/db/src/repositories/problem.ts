@@ -237,6 +237,14 @@ export const problemTemplateRepo = {
 };
 
 export const testcaseSetRepo = {
+  findByProblemSlug(problemSlug: string) {
+    return prisma.testcaseSet.findMany({
+      where: { problem: { slug: problemSlug } },
+      include: { testcases: { orderBy: { ordinal: "asc" } } },
+      orderBy: { createdAt: "asc" }
+    });
+  },
+
   findById(id: string) {
     return prisma.testcaseSet.findUnique({
       where: { id },

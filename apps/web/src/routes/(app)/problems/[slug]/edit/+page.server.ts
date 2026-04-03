@@ -2,7 +2,10 @@ import { error, fail, redirect } from "@sveltejs/kit";
 import {
   problemUpdateSchema,
   problemTemplateSchema,
-  problemTestcaseSetCreateSchema
+  problemTestcaseSetCreateSchema,
+  testcaseSetUpdateSchema,
+  testcaseUpdateSchema,
+  judgeConfigSchema
 } from "@nojv/core";
 import { superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
@@ -10,12 +13,9 @@ import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
-import { problemDomain } from "@nojv/domain";
-import { getProblemPageData } from "$lib/server/problem/queries";
-
-const { getProblemTestcaseSets } = problemDomain;
-
-const {
+import {
+  getProblemPageData,
+  getProblemTestcaseSets,
   updateProblemRecord,
   updateProblemTemplates,
   createProblemTestcaseSetRecord,
@@ -23,7 +23,7 @@ const {
   deleteTestcaseSetRecord,
   updateTestcaseRecord,
   deleteTestcaseRecord
-} = problemDomain;
+} from "$lib/server/problem/queries";
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
@@ -43,14 +43,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
   const form = await superValidate(
     {
-      checkerScript: problem.checkerScript ?? "",
       difficulty: problem.difficulty,
       inputFormat: problem.inputFormat,
-      interactorScript: problem.interactorScript ?? "",
-      judgeType: problem.judgeType,
+      judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
       outputFormat: problem.outputFormat,
       statement: problem.statement,
+      status: problem.status,
       submissionType: problem.submissionType,
       summary: problem.summary,
       tags: problem.tags,
@@ -88,8 +87,9 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data field");
-    const templates = updateTemplatesSchema.parse(JSON.parse(raw));
-    const result = await updateProblemTemplates(actor, slug, templates);
+    const parsed = updateTemplatesSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) error(400, "Invalid template data");
+    const result = await updateProblemTemplates(actor, slug, parsed.data);
 
     return { success: true, templates: result };
   },
@@ -103,8 +103,9 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data field");
-    const payload = problemTestcaseSetCreateSchema.parse(JSON.parse(raw));
-    const result = await createProblemTestcaseSetRecord(actor, slug, payload);
+    const parsed = problemTestcaseSetCreateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) error(400, "Invalid testcase set data");
+    const result = await createProblemTestcaseSetRecord(actor, slug, parsed.data);
 
     return { id: result.id, success: true };
   },
@@ -120,8 +121,9 @@ export const actions: Actions = {
     const raw = formData.get("data");
     if (typeof setId !== "string") error(400, "Missing setId");
     if (typeof raw !== "string") error(400, "Missing data field");
-    const payload = JSON.parse(raw) as { name?: string; weight?: number; isHidden?: boolean };
-    await updateTestcaseSetRecord(actor, slug, setId, payload);
+    const parsed = testcaseSetUpdateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) error(400, "Invalid testcase set data");
+    await updateTestcaseSetRecord(actor, slug, setId, parsed.data);
 
     return { success: true };
   },
@@ -151,8 +153,9 @@ export const actions: Actions = {
     const raw = formData.get("data");
     if (typeof testcaseId !== "string") error(400, "Missing testcaseId");
     if (typeof raw !== "string") error(400, "Missing data field");
-    const payload = JSON.parse(raw) as { stdin?: string; expectedStdout?: string };
-    await updateTestcaseRecord(actor, slug, testcaseId, payload);
+    const parsed = testcaseUpdateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) error(400, "Invalid testcase data");
+    await updateTestcaseRecord(actor, slug, testcaseId, parsed.data);
 
     return { success: true };
   },
@@ -180,10 +183,9 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
-    // Frontend sends the complete judgeConfig — no server-side read-merge-write
-    // to avoid race conditions between concurrent updates
-    const judgeConfig = JSON.parse(raw);
-    await updateProblemRecord(actor, slug, { judgeConfig });
+    const parsed = judgeConfigSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) error(400, "Invalid judge config");
+    await updateProblemRecord(actor, slug, { judgeConfig: parsed.data });
 
     return { success: true };
   },
@@ -197,10 +199,9 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
-    // Frontend sends the complete judgeConfig (with scoring merged in)
-    // to avoid race conditions between concurrent updates
-    const judgeConfig = JSON.parse(raw);
-    await updateProblemRecord(actor, slug, { judgeConfig });
+    const parsed = judgeConfigSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) error(400, "Invalid scoring config");
+    await updateProblemRecord(actor, slug, { judgeConfig: parsed.data });
 
     return { success: true };
   }

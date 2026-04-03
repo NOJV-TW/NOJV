@@ -16,7 +16,9 @@ import type {
   ProblemTestcaseSetCreate,
   ProblemUpdate,
   ProblemVisibility,
-  SubmissionType
+  SubmissionType,
+  TestcaseSetUpdate,
+  TestcaseUpdate
 } from "@nojv/core";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
@@ -345,7 +347,7 @@ export async function updateTestcaseSetRecord(
   actor: ProblemActorContext,
   problemSlug: string,
   setId: string,
-  payload: { name?: string; weight?: number; isHidden?: boolean }
+  payload: TestcaseSetUpdate
 ) {
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);
@@ -372,7 +374,7 @@ export async function updateTestcaseRecord(
   actor: ProblemActorContext,
   problemSlug: string,
   testcaseId: string,
-  payload: { stdin?: string; expectedStdout?: string }
+  payload: TestcaseUpdate
 ) {
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemSlug);

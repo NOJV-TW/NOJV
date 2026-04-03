@@ -7,7 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
-  "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts")
+  "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
+  "@nojv/domain": path.resolve(__dirname, "packages/domain/src/index.ts")
 };
 
 export default defineConfig({
