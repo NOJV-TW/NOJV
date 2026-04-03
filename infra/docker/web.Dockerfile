@@ -13,16 +13,25 @@ COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
+COPY packages/domain/package.json packages/domain/
+COPY packages/redis/package.json packages/redis/
+COPY packages/job-dispatch/package.json packages/job-dispatch/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
 
-# 2. Copy source and build
+# 2. Copy source and build in dependency order
 COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
+COPY packages/redis/ packages/redis/
+COPY packages/job-dispatch/ packages/job-dispatch/
+COPY packages/domain/ packages/domain/
 COPY apps/web/ apps/web/
 
 RUN pnpm --filter @nojv/db db:generate
 RUN pnpm --filter @nojv/core build
+RUN pnpm --filter @nojv/redis build
+RUN pnpm --filter @nojv/job-dispatch build
+RUN pnpm --filter @nojv/domain build
 RUN pnpm --filter @nojv/web build
 
 # 3. Production image — only the SvelteKit build output
