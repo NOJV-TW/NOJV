@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy Homelab
 
 on:
   workflow_run:
@@ -7,13 +7,18 @@ on:
     branches: [main]
 
 concurrency:
-  group: deploy-production
+  group: deploy-homelab
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    name: Deploy to Production
-    runs-on: self-hosted
+    name: Deploy to Homelab
+    runs-on:
+      - self-hosted
+      - linux
     if: github.event.workflow_run.conclusion == 'success'
     timeout-minutes: 30
 
@@ -23,26 +28,65 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Preflight checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker --version
+          docker compose version
+          docker compose config > /dev/null
+
       - name: Ensure infrastructure is running
+        shell: bash
         run: docker compose up -d --wait postgres redis temporal temporal-ui
 
       - name: Build sandbox image
+        shell: bash
         run: docker compose --profile sandbox-build build sandbox-image
 
+      - name: Build migrator image
+        shell: bash
+        run: docker compose --profile deploy build migrator
+
       - name: Build production images
+        shell: bash
         run: docker compose --profile prod build web worker
 
       - name: Run database migrations
+        shell: bash
         run: docker compose --profile deploy run --rm migrator
 
       - name: Deploy application
+        shell: bash
         run: docker compose --profile prod up -d --wait --remove-orphans web worker
 
       - name: Verify deployment
+        shell: bash
         run: |
+          set -euo pipefail
+
+          # Web endpoint must be reachable.
           curl -sf http://localhost:3000 > /dev/null && echo "Web: OK"
+
+          # Both app containers must be healthy after deploy.
+          for service in web worker; do
+            container_id="$(docker compose --profile prod ps -q "$service")"
+            if [[ -z "$container_id" ]]; then
+              echo "Missing container for service: $service" >&2
+              exit 1
+            fi
+
+            health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+            if [[ "$health" != "healthy" ]]; then
+              echo "Service $service is not healthy (status=$health)" >&2
+              exit 1
+            fi
+            echo "${service}: healthy"
+          done
+
           docker compose --profile prod ps
 
       - name: Clean up old Docker images
         if: always()
+        shell: bash
         run: docker image prune -f --filter "until=168h"
