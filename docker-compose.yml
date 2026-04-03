@@ -52,11 +52,11 @@ services:
     ports:
       - "7233:7233"
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      test: ["CMD-SHELL", "nc -z localhost 7233"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 15
+      start_period: 60s
 
   temporal-ui:
     image: temporalio/ui:2.38.2
