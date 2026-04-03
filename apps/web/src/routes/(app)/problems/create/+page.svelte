@@ -44,7 +44,7 @@
               bind:value={$form.title}
               required
             />
-            {#if $errors.title)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
+            {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
           </label>
 
           <!-- Difficulty + Visibility -->
@@ -61,7 +61,7 @@
                   <Select.Item value="hard" label={m.admin_difficultyHard()}>{m.admin_difficultyHard()}</Select.Item>
                 </Select.Content>
               </Select.Root>
-              {#if $errors.difficulty)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.difficulty)}</span>{/if}
+              {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.difficulty)}</span>{/if}
             </div>
             <div class="space-y-1.5">
               <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
@@ -74,7 +74,7 @@
                   <Select.Item value="public" label={m.admin_visibilityPublic()}>{m.admin_visibilityPublic()}</Select.Item>
                 </Select.Content>
               </Select.Root>
-              {#if $errors.visibility)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.visibility)}</span>{/if}
+              {#if $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.visibility)}</span>{/if}
             </div>
           </div>
 
@@ -87,7 +87,7 @@
               bind:value={$form.statement}
               required
             ></textarea>
-            {#if $errors.statement)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
+            {#if $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
           </label>
 
           <!-- Input/Output Format -->
@@ -100,7 +100,7 @@
                 bind:value={$form.inputFormat}
                 required
               ></textarea>
-              {#if $errors.inputFormat)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
+              {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
             </label>
             <label class="text-sm text-muted-foreground">
               <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
@@ -110,7 +110,7 @@
                 bind:value={$form.outputFormat}
                 required
               ></textarea>
-              {#if $errors.outputFormat)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
+              {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
             </label>
           </div>
 
@@ -132,7 +132,7 @@
                   bind:value={$form.slug}
                   placeholder={m.admin_slugPlaceholder()}
                 />
-                {#if $errors.slug)}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.slug)}</span>{/if}
+                {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.slug)}</span>{/if}
               </label>
               <label class="text-sm text-muted-foreground">
                 <span>{m.admin_summaryLabel()} <HelpTooltip text={m.admin_summaryTooltip()} /></span>
