@@ -26,8 +26,7 @@ type SeedTestcaseSets = {
   hidden: SeedTestcaseSet;
 };
 
-type SeedJudgeType = "standard" | "checker" | "interactive";
-type SeedSubmissionType = "full_source" | "function";
+type SeedSubmissionType = "full_source" | "function" | "zip_project";
 
 type SeedProblemDef = {
   authorId: string;
@@ -42,9 +41,8 @@ type SeedProblemDef = {
   statements: SeedStatements;
   testcases: SeedTestcaseSets;
   submissionType?: SeedSubmissionType;
-  judgeType?: SeedJudgeType;
-  checkerScript?: string;
-  interactorScript?: string;
+  judgeConfig?: Record<string, unknown>;
+  status?: "draft" | "published";
 };
 
 type SeedFunctionTemplate = {
@@ -88,12 +86,16 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
       throw new Error(`Sample/hidden testcase sets must be non-empty: ${def.slug}`);
     }
 
-    if (def.judgeType === "checker" && !def.checkerScript?.trim()) {
-      throw new Error(`Checker judge requires checkerScript: ${def.slug}`);
-    }
-
-    if (def.judgeType === "interactive" && !def.interactorScript?.trim()) {
-      throw new Error(`Interactive judge requires interactorScript: ${def.slug}`);
+    if (def.judgeConfig) {
+      const config = def.judgeConfig;
+      if (config.type === "checker" && !(config.checkerScript as string)?.trim()) {
+        throw new Error(`Checker judge requires checkerScript in judgeConfig: ${def.slug}`);
+      }
+      if (config.type === "interactive" && !(config.interactorScript as string)?.trim()) {
+        throw new Error(
+          `Interactive judge requires interactorScript in judgeConfig: ${def.slug}`
+        );
+      }
     }
   }
 
@@ -392,7 +394,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       memoryLimitMb: 256,
       slug: "add-two-numbers",
       submissionType: "function" as const,
-      judgeType: "standard" as const,
       summary: "Write a function that adds two integers.",
       timeLimitMs: 1000,
       visibility: "public" as const,
@@ -439,8 +440,9 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       memoryLimitMb: 256,
       slug: "float-compare",
       submissionType: "full_source" as const,
-      judgeType: "checker" as const,
-      checkerScript: `import sys
+      judgeConfig: {
+        type: "checker",
+        checkerScript: `import sys
 
 def main():
     input_path, expected_path, user_path = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -457,7 +459,8 @@ def main():
 
 if __name__ == "__main__":
     main()
-`,
+`
+      },
       summary: "Compute the result with floating-point precision.",
       timeLimitMs: 1000,
       visibility: "public" as const,
@@ -503,8 +506,9 @@ if __name__ == "__main__":
       memoryLimitMb: 256,
       slug: "guess-the-number",
       submissionType: "full_source" as const,
-      judgeType: "interactive" as const,
-      interactorScript: `import sys
+      judgeConfig: {
+        type: "interactive",
+        interactorScript: `import sys
 
 def main():
     # The interactor picks a secret number
@@ -536,7 +540,8 @@ def main():
 
 if __name__ == "__main__":
     main()
-`,
+`
+      },
       summary: "Guess a hidden number using binary search with interactive I/O.",
       timeLimitMs: 2000,
       visibility: "public" as const,
@@ -582,7 +587,6 @@ if __name__ == "__main__":
       memoryLimitMb: 256,
       slug: "stateful-dhcp-parser",
       submissionType: "function" as const,
-      judgeType: "standard" as const,
       summary:
         "Implement a resilient TLV parser over DHCP option bytes with malformed-stream handling and canonical formatting.",
       timeLimitMs: 1500,
@@ -637,7 +641,6 @@ if __name__ == "__main__":
       memoryLimitMb: 256,
       slug: "memory-leak-forensics",
       submissionType: "function" as const,
-      judgeType: "standard" as const,
       summary:
         "Analyze allocator event streams and report peak allocation, leaked block count, and invalid free attempts.",
       timeLimitMs: 2000,
@@ -696,8 +699,9 @@ if __name__ == "__main__":
       memoryLimitMb: 256,
       slug: "noisy-oracle-hunt",
       submissionType: "full_source" as const,
-      judgeType: "interactive" as const,
-      interactorScript: `import sys
+      judgeConfig: {
+        type: "interactive",
+        interactorScript: `import sys
 
 def main():
     input_path = sys.argv[1]
@@ -729,7 +733,8 @@ def main():
 
 if __name__ == "__main__":
     main()
-`,
+`
+      },
       summary:
         "Interactive search under periodic adversarial lies: every 5th non-terminal response is inverted.",
       timeLimitMs: 2500,
@@ -783,18 +788,16 @@ if __name__ == "__main__":
         timeLimitMs: def.timeLimitMs,
         visibility: def.visibility,
         ...("submissionType" in def && { submissionType: def.submissionType }),
-        ...("judgeType" in def && { judgeType: def.judgeType }),
-        ...("checkerScript" in def && { checkerScript: def.checkerScript }),
-        ...("interactorScript" in def && { interactorScript: def.interactorScript })
+        judgeConfig: def.judgeConfig ?? undefined,
+        status: def.status ?? "published"
       },
       update: {
         defaultTitle: def.defaultTitle,
         difficulty: def.difficulty,
         summary: def.summary,
         ...("submissionType" in def && { submissionType: def.submissionType }),
-        ...("judgeType" in def && { judgeType: def.judgeType }),
-        ...("checkerScript" in def && { checkerScript: def.checkerScript }),
-        ...("interactorScript" in def && { interactorScript: def.interactorScript })
+        judgeConfig: def.judgeConfig ?? undefined,
+        status: def.status ?? "published"
       },
       where: { slug: def.slug }
     });
