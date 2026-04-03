@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
-  import { FileCode, Plus, Search } from "@lucide/svelte";
+  import { FileCode, Search } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import type { problemDomain } from "@nojv/domain";
   type ProblemCardWithStatus = problemDomain.ProblemCardWithStatus;
@@ -202,7 +202,7 @@
   >
     {m.problems_publicLibrary()}
   </button>
-  {#if editableProblems !== null}
+  {#if showCreate}
     <button
       class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'mine'
         ? 'border-primary bg-primary text-white'
@@ -212,15 +212,6 @@
     >
       {m.problems_myProblems()}
     </button>
-  {/if}
-  {#if showCreate}
-    <a
-      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-      href="/problems/create"
-    >
-      <Plus class="h-4 w-4" />
-      {m.problems_createNew()}
-    </a>
   {/if}
 </div>
 
@@ -383,7 +374,7 @@
   {/if}
 {/if}
 
-{#if tab === "mine" && editableProblems !== null}
+{#if tab === "mine" && showCreate}
   <!-- Mine tab: filter bar (client-side) -->
   <div class="flex flex-col gap-3">
     <div class="relative">
