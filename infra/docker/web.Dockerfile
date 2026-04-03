@@ -9,6 +9,7 @@ WORKDIR /build
 
 # 1. Copy dependency manifests for cache-friendly install
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
@@ -27,12 +28,12 @@ COPY packages/job-dispatch/ packages/job-dispatch/
 COPY packages/domain/ packages/domain/
 COPY apps/web/ apps/web/
 
-RUN pnpm --filter @nojv/db db:generate
+RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
 RUN pnpm --filter @nojv/job-dispatch build
 RUN pnpm --filter @nojv/domain build
-RUN pnpm --filter @nojv/web build
+RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build
 
 # 3. Production image — only the SvelteKit build output
 FROM node:24-alpine
