@@ -90,7 +90,7 @@ export interface ProblemDetail extends ProblemOverview {
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;
-  status?: ProblemStatus;
+  status: ProblemStatus;
   submissionType: SubmissionType;
   summary: string;
   tags: string[];

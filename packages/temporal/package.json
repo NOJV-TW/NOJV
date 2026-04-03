@@ -6,23 +6,23 @@
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "default": "./src/index.ts"
     },
     "./workflows": {
       "types": "./src/workflows/index.ts",
-      "import": "./src/workflows/index.ts"
+      "default": "./src/workflows/index.ts"
     },
     "./activities": {
       "types": "./src/activities/index.ts",
-      "import": "./src/activities/index.ts"
+      "default": "./src/activities/index.ts"
     },
     "./activities/judge": {
       "types": "./src/activities/judge-bundle.ts",
-      "import": "./src/activities/judge-bundle.ts"
+      "default": "./src/activities/judge-bundle.ts"
     },
     "./activities/platform": {
       "types": "./src/activities/platform-bundle.ts",
-      "import": "./src/activities/platform-bundle.ts"
+      "default": "./src/activities/platform-bundle.ts"
     }
   },
   "scripts": {
