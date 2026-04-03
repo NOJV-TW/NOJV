@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
-  import { FileCode, Search } from "@lucide/svelte";
+  import { FileCode, Pencil, Search } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import type { problemDomain } from "@nojv/domain";
   type ProblemCardWithStatus = problemDomain.ProblemCardWithStatus;
@@ -16,6 +16,7 @@
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
     slug: string;
+    status: string;
     tags: string[];
     title: string;
     visibility: ProblemVisibility;
@@ -457,33 +458,41 @@
       />
     {/if}
     {#each mineFiltered as problem (problem.slug)}
-      <a
-        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr] sm:items-center transition hover:-translate-y-0.5"
-        href="/problems/{problem.slug}"
+      <div
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_auto] sm:items-center"
       >
-        <div>
-          <p
-            class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
-          >
+        <a href="/problems/{problem.slug}" class="transition hover:opacity-80">
+          <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
             {problem.slug}
           </p>
           <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
-        </div>
+        </a>
         <div>
           <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
           <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
-        <div class="sm:text-right">
+        <div class="flex flex-wrap gap-1.5 sm:justify-end">
+          {#if problem.status === "draft"}
+            <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+              Draft
+            </span>
+          {/if}
           <span
-            class="rounded-full border border-border px-3 py-1 text-xs font-medium {problem.visibility ===
-            'public'
+            class="rounded-full border border-border px-3 py-1 text-xs font-medium {problem.visibility === 'public'
               ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-amber-600 dark:text-amber-400'}"
+              : 'text-muted-foreground'}"
           >
             {problem.visibility}
           </span>
         </div>
-      </a>
+        <a
+          href="/problems/{problem.slug}/edit"
+          class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground hover:bg-[color:var(--color-panel)]"
+        >
+          <Pencil class="h-3 w-3" />
+          {m.problemDetail_editProblem()}
+        </a>
+      </div>
     {/each}
   </section>
 {/if}
