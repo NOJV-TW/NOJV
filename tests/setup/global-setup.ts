@@ -7,7 +7,7 @@ export default function globalSetup() {
   process.env.DATABASE_URL =
     process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL ?? DEFAULT_TEST_DB_URL;
 
-  execSync("pnpm --filter @nojv/db db:deploy", {
+  execSync("pnpm --filter @nojv/db db:push", {
     stdio: "inherit",
     env: { ...process.env }
   });
