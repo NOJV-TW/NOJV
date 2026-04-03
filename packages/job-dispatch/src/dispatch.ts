@@ -81,7 +81,7 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<void> {
 
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
-    workflowId: `rejudge-${suffix}-${Date.now()}`,
+    workflowId: `rejudge-${suffix}-${String(Date.now())}`,
     args: [input]
   });
 }
