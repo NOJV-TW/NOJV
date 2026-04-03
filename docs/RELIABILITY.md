@@ -92,12 +92,12 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ## Health Checks
 
-| Service    | Endpoint           | Method                             |
-| ---------- | ------------------ | ---------------------------------- |
-| Web        | `/api/healthz`     | HTTP GET → `{ ok: true }`          |
-| Worker     | `/healthz`         | HTTP GET → `{ status: "ok" }`      |
-| PostgreSQL | Docker healthcheck | `pg_isready -U postgres`           |
-| Redis      | Docker healthcheck | `redis-cli ping`                   |
+| Service    | Endpoint           | Method                                                      |
+| ---------- | ------------------ | ----------------------------------------------------------- |
+| Web        | `/api/healthz`     | HTTP GET → `{ ok: true }`                                   |
+| Worker     | `/healthz`         | HTTP GET → `{ status: "ok" }`                               |
+| PostgreSQL | Docker healthcheck | `pg_isready -U postgres`                                    |
+| Redis      | Docker healthcheck | `redis-cli ping`                                            |
 | Temporal   | Docker healthcheck | `temporal operator cluster health` or `tctl cluster health` |
 
 ## Related Docs
