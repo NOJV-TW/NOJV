@@ -1,12 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@nojv/db", () => ({
-  prisma: {}
+  problemRepo: {},
+  submissionRepo: {},
+  courseRepo: {},
+  announcementRepo: {},
+  assessmentRepo: {},
+  assessmentParticipationRepo: {},
+  runTransaction: vi.fn()
 }));
 
-vi.mock("@nojv/core", () => ({
-  platformRoleSchema: { safeParse: () => ({ success: false }) }
-}));
+vi.mock("@nojv/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@nojv/core")>();
+  return {
+    ...actual
+  };
+});
 
 import { z } from "zod";
 import { classifyError } from "$lib/server/shared/handle-action-error";

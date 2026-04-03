@@ -1,27 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  findManyProblems,
-  findUniqueProblem,
-  countProblems,
-  findManyCourses,
-  findUniqueCourse,
-  countCourses,
-  groupBySubmissions,
+  listWithCounts,
+  findDetailBySlug,
+  countPublic,
+  count: countProblems,
+  groupAcceptedByProblem,
   countSubmissions,
-  findManyAssessments,
-  findManyAnnouncements
+  findDetailBySlugCourse,
+  countCourses
 } = vi.hoisted(() => ({
-  findManyProblems: vi.fn(),
-  findUniqueProblem: vi.fn(),
-  countProblems: vi.fn(),
-  findManyCourses: vi.fn(),
-  findUniqueCourse: vi.fn(),
-  countCourses: vi.fn(),
-  groupBySubmissions: vi.fn(),
+  listWithCounts: vi.fn(),
+  findDetailBySlug: vi.fn(),
+  countPublic: vi.fn(),
+  count: vi.fn(),
+  groupAcceptedByProblem: vi.fn(),
   countSubmissions: vi.fn(),
-  findManyAssessments: vi.fn(),
-  findManyAnnouncements: vi.fn()
+  findDetailBySlugCourse: vi.fn(),
+  countCourses: vi.fn()
 }));
 
 vi.mock("$app/environment", () => ({
@@ -31,50 +27,54 @@ vi.mock("$app/environment", () => ({
 }));
 
 vi.mock("@nojv/db", () => ({
-  prisma: {
-    announcement: {
-      findMany: findManyAnnouncements
-    },
-    course: {
-      count: countCourses,
-      findMany: findManyCourses,
-      findUnique: findUniqueCourse
-    },
-    courseAssessment: {
-      findMany: findManyAssessments
-    },
-    problem: {
-      count: countProblems,
-      findMany: findManyProblems,
-      findUnique: findUniqueProblem
-    },
-    submission: {
-      count: countSubmissions,
-      groupBy: groupBySubmissions
-    }
-  }
+  problemRepo: {
+    count: countProblems,
+    countPublic,
+    listWithCounts,
+    findDetailBySlug
+  },
+  problemStatementRepo: {
+    fullTextSearch: vi.fn().mockResolvedValue([]),
+    likeSearch: vi.fn().mockResolvedValue([])
+  },
+  submissionRepo: {
+    count: countSubmissions,
+    groupAcceptedByProblem,
+    groupByProblemAndStatus: vi.fn().mockResolvedValue([])
+  },
+  courseRepo: {
+    count: countCourses,
+    findDetailBySlug: findDetailBySlugCourse
+  },
+  announcementRepo: {
+    listPublished: vi.fn().mockResolvedValue([])
+  },
+  assessmentRepo: {
+    listByUser: vi.fn().mockResolvedValue([])
+  },
+  runTransaction: vi.fn()
 }));
 
 import { listProblemCards, getProblemPageData } from "$lib/server/problem/queries";
-import { getCoursePageData, getDashboardStats } from "$lib/server/course/queries";
+import { courseDomain } from "@nojv/domain";
+
+const { getCoursePageData, getDashboardStats } = courseDomain;
 
 describe("DB-backed read model", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    findManyProblems.mockResolvedValue([]);
-    findUniqueProblem.mockResolvedValue(null);
+    listWithCounts.mockResolvedValue([]);
+    findDetailBySlug.mockResolvedValue(null);
     countProblems.mockResolvedValue(0);
-    findManyCourses.mockResolvedValue([]);
-    findUniqueCourse.mockResolvedValue(null);
-    countCourses.mockResolvedValue(0);
-    groupBySubmissions.mockResolvedValue([]);
+    countPublic.mockResolvedValue(0);
+    groupAcceptedByProblem.mockResolvedValue([]);
     countSubmissions.mockResolvedValue(0);
-    findManyAssessments.mockResolvedValue([]);
-    findManyAnnouncements.mockResolvedValue([]);
+    findDetailBySlugCourse.mockResolvedValue(null);
+    countCourses.mockResolvedValue(0);
   });
 
   it("surfaces persisted public problems in the practice catalog", async () => {
-    findManyProblems.mockResolvedValue([
+    listWithCounts.mockResolvedValue([
       {
         _count: { submissions: 2 },
         defaultTitle: "Compiler Intro",
@@ -82,10 +82,12 @@ describe("DB-backed read model", () => {
         id: "prob_compiler_intro",
         slug: "compiler-intro",
         summary: "Introductory parser warmup.",
+        tags: [],
         visibility: "public"
       }
     ]);
-    groupBySubmissions.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
+    countProblems.mockResolvedValue(1);
+    groupAcceptedByProblem.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
 
     const result = await listProblemCards();
 
@@ -101,29 +103,24 @@ describe("DB-backed read model", () => {
   });
 
   it("returns persisted course detail data for dynamic course pages", async () => {
-    findUniqueCourse.mockResolvedValue({
+    findDetailBySlugCourse.mockResolvedValue({
       assessments: [
         {
+          allowedLanguages: [],
           closesAt: new Date("2026-03-25T15:00:00.000Z"),
           dueAt: new Date("2026-03-23T15:00:00.000Z"),
+          id: "assess_1",
+          ipBindingEnabled: false,
+          ipViolationMode: "notify",
+          ipWhitelist: [],
+          ipWhitelistEnabled: false,
           opensAt: new Date("2026-03-17T09:00:00.000Z"),
+          pageLockEnabled: false,
           problems: [
             {
               ordinal: 1,
               problem: {
-                author: {
-                  username: "teacher_amelia"
-                },
-                slug: "compiler-intro",
-                statements: [
-                  {
-                    bodyMarkdown: "Write a recursive descent parser.",
-                    locale: "zh-TW",
-                    title: "Compiler Intro"
-                  }
-                ],
-                summary: "Introductory parser warmup.",
-                visibility: "public"
+                slug: "compiler-intro"
               }
             }
           ],
@@ -198,7 +195,7 @@ describe("DB-backed read model", () => {
   });
 
   it("returns null when a course slug is not found", async () => {
-    findUniqueCourse.mockResolvedValue(null);
+    findDetailBySlugCourse.mockResolvedValue(null);
 
     const detail = await getCoursePageData("nonexistent-course");
 
@@ -206,7 +203,7 @@ describe("DB-backed read model", () => {
   });
 
   it("returns null when a problem slug is not found", async () => {
-    findUniqueProblem.mockResolvedValue(null);
+    findDetailBySlug.mockResolvedValue(null);
 
     const detail = await getProblemPageData("nonexistent-problem", "en");
 
@@ -214,7 +211,7 @@ describe("DB-backed read model", () => {
   });
 
   it("returns problem detail with samples from visible testcase set", async () => {
-    findUniqueProblem.mockResolvedValue({
+    findDetailBySlug.mockResolvedValue({
       _count: { submissions: 10 },
       author: { username: "admin_user" },
       defaultTitle: "A+B Problem",
@@ -232,6 +229,7 @@ describe("DB-backed read model", () => {
       ],
       summary: "Basic addition problem.",
       tags: ["math", "beginner"],
+      templates: [],
       testcaseSets: [
         {
           isHidden: false,
@@ -262,7 +260,7 @@ describe("DB-backed read model", () => {
   });
 
   it("computes acceptance rate from total and accepted submissions", async () => {
-    findManyProblems.mockResolvedValue([
+    listWithCounts.mockResolvedValue([
       {
         _count: { submissions: 10 },
         defaultTitle: "Hard Problem",
@@ -274,7 +272,8 @@ describe("DB-backed read model", () => {
         visibility: "public"
       }
     ]);
-    groupBySubmissions.mockResolvedValue([{ _count: 3, problemId: "prob_hard" }]);
+    countProblems.mockResolvedValue(1);
+    groupAcceptedByProblem.mockResolvedValue([{ _count: 3, problemId: "prob_hard" }]);
 
     const result = await listProblemCards();
 
@@ -283,7 +282,7 @@ describe("DB-backed read model", () => {
   });
 
   it("returns zero acceptance rate when there are no submissions", async () => {
-    findManyProblems.mockResolvedValue([
+    listWithCounts.mockResolvedValue([
       {
         _count: { submissions: 0 },
         defaultTitle: "New Problem",
@@ -295,6 +294,7 @@ describe("DB-backed read model", () => {
         visibility: "public"
       }
     ]);
+    countProblems.mockResolvedValue(1);
 
     const result = await listProblemCards();
 
@@ -302,7 +302,7 @@ describe("DB-backed read model", () => {
   });
 
   it("returns dashboard stats from count queries", async () => {
-    countProblems.mockResolvedValue(42);
+    countPublic.mockResolvedValue(42);
     countCourses.mockResolvedValue(7);
 
     const stats = await getDashboardStats();

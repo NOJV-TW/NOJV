@@ -10,12 +10,9 @@ import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
-import { problemDomain } from "@nojv/domain";
-import { getProblemPageData } from "$lib/server/problem/queries";
-
-const { getProblemTestcaseSets } = problemDomain;
-
-const {
+import {
+  getProblemPageData,
+  getProblemTestcaseSets,
   updateProblemRecord,
   updateProblemTemplates,
   createProblemTestcaseSetRecord,
@@ -23,7 +20,7 @@ const {
   deleteTestcaseSetRecord,
   updateTestcaseRecord,
   deleteTestcaseRecord
-} = problemDomain;
+} from "$lib/server/problem/queries";
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
@@ -43,14 +40,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
   const form = await superValidate(
     {
-      checkerScript: problem.checkerScript ?? "",
       difficulty: problem.difficulty,
       inputFormat: problem.inputFormat,
-      interactorScript: problem.interactorScript ?? "",
-      judgeType: problem.judgeType,
+      judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
       outputFormat: problem.outputFormat,
       statement: problem.statement,
+      status: problem.status,
       submissionType: problem.submissionType,
       summary: problem.summary,
       tags: problem.tags,
@@ -180,9 +176,7 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
-    // Frontend sends the complete judgeConfig — no server-side read-merge-write
-    // to avoid race conditions between concurrent updates
-    const judgeConfig = JSON.parse(raw);
+    const judgeConfig = JSON.parse(raw) as Record<string, unknown>;
     await updateProblemRecord(actor, slug, { judgeConfig });
 
     return { success: true };
@@ -197,9 +191,7 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
-    // Frontend sends the complete judgeConfig (with scoring merged in)
-    // to avoid race conditions between concurrent updates
-    const judgeConfig = JSON.parse(raw);
+    const judgeConfig = JSON.parse(raw) as Record<string, unknown>;
     await updateProblemRecord(actor, slug, { judgeConfig });
 
     return { success: true };
