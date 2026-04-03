@@ -7,12 +7,10 @@ import {
   testPrisma
 } from "../../fixtures/factories";
 
-import {
-  listPublicContests,
-  getContestDetail,
-  getContestWorkspaceData
-} from "$lib/server/contest/queries";
-import { getScoreboard } from "$lib/server/contest/scoreboard";
+import { contestDomain } from "@nojv/domain";
+
+const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreboard } =
+  contestDomain;
 import { NotFoundError } from "$lib/server/auth";
 
 describe("contest queries (real DB)", () => {
