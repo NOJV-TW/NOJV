@@ -3,8 +3,7 @@ import {
   courseMembershipRepo,
   problemTemplateRepo,
   runTransaction,
-  submissionRepo,
-  type TransactionClient
+  submissionRepo
 } from "@nojv/db";
 import type { SubmissionDraft } from "@nojv/core";
 
