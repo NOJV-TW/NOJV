@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName } from "$lib/utils";
+  import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
   import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
   import TagInput from "$lib/components/ui/TagInput.svelte";
@@ -192,7 +193,7 @@ sys.stdout.flush()
 <div class="space-y-4">
   <!-- Section 1: Judge Type -->
   <div class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-medium">判題類型</h3>
+    <h3 class="text-sm font-medium">{m.admin_judgeTypeHeading()}</h3>
     <div class="mt-3 flex items-center gap-4">
       <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
         <input
@@ -203,7 +204,7 @@ sys.stdout.flush()
           onchange={() => (judgeType = "standard")}
           class="accent-primary"
         />
-        標準比對 (standard)
+        {m.admin_standardCompare()}
       </label>
       <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
         <input
@@ -233,7 +234,7 @@ sys.stdout.flush()
       <div class="mt-4 space-y-3">
         <div class="flex items-center gap-3">
           <label class="text-sm text-muted-foreground">
-            語言
+            {m.admin_language()}
             <select
               class="{inputClassName} mt-0 inline-block w-auto"
               bind:value={checkerLanguage}
@@ -247,7 +248,7 @@ sys.stdout.flush()
             type="button"
             onclick={() => { checkerScript = defaultCheckerTemplate; checkerLanguage = "python"; }}
           >
-            載入預設模板
+            {m.admin_loadDefaultTemplate()}
           </button>
         </div>
         <MonacoScriptEditor
@@ -262,7 +263,7 @@ sys.stdout.flush()
       <div class="mt-4 space-y-3">
         <div class="flex items-center gap-3">
           <label class="text-sm text-muted-foreground">
-            語言
+            {m.admin_language()}
             <select
               class="{inputClassName} mt-0 inline-block w-auto"
               bind:value={interactorLanguage}
@@ -276,7 +277,7 @@ sys.stdout.flush()
             type="button"
             onclick={() => { interactorScript = defaultInteractorTemplate; interactorLanguage = "python"; }}
           >
-            載入預設模板
+            {m.admin_loadDefaultTemplate()}
           </button>
         </div>
         <MonacoScriptEditor
@@ -292,8 +293,8 @@ sys.stdout.flush()
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">靜態分析</h3>
-        <p class="mt-0.5 text-xs text-muted-foreground">在編譯前檢查程式碼，用於限制特定語法或函式庫</p>
+        <h3 class="text-sm font-medium">{m.admin_staticAnalysis()}</h3>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_staticAnalysisDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={staticAnalysisEnabled} />
     </div>
@@ -301,23 +302,23 @@ sys.stdout.flush()
       <div class="mt-4 space-y-3">
         <!-- Banned Functions -->
         <div class="text-sm text-muted-foreground">
-          <span>禁用函式</span>
+          <span>{m.admin_bannedFunctions()}</span>
           <div class="mt-1">
-            <TagInput bind:tags={bannedFunctions} placeholder="輸入函式名稱後按空白鍵" />
+            <TagInput bind:tags={bannedFunctions} placeholder={m.admin_bannedFunctionsPlaceholder()} />
           </div>
         </div>
 
         <!-- Banned Imports -->
         <div class="text-sm text-muted-foreground">
-          <span>禁用匯入</span>
+          <span>{m.admin_bannedImports()}</span>
           <div class="mt-1">
-            <TagInput bind:tags={bannedImports} placeholder="輸入模組名稱後按空白鍵" />
+            <TagInput bind:tags={bannedImports} placeholder={m.admin_bannedImportsPlaceholder()} />
           </div>
         </div>
 
         <!-- Banned Patterns -->
         <div class="text-sm text-muted-foreground">
-          <span>禁用模式</span>
+          <span>{m.admin_bannedPatterns()}</span>
           {#each bannedPatterns as bp, index (`bp-${String(index)}`)}
             <div class="mt-1 flex items-center gap-2">
               <input
@@ -345,7 +346,7 @@ sys.stdout.flush()
               </label>
               <input
                 class="{inputClassName} mt-0 flex-1"
-                placeholder="訊息"
+                placeholder={m.admin_patternMessage()}
                 value={bp.message}
                 oninput={(e) => {
                   bannedPatterns = bannedPatterns.map((p, i) =>
@@ -367,23 +368,23 @@ sys.stdout.flush()
             type="button"
             onclick={() => (bannedPatterns = [...bannedPatterns, { pattern: "", isRegex: false, message: "" }])}
           >
-            + 新增模式
+            {m.admin_addPattern()}
           </button>
         </div>
 
         <!-- Linter Command -->
         <label class="text-sm text-muted-foreground">
-          Linter 指令 (可選)
+          {m.admin_linterCommand()}
           <input
             class={inputClassName}
             bind:value={linterCommand}
-            placeholder="例如: pylint --disable=C"
+            placeholder={m.admin_linterPlaceholder()}
           />
         </label>
 
         <!-- On Lint Failure -->
         <div class="text-sm text-muted-foreground">
-          Lint 失敗時
+          {m.admin_onLintFailure()}
           <div class="mt-1 flex items-center gap-4">
             <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
               <input
@@ -393,7 +394,7 @@ sys.stdout.flush()
                 onchange={() => (failOnLintError = true)}
                 class="accent-primary"
               />
-              判定失敗
+              {m.admin_failSubmission()}
             </label>
             <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
               <input
@@ -403,7 +404,7 @@ sys.stdout.flush()
                 onchange={() => (failOnLintError = false)}
                 class="accent-primary"
               />
-              僅警告
+              {m.admin_warnOnly()}
             </label>
           </div>
         </div>
@@ -415,8 +416,8 @@ sys.stdout.flush()
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">成品收集</h3>
-        <p class="mt-0.5 text-xs text-muted-foreground">收集學生程式產生的檔案，供下載除錯</p>
+        <h3 class="text-sm font-medium">{m.admin_artifactCollection()}</h3>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_artifactCollectionDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={artifactsEnabled} />
     </div>
@@ -424,15 +425,15 @@ sys.stdout.flush()
       <div class="mt-4 space-y-3">
         <!-- Collection Patterns -->
         <div class="text-sm text-muted-foreground">
-          <span>收集模式</span>
+          <span>{m.admin_collectionPatterns()}</span>
           <div class="mt-1">
-            <TagInput bind:tags={artifactPatterns} placeholder="例如: *.bmp, output/*" />
+            <TagInput bind:tags={artifactPatterns} placeholder={m.admin_collectionPatternsPlaceholder()} />
           </div>
         </div>
 
         <!-- Max Size -->
         <label class="text-sm text-muted-foreground">
-          最大總大小 (MB)
+          {m.admin_maxTotalSize()}
           <input
             class={inputClassName}
             type="number"
@@ -449,8 +450,8 @@ sys.stdout.flush()
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">網路存取</h3>
-        <p class="mt-0.5 text-xs text-muted-foreground">允許學生程式存取外部網路</p>
+        <h3 class="text-sm font-medium">{m.admin_networkAccess()}</h3>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_networkAccessDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={networkEnabled} />
     </div>
@@ -458,12 +459,12 @@ sys.stdout.flush()
       <div class="mt-4 space-y-4">
         <!-- Firewall Rules -->
         <div class="text-sm text-muted-foreground">
-          <span class="font-medium text-foreground">防火牆規則</span>
+          <span class="font-medium text-foreground">{m.admin_firewallRules()}</span>
           {#each firewallRules as rule, index (`fw-${String(index)}`)}
             <div class="mt-2 flex items-center gap-2">
               <input
                 class="{inputClassName} mt-0 flex-1"
-                placeholder="例如: api.example.com"
+                placeholder={m.admin_firewallHostPlaceholder()}
                 value={rule.allow}
                 oninput={(e) => {
                   firewallRules = firewallRules.map((r, i) =>
@@ -473,7 +474,7 @@ sys.stdout.flush()
               />
               <input
                 class="{inputClassName} mt-0 w-32"
-                placeholder="Ports (逗號分隔)"
+                placeholder={m.admin_firewallPortsPlaceholder()}
                 value={rule.ports}
                 oninput={(e) => {
                   firewallRules = firewallRules.map((r, i) =>
@@ -508,19 +509,19 @@ sys.stdout.flush()
             type="button"
             onclick={() => (firewallRules = [...firewallRules, { allow: "", ports: "", protocol: "tcp" }])}
           >
-            + 新增規則
+            {m.admin_addRule()}
           </button>
         </div>
 
         <!-- Sidecar Services -->
         <div class="text-sm text-muted-foreground">
-          <span class="font-medium text-foreground">Sidecar 服務</span>
+          <span class="font-medium text-foreground">{m.admin_sidecarServices()}</span>
           {#each sidecarServices as svc, index (`sc-${String(index)}`)}
             <div class="mt-2 space-y-2 rounded-xl border border-border p-3">
               <div class="flex items-center gap-2">
                 <input
                   class="{inputClassName} mt-0 flex-1"
-                  placeholder="Image (例如: postgres:16)"
+                  placeholder={m.admin_sidecarImagePlaceholder()}
                   value={svc.image}
                   oninput={(e) => {
                     sidecarServices = sidecarServices.map((s, i) =>
@@ -560,7 +561,7 @@ sys.stdout.flush()
               </div>
               <input
                 class="{inputClassName} mt-0"
-                placeholder="Readiness path (可選, 例如: /health)"
+                placeholder={m.admin_sidecarReadinessPlaceholder()}
                 value={svc.readinessPath}
                 oninput={(e) => {
                   sidecarServices = sidecarServices.map((s, i) =>
@@ -575,7 +576,7 @@ sys.stdout.flush()
             type="button"
             onclick={() => (sidecarServices = [...sidecarServices, { image: "", port: 5432, env: {}, readinessPath: "", memoryMb: 128 }])}
           >
-            + 新增服務
+            {m.admin_addService()}
           </button>
         </div>
 
@@ -587,7 +588,7 @@ sys.stdout.flush()
             onchange={() => (logTraffic = !logTraffic)}
             class="accent-primary"
           />
-          記錄流量
+          {m.admin_logTraffic()}
         </label>
       </div>
     {/if}
@@ -597,8 +598,8 @@ sys.stdout.flush()
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">自訂腳本</h3>
-        <p class="mt-0.5 text-xs text-muted-foreground">在特定時間點插入自訂腳本</p>
+        <h3 class="text-sm font-medium">{m.admin_customScripts()}</h3>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_customScriptsDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={customScriptsEnabled} />
     </div>
@@ -609,7 +610,7 @@ sys.stdout.flush()
             <div class="flex items-center gap-2">
               <input
                 class="{inputClassName} mt-0 flex-1"
-                placeholder="腳本名稱"
+                placeholder={m.admin_scriptName()}
                 value={cs.name}
                 oninput={(e) => {
                   customScripts = customScripts.map((s, i) =>
@@ -669,7 +670,7 @@ sys.stdout.flush()
           type="button"
           onclick={() => (customScripts = [...customScripts, { name: "", runAt: "after-check", language: "python", script: "" }])}
         >
-          + 新增腳本
+          {m.admin_addScript()}
         </button>
       </div>
     {/if}
@@ -684,15 +685,15 @@ sys.stdout.flush()
       onclick={() => void handleSave()}
     >
       {#if saving}
-        儲存中...
+        {m.admin_saving()}
       {:else}
-        儲存判題設定
+        {m.admin_saveJudgeConfig()}
       {/if}
     </button>
     {#if saveMessage === "saved"}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">已儲存</span>
+      <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
     {:else if saveMessage === "error"}
-      <span class="text-sm text-red-600 dark:text-red-400">儲存失敗</span>
+      <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
     {/if}
   </div>
 </div>

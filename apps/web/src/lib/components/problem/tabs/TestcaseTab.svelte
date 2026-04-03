@@ -183,7 +183,7 @@
     </div>
 
     {#if sampleSets.length === 0}
-      <p class="text-sm text-muted-foreground">No sample testcase sets.</p>
+      <p class="text-sm text-muted-foreground">{m.testcases_noSampleSets()}</p>
     {:else}
       <div class="space-y-3">
         {#each sampleSets as set (set.id)}
@@ -203,7 +203,7 @@
     </div>
 
     {#if subtaskSets.length === 0}
-      <p class="text-sm text-muted-foreground">No subtask testcase sets.</p>
+      <p class="text-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
     {:else}
       <div class="space-y-3">
         {#each subtaskSets as set (set.id)}
@@ -246,7 +246,7 @@
               class="accent-primary"
               bind:checked={newSetIsHidden}
             />
-            Hidden
+            {m.testcases_hidden()}
           </label>
         </div>
         <div class="flex gap-2">
@@ -263,7 +263,7 @@
             onclick={() => (showAddForm = false)}
             type="button"
           >
-            Cancel
+            {m.common_cancel()}
           </button>
         </div>
       </div>
@@ -340,10 +340,10 @@
           <span
             class="rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
           >
-            {zipFileName} — {parsedCases.length} cases uploaded
+            {m.testcases_casesUploaded({ fileName: zipFileName ?? "", count: parsedCases.length })}
           </span>
           <span class="text-xs text-muted-foreground">
-            {subtasks.length} subtask{subtasks.length !== 1 ? "s" : ""} detected
+            {m.testcases_subtasksDetected({ count: subtasks.length })}
           </span>
           <span
             class="text-xs font-medium {totalPoints === 100
@@ -355,7 +355,7 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-xs text-muted-foreground">Auto-split into:</span>
+          <span class="text-xs text-muted-foreground">{m.testcases_autoSplitInto()}</span>
           {#each [1, 2, 3, 4, 5] as n (n)}
             <button
               class="rounded-full border px-3 py-1 text-xs font-medium transition {subtasks.length ===
@@ -414,7 +414,7 @@
                 <span
                   class="mt-auto rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-400"
                 >
-                  {subtask.caseIndices.length} cases
+                  {m.testcases_casesCount({ count: subtask.caseIndices.length })}
                 </span>
                 {#if subtasks.length > 1}
                   <button
@@ -436,7 +436,7 @@
           disabled={uploadSaving || subtasks.length === 0}
           type="button"
         >
-          {uploadSaving ? m.testcases_saving() : `Upload ${String(subtasks.length)} subtask${subtasks.length !== 1 ? "s" : ""}`}
+          {uploadSaving ? m.testcases_saving() : m.testcases_uploadSubtasks({ count: subtasks.length })}
         </button>
       </div>
     {/if}

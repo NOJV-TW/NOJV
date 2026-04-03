@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     activeTab?: string;
@@ -20,11 +21,11 @@
   }: Props = $props();
 
   const tabs = [
-    { id: "basic", label: "題目資訊" },
-    { id: "submission", label: "提交設定" },
-    { id: "testcase", label: "測資管理" },
-    { id: "judge", label: "判題設定" },
-    { id: "scoring", label: "評分規則" },
+    { id: "basic", label: m.admin_tabBasicInfo() },
+    { id: "submission", label: m.admin_tabSubmission() },
+    { id: "testcase", label: m.admin_tabTestcase() },
+    { id: "judge", label: m.admin_tabJudge() },
+    { id: "scoring", label: m.admin_tabScoring() },
   ];
 </script>
 

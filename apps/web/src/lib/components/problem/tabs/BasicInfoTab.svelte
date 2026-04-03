@@ -76,7 +76,7 @@
 
     <!-- Status -->
     <label class="text-sm text-muted-foreground">
-      狀態
+      {m.admin_status()}
       <select
         class={inputClassName}
         bind:value={$form.status}

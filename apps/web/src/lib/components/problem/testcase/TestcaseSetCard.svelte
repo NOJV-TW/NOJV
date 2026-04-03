@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { ChevronDown, ChevronRight, Pencil, Trash2, Eye, EyeOff } from "@lucide/svelte";
+  import { m } from "$lib/paraglide/messages.js";
   import { postProblemAction } from "$lib/utils/actions";
 
   interface TestcaseData {
@@ -127,7 +128,7 @@
     <span
       class="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400"
     >
-      {set.testcases.length} cases
+      {m.testcases_casesCount({ count: set.testcases.length })}
     </span>
 
     <span class="text-xs text-muted-foreground">
@@ -137,12 +138,12 @@
     {#if set.isHidden}
       <span class="flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
         <EyeOff class="h-3 w-3" />
-        Hidden
+        {m.testcases_hidden()}
       </span>
     {:else}
       <span class="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
         <Eye class="h-3 w-3" />
-        Visible
+        {m.testcases_visible()}
       </span>
     {/if}
 
@@ -170,14 +171,14 @@
   {#if editing}
     <div class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-[color:var(--color-panel)] p-3">
       <label class="grid gap-1">
-        <span class="text-xs font-medium text-muted-foreground">Name</span>
+        <span class="text-xs font-medium text-muted-foreground">{m.testcases_editSetName()}</span>
         <input
           class="rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
           bind:value={editName}
         />
       </label>
       <label class="grid gap-1">
-        <span class="text-xs font-medium text-muted-foreground">Weight</span>
+        <span class="text-xs font-medium text-muted-foreground">{m.testcases_editSetWeight()}</span>
         <input
           class="w-20 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
           type="number"
@@ -191,7 +192,7 @@
           class="accent-primary"
           bind:checked={editIsHidden}
         />
-        Hidden
+        {m.testcases_hidden()}
       </label>
       <div class="flex gap-2">
         <button
@@ -200,14 +201,14 @@
           disabled={saving}
           type="button"
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? m.admin_saving() : m.common_save()}
         </button>
         <button
           class="rounded-full border border-border px-4 py-2 text-xs font-semibold transition hover:-translate-y-0.5"
           onclick={() => (editing = false)}
           type="button"
         >
-          Cancel
+          {m.common_cancel()}
         </button>
       </div>
     </div>
@@ -217,7 +218,7 @@
   {#if confirmDelete}
     <div class="mt-3 flex items-center gap-3 rounded-xl border border-red-300 dark:border-red-700 bg-red-500/10 p-3">
       <span class="text-sm text-red-700 dark:text-red-400">
-        Delete "{set.name}" and all its testcases?
+        {m.testcases_confirmDeleteSet({ name: set.name })}
       </span>
       <button
         class="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-70"
@@ -225,14 +226,14 @@
         disabled={saving}
         type="button"
       >
-        {saving ? "Deleting..." : "Confirm"}
+        {saving ? m.testcases_deleting() : m.testcases_confirm()}
       </button>
       <button
         class="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
         onclick={() => (confirmDelete = false)}
         type="button"
       >
-        Cancel
+        {m.common_cancel()}
       </button>
     </div>
   {/if}
@@ -268,14 +269,14 @@
                   disabled={saving}
                   type="button"
                 >
-                  {saving ? "Saving..." : "Save"}
+                  {saving ? m.admin_saving() : m.common_save()}
                 </button>
                 <button
                   class="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
                   onclick={() => (editingTestcaseId = null)}
                   type="button"
                 >
-                  Cancel
+                  {m.common_cancel()}
                 </button>
               </div>
             </div>
@@ -283,7 +284,7 @@
             <!-- Confirm delete testcase -->
             <div class="flex items-center gap-3">
               <span class="text-sm text-red-700 dark:text-red-400">
-                Delete case #{tc.ordinal}?
+                {m.testcases_confirmDeleteCase({ ordinal: tc.ordinal })}
               </span>
               <button
                 class="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-70"
@@ -291,14 +292,14 @@
                 disabled={saving}
                 type="button"
               >
-                {saving ? "Deleting..." : "Confirm"}
+                {saving ? m.testcases_deleting() : m.testcases_confirm()}
               </button>
               <button
                 class="rounded-full border border-border px-4 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5"
                 onclick={() => (confirmDeleteTestcaseId = null)}
                 type="button"
               >
-                Cancel
+                {m.common_cancel()}
               </button>
             </div>
           {:else}
@@ -341,7 +342,7 @@
       {/each}
 
       {#if set.testcases.length === 0}
-        <p class="text-sm text-muted-foreground">No testcases in this set.</p>
+        <p class="text-sm text-muted-foreground">{m.testcases_noTestcasesInSet()}</p>
       {/if}
     </div>
   {/if}

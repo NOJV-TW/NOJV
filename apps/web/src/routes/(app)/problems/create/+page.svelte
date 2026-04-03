@@ -57,7 +57,7 @@
 
       <!-- Slug (auto-generated, editable) -->
       <label class="text-sm text-muted-foreground">
-        Slug
+        {m.admin_slug()}
         <input
           class={inputClassName}
           bind:value={$form.slug}
@@ -95,7 +95,7 @@
 
       <!-- Summary -->
       <label class="text-sm text-muted-foreground">
-        {m.admin_statement()} (摘要)
+        {m.admin_summaryLabel()}
         <textarea
           class="{inputClassName} min-h-20 resize-y"
           bind:value={$form.summary}
@@ -104,7 +104,7 @@
 
       <!-- Statement -->
       <label class="text-sm text-muted-foreground">
-        {m.admin_statement()} (Markdown)
+        {m.admin_statement()} ({m.admin_statementMarkdown()})
         <textarea
           class="{inputClassName} min-h-40 resize-y"
           bind:value={$form.statement}
