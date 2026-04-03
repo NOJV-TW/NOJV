@@ -6,26 +6,27 @@
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "import": "./dist/index.mjs"
     },
     "./workflows": {
       "types": "./src/workflows/index.ts",
-      "default": "./src/workflows/index.ts"
+      "import": "./dist/workflows/index.mjs"
     },
     "./activities": {
       "types": "./src/activities/index.ts",
-      "default": "./src/activities/index.ts"
+      "import": "./dist/activities/index.mjs"
     },
     "./activities/judge": {
       "types": "./src/activities/judge-bundle.ts",
-      "default": "./src/activities/judge-bundle.ts"
+      "import": "./dist/activities/judge-bundle.mjs"
     },
     "./activities/platform": {
       "types": "./src/activities/platform-bundle.ts",
-      "default": "./src/activities/platform-bundle.ts"
+      "import": "./dist/activities/platform-bundle.mjs"
     }
   },
   "scripts": {
+    "build": "tsdown",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -37,5 +38,8 @@
     "@nojv/domain": "workspace:*",
     "@nojv/redis": "workspace:*",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsdown": "^0.21.2"
   }
 }
