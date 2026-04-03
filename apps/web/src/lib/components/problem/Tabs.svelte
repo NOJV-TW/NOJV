@@ -4,6 +4,20 @@
   import { page } from "$app/stores";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import { FileCode, Pencil, Search } from "@lucide/svelte";
+
+  let creating = $state(false);
+
+  async function handleCreate() {
+    creating = true;
+    try {
+      const res = await fetch("/api/problems/create", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create problem");
+      const { id } = await res.json();
+      await goto(`/problems/${id}/edit`);
+    } finally {
+      creating = false;
+    }
+  }
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import type { problemDomain } from "@nojv/domain";
   type ProblemCardWithStatus = problemDomain.ProblemCardWithStatus;
@@ -15,7 +29,7 @@
 
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
-    slug: string;
+    id: string;
     status: string;
     tags: string[];
     title: string;
@@ -147,7 +161,7 @@
   function filterProblems<
     T extends {
       difficulty: ProblemDifficulty;
-      slug: string;
+      id: string;
       tags: string[];
       title: string;
     }
@@ -156,8 +170,7 @@
     return problems.filter((p) => {
       if (
         query &&
-        !p.title.toLowerCase().includes(query) &&
-        !p.slug.toLowerCase().includes(query)
+        !p.title.toLowerCase().includes(query)
       ) {
         return false;
       }
@@ -213,12 +226,14 @@
     >
       {m.problems_myProblems()}
     </button>
-    <a
-      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-      href="/problems/create"
+    <button
+      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      disabled={creating}
+      onclick={handleCreate}
+      type="button"
     >
-      + {m.problems_createNew()}
-    </a>
+      + {creating ? m.common_saving() : m.problems_createNew()}
+    </button>
   {/if}
 </div>
 
@@ -303,10 +318,10 @@
         title={m.problems_noResults()}
       />
     {/if}
-    {#each publicResult.problems as problem (problem.slug)}
+    {#each publicResult.problems as problem (problem.id)}
       <a
         class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[auto_1.4fr_0.8fr_0.8fr] sm:items-center transition hover:-translate-y-0.5"
-        href="/problems/{problem.slug}"
+        href="/problems/{problem.id}"
       >
         <div class="flex items-center justify-center w-6">
           {#if problem.status === "ac"}
@@ -320,10 +335,7 @@
           {/if}
         </div>
         <div>
-          <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-            {problem.slug}
-          </p>
-          <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
+          <h3 class="text-2xl font-semibold">{problem.title}</h3>
         </div>
         <div>
           <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
@@ -454,8 +466,6 @@
       <EmptyState
         icon={FileCode}
         title={m.problems_myProblemsEmpty()}
-        actionHref="/problems/create"
-        actionLabel={m.problems_createNew()}
       />
     {:else if mineFiltered.length === 0}
       <EmptyState
@@ -463,15 +473,12 @@
         title={m.problems_noResults()}
       />
     {/if}
-    {#each mineFiltered as problem (problem.slug)}
+    {#each mineFiltered as problem (problem.id)}
       <div
         class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_auto] sm:items-center"
       >
-        <a href="/problems/{problem.slug}" class="transition hover:opacity-80">
-          <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-            {problem.slug}
-          </p>
-          <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
+        <a href="/problems/{problem.id}" class="transition hover:opacity-80">
+          <h3 class="text-2xl font-semibold">{problem.title}</h3>
         </a>
         <div>
           <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
@@ -492,7 +499,7 @@
           </span>
         </div>
         <a
-          href="/problems/{problem.slug}/edit"
+          href="/problems/{problem.id}/edit"
           class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground hover:bg-[color:var(--color-panel)]"
         >
           <Pencil class="h-3 w-3" />

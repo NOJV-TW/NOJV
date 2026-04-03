@@ -32,6 +32,7 @@ export async function createQueuedSubmissionRecord(
   clientIp: string
 ) {
   return runTransaction(async (tx) => {
+    // NOTE: problemSlug field in SubmissionDraft now contains a problem ID (core schema rename pending)
     const problem = await requireProblem(tx, payload.problemSlug);
     const courseContext = payload.assessment
       ? await requireCourseAssessment(

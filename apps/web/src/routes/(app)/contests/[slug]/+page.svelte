@@ -145,8 +145,8 @@
     <h2 class="text-xl font-semibold">Problems</h2>
 
     <div class="grid gap-3">
-      {#each contest.problems as p (p.slug)}
-        {@const href = isActive ? `/contests/${contest.slug}/problems/${p.slug}` : null}
+      {#each contest.problems as p (p.id)}
+        {@const href = isActive ? `/contests/${contest.slug}/problems/${p.id}` : null}
         {#if href}
           <a
             class="flex items-center justify-between rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4 transition hover:-translate-y-0.5 hover:border-border"

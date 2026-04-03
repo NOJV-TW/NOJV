@@ -330,7 +330,7 @@
           {#each data.topFailingProblems as row (row.problemId)}
             <li class="rounded-lg border border-border px-3 py-2 text-sm">
               <div class="flex items-center justify-between gap-3">
-                <a class="truncate font-medium hover:underline" href="/problems/{row.slug}">
+                <a class="truncate font-medium hover:underline" href="/problems/{row.id}">
                   {row.title}
                 </a>
                 <span class="shrink-0 text-xs text-muted-foreground">{row.errorCount} errors</span>
@@ -363,7 +363,7 @@
                 <tr class="border-b border-border last:border-b-0">
                   <td class="px-3 py-2 text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</td>
                   <td class="px-3 py-2">
-                    <a class="hover:underline" href="/problems/{row.problem.slug}">{row.problem.defaultTitle}</a>
+                    <a class="hover:underline" href="/problems/{row.problem.id}">{row.problem.defaultTitle}</a>
                   </td>
                   <td class="px-3 py-2 text-xs">{row.user.username ?? row.user.name}</td>
                   <td class="px-3 py-2 text-xs">

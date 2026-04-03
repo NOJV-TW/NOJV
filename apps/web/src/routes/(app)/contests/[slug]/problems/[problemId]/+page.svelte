@@ -34,12 +34,12 @@
       &larr; {data.contestData.title}
     </a>
     <span class="text-muted-foreground">|</span>
-    {#each data.contestData.problems as p (p.slug)}
+    {#each data.contestData.problems as p (p.id)}
       <a
-        class="rounded px-2 py-1 text-xs font-medium transition {p.slug === data.problem.slug
+        class="rounded px-2 py-1 text-xs font-medium transition {p.id === data.problem.id
           ? 'bg-muted text-foreground'
           : 'text-muted-foreground hover:text-foreground'}"
-        href="/contests/{data.contestSlug}/problems/{p.slug}"
+        href="/contests/{data.contestSlug}/problems/{p.id}"
       >
         {String.fromCharCode(64 + p.ordinal)}
       </a>

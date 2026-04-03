@@ -47,7 +47,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     contests,
     contestForm,
     courseSlug: params.slug,
-    problemSlugs: courseData.course.problemSlugs,
+    problemSlugs: courseData.course.problemIds,
     form
   };
 };

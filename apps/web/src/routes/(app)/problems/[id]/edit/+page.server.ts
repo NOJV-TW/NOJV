@@ -29,12 +29,12 @@ const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   if (!locals.user) {
-    redirect(302, `/problems/${params.slug}`);
+    redirect(302, `/problems/${params.id}`);
   }
 
   const [problem, testcaseSets] = await Promise.all([
-    getProblemPageData(params.slug),
-    getProblemTestcaseSets(params.slug)
+    getProblemPageData(params.id),
+    getProblemTestcaseSets(params.id)
   ]);
 
   if (!problem) {
@@ -70,10 +70,10 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const form = await superValidate(event, zod4(problemUpdateSchema));
     if (!form.valid) return fail(400, { form });
-    const result = await updateProblemRecord(actor, slug, form.data);
+    const result = await updateProblemRecord(actor, problemId, form.data);
 
     return { form, id: result.id, success: true };
   },
@@ -83,13 +83,13 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data field");
     const parsed = updateTemplatesSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) error(400, "Invalid template data");
-    const result = await updateProblemTemplates(actor, slug, parsed.data);
+    const result = await updateProblemTemplates(actor, problemId, parsed.data);
 
     return { success: true, templates: result };
   },
@@ -99,13 +99,13 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data field");
     const parsed = problemTestcaseSetCreateSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) error(400, "Invalid testcase set data");
-    const result = await createProblemTestcaseSetRecord(actor, slug, parsed.data);
+    const result = await createProblemTestcaseSetRecord(actor, problemId, parsed.data);
 
     return { id: result.id, success: true };
   },
@@ -115,7 +115,7 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const setId = formData.get("setId");
     const raw = formData.get("data");
@@ -123,7 +123,7 @@ export const actions: Actions = {
     if (typeof raw !== "string") error(400, "Missing data field");
     const parsed = testcaseSetUpdateSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) error(400, "Invalid testcase set data");
-    await updateTestcaseSetRecord(actor, slug, setId, parsed.data);
+    await updateTestcaseSetRecord(actor, problemId, setId, parsed.data);
 
     return { success: true };
   },
@@ -133,11 +133,11 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const setId = formData.get("setId");
     if (typeof setId !== "string") error(400, "Missing setId");
-    await deleteTestcaseSetRecord(actor, slug, setId);
+    await deleteTestcaseSetRecord(actor, problemId, setId);
 
     return { success: true };
   },
@@ -147,7 +147,7 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const testcaseId = formData.get("testcaseId");
     const raw = formData.get("data");
@@ -155,7 +155,7 @@ export const actions: Actions = {
     if (typeof raw !== "string") error(400, "Missing data field");
     const parsed = testcaseUpdateSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) error(400, "Invalid testcase data");
-    await updateTestcaseRecord(actor, slug, testcaseId, parsed.data);
+    await updateTestcaseRecord(actor, problemId, testcaseId, parsed.data);
 
     return { success: true };
   },
@@ -165,11 +165,11 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const testcaseId = formData.get("testcaseId");
     if (typeof testcaseId !== "string") error(400, "Missing testcaseId");
-    await deleteTestcaseRecord(actor, slug, testcaseId);
+    await deleteTestcaseRecord(actor, problemId, testcaseId);
 
     return { success: true };
   },
@@ -179,13 +179,13 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
     const parsed = judgeConfigSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) error(400, "Invalid judge config");
-    await updateProblemRecord(actor, slug, { judgeConfig: parsed.data });
+    await updateProblemRecord(actor, problemId, { judgeConfig: parsed.data });
 
     return { success: true };
   },
@@ -195,13 +195,13 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
+    const problemId = event.params.id;
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
     const parsed = judgeConfigSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) error(400, "Invalid scoring config");
-    await updateProblemRecord(actor, slug, { judgeConfig: parsed.data });
+    await updateProblemRecord(actor, problemId, { judgeConfig: parsed.data });
 
     return { success: true };
   },
@@ -211,8 +211,8 @@ export const actions: Actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const slug = event.params.slug;
-    await updateProblemRecord(actor, slug, { status: "published" });
+    const problemId = event.params.id;
+    await updateProblemRecord(actor, problemId, { status: "published" });
 
     return { success: true };
   }

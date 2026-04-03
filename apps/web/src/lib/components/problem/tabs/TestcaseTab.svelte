@@ -25,10 +25,10 @@
 
   interface Props {
     testcaseSets: TestcaseSetData[];
-    problemSlug: string;
+    problemId: string;
   }
 
-  let { testcaseSets, problemSlug }: Props = $props();
+  let { testcaseSets, problemId }: Props = $props();
 
   const pillButton =
     "inline-flex rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-accent";
@@ -63,7 +63,7 @@
     saving = true;
     error = null;
     try {
-      await postProblemAction(problemSlug, "createTestcaseSet", {
+      await postProblemAction(problemId, "createTestcaseSet", {
         data: JSON.stringify({
           name: newSetName.trim(),
           weight: newSetWeight,
@@ -147,7 +147,7 @@
         subtasks
           .filter((subtask) => subtask.caseIndices.length > 0)
           .map((subtask) =>
-            postProblemAction(problemSlug, "createTestcaseSet", {
+            postProblemAction(problemId, "createTestcaseSet", {
               data: JSON.stringify({
                 cases: subtask.caseIndices.map((idx) => ({
                   stdin: parsedCases[idx]?.stdin ?? "",
@@ -187,7 +187,7 @@
     {:else}
       <div class="space-y-3">
         {#each sampleSets as set (set.id)}
-          <TestcaseSetCard {set} {problemSlug} />
+          <TestcaseSetCard {set} {problemId} />
         {/each}
       </div>
     {/if}
@@ -207,7 +207,7 @@
     {:else}
       <div class="space-y-3">
         {#each subtaskSets as set (set.id)}
-          <TestcaseSetCard {set} {problemSlug} />
+          <TestcaseSetCard {set} {problemId} />
         {/each}
       </div>
     {/if}
