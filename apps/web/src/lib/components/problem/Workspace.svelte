@@ -275,7 +275,9 @@
           <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {problem.submissionType === "function"
               ? m.problemDetail_functionBadge()
-              : m.problemDetail_fullSourceBadge()}
+              : problem.submissionType === "zip_project"
+                ? "Multi-file"
+                : m.problemDetail_fullSourceBadge()}
           </span>
           {#each problem.tags as tag (tag)}
             <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
