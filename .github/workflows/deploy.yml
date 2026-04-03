@@ -40,6 +40,18 @@ jobs:
         shell: bash
         run: docker compose up -d --wait postgres redis temporal temporal-ui
 
+      - name: Dump infra logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          docker compose ps
+          docker compose logs --no-color --tail=300 postgres redis temporal temporal-ui
+          temporal_id="$(docker compose ps -q temporal)"
+          if [[ -n "$temporal_id" ]]; then
+            docker inspect "$temporal_id"
+          fi
+
       - name: Build sandbox image
         shell: bash
         run: docker compose --profile sandbox-build build sandbox-image
