@@ -2,7 +2,9 @@ import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { getScoreboardChart } from "$lib/server/contest/scoreboard";
+import { contestDomain } from "@nojv/domain";
+
+const { getScoreboardChart } = contestDomain;
 import { apiHandler } from "$lib/server/shared/api-handler";
 
 export const GET: RequestHandler = apiHandler(async (event) => {

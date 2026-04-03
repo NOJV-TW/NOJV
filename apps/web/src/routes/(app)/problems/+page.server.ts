@@ -1,5 +1,7 @@
 import type { PageServerLoad } from "./$types";
-import { listEditableProblems, listProblemCards } from "$lib/server/problem/queries";
+import { problemDomain } from "@nojv/domain";
+
+const { listEditableProblems, listProblemCards } = problemDomain;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const userId = locals.user?.id ?? null;

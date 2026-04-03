@@ -1,53 +1,27 @@
-import { prisma, type Prisma } from "@nojv/db";
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { userDomain } from "@nojv/domain";
+
+const { listUsersPaginated, updateUserRole, toggleUserDisabled } = userDomain;
 
 export const load: PageServerLoad = async ({ url }) => {
   const search = url.searchParams.get("search") ?? "";
   const roleFilter = url.searchParams.get("role") ?? "";
   const page = Math.max(1, Number(url.searchParams.get("page") ?? "1"));
-  const take = 50;
-  const skip = (page - 1) * take;
 
-  const where: Prisma.UserWhereInput = {};
-
-  if (search) {
-    where.OR = [
-      { username: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
-      { name: { contains: search, mode: "insensitive" } }
-    ];
-  }
-
-  if (roleFilter === "admin" || roleFilter === "teacher" || roleFilter === "student") {
-    where.platformRole = roleFilter;
-  }
-
-  const [users, totalCount] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        name: true,
-        platformRole: true,
-        disabled: true,
-        createdAt: true
-      },
-      orderBy: { createdAt: "desc" },
-      take,
-      skip
-    }),
-    prisma.user.count({ where })
-  ]);
+  const { users, totalCount, totalPages } = await listUsersPaginated({
+    ...(search ? { search } : {}),
+    ...(roleFilter ? { roleFilter } : {}),
+    page
+  });
 
   return {
     users,
     totalCount,
     page,
-    totalPages: Math.max(1, Math.ceil(totalCount / take)),
+    totalPages,
     search,
     roleFilter
   };
@@ -55,6 +29,9 @@ export const load: PageServerLoad = async ({ url }) => {
 
 export const actions = {
   updateRole: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     if (actor.platformRole !== "admin") return fail(403, { error: "Forbidden" });
 
@@ -70,15 +47,15 @@ export const actions = {
       return fail(400, { error: "Cannot change your own role." });
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { platformRole: role as "admin" | "teacher" | "student" }
-    });
+    await updateUserRole(userId, role as "admin" | "teacher" | "student");
 
     return { success: true };
   },
 
   toggleDisabled: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     if (actor.platformRole !== "admin") return fail(403, { error: "Forbidden" });
 
@@ -93,16 +70,8 @@ export const actions = {
       return fail(400, { error: "Cannot disable yourself." });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { disabled: true }
-    });
-    if (!user) return fail(404, { error: "User not found." });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { disabled: !user.disabled }
-    });
+    const result = await toggleUserDisabled(userId);
+    if (!result) return fail(404, { error: "User not found." });
 
     return { success: true };
   }

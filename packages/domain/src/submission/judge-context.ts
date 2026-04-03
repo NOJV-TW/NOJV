@@ -1,0 +1,190 @@
+import { submissionRepo } from "@nojv/db";
+import type { Prisma } from "@nojv/db";
+import type {
+  JudgeType,
+  NetworkAccessConfig,
+  PipelineConfig,
+  ProblemJudgeTestcase,
+  SubmissionDraft,
+  SubmissionResult,
+  SubmissionType
+} from "@nojv/core";
+
+import { NotFoundError } from "../shared/errors";
+
+// --- Types ---
+
+export interface TestcaseSetGroup {
+  id: string;
+  isHidden: boolean;
+  name: string;
+  testcases: ProblemJudgeTestcase[];
+  weight: number;
+}
+
+export interface SubmissionJudgeContext {
+  artifactPatterns: string[];
+  checkerScript: string | null;
+  interactorScript: string | null;
+  judgeType: JudgeType;
+  memoryLimitMb: number;
+  networkAccessConfig: NetworkAccessConfig | null;
+  pipelineConfig: PipelineConfig | null;
+  problemSlug: string;
+  scoringLanguage: string | null;
+  scoringScript: string | null;
+  submissionType: SubmissionType;
+  templates: {
+    driverCode: string;
+    insertionMarker: string;
+    language: string;
+    templateCode: string;
+  }[];
+  testcaseSets: TestcaseSetGroup[];
+  testcases: ProblemJudgeTestcase[];
+  timeLimitMs: number;
+}
+
+export interface CompletedSubmission {
+  contestParticipationId: string | null;
+  id: string;
+  language: string;
+  problemId: string;
+  problemSlug: string;
+  sampleOnly: boolean;
+  score: number;
+  status: string;
+  userId: string;
+}
+
+// --- Domain functions ---
+
+export async function getJudgeContext(submissionId: string): Promise<SubmissionJudgeContext> {
+  const submission = await submissionRepo.findByIdWithJudgeContext(submissionId);
+
+  if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
+
+  // Cast to access fields that Prisma generated types may not expose due to stale generation
+  const problem = submission.problem as typeof submission.problem & {
+    artifactPatterns: string[];
+    networkAccessConfig: unknown;
+    pipelineConfig: unknown;
+    scoringLanguage: string | null;
+    scoringScript: string | null;
+  };
+
+  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
+    id: ts.id,
+    isHidden: ts.isHidden,
+    name: ts.name,
+    testcases: ts.testcases.map((testcase) => ({
+      expectedStdout: testcase.expectedStdout ?? undefined,
+      id: testcase.id,
+      inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
+      isHidden: ts.isHidden,
+      stdin: testcase.stdin,
+      weight: ts.weight
+    })),
+    weight: ts.weight
+  }));
+
+  return {
+    artifactPatterns: problem.artifactPatterns,
+    checkerScript: problem.checkerScript,
+    interactorScript: problem.interactorScript,
+    judgeType: problem.judgeType,
+    memoryLimitMb: problem.memoryLimitMb,
+    networkAccessConfig: problem.networkAccessConfig as NetworkAccessConfig | null,
+    pipelineConfig: problem.pipelineConfig as PipelineConfig | null,
+    problemSlug: problem.slug,
+    scoringLanguage: problem.scoringLanguage,
+    scoringScript: problem.scoringScript,
+    submissionType: problem.submissionType,
+    templates: problem.templates.map((t) => ({
+      driverCode: t.driverCode,
+      insertionMarker: t.insertionMarker,
+      language: t.language,
+      templateCode: t.templateCode
+    })),
+    testcaseSets,
+    testcases: testcaseSets.flatMap((ts) => ts.testcases),
+    timeLimitMs: problem.timeLimitMs
+  };
+}
+
+export async function updateSubmissionStatus(
+  submissionId: string,
+  status: string
+): Promise<void> {
+  await submissionRepo.updateStatus(submissionId, status);
+}
+
+export async function completeJudge(
+  submissionId: string,
+  result: SubmissionResult
+): Promise<CompletedSubmission> {
+  const submission = await submissionRepo.complete(submissionId, {
+    compilerOutput: result.verdict === "compile_error" ? result.feedback : null,
+    runtimeMs: result.runtimeMs,
+    score: result.score,
+    status: result.verdict,
+    verdictDetail: JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue,
+    ...(result.subtaskResults
+      ? {
+          subtaskResults: JSON.parse(
+            JSON.stringify(result.subtaskResults)
+          ) as Prisma.InputJsonValue
+        }
+      : {}),
+    ...(result.pipelineResult
+      ? {
+          pipelineResult: JSON.parse(
+            JSON.stringify(result.pipelineResult)
+          ) as Prisma.InputJsonValue
+        }
+      : {}),
+    ...(result.artifactPaths ? { artifactPaths: result.artifactPaths } : {})
+  });
+
+  return {
+    contestParticipationId: submission.contestParticipationId,
+    id: submission.id,
+    language: submission.language,
+    problemId: submission.problemId,
+    problemSlug: submission.problem.slug,
+    sampleOnly: submission.sampleOnly,
+    score: submission.score,
+    status: submission.status,
+    userId: submission.userId
+  };
+}
+
+export async function findForRejudge(input: {
+  problemId: string;
+  contestId?: string;
+  assessmentId?: string;
+}): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
+  const where: Prisma.SubmissionWhereInput = {
+    problemId: input.problemId,
+    sampleOnly: false
+  };
+
+  if (input.contestId) {
+    where.contestParticipation = { contestId: input.contestId };
+  }
+  if (input.assessmentId) {
+    where.courseAssessmentId = input.assessmentId;
+  }
+
+  const submissions = await submissionRepo.findForRejudge(where);
+
+  return submissions.map((s) => ({
+    submissionId: s.id,
+    draft: {
+      language: s.language,
+      problemSlug: s.problem.slug,
+      sampleOnly: s.sampleOnly,
+      sourceCode: s.sourceCode
+    }
+  }));
+}

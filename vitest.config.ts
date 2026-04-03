@@ -12,6 +12,11 @@ const sharedAliases = {
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      reportsDirectory: "./coverage"
+    },
     projects: [
       {
         resolve: { alias: sharedAliases },

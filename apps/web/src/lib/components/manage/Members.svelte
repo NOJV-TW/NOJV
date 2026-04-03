@@ -3,7 +3,8 @@
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
 
-  import type { CourseMemberRecord } from "$lib/server/course/queries";
+  import type { courseDomain } from "@nojv/domain";
+  type CourseMemberRecord = courseDomain.CourseMemberRecord;
 
   interface Props {
     courseSlug: string;

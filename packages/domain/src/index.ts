@@ -1,0 +1,11 @@
+export * from "./shared";
+export * as adminDomain from "./admin";
+export * as announcementDomain from "./announcement";
+export * as assessmentDomain from "./assessment";
+export * as contestDomain from "./contest";
+export * as courseDomain from "./course";
+export * as plagiarismDomain from "./plagiarism";
+export * as problemDomain from "./problem";
+export * as submissionDomain from "./submission";
+export * as userDomain from "./user";
+export * as verificationDomain from "./verification";

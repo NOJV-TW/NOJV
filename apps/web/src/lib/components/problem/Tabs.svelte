@@ -5,7 +5,9 @@
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import { FileCode, Plus, Search } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import type { ProblemCardWithStatus, ProblemListResult } from "$lib/server/problem/queries";
+  import type { problemDomain } from "@nojv/domain";
+  type ProblemCardWithStatus = problemDomain.ProblemCardWithStatus;
+  type ProblemListResult = problemDomain.ProblemListResult;
 
   function formatAcceptanceRate(value: number): string {
     return `${String(Math.round(value * 100))}%`;

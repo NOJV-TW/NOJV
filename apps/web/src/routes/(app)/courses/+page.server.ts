@@ -1,13 +1,14 @@
 import { courseCreateSchema } from "@nojv/core";
-import { prisma } from "@nojv/db";
 import { fail } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, getActorContext, requireAuth } from "$lib/server/auth";
-import { createCourseRecord } from "$lib/server/course/mutations";
-import { listCourseCards } from "$lib/server/course/queries";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { courseDomain } from "@nojv/domain";
+
+const { createCourseRecord, listCourseCards, getTeacherOverview } = courseDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
@@ -36,103 +37,12 @@ export const load: PageServerLoad = async (event) => {
   } | null = null;
 
   if (actor && isStaff && courses.length > 0) {
-    const now = new Date();
-    const from7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const courseSlugs = courses.map((course) => course.slug);
-
-    const [studentMemberships, activeAssessments, submissions7d] = await Promise.all([
-      prisma.courseMembership.count({
-        where: {
-          course: { slug: { in: courseSlugs } },
-          role: "student",
-          status: "active"
-        }
-      }),
-      prisma.courseAssessment.count({
-        where: {
-          course: { slug: { in: courseSlugs } },
-          status: "published",
-          opensAt: { lte: now },
-          closesAt: { gte: now }
-        }
-      }),
-      prisma.submission.findMany({
-        where: {
-          sampleOnly: false,
-          createdAt: { gte: from7d },
-          course: { slug: { in: courseSlugs } },
-          courseAssessmentId: { not: null }
-        },
-        select: {
-          status: true,
-          courseAssessmentId: true,
-          courseAssessment: {
-            select: {
-              slug: true,
-              title: true,
-              course: { select: { slug: true, title: true } }
-            }
-          }
-        }
-      })
-    ]);
-
-    const total7d = submissions7d.length;
-    const accepted7d = submissions7d.filter(
-      (submission) => submission.status === "accepted"
-    ).length;
-    const acceptedRate7d = total7d > 0 ? Math.round((accepted7d / total7d) * 100) : 0;
-
-    const byAssessment = new Map<
-      string,
-      {
-        accepted: number;
-        assessmentSlug: string;
-        assessmentTitle: string;
-        count: number;
-        courseSlug: string;
-        courseTitle: string;
-      }
-    >();
-
-    for (const submission of submissions7d) {
-      const assessment = submission.courseAssessment;
-      if (!assessment || !submission.courseAssessmentId) continue;
-
-      const key = submission.courseAssessmentId;
-      const current = byAssessment.get(key) ?? {
-        accepted: 0,
-        assessmentSlug: assessment.slug,
-        assessmentTitle: assessment.title,
-        count: 0,
-        courseSlug: assessment.course.slug,
-        courseTitle: assessment.course.title
-      };
-
-      current.count += 1;
-      if (submission.status === "accepted") {
-        current.accepted += 1;
-      }
-      byAssessment.set(key, current);
-    }
+    const overview = await getTeacherOverview(courseSlugs);
 
     teacherOverview = {
       managedCourses: courses.length,
-      totalStudents: studentMemberships,
-      activeAssessments,
-      submissions7d: total7d,
-      acceptedRate7d,
-      hottestAssessments: [...byAssessment.values()]
-        .sort((left, right) => right.count - left.count)
-        .slice(0, 6)
-        .map((row) => ({
-          assessmentSlug: row.assessmentSlug,
-          assessmentTitle: row.assessmentTitle,
-          courseSlug: row.courseSlug,
-          courseTitle: row.courseTitle,
-          submissionCount: row.count,
-          acceptedRate: row.count > 0 ? Math.round((row.accepted / row.count) * 100) : 0
-        }))
+      ...overview
     };
   }
 
@@ -143,6 +53,9 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions = {
   create: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
 
     if (!canCreateCourse(actor.platformRole)) {

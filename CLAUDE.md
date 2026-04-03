@@ -57,8 +57,11 @@ apps/
 
 packages/
   core/             Shared Zod schemas, types, pipeline definitions
-  db/               Prisma 7 schema, migrations, seed script
-  temporal/         Temporal workflows, activities, task queue definitions
+  db/               Prisma 7 schema, migrations, repositories
+  domain/           Business logic — queries, commands, scoring, stats
+  redis/            Redis connection, key registry, pub/sub, cache, cooldown
+  job-dispatch/     Temporal client wrapper, workflow dispatch API
+  temporal/         Temporal workflows, activities (thin wrappers over domain)
 
 tooling/
   eslint/           Shared ESLint 9 flat config

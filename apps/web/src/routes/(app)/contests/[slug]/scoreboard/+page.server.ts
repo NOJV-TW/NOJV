@@ -1,7 +1,9 @@
 import type { PageServerLoad } from "./$types";
 
 import { getActorContext } from "$lib/server/auth";
-import { getScoreboard, getScoreboardChart } from "$lib/server/contest/scoreboard";
+import { contestDomain } from "@nojv/domain";
+
+const { getScoreboard, getScoreboardChart } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const { slug } = event.params;
