@@ -46,6 +46,7 @@ enum JudgeType {
 enum SubmissionType {
   function
   full_source
+  zip_project
 }
 
 enum ContestVisibility {
@@ -109,6 +110,11 @@ enum ProblemVisibility {
   private
 }
 
+enum ProblemStatus {
+  draft
+  published
+}
+
 enum CourseAssessmentStatus {
   draft
   published
@@ -160,19 +166,13 @@ model Problem {
   summary             String                  @db.Text
   difficulty          String
   visibility          ProblemVisibility       @default(public)
+  status              ProblemStatus           @default(published)
   tags                String[]                @default([])
   authorId            String?
   timeLimitMs         Int
   memoryLimitMb       Int
-  judgeType           JudgeType               @default(standard)
   submissionType      SubmissionType          @default(full_source)
-  checkerScript       String?                 @db.Text
-  interactorScript    String?                 @db.Text
-  pipelineConfig      Json?
-  scoringScript       String?                 @db.Text
-  scoringLanguage     String?
-  artifactPatterns    String[]                @default([])
-  networkAccessConfig Json?
+  judgeConfig         Json?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   statements          ProblemStatementI18n[]

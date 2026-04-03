@@ -1,11 +1,12 @@
 import { problemRepo, problemStatementRepo, submissionRepo, type Prisma } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
-  judgeTypeSchema,
   problemDifficultySchema,
   submissionTypeSchema,
+  type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
+  type ProblemStatus,
   type ProblemVisibility,
   type SubmissionType
 } from "@nojv/core";
@@ -21,10 +22,9 @@ export interface TemplateInfo {
 export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
-  checkerScript?: string;
   difficulty: ProblemDifficulty;
   inputFormat: string;
-  interactorScript?: string;
+  judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
@@ -32,6 +32,7 @@ export interface ProblemDetail {
   slug: string;
   starterByLanguage: Record<string, string>;
   statement: string;
+  status: ProblemStatus;
   submissionType: SubmissionType;
   summary: string;
   tags: string[];
@@ -87,7 +88,6 @@ fn main() {
 // ─── Schema parse helpers ───────────────────────────────────────────
 
 const parseDifficulty = (v: unknown) => problemDifficultySchema.catch("medium").parse(v);
-const parseJudgeType = (v: unknown) => judgeTypeSchema.catch("standard").parse(v);
 const parseSubmissionType = (v: unknown) => submissionTypeSchema.catch("full_source").parse(v);
 
 import { pickProblemStatement } from "../shared/pick-problem-statement";
@@ -162,11 +162,9 @@ function buildStarterByLanguage(
 function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
-    checkerScript?: string | null;
     defaultTitle: string;
     difficulty: string;
-    interactorScript?: string | null;
-    judgeType?: string;
+    judgeConfig?: unknown;
     memoryLimitMb?: number;
     slug: string;
     statements?: {
@@ -192,6 +190,7 @@ function mapPersistedProblemDetail(
         stdin: string;
       }[];
     }[];
+    status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
   },
@@ -209,20 +208,24 @@ function mapPersistedProblemDetail(
   const submissionType = parseSubmissionType(problem.submissionType);
   const problemTemplates = problem.templates ?? [];
 
+  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? {
+    type: "standard" as const
+  };
+
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
-    ...(problem.checkerScript ? { checkerScript: problem.checkerScript } : {}),
     difficulty: parseDifficulty(problem.difficulty),
-    ...(problem.interactorScript ? { interactorScript: problem.interactorScript } : {}),
     inputFormat: localized.inputFormat,
-    judgeType: parseJudgeType(problem.judgeType),
+    judgeConfig,
+    judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
     slug: problem.slug,
     starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),
     statement: localized.statement,
+    status: (problem.status as ProblemStatus | undefined) ?? "published",
     submissionType,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     tags: problem.tags ?? [],

@@ -208,25 +208,19 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
 
     const problem = await createProblemDefinition(tx, slug, {
       authorId: author.id,
-      checkerScript: payload.checkerScript,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
-      interactorScript: payload.interactorScript,
-      judgeType: payload.judgeType,
+      judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
+      status: payload.status,
       submissionType: payload.submissionType,
       summary: payload.summary,
       tags: payload.tags,
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
-      visibility: payload.visibility,
-      pipelineConfig: payload.pipelineConfig,
-      scoringScript: payload.scoringScript,
-      scoringLanguage: payload.scoringLanguage,
-      artifactPatterns: payload.artifactPatterns,
-      networkAccessConfig: payload.networkAccessConfig
+      visibility: payload.visibility
     });
 
     if (payload.templates.length > 0) {
@@ -271,6 +265,7 @@ export async function updateProblemRecord(
       updateData.artifactPatterns = payload.artifactPatterns;
     if (payload.networkAccessConfig !== undefined)
       updateData.networkAccessConfig = payload.networkAccessConfig;
+    if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -343,5 +338,59 @@ export async function createProblemTestcaseSetRecord(
       isHidden: testcaseSet.isHidden,
       name: testcaseSet.name
     };
+  });
+}
+
+export async function updateTestcaseSetRecord(
+  actor: ProblemActorContext,
+  problemSlug: string,
+  setId: string,
+  payload: { name?: string; weight?: number; isHidden?: boolean }
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemSlug);
+    assertProblemOwnership(problem, actor);
+
+    return testcaseSetRepo.update(setId, payload);
+  });
+}
+
+export async function deleteTestcaseSetRecord(
+  actor: ProblemActorContext,
+  problemSlug: string,
+  setId: string
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemSlug);
+    assertProblemOwnership(problem, actor);
+
+    return testcaseSetRepo.delete(setId);
+  });
+}
+
+export async function updateTestcaseRecord(
+  actor: ProblemActorContext,
+  problemSlug: string,
+  testcaseId: string,
+  payload: { stdin?: string; expectedStdout?: string }
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemSlug);
+    assertProblemOwnership(problem, actor);
+
+    return testcaseRepo.update(testcaseId, payload);
+  });
+}
+
+export async function deleteTestcaseRecord(
+  actor: ProblemActorContext,
+  problemSlug: string,
+  testcaseId: string
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemSlug);
+    assertProblemOwnership(problem, actor);
+
+    return testcaseRepo.delete(testcaseId);
   });
 }
