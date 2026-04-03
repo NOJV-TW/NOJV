@@ -13,14 +13,12 @@ COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
 COPY packages/db/package.json packages/db/
-COPY packages/queue/package.json packages/queue/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
 
 # 2. Copy source and build
 COPY packages/core/ packages/core/
 COPY packages/db/ packages/db/
-COPY packages/queue/ packages/queue/
 COPY apps/web/ apps/web/
 
 RUN pnpm --filter @nojv/db db:generate
