@@ -23,7 +23,7 @@ export const problemCreateSchema = z.object({
   inputFormat: z.string().trim().max(4_000).default(""),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
   outputFormat: z.string().trim().max(4_000).default(""),
-  slug: slugSchema,
+  slug: slugSchema.or(z.literal("")).default(""),
   statement: z.string().trim().min(16).max(12_000),
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),
