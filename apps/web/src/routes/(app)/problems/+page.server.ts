@@ -18,13 +18,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     userId ? listEditableProblems(userId) : Promise.resolve(null)
   ]);
 
-  const sessionUser = locals.sessionUser;
-  const canCreate =
-    !!sessionUser && (sessionUser.platformRole !== "student" || sessionUser.emailVerified);
-
   return {
     editableProblems,
     publicResult,
-    canCreate
+    showCreate: !!userId
   };
 };
