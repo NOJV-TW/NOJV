@@ -1,4 +1,10 @@
-import { problemRepo, problemStatementRepo, submissionRepo, type Prisma } from "@nojv/db";
+import {
+  problemRepo,
+  problemStatementRepo,
+  submissionRepo,
+  testcaseSetRepo,
+  type Prisma
+} from "@nojv/db";
 import {
   DEFAULT_LOCALE,
   problemDifficultySchema,
@@ -379,4 +385,8 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
     persistedProblem._count.submissions,
     acceptedCount
   );
+}
+
+export async function getProblemTestcaseSets(problemSlug: string) {
+  return testcaseSetRepo.findByProblemSlug(problemSlug);
 }

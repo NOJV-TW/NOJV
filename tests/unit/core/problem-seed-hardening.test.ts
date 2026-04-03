@@ -67,7 +67,7 @@ describe("problem seed hardening", () => {
           summary: "broken",
           timeLimitMs: 1000,
           visibility: "public",
-          judgeType: "interactive",
+          judgeConfig: { type: "interactive" },
           statements: {
             "zh-TW": { title: "壞題", body: "壞題" },
             en: { title: "Broken", body: "Broken" }
@@ -149,8 +149,8 @@ describe("problem seed hardening", () => {
     expect(memory).toBeDefined();
     expect(memory.submissionType).toBe("function");
     expect(noisy).toBeDefined();
-    expect(noisy.judgeType).toBe("interactive");
-    expect(String(noisy.interactorScript)).toContain("lie_period = 5");
+    expect(noisy.judgeConfig?.type).toBe("interactive");
+    expect(String(noisy.judgeConfig?.interactorScript)).toContain("lie_period = 5");
 
     expect(
       captured.templateUpserts.some((entry) =>
