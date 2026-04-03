@@ -31,7 +31,7 @@ export interface SubmissionJudgeContext {
   memoryLimitMb: number;
   networkAccessConfig: NetworkAccessConfig | null;
   pipelineConfig: PipelineConfig | null;
-  problemSlug: string;
+  problemId: string;
   scoringLanguage: string | null;
   scoringScript: string | null;
   submissionType: SubmissionType;
@@ -51,7 +51,6 @@ export interface CompletedSubmission {
   id: string;
   language: string;
   problemId: string;
-  problemSlug: string;
   sampleOnly: boolean;
   score: number;
   status: string;
@@ -93,7 +92,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     memoryLimitMb: problem.memoryLimitMb,
     networkAccessConfig: judgeConfig.networkAccess ?? null,
     pipelineConfig: (judgeConfig.pipeline as PipelineConfig | undefined) ?? null,
-    problemSlug: problem.slug,
+    problemId: submission.problemId,
     scoringLanguage: judgeConfig.scoring?.language ?? null,
     scoringScript: judgeConfig.scoring?.script ?? null,
     submissionType: problem.submissionType,
@@ -148,7 +147,6 @@ export async function completeJudge(
     id: submission.id,
     language: submission.language,
     problemId: submission.problemId,
-    problemSlug: submission.problem.slug,
     sampleOnly: submission.sampleOnly,
     score: submission.score,
     status: submission.status,
@@ -179,7 +177,8 @@ export async function findForRejudge(input: {
     submissionId: s.id,
     draft: {
       language: s.language,
-      problemSlug: s.problem.slug,
+      // SubmissionDraft still uses problemSlug field name (core schema rename pending)
+      problemSlug: s.problemId,
       sampleOnly: s.sampleOnly,
       sourceCode: s.sourceCode
     }

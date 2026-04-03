@@ -44,7 +44,7 @@ export interface CourseAssessmentRecord {
   ipWhitelistEnabled: boolean;
   opensAt: string;
   pageLockEnabled: boolean;
-  problemSlugs: string[];
+  problemIds: string[];
   scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
@@ -53,7 +53,7 @@ export interface CourseAssessmentRecord {
 
 export interface CourseProblemCatalogEntry {
   authorUsername: string;
-  slug: string;
+  id: string;
   summary: string;
   title: string;
   visibility: ProblemVisibility;
@@ -69,7 +69,7 @@ export interface CoursePageData {
   }[];
   locale: LocaleCode;
   members: CourseMemberRecord[];
-  problemSlugs: string[];
+  problemIds: string[];
   slug: string;
   title: string;
 }
@@ -83,7 +83,7 @@ export interface CoursePageDetailData {
 
 function mapProblemShelfEntry(problem: {
   author?: { username: string | null } | null;
-  slug: string;
+  id: string;
   statements?: {
     bodyMarkdown: string;
     inputFormat?: string;
@@ -97,13 +97,13 @@ function mapProblemShelfEntry(problem: {
   const localized = pickProblemStatement(
     problem.statements,
     DEFAULT_LOCALE,
-    problem.slug,
+    problem.id,
     problem.summary
   );
 
   return {
     authorUsername: problem.author?.username ?? "course_staff",
-    slug: problem.slug,
+    id: problem.id,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     title: localized.title,
     visibility: problem.visibility
@@ -121,7 +121,7 @@ function mapAssessmentRecord(assessment: {
   ipWhitelistEnabled: boolean;
   opensAt: Date;
   pageLockEnabled: boolean;
-  problems: { ordinal: number; problem: { slug: string } }[];
+  problems: { ordinal: number; problem: { id: string } }[];
   scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
@@ -140,9 +140,9 @@ function mapAssessmentRecord(assessment: {
     ipWhitelistEnabled: assessment.ipWhitelistEnabled,
     opensAt: assessment.opensAt.toISOString(),
     pageLockEnabled: assessment.pageLockEnabled,
-    problemSlugs: [...linkedProblems]
+    problemIds: [...linkedProblems]
       .sort((left, right) => left.ordinal - right.ordinal)
-      .map((link) => link.problem.slug),
+      .map((link) => link.problem.id),
     scoreboardMode: assessment.scoreboardMode,
     slug: assessment.slug,
     summary: assessment.summary,
@@ -184,7 +184,7 @@ function mapPersistedCourse(course: {
     ipWhitelistEnabled: boolean;
     opensAt: Date;
     pageLockEnabled: boolean;
-    problems: { ordinal: number; problem: { slug: string } }[];
+    problems: { ordinal: number; problem: { id: string } }[];
     scoreboardMode: AssessmentScoreboardMode;
     slug: string;
     summary: string;
@@ -211,7 +211,7 @@ function mapPersistedCourse(course: {
   problems: {
     problem: {
       author?: { username: string | null } | null;
-      slug: string;
+      id: string;
       statements?: {
         bodyMarkdown: string;
         inputFormat?: string;
@@ -241,7 +241,7 @@ function mapPersistedCourse(course: {
       })),
       locale: course.locale as "en" | "zh-TW",
       members,
-      problemSlugs: problems.map((problem) => problem.slug),
+      problemIds: problems.map((problem) => problem.id),
       slug: course.slug,
       title: course.title
     } satisfies CoursePageData,
@@ -351,10 +351,10 @@ export async function loadAssessmentDetail(
     throw new NotFoundError("Assignment not found");
   }
 
-  const problemsBySlug = new Map(courseData.problems.map((problem) => [problem.slug, problem]));
+  const problemsById = new Map(courseData.problems.map((problem) => [problem.id, problem]));
 
-  const problems = assessment.problemSlugs
-    .map((ps) => problemsBySlug.get(ps))
+  const problems = assessment.problemIds
+    .map((pid) => problemsById.get(pid))
     .filter((p): p is NonNullable<typeof p> => p != null);
 
   // ── IP lock check ──

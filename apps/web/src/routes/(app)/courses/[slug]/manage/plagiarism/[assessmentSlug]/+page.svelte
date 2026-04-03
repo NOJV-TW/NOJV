@@ -31,7 +31,7 @@
 
   function problemLabel(problemId: string): string {
     const problem = data.problemMap[problemId];
-    return problem?.slug ?? problemId.slice(0, 8);
+    return problem?.title ?? problemId.slice(0, 8);
   }
 
   function statusColor(status: string): string {

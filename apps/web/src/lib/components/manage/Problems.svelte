@@ -9,7 +9,7 @@
   interface Props {
     courseSlug: string;
     courseTitle: string;
-    form: SuperValidated<{ problemSlug: string }>;
+    form: SuperValidated<{ problemSlug: string }>; // NOTE: core schema still uses "problemSlug" field name (contains problem ID)
     problems: CourseProblemCatalogEntry[];
   }
 
@@ -33,7 +33,7 @@
       </span>
     </div>
     <div class="mt-5 grid gap-3">
-      {#each problems as problem (problem.slug)}
+      {#each problems as problem (problem.id)}
         <article
           class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
         >
@@ -72,8 +72,7 @@
         class="mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm"
         name="problemSlug"
         bind:value={$form.problemSlug}
-        pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
-        placeholder="problem-slug"
+        placeholder="problem-id"
         required
       />
       {#if $errors.problemSlug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlug}</span>{/if}

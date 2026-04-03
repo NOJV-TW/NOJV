@@ -55,22 +55,22 @@ async function requireUser(tx: TransactionClient, userId: string) {
 async function resolveAndAttachContestProblems(
   tx: TransactionClient,
   contestId: string,
-  problemSlugs: string[]
+  problemIds: string[]
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
-    slug: { in: problemSlugs }
+    id: { in: problemIds }
   });
-  const problemBySlug = new Map(problems.map((p) => [p.slug, p]));
+  const problemById = new Map(problems.map((p) => [p.id, p]));
 
-  for (const slug of problemSlugs) {
-    if (!problemBySlug.has(slug)) {
-      throw new NotFoundError(`Problem not found: ${slug}`);
+  for (const id of problemIds) {
+    if (!problemById.has(id)) {
+      throw new NotFoundError(`Problem not found: ${id}`);
     }
   }
 
   await Promise.all(
-    problemSlugs.map(async (slug, index) => {
-      const problem = problemBySlug.get(slug);
+    problemIds.map(async (id, index) => {
+      const problem = problemById.get(id);
       if (!problem) return;
       await contestProblemRepo.withTx(tx).create({
         contestId,
@@ -229,7 +229,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       visibility: "published"
     });
 
-    await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs);
+    await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs as string[]);
 
     return contest;
   });
@@ -284,7 +284,7 @@ export async function updateContestRecord(
     if (payload.problemSlugs !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
-      await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs);
+      await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs as string[]);
     }
 
     return { id: contest.id };

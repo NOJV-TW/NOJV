@@ -61,7 +61,7 @@
               {windowState}
             </span>
             <p class="mt-2 text-sm text-muted-foreground">
-              {assessment.problemSlugs.length} {m.contestDetail_problems()}
+              {assessment.problemIds.length} {m.contestDetail_problems()}
             </p>
           </div>
         </div>

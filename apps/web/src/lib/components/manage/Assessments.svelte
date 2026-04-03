@@ -298,7 +298,7 @@
             <span
               class="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
-              {assessment.problemSlugs.length} {t("problems")}
+              {assessment.problemIds.length} {t("problems")}
             </span>
           </div>
           {#if assessment.allowedLanguages.length > 0}

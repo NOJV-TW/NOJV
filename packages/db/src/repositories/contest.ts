@@ -78,7 +78,7 @@ export const contestRepo = {
         course: { select: { slug: true } },
         problems: {
           include: {
-            problem: { select: { defaultTitle: true, slug: true } }
+            problem: { select: { id: true, defaultTitle: true } }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -99,7 +99,7 @@ export const contestRepo = {
         },
         problems: {
           include: {
-            problem: { select: { defaultTitle: true, slug: true } }
+            problem: { select: { id: true, defaultTitle: true } }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -113,7 +113,7 @@ export const contestRepo = {
     return prisma.contest.findUnique({
       include: {
         problems: {
-          include: { problem: { select: { defaultTitle: true, slug: true } } },
+          include: { problem: { select: { id: true, defaultTitle: true } } },
           orderBy: { ordinal: "asc" }
         },
         participations: {

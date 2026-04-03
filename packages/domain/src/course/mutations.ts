@@ -116,6 +116,7 @@ export async function attachProblemToCourseRecord(
   return runTransaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
     const course = await requireCourse(tx, payload.courseSlug);
+    // NOTE: problemSlug field in CourseProblemAttach now contains a problem ID (core schema rename pending)
     const problem = await requireProblem(tx, payload.problemSlug);
     assertCourseProblemAccess(problem, actor);
 
@@ -256,23 +257,25 @@ export async function createCourseAssessmentRecord(
       title: payload.title
     });
 
+    // NOTE: problemSlugs field in CourseAssessmentCreate now contains problem IDs (core schema rename pending)
+    const problemIds = payload.problemSlugs as string[];
     const problems = await problemRepo.withTx(tx).findMany({
-      slug: { in: payload.problemSlugs }
+      id: { in: problemIds }
     });
-    const problemBySlug = new Map(problems.map((p) => [p.slug, p]));
+    const problemById = new Map(problems.map((p) => [p.id, p]));
 
-    for (const slug of payload.problemSlugs) {
-      const problem = problemBySlug.get(slug);
+    for (const id of problemIds) {
+      const problem = problemById.get(id);
       if (!problem) {
-        throw new NotFoundError(`Problem not found: ${slug}`);
+        throw new NotFoundError(`Problem not found: ${id}`);
       }
       assertCourseProblemAccess(problem, actor);
     }
 
     await Promise.all(
-      payload.problemSlugs.map(async (slug, index) => {
-        const problem = problemBySlug.get(slug);
-        if (!problem) throw new NotFoundError(`Problem not found: ${slug}`);
+      problemIds.map(async (id, index) => {
+        const problem = problemById.get(id);
+        if (!problem) throw new NotFoundError(`Problem not found: ${id}`);
         await courseProblemRepo.withTx(tx).upsert(
           course.id,
           problem.id,

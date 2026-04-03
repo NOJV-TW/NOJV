@@ -30,10 +30,10 @@
     </span>
   </div>
   <div class="mt-5 grid gap-3">
-    {#each problems as problem (problem.slug)}
+    {#each problems as problem (problem.id)}
       <a
         class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4 transition hover:-translate-y-0.5"
-        href="/problems/{problem.slug}?course={courseSlug}"
+        href="/problems/{problem.id}?course={courseSlug}"
       >
         <div class="flex items-center justify-between gap-4">
           <div>

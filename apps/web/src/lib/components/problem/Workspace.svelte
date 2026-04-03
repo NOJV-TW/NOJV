@@ -75,7 +75,7 @@
     if (editorialsLoading) return;
     editorialsLoading = true;
     try {
-      const res = await fetch(`/api/problems/${problem.slug}/editorials`);
+      const res = await fetch(`/api/problems/${problem.id}/editorials`);
       if (res.ok) {
         editorials = await res.json();
         editorialsLoaded = true;
@@ -89,7 +89,7 @@
     if (editorialSubmitting) return;
     editorialSubmitting = true;
     try {
-      const res = await fetch(`/api/problems/${problem.slug}/editorials`, {
+      const res = await fetch(`/api/problems/${problem.id}/editorials`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: editorialContent, language: editorialLanguage })
@@ -111,10 +111,11 @@
 
   onMount(() => {
     unsubVerdict = onSSEEvent(SSE_SUBMISSION_VERDICT, (data) => {
-      if (data.problemSlug !== problem.slug) return;
+      if (data.type !== SSE_SUBMISSION_VERDICT) return;
+      if (data.problemId !== problem.id) return;
 
-      const verdict = data.verdict as string;
-      const score = data.score as number;
+      const verdict = data.verdict;
+      const score = data.score;
       const isAc = verdict === "accepted";
       toasts.add({
         message: isAc

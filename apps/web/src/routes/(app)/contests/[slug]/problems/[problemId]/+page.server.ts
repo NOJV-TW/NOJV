@@ -10,11 +10,11 @@ import { requireAuth } from "$lib/server/auth";
 
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
-  const { slug: contestSlug, problemSlug } = event.params;
+  const { slug: contestSlug, problemId } = event.params;
 
   const [contestData, problem] = await Promise.all([
     getContestWorkspaceData(contestSlug, actor.userId),
-    getProblemPageData(problemSlug)
+    getProblemPageData(problemId)
   ]);
 
   if (!contestData) {
@@ -26,7 +26,7 @@ export const load: PageServerLoad = async (event) => {
   }
 
   // Verify the problem is part of this contest
-  const isContestProblem = contestData.problems.some((p) => p.slug === problemSlug);
+  const isContestProblem = contestData.problems.some((p) => p.id === problemId);
   if (!isContestProblem) {
     error(404, "Problem not found in this contest");
   }
@@ -42,7 +42,7 @@ export const load: PageServerLoad = async (event) => {
     redirect(303, `/contests/${contestSlug}`);
   }
 
-  const submissions = await listProblemSubmissions(actor.userId, problemSlug);
+  const submissions = await listProblemSubmissions(actor.userId, problemId);
 
   return {
     contestData,

@@ -6,15 +6,8 @@ import type { TransactionClient } from "../transaction";
 type TxClient = TransactionClient;
 
 export const problemRepo = {
-  findBySlug(slug: string) {
-    return prisma.problem.findUnique({ where: { slug } });
-  },
-
-  findIdBySlug(slug: string) {
-    return prisma.problem.findUnique({
-      where: { slug },
-      select: { id: true }
-    });
+  findById(id: string) {
+    return prisma.problem.findUnique({ where: { id } });
   },
 
   findDifficultyById(id: string) {
@@ -25,7 +18,7 @@ export const problemRepo = {
   },
 
   /** Fetch full problem page data with statements, templates, testcase sets. */
-  findDetailBySlug(slug: string) {
+  findDetailById(id: string) {
     return prisma.problem.findUnique({
       include: {
         _count: {
@@ -45,7 +38,7 @@ export const problemRepo = {
           orderBy: { createdAt: "asc" }
         }
       },
-      where: { slug }
+      where: { id }
     });
   },
 
@@ -115,7 +108,7 @@ export const problemRepo = {
         ...(opts.tags && opts.tags.length > 0 ? { tags: { hasSome: opts.tags } } : {})
       },
       select: {
-        slug: true,
+        id: true,
         defaultTitle: true,
         difficulty: true,
         tags: true
@@ -128,7 +121,7 @@ export const problemRepo = {
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
-      select: { id: true, slug: true, defaultTitle: true }
+      select: { id: true, defaultTitle: true }
     });
   },
 
@@ -136,8 +129,8 @@ export const problemRepo = {
 
   withTx(tx: TxClient) {
     return {
-      findBySlug(slug: string) {
-        return tx.problem.findUnique({ where: { slug } });
+      findById(id: string) {
+        return tx.problem.findUnique({ where: { id } });
       },
 
       findMany(where: Prisma.ProblemWhereInput) {
@@ -237,9 +230,9 @@ export const problemTemplateRepo = {
 };
 
 export const testcaseSetRepo = {
-  findByProblemSlug(problemSlug: string) {
+  findByProblemId(problemId: string) {
     return prisma.testcaseSet.findMany({
-      where: { problem: { slug: problemSlug } },
+      where: { problemId },
       include: { testcases: { orderBy: { ordinal: "asc" } } },
       orderBy: { createdAt: "asc" }
     });
