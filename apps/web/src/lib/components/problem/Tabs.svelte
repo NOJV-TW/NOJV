@@ -2,9 +2,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
-  import { difficultyColor } from "$lib/types";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
-  import { FileCode, Plus, Search } from "@lucide/svelte";
+  import { FileCode, Pencil, Search } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import type { problemDomain } from "@nojv/domain";
   type ProblemCardWithStatus = problemDomain.ProblemCardWithStatus;
@@ -17,6 +16,7 @@
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
     slug: string;
+    status: string;
     tags: string[];
     title: string;
     visibility: ProblemVisibility;
@@ -62,7 +62,7 @@
 
   // Debounce timer for search input
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  let searchInputValue = $state("");
+  let searchInputValue = $state(publicSearch);
 
   // Keep searchInputValue in sync when URL changes externally
   $effect(() => {
@@ -143,20 +143,6 @@
   let mineAllTags = $derived(
     [...new Set((editableProblems ?? []).flatMap((p) => p.tags))].sort()
   );
-  let showPublicTags = $state(false);
-  let showMineTags = $state(false);
-
-  $effect(() => {
-    if (publicSelectedTags.size > 0) {
-      showPublicTags = true;
-    }
-  });
-
-  $effect(() => {
-    if (mineSelectedTags.size > 0) {
-      showMineTags = true;
-    }
-  });
 
   function filterProblems<
     T extends {
@@ -217,7 +203,7 @@
   >
     {m.problems_publicLibrary()}
   </button>
-  {#if editableProblems !== null}
+  {#if showCreate}
     <button
       class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'mine'
         ? 'border-primary bg-primary text-white'
@@ -227,15 +213,6 @@
     >
       {m.problems_myProblems()}
     </button>
-  {/if}
-  {#if showCreate}
-    <a
-      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-      href="/problems/create"
-    >
-      <Plus class="h-4 w-4" />
-      {m.problems_createNew()}
-    </a>
   {/if}
 </div>
 
@@ -282,38 +259,27 @@
           {d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1)}
         </button>
       {/each}
-      <button
-        class="ml-auto rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-[color:var(--color-panel)]"
-        onclick={() => { showPublicTags = !showPublicTags; }}
-        type="button"
-      >
-        {showPublicTags ? "Hide tags" : "More tags"}
-      </button>
     </div>
 
-    {#if showPublicTags}
+    {#if publicAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
         role="group"
       >
-        {#if publicAllTags.length === 0}
-          <span class="text-xs text-muted-foreground">No tags yet</span>
-        {:else}
-          {#each publicAllTags as tag (tag)}
-            <button
-              class="rounded-full border px-3 py-1 text-xs font-medium transition {publicSelectedTags.has(
-                tag
-              )
-                ? 'border-primary bg-primary text-white'
-                : 'border-border hover:bg-[color:var(--color-panel)]'}"
-              onclick={() => togglePublicTag(tag)}
-              type="button"
-            >
-              {tag}
-            </button>
-          {/each}
-        {/if}
+        {#each publicAllTags as tag (tag)}
+          <button
+            class="rounded-full border px-3 py-1 text-xs font-medium transition {publicSelectedTags.has(
+              tag
+            )
+              ? 'border-primary bg-primary text-white'
+              : 'border-border hover:bg-[color:var(--color-panel)]'}"
+            onclick={() => togglePublicTag(tag)}
+            type="button"
+          >
+            {tag}
+          </button>
+        {/each}
       </div>
     {/if}
   </div>
@@ -354,13 +320,8 @@
           <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
         </div>
         <div>
-          <span
-            class="mt-1 inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
-              problem.difficulty
-            ] ?? 'bg-muted text-muted-foreground'}"
-          >
-            {problem.difficulty}
-          </span>
+          <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
+          <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
         <div class="sm:text-right">
           <p class="text-sm text-muted-foreground">{m.common_acceptance()}</p>
@@ -414,7 +375,7 @@
   {/if}
 {/if}
 
-{#if tab === "mine" && editableProblems !== null}
+{#if tab === "mine" && showCreate}
   <!-- Mine tab: filter bar (client-side) -->
   <div class="flex flex-col gap-3">
     <div class="relative">
@@ -457,38 +418,27 @@
           {d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1)}
         </button>
       {/each}
-      <button
-        class="ml-auto rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-[color:var(--color-panel)]"
-        onclick={() => { showMineTags = !showMineTags; }}
-        type="button"
-      >
-        {showMineTags ? "Hide tags" : "More tags"}
-      </button>
     </div>
 
-    {#if showMineTags}
+    {#if mineAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
         role="group"
       >
-        {#if mineAllTags.length === 0}
-          <span class="text-xs text-muted-foreground">No tags yet</span>
-        {:else}
-          {#each mineAllTags as tag (tag)}
-            <button
-              class="rounded-full border px-3 py-1 text-xs font-medium transition {mineSelectedTags.has(
-                tag
-              )
-                ? 'border-primary bg-primary text-white'
-                : 'border-border hover:bg-[color:var(--color-panel)]'}"
-              onclick={() => toggleMineTag(tag)}
-              type="button"
-            >
-              {tag}
-            </button>
-          {/each}
-        {/if}
+        {#each mineAllTags as tag (tag)}
+          <button
+            class="rounded-full border px-3 py-1 text-xs font-medium transition {mineSelectedTags.has(
+              tag
+            )
+              ? 'border-primary bg-primary text-white'
+              : 'border-border hover:bg-[color:var(--color-panel)]'}"
+            onclick={() => toggleMineTag(tag)}
+            type="button"
+          >
+            {tag}
+          </button>
+        {/each}
       </div>
     {/if}
   </div>
@@ -508,38 +458,41 @@
       />
     {/if}
     {#each mineFiltered as problem (problem.slug)}
-      <a
-        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr] sm:items-center transition hover:-translate-y-0.5"
-        href="/problems/{problem.slug}"
+      <div
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_auto] sm:items-center"
       >
-        <div>
-          <p
-            class="text-sm uppercase tracking-[0.18em] text-muted-foreground"
-          >
+        <a href="/problems/{problem.slug}" class="transition hover:opacity-80">
+          <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
             {problem.slug}
           </p>
           <h3 class="mt-2 text-2xl font-semibold">{problem.title}</h3>
-        </div>
+        </a>
         <div>
-          <span
-            class="mt-1 inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
-              problem.difficulty
-            ] ?? 'bg-muted text-muted-foreground'}"
-          >
-            {problem.difficulty}
-          </span>
+          <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
+          <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
         </div>
-        <div class="sm:text-right">
+        <div class="flex flex-wrap gap-1.5 sm:justify-end">
+          {#if problem.status === "draft"}
+            <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+              Draft
+            </span>
+          {/if}
           <span
-            class="rounded-full border border-border px-3 py-1 text-xs font-medium {problem.visibility ===
-            'public'
+            class="rounded-full border border-border px-3 py-1 text-xs font-medium {problem.visibility === 'public'
               ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-amber-600 dark:text-amber-400'}"
+              : 'text-muted-foreground'}"
           >
             {problem.visibility}
           </span>
         </div>
-      </a>
+        <a
+          href="/problems/{problem.slug}/edit"
+          class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground hover:bg-[color:var(--color-panel)]"
+        >
+          <Pencil class="h-3 w-3" />
+          {m.problemDetail_editProblem()}
+        </a>
+      </div>
     {/each}
   </section>
 {/if}
