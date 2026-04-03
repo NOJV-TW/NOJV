@@ -55,7 +55,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "for addr in 127.0.0.1:7233 temporal:7233 \"$(hostname -i | awk '{print $1}'):7233\"; do if [ -z \"$addr\" ]; then continue; fi; if command -v temporal >/dev/null 2>&1 && temporal operator cluster health --address \"$addr\" >/dev/null 2>&1; then exit 0; fi; if command -v tctl >/dev/null 2>&1 && tctl --address \"$addr\" cluster health >/dev/null 2>&1; then exit 0; fi; host=\"${addr%:*}\"; if command -v nc >/dev/null 2>&1 && nc -z \"$host\" 7233 >/dev/null 2>&1; then exit 0; fi; done; exit 1"
+          "if command -v temporal >/dev/null 2>&1 && (temporal operator cluster health --address 127.0.0.1:7233 >/dev/null 2>&1 || temporal operator cluster health --address temporal:7233 >/dev/null 2>&1); then exit 0; fi; if command -v tctl >/dev/null 2>&1 && (tctl --address 127.0.0.1:7233 cluster health >/dev/null 2>&1 || tctl --address temporal:7233 cluster health >/dev/null 2>&1); then exit 0; fi; if command -v nc >/dev/null 2>&1 && (nc -z 127.0.0.1 7233 >/dev/null 2>&1 || nc -z temporal 7233 >/dev/null 2>&1); then exit 0; fi; exit 1"
         ]
       interval: 10s
       timeout: 10s
