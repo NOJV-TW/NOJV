@@ -4,6 +4,7 @@ export * from "./schemas/problem";
 export * from "./schemas/course";
 export * from "./schemas/contest";
 export * from "./schemas/submission";
+export * from "./schemas/judge-config";
 export * from "./queue";
 export * from "./sandbox";
 export * from "./pipeline";

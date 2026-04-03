@@ -13,8 +13,17 @@ import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { problemDomain } from "@nojv/domain";
 import { getProblemPageData } from "$lib/server/problem/queries";
 
-const { updateProblemRecord, updateProblemTemplates, createProblemTestcaseSetRecord } =
-  problemDomain;
+const { getProblemTestcaseSets } = problemDomain;
+
+const {
+  updateProblemRecord,
+  updateProblemTemplates,
+  createProblemTestcaseSetRecord,
+  updateTestcaseSetRecord,
+  deleteTestcaseSetRecord,
+  updateTestcaseRecord,
+  deleteTestcaseRecord
+} = problemDomain;
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
@@ -23,7 +32,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     redirect(302, `/problems/${params.slug}`);
   }
 
-  const problem = await getProblemPageData(params.slug);
+  const [problem, testcaseSets] = await Promise.all([
+    getProblemPageData(params.slug),
+    getProblemTestcaseSets(params.slug)
+  ]);
 
   if (!problem) {
     error(404, "Problem not found");
@@ -50,7 +62,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     zod4(problemUpdateSchema)
   );
 
-  return { problem, form };
+  return { problem, form, testcaseSets };
 };
 
 export const actions: Actions = {
@@ -95,5 +107,101 @@ export const actions: Actions = {
     const result = await createProblemTestcaseSetRecord(actor, slug, payload);
 
     return { id: result.id, success: true };
+  },
+
+  updateTestcaseSet: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const setId = formData.get("setId");
+    const raw = formData.get("data");
+    if (typeof setId !== "string") error(400, "Missing setId");
+    if (typeof raw !== "string") error(400, "Missing data field");
+    const payload = JSON.parse(raw) as { name?: string; weight?: number; isHidden?: boolean };
+    await updateTestcaseSetRecord(actor, slug, setId, payload);
+
+    return { success: true };
+  },
+
+  deleteTestcaseSet: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const setId = formData.get("setId");
+    if (typeof setId !== "string") error(400, "Missing setId");
+    await deleteTestcaseSetRecord(actor, slug, setId);
+
+    return { success: true };
+  },
+
+  updateTestcase: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const testcaseId = formData.get("testcaseId");
+    const raw = formData.get("data");
+    if (typeof testcaseId !== "string") error(400, "Missing testcaseId");
+    if (typeof raw !== "string") error(400, "Missing data field");
+    const payload = JSON.parse(raw) as { stdin?: string; expectedStdout?: string };
+    await updateTestcaseRecord(actor, slug, testcaseId, payload);
+
+    return { success: true };
+  },
+
+  deleteTestcase: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const testcaseId = formData.get("testcaseId");
+    if (typeof testcaseId !== "string") error(400, "Missing testcaseId");
+    await deleteTestcaseRecord(actor, slug, testcaseId);
+
+    return { success: true };
+  },
+
+  updateJudgeConfig: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const raw = formData.get("data");
+    if (typeof raw !== "string") error(400, "Missing data");
+    // Frontend sends the complete judgeConfig — no server-side read-merge-write
+    // to avoid race conditions between concurrent updates
+    const judgeConfig = JSON.parse(raw);
+    await updateProblemRecord(actor, slug, { judgeConfig });
+
+    return { success: true };
+  },
+
+  updateScoring: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const raw = formData.get("data");
+    if (typeof raw !== "string") error(400, "Missing data");
+    // Frontend sends the complete judgeConfig (with scoring merged in)
+    // to avoid race conditions between concurrent updates
+    const judgeConfig = JSON.parse(raw);
+    await updateProblemRecord(actor, slug, { judgeConfig });
+
+    return { success: true };
   }
 };
