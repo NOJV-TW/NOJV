@@ -1,7 +1,9 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
-import { getSubmissionForUser } from "$lib/server/submission/queries";
-import { getTemporalClient } from "@nojv/temporal";
+import { submissionDomain } from "@nojv/domain";
+import { querySubmissionStatus } from "@nojv/job-dispatch";
+
+const { getSubmissionForUser } = submissionDomain;
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
@@ -27,12 +29,9 @@ export const GET: RequestHandler = (event) => {
       }
 
       try {
-        const client = await getTemporalClient();
-        const handle = client.workflow.getHandle(`judge-${submissionId}`);
-
         while (Date.now() - startTime < MAX_DURATION_MS) {
           try {
-            const status = await handle.query<string>("getStatus");
+            const status = await querySubmissionStatus(submissionId);
             send({ status, submissionId });
 
             if (TERMINAL_STATUSES.has(status)) {

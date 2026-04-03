@@ -19,10 +19,14 @@ export class WorkerApp {
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
   private shutdownPromise: Promise<void> | null = null;
+  private temporalConnected = false;
 
   constructor(env: WorkerEnv) {
     this.env = env;
-    this.healthServer = createWorkerHealthServer();
+    this.healthServer = createWorkerHealthServer({
+      redisUrl: env.REDIS_URL,
+      isTemporalConnected: () => this.temporalConnected
+    });
   }
 
   async start(): Promise<void> {
@@ -30,6 +34,7 @@ export class WorkerApp {
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
     const connection = await NativeConnection.connect({ address });
+    this.temporalConnected = true;
 
     if (mode === "all" || mode === "judge") {
       const { setExecutor } = await import("@nojv/temporal/activities/judge");
@@ -85,6 +90,8 @@ export class WorkerApp {
     if (this.shutdownPromise) return this.shutdownPromise;
 
     logger.info("shutting down", { signal });
+
+    this.temporalConnected = false;
 
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);

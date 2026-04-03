@@ -2,7 +2,10 @@ import { fail, redirect } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { getActorContext, requireAuth } from "$lib/server/auth";
-import { findContestByInviteCode, listPublicContests } from "$lib/server/contest/queries";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { contestDomain } from "@nojv/domain";
+
+const { findContestByInviteCode, listPublicContests } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
@@ -12,6 +15,9 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions = {
   joinByCode: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     requireAuth(event);
 
     const formData = await event.request.formData();

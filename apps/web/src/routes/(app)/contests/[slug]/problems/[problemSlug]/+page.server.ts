@@ -1,9 +1,11 @@
 import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad } from "./$types";
-import { getContestWorkspaceData } from "$lib/server/contest/queries";
+import { contestDomain, submissionDomain } from "@nojv/domain";
 import { getProblemPageData } from "$lib/server/problem/queries";
-import { listProblemSubmissions } from "$lib/server/submission/queries";
+
+const { getContestWorkspaceData } = contestDomain;
+const { listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 
 export const load: PageServerLoad = async (event) => {
