@@ -11,6 +11,6 @@
   <ProblemsTabs
     editableProblems={data.editableProblems}
     publicResult={data.publicResult}
-    showCreate={data.showCreate}
+    showCreate={data.canCreate}
   />
 </div>
