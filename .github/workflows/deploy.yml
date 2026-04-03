@@ -1,13 +1,12 @@
-name: Deploy Homelab
+name: CD Deploy To Remote Server
 
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main]
 
 concurrency:
-  group: deploy-homelab
+  group: cd-remote-server
   cancel-in-progress: false
 
 permissions:
@@ -15,72 +14,95 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to Homelab
+    name: Deploy Passed Commit
     runs-on:
       - self-hosted
       - linux
-    if: github.event.workflow_run.conclusion == 'success'
-    timeout-minutes: 30
-
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    timeout-minutes: 45
     steps:
-      - name: Check out repository
+      - name: Check out passed commit
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          clean: false
+
+      - name: Print deployment target
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Deploying commit: ${{ github.event.workflow_run.head_sha }}"
+          echo "Source workflow run: ${{ github.event.workflow_run.id }}"
+          git rev-parse HEAD
 
       - name: Preflight checks
         shell: bash
         run: |
           set -euo pipefail
-          docker --version
-          docker compose version
-          docker compose config > /dev/null
 
-      - name: Ensure infrastructure is running
-        shell: bash
-        run: docker compose up -d --wait postgres redis temporal temporal-ui
-
-      - name: Dump infra logs on failure
-        if: failure()
-        shell: bash
-        run: |
-          set +e
-          docker compose ps
-          docker compose logs --no-color --tail=300 postgres redis temporal temporal-ui
-          temporal_id="$(docker compose ps -q temporal)"
-          if [[ -n "$temporal_id" ]]; then
-            docker inspect "$temporal_id"
+          # Import .env values if present on the self-hosted runner workspace.
+          if [[ -f .env ]]; then
+            set -a
+            # shellcheck disable=SC1091
+            source ./.env
+            set +a
           fi
 
-      - name: Build sandbox image
-        shell: bash
-        run: docker compose --profile sandbox-build build sandbox-image
+          : "${BETTER_AUTH_SECRET:?Missing BETTER_AUTH_SECRET from .env or runner environment}"
+          : "${BETTER_AUTH_URL:?Missing BETTER_AUTH_URL from .env or runner environment}"
 
-      - name: Build migrator image
-        shell: bash
-        run: docker compose --profile deploy build migrator
+          echo "::add-mask::$BETTER_AUTH_SECRET"
 
-      - name: Build production images
+          {
+            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
+            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL"
+            echo "GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}"
+            echo "GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}"
+            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}"
+            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}"
+          } >> "$GITHUB_ENV"
+
+          docker --version
+          docker compose version
+          docker compose config >/dev/null
+
+      - name: Ensure core infrastructure is running
         shell: bash
-        run: docker compose --profile prod build web worker
+        run: |
+          set -euo pipefail
+          docker compose up -d --wait postgres redis temporal temporal-ui
+
+      - name: Build runtime images for this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose --profile sandbox-build build sandbox-image
+          docker compose --profile deploy build migrator
+          docker compose --profile prod build web worker
 
       - name: Run database migrations
         shell: bash
-        run: docker compose --profile deploy run --rm migrator
+        run: |
+          set -euo pipefail
+          docker compose --profile deploy run --rm migrator
 
-      - name: Deploy application
+      - name: Roll out web and worker
         shell: bash
-        run: docker compose --profile prod up -d --wait --remove-orphans web worker
+        run: |
+          set -euo pipefail
+          docker compose --profile prod up -d --wait --remove-orphans web worker
 
-      - name: Verify deployment
+      - name: Verify health checks
         shell: bash
         run: |
           set -euo pipefail
 
-          # Web endpoint must be reachable.
-          curl -sf http://localhost:3000 > /dev/null && echo "Web: OK"
+          curl -sf http://localhost:3000 >/dev/null
+          echo "web: endpoint reachable"
 
-          # Both app containers must be healthy after deploy.
           for service in web worker; do
             container_id="$(docker compose --profile prod ps -q "$service")"
             if [[ -z "$container_id" ]]; then
@@ -93,10 +115,24 @@ jobs:
               echo "Service $service is not healthy (status=$health)" >&2
               exit 1
             fi
-            echo "${service}: healthy"
+            echo "$service: healthy"
           done
 
           docker compose --profile prod ps
+
+      - name: Dump diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          docker compose ps
+          docker compose logs --no-color --tail=300 postgres redis temporal temporal-ui web worker
+          for service in postgres redis temporal temporal-ui web worker; do
+            container_id="$(docker compose ps -q "$service")"
+            if [[ -n "$container_id" ]]; then
+              docker inspect "$container_id"
+            fi
+          done
 
       - name: Clean up old Docker images
         if: always()
