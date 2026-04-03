@@ -14,21 +14,23 @@ export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use?.baseURL ?? "http://localhost:5173";
   const browser = await chromium.launch();
 
-  await Promise.all(
-    roles.map(async (role) => {
-      const context = await browser.newContext();
-      const page = await context.newPage();
+  for (const role of roles) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-      await page.goto(`${baseURL}/signin`);
-      await page.getByLabel(/email/i).fill(role.email);
-      await page.getByLabel(/password/i).fill(role.password);
-      await page.getByRole("button", { name: /sign in|登入/i }).click();
-      await page.waitForURL("**/problems");
+    await page.goto(`${baseURL}/admin-signin`, { waitUntil: "networkidle" });
+    await page.getByLabel(/username or email/i).fill(role.email);
+    await page.getByLabel(/password/i).fill(role.password);
+    await page.getByRole("button", { name: /sign in|登入/i }).click();
 
-      await context.storageState({ path: path.join(AUTH_DIR, `${role.name}.json`) });
-      await context.close();
-    })
-  );
+    // Login redirects via window.location.assign("/") — wait for non-signin URL
+    await page.waitForURL((url) => !url.pathname.includes("signin"), {
+      timeout: 15000
+    });
+
+    await context.storageState({ path: path.join(AUTH_DIR, `${role.name}.json`) });
+    await context.close();
+  }
 
   await browser.close();
 }
