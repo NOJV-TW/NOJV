@@ -2,6 +2,7 @@
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName } from "$lib/utils";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
+  import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
   import type { SubtaskScoringStrategy, ScoringRule } from "@nojv/core";
 
   interface Props {
@@ -194,15 +195,7 @@ print(json.dumps({"score": score}))
         <h3 class="text-sm font-medium">分數調整規則</h3>
         <p class="mt-0.5 text-xs text-muted-foreground">依據繳交時間或資源用量調整最終分數</p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-          {adjustmentsEnabled ? 'bg-primary' : 'bg-muted'}"
-        onclick={() => (adjustmentsEnabled = !adjustmentsEnabled)}
-        type="button"
-      >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-          {adjustmentsEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
-      </button>
+      <ToggleSwitch bind:checked={adjustmentsEnabled} />
     </div>
     {#if adjustmentsEnabled}
       <div class="mt-4 space-y-3">
@@ -386,15 +379,7 @@ print(json.dumps({"score": score}))
         <h3 class="text-sm font-medium">自訂評分腳本</h3>
         <p class="mt-0.5 text-xs text-muted-foreground">使用腳本自訂評分邏輯</p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-          {scriptEnabled ? 'bg-primary' : 'bg-muted'}"
-        onclick={() => (scriptEnabled = !scriptEnabled)}
-        type="button"
-      >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-          {scriptEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
-      </button>
+      <ToggleSwitch bind:checked={scriptEnabled} />
     </div>
     {#if scriptEnabled}
       <div class="mt-4 space-y-3">

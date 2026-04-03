@@ -6,6 +6,7 @@
   import TestcaseSetCard from "$lib/components/problem/testcase/TestcaseSetCard.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   import { detectSubtasksFromFiles, type ParsedCase, type SubtaskConfig } from "../detect-subtasks";
+  import { postProblemAction } from "$lib/utils/actions";
 
   interface TestcaseData {
     id: string;
@@ -57,22 +58,12 @@
 
   let totalPoints = $derived(subtasks.reduce((sum, s) => sum + s.points, 0));
 
-  async function postAction(actionName: string, data: Record<string, string>) {
-    const fd = new FormData();
-    for (const [key, value] of Object.entries(data)) fd.set(key, value);
-    const response = await fetch(`/problems/${problemSlug}/edit?/${actionName}`, {
-      method: "POST",
-      body: fd
-    });
-    if (!response.ok) throw new Error(`Action ${actionName} failed`);
-  }
-
   async function addNewSet() {
     if (!newSetName.trim()) return;
     saving = true;
     error = null;
     try {
-      await postAction("createTestcaseSet", {
+      await postProblemAction(problemSlug, "createTestcaseSet", {
         data: JSON.stringify({
           name: newSetName.trim(),
           weight: newSetWeight,
@@ -150,7 +141,7 @@
         subtasks
           .filter((subtask) => subtask.caseIndices.length > 0)
           .map((subtask) =>
-            postAction("createTestcaseSet", {
+            postProblemAction(problemSlug, "createTestcaseSet", {
               data: JSON.stringify({
                 cases: subtask.caseIndices.map((idx) => ({
                   stdin: parsedCases[idx]?.stdin ?? "",

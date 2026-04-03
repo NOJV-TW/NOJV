@@ -1,6 +1,7 @@
 <script lang="ts">
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
+  import { getMonacoLanguage } from "$lib/utils/monaco-languages";
 
   export interface FileEntry {
     path: string;
@@ -22,37 +23,11 @@
 
   // Language detection from file extension
   function detectLanguage(path: string): string {
-    const ext = path.split(".").pop()?.toLowerCase() ?? "";
-    const langMap: Record<string, string> = {
-      c: "c",
-      cpp: "cpp",
-      cc: "cpp",
-      cxx: "cpp",
-      h: "c",
-      hpp: "cpp",
-      go: "go",
-      java: "java",
-      js: "javascript",
-      jsx: "javascript",
-      ts: "typescript",
-      tsx: "typescript",
-      py: "python",
-      rs: "rust",
-      json: "json",
-      md: "markdown",
-      html: "html",
-      css: "css",
-      xml: "xml",
-      yaml: "yaml",
-      yml: "yaml",
-      txt: "plaintext",
-      makefile: "makefile",
-      sh: "shell",
-    };
     // Handle Makefile (no extension)
     const basename = path.split("/").pop()?.toLowerCase() ?? "";
     if (basename === "makefile") return "makefile";
-    return langMap[ext] ?? "plaintext";
+    const ext = path.split(".").pop()?.toLowerCase() ?? "";
+    return getMonacoLanguage(ext);
   }
 
   function emitChange() {
