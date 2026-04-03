@@ -5,6 +5,7 @@
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
   import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
   import TagInput from "$lib/components/ui/TagInput.svelte";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   import type { JudgeType } from "@nojv/core";
 
   interface Props {
@@ -302,7 +303,7 @@ sys.stdout.flush()
       <div class="mt-4 space-y-3">
         <!-- Banned Functions -->
         <div class="text-sm text-muted-foreground">
-          <span>{m.admin_bannedFunctions()}</span>
+          <span>{m.admin_bannedFunctions()} <HelpTooltip text={m.admin_helpBannedFunctions()} /></span>
           <div class="mt-1">
             <TagInput bind:tags={bannedFunctions} placeholder={m.admin_bannedFunctionsPlaceholder()} />
           </div>
@@ -310,7 +311,7 @@ sys.stdout.flush()
 
         <!-- Banned Imports -->
         <div class="text-sm text-muted-foreground">
-          <span>{m.admin_bannedImports()}</span>
+          <span>{m.admin_bannedImports()} <HelpTooltip text={m.admin_helpBannedImports()} /></span>
           <div class="mt-1">
             <TagInput bind:tags={bannedImports} placeholder={m.admin_bannedImportsPlaceholder()} />
           </div>
@@ -318,7 +319,7 @@ sys.stdout.flush()
 
         <!-- Banned Patterns -->
         <div class="text-sm text-muted-foreground">
-          <span>{m.admin_bannedPatterns()}</span>
+          <span>{m.admin_bannedPatterns()} <HelpTooltip text={m.admin_helpBannedPatterns()} /></span>
           {#each bannedPatterns as bp, index (`bp-${String(index)}`)}
             <div class="mt-1 flex items-center gap-2">
               <input
@@ -374,7 +375,7 @@ sys.stdout.flush()
 
         <!-- Linter Command -->
         <label class="text-sm text-muted-foreground">
-          {m.admin_linterCommand()}
+          {m.admin_linterCommand()} <HelpTooltip text={m.admin_helpLinterCommand()} />
           <input
             class={inputClassName}
             bind:value={linterCommand}
@@ -384,7 +385,7 @@ sys.stdout.flush()
 
         <!-- On Lint Failure -->
         <div class="text-sm text-muted-foreground">
-          {m.admin_onLintFailure()}
+          {m.admin_onLintFailure()} <HelpTooltip text={m.admin_helpOnLintFailure()} />
           <div class="mt-1 flex items-center gap-4">
             <label class="inline-flex cursor-pointer items-center gap-2 text-sm">
               <input
@@ -425,7 +426,7 @@ sys.stdout.flush()
       <div class="mt-4 space-y-3">
         <!-- Collection Patterns -->
         <div class="text-sm text-muted-foreground">
-          <span>{m.admin_collectionPatterns()}</span>
+          <span>{m.admin_collectionPatterns()} <HelpTooltip text={m.admin_helpArtifactPatterns()} /></span>
           <div class="mt-1">
             <TagInput bind:tags={artifactPatterns} placeholder={m.admin_collectionPatternsPlaceholder()} />
           </div>
@@ -433,7 +434,7 @@ sys.stdout.flush()
 
         <!-- Max Size -->
         <label class="text-sm text-muted-foreground">
-          {m.admin_maxTotalSize()}
+          {m.admin_maxTotalSize()} <HelpTooltip text={m.admin_helpMaxArtifactSize()} />
           <input
             class={inputClassName}
             type="number"
@@ -459,7 +460,7 @@ sys.stdout.flush()
       <div class="mt-4 space-y-4">
         <!-- Firewall Rules -->
         <div class="text-sm text-muted-foreground">
-          <span class="font-medium text-foreground">{m.admin_firewallRules()}</span>
+          <span class="font-medium text-foreground">{m.admin_firewallRules()} <HelpTooltip text={m.admin_helpFirewallRules()} /></span>
           {#each firewallRules as rule, index (`fw-${String(index)}`)}
             <div class="mt-2 flex items-center gap-2">
               <input
@@ -515,7 +516,7 @@ sys.stdout.flush()
 
         <!-- Sidecar Services -->
         <div class="text-sm text-muted-foreground">
-          <span class="font-medium text-foreground">{m.admin_sidecarServices()}</span>
+          <span class="font-medium text-foreground">{m.admin_sidecarServices()} <HelpTooltip text={m.admin_helpSidecarServices()} /></span>
           {#each sidecarServices as svc, index (`sc-${String(index)}`)}
             <div class="mt-2 space-y-2 rounded-xl border border-border p-3">
               <div class="flex items-center gap-2">
@@ -588,7 +589,7 @@ sys.stdout.flush()
             onchange={() => (logTraffic = !logTraffic)}
             class="accent-primary"
           />
-          {m.admin_logTraffic()}
+          {m.admin_logTraffic()} <HelpTooltip text={m.admin_helpLogTraffic()} />
         </label>
       </div>
     {/if}
@@ -618,19 +619,22 @@ sys.stdout.flush()
                   );
                 }}
               />
-              <select
-                class="{inputClassName} mt-0 w-36"
-                value={cs.runAt}
-                onchange={(e) => {
-                  customScripts = customScripts.map((s, i) =>
-                    i === index ? { ...s, runAt: (e.target as HTMLSelectElement).value } : s
-                  );
-                }}
-              >
-                <option value="before-compile">before-compile</option>
-                <option value="after-compile">after-compile</option>
-                <option value="after-check">after-check</option>
-              </select>
+              <label class="inline-flex items-center gap-1">
+                <HelpTooltip text={m.admin_helpScriptRunAt()} />
+                <select
+                  class="{inputClassName} mt-0 w-36"
+                  value={cs.runAt}
+                  onchange={(e) => {
+                    customScripts = customScripts.map((s, i) =>
+                      i === index ? { ...s, runAt: (e.target as HTMLSelectElement).value } : s
+                    );
+                  }}
+                >
+                  <option value="before-compile">before-compile</option>
+                  <option value="after-compile">after-compile</option>
+                  <option value="after-check">after-check</option>
+                </select>
+              </label>
               <select
                 class="{inputClassName} mt-0 w-28"
                 value={cs.language}
@@ -677,23 +681,25 @@ sys.stdout.flush()
   </div>
 
   <!-- Save Button -->
-  <div class="flex items-center gap-3">
-    <button
-      class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={saving}
-      type="button"
-      onclick={() => void handleSave()}
-    >
-      {#if saving}
-        {m.admin_saving()}
-      {:else}
-        {m.admin_saveJudgeConfig()}
+  <div class="mt-2 flex justify-end">
+    <div class="flex items-center gap-3">
+      <button
+        class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={saving}
+        type="button"
+        onclick={() => void handleSave()}
+      >
+        {#if saving}
+          {m.common_saving()}
+        {:else}
+          {m.common_saveSettings()}
+        {/if}
+      </button>
+      {#if saveMessage === "saved"}
+        <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
+      {:else if saveMessage === "error"}
+        <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
       {/if}
-    </button>
-    {#if saveMessage === "saved"}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
-    {:else if saveMessage === "error"}
-      <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
-    {/if}
+    </div>
   </div>
 </div>
