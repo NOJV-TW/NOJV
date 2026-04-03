@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { ChevronDown, ChevronRight, Pencil, Trash2, Eye, EyeOff } from "@lucide/svelte";
+  import { postProblemAction } from "$lib/utils/actions";
 
   interface TestcaseData {
     id: string;
@@ -38,16 +39,6 @@
   let editStdin = $state("");
   let editExpectedStdout = $state("");
 
-  async function postAction(actionName: string, data: Record<string, string>) {
-    const fd = new FormData();
-    for (const [key, value] of Object.entries(data)) fd.set(key, value);
-    const response = await fetch(`/problems/${problemSlug}/edit?/${actionName}`, {
-      method: "POST",
-      body: fd
-    });
-    if (!response.ok) throw new Error(`Action ${actionName} failed`);
-  }
-
   function startEditSet() {
     editName = set.name;
     editWeight = set.weight;
@@ -58,7 +49,7 @@
   async function saveSet() {
     saving = true;
     try {
-      await postAction("updateTestcaseSet", {
+      await postProblemAction(problemSlug, "updateTestcaseSet", {
         setId: set.id,
         data: JSON.stringify({ name: editName, weight: editWeight, isHidden: editIsHidden })
       });
@@ -72,7 +63,7 @@
   async function deleteSet() {
     saving = true;
     try {
-      await postAction("deleteTestcaseSet", { setId: set.id });
+      await postProblemAction(problemSlug, "deleteTestcaseSet", { setId: set.id });
       confirmDelete = false;
       await invalidateAll();
     } finally {
@@ -89,7 +80,7 @@
   async function saveTestcase(tcId: string) {
     saving = true;
     try {
-      await postAction("updateTestcase", {
+      await postProblemAction(problemSlug, "updateTestcase", {
         testcaseId: tcId,
         data: JSON.stringify({ stdin: editStdin, expectedStdout: editExpectedStdout })
       });
@@ -103,7 +94,7 @@
   async function deleteTestcase(tcId: string) {
     saving = true;
     try {
-      await postAction("deleteTestcase", { testcaseId: tcId });
+      await postProblemAction(problemSlug, "deleteTestcase", { testcaseId: tcId });
       confirmDeleteTestcaseId = null;
       await invalidateAll();
     } finally {

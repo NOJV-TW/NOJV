@@ -2,6 +2,8 @@
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName } from "$lib/utils";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
+  import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
+  import TagInput from "$lib/components/ui/TagInput.svelte";
   import type { JudgeType } from "@nojv/core";
 
   interface Props {
@@ -72,41 +74,6 @@
       script: s.script,
     }))
   );
-
-  // ─── Tag input helpers ───────────────────────────────────────────────
-  let bannedFuncInput = $state("");
-  let bannedImportInput = $state("");
-  let artifactPatternInput = $state("");
-  let bannedFuncInputEl: HTMLInputElement;
-  let bannedImportInputEl: HTMLInputElement;
-  let artifactPatternInputEl: HTMLInputElement;
-
-  function addToList(list: string[], value: string): string[] {
-    const trimmed = value.trim();
-    if (trimmed && !list.includes(trimmed)) return [...list, trimmed];
-    return list;
-  }
-
-  function removeFromList(list: string[], index: number): string[] {
-    return list.filter((_, i) => i !== index);
-  }
-
-  function handleTagKeyDown(
-    event: KeyboardEvent,
-    input: string,
-    list: string[],
-    setList: (v: string[]) => void,
-    setInput: (v: string) => void
-  ) {
-    if ((event.key === " " || event.key === "Enter") && input.trim()) {
-      event.preventDefault();
-      setList(addToList(list, input));
-      setInput("");
-    }
-    if (event.key === "Backspace" && input === "" && list.length > 0) {
-      setList(list.slice(0, -1));
-    }
-  }
 
   // ─── Default templates ───────────────────────────────────────────────
   const defaultCheckerTemplate = `import sys
@@ -328,69 +295,23 @@ sys.stdout.flush()
         <h3 class="text-sm font-medium">靜態分析</h3>
         <p class="mt-0.5 text-xs text-muted-foreground">在編譯前檢查程式碼，用於限制特定語法或函式庫</p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-          {staticAnalysisEnabled ? 'bg-primary' : 'bg-muted'}"
-        onclick={() => (staticAnalysisEnabled = !staticAnalysisEnabled)}
-        type="button"
-      >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-          {staticAnalysisEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
-      </button>
+      <ToggleSwitch bind:checked={staticAnalysisEnabled} />
     </div>
     {#if staticAnalysisEnabled}
       <div class="mt-4 space-y-3">
         <!-- Banned Functions -->
         <div class="text-sm text-muted-foreground">
           <span>禁用函式</span>
-          <div
-            class="mt-1 flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
-            onclick={() => bannedFuncInputEl?.focus()}
-            role="textbox"
-            tabindex="-1"
-            onkeydown={() => {}}
-          >
-            {#each bannedFunctions as tag, index (tag)}
-              <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                {tag}
-                <button class="ml-0.5 text-primary/60 hover:text-primary" onclick={() => (bannedFunctions = removeFromList(bannedFunctions, index))} type="button">&times;</button>
-              </span>
-            {/each}
-            <input
-              bind:this={bannedFuncInputEl}
-              class="min-w-[120px] flex-1 bg-transparent py-1 text-sm outline-none"
-              oninput={(e) => (bannedFuncInput = (e.target as HTMLInputElement).value)}
-              onkeydown={(e) => handleTagKeyDown(e, bannedFuncInput, bannedFunctions, (v) => (bannedFunctions = v), (v) => (bannedFuncInput = v))}
-              placeholder="輸入函式名稱後按空白鍵"
-              value={bannedFuncInput}
-            />
+          <div class="mt-1">
+            <TagInput bind:tags={bannedFunctions} placeholder="輸入函式名稱後按空白鍵" />
           </div>
         </div>
 
         <!-- Banned Imports -->
         <div class="text-sm text-muted-foreground">
           <span>禁用匯入</span>
-          <div
-            class="mt-1 flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
-            onclick={() => bannedImportInputEl?.focus()}
-            role="textbox"
-            tabindex="-1"
-            onkeydown={() => {}}
-          >
-            {#each bannedImports as tag, index (tag)}
-              <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                {tag}
-                <button class="ml-0.5 text-primary/60 hover:text-primary" onclick={() => (bannedImports = removeFromList(bannedImports, index))} type="button">&times;</button>
-              </span>
-            {/each}
-            <input
-              bind:this={bannedImportInputEl}
-              class="min-w-[120px] flex-1 bg-transparent py-1 text-sm outline-none"
-              oninput={(e) => (bannedImportInput = (e.target as HTMLInputElement).value)}
-              onkeydown={(e) => handleTagKeyDown(e, bannedImportInput, bannedImports, (v) => (bannedImports = v), (v) => (bannedImportInput = v))}
-              placeholder="輸入模組名稱後按空白鍵"
-              value={bannedImportInput}
-            />
+          <div class="mt-1">
+            <TagInput bind:tags={bannedImports} placeholder="輸入模組名稱後按空白鍵" />
           </div>
         </div>
 
@@ -497,42 +418,15 @@ sys.stdout.flush()
         <h3 class="text-sm font-medium">成品收集</h3>
         <p class="mt-0.5 text-xs text-muted-foreground">收集學生程式產生的檔案，供下載除錯</p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-          {artifactsEnabled ? 'bg-primary' : 'bg-muted'}"
-        onclick={() => (artifactsEnabled = !artifactsEnabled)}
-        type="button"
-      >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-          {artifactsEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
-      </button>
+      <ToggleSwitch bind:checked={artifactsEnabled} />
     </div>
     {#if artifactsEnabled}
       <div class="mt-4 space-y-3">
         <!-- Collection Patterns -->
         <div class="text-sm text-muted-foreground">
           <span>收集模式</span>
-          <div
-            class="mt-1 flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
-            onclick={() => artifactPatternInputEl?.focus()}
-            role="textbox"
-            tabindex="-1"
-            onkeydown={() => {}}
-          >
-            {#each artifactPatterns as tag, index (tag)}
-              <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                {tag}
-                <button class="ml-0.5 text-primary/60 hover:text-primary" onclick={() => (artifactPatterns = removeFromList(artifactPatterns, index))} type="button">&times;</button>
-              </span>
-            {/each}
-            <input
-              bind:this={artifactPatternInputEl}
-              class="min-w-[120px] flex-1 bg-transparent py-1 text-sm outline-none"
-              oninput={(e) => (artifactPatternInput = (e.target as HTMLInputElement).value)}
-              onkeydown={(e) => handleTagKeyDown(e, artifactPatternInput, artifactPatterns, (v) => (artifactPatterns = v), (v) => (artifactPatternInput = v))}
-              placeholder="例如: *.bmp, output/*"
-              value={artifactPatternInput}
-            />
+          <div class="mt-1">
+            <TagInput bind:tags={artifactPatterns} placeholder="例如: *.bmp, output/*" />
           </div>
         </div>
 
@@ -558,15 +452,7 @@ sys.stdout.flush()
         <h3 class="text-sm font-medium">網路存取</h3>
         <p class="mt-0.5 text-xs text-muted-foreground">允許學生程式存取外部網路</p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-          {networkEnabled ? 'bg-primary' : 'bg-muted'}"
-        onclick={() => (networkEnabled = !networkEnabled)}
-        type="button"
-      >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-          {networkEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
-      </button>
+      <ToggleSwitch bind:checked={networkEnabled} />
     </div>
     {#if networkEnabled}
       <div class="mt-4 space-y-4">
@@ -714,15 +600,7 @@ sys.stdout.flush()
         <h3 class="text-sm font-medium">自訂腳本</h3>
         <p class="mt-0.5 text-xs text-muted-foreground">在特定時間點插入自訂腳本</p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-          {customScriptsEnabled ? 'bg-primary' : 'bg-muted'}"
-        onclick={() => (customScriptsEnabled = !customScriptsEnabled)}
-        type="button"
-      >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-          {customScriptsEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
-      </button>
+      <ToggleSwitch bind:checked={customScriptsEnabled} />
     </div>
     {#if customScriptsEnabled}
       <div class="mt-4 space-y-4">

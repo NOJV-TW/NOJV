@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
+  import TagInput from "$lib/components/ui/TagInput.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
@@ -18,31 +19,9 @@
     dataType: 'json',
   });
 
-  // Tags
-  let tagInput = $state("");
-  let tagInputEl: HTMLInputElement;
-
-  function addTag(raw: string) {
-    const tag = raw.trim();
-    if (tag.length > 0 && !$form.tags!.includes(tag)) {
-      $form.tags = [...($form.tags ?? []), tag];
-    }
-    tagInput = "";
-  }
-
-  function removeTag(index: number) {
-    $form.tags = ($form.tags ?? []).filter((_: string, i: number) => i !== index);
-  }
-
-  function handleTagKeyDown(event: KeyboardEvent) {
-    if ((event.key === " " || event.key === "Enter") && tagInput.trim().length > 0) {
-      event.preventDefault();
-      addTag(tagInput);
-    }
-    if (event.key === "Backspace" && tagInput === "" && ($form.tags ?? []).length > 0) {
-      $form.tags = ($form.tags ?? []).slice(0, -1);
-    }
-  }
+  // Tags - sync with superform store
+  let tags = $state<string[]>($form.tags ?? []);
+  $effect(() => { $form.tags = tags; });
 </script>
 
 <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
@@ -111,35 +90,8 @@
     <!-- Tags -->
     <div class="text-sm text-muted-foreground">
       <span>{m.admin_tags()}</span>
-      <div
-        class="mt-2 flex min-h-[46px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
-        onclick={() => tagInputEl?.focus()}
-        role="textbox"
-        tabindex="-1"
-        onkeydown={() => {}}
-      >
-        {#each $form.tags ?? [] as tag, index (tag)}
-          <span
-            class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-          >
-            {tag}
-            <button
-              class="ml-0.5 text-primary/60 hover:text-primary"
-              onclick={() => removeTag(index)}
-              type="button"
-            >
-              &times;
-            </button>
-          </span>
-        {/each}
-        <input
-          bind:this={tagInputEl}
-          class="min-w-[120px] flex-1 bg-transparent py-1 text-sm outline-none"
-          oninput={(e) => (tagInput = (e.target as HTMLInputElement).value)}
-          onkeydown={handleTagKeyDown}
-          placeholder={m.admin_tagsPlaceholder()}
-          value={tagInput}
-        />
+      <div class="mt-2">
+        <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
       </div>
       {#if $errors.tags}<span class="text-sm text-red-700 dark:text-red-400">{$errors.tags}</span>{/if}
     </div>

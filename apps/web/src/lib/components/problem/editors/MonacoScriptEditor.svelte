@@ -1,6 +1,7 @@
 <script lang="ts">
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
+  import { getMonacoLanguage } from "$lib/utils/monaco-languages";
 
   interface Props {
     value: string;
@@ -22,15 +23,6 @@
   let monacoEditor: Monaco.editor.IStandaloneCodeEditor | undefined;
   let monacoModule: typeof Monaco | undefined;
 
-  const langMap: Record<string, string> = {
-    c: "c",
-    cpp: "cpp",
-    go: "go",
-    javascript: "javascript",
-    python: "python",
-    rust: "rust",
-  };
-
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
 
@@ -41,7 +33,7 @@
       monacoEditor = monacoModule.editor.create(editorContainer, {
         automaticLayout: true,
         fontSize: 14,
-        language: langMap[language] ?? language,
+        language: getMonacoLanguage(language),
         minimap: { enabled: false },
         padding: { top: 16 },
         readOnly: readonly,
@@ -78,7 +70,7 @@
     if (!monacoEditor || !monacoModule) return;
     const model = monacoEditor.getModel();
     if (!model) return;
-    monacoModule.editor.setModelLanguage(model, langMap[lang] ?? lang);
+    monacoModule.editor.setModelLanguage(model, getMonacoLanguage(lang));
   });
 
   // Sync value changes from outside (avoid loop by checking current value)
