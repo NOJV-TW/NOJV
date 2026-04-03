@@ -15,7 +15,6 @@ permissions:
 
 env:
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   verify:
@@ -40,7 +39,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
