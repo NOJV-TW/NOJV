@@ -180,11 +180,24 @@ The CD workflow performs Docker Compose based rollout on the remote server:
 4. Deploy `web` and `worker`
 5. Verify endpoint and container health
 
-Required environment variables on the remote self-hosted runner:
+Required deployment auth values (one source is enough):
+
+1. `.env` in the remote runner workspace
+2. Remote runner environment variables
+
+Required:
 
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_URL`
-- Optional OAuth: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+
+Optional OAuth:
+
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+Note: the deploy workflow keeps runner local `.env` by using checkout with `clean: false`.
 
 See [Deployment Guide](docs/DEPLOYMENT.md) for full operational details.
 

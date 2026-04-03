@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          clean: false
 
       - name: Print deployment target
         shell: bash
@@ -41,8 +42,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          : "${BETTER_AUTH_SECRET:?Missing BETTER_AUTH_SECRET in runner environment}"
-          : "${BETTER_AUTH_URL:?Missing BETTER_AUTH_URL in runner environment}"
+
+          # Import .env values if present on the self-hosted runner workspace.
+          if [[ -f .env ]]; then
+            set -a
+            # shellcheck disable=SC1091
+            source ./.env
+            set +a
+          fi
+
+          : "${BETTER_AUTH_SECRET:?Missing BETTER_AUTH_SECRET from .env or runner environment}"
+          : "${BETTER_AUTH_URL:?Missing BETTER_AUTH_URL from .env or runner environment}"
+
+          echo "::add-mask::$BETTER_AUTH_SECRET"
+
+          {
+            echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
+            echo "BETTER_AUTH_URL=$BETTER_AUTH_URL"
+            echo "GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}"
+            echo "GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}"
+            echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}"
+            echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}"
+          } >> "$GITHUB_ENV"
+
           docker --version
           docker compose version
           docker compose config >/dev/null

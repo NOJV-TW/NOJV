@@ -243,12 +243,21 @@ The self-hosted runner must have:
 3. Network access for dependencies used during Docker image build
 4. Enough disk space for image builds and local cache
 
-### Required Environment On Runner
+The deploy workflow checks out code with `clean: false` so an existing local `.env` in the runner workspace is preserved.
 
-1. `BETTER_AUTH_SECRET`
-2. `BETTER_AUTH_URL`
+### Required Deployment Environment Values
 
-Optional OAuth environment variables:
+The workflow resolves values in this order:
+
+1. `.env` in the runner workspace (loaded during preflight)
+2. Environment variables already present on the self-hosted runner
+
+Required:
+
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+
+Optional OAuth values:
 
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
