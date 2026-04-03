@@ -16,6 +16,7 @@
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import { registerCompletionProviders } from "./editor-completions";
+  import MultiFileEditor from "./editors/MultiFileEditor.svelte";
 
   const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
@@ -49,6 +50,7 @@
 
   let currentLocale = $derived(getLocale());
   let isFunctionMode = $derived(problem.submissionType === "function");
+  let isZipProject = $derived(problem.submissionType === "zip_project");
 
   let availableLanguages = $derived.by(() => {
     let langs = [...supportedLanguages];
@@ -75,6 +77,10 @@
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
+
+  // Multi-file state for zip_project mode
+  let zipFiles = $state<{path: string; content: string}[]>([{ path: "main.c", content: "" }]);
+  let entryFile = $state("main.c");
 
   // Bottom panel state
   let bottomTab = $state<"testcase" | "result">("testcase");
@@ -118,33 +124,36 @@
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
 
-    void (async () => {
-      monacoModule = await import("monaco-editor");
-      registerCompletionProviders(monacoModule);
+    // Skip Monaco initialization for zip_project mode (MultiFileEditor manages its own editor)
+    if (!isZipProject) {
+      void (async () => {
+        monacoModule = await import("monaco-editor");
+        registerCompletionProviders(monacoModule);
 
-      const isDark = document.documentElement.classList.contains("dark");
-      monacoEditor = monacoModule.editor.create(editorContainer, {
-        ...editorOptions,
-        language: "cpp",
-        theme: isDark ? "vs-dark" : "vs-light",
-        value: drafts[language]
-      });
+        const isDark = document.documentElement.classList.contains("dark");
+        monacoEditor = monacoModule.editor.create(editorContainer, {
+          ...editorOptions,
+          language: "cpp",
+          theme: isDark ? "vs-dark" : "vs-light",
+          value: drafts[language]
+        });
 
-      const editor = monacoEditor;
-      editor.onDidChangeModelContent(() => {
-        drafts[language] = editor.getValue();
-      });
+        const editor = monacoEditor;
+        editor.onDidChangeModelContent(() => {
+          drafts[language] = editor.getValue();
+        });
 
-      // Watch for dark mode toggling on <html>
-      themeObserver = new MutationObserver(() => {
-        const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
-      });
-      themeObserver.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class"]
-      });
-    })();
+        // Watch for dark mode toggling on <html>
+        themeObserver = new MutationObserver(() => {
+          const dark = document.documentElement.classList.contains("dark");
+          monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+        });
+        themeObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["class"]
+        });
+      })();
+    }
 
     return () => {
       destroyed = true;
@@ -183,17 +192,29 @@
     pollAbortController = new AbortController();
     const { signal } = pollAbortController;
 
+    const commonFields = {
+      assessment,
+      contestSlug,
+      language,
+      mode: contestSlug ? "contest" : (assessment ? "assignment" : "practice"),
+      problemSlug: problem.slug,
+      sampleOnly: options?.sampleOnly ?? false,
+    };
+
+    const body = isZipProject
+      ? {
+          ...commonFields,
+          sourceCode: zipFiles.find((f) => f.path === entryFile)?.content ?? "",
+          sourceFiles: zipFiles.map((f) => ({ path: f.path, content: f.content })),
+          entryFile,
+        }
+      : {
+          ...commonFields,
+          sourceCode: drafts[language],
+        };
+
     const response = await fetch("/api/submissions", {
-      body: JSON.stringify({
-        assessment,
-        contestSlug,
-        language,
-        mode: contestSlug ? "contest" : (assessment ? "assignment" : "practice"),
-        problemSlug: problem.slug,
-        sampleOnly: options?.sampleOnly ?? false,
-        sourceCode: drafts[language],
-        submissionType: problem.submissionType
-      }),
+      body: JSON.stringify(body),
       headers: { "Content-Type": "application/json" },
       method: "POST",
       signal
@@ -260,7 +281,10 @@
       const result = await executeSubmission();
 
       if (result) {
-        onSubmissionComplete?.(result, language, drafts[language]);
+        const sourceForCallback = isZipProject
+          ? zipFiles.map((f) => `// --- ${f.path} ---\n${f.content}`).join("\n\n")
+          : drafts[language];
+        onSubmissionComplete?.(result, language, sourceForCallback);
       }
     } catch (err) {
       runError = err instanceof Error ? err.message : "Submission failed.";
@@ -278,18 +302,20 @@
   >
     <div class="flex items-center gap-3">
       <span class="text-xs font-medium text-muted-foreground">&lt;/&gt; {m.editor_code()}</span>
-      <select
-        class="rounded-md border border-border bg-transparent px-2 text-xs"
-        onchange={(e) => {
-          const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
-          if (parsed.success) language = parsed.data;
-        }}
-        value={language}
-      >
-        {#each availableLanguages as entry (entry)}
-          <option value={entry}>{entry}</option>
-        {/each}
-      </select>
+      {#if !isZipProject}
+        <select
+          class="rounded-md border border-border bg-transparent px-2 text-xs"
+          onchange={(e) => {
+            const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
+            if (parsed.success) language = parsed.data;
+          }}
+          value={language}
+        >
+          {#each availableLanguages as entry (entry)}
+            <option value={entry}>{entry}</option>
+          {/each}
+        </select>
+      {/if}
       <span class="text-xs text-muted-foreground">
         {#if contestSlug}
           {m.editor_contestMode()}
@@ -304,25 +330,40 @@
           {m.editor_functionModeHint()}
         </span>
       {/if}
+      {#if isZipProject}
+        <span class="rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+          Multi-file Project
+        </span>
+      {/if}
     </div>
   </div>
 
-  <!-- Monaco editor -->
-  <div class="min-h-0 flex-1">
-    <div bind:this={editorContainer} class="h-full w-full"></div>
-  </div>
+  <!-- Editor area -->
+  {#if isZipProject}
+    <div class="min-h-0 flex-1">
+      <MultiFileEditor bind:files={zipFiles} />
+    </div>
+  {:else}
+    <div class="min-h-0 flex-1">
+      <div bind:this={editorContainer} class="h-full w-full"></div>
+    </div>
+  {/if}
 
   <!-- Action bar -->
   <div
     class="flex items-center justify-between border-t border-border bg-card px-4 py-2.5"
   >
     <span class="text-xs text-muted-foreground">
-      {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
+      {#if isZipProject}
+        {zipFiles.length} file{zipFiles.length !== 1 ? "s" : ""}
+      {:else}
+        {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
+      {/if}
     </span>
     <div class="flex items-center gap-2">
       <button
         class="rounded-lg border border-border bg-card px-4 py-1.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isRunning || availableLanguages.length === 0}
+        disabled={isRunning || (!isZipProject && availableLanguages.length === 0)}
         onclick={() => void handleRun()}
         type="button"
       >
@@ -330,7 +371,7 @@
       </button>
       <button
         class="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isSubmitting || availableLanguages.length === 0}
+        disabled={isSubmitting || (!isZipProject && availableLanguages.length === 0)}
         onclick={() => void handleSubmit()}
         type="button"
       >

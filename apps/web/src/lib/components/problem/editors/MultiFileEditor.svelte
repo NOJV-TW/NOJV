@@ -189,7 +189,7 @@
   });
 </script>
 
-<div class="flex h-[400px] overflow-hidden rounded-2xl border border-border">
+<div class="flex h-full overflow-hidden rounded-2xl border border-border">
   <!-- File list sidebar -->
   <div class="flex w-52 flex-col border-r border-border bg-muted">
     <div class="flex items-center justify-between border-b border-border px-3 py-2">
