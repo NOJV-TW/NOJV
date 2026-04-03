@@ -87,7 +87,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Install Playwright browsers
-        run: pnpm --filter @nojv/web exec playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Push schema to test database
         run: pnpm db:generate && pnpm db:push
@@ -98,7 +98,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
       - name: Run E2E tests
-        run: pnpm --filter @nojv/web exec playwright test --config ../../tests/e2e/playwright.config.ts
+        run: pnpm test:e2e
 
       - name: Upload Playwright report
         if: ${{ failure() }}
