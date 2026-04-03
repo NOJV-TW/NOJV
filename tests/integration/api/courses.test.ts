@@ -9,7 +9,8 @@ import {
 
 import { courseDomain } from "@nojv/domain";
 
-const { listCourseCards, getCoursePageData, getDashboardStats, joinCourseRecord } = courseDomain;
+const { listCourseCards, getCoursePageData, getDashboardStats, joinCourseRecord } =
+  courseDomain;
 import { ForbiddenError, type CompletedActorContext } from "$lib/server/auth";
 
 function makeActor(user: {
