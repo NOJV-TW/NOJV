@@ -180,13 +180,10 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
+    // Frontend sends the complete judgeConfig — no server-side read-merge-write
+    // to avoid race conditions between concurrent updates
     const judgeConfig = JSON.parse(raw);
-    const problem = await getProblemPageData(slug);
-    if (!problem) error(404, "Problem not found");
-    const currentConfig = (problem.judgeConfig ?? {}) as Record<string, unknown>;
-    await updateProblemRecord(actor, slug, {
-      judgeConfig: { ...currentConfig, ...judgeConfig }
-    });
+    await updateProblemRecord(actor, slug, { judgeConfig });
 
     return { success: true };
   },
@@ -200,13 +197,10 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const raw = formData.get("data");
     if (typeof raw !== "string") error(400, "Missing data");
-    const scoring = JSON.parse(raw);
-    const problem = await getProblemPageData(slug);
-    if (!problem) error(404, "Problem not found");
-    const currentConfig = (problem.judgeConfig ?? {}) as Record<string, unknown>;
-    await updateProblemRecord(actor, slug, {
-      judgeConfig: { ...currentConfig, scoring }
-    });
+    // Frontend sends the complete judgeConfig (with scoring merged in)
+    // to avoid race conditions between concurrent updates
+    const judgeConfig = JSON.parse(raw);
+    await updateProblemRecord(actor, slug, { judgeConfig });
 
     return { success: true };
   }

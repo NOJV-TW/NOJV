@@ -83,7 +83,13 @@
     }
   }
 
+  const MAX_ZIP_SIZE = 50 * 1024 * 1024; // 50 MB
+
   async function handleZipUpload(file: File) {
+    if (file.size > MAX_ZIP_SIZE) {
+      error = `ZIP file too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum is 50MB.`;
+      return;
+    }
     try {
       const zip = await JSZip.loadAsync(file);
       const allFiles: { name: string; content: string }[] = [];
