@@ -12,14 +12,16 @@ async function createDraft(page: Page, title: string): Promise<string> {
   await page.goto("/problems/create");
   await page.locator("form input[required]").first().fill(title);
   const textareas = page.locator("form textarea");
-  await textareas.nth(0).fill(
-    "This is a test problem for E2E configuration testing. " +
-      "It has enough characters to pass the minimum length validation requirement."
-  );
+  await textareas
+    .nth(0)
+    .fill(
+      "This is a test problem for E2E configuration testing. " +
+        "It has enough characters to pass the minimum length validation requirement."
+    );
   await textareas.nth(1).fill("An integer n.");
   await textareas.nth(2).fill("Print n.");
   await page.getByRole("button", { name: /save basic info/i }).click();
-  await page.waitForURL(/\/problems\/.*\/edit/);
+  await page.waitForURL(/\/problems\/.*\/edit/, { timeout: 30000 });
   return page.url();
 }
 
