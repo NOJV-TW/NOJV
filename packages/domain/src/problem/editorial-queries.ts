@@ -11,7 +11,10 @@ export async function listEditorials(problemId: string) {
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({
-    userId, problemId, status: "accepted", sampleOnly: false
+    userId,
+    problemId,
+    status: "accepted",
+    sampleOnly: false
   });
   return count > 0;
 }

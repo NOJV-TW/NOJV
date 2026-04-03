@@ -13,7 +13,8 @@ import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { problemDomain } from "@nojv/domain";
 import { getProblemPageData } from "$lib/server/problem/queries";
 
-const { updateProblemRecord, updateProblemTemplates, createProblemTestcaseSetRecord } = problemDomain;
+const { updateProblemRecord, updateProblemTemplates, createProblemTestcaseSetRecord } =
+  problemDomain;
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 

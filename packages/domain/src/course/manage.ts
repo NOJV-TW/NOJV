@@ -1,9 +1,4 @@
-import {
-  assessmentRepo,
-  courseMembershipRepo,
-  courseRepo,
-  submissionRepo
-} from "@nojv/db";
+import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from "@nojv/db";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
 import { pickProblemStatement } from "../shared/pick-problem-statement";
@@ -12,7 +7,12 @@ import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 export async function getCourseManageAnalytics(
   courseSlug: string,
-  members: { userId: string; courseRole: string; displayName: string; username: string | null }[]
+  members: {
+    userId: string;
+    courseRole: string;
+    displayName: string;
+    username: string | null;
+  }[]
 ) {
   const now = new Date();
 

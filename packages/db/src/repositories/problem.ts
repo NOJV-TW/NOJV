@@ -63,11 +63,7 @@ export const problemRepo = {
   },
 
   /** List problems with submission counts (for problem list page). */
-  listWithCounts(opts: {
-    where: Prisma.ProblemWhereInput;
-    skip: number;
-    take: number;
-  }) {
+  listWithCounts(opts: { where: Prisma.ProblemWhereInput; skip: number; take: number }) {
     return prisma.problem.findMany({
       include: {
         _count: { select: { submissions: true } }
@@ -109,11 +105,7 @@ export const problemRepo = {
   },
 
   /** Find recommended problems for dashboard. */
-  findRecommendations(opts: {
-    excludeIds?: string[];
-    tags?: string[];
-    take: number;
-  }) {
+  findRecommendations(opts: { excludeIds?: string[]; tags?: string[]; take: number }) {
     return prisma.problem.findMany({
       where: {
         visibility: "public",

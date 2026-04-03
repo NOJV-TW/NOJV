@@ -107,10 +107,9 @@ export async function ensureContestParticipation(
 
   // If contest is linked to a course, verify course membership
   if (contest.courseId) {
-    const membership = await courseMembershipRepo.withTx(tx).findByComposite(
-      contest.courseId,
-      userId
-    );
+    const membership = await courseMembershipRepo
+      .withTx(tx)
+      .findByComposite(contest.courseId, userId);
 
     if (membership?.status !== "active") {
       throw new ForbiddenError("You must be enrolled in the course to participate.");
@@ -184,10 +183,7 @@ export async function checkSubmitCooldown(
 
 // ─── Contest creation ───────────────────────────────────────────────
 
-export async function createContestRecord(
-  actor: ActorContext,
-  payload: ContestCreate
-) {
+export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
   return runTransaction(async (tx) => {
     const existing = await contestRepo.withTx(tx).findBySlug(payload.slug);
 
@@ -304,7 +300,9 @@ export interface ContestLifecycleInfo {
   startsAt: string;
 }
 
-export async function getContestLifecycleInfo(contestId: string): Promise<ContestLifecycleInfo> {
+export async function getContestLifecycleInfo(
+  contestId: string
+): Promise<ContestLifecycleInfo> {
   const contest = await contestRepo.findInfoById(contestId);
   return {
     endsAt: contest.endsAt.toISOString(),

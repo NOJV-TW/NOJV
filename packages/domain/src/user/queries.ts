@@ -43,10 +43,7 @@ export function countUsers() {
   return userRepo.count();
 }
 
-export async function updateUserRole(
-  userId: string,
-  role: "admin" | "teacher" | "student"
-) {
+export async function updateUserRole(userId: string, role: "admin" | "teacher" | "student") {
   return userRepo.update(userId, { platformRole: role });
 }
 

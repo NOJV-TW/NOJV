@@ -29,13 +29,15 @@ const webEnvSchema = z
   .transform((val) => ({
     ...val,
     BETTER_AUTH_SECRET:
-      val.BETTER_AUTH_SECRET ??
-      (val.NODE_ENV === "production" ? undefined : DEV_AUTH_SECRET)
+      val.BETTER_AUTH_SECRET ?? (val.NODE_ENV === "production" ? undefined : DEV_AUTH_SECRET)
   }))
-  .refine((val) => typeof val.BETTER_AUTH_SECRET === "string" && val.BETTER_AUTH_SECRET.length > 0, {
-    message: "BETTER_AUTH_SECRET is required in production",
-    path: ["BETTER_AUTH_SECRET"]
-  });
+  .refine(
+    (val) => typeof val.BETTER_AUTH_SECRET === "string" && val.BETTER_AUTH_SECRET.length > 0,
+    {
+      message: "BETTER_AUTH_SECRET is required in production",
+      path: ["BETTER_AUTH_SECRET"]
+    }
+  );
 
 export type WebEnv = z.output<typeof webEnvSchema>;
 

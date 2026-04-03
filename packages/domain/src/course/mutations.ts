@@ -146,7 +146,9 @@ export async function joinCourseRecord(
     const course = await requireCourse(tx, payload.courseSlug);
     const [existingMembership, joinToken] = await Promise.all([
       courseMembershipRepo.withTx(tx).findByComposite(course.id, user.id),
-      courseJoinTokenRepo.withTx(tx).findByToken(course.id, payload.joinMethod, payload.joinToken)
+      courseJoinTokenRepo
+        .withTx(tx)
+        .findByToken(course.id, payload.joinMethod, payload.joinToken)
     ]);
 
     if (!joinToken) {

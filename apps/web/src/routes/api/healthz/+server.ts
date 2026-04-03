@@ -14,7 +14,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 async function checkPostgres(): Promise<string> {
   try {
-    await withTimeout(runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")), CHECK_TIMEOUT_MS);
+    await withTimeout(
+      runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
+      CHECK_TIMEOUT_MS
+    );
     return "ok";
   } catch (err) {
     return `error: ${err instanceof Error ? err.message : String(err)}`;

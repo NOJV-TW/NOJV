@@ -11,11 +11,15 @@ export async function createQueuedSubmissionRecord(
   request: Request
 ) {
   const clientIp = getClientIp(request);
-  return submissionDomain.createQueuedSubmissionRecord(payload, {
-    displayName: actor.displayName,
-    email: actor.email,
-    username: actor.username,
-    platformRole: actor.platformRole,
-    userId: actor.userId
-  }, clientIp);
+  return submissionDomain.createQueuedSubmissionRecord(
+    payload,
+    {
+      displayName: actor.displayName,
+      email: actor.email,
+      username: actor.username,
+      platformRole: actor.platformRole,
+      userId: actor.userId
+    },
+    clientIp
+  );
 }

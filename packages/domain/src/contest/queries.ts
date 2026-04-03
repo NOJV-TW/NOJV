@@ -59,7 +59,9 @@ export interface ContestWorkspaceData extends ContestDetailData {
 
 // ─── Internal helpers ────────────────────────────────────────────────
 
-type ContestWithCounts = NonNullable<Awaited<ReturnType<typeof contestRepo.listPublished>>>[number];
+type ContestWithCounts = NonNullable<
+  Awaited<ReturnType<typeof contestRepo.listPublished>>
+>[number];
 
 function mapContestListItem(c: ContestWithCounts): ContestListItem {
   return {
@@ -197,9 +199,6 @@ export async function unfreezeContest(slug: string) {
  * Check IP lock for a contest detail page visit.
  * Returns the IP check result, or null if no participation exists.
  */
-export async function getContestParticipationForIpCheck(
-  contestId: string,
-  userId: string
-) {
+export async function getContestParticipationForIpCheck(contestId: string, userId: string) {
   return contestRepo.findParticipation(contestId, userId);
 }

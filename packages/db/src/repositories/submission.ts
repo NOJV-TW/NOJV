@@ -309,12 +309,9 @@ export const submissionRepo = {
   },
 
   /** Group best scores by user/problem (export CSV). */
-  groupBestScores(opts: {
-    assessmentId: string;
-    studentIds: string[];
-    problemIds: string[];
-  }) {
-    if (opts.studentIds.length === 0 || opts.problemIds.length === 0) return Promise.resolve([]);
+  groupBestScores(opts: { assessmentId: string; studentIds: string[]; problemIds: string[] }) {
+    if (opts.studentIds.length === 0 || opts.problemIds.length === 0)
+      return Promise.resolve([]);
     return prisma.submission.groupBy({
       by: ["userId", "problemId"],
       _max: { score: true },

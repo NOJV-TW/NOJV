@@ -4,11 +4,7 @@ export {
   assessmentProblemRepo,
   assessmentParticipationRepo
 } from "./assessment";
-export {
-  contestRepo,
-  contestProblemRepo,
-  contestParticipationRepo
-} from "./contest";
+export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
 export {
   courseRepo,
   courseMembershipRepo,

@@ -102,10 +102,7 @@ export function resolveCoursePermissionRole(input: {
   return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
 }
 
-export async function resolveCoursePermission(
-  courseSlug: string,
-  actor: ActorContext
-) {
+export async function resolveCoursePermission(courseSlug: string, actor: ActorContext) {
   const course = await courseRepo.findBySlugWithUserMembership(courseSlug, actor.userId);
 
   if (!course) {

@@ -14,11 +14,7 @@ export const userRepo = {
   },
 
   /** List users with filtering and pagination (admin panel). */
-  listPaginated(opts: {
-    where: Prisma.UserWhereInput;
-    skip: number;
-    take: number;
-  }) {
+  listPaginated(opts: { where: Prisma.UserWhereInput; skip: number; take: number }) {
     return prisma.user.findMany({
       where: opts.where,
       select: {

@@ -351,9 +351,7 @@ export async function loadAssessmentDetail(
     throw new NotFoundError("Assignment not found");
   }
 
-  const problemsBySlug = new Map(
-    courseData.problems.map((problem) => [problem.slug, problem])
-  );
+  const problemsBySlug = new Map(courseData.problems.map((problem) => [problem.slug, problem]));
 
   const problems = assessment.problemSlugs
     .map((ps) => problemsBySlug.get(ps))
@@ -373,10 +371,9 @@ export async function loadAssessmentDetail(
     (assessment.ipWhitelistEnabled || assessment.ipBindingEnabled)
   ) {
     await runTransaction(async (tx) => {
-      const participation = await assessmentParticipationRepo.withTx(tx).upsert(
-        userId,
-        assessment.id
-      );
+      const participation = await assessmentParticipationRepo
+        .withTx(tx)
+        .upsert(userId, assessment.id);
 
       const ipResult = await checkIpLock(
         tx,

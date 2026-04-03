@@ -1,5 +1,11 @@
 import type { DailyActivity, DifficultyDist, LanguageDist } from "@nojv/core";
-import { problemRepo, runTransaction, submissionRepo, userStatsRepo, type Prisma } from "@nojv/db";
+import {
+  problemRepo,
+  runTransaction,
+  submissionRepo,
+  userStatsRepo,
+  type Prisma
+} from "@nojv/db";
 
 export async function updateUserStats(submission: {
   id: string;
