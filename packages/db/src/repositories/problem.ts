@@ -237,6 +237,21 @@ export const problemTemplateRepo = {
 };
 
 export const testcaseSetRepo = {
+  findById(id: string) {
+    return prisma.testcaseSet.findUnique({
+      where: { id },
+      include: { testcases: { orderBy: { ordinal: "asc" } } }
+    });
+  },
+
+  update(id: string, data: { name?: string; weight?: number; isHidden?: boolean }) {
+    return prisma.testcaseSet.update({ where: { id }, data });
+  },
+
+  delete(id: string) {
+    return prisma.testcaseSet.delete({ where: { id } });
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.TestcaseSetUncheckedCreateInput) {
@@ -247,6 +262,14 @@ export const testcaseSetRepo = {
 };
 
 export const testcaseRepo = {
+  update(id: string, data: { stdin?: string; expectedStdout?: string }) {
+    return prisma.testcase.update({ where: { id }, data });
+  },
+
+  delete(id: string) {
+    return prisma.testcase.delete({ where: { id } });
+  },
+
   withTx(tx: TxClient) {
     return {
       createMany(data: Prisma.TestcaseCreateManyInput[]) {

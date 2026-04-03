@@ -34,12 +34,52 @@ export const staticAnalysisConfigSchema = z.object({
 
 export type StaticAnalysisConfig = z.infer<typeof staticAnalysisConfigSchema>;
 
+// ─── Scoring Rule Configuration ──────────────────────────────────
+
+export const scoringRuleSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("late_penalty_fixed"),
+    perUnit: z.enum(["day", "week"]),
+    amount: z.number().min(0).max(100),
+    maxDeduction: z.number().min(0).max(100),
+  }),
+  z.object({
+    type: z.literal("late_penalty_decay"),
+    halfLifeHours: z.number().min(1).max(8760),
+  }),
+  z.object({
+    type: z.literal("time_bonus"),
+    maxBonusPercent: z.number().min(0).max(100),
+    baselineMs: z.number().min(0),
+  }),
+  z.object({
+    type: z.literal("memory_penalty"),
+    thresholdMb: z.number().min(0),
+    maxDeduction: z.number().min(0).max(100),
+  }),
+]);
+
+export type ScoringRule = z.infer<typeof scoringRuleSchema>;
+
+export const subtaskScoringStrategySchema = z.enum([
+  "all_or_nothing",
+  "proportional",
+  "minimum",
+]);
+
+export type SubtaskScoringStrategy = z.infer<typeof subtaskScoringStrategySchema>;
+
 // ─── Custom Scoring Configuration ──────────────────────────────────
 
 export const scoringConfigSchema = z.object({
-  script: z.string().min(1).max(200_000),
+  // Script mode (overrides rules when script is present)
+  script: z.string().min(1).max(200_000).optional(),
   language: languageSchema.or(z.literal("python3")).default("python"),
-  timeoutMs: z.number().int().min(1_000).max(60_000).default(30_000)
+  timeoutMs: z.number().int().min(1_000).max(60_000).default(30_000),
+
+  // Rules mode
+  subtaskStrategies: z.record(z.string(), subtaskScoringStrategySchema).optional(),
+  adjustmentRules: z.array(scoringRuleSchema).max(10).optional(),
 });
 
 export type ScoringConfig = z.infer<typeof scoringConfigSchema>;
