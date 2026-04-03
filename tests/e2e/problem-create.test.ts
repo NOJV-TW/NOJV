@@ -16,10 +16,13 @@ async function fillBasicInfo(
     visibility?: "Private" | "Public";
   }
 ) {
-  await page.getByLabel(/title/i).fill(opts.title);
-  await page.getByLabel(/statement/i).fill(opts.statement);
-  await page.getByLabel(/input format/i).fill(opts.inputFormat);
-  await page.getByLabel(/output format/i).fill(opts.outputFormat);
+  // Title is the first required input in the form
+  await page.locator("form input[required]").first().fill(opts.title);
+  // Statement, inputFormat, outputFormat are the first 3 textareas
+  const textareas = page.locator("form textarea");
+  await textareas.nth(0).fill(opts.statement);
+  await textareas.nth(1).fill(opts.inputFormat);
+  await textareas.nth(2).fill(opts.outputFormat);
 
   if (opts.difficulty) {
     await page.getByText(opts.difficulty).click();
@@ -34,14 +37,25 @@ test.describe("Problem Creation — Standard Problem", () => {
 
   test("create page shows all 5 tabs with 4 disabled", async ({ page }) => {
     await page.goto("/problems/create");
-    await expect(page.getByText("Basic Info")).toBeVisible();
-    await expect(page.getByText("Submission Settings")).toBeVisible();
-    await expect(page.getByText("Testcase Management")).toBeVisible();
-    await expect(page.getByText("Judge Settings")).toBeVisible();
-    await expect(page.getByText("Scoring Rules")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Basic Info", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Submission Settings", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Testcase Management", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Judge Settings", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Scoring Rules", exact: true })
+    ).toBeVisible();
 
     // Disabled tabs should show tooltip on hover
-    const submissionTab = page.getByText("Submission Settings");
+    const submissionTab = page.getByRole("button", {
+      name: "Submission Settings",
+      exact: true
+    });
     await submissionTab.hover();
     await expect(page.getByText(/save basic info first/i)).toBeVisible();
   });
@@ -65,10 +79,10 @@ test.describe("Problem Creation — Standard Problem", () => {
     await expect(page.getByText(uniqueTitle)).toBeVisible();
 
     // All tabs should now be clickable
-    await page.getByText("Submission Settings").click();
+    await page.getByRole("button", { name: "Submission Settings", exact: true }).click();
     await expect(page.getByText(/time limit/i)).toBeVisible();
 
-    await page.getByText("Testcase Management").click();
+    await page.getByRole("button", { name: "Testcase Management", exact: true }).click();
     // Should show empty state or testcase upload UI
     await expect(page.getByRole("main")).toBeVisible();
   });
@@ -143,7 +157,7 @@ test.describe("Problem Creation — Edit Flow", () => {
     ];
 
     for (const tab of tabs) {
-      await page.getByRole("button", { name: tab }).click();
+      await page.getByRole("button", { name: tab, exact: true }).click();
       // Each tab should render content
       await expect(page.getByRole("main")).toBeVisible();
     }
@@ -151,7 +165,7 @@ test.describe("Problem Creation — Edit Flow", () => {
 
   test("can update submission settings", async ({ page }) => {
     await page.goto(editUrl);
-    await page.getByRole("button", { name: "Submission Settings" }).click();
+    await page.getByRole("button", { name: "Submission Settings", exact: true }).click();
 
     // Should see time/memory limit fields
     await expect(page.getByText(/time limit/i)).toBeVisible();
@@ -187,10 +201,11 @@ test.describe("Problem Creation — Validation", () => {
   test("shows error for too-short statement", async ({ page }) => {
     await page.goto("/problems/create");
 
-    await page.getByLabel(/title/i).fill("Short Statement Test");
-    await page.getByLabel(/statement/i).fill("Too short");
-    await page.getByLabel(/input format/i).fill("n/a");
-    await page.getByLabel(/output format/i).fill("n/a");
+    await page.locator("form input[required]").first().fill("Short Statement Test");
+    const textareas = page.locator("form textarea");
+    await textareas.nth(0).fill("Too short");
+    await textareas.nth(1).fill("n/a");
+    await textareas.nth(2).fill("n/a");
 
     await page.getByRole("button", { name: /save basic info/i }).click();
 

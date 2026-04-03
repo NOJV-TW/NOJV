@@ -41,6 +41,6 @@ export const actions: Actions = {
     // Force draft status on creation — full editing happens in the edit page
     const result = await createProblemRecord(actor, { ...form.data, status: "draft" });
 
-    return { form, slug: result.slug, success: true };
+    redirect(303, `/problems/${result.slug}/edit`);
   }
 };
