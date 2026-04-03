@@ -5,7 +5,6 @@
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
   import TagInput from "$lib/components/ui/TagInput.svelte";
-  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
@@ -63,7 +62,7 @@
         {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{$errors.difficulty}</span>{/if}
       </label>
       <label class="text-sm text-muted-foreground">
-        <span>{m.admin_visibility()} <HelpTooltip text={m.admin_helpVisibility()} /></span>
+        {m.admin_visibility()}
         <select
           class={inputClassName}
           bind:value={$form.visibility}
@@ -139,21 +138,23 @@
     </div>
 
     <!-- Submit -->
-    <div class="mt-2 flex items-center justify-end gap-3">
-      {#if $formMessage}
-        <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
+    <button
+      class="mt-2 inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      disabled={$submitting}
+      type="submit"
+    >
+      {#if $submitting}
+        {m.admin_updating()}
+      {:else}
+        {m.admin_updateProblem()}
       {/if}
-      <button
-        class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={$submitting}
-        type="submit"
+    </button>
+    {#if $formMessage}
+      <div
+        class="rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400"
       >
-        {#if $submitting}
-          {m.common_saving()}
-        {:else}
-          {m.common_saveSettings()}
-        {/if}
-      </button>
-    </div>
+        {$formMessage}
+      </div>
+    {/if}
   </form>
 </section>

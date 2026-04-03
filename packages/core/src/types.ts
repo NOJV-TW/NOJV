@@ -113,7 +113,6 @@ export const ipLockFormFields = {
 export const sessionUserSchema = z.object({
   disabled: z.boolean().default(false),
   email: z.string(),
-  emailVerified: z.boolean().default(false),
   username: z.string().nullable(),
   id: z.string(),
   name: z.string(),

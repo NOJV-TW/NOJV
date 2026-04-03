@@ -36,8 +36,8 @@ function createAuth() {
     },
     user: {
       additionalFields: {
-        disabled: { type: "boolean", defaultValue: false, input: false },
-        platformRole: { type: "string", defaultValue: "student", input: false },
+        disabled: { type: "boolean", defaultValue: false },
+        platformRole: { type: "string", defaultValue: "student" },
         locale: { type: "string", defaultValue: "zh-TW" }
       }
     },
