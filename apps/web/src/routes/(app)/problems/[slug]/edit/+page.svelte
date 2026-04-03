@@ -1,6 +1,11 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import ProblemTabs from "$lib/components/problem/ProblemTabs.svelte";
+  import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
+  import SubmissionTab from "$lib/components/problem/tabs/SubmissionTab.svelte";
+  import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
+  import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";
+  import ScoringTab from "$lib/components/problem/tabs/ScoringTab.svelte";
 
   let { data } = $props();
 
@@ -15,33 +20,23 @@
   <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
     <ProblemTabs bind:activeTab>
       {#snippet basic()}
-        <p class="text-sm text-muted-foreground">
-          基本資訊設定 (BasicInfoTab — Task 8)
-        </p>
+        <BasicInfoTab problem={data.problem} formData={data.form} />
       {/snippet}
 
       {#snippet submission()}
-        <p class="text-sm text-muted-foreground">
-          提交設定 (SubmissionTab — Task 9)
-        </p>
+        <SubmissionTab problem={data.problem} formData={data.form} />
       {/snippet}
 
       {#snippet testcase()}
-        <p class="text-sm text-muted-foreground">
-          測資管理 (TestcaseTab — Task 10)
-        </p>
+        <TestcaseTab testcaseSets={data.testcaseSets} problemSlug={data.problem.slug} />
       {/snippet}
 
       {#snippet judge()}
-        <p class="text-sm text-muted-foreground">
-          判題設定 (JudgeTab — Task 11)
-        </p>
+        <JudgeTab problem={data.problem} />
       {/snippet}
 
       {#snippet scoring()}
-        <p class="text-sm text-muted-foreground">
-          評分規則 (ScoringTab — Task 12)
-        </p>
+        <ScoringTab problem={data.problem} />
       {/snippet}
     </ProblemTabs>
   </section>

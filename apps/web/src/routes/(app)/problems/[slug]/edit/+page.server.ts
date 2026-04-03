@@ -169,5 +169,45 @@ export const actions: Actions = {
     await deleteTestcaseRecord(actor, slug, testcaseId);
 
     return { success: true };
+  },
+
+  updateJudgeConfig: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const raw = formData.get("data");
+    if (typeof raw !== "string") error(400, "Missing data");
+    const judgeConfig = JSON.parse(raw);
+    const problem = await getProblemPageData(slug);
+    if (!problem) error(404, "Problem not found");
+    const currentConfig = (problem.judgeConfig ?? {}) as Record<string, unknown>;
+    await updateProblemRecord(actor, slug, {
+      judgeConfig: { ...currentConfig, ...judgeConfig }
+    });
+
+    return { success: true };
+  },
+
+  updateScoring: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const slug = event.params.slug;
+    const formData = await event.request.formData();
+    const raw = formData.get("data");
+    if (typeof raw !== "string") error(400, "Missing data");
+    const scoring = JSON.parse(raw);
+    const problem = await getProblemPageData(slug);
+    if (!problem) error(404, "Problem not found");
+    const currentConfig = (problem.judgeConfig ?? {}) as Record<string, unknown>;
+    await updateProblemRecord(actor, slug, {
+      judgeConfig: { ...currentConfig, scoring }
+    });
+
+    return { success: true };
   }
 };
