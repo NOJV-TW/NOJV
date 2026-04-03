@@ -51,5 +51,4 @@ playwright-report/
 tests/fixtures/auth-states/
 
 .github/prompts/
-.shared/test-results/
-apps/web/test-results/
+test-results
