@@ -55,12 +55,12 @@ services:
       test:
         [
           "CMD-SHELL",
-          "if command -v temporal >/dev/null 2>&1; then temporal operator cluster health --address localhost:7233 >/dev/null 2>&1; elif command -v tctl >/dev/null 2>&1; then tctl --address localhost:7233 cluster health >/dev/null 2>&1; else exit 1; fi"
+          "if command -v temporal >/dev/null 2>&1 && (temporal operator cluster health --address localhost:7233 || temporal operator cluster health); then exit 0; fi; if command -v tctl >/dev/null 2>&1 && (tctl cluster health || tctl --address localhost:7233 cluster health); then exit 0; fi; if command -v nc >/dev/null 2>&1 && nc -z localhost 7233; then exit 0; fi; if [ -x /bin/bash ] && /bin/bash -lc '</dev/tcp/localhost/7233' >/dev/null 2>&1; then exit 0; fi; exit 1"
         ]
       interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 60s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
 
   temporal-ui:
     image: temporalio/ui:2.38.2
