@@ -258,7 +258,7 @@ export async function createCourseAssessmentRecord(
     });
 
     // NOTE: problemSlugs field in CourseAssessmentCreate now contains problem IDs (core schema rename pending)
-    const problemIds = payload.problemSlugs as string[];
+    const problemIds = payload.problemSlugs;
     const problems = await problemRepo.withTx(tx).findMany({
       id: { in: problemIds }
     });

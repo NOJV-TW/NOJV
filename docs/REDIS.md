@@ -12,7 +12,7 @@ All keys use the prefix `nojv:{domain}:{identifier}`.
 | `nojv:scoreboard:{contestId}:frozen` | Sorted Set            | None                       | Frozen scoreboard snapshot |
 | `nojv:cooldown:{userId}:{problemId}` | String                | Contest cooldown (seconds) | Submit rate limiting       |
 | `nojv:cache:problems:list`           | String (JSON)         | 5 min                      | Problem list cache         |
-| `nojv:cache:problem:{slug}`          | String (JSON)         | 5 min                      | Problem detail cache       |
+| `nojv:cache:problem:{id}`            | String (JSON)         | 5 min                      | Problem detail cache       |
 | `nojv:cache:contest:{slug}`          | String (JSON)         | 1 min                      | Contest detail cache       |
 | `nojv:cache:course:{slug}`           | String (JSON)         | 5 min                      | Course detail cache        |
 | `nojv:rl:{endpoint}:{userId}`        | rate-limiter-flexible | Per-endpoint               | API rate limiting          |
