@@ -25,10 +25,6 @@ export const actions: Actions = {
 
     const actor = requireAuth(event);
 
-    if (actor.platformRole === "student") {
-      error(403, "Only teachers and admins can create problems.");
-    }
-
     const form = await superValidate(event, zod4(problemCreateSchema));
     if (!form.valid) return fail(400, { form });
 
