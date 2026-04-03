@@ -94,7 +94,7 @@
   <!-- Time / Memory Limits -->
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-sm text-muted-foreground">
-      {m.admin_timeLimit()}
+      <span>{m.admin_timeLimit()} <HelpTooltip text={m.admin_helpTimeLimitMs()} /></span>
       <input
         class={inputClassName}
         min="100"
@@ -105,7 +105,7 @@
       {#if $errors.timeLimitMs}<span class="text-sm text-red-700 dark:text-red-400">{$errors.timeLimitMs}</span>{/if}
     </label>
     <label class="text-sm text-muted-foreground">
-      {m.admin_memoryLimit()}
+      <span>{m.admin_memoryLimit()} <HelpTooltip text={m.admin_helpMemoryLimitMb()} /></span>
       <input
         class={inputClassName}
         min="16"
@@ -139,7 +139,7 @@
 
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         <label class="text-sm text-muted-foreground">
-          {m.admin_zipCompileCommand()}
+          <span>{m.admin_zipCompileCommand()} <HelpTooltip text={m.admin_helpZipCompileCommand()} /></span>
           <input
             class={inputClassName}
             bind:value={$form.zipCompileCommand}
@@ -147,7 +147,7 @@
           />
         </label>
         <label class="text-sm text-muted-foreground">
-          {m.admin_zipEntryPoint()}
+          <span>{m.admin_zipEntryPoint()} <HelpTooltip text={m.admin_helpZipEntryPoint()} /></span>
           <input
             class={inputClassName}
             bind:value={$form.zipEntryPoint}
@@ -159,17 +159,19 @@
   {/if}
 
   <!-- Submit -->
-  <button
-    class="mt-2 inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-    disabled={$submitting}
-    type="submit"
-  >
-    {#if $submitting}
-      {m.admin_updating()}
-    {:else}
-      {m.admin_updateSubmission()}
-    {/if}
-  </button>
+  <div class="mt-2 flex justify-end">
+    <button
+      class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      disabled={$submitting}
+      type="submit"
+    >
+      {#if $submitting}
+        {m.common_saving()}
+      {:else}
+        {m.common_saveSettings()}
+      {/if}
+    </button>
+  </div>
   {#if $formMessage}
     <div
       class="rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400"

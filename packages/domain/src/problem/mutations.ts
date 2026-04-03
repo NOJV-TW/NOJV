@@ -8,7 +8,6 @@ import {
   type TransactionClient
 } from "@nojv/db";
 import type {
-  JudgeType,
   Language,
   PlatformRole,
   ProblemCreate,
@@ -41,25 +40,19 @@ export interface ProblemActorContext {
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
-  checkerScript?: string | undefined;
   difficulty: ProblemDifficulty;
   inputFormat?: string | undefined;
-  interactorScript?: string | undefined;
-  judgeType?: JudgeType | undefined;
+  judgeConfig?: unknown;
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
   statement?: string | undefined;
+  status?: string | undefined;
   submissionType?: SubmissionType | undefined;
   summary: string;
   tags?: string[] | undefined;
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
-  pipelineConfig?: unknown;
-  scoringScript?: string | undefined;
-  scoringLanguage?: string | undefined;
-  artifactPatterns?: string[] | undefined;
-  networkAccessConfig?: unknown;
 }
 
 // ─── Shared problem helpers ─────────────────────────────────────────
@@ -69,31 +62,21 @@ export async function createProblemDefinition(
   problemSlug: string,
   input: CreateProblemDefinitionInput
 ) {
-  // Cast needed: generated Prisma client is stale and missing pipeline fields.
-  // TODO: remove cast after running `pnpm db:generate`
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const problem = await problemRepo.withTx(tx).create({
     authorId: input.authorId ?? null,
-    checkerScript: input.checkerScript ?? null,
     defaultTitle: input.title,
     difficulty: input.difficulty,
     id: `problem_${problemSlug}`,
-    interactorScript: input.interactorScript ?? null,
-    judgeType: input.judgeType ?? "standard",
+    judgeConfig: input.judgeConfig ?? undefined,
     memoryLimitMb: input.memoryLimitMb ?? 256,
     slug: problemSlug,
+    status: input.status ?? "published",
     submissionType: input.submissionType ?? "full_source",
     summary: input.summary,
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
-    visibility: input.visibility ?? "public",
-    pipelineConfig: input.pipelineConfig ?? undefined,
-    scoringScript: input.scoringScript ?? null,
-    scoringLanguage: input.scoringLanguage ?? null,
-    artifactPatterns: input.artifactPatterns ?? [],
-    networkAccessConfig: input.networkAccessConfig ?? undefined
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any);
+    visibility: input.visibility ?? "public"
+  });
 
   if (input.statement) {
     await problemStatementRepo.withTx(tx).create({
