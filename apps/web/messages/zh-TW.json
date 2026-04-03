@@ -10,7 +10,7 @@
   "account_schoolEmailLabel": "學校信箱",
   "account_schoolEmailPlaceholder": "例如 b12345678@ntu.edu.tw",
   "account_schoolVerification": "三校聯盟驗證",
-  "account_schoolVerificationDesc": "使用師大 / 台大 / 台科大 email 驗證，將使用者名稱設為你的學號。",
+  "account_schoolVerificationDesc": "使用師大 / 台大 / 台科大 email 驗證帳號並綁定。",
   "account_schoolVerified": "已驗證為三校聯盟帳號",
   "account_sending": "發送中...",
   "account_sendVerification": "發送驗證信",
