@@ -232,7 +232,7 @@
             />
           </label>
           <label class="grid gap-1">
-            <span class="text-xs font-medium text-muted-foreground">{m.testcases_weight()} <HelpTooltip text={m.admin_helpSetWeight()} /></span>
+            <span class="text-xs font-medium text-muted-foreground">{m.testcases_weight()}</span>
             <input
               class="w-20 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
               type="number"
@@ -246,7 +246,7 @@
               class="accent-primary"
               bind:checked={newSetIsHidden}
             />
-            {m.testcases_hidden()} <HelpTooltip text={m.admin_helpSetHidden()} />
+            {m.testcases_hidden()}
           </label>
         </div>
         <div class="flex gap-2">
