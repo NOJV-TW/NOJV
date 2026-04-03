@@ -59,6 +59,14 @@ export const problemTestcaseSetCreateSchema = z.object({
   weight: z.coerce.number().int().min(1).max(100).default(1)
 });
 
+export const testcaseSetUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  weight: z.coerce.number().int().min(0).max(100).optional(),
+  isHidden: z.boolean().optional()
+});
+
+export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
+
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),
   difficulty: problemDifficultySchema,
@@ -71,4 +79,6 @@ export type ProblemCreate = z.infer<typeof problemCreateSchema>;
 export type ProblemUpdate = z.infer<typeof problemUpdateSchema>;
 export type ProblemJudgeTestcase = z.infer<typeof problemJudgeTestcaseSchema>;
 export type ProblemTestcaseSetCreate = z.infer<typeof problemTestcaseSetCreateSchema>;
+export type TestcaseSetUpdate = z.infer<typeof testcaseSetUpdateSchema>;
+export type TestcaseUpdate = z.infer<typeof testcaseUpdateSchema>;
 export type ProblemOverview = z.infer<typeof problemOverviewSchema>;
