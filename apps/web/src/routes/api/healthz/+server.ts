@@ -26,8 +26,8 @@ async function checkPostgres(): Promise<string> {
 
 async function checkRedis(): Promise<string> {
   try {
-    const result = await withTimeout(getRedis().ping(), CHECK_TIMEOUT_MS);
-    return result === "PONG" ? "ok" : `unexpected: ${result}`;
+    await withTimeout(getRedis().ping(), CHECK_TIMEOUT_MS);
+    return "ok";
   } catch (err) {
     return `error: ${err instanceof Error ? err.message : String(err)}`;
   }
