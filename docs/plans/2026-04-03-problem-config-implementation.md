@@ -17,6 +17,7 @@
 ### Task 1: Create `judgeConfigSchema`
 
 **Files:**
+
 - Create: `packages/core/src/schemas/judge-config.ts`
 - Modify: `packages/core/src/index.ts` (add export)
 
@@ -42,16 +43,23 @@ export const judgeConfigSchema = z.object({
 
   scoring: scoringConfigSchema.optional(),
 
-  pipeline: z.object({
-    stages: z.array(pipelineStageSchema).min(1).max(20),
-  }).optional(),
+  pipeline: z
+    .object({
+      stages: z.array(pipelineStageSchema).min(1).max(20)
+    })
+    .optional(),
 
   staticAnalysis: staticAnalysisConfigSchema.optional(),
   artifacts: artifactConfigSchema.optional(),
   networkAccess: networkAccessConfigSchema.optional(),
-  customScripts: z.array(customScriptConfigSchema.extend({
-    name: z.string().min(1).max(100),
-  })).max(10).optional(),
+  customScripts: z
+    .array(
+      customScriptConfigSchema.extend({
+        name: z.string().min(1).max(100)
+      })
+    )
+    .max(10)
+    .optional()
 });
 
 export type JudgeConfig = z.infer<typeof judgeConfigSchema>;
@@ -77,6 +85,7 @@ feat(core): add unified judgeConfigSchema
 ### Task 2: Update Prisma Schema
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema.prisma`
 
 **Step 1: Add `zip_project` to SubmissionType enum**
@@ -101,6 +110,7 @@ enum ProblemStatus {
 **Step 3: Update Problem model**
 
 Remove these fields:
+
 - `judgeType`
 - `checkerScript`
 - `interactorScript`
@@ -111,10 +121,12 @@ Remove these fields:
 - `networkAccessConfig`
 
 Add these fields:
+
 - `judgeConfig Json?`
 - `status ProblemStatus @default(published)`
 
 The Problem model should become:
+
 ```prisma
 model Problem {
   id                  String                  @id @default(cuid())
@@ -152,6 +164,7 @@ feat(db): consolidate judge fields into judgeConfig, add problem status and zip_
 ### Task 3: Update Core Problem Schemas
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/problem.ts`
 - Modify: `packages/core/src/types.ts`
 - Modify: `packages/core/src/schemas/submission.ts`
@@ -159,11 +172,13 @@ feat(db): consolidate judge fields into judgeConfig, add problem status and zip_
 **Step 1: Update types.ts**
 
 Add `zip_project` to `submissionTypes`:
+
 ```typescript
 export const submissionTypes = ["function", "full_source", "zip_project"] as const;
 ```
 
 Add problem statuses:
+
 ```typescript
 export const problemStatuses = ["draft", "published"] as const;
 export const problemStatusSchema = z.enum(problemStatuses);
@@ -190,7 +205,7 @@ export const problemCreateSchema = z.object({
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
-  status: problemStatusSchema.default("draft"),
+  status: problemStatusSchema.default("draft")
 });
 ```
 
@@ -214,6 +229,7 @@ feat(core): update problem schemas for judgeConfig and zip_project
 ### Task 4: Update Seed File
 
 **Files:**
+
 - Modify: `packages/db/prisma/seeds/problems.ts`
 
 **Step 1: Update `SeedProblemDef` type**
@@ -275,6 +291,7 @@ feat(db): update seed to use judgeConfig
 ### Task 5: Update Domain Layer
 
 **Files:**
+
 - Modify: `packages/domain/src/problem/mutations.ts`
 - Modify: `packages/domain/src/submission/judge-context.ts`
 - Modify: `packages/domain/src/problem/queries.ts` (if it references old fields)
@@ -305,11 +322,12 @@ export interface CreateProblemDefinitionInput {
 **Step 2: Update `createProblemDefinition()`**
 
 Replace the old field assignments with:
+
 ```typescript
 const problem = await problemRepo.withTx(tx).create({
   // ... other fields unchanged
   judgeConfig: input.judgeConfig ?? undefined,
-  status: input.status ?? "published",
+  status: input.status ?? "published"
   // Remove: judgeType, checkerScript, interactorScript, pipelineConfig,
   //         scoringScript, scoringLanguage, artifactPatterns, networkAccessConfig
 } as any);
@@ -318,6 +336,7 @@ const problem = await problemRepo.withTx(tx).create({
 **Step 3: Update `updateProblemRecord()`**
 
 Replace the 8 old field checks with a single `judgeConfig` check:
+
 ```typescript
 if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
 if (payload.status !== undefined) updateData.status = payload.status;
@@ -343,7 +362,7 @@ return {
   pipelineConfig: judgeConfig.pipeline ?? null,
   scoringLanguage: judgeConfig.scoring?.language ?? null,
   scoringScript: judgeConfig.scoring?.script ?? null,
-  artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
+  artifactPatterns: judgeConfig.artifacts?.patterns ?? []
   // ... rest unchanged
 };
 ```
@@ -364,6 +383,7 @@ feat(domain): migrate problem mutations and judge-context to judgeConfig
 ### Task 6: Update Worker / Temporal Activities
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/judge.ts`
 
 **Step 1: Verify `executeSandbox()` still works**
@@ -392,6 +412,7 @@ fix(temporal): adapt judge activity to updated judge-context interface
 ### Task 7: Create Tab Container and Route Updates
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/problem/ProblemTabs.svelte`
 - Modify: `apps/web/src/routes/(app)/problems/create/+page.server.ts`
 - Modify: `apps/web/src/routes/(app)/problems/create/+page.svelte`
@@ -511,11 +532,13 @@ feat(web): add ProblemTabs container and draft workflow routes
 ### Task 8: Tab 1 — BasicInfoTab
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/problem/tabs/BasicInfoTab.svelte`
 
 **Step 1: Extract from CreationPanel.svelte**
 
 Move these fields from `CreationPanel.svelte` into `BasicInfoTab.svelte`:
+
 - Title (line 237-246)
 - Tags (line 248-282)
 - Difficulty + Visibility (line 285-309)
@@ -537,7 +560,7 @@ const basicInfoSchema = z.object({
   inputFormat: z.string().trim().max(4_000).default(""),
   outputFormat: z.string().trim().max(4_000).default(""),
   summary: z.string().trim().max(2_000).default(""),
-  status: problemStatusSchema.optional(),
+  status: problemStatusSchema.optional()
 });
 ```
 
@@ -558,6 +581,7 @@ feat(web): add BasicInfoTab component
 ### Task 9: Tab 2 — SubmissionTab
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/problem/tabs/SubmissionTab.svelte`
 - Create: `apps/web/src/lib/components/problem/editors/MultiFileEditor.svelte`
 - Modify: `apps/web/src/lib/components/problem/CodeTemplateEditor.svelte` (if needed)
@@ -565,6 +589,7 @@ feat(web): add BasicInfoTab component
 **Step 1: Create SubmissionTab.svelte**
 
 Fields:
+
 - Submission type radio: `full_source` / `function` / `zip_project`
 - Time limit (ms)
 - Memory limit (MB)
@@ -575,10 +600,12 @@ Fields:
 **Step 2: Create MultiFileEditor.svelte**
 
 Left sidebar with file tree + right Monaco editor. This component is used in two places:
+
 1. **Tab 2** (teacher side): For configuring zip_project expected structure (optional)
 2. **Student submission page**: For editing/uploading zip_project files
 
 Features:
+
 - File tree with add/rename/delete
 - Monaco editor for selected file
 - ZIP upload button → auto-extract files into tree
@@ -617,6 +644,7 @@ feat(web): add SubmissionTab and MultiFileEditor components
 ### Task 10: Tab 3 — TestcaseTab
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/problem/tabs/TestcaseTab.svelte`
 - Create: `apps/web/src/lib/components/problem/testcase/TestcaseSetCard.svelte`
 - Modify: `apps/web/src/lib/components/problem/testcase/TestcaseUploader.svelte` (rename from TestcaseSection.svelte or create new)
@@ -625,18 +653,21 @@ feat(web): add SubmissionTab and MultiFileEditor components
 **Step 1: Add server-side CRUD actions**
 
 Add to edit page.server.ts:
+
 - `updateTestcaseSet` — update name/weight/isHidden
 - `deleteTestcaseSet` — delete a testcase set
 - `updateTestcase` — update individual testcase stdin/expectedStdout
 - `deleteTestcase` — delete individual testcase
 
 These call new domain functions (add to `packages/domain/src/problem/mutations.ts`):
+
 - `updateTestcaseSetRecord(actor, problemSlug, setId, payload)`
 - `deleteTestcaseSetRecord(actor, problemSlug, setId)`
 - `updateTestcaseRecord(actor, problemSlug, testcaseId, payload)`
 - `deleteTestcaseRecord(actor, problemSlug, testcaseId)`
 
 Add corresponding repository methods in `packages/db/src/repositories/problem.ts`:
+
 - `testcaseSetRepo.update(id, data)`
 - `testcaseSetRepo.delete(id)`
 - `testcaseRepo.update(id, data)`
@@ -645,6 +676,7 @@ Add corresponding repository methods in `packages/db/src/repositories/problem.ts
 **Step 2: Create TestcaseSetCard.svelte**
 
 A card component for one testcase set (subtask):
+
 - Header: name, case count, weight, hidden badge
 - Expand/collapse to show individual testcases
 - Edit button → inline edit name/weight
@@ -654,6 +686,7 @@ A card component for one testcase set (subtask):
 **Step 3: Create TestcaseTab.svelte**
 
 Layout:
+
 - Sample testcases section (weight=0 sets)
 - Subtask list (weight>0 sets), each rendered as TestcaseSetCard
 - "Add Subtask" button → new TestcaseSetCard
@@ -678,6 +711,7 @@ feat(web): add TestcaseTab with full CRUD for testcase sets and testcases
 ### Task 11: Tab 4 — JudgeTab
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/problem/tabs/JudgeTab.svelte`
 - Create: `apps/web/src/lib/components/problem/editors/MonacoScriptEditor.svelte`
 
@@ -689,9 +723,9 @@ Reusable Monaco editor wrapper for scripts (checker, interactor, scoring, custom
 interface Props {
   value: string;
   onchange: (value: string) => void;
-  language?: string;        // "python" | "cpp" | "c" | "go" | "rust"
+  language?: string; // "python" | "cpp" | "c" | "go" | "rust"
   placeholder?: string;
-  height?: string;          // CSS height, default "300px"
+  height?: string; // CSS height, default "300px"
   defaultTemplate?: string; // "Load template" button content
 }
 ```
@@ -713,6 +747,7 @@ Each toggle section stores its config in the `judgeConfig` object. On save, the 
 **Step 3: Add server action**
 
 Add `updateJudgeConfig` action to edit page.server.ts:
+
 ```typescript
 updateJudgeConfig: async (event) => {
   const actor = requireAuth(event);
@@ -721,12 +756,13 @@ updateJudgeConfig: async (event) => {
   if (!form.valid) return fail(400, { form });
   await updateProblemRecord(actor, slug, { judgeConfig: form.data });
   return { success: true };
-}
+};
 ```
 
 **Step 4: Verify**
 
 Run dev, edit a problem, Tab 4. Test:
+
 - Switch judge type to checker → script editor appears
 - Toggle static analysis → banned function input appears
 - Toggle network access → firewall rules appear
@@ -742,6 +778,7 @@ feat(web): add JudgeTab with full judge configuration UI
 ### Task 12: Tab 5 — ScoringTab
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/problem/tabs/ScoringTab.svelte`
 
 **Step 1: Create ScoringTab.svelte**
@@ -776,29 +813,25 @@ export const scoringRuleSchema = z.discriminatedUnion("type", [
     type: z.literal("late_penalty_fixed"),
     perUnit: z.enum(["day", "week"]),
     amount: z.number().min(0).max(100),
-    maxDeduction: z.number().min(0).max(100),
+    maxDeduction: z.number().min(0).max(100)
   }),
   z.object({
     type: z.literal("late_penalty_decay"),
-    halfLifeHours: z.number().min(1).max(8760),
+    halfLifeHours: z.number().min(1).max(8760)
   }),
   z.object({
     type: z.literal("time_bonus"),
     maxBonusPercent: z.number().min(0).max(100),
-    baselineMs: z.number().min(0),
+    baselineMs: z.number().min(0)
   }),
   z.object({
     type: z.literal("memory_penalty"),
     thresholdMb: z.number().min(0),
-    maxDeduction: z.number().min(0).max(100),
-  }),
+    maxDeduction: z.number().min(0).max(100)
+  })
 ]);
 
-export const subtaskScoringStrategy = z.enum([
-  "all_or_nothing",
-  "proportional",
-  "minimum",
-]);
+export const subtaskScoringStrategy = z.enum(["all_or_nothing", "proportional", "minimum"]);
 
 export const scoringConfigSchema = z.object({
   // Script mode (overrides rules)
@@ -808,7 +841,7 @@ export const scoringConfigSchema = z.object({
 
   // Rules mode
   subtaskStrategies: z.record(z.string(), subtaskScoringStrategy).optional(),
-  adjustmentRules: z.array(scoringRuleSchema).max(10).optional(),
+  adjustmentRules: z.array(scoringRuleSchema).max(10).optional()
 });
 ```
 
@@ -819,6 +852,7 @@ Add `updateScoring` action similar to `updateJudgeConfig`.
 **Step 3: Verify**
 
 Run dev, edit a problem with subtasks, Tab 5. Test:
+
 - Subtask strategies show correctly
 - Add a late penalty rule
 - Toggle custom script mode
@@ -836,16 +870,19 @@ feat(web): add ScoringTab with rules GUI and custom script support
 ### Task 13: Update Student Submission UI for zip_project
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/problem/Editor.svelte`
 - Modify: `apps/web/src/lib/components/problem/Workspace.svelte`
 
 **Step 1: Update Editor.svelte**
 
 Add conditional rendering based on `submissionType`:
+
 - `full_source` / `function`: current Monaco editor (unchanged)
 - `zip_project`: render `MultiFileEditor` (created in Task 9)
 
 For zip_project submissions:
+
 - `sourceCode` becomes empty string or entry file content
 - `sourceFiles` is populated from MultiFileEditor's file list
 - Language detection from entry file extension
@@ -853,13 +890,14 @@ For zip_project submissions:
 **Step 2: Update submission payload**
 
 In `executeSubmission()`, when submissionType is `zip_project`:
+
 ```typescript
 const body = {
   ...commonFields,
   sourceCode: "", // not used for zip
-  sourceFiles: files.map(f => ({ path: f.path, content: f.content })),
+  sourceFiles: files.map((f) => ({ path: f.path, content: f.content })),
   entryFile: entryFilePath,
-  submissionType: "zip_project",
+  submissionType: "zip_project"
 };
 ```
 
@@ -884,6 +922,7 @@ feat(web): support zip_project submission type in student editor
 ### Task 14: Remove Old CreationPanel and Clean Up
 
 **Files:**
+
 - Delete: `apps/web/src/lib/components/problem/CreationPanel.svelte` (replaced by tab components)
 - Modify: any remaining imports of `CreationPanel`
 - Modify: i18n message files if new keys are needed
@@ -899,6 +938,7 @@ Delete `CreationPanel.svelte`.
 **Step 3: Add i18n keys**
 
 Add new translation keys to `apps/web/messages/en.json` and `apps/web/messages/zh-TW.json` for:
+
 - Tab labels
 - New field labels (status, scoring strategies, adjustment rules, etc.)
 - Toggle descriptions
@@ -906,6 +946,7 @@ Add new translation keys to `apps/web/messages/en.json` and `apps/web/messages/z
 **Step 4: Verify full flow**
 
 Test the complete flow:
+
 1. Create draft problem → fills Tab 1 → save
 2. Edit → Tab 2 set submission type
 3. Tab 3 add testcases via ZIP
