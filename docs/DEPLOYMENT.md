@@ -80,7 +80,7 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `SANDBOX_CPU_LIMIT`  | `1`                  | CPU limit per sandbox                      |
 | `SANDBOX_MEMORY_MB`  | `256`                | Memory limit per sandbox (MB)              |
 | `SANDBOX_PIDS_LIMIT` | `64`                 | PID limit per sandbox                      |
-| `PORT`               | `8080`               | Health server port                         |
+| `PORT`               | `8082`               | Health server port (avoid 8080 used by Temporal UI) |
 | `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue        |
 | `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`    |
 
