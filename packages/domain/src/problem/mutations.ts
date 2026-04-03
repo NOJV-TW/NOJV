@@ -191,27 +191,19 @@ export async function updateProblemTemplates(
   });
 }
 
-function generateSlugFromTitle(title: string): string {
-  const ascii = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  if (ascii.length >= 3) return ascii;
-  // Non-ASCII title (e.g. Chinese) — use short random ID
-  return `prob-${Date.now().toString(36)}`;
-}
-
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
-  const baseSlug = payload.slug || generateSlugFromTitle(payload.title);
+  const slug =
+    payload.slug ||
+    payload.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
 
   return runTransaction(async (tx) => {
-    // Find available slug, append suffix on collision
-    let slug = baseSlug;
-    let suffix = 2;
-    while (await problemRepo.withTx(tx).findBySlug(slug)) {
-      slug = `${baseSlug}-${String(suffix)}`;
-      suffix++;
-      if (suffix > 100) throw new ConflictError(`Cannot generate unique slug for: ${baseSlug}`);
+    const existing = await problemRepo.withTx(tx).findBySlug(slug);
+
+    if (existing) {
+      throw new ConflictError(`Problem slug already exists: ${slug}`);
     }
 
     const author = await ensureUser(tx, actor.userId, actor);
