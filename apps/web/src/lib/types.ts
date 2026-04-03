@@ -1,7 +1,9 @@
 import type {
+  JudgeConfig,
   JudgeType,
   Language,
   ProblemOverview,
+  ProblemStatus,
   ProblemVisibility,
   SubmissionType
 } from "@nojv/core";
@@ -76,9 +78,8 @@ export interface TemplateInfo {
 
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
-  checkerScript?: string;
   inputFormat: string;
-  interactorScript?: string;
+  judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
@@ -89,6 +90,7 @@ export interface ProblemDetail extends ProblemOverview {
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;
+  status?: ProblemStatus;
   submissionType: SubmissionType;
   summary: string;
   tags: string[];

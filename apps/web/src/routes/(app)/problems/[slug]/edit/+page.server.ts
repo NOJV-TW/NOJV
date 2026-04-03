@@ -31,11 +31,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
   const form = await superValidate(
     {
-      checkerScript: problem.checkerScript ?? "",
       difficulty: problem.difficulty,
       inputFormat: problem.inputFormat,
-      interactorScript: problem.interactorScript ?? "",
-      judgeType: problem.judgeType,
+      judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
       outputFormat: problem.outputFormat,
       statement: problem.statement,
