@@ -14,6 +14,11 @@ export const load: PageServerLoad = async ({ locals }) => {
     redirect(302, "/problems");
   }
 
+  const sessionUser = locals.sessionUser;
+  if (sessionUser?.platformRole === "student" && !sessionUser.emailVerified) {
+    redirect(302, "/problems");
+  }
+
   const form = await superValidate(zod4(problemCreateSchema));
   return { form };
 };
@@ -25,8 +30,9 @@ export const actions: Actions = {
 
     const actor = requireAuth(event);
 
-    if (actor.platformRole === "student") {
-      error(403, "Only teachers and admins can create problems.");
+    // Students must have verified school email; teachers/admins can always create
+    if (actor.platformRole === "student" && !actor.emailVerified) {
+      error(403, "Please verify your school email before creating problems.");
     }
 
     const form = await superValidate(event, zod4(problemCreateSchema));

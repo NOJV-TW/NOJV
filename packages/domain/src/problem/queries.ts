@@ -361,6 +361,7 @@ export async function listEditableProblems(userId: string) {
   return problems.map((problem) => ({
     difficulty: parseDifficulty(problem.difficulty),
     slug: problem.slug,
+    status: problem.status,
     tags: problem.tags,
     title: problem.defaultTitle,
     visibility: problem.visibility
