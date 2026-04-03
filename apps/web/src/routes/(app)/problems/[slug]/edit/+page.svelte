@@ -31,7 +31,7 @@
 <div class="mx-auto max-w-4xl space-y-6">
   <div class="flex items-center gap-3">
     <h2 class="font-[family-name:var(--font-display)] text-3xl">
-      {m.problemDetail_editProblem()}: {data.problem.title}
+      {data.problem.title}
     </h2>
     {#if data.problem.status === "draft"}
       <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
@@ -49,7 +49,7 @@
       onpublish={handlePublish}
     >
       {#snippet basic()}
-        <BasicInfoTab problem={data.problem} formData={data.form} />
+        <BasicInfoTab formData={data.form} mode="edit" problemSlug={data.problem.slug} />
       {/snippet}
 
       {#snippet submission()}
