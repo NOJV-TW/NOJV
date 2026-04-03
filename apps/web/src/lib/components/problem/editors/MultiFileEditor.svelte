@@ -1,6 +1,7 @@
 <script lang="ts">
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
+  import { m } from "$lib/paraglide/messages.js";
   import { getMonacoLanguage } from "$lib/utils/monaco-languages";
 
   export interface FileEntry {
@@ -168,7 +169,7 @@
   <!-- File list sidebar -->
   <div class="flex w-52 flex-col border-r border-border bg-muted">
     <div class="flex items-center justify-between border-b border-border px-3 py-2">
-      <span class="text-xs font-medium text-muted-foreground">Files</span>
+      <span class="text-xs font-medium text-muted-foreground">{m.common_files()}</span>
       {#if !readonly}
         <div class="flex gap-1">
           <button

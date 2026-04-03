@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName } from "$lib/utils";
+  import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
   import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
   import type { SubtaskScoringStrategy, ScoringRule } from "@nojv/core";
@@ -88,8 +89,8 @@ print(json.dumps({"score": score}))
       .map((s) => {
         const strategy = subtaskStrategies[s.id] ?? "all_or_nothing";
         const label =
-          strategy === "all_or_nothing" ? "全過" :
-          strategy === "proportional" ? "比例" : "最低";
+          strategy === "all_or_nothing" ? m.admin_allOrNothing() :
+          strategy === "proportional" ? m.admin_proportional() : m.admin_minimum();
         return `${s.name}(${String(s.weight)}pts, ${label})`;
       });
     return parts.join(" + ");
@@ -146,12 +147,12 @@ print(json.dumps({"score": score}))
 <div class="space-y-4">
   <!-- Section 1: Subtask Scoring -->
   <div class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-medium">子任務評分策略</h3>
-    <p class="mt-0.5 text-xs text-muted-foreground">設定每個子任務的評分方式</p>
+    <h3 class="text-sm font-medium">{m.admin_subtaskScoringStrategy()}</h3>
+    <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_subtaskScoringStrategyDesc()}</p>
 
     {#if testcaseSets.filter((s) => s.weight > 0).length === 0}
       <p class="mt-3 text-sm text-muted-foreground">
-        請先在「測資管理」分頁新增測資集
+        {m.admin_noSubtasksHint()}
       </p>
     {:else}
       <div class="mt-3 space-y-2">
@@ -171,9 +172,9 @@ print(json.dumps({"score": score}))
                 };
               }}
             >
-              <option value="all_or_nothing">全過才給分</option>
-              <option value="proportional">按通過比例</option>
-              <option value="minimum">取最低分</option>
+              <option value="all_or_nothing">{m.admin_allOrNothing()}</option>
+              <option value="proportional">{m.admin_proportional()}</option>
+              <option value="minimum">{m.admin_minimum()}</option>
             </select>
           </div>
         {/each}
@@ -181,7 +182,7 @@ print(json.dumps({"score": score}))
 
       {#if formulaPreview}
         <div class="mt-3 rounded-xl bg-muted/50 px-3 py-2">
-          <span class="text-xs text-muted-foreground">總分計算: </span>
+          <span class="text-xs text-muted-foreground">{m.admin_totalScoreCalc()}</span>
           <span class="text-xs font-mono">{formulaPreview}</span>
         </div>
       {/if}
@@ -192,8 +193,8 @@ print(json.dumps({"score": score}))
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">分數調整規則</h3>
-        <p class="mt-0.5 text-xs text-muted-foreground">依據繳交時間或資源用量調整最終分數</p>
+        <h3 class="text-sm font-medium">{m.admin_scoreAdjustmentRules()}</h3>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_scoreAdjustmentRulesDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={adjustmentsEnabled} />
     </div>
@@ -207,10 +208,10 @@ print(json.dumps({"score": score}))
                 value={rule.type}
                 onchange={(e) => updateRuleType(index, (e.target as HTMLSelectElement).value as RuleType)}
               >
-                <option value="late_penalty_fixed">遲交扣分 (固定)</option>
-                <option value="late_penalty_decay">遲交扣分 (衰減)</option>
-                <option value="time_bonus">時間獎勵</option>
-                <option value="memory_penalty">記憶體超額扣分</option>
+                <option value="late_penalty_fixed">{m.admin_latePenaltyFixed()}</option>
+                <option value="late_penalty_decay">{m.admin_latePenaltyDecay()}</option>
+                <option value="time_bonus">{m.admin_timeBonus()}</option>
+                <option value="memory_penalty">{m.admin_memoryPenalty()}</option>
               </select>
               <button
                 class="text-muted-foreground hover:text-red-500"
@@ -224,7 +225,7 @@ print(json.dumps({"score": score}))
             {#if rule.type === "late_penalty_fixed"}
               <div class="flex flex-wrap items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
-                  每
+                  {m.admin_per()}
                   <select
                     class="{inputClassName} mt-0 inline-block w-auto"
                     value={rule.perUnit}
@@ -234,12 +235,12 @@ print(json.dumps({"score": score}))
                       );
                     }}
                   >
-                    <option value="day">天</option>
-                    <option value="week">週</option>
+                    <option value="day">{m.admin_day()}</option>
+                    <option value="week">{m.admin_week()}</option>
                   </select>
                 </label>
                 <label class="text-muted-foreground">
-                  扣
+                  {m.admin_deduct()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-20"
                     type="number"
@@ -252,10 +253,10 @@ print(json.dumps({"score": score}))
                       );
                     }}
                   />
-                  分
+                  {m.admin_points()}
                 </label>
                 <label class="text-muted-foreground">
-                  最多扣
+                  {m.admin_maxDeduct()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-20"
                     type="number"
@@ -268,13 +269,13 @@ print(json.dumps({"score": score}))
                       );
                     }}
                   />
-                  分
+                  {m.admin_points()}
                 </label>
               </div>
             {:else if rule.type === "late_penalty_decay"}
               <div class="flex items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
-                  半衰期
+                  {m.admin_halfLife()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-24"
                     type="number"
@@ -287,13 +288,13 @@ print(json.dumps({"score": score}))
                       );
                     }}
                   />
-                  小時
+                  {m.admin_hours()}
                 </label>
               </div>
             {:else if rule.type === "time_bonus"}
               <div class="flex flex-wrap items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
-                  最高加分
+                  {m.admin_maxBonus()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-20"
                     type="number"
@@ -309,7 +310,7 @@ print(json.dumps({"score": score}))
                   %
                 </label>
                 <label class="text-muted-foreground">
-                  基準時間
+                  {m.admin_baselineTime()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-24"
                     type="number"
@@ -327,7 +328,7 @@ print(json.dumps({"score": score}))
             {:else if rule.type === "memory_penalty"}
               <div class="flex flex-wrap items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
-                  門檻
+                  {m.admin_threshold()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-24"
                     type="number"
@@ -342,7 +343,7 @@ print(json.dumps({"score": score}))
                   MB
                 </label>
                 <label class="text-muted-foreground">
-                  最多扣
+                  {m.admin_maxDeduct()}
                   <input
                     class="{inputClassName} mt-0 inline-block w-20"
                     type="number"
@@ -355,7 +356,7 @@ print(json.dumps({"score": score}))
                       );
                     }}
                   />
-                  分
+                  {m.admin_points()}
                 </label>
               </div>
             {/if}
@@ -366,7 +367,7 @@ print(json.dumps({"score": score}))
           type="button"
           onclick={addRule}
         >
-          + 新增規則
+          {m.admin_addRule()}
         </button>
       </div>
     {/if}
@@ -376,20 +377,20 @@ print(json.dumps({"score": score}))
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">自訂評分腳本</h3>
-        <p class="mt-0.5 text-xs text-muted-foreground">使用腳本自訂評分邏輯</p>
+        <h3 class="text-sm font-medium">{m.admin_customScoringScript()}</h3>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_customScoringScriptDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={scriptEnabled} />
     </div>
     {#if scriptEnabled}
       <div class="mt-4 space-y-3">
         <div class="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-          &#9888; 啟用後將覆蓋上方規則
+          &#9888; {m.admin_scriptOverrideWarning()}
         </div>
 
         <div class="flex items-center gap-3">
           <label class="text-sm text-muted-foreground">
-            語言
+            {m.admin_language()}
             <select
               class="{inputClassName} mt-0 inline-block w-auto"
               bind:value={scoringLanguage}
@@ -399,7 +400,7 @@ print(json.dumps({"score": score}))
             </select>
           </label>
           <label class="text-sm text-muted-foreground">
-            超時
+            {m.admin_timeout()}
             <input
               class="{inputClassName} mt-0 inline-block w-24"
               type="number"
@@ -415,7 +416,7 @@ print(json.dumps({"score": score}))
             type="button"
             onclick={() => { scoringScript = defaultScoringTemplate; scoringLanguage = "python"; }}
           >
-            載入預設模板
+            {m.admin_loadDefaultTemplate()}
           </button>
         </div>
 
@@ -437,15 +438,15 @@ print(json.dumps({"score": score}))
       onclick={() => void handleSave()}
     >
       {#if saving}
-        儲存中...
+        {m.admin_saving()}
       {:else}
-        儲存評分設定
+        {m.admin_saveScoringConfig()}
       {/if}
     </button>
     {#if saveMessage === "saved"}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">已儲存</span>
+      <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
     {:else if saveMessage === "error"}
-      <span class="text-sm text-red-600 dark:text-red-400">儲存失敗</span>
+      <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
     {/if}
   </div>
 </div>
