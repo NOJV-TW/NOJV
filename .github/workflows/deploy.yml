@@ -23,7 +23,6 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     timeout-minutes: 45
-
     steps:
       - name: Check out passed commit
         uses: actions/checkout@v6
