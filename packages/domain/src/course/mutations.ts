@@ -22,9 +22,6 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
 import { requireProblem, assertCourseProblemAccess } from "../problem/mutations";
 
-/** @deprecated Use {@link ActorContext} from `../shared/actor-context` instead. */
-export type CompletedActorContext = ActorContext;
-
 // ─── Course helpers ─────────────────────────────────────────────────
 
 export async function requireCourse(tx: TransactionClient, courseSlug: string) {
@@ -57,7 +54,7 @@ export async function requireCourseAssessment(
 
 // ─── Course mutations ───────────────────────────────────────────────
 
-export async function createCourseRecord(actor: CompletedActorContext, payload: CourseCreate) {
+export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
   return runTransaction(async (tx) => {
     const existing = await courseRepo.withTx(tx).findBySlug(payload.slug);
 
@@ -113,7 +110,7 @@ export async function createCourseRecord(actor: CompletedActorContext, payload: 
 }
 
 export async function attachProblemToCourseRecord(
-  actor: CompletedActorContext,
+  actor: ActorContext,
   payload: CourseProblemAttach
 ) {
   return runTransaction(async (tx) => {
@@ -137,10 +134,7 @@ export async function attachProblemToCourseRecord(
   });
 }
 
-export async function joinCourseRecord(
-  actor: CompletedActorContext,
-  payload: CourseJoinRequest
-) {
+export async function joinCourseRecord(actor: ActorContext, payload: CourseJoinRequest) {
   return runTransaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
     const course = await requireCourse(tx, payload.courseSlug);
@@ -193,7 +187,7 @@ export async function joinCourseRecord(
 }
 
 export async function manuallyEnrollCourseMember(
-  actor: CompletedActorContext,
+  actor: ActorContext,
   payload: ManualCourseEnrollment
 ) {
   return runTransaction(async (tx) => {
@@ -231,7 +225,7 @@ export async function manuallyEnrollCourseMember(
 }
 
 export async function createCourseAssessmentRecord(
-  actor: CompletedActorContext,
+  actor: ActorContext,
   payload: CourseAssessmentCreate
 ) {
   return runTransaction(async (tx) => {

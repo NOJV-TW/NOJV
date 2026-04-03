@@ -69,6 +69,7 @@ export async function createProblemDefinition(
 ) {
   // Cast needed: generated Prisma client is stale and missing pipeline fields.
   // TODO: remove cast after running `pnpm db:generate`
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const problem = await problemRepo.withTx(tx).create({
     authorId: input.authorId ?? null,
     checkerScript: input.checkerScript ?? null,
