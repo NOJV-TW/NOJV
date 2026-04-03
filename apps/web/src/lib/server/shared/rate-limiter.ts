@@ -1,21 +1,25 @@
+import { dev } from "$app/environment";
 import { fail } from "@sveltejs/kit";
 import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
 
+// In dev/test, use generous limits to avoid E2E test flakiness
+const multiplier = dev ? 10 : 1;
+
 // General API rate limiter: 60 requests per minute per IP
 export const apiRateLimiter = new RateLimiterMemory({
-  points: 60,
+  points: 60 * multiplier,
   duration: 60
 });
 
 // Stricter limiter for write API endpoints (POST): 10 requests per minute per IP
 export const writeApiRateLimiter = new RateLimiterMemory({
-  points: 10,
+  points: 10 * multiplier,
   duration: 60
 });
 
 // Form action rate limiter: 20 requests per minute per IP
 const formActionRateLimiter = new RateLimiterMemory({
-  points: 20,
+  points: 20 * multiplier,
   duration: 60
 });
 
