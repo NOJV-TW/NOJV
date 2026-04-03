@@ -93,6 +93,7 @@
   "admin_visibility": "Visibility",
   "admin_visibilityPrivate": "Private",
   "admin_visibilityPublic": "Public",
+  "admin_helpVisibility": "Public: visible in problem list, anyone can submit.\nPrivate: only the author, admins, and course members with access can view and submit.",
   "admin_helpJudgeType": "Standard: compare output exactly.\nChecker: use a custom script to validate output.\nInteractive: the judge communicates with the submission via stdin/stdout.",
   "admin_helpCheckerScript": "The checker receives 3 file paths as arguments: sys.argv[1] = input data, sys.argv[2] = expected output, sys.argv[3] = contestant output. Print AC/WA and exit with code 0/1.",
   "admin_helpInteractorScript": "The interactor communicates with the submission via stdin/stdout. Read contestant output from stdin, write test input to stdout. Remember to flush after each write.",

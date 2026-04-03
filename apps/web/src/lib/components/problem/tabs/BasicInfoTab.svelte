@@ -5,6 +5,7 @@
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
   import TagInput from "$lib/components/ui/TagInput.svelte";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
@@ -62,7 +63,7 @@
         {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{$errors.difficulty}</span>{/if}
       </label>
       <label class="text-sm text-muted-foreground">
-        {m.admin_visibility()}
+        <span>{m.admin_visibility()} <HelpTooltip text={m.admin_helpVisibility()} /></span>
         <select
           class={inputClassName}
           bind:value={$form.visibility}
