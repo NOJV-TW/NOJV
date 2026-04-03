@@ -204,16 +204,5 @@ export const actions: Actions = {
     await updateProblemRecord(actor, slug, { judgeConfig: parsed.data });
 
     return { success: true };
-  },
-
-  publish: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
-    const actor = requireAuth(event);
-    const slug = event.params.slug;
-    await updateProblemRecord(actor, slug, { status: "published" });
-
-    return { success: true };
   }
 };

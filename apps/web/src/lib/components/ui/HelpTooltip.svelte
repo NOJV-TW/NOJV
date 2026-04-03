@@ -12,7 +12,7 @@
 <Tooltip.Provider delayDuration={200}>
   <Tooltip.Root>
     <Tooltip.Trigger
-      class="inline-flex cursor-help items-center align-middle text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+      class="inline-flex cursor-help items-center text-muted-foreground/60 hover:text-muted-foreground transition-colors"
       type="button"
       onclick={(e: MouseEvent) => e.preventDefault()}
     >
