@@ -138,23 +138,21 @@
     </div>
 
     <!-- Submit -->
-    <button
-      class="mt-2 inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={$submitting}
-      type="submit"
-    >
-      {#if $submitting}
-        {m.admin_updating()}
-      {:else}
-        {m.admin_updateProblem()}
+    <div class="mt-2 flex items-center justify-end gap-3">
+      {#if $formMessage}
+        <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
       {/if}
-    </button>
-    {#if $formMessage}
-      <div
-        class="rounded-2xl border border-emerald-300 dark:border-emerald-700 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400"
+      <button
+        class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={$submitting}
+        type="submit"
       >
-        {$formMessage}
-      </div>
-    {/if}
+        {#if $submitting}
+          {m.common_saving()}
+        {:else}
+          {m.common_saveSettings()}
+        {/if}
+      </button>
+    </div>
   </form>
 </section>
