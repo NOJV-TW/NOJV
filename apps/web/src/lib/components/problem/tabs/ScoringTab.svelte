@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
   import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   import type { SubtaskScoringStrategy, ScoringRule } from "@nojv/core";
 
   interface Props {
@@ -147,7 +148,7 @@ print(json.dumps({"score": score}))
 <div class="space-y-4">
   <!-- Section 1: Subtask Scoring -->
   <div class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-medium">{m.admin_subtaskScoringStrategy()}</h3>
+    <h3 class="text-sm font-medium">{m.admin_subtaskScoringStrategy()} <HelpTooltip text={m.admin_helpScoringStrategy()} /></h3>
     <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_subtaskScoringStrategyDesc()}</p>
 
     {#if testcaseSets.filter((s) => s.weight > 0).length === 0}
@@ -223,6 +224,7 @@ print(json.dumps({"score": score}))
             </div>
 
             {#if rule.type === "late_penalty_fixed"}
+              <div class="mb-1 text-xs text-muted-foreground"><HelpTooltip text={m.admin_helpLatePenaltyFixed()} /></div>
               <div class="flex flex-wrap items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
                   {m.admin_per()}
@@ -273,6 +275,7 @@ print(json.dumps({"score": score}))
                 </label>
               </div>
             {:else if rule.type === "late_penalty_decay"}
+              <div class="mb-1 text-xs text-muted-foreground"><HelpTooltip text={m.admin_helpLatePenaltyDecay()} /></div>
               <div class="flex items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
                   {m.admin_halfLife()}
@@ -292,6 +295,7 @@ print(json.dumps({"score": score}))
                 </label>
               </div>
             {:else if rule.type === "time_bonus"}
+              <div class="mb-1 text-xs text-muted-foreground"><HelpTooltip text={m.admin_helpTimeBonus()} /></div>
               <div class="flex flex-wrap items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
                   {m.admin_maxBonus()}
@@ -326,6 +330,7 @@ print(json.dumps({"score": score}))
                 </label>
               </div>
             {:else if rule.type === "memory_penalty"}
+              <div class="mb-1 text-xs text-muted-foreground"><HelpTooltip text={m.admin_helpMemoryPenalty()} /></div>
               <div class="flex flex-wrap items-center gap-3 text-sm">
                 <label class="text-muted-foreground">
                   {m.admin_threshold()}
@@ -377,7 +382,7 @@ print(json.dumps({"score": score}))
   <div class="rounded-2xl border border-border p-4">
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium">{m.admin_customScoringScript()}</h3>
+        <h3 class="text-sm font-medium">{m.admin_customScoringScript()} <HelpTooltip text={m.admin_helpCustomScoringScript()} /></h3>
         <p class="mt-0.5 text-xs text-muted-foreground">{m.admin_customScoringScriptDesc()}</p>
       </div>
       <ToggleSwitch bind:checked={scriptEnabled} />
@@ -430,23 +435,25 @@ print(json.dumps({"score": score}))
   </div>
 
   <!-- Save Button -->
-  <div class="flex items-center gap-3">
-    <button
-      class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={saving}
-      type="button"
-      onclick={() => void handleSave()}
-    >
-      {#if saving}
-        {m.admin_saving()}
-      {:else}
-        {m.admin_saveScoringConfig()}
+  <div class="mt-2 flex justify-end">
+    <div class="flex items-center gap-3">
+      <button
+        class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={saving}
+        type="button"
+        onclick={() => void handleSave()}
+      >
+        {#if saving}
+          {m.common_saving()}
+        {:else}
+          {m.common_saveSettings()}
+        {/if}
+      </button>
+      {#if saveMessage === "saved"}
+        <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
+      {:else if saveMessage === "error"}
+        <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
       {/if}
-    </button>
-    {#if saveMessage === "saved"}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
-    {:else if saveMessage === "error"}
-      <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
-    {/if}
+    </div>
   </div>
 </div>

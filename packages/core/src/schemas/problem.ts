@@ -20,10 +20,10 @@ export const problemTemplateSchema = z.object({
 
 export const problemCreateSchema = z.object({
   difficulty: problemDifficultySchema,
-  inputFormat: z.string().trim().max(4_000).default(""),
+  inputFormat: z.string().trim().min(1).max(4_000),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
-  outputFormat: z.string().trim().max(4_000).default(""),
-  slug: slugSchema,
+  outputFormat: z.string().trim().min(1).max(4_000),
+  slug: slugSchema.or(z.literal("")).default(""),
   statement: z.string().trim().min(16).max(12_000),
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),

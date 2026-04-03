@@ -52,11 +52,11 @@ services:
     ports:
       - "7233:7233"
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 30s
+      retries: 15
+      start_period: 60s
 
   temporal-ui:
     image: temporalio/ui:2.38.2
@@ -68,6 +68,18 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
     ports:
       - "8080:8080"
+
+  migrator:
+    profiles: ["deploy"]
+    build:
+      context: .
+      dockerfile: infra/docker/migrator.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nojv
+    restart: "no"
 
   web:
     profiles: ["prod"]
