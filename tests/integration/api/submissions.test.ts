@@ -7,7 +7,9 @@ import {
   testPrisma
 } from "../../fixtures/factories";
 
-import { getSubmissionForUser, listProblemSubmissions } from "$lib/server/submission/queries";
+import { submissionDomain } from "@nojv/domain";
+
+const { getSubmissionForUser, listProblemSubmissions } = submissionDomain;
 import { NotFoundError } from "$lib/server/auth";
 
 describe("submission queries (real DB)", () => {

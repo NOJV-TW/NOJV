@@ -8,8 +8,10 @@ import {
   testPrisma
 } from "../../fixtures/factories";
 
-import { listProblemCards, getProblemPageData } from "$lib/server/problem/queries";
-import { getCoursePageData, listCourseCards } from "$lib/server/course/queries";
+import { problemDomain, courseDomain } from "@nojv/domain";
+
+const { listProblemCards, getProblemPageData } = problemDomain;
+const { getCoursePageData, listCourseCards } = courseDomain;
 
 describe("read model (real DB)", () => {
   // --- listProblemCards ---
