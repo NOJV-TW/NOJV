@@ -1,16 +1,9 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import { Tooltip } from "bits-ui";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     activeTab?: string;
-    disabledTabs?: string[];
-    disabledTooltip?: string;
-    canPublish?: boolean;
-    showPublish?: boolean;
-    publishing?: boolean;
-    onpublish?: () => void;
     basic?: Snippet;
     submission?: Snippet;
     testcase?: Snippet;
@@ -20,12 +13,6 @@
 
   let {
     activeTab = $bindable("basic"),
-    disabledTabs = [],
-    disabledTooltip = m.admin_tabDisabledTooltip(),
-    canPublish = false,
-    showPublish = false,
-    publishing = false,
-    onpublish,
     basic,
     submission,
     testcase,
@@ -43,84 +30,22 @@
 </script>
 
 <div>
-  <nav class="flex items-center border-b border-border mb-6">
-    <div class="flex gap-1">
-      {#each tabs as tab (tab.id)}
-        {@const disabled = disabledTabs.includes(tab.id)}
-        {#if disabled}
-          <Tooltip.Provider delayDuration={200}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                class="px-4 py-2.5 text-sm font-medium relative text-muted-foreground/40 cursor-not-allowed"
-                type="button"
-                onclick={(e: MouseEvent) => e.preventDefault()}
-              >
-                {tab.label}
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  class="z-50 max-w-xs rounded-xl border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
-                  sideOffset={4}
-                >
-                  {disabledTooltip}
-                  <Tooltip.Arrow class="fill-popover stroke-border" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        {:else}
-          <button
-            class="px-4 py-2.5 text-sm font-medium transition-colors relative
-              {activeTab === tab.id
-                ? 'text-primary'
-                : 'text-muted-foreground hover:text-foreground'}"
-            onclick={() => (activeTab = tab.id)}
-            type="button"
-          >
-            {tab.label}
-            {#if activeTab === tab.id}
-              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></span>
-            {/if}
-          </button>
+  <nav class="flex gap-1 border-b border-border mb-6">
+    {#each tabs as tab (tab.id)}
+      <button
+        class="px-4 py-2.5 text-sm font-medium transition-colors relative
+          {activeTab === tab.id
+            ? 'text-primary'
+            : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => (activeTab = tab.id)}
+        type="button"
+      >
+        {tab.label}
+        {#if activeTab === tab.id}
+          <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></span>
         {/if}
-      {/each}
-    </div>
-
-    {#if showPublish}
-      <div class="ml-auto">
-        {#if canPublish}
-          <button
-            class="rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={publishing}
-            type="button"
-            onclick={() => onpublish?.()}
-          >
-            {publishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
-          </button>
-        {:else}
-          <Tooltip.Provider delayDuration={200}>
-            <Tooltip.Root>
-              <Tooltip.Trigger
-                class="rounded-full bg-muted px-4 py-1.5 text-sm font-semibold text-muted-foreground/50 cursor-not-allowed"
-                type="button"
-                onclick={(e: MouseEvent) => e.preventDefault()}
-              >
-                {m.admin_publishProblem()}
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  class="z-50 max-w-xs rounded-xl border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
-                  sideOffset={4}
-                >
-                  {m.admin_publishTooltip()}
-                  <Tooltip.Arrow class="fill-popover stroke-border" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          </Tooltip.Provider>
-        {/if}
-      </div>
-    {/if}
+      </button>
+    {/each}
   </nav>
 
   {#if activeTab === "basic" && basic}
