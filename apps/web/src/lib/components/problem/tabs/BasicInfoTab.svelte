@@ -1,159 +1,229 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm } from "sveltekit-superforms";
+  import * as Select from "$lib/components/ui/select";
   import { m } from "$lib/paraglide/messages.js";
-  import type { ProblemDetail } from "$lib/types";
-  import { inputClassName, monoTextareaClassName } from "$lib/utils";
+  import { inputClassName } from "$lib/utils";
   import TagInput from "$lib/components/ui/TagInput.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
   interface Props {
-    problem: ProblemDetail;
-    formData: any;
+    formData: unknown;
+    mode?: "create" | "edit";
+    problemSlug?: string;
+    formAction?: string;
   }
 
-  let { problem, formData }: Props = $props();
+  let {
+    formData,
+    mode = "edit",
+    problemSlug = "",
+    formAction = mode === "create" ? "?/create" : "?/update"
+  }: Props = $props();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
-    dataType: 'json',
+  const isCreate = mode === "create";
+
+  const { form, errors, submitting, message: formMessage, enhance } = superForm(
+    untrack(() => formData),
+    isCreate ? {} : { dataType: "json" }
+  );
+
+  // Tags - sync with superform store (edit mode only, create doesn't support arrays in FormData)
+  let tags = $state<string[]>($form.tags ?? []);
+  $effect(() => {
+    $form.tags = tags;
   });
 
-  // Tags - sync with superform store
-  let tags = $state<string[]>($form.tags ?? []);
-  $effect(() => { $form.tags = tags; });
+  let showAdvanced = $state(false);
+
+  // Validation message translation
+  const validationMessages: Record<string, () => string> = {
+    validation_required: m.validation_required,
+    validation_tooLong: m.validation_tooLong,
+    validation_slugTooShort: m.validation_slugTooShort,
+    validation_slugFormat: m.validation_slugFormat
+  };
+
+  function tr(err: string[] | undefined): string {
+    if (!err?.length) return "";
+    return validationMessages[err[0]]?.() ?? err[0];
+  }
+
+  // Difficulty/visibility display maps
+  const difficultyLabels: Record<string, () => string> = {
+    easy: m.admin_difficultyEasy,
+    medium: m.admin_difficultyMedium,
+    hard: m.admin_difficultyHard
+  };
+
+  const visibilityLabels: Record<string, () => string> = {
+    private: m.admin_visibilityPrivate,
+    public: m.admin_visibilityPublic
+  };
 </script>
 
-<section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-  <form class="grid gap-4" method="POST" action="?/updateBasicInfo" use:enhance>
-    <!-- Title -->
-    <label class="text-sm text-muted-foreground">
-      {m.admin_title()}
-      <input
-        class={inputClassName}
-        bind:value={$form.title}
-        required
-      />
-      {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
-    </label>
+<form class="grid gap-4" method="POST" action={formAction} use:enhance>
+  <!-- Title -->
+  <label class="text-sm text-muted-foreground">
+    <span>{m.admin_title()} <span class="text-red-500">*</span></span>
+    <input
+      class={inputClassName}
+      name="title"
+      bind:value={$form.title}
+      required
+    />
+    {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
+  </label>
 
-    <!-- Slug (readonly in edit mode) -->
+  <!-- Slug: readonly in edit, collapsible in create -->
+  {#if !isCreate && problemSlug}
     <label class="text-sm text-muted-foreground">
-      {m.admin_slug()}
+      <span>{m.admin_slug()}</span>
       <input
         class="{inputClassName} opacity-60"
-        value={problem.slug}
+        value={problemSlug}
         readonly
       />
     </label>
+  {/if}
 
-    <!-- Difficulty + Visibility -->
-    <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-sm text-muted-foreground">
-        {m.admin_difficulty()}
-        <select
-          class={inputClassName}
-          bind:value={$form.difficulty}
-        >
-          <option value="easy">easy</option>
-          <option value="medium">medium</option>
-          <option value="hard">hard</option>
-        </select>
-        {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{$errors.difficulty}</span>{/if}
-      </label>
-      <label class="text-sm text-muted-foreground">
-        <span>{m.admin_visibility()} <HelpTooltip text={m.admin_helpVisibility()} /></span>
-        <select
-          class={inputClassName}
-          bind:value={$form.visibility}
-        >
-          <option value="private">private</option>
-          <option value="public">public</option>
-        </select>
-        {#if $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{$errors.visibility}</span>{/if}
-      </label>
-    </div>
-
-    <!-- Status -->
-    <label class="text-sm text-muted-foreground">
-      {m.admin_status()}
-      <select
-        class={inputClassName}
-        bind:value={$form.status}
+  <!-- Difficulty + Visibility -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <div class="space-y-1.5">
+      <span class="text-sm text-muted-foreground">{m.admin_difficulty()} <span class="text-red-500">*</span></span>
+      <Select.Root
+        type="single"
+        name="difficulty"
+        value={$form.difficulty}
+        onValueChange={(v) => { $form.difficulty = v; }}
       >
-        <option value="draft">draft</option>
-        <option value="published">published</option>
-      </select>
-      {#if $errors.status}<span class="text-sm text-red-700 dark:text-red-400">{$errors.status}</span>{/if}
-    </label>
+        <Select.Trigger class="w-full">
+          {difficultyLabels[$form.difficulty]?.() ?? $form.difficulty}
+        </Select.Trigger>
+        <Select.Content>
+          <Select.Item value="easy" label={m.admin_difficultyEasy()}>{m.admin_difficultyEasy()}</Select.Item>
+          <Select.Item value="medium" label={m.admin_difficultyMedium()}>{m.admin_difficultyMedium()}</Select.Item>
+          <Select.Item value="hard" label={m.admin_difficultyHard()}>{m.admin_difficultyHard()}</Select.Item>
+        </Select.Content>
+      </Select.Root>
+      {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.difficulty)}</span>{/if}
+    </div>
+    <div class="space-y-1.5">
+      <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
+      <Select.Root
+        type="single"
+        name="visibility"
+        value={$form.visibility}
+        onValueChange={(v) => { $form.visibility = v; }}
+      >
+        <Select.Trigger class="w-full">
+          {visibilityLabels[$form.visibility]?.() ?? $form.visibility}
+        </Select.Trigger>
+        <Select.Content>
+          <Select.Item value="private" label={m.admin_visibilityPrivate()}>{m.admin_visibilityPrivate()}</Select.Item>
+          <Select.Item value="public" label={m.admin_visibilityPublic()}>{m.admin_visibilityPublic()}</Select.Item>
+        </Select.Content>
+      </Select.Root>
+      {#if $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.visibility)}</span>{/if}
+    </div>
+  </div>
 
-    <!-- Tags -->
+  <!-- Statement -->
+  <label class="text-sm text-muted-foreground">
+    <span>{m.admin_statement()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_statementTooltip()} /></span>
+    <textarea
+      class="{textareaClassName} min-h-40"
+      name="statement"
+      bind:value={$form.statement}
+      required
+    ></textarea>
+    {#if $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
+  </label>
+
+  <!-- Input / Output Format -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <label class="text-sm text-muted-foreground">
+      <span>{m.admin_inputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
+      <textarea
+        class={textareaClassName}
+        name="inputFormat"
+        bind:value={$form.inputFormat}
+        required
+      ></textarea>
+      {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
+    </label>
+    <label class="text-sm text-muted-foreground">
+      <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
+      <textarea
+        class={textareaClassName}
+        name="outputFormat"
+        bind:value={$form.outputFormat}
+        required
+      ></textarea>
+      {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
+    </label>
+  </div>
+
+  <!-- Tags (edit mode) / Advanced (create mode) -->
+  {#if !isCreate}
     <div class="text-sm text-muted-foreground">
       <span>{m.admin_tags()}</span>
       <div class="mt-2">
         <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
       </div>
-      {#if $errors.tags}<span class="text-sm text-red-700 dark:text-red-400">{$errors.tags}</span>{/if}
     </div>
+  {/if}
 
-    <!-- Summary -->
-    <label class="text-sm text-muted-foreground">
-      {m.admin_summary()}
-      <textarea
-        class={textareaClassName}
-        bind:value={$form.summary}
-      ></textarea>
-      {#if $errors.summary}<span class="text-sm text-red-700 dark:text-red-400">{$errors.summary}</span>{/if}
-    </label>
-
-    <!-- Statement -->
-    <label class="text-sm text-muted-foreground">
-      {m.admin_statement()}
-      <textarea
-        class="{textareaClassName} min-h-40"
-        bind:value={$form.statement}
-        required
-      ></textarea>
-      {#if $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{$errors.statement}</span>{/if}
-    </label>
-
-    <!-- Input / Output Format -->
-    <div class="grid gap-4 md:grid-cols-2">
-      <label class="text-sm text-muted-foreground">
-        {m.admin_inputFormat()}
-        <textarea
-          class={textareaClassName}
-          bind:value={$form.inputFormat}
-        ></textarea>
-        {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.inputFormat}</span>{/if}
-      </label>
-      <label class="text-sm text-muted-foreground">
-        {m.admin_outputFormat()}
-        <textarea
-          class={textareaClassName}
-          bind:value={$form.outputFormat}
-        ></textarea>
-        {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.outputFormat}</span>{/if}
-      </label>
-    </div>
-
-    <!-- Submit -->
-    <div class="mt-2 flex items-center justify-end gap-3">
-      {#if $formMessage}
-        <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
+  <!-- Advanced Options (create: slug + summary, edit: summary only) -->
+  <button
+    type="button"
+    class="text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+    onclick={() => (showAdvanced = !showAdvanced)}
+  >
+    {showAdvanced ? "▾" : "▸"} {m.admin_advancedOptions()}
+  </button>
+  {#if showAdvanced}
+    <div class="grid gap-4">
+      {#if isCreate}
+        <label class="text-sm text-muted-foreground">
+          <span>{m.admin_slug()} <HelpTooltip text={m.admin_slugTooltip()} /></span>
+          <input
+            class={inputClassName}
+            name="slug"
+            bind:value={$form.slug}
+            placeholder={m.admin_slugPlaceholder()}
+          />
+          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.slug)}</span>{/if}
+        </label>
       {/if}
-      <button
-        class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={$submitting}
-        type="submit"
-      >
-        {#if $submitting}
-          {m.common_saving()}
-        {:else}
-          {m.common_saveSettings()}
-        {/if}
-      </button>
+      <label class="text-sm text-muted-foreground">
+        <span>{m.admin_summaryLabel()} <HelpTooltip text={m.admin_summaryTooltip()} /></span>
+        <textarea
+          class="{inputClassName} min-h-20 resize-y"
+          name="summary"
+          bind:value={$form.summary}
+        ></textarea>
+      </label>
     </div>
-  </form>
-</section>
+  {/if}
+
+  <!-- Submit -->
+  <div class="mt-2 flex items-center justify-end gap-3">
+    {#if $formMessage}
+      <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
+    {/if}
+    <button
+      class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      disabled={$submitting}
+      type="submit"
+    >
+      {#if $submitting}
+        {m.common_saving()}
+      {:else}
+        {isCreate ? m.admin_saveBasicInfo() : m.common_saveSettings()}
+      {/if}
+    </button>
+  </div>
+</form>

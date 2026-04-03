@@ -213,6 +213,12 @@
     >
       {m.problems_myProblems()}
     </button>
+    <a
+      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+      href="/problems/create"
+    >
+      + {m.problems_createNew()}
+    </a>
   {/if}
 </div>
 
