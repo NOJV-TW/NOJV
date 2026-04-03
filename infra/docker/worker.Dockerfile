@@ -9,6 +9,7 @@ WORKDIR /build
 
 # 1. Copy dependency manifests for cache-friendly install
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY tsconfig.base.json ./
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
@@ -29,7 +30,7 @@ COPY packages/domain/ packages/domain/
 COPY packages/temporal/ packages/temporal/
 COPY apps/worker/ apps/worker/
 
-RUN pnpm --filter @nojv/db db:generate
+RUN pnpm --filter @nojv/db build
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/redis build
 RUN pnpm --filter @nojv/job-dispatch build
@@ -68,8 +69,8 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./
 COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/dist/ ./packages/job-dispatch/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/package.json ./packages/job-dispatch/package.json
 
-# Prisma generated client binary (generated into packages/db local node_modules)
-COPY --from=builder --chown=appuser:nodejs /build/packages/db/node_modules/.prisma/ ./node_modules/.prisma/
+# Prisma generated client output (prisma-client generator)
+COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ ./packages/db/generated/prisma/
 
 ENV NODE_ENV=production
 EXPOSE 8080

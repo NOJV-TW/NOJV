@@ -550,51 +550,71 @@ async function compileProgram(lang: SandboxInput["language"], source: string) {
 
 describe("standard judge", () => {
   for (const [name, prog] of Object.entries(correctPrograms)) {
-    it(`AC — ${name}`, async () => {
-      if (await skipIfMissing(name)) return;
-      const result = await compileProgram(prog.language, prog.source);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-      const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-      expect(verdict.verdict).toBe("AC");
-    }, 30_000);
+    it(
+      `AC — ${name}`,
+      async () => {
+        if (await skipIfMissing(name)) return;
+        const result = await compileProgram(prog.language, prog.source);
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
+        expect(verdict.verdict).toBe("AC");
+      },
+      name === "go" ? 90_000 : 30_000
+    );
   }
 
   for (const [name, prog] of Object.entries(correctPrograms)) {
-    it(`WA — ${name}`, async () => {
-      if (await skipIfMissing(name)) return;
-      const result = await compileProgram(prog.language, prog.source);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-      const verdict = await judgeStandard(
-        result.runCommand,
-        makeTestcase({ expected: "999\n" }),
-        TIMEOUT_MS
-      );
-      expect(verdict.verdict).toBe("WA");
-    }, 30_000);
+    it(
+      `WA — ${name}`,
+      async () => {
+        if (await skipIfMissing(name)) return;
+        const result = await compileProgram(prog.language, prog.source);
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        const verdict = await judgeStandard(
+          result.runCommand,
+          makeTestcase({ expected: "999\n" }),
+          TIMEOUT_MS
+        );
+        expect(verdict.verdict).toBe("WA");
+      },
+      name === "go" ? 90_000 : 30_000
+    );
   }
 
   for (const [name, prog] of Object.entries(crashPrograms)) {
-    it(`RE — ${name}`, async () => {
-      if (await skipIfMissing(name)) return;
-      const result = await compileProgram(prog.language, prog.source);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-      const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-      expect(verdict.verdict).toBe("RE");
-    }, 30_000);
+    it(
+      `RE — ${name}`,
+      async () => {
+        if (await skipIfMissing(name)) return;
+        const result = await compileProgram(prog.language, prog.source);
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
+        expect(verdict.verdict).toBe("RE");
+      },
+      name === "go" ? 90_000 : 30_000
+    );
   }
 
   for (const [name, prog] of Object.entries(tlePrograms)) {
-    it(`TLE — ${name}`, async () => {
-      if (await skipIfMissing(name)) return;
-      const result = await compileProgram(prog.language, prog.source);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-      const verdict = await judgeStandard(result.runCommand, makeTestcase(), SHORT_TIMEOUT_MS);
-      expect(verdict.verdict).toBe("TLE");
-    }, 30_000);
+    it(
+      `TLE — ${name}`,
+      async () => {
+        if (await skipIfMissing(name)) return;
+        const result = await compileProgram(prog.language, prog.source);
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        const verdict = await judgeStandard(
+          result.runCommand,
+          makeTestcase(),
+          SHORT_TIMEOUT_MS
+        );
+        expect(verdict.verdict).toBe("TLE");
+      },
+      name === "go" ? 90_000 : 30_000
+    );
   }
 
   for (const [name, prog] of Object.entries(invalidSources)) {
@@ -608,14 +628,18 @@ describe("standard judge", () => {
   }
 
   for (const [name, prog] of Object.entries(mlePrograms)) {
-    it(`MLE — ${name}`, async () => {
-      if (await skipIfMissing(name)) return;
-      const result = await compileProgram(prog.language, prog.source);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-      const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-      expectMleVerdict(name, verdict.verdict);
-    }, 30_000);
+    it(
+      `MLE — ${name}`,
+      async () => {
+        if (await skipIfMissing(name)) return;
+        const result = await compileProgram(prog.language, prog.source);
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
+        expectMleVerdict(name, verdict.verdict);
+      },
+      name === "go" ? 90_000 : 30_000
+    );
   }
 
   it("SE — invalid command", async () => {
