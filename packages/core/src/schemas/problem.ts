@@ -20,11 +20,7 @@ export const problemTemplateSchema = z.object({
 
 export const problemCreateSchema = z.object({
   difficulty: problemDifficultySchema,
-  inputFormat: z
-    .string()
-    .trim()
-    .min(1, "validation_required")
-    .max(4_000, "validation_tooLong"),
+  inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
   outputFormat: z
     .string()
@@ -32,11 +28,7 @@ export const problemCreateSchema = z.object({
     .min(1, "validation_required")
     .max(4_000, "validation_tooLong"),
   slug: slugSchema.or(z.literal("")).default(""),
-  statement: z
-    .string()
-    .trim()
-    .min(1, "validation_required")
-    .max(12_000, "validation_tooLong"),
+  statement: z.string().trim().min(1, "validation_required").max(12_000, "validation_tooLong"),
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
@@ -47,11 +39,7 @@ export const problemCreateSchema = z.object({
     .min(100, "validation_timeLimitMin")
     .max(30_000, "validation_timeLimitMax")
     .default(1_000),
-  title: z
-    .string()
-    .trim()
-    .min(1, "validation_required")
-    .max(120, "validation_tooLong"),
+  title: z.string().trim().min(1, "validation_required").max(120, "validation_tooLong"),
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
   status: problemStatusSchema.default("draft")
