@@ -98,18 +98,22 @@
           <!-- Input/Output Format -->
           <div class="grid gap-4 md:grid-cols-2">
             <label class="text-sm text-muted-foreground">
-              <span>{m.admin_inputFormat()} <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
+              <span>{m.admin_inputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
               <textarea
                 class="{inputClassName} min-h-20 resize-y"
                 bind:value={$form.inputFormat}
+                required
               ></textarea>
+              {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.inputFormat}</span>{/if}
             </label>
             <label class="text-sm text-muted-foreground">
-              <span>{m.admin_outputFormat()} <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
+              <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
               <textarea
                 class="{inputClassName} min-h-20 resize-y"
                 bind:value={$form.outputFormat}
+                required
               ></textarea>
+              {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{$errors.outputFormat}</span>{/if}
             </label>
           </div>
 
