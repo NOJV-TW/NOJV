@@ -17,12 +17,13 @@ export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as con
 export const courseJoinMethods = ["qr_code", "join_code", "manual_invite"] as const;
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
 export const problemVisibilities = ["public", "private"] as const;
+export const problemStatuses = ["draft", "published"] as const;
 export const assessmentScoreboardModes = ["hidden", "live", "frozen"] as const;
 export const contestScoringModes = ["icpc", "ioi"] as const;
 export const courseMembershipStatuses = ["active", "invited", "pending", "removed"] as const;
 export const submissionModes = ["practice", "contest", "assignment"] as const;
 export const judgeTypes = ["standard", "checker", "interactive"] as const;
-export const submissionTypes = ["function", "full_source"] as const;
+export const submissionTypes = ["function", "full_source", "zip_project"] as const;
 export const submissionVerdicts = [
   "accepted",
   "wrong_answer",
@@ -53,6 +54,7 @@ export const effectiveCourseRoleSchema = z.enum(effectiveCourseRoles);
 export const courseJoinMethodSchema = z.enum(courseJoinMethods);
 export const problemDifficultySchema = z.enum(problemDifficulties);
 export const problemVisibilitySchema = z.enum(problemVisibilities);
+export const problemStatusSchema = z.enum(problemStatuses);
 export const assessmentScoreboardModeSchema = z.enum(assessmentScoreboardModes);
 export const contestScoringModeSchema = z.enum(contestScoringModes);
 export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
@@ -82,6 +84,7 @@ export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type AssessmentScoreboardMode = z.infer<typeof assessmentScoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
+export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
 export type SubmissionType = z.infer<typeof submissionTypeSchema>;
 

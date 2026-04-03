@@ -1,15 +1,15 @@
 import { z } from "zod";
 
 import {
-  judgeTypeSchema,
   languageSchema,
   problemDifficultySchema,
+  problemStatusSchema,
   problemVisibilitySchema,
   slugSchema,
   submissionTypeSchema
 } from "../types";
 
-import { pipelineConfigSchema, networkAccessConfigSchema } from "../pipeline";
+import { judgeConfigSchema } from "./judge-config";
 
 export const problemTemplateSchema = z.object({
   driverCode: z.string().min(1).max(200_000),
@@ -19,11 +19,8 @@ export const problemTemplateSchema = z.object({
 });
 
 export const problemCreateSchema = z.object({
-  checkerScript: z.string().max(200_000).optional(),
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().max(4_000).default(""),
-  interactorScript: z.string().max(200_000).optional(),
-  judgeType: judgeTypeSchema.default("standard"),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
   outputFormat: z.string().trim().max(4_000).default(""),
   slug: slugSchema,
@@ -35,11 +32,8 @@ export const problemCreateSchema = z.object({
   timeLimitMs: z.coerce.number().int().min(100).max(30_000).default(1_000),
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema,
-  pipelineConfig: pipelineConfigSchema.optional(),
-  scoringScript: z.string().max(200_000).optional(),
-  scoringLanguage: z.string().max(20).optional(),
-  artifactPatterns: z.array(z.string().min(1).max(500)).max(50).default([]),
-  networkAccessConfig: networkAccessConfigSchema.optional()
+  judgeConfig: judgeConfigSchema.optional(),
+  status: problemStatusSchema.default("draft"),
 });
 
 export const problemUpdateSchema = problemCreateSchema.omit({ slug: true }).partial();
