@@ -30,34 +30,38 @@ Replace 8 scattered fields with a single `judgeConfig` JSON column:
 
 const judgeConfigSchema = z.object({
   // === Core judging (required) ===
-  type: judgeTypeSchema,                             // "standard" | "checker" | "interactive"
+  type: judgeTypeSchema, // "standard" | "checker" | "interactive"
   checkerScript: z.string().max(200_000).optional(),
   interactorScript: z.string().max(200_000).optional(),
 
   // === Custom scoring (optional) ===
-  scoring: scoringConfigSchema.optional(),            // { script, language, timeoutMs }
+  scoring: scoringConfigSchema.optional(), // { script, language, timeoutMs }
 
   // === Pipeline override (optional, defaults to compile→execute→check) ===
-  pipeline: z.object({
-    stages: z.array(pipelineStageSchema).min(1).max(20),
-  }).optional(),
+  pipeline: z
+    .object({
+      stages: z.array(pipelineStageSchema).min(1).max(20)
+    })
+    .optional(),
 
   // === Advanced features (optional) ===
   staticAnalysis: staticAnalysisConfigSchema.optional(),
   artifacts: artifactConfigSchema.optional(),
-  networkAccess: networkAccessConfigSchema.optional(),
+  networkAccess: networkAccessConfigSchema.optional()
 });
 ```
 
 ### DB Changes
 
 **Problem table**:
+
 - Remove: `judgeType`, `checkerScript`, `interactorScript`, `scoringScript`, `scoringLanguage`, `artifactPatterns`, `networkAccessConfig`, `pipelineConfig`
 - Add: `judgeConfig Json?` (unified config)
 - Add: `status String` (`draft` | `published`) for draft workflow
 - Keep: `timeLimitMs`, `memoryLimitMb`, `submissionType` (execution limits, not judge logic)
 
 **SubmissionType enum**:
+
 - Add: `zip_project`
 
 **seed.ts**: Update to use new `judgeConfig` field.
@@ -74,41 +78,42 @@ No migration needed — direct schema update.
 ```
 
 **Core distinction between Tab 4 and Tab 5**:
+
 - Tab 4 (Judge) = "How to determine right/wrong" (execution layer)
 - Tab 5 (Scoring) = "How to calculate the final score" (scoring layer)
 
-| | Tab 4: Judge Settings | Tab 5: Scoring Rules |
-|---|---|---|
-| Question answered | Is this testcase AC or WA? | What is the final score? |
-| Input | Student output + expected answer | Per-testcase verdicts + metadata |
-| Output | pass/fail per testcase | 0–100 final score |
-| Example | Checker verifies image correctness | Subtask 2 all-pass = 30 pts, late penalty -10 |
+|                   | Tab 4: Judge Settings              | Tab 5: Scoring Rules                          |
+| ----------------- | ---------------------------------- | --------------------------------------------- |
+| Question answered | Is this testcase AC or WA?         | What is the final score?                      |
+| Input             | Student output + expected answer   | Per-testcase verdicts + metadata              |
+| Output            | pass/fail per testcase             | 0–100 final score                             |
+| Example           | Checker verifies image correctness | Subtask 2 all-pass = 30 pts, late penalty -10 |
 
 ### Tab 1: Basic Info
 
 Standard problem description. All users fill this.
 
-| Field | Description |
-|-------|-------------|
-| Title | Required |
-| Slug | Auto-generated from title on create, manually editable |
-| Difficulty | easy / medium / hard |
-| Visibility | public / private |
-| Tags | Multiple, space-separated |
-| Statement | Markdown editor with preview |
-| Input Format | Markdown |
-| Output Format | Markdown |
-| Summary | Short description for problem lists |
+| Field         | Description                                            |
+| ------------- | ------------------------------------------------------ |
+| Title         | Required                                               |
+| Slug          | Auto-generated from title on create, manually editable |
+| Difficulty    | easy / medium / hard                                   |
+| Visibility    | public / private                                       |
+| Tags          | Multiple, space-separated                              |
+| Statement     | Markdown editor with preview                           |
+| Input Format  | Markdown                                               |
+| Output Format | Markdown                                               |
+| Summary       | Short description for problem lists                    |
 
 ### Tab 2: Submission Settings
 
 Controls what students submit and how it gets compiled.
 
-| Field | Description |
-|-------|-------------|
+| Field           | Description                                        |
+| --------------- | -------------------------------------------------- |
 | Submission Type | `full_source` / `function` / `zip_project` (radio) |
-| Time Limit | number input, ms |
-| Memory Limit | number input, MB |
+| Time Limit      | number input, ms                                   |
+| Memory Limit    | number input, MB                                   |
 
 **Conditional sections by submission type**:
 
@@ -120,24 +125,26 @@ Controls what students submit and how it gets compiled.
 
 Full CRUD for testcases.
 
-| Section | Description |
-|---------|-------------|
-| Sample testcases | weight=0, visible to students on problem page |
-| Subtask list | Each subtask as a card: name, case count, weight |
-| Per subtask | Expand to view/edit/delete individual testcases (stdin / expected stdout) |
-| Batch upload | ZIP upload → auto-parse → preview → assign to subtasks |
-| Add subtask | Manual creation, set name and weight |
+| Section          | Description                                                               |
+| ---------------- | ------------------------------------------------------------------------- |
+| Sample testcases | weight=0, visible to students on problem page                             |
+| Subtask list     | Each subtask as a card: name, case count, weight                          |
+| Per subtask      | Expand to view/edit/delete individual testcases (stdin / expected stdout) |
+| Batch upload     | ZIP upload → auto-parse → preview → assign to subtasks                    |
+| Add subtask      | Manual creation, set name and weight                                      |
 
 ### Tab 4: Judge Settings
 
 Controls how to determine right/wrong. Everything related to execution, comparison, and analysis.
 
 **Judge Type** (top of tab):
+
 - Radio: Standard / Checker / Interactive
 - Checker selected → expand Monaco editor for checker script + language selector + "Load default template" button
 - Interactive selected → expand Monaco editor for interactor script + language selector + "Load default template" button
 
 **Static Analysis** (toggle, off by default):
+
 - Banned functions: tag-style input
 - Banned imports: tag-style input
 - Banned patterns: list with regex support
@@ -145,15 +152,18 @@ Controls how to determine right/wrong. Everything related to execution, comparis
 - On lint failure: fail submission / warn only
 
 **Artifact Collection** (toggle, off by default):
+
 - Collection patterns: list (e.g., `*.bmp`, `output/*`)
 - Max total size: number input, MB
 
 **Network Access** (toggle, off by default):
+
 - Firewall rules: list of `{ allow, ports, protocol }`
 - Sidecar services: list of `{ image, port, env, readinessPath, memoryMb }`
 - Log traffic: checkbox
 
 **Custom Pipeline Stages** (toggle, off by default):
+
 - Add custom scripts that run at specific points
 - Per script: name, runAt (`before-compile` / `after-compile` / `after-check`), language, Monaco editor
 
@@ -162,6 +172,7 @@ Controls how to determine right/wrong. Everything related to execution, comparis
 Controls how the final score is calculated after judging.
 
 **Subtask Scoring** (always visible, synced from Tab 3):
+
 - Per subtask: name, weight, scoring strategy dropdown
   - All-or-nothing: all testcases must pass to earn points
   - Proportional: pass 3/5 = 60% of subtask score
@@ -169,6 +180,7 @@ Controls how the final score is calculated after judging.
 - Formula preview: `score = 0×S1 + 30×S2 + 70×S3 = 0~100`
 
 **Score Adjustments** (toggle, off by default):
+
 - Stackable rules, applied in order
 - Rule types:
   - Late penalty (fixed per day/week, or proportional decay)
@@ -177,6 +189,7 @@ Controls how the final score is calculated after judging.
 - Each rule shows formula preview
 
 **Advanced: Custom Scoring Script** (toggle, off by default):
+
 - Warning: "Enabling this overrides all rules above"
 - Language selector + timeout
 - Monaco editor
@@ -242,10 +255,10 @@ Submission UI adapts based on `submissionType`:
 
 ## Usage Patterns
 
-| User | Typical flow |
-|------|-------------|
-| Teacher (simple problem) | Tab 1 + Tab 3 only, everything else uses defaults |
-| Teacher (checker problem) | Tab 1 + Tab 3 + Tab 4 (judge type = checker) |
-| Teacher (with late penalty) | Tab 1 + Tab 3 + Tab 5 (score adjustments) |
-| Advanced (code review) | Tab 1 + Tab 2 + Tab 3 + Tab 4 (static analysis on) |
-| Advanced (full pipeline) | All 5 tabs |
+| User                        | Typical flow                                       |
+| --------------------------- | -------------------------------------------------- |
+| Teacher (simple problem)    | Tab 1 + Tab 3 only, everything else uses defaults  |
+| Teacher (checker problem)   | Tab 1 + Tab 3 + Tab 4 (judge type = checker)       |
+| Teacher (with late penalty) | Tab 1 + Tab 3 + Tab 5 (score adjustments)          |
+| Advanced (code review)      | Tab 1 + Tab 2 + Tab 3 + Tab 4 (static analysis on) |
+| Advanced (full pipeline)    | All 5 tabs                                         |

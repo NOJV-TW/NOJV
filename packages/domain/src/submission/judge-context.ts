@@ -66,7 +66,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
 
   const { problem } = submission;
-  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? { type: "standard" as const };
+  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? {
+    type: "standard" as const
+  };
 
   const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
     id: ts.id,

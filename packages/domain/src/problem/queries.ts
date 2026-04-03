@@ -6,6 +6,7 @@ import {
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
+  type ProblemStatus,
   type ProblemVisibility,
   type SubmissionType
 } from "@nojv/core";
@@ -31,6 +32,7 @@ export interface ProblemDetail {
   slug: string;
   starterByLanguage: Record<string, string>;
   statement: string;
+  status: ProblemStatus;
   submissionType: SubmissionType;
   summary: string;
   tags: string[];
@@ -188,6 +190,7 @@ function mapPersistedProblemDetail(
         stdin: string;
       }[];
     }[];
+    status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
   },
@@ -205,7 +208,9 @@ function mapPersistedProblemDetail(
   const submissionType = parseSubmissionType(problem.submissionType);
   const problemTemplates = problem.templates ?? [];
 
-  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? { type: "standard" as const };
+  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? {
+    type: "standard" as const
+  };
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
@@ -220,6 +225,7 @@ function mapPersistedProblemDetail(
     slug: problem.slug,
     starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),
     statement: localized.statement,
+    status: (problem.status as ProblemStatus) ?? "published",
     submissionType,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     tags: problem.tags ?? [],

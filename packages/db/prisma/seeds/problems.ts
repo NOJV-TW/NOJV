@@ -92,7 +92,9 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
         throw new Error(`Checker judge requires checkerScript in judgeConfig: ${def.slug}`);
       }
       if (config.type === "interactive" && !(config.interactorScript as string)?.trim()) {
-        throw new Error(`Interactive judge requires interactorScript in judgeConfig: ${def.slug}`);
+        throw new Error(
+          `Interactive judge requires interactorScript in judgeConfig: ${def.slug}`
+        );
       }
     }
   }

@@ -41,22 +41,22 @@ export const scoringRuleSchema = z.discriminatedUnion("type", [
     type: z.literal("late_penalty_fixed"),
     perUnit: z.enum(["day", "week"]),
     amount: z.number().min(0).max(100),
-    maxDeduction: z.number().min(0).max(100),
+    maxDeduction: z.number().min(0).max(100)
   }),
   z.object({
     type: z.literal("late_penalty_decay"),
-    halfLifeHours: z.number().min(1).max(8760),
+    halfLifeHours: z.number().min(1).max(8760)
   }),
   z.object({
     type: z.literal("time_bonus"),
     maxBonusPercent: z.number().min(0).max(100),
-    baselineMs: z.number().min(0),
+    baselineMs: z.number().min(0)
   }),
   z.object({
     type: z.literal("memory_penalty"),
     thresholdMb: z.number().min(0),
-    maxDeduction: z.number().min(0).max(100),
-  }),
+    maxDeduction: z.number().min(0).max(100)
+  })
 ]);
 
 export type ScoringRule = z.infer<typeof scoringRuleSchema>;
@@ -64,7 +64,7 @@ export type ScoringRule = z.infer<typeof scoringRuleSchema>;
 export const subtaskScoringStrategySchema = z.enum([
   "all_or_nothing",
   "proportional",
-  "minimum",
+  "minimum"
 ]);
 
 export type SubtaskScoringStrategy = z.infer<typeof subtaskScoringStrategySchema>;
@@ -79,7 +79,7 @@ export const scoringConfigSchema = z.object({
 
   // Rules mode
   subtaskStrategies: z.record(z.string(), subtaskScoringStrategySchema).optional(),
-  adjustmentRules: z.array(scoringRuleSchema).max(10).optional(),
+  adjustmentRules: z.array(scoringRuleSchema).max(10).optional()
 });
 
 export type ScoringConfig = z.infer<typeof scoringConfigSchema>;

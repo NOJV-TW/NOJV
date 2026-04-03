@@ -271,8 +271,7 @@ export async function updateProblemRecord(
       updateData.artifactPatterns = payload.artifactPatterns;
     if (payload.networkAccessConfig !== undefined)
       updateData.networkAccessConfig = payload.networkAccessConfig;
-    if (payload.judgeConfig !== undefined)
-      updateData.judgeConfig = payload.judgeConfig;
+    if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);

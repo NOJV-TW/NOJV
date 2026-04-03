@@ -33,7 +33,7 @@ export const problemCreateSchema = z.object({
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
-  status: problemStatusSchema.default("draft"),
+  status: problemStatusSchema.default("draft")
 });
 
 export const problemUpdateSchema = problemCreateSchema.omit({ slug: true }).partial();
