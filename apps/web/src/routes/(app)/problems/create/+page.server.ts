@@ -25,6 +25,11 @@ export const actions: Actions = {
 
     const actor = requireAuth(event);
 
+    // Students must have verified school email; teachers/admins can always create
+    if (actor.platformRole === "student" && !actor.emailVerified) {
+      error(403, "Please verify your school email before creating problems.");
+    }
+
     const form = await superValidate(event, zod4(problemCreateSchema));
     if (!form.valid) return fail(400, { form });
 
