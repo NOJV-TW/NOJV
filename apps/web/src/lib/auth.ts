@@ -37,7 +37,6 @@ function createAuth() {
     user: {
       additionalFields: {
         disabled: { type: "boolean", defaultValue: false, input: false },
-        emailVerified: { type: "boolean", defaultValue: false, input: false },
         platformRole: { type: "string", defaultValue: "student", input: false },
         locale: { type: "string", defaultValue: "zh-TW" }
       }
