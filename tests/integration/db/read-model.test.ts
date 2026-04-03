@@ -252,7 +252,7 @@ describe("read model (real DB)", () => {
 
       const data = await getCoursePageData("read-model-course");
       expect(data).not.toBeNull();
-      expect(data!.course.id).toBe("read-model-course");
+      expect(data!.course.slug).toBe("read-model-course");
       expect(data!.course.assessments).toHaveLength(1);
       expect(data!.course.assessments[0]!.title).toBe("Midterm");
       expect(data!.course.assessments[0]!.problemIds).toContain(problem.id);
@@ -270,7 +270,7 @@ describe("read model (real DB)", () => {
 
       const cards = await listCourseCards();
       expect(cards).toHaveLength(2);
-      const slugs = cards.map((c) => c.id);
+      const slugs = cards.map((c) => c.slug);
       expect(slugs).toContain("rm-course-1");
       expect(slugs).toContain("rm-course-2");
     });
