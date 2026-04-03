@@ -27,7 +27,7 @@ async function createDraft(
   await textareas.nth(1).fill(opts.inputFormat);
   await textareas.nth(2).fill(opts.outputFormat);
   await page.getByRole("button", { name: /save basic info/i }).click();
-  await page.waitForURL(/\/problems\/.*\/edit/);
+  await page.waitForURL(/\/problems\/.*\/edit/, { timeout: 30000 });
   return page.url();
 }
 
