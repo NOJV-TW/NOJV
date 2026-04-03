@@ -1,6 +1,7 @@
 import { submissionRepo } from "@nojv/db";
 import type { Prisma } from "@nojv/db";
 import type {
+  JudgeConfig,
   JudgeType,
   NetworkAccessConfig,
   PipelineConfig,
@@ -64,14 +65,8 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
 
-  // Cast to access fields that Prisma generated types may not expose due to stale generation
-  const problem = submission.problem as typeof submission.problem & {
-    artifactPatterns: string[];
-    networkAccessConfig: unknown;
-    pipelineConfig: unknown;
-    scoringLanguage: string | null;
-    scoringScript: string | null;
-  };
+  const { problem } = submission;
+  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? { type: "standard" as const };
 
   const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
     id: ts.id,
@@ -89,16 +84,16 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   }));
 
   return {
-    artifactPatterns: problem.artifactPatterns,
-    checkerScript: problem.checkerScript,
-    interactorScript: problem.interactorScript,
-    judgeType: problem.judgeType,
+    artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
+    checkerScript: judgeConfig.checkerScript ?? null,
+    interactorScript: judgeConfig.interactorScript ?? null,
+    judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb,
-    networkAccessConfig: problem.networkAccessConfig as NetworkAccessConfig | null,
-    pipelineConfig: problem.pipelineConfig as PipelineConfig | null,
+    networkAccessConfig: (judgeConfig.networkAccess as NetworkAccessConfig) ?? null,
+    pipelineConfig: (judgeConfig.pipeline as PipelineConfig) ?? null,
     problemSlug: problem.slug,
-    scoringLanguage: problem.scoringLanguage,
-    scoringScript: problem.scoringScript,
+    scoringLanguage: judgeConfig.scoring?.language ?? null,
+    scoringScript: judgeConfig.scoring?.script ?? null,
     submissionType: problem.submissionType,
     templates: problem.templates.map((t) => ({
       driverCode: t.driverCode,

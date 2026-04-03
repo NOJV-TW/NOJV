@@ -8,7 +8,6 @@ import {
   type TransactionClient
 } from "@nojv/db";
 import type {
-  JudgeType,
   Language,
   PlatformRole,
   ProblemCreate,
@@ -39,11 +38,8 @@ export interface ProblemActorContext {
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
-  checkerScript?: string | undefined;
   difficulty: ProblemDifficulty;
   inputFormat?: string | undefined;
-  interactorScript?: string | undefined;
-  judgeType?: JudgeType | undefined;
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
   statement?: string | undefined;
@@ -53,11 +49,8 @@ export interface CreateProblemDefinitionInput {
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
-  pipelineConfig?: unknown;
-  scoringScript?: string | undefined;
-  scoringLanguage?: string | undefined;
-  artifactPatterns?: string[] | undefined;
-  networkAccessConfig?: unknown;
+  judgeConfig?: unknown;
+  status?: string | undefined;
 }
 
 // ─── Shared problem helpers ─────────────────────────────────────────
@@ -67,17 +60,12 @@ export async function createProblemDefinition(
   problemSlug: string,
   input: CreateProblemDefinitionInput
 ) {
-  // Cast needed: generated Prisma client is stale and missing pipeline fields.
-  // TODO: remove cast after running `pnpm db:generate`
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const problem = await problemRepo.withTx(tx).create({
     authorId: input.authorId ?? null,
-    checkerScript: input.checkerScript ?? null,
     defaultTitle: input.title,
     difficulty: input.difficulty,
     id: `problem_${problemSlug}`,
-    interactorScript: input.interactorScript ?? null,
-    judgeType: input.judgeType ?? "standard",
     memoryLimitMb: input.memoryLimitMb ?? 256,
     slug: problemSlug,
     submissionType: input.submissionType ?? "full_source",
@@ -85,11 +73,8 @@ export async function createProblemDefinition(
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
     visibility: input.visibility ?? "public",
-    pipelineConfig: input.pipelineConfig ?? undefined,
-    scoringScript: input.scoringScript ?? null,
-    scoringLanguage: input.scoringLanguage ?? null,
-    artifactPatterns: input.artifactPatterns ?? [],
-    networkAccessConfig: input.networkAccessConfig ?? undefined
+    judgeConfig: input.judgeConfig ?? undefined,
+    status: input.status ?? "published"
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
@@ -208,11 +193,8 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
 
     const problem = await createProblemDefinition(tx, slug, {
       authorId: author.id,
-      checkerScript: payload.checkerScript,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
-      interactorScript: payload.interactorScript,
-      judgeType: payload.judgeType,
       memoryLimitMb: payload.memoryLimitMb,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
@@ -222,11 +204,8 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
       visibility: payload.visibility,
-      pipelineConfig: payload.pipelineConfig,
-      scoringScript: payload.scoringScript,
-      scoringLanguage: payload.scoringLanguage,
-      artifactPatterns: payload.artifactPatterns,
-      networkAccessConfig: payload.networkAccessConfig
+      judgeConfig: payload.judgeConfig,
+      status: payload.status
     });
 
     if (payload.templates.length > 0) {
@@ -253,24 +232,13 @@ export async function updateProblemRecord(
     if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
     if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
     if (payload.tags !== undefined) updateData.tags = payload.tags;
-    if (payload.judgeType !== undefined) updateData.judgeType = payload.judgeType;
     if (payload.submissionType !== undefined)
       updateData.submissionType = payload.submissionType;
     if (payload.timeLimitMs !== undefined) updateData.timeLimitMs = payload.timeLimitMs;
     if (payload.memoryLimitMb !== undefined) updateData.memoryLimitMb = payload.memoryLimitMb;
-    if (payload.checkerScript !== undefined) updateData.checkerScript = payload.checkerScript;
-    if (payload.interactorScript !== undefined)
-      updateData.interactorScript = payload.interactorScript;
     if (payload.summary !== undefined) updateData.summary = payload.summary;
-    if (payload.pipelineConfig !== undefined)
-      updateData.pipelineConfig = payload.pipelineConfig;
-    if (payload.scoringScript !== undefined) updateData.scoringScript = payload.scoringScript;
-    if (payload.scoringLanguage !== undefined)
-      updateData.scoringLanguage = payload.scoringLanguage;
-    if (payload.artifactPatterns !== undefined)
-      updateData.artifactPatterns = payload.artifactPatterns;
-    if (payload.networkAccessConfig !== undefined)
-      updateData.networkAccessConfig = payload.networkAccessConfig;
+    if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
+    if (payload.status !== undefined) updateData.status = payload.status;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
