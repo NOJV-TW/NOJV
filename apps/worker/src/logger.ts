@@ -1,6 +1,6 @@
 import pino from "pino";
 
-const base = pino({ level: process.env.LOG_LEVEL || "info" });
+const base = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
 export function createLogger(context: string) {
   const child = base.child({ context });
