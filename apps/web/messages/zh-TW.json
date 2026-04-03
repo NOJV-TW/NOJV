@@ -93,6 +93,7 @@
   "admin_visibility": "可見度",
   "admin_visibilityPrivate": "私有",
   "admin_visibilityPublic": "公開",
+  "admin_helpVisibility": "公開：顯示在題目列表，任何人都可以提交。\n私有：僅作者、管理員和有權限的課程成員可以查看和提交。",
   "admin_helpJudgeType": "標準：逐字比對輸出。\n特殊評測：使用自訂腳本驗證輸出。\n互動題：評測器與提交程式透過 stdin/stdout 互動。",
   "admin_helpCheckerScript": "Checker 腳本接收 3 個檔案路徑作為參數：sys.argv[1] = 輸入資料、sys.argv[2] = 預期輸出、sys.argv[3] = 選手輸出。印出 AC/WA 並以 exit code 0/1 結束。",
   "admin_helpInteractorScript": "Interactor 透過 stdin/stdout 與提交程式溝通。從 stdin 讀取選手輸出，將測試輸入寫到 stdout。每次寫入後記得 flush。",

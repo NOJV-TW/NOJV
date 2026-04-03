@@ -66,7 +66,7 @@
               {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{$errors.difficulty}</span>{/if}
             </div>
             <div class="space-y-1.5">
-              <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span></span>
+              <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
               <Select.Root
                 type="single"
                 value={$form.visibility}
