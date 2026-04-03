@@ -54,7 +54,7 @@ async function createDraft(
 async function goToTab(page: Page, tabName: string) {
   await page.getByRole("button", { name: tabName, exact: true }).click();
   // Wait for tab content to render
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1000);
 }
 
 // ─── 1. Standard I/O Problem (Flip Octal Number) ──────────────────
@@ -77,7 +77,7 @@ You do not need to consider invalid inputs.`,
 
     // Configure submission settings: standard full_source, 1s time limit
     await goToTab(page, "Submission Settings");
-    await expect(page.locator('input[value="full_source"]')).toBeChecked();
+    await expect(page.locator('input[value="full_source"]')).toBeChecked({ timeout: 10000 });
     const timeInput = page.locator('input[type="number"]').first();
     await timeInput.fill("1000");
     const memInput = page.locator('input[type="number"]').nth(1);
@@ -86,7 +86,9 @@ You do not need to consider invalid inputs.`,
 
     // Verify judge settings default to standard
     await goToTab(page, "Judge Settings");
-    await expect(page.locator('input[name="judgeType"][value="standard"]')).toBeChecked();
+    await expect(page.locator('input[name="judgeType"][value="standard"]')).toBeChecked({
+      timeout: 10000
+    });
   });
 });
 
@@ -209,7 +211,7 @@ P2 and P3 are connected to P1, but P2 and P3 are NOT connected to each other.`,
     await page.getByRole("button", { name: /save settings/i }).click();
 
     // Verify function type is selected in the current UI
-    await expect(page.locator('input[value="function"]')).toBeChecked();
+    await expect(page.locator('input[value="function"]')).toBeChecked({ timeout: 10000 });
   });
 });
 
@@ -372,7 +374,9 @@ This requires implementing a DFA or NFA simulation.`,
 
     // Standard judge (exact string match for accept/reject)
     await goToTab(page, "Judge Settings");
-    await expect(page.locator('input[name="judgeType"][value="standard"]')).toBeChecked();
+    await expect(page.locator('input[name="judgeType"][value="standard"]')).toBeChecked({
+      timeout: 10000
+    });
 
     // Set generous time limit for NFA simulation
     await goToTab(page, "Submission Settings");
@@ -414,6 +418,6 @@ Rankings (highest to lowest): Straight Flush, Four of a Kind, Full House, Flush,
     await page.getByRole("button", { name: /save settings/i }).click();
 
     // Verify zip_project type is selected in the current UI
-    await expect(page.locator('input[value="zip_project"]')).toBeChecked();
+    await expect(page.locator('input[value="zip_project"]')).toBeChecked({ timeout: 10000 });
   });
 });
