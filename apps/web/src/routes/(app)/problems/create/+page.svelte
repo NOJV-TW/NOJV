@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { superForm } from "sveltekit-superforms";
   import * as Select from "$lib/components/ui/select";
   import { m } from "$lib/paraglide/messages.js";
@@ -10,15 +9,7 @@
   let { data } = $props();
 
   const { form, errors, submitting, enhance } = superForm(data.form, {
-    dataType: "json",
-    onResult({ result }) {
-      if (result.type === "success" && result.data) {
-        const slug = String(result.data.slug ?? "");
-        if (slug) {
-          void goto(`/problems/${slug}/edit`);
-        }
-      }
-    }
+    dataType: "json"
   });
 
   let showAdvanced = $state(false);

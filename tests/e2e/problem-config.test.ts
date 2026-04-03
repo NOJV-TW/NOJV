@@ -10,15 +10,14 @@ test.use({ storageState: teacherAuth });
 /** Create a draft problem and return the edit page URL */
 async function createDraft(page: Page, title: string): Promise<string> {
   await page.goto("/problems/create");
-  await page.getByLabel(/title/i).fill(title);
-  await page
-    .getByLabel(/statement/i)
-    .fill(
-      "This is a test problem for E2E configuration testing. " +
-        "It has enough characters to pass the minimum length validation requirement."
-    );
-  await page.getByLabel(/input format/i).fill("An integer n.");
-  await page.getByLabel(/output format/i).fill("Print n.");
+  await page.locator("form input[required]").first().fill(title);
+  const textareas = page.locator("form textarea");
+  await textareas.nth(0).fill(
+    "This is a test problem for E2E configuration testing. " +
+      "It has enough characters to pass the minimum length validation requirement."
+  );
+  await textareas.nth(1).fill("An integer n.");
+  await textareas.nth(2).fill("Print n.");
   await page.getByRole("button", { name: /save basic info/i }).click();
   await page.waitForURL(/\/problems\/.*\/edit/);
   return page.url();
@@ -26,7 +25,7 @@ async function createDraft(page: Page, title: string): Promise<string> {
 
 /** Navigate to a specific tab on the edit page */
 async function goToTab(page: Page, tabName: string) {
-  await page.getByRole("button", { name: tabName }).click();
+  await page.getByRole("button", { name: tabName, exact: true }).click();
 }
 
 // ─── Submission Type Configuration ─────────────────────────────────

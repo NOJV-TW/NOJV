@@ -21,17 +21,18 @@ async function createDraft(
   }
 ): Promise<string> {
   await page.goto("/problems/create");
-  await page.getByLabel(/title/i).fill(opts.title);
-  await page.getByLabel(/statement/i).fill(opts.statement);
-  await page.getByLabel(/input format/i).fill(opts.inputFormat);
-  await page.getByLabel(/output format/i).fill(opts.outputFormat);
+  await page.locator("form input[required]").first().fill(opts.title);
+  const textareas = page.locator("form textarea");
+  await textareas.nth(0).fill(opts.statement);
+  await textareas.nth(1).fill(opts.inputFormat);
+  await textareas.nth(2).fill(opts.outputFormat);
   await page.getByRole("button", { name: /save basic info/i }).click();
   await page.waitForURL(/\/problems\/.*\/edit/);
   return page.url();
 }
 
 async function goToTab(page: Page, tabName: string) {
-  await page.getByRole("button", { name: tabName }).click();
+  await page.getByRole("button", { name: tabName, exact: true }).click();
 }
 
 // ─── 1. Standard I/O Problem (Flip Octal Number) ──────────────────
