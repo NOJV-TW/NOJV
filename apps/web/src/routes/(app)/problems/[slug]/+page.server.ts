@@ -1,9 +1,11 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { getAssessmentContext } from "$lib/server/course/queries";
-import { getContestAllowedLanguages } from "$lib/server/contest/queries";
+import { contestDomain, courseDomain, submissionDomain } from "@nojv/domain";
 import { getProblemPageData } from "$lib/server/problem/queries";
-import { listProblemSubmissions } from "$lib/server/submission/queries";
+
+const { getAssessmentContext } = courseDomain;
+const { getContestAllowedLanguages } = contestDomain;
+const { listProblemSubmissions } = submissionDomain;
 import { assessmentPath } from "$lib/types";
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {

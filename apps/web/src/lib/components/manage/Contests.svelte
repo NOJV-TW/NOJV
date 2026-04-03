@@ -6,7 +6,8 @@
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { supportedLanguages, type AssessmentScoreboardMode, type ContestScoringMode } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
-  import type { ContestListItem } from "$lib/server/contest/queries";
+  import type { contestDomain } from "@nojv/domain";
+  type ContestListItem = contestDomain.ContestListItem;
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   interface Props {

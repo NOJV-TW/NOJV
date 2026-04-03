@@ -3,7 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
-import { prisma } from "@nojv/db";
+import { prismaAdapterClient as prisma } from "@nojv/db";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];

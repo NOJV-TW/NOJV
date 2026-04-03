@@ -4,10 +4,10 @@ import { superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import {
-  createProblemRecord,
-  createProblemTestcaseSetRecord
-} from "$lib/server/problem/mutations";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { problemDomain } from "@nojv/domain";
+
+const { createProblemRecord, createProblemTestcaseSetRecord } = problemDomain;
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.user) {
@@ -20,6 +20,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
   create: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
 
     if (actor.platformRole === "student") {
@@ -35,6 +38,9 @@ export const actions: Actions = {
   },
 
   createTestcaseSet: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     const slugField = formData.get("slug");

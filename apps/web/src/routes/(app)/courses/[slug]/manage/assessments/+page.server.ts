@@ -13,10 +13,11 @@ import { z } from "zod";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canPublishAssessment, getCoursePermissionRole, requireAuth } from "$lib/server/auth";
-import { createCourseAssessmentRecord } from "$lib/server/course/mutations";
-import { createContestRecord } from "$lib/server/contest/mutations";
-import { listCourseContests } from "$lib/server/contest/queries";
-import { contestFormSchema } from "$lib/server/contest/schemas";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { contestDomain, courseDomain } from "@nojv/domain";
+
+const { createCourseAssessmentRecord } = courseDomain;
+const { createContestRecord, listCourseContests, contestFormSchema } = contestDomain;
 
 const assessmentFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
@@ -53,6 +54,9 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
 export const actions = {
   create: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const slug = event.params.slug;
     const role = await getCoursePermissionRole(slug, actor);
@@ -91,6 +95,9 @@ export const actions = {
   },
 
   createContest: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const courseSlug = event.params.slug;
     const role = await getCoursePermissionRole(courseSlug, actor);

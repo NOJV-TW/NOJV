@@ -1,7 +1,9 @@
 import { error } from "@sveltejs/kit";
-import { prisma } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
+import { plagiarismDomain } from "@nojv/domain";
+
+const { listAssessmentPlagiarismReports, getAssessmentProblemMap } = plagiarismDomain;
 
 export const load: PageServerLoad = async ({ params, parent }) => {
   const { courseData } = await parent();
@@ -14,18 +16,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     error(404, "Assessment not found");
   }
 
-  const reports = await prisma.plagiarismReport.findMany({
-    where: { courseAssessmentId: assessment.id },
-    orderBy: { createdAt: "desc" },
-    select: {
-      completedAt: true,
-      createdAt: true,
-      id: true,
-      mossReportUrl: true,
-      results: true,
-      status: true
-    }
-  });
+  const reports = await listAssessmentPlagiarismReports(assessment.id);
 
   // Build a lookup of userId -> username/name for display
   const memberMap = new Map(
@@ -36,17 +27,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
   );
 
   // Build a lookup of problemId -> slug for display
-  const assessmentProblems = await prisma.courseAssessmentProblem.findMany({
-    where: { assessmentId: assessment.id },
-    include: { problem: { select: { id: true, slug: true, defaultTitle: true } } }
-  });
-
-  const problemMap = Object.fromEntries(
-    assessmentProblems.map((ap) => [
-      ap.problemId,
-      { slug: ap.problem.slug, title: ap.problem.defaultTitle }
-    ])
-  );
+  const problemMap = await getAssessmentProblemMap(assessment.id);
 
   return {
     assessment: { id: assessment.id, slug: assessment.slug, title: assessment.title },

@@ -30,13 +30,18 @@ RUN pnpm --filter @nojv/web build
 # 3. Production image — only the SvelteKit build output
 FROM node:24-alpine
 
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 --ingroup nodejs appuser
+
 WORKDIR /app
 
-COPY --from=builder /build/apps/web/build ./build
-COPY --from=builder /build/apps/web/package.json .
+COPY --from=builder --chown=appuser:nodejs /build/apps/web/build ./build
+COPY --from=builder --chown=appuser:nodejs /build/apps/web/package.json .
 
 ENV NODE_ENV=production
 EXPOSE 3000
+
+USER appuser
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD node -e "fetch('http://localhost:3000').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"

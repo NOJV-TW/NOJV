@@ -4,7 +4,9 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { getSubmissionForUser } from "$lib/server/submission/queries";
+import { submissionDomain } from "@nojv/domain";
+
+const { getSubmissionForUser } = submissionDomain;
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);

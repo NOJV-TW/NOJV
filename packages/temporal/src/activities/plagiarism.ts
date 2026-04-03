@@ -1,22 +1,8 @@
 import * as net from "node:net";
 
-import { prisma, type Prisma } from "@nojv/db";
+import { plagiarismDomain } from "@nojv/domain";
 
 // --- Types ---
-
-interface SimilarityPair {
-  linesMatched: number;
-  mossUrl: string;
-  problemId: string;
-  similarity1: number;
-  similarity2: number;
-  userId1: string;
-  userId2: string;
-}
-
-interface PlagiarismResults {
-  pairs: SimilarityPair[];
-}
 
 interface MossFile {
   content: string;
@@ -30,12 +16,6 @@ interface MossResult {
 type PlagiarismTargetType = "courseAssessment" | "contest";
 
 // --- Helpers ---
-
-function plagiarismTargetFilter(targetType: PlagiarismTargetType, targetId: string) {
-  return targetType === "courseAssessment"
-    ? { courseAssessmentId: targetId }
-    : { contestId: targetId };
-}
 
 const MOSS_LANGUAGE_MAP: Record<string, string> = {
   c: "c",
@@ -152,39 +132,16 @@ export async function runPlagiarismCheck(
   targetId: string,
   targetType: PlagiarismTargetType
 ): Promise<void> {
-  await prisma.plagiarismReport.update({
-    data: { status: "running" },
-    where: { id: reportId }
-  });
-
-  const report = { id: reportId };
+  await plagiarismDomain.updateReportStatus(reportId, "running");
 
   try {
-    const submissions = await prisma.submission.findMany({
-      where: {
-        ...plagiarismTargetFilter(targetType, targetId),
-        status: "accepted"
-      },
-      select: {
-        id: true,
-        language: true,
-        problemId: true,
-        score: true,
-        sourceCode: true,
-        userId: true
-      },
-      orderBy: { score: "desc" }
+    const submissions = await plagiarismDomain.fetchSubmissionsForCheck({
+      type: targetType,
+      id: targetId
     });
 
     if (submissions.length === 0) {
-      await prisma.plagiarismReport.update({
-        data: {
-          completedAt: new Date(),
-          results: { pairs: [] },
-          status: "completed"
-        },
-        where: { id: report.id }
-      });
+      await plagiarismDomain.saveResults(reportId, { pairs: [] }, null);
       return;
     }
 
@@ -216,7 +173,7 @@ export async function runPlagiarismCheck(
       group.subs.push(sub);
     }
 
-    const allPairs: SimilarityPair[] = [];
+    const allPairs: plagiarismDomain.SimilarityPair[] = [];
     let mossReportUrl: string | null = null;
     const mossUserId = process.env.MOSS_USER_ID ?? "";
 
@@ -239,7 +196,7 @@ export async function runPlagiarismCheck(
           continue;
         }
       } else {
-        resultUrl = `https://moss.stanford.edu/results/placeholder/${report.id}`;
+        resultUrl = `https://moss.stanford.edu/results/placeholder/${reportId}`;
         mossReportUrl ??= resultUrl;
       }
 
@@ -263,24 +220,9 @@ export async function runPlagiarismCheck(
       }
     }
 
-    const results = { pairs: allPairs } satisfies PlagiarismResults;
-
-    await prisma.plagiarismReport.update({
-      data: {
-        completedAt: new Date(),
-        mossReportUrl,
-        results: JSON.parse(JSON.stringify(results)) as Prisma.InputJsonValue,
-        status: "completed"
-      },
-      where: { id: report.id }
-    });
+    await plagiarismDomain.saveResults(reportId, { pairs: allPairs }, mossReportUrl);
   } catch (err) {
-    await prisma.plagiarismReport
-      .update({
-        data: { completedAt: new Date(), status: "failed" },
-        where: { id: report.id }
-      })
-      .catch(() => {});
+    await plagiarismDomain.markReportFailed(reportId).catch(() => {});
 
     throw err;
   }

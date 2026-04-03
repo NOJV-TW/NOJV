@@ -9,12 +9,11 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import {
-  updateProblemRecord,
-  updateProblemTemplates,
-  createProblemTestcaseSetRecord
-} from "$lib/server/problem/mutations";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { problemDomain } from "@nojv/domain";
 import { getProblemPageData } from "$lib/server/problem/queries";
+
+const { updateProblemRecord, updateProblemTemplates, createProblemTestcaseSetRecord } = problemDomain;
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
@@ -55,6 +54,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 export const actions: Actions = {
   update: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const slug = event.params.slug;
     const form = await superValidate(event, zod4(problemUpdateSchema));
@@ -65,6 +67,9 @@ export const actions: Actions = {
   },
 
   updateTemplates: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const slug = event.params.slug;
     const formData = await event.request.formData();
@@ -77,6 +82,9 @@ export const actions: Actions = {
   },
 
   createTestcaseSet: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const slug = event.params.slug;
     const formData = await event.request.formData();

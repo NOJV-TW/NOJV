@@ -1,5 +1,4 @@
 import type { RequestHandler } from "@sveltejs/kit";
-import { prisma } from "@nojv/db";
 
 import {
   requireApiAuth,
@@ -9,8 +8,9 @@ import {
   isCourseStaff
 } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { DEFAULT_LOCALE } from "$lib/utils";
-import { pickProblemStatement } from "$lib/server/shared/pick-problem-statement";
+import { courseDomain } from "@nojv/domain";
+
+const { getExportData } = courseDomain;
 
 function escapeCsvField(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -38,79 +38,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     });
   }
 
-  // Find course
-  const course = await prisma.course.findUnique({
-    where: { slug },
-    select: { id: true }
-  });
-  if (!course) throw new NotFoundError("Course not found.");
+  const exportData = await getExportData(slug, assessmentSlug);
+  if (!exportData) throw new NotFoundError("Course or assessment not found.");
 
-  // Find assessment
-  const assessment = await prisma.courseAssessment.findFirst({
-    where: { courseId: course.id, slug: assessmentSlug, status: "published" },
-    select: {
-      id: true,
-      problems: {
-        select: {
-          problemId: true,
-          problem: { select: { id: true, slug: true, summary: true, statements: true } }
-        },
-        orderBy: { ordinal: "asc" }
-      }
-    }
-  });
-  if (!assessment) throw new NotFoundError("Assessment not found.");
-
-  // Get problem titles
-  const problems = assessment.problems.map((p) => {
-    const localized = pickProblemStatement(
-      p.problem.statements,
-      DEFAULT_LOCALE,
-      p.problem.slug,
-      p.problem.summary
-    );
-    return { problemId: p.problem.id, title: localized.title };
-  });
-
-  // Get active students
-  const memberships = await prisma.courseMembership.findMany({
-    where: { courseId: course.id, role: "student", status: "active" },
-    select: {
-      userId: true,
-      user: { select: { username: true, name: true } }
-    },
-    orderBy: { user: { username: "asc" } }
-  });
-
-  const students = memberships.map((m) => ({
-    userId: m.userId,
-    username: m.user.username ?? m.user.name,
-    name: m.user.name
-  }));
-
-  // Get best scores via groupBy
-  const problemIds = problems.map((p) => p.problemId);
-  const studentIds = students.map((s) => s.userId);
-
-  const grouped =
-    studentIds.length > 0 && problemIds.length > 0
-      ? await prisma.submission.groupBy({
-          by: ["userId", "problemId"],
-          _max: { score: true },
-          where: {
-            courseAssessmentId: assessment.id,
-            sampleOnly: false,
-            userId: { in: studentIds },
-            problemId: { in: problemIds }
-          }
-        })
-      : [];
-
-  // Build score lookup: `userId:problemId` -> best score
-  const scoreLookup = new Map<string, number>();
-  for (const row of grouped) {
-    scoreLookup.set(`${row.userId}:${row.problemId}`, row._max.score ?? 0);
-  }
+  const { problems, students, scoreLookup } = exportData;
 
   // Generate CSV
   const headers = ["Name", "Username", ...problems.map((p) => p.title), "Total"];

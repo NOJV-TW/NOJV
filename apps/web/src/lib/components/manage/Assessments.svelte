@@ -13,7 +13,8 @@
   import { supportedLanguages, type AssessmentScoreboardMode, type Language } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
 
-  import type { CourseAssessmentRecord } from "$lib/server/course/queries";
+  import type { courseDomain } from "@nojv/domain";
+  type CourseAssessmentRecord = courseDomain.CourseAssessmentRecord;
 
   type PlagiarismStatus = "idle" | "triggering" | "pending" | "running" | "completed" | "failed";
 

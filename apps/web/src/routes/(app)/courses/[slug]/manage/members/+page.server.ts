@@ -9,7 +9,10 @@ import {
   getCoursePermissionRole,
   requireAuth
 } from "$lib/server/auth";
-import { manuallyEnrollCourseMember } from "$lib/server/course/mutations";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { courseDomain } from "@nojv/domain";
+
+const { manuallyEnrollCourseMember } = courseDomain;
 
 const enrollFormSchema = manualCourseEnrollmentSchema.omit({ courseSlug: true });
 
@@ -27,6 +30,9 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
 export const actions = {
   enroll: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
     const actor = requireAuth(event);
     const slug = event.params.slug;
     const role = await getCoursePermissionRole(slug, actor);
