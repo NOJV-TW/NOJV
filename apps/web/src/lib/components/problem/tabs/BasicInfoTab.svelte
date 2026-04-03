@@ -77,18 +77,6 @@
     {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
   </label>
 
-  <!-- Slug: readonly in edit, collapsible in create -->
-  {#if !isCreate && problemSlug}
-    <label class="text-sm text-muted-foreground">
-      <span>{m.admin_slug()}</span>
-      <input
-        class="{inputClassName} opacity-60"
-        value={problemSlug}
-        readonly
-      />
-    </label>
-  {/if}
-
   <!-- Difficulty + Visibility -->
   <div class="grid gap-4 md:grid-cols-2">
     <div class="space-y-1.5">
