@@ -20,8 +20,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   const sessionUser = locals.sessionUser;
   const canCreate =
-    !!sessionUser &&
-    (sessionUser.platformRole !== "student" || sessionUser.emailVerified);
+    !!sessionUser && (sessionUser.platformRole !== "student" || sessionUser.emailVerified);
 
   return {
     editableProblems,
