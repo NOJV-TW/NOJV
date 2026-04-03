@@ -14,6 +14,11 @@ export const load: PageServerLoad = async ({ locals }) => {
     redirect(302, "/problems");
   }
 
+  const sessionUser = locals.sessionUser;
+  if (sessionUser?.platformRole === "student" && !sessionUser.emailVerified) {
+    redirect(302, "/problems");
+  }
+
   const form = await superValidate(zod4(problemCreateSchema));
   return { form };
 };
