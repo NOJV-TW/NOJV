@@ -27,7 +27,7 @@ export const problemCreateSchema = z.object({
     .trim()
     .min(1, "validation_required")
     .max(4_000, "validation_tooLong"),
-  slug: z.string().trim().default(""),
+  slug: slugSchema.or(z.literal("")).default(""),
   statement: z.string().trim().min(1, "validation_required").max(12_000, "validation_tooLong"),
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),

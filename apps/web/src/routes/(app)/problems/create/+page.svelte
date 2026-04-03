@@ -14,7 +14,9 @@
     validation_required: m.validation_required,
     validation_tooLong: m.validation_tooLong,
     validation_timeLimitMin: m.validation_timeLimitMin,
-    validation_timeLimitMax: m.validation_timeLimitMax
+    validation_timeLimitMax: m.validation_timeLimitMax,
+    validation_slugTooShort: m.validation_slugTooShort,
+    validation_slugFormat: m.validation_slugFormat
   };
 
   function tr(err: string[] | undefined): string {

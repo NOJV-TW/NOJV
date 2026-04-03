@@ -269,6 +269,8 @@
   "common_publishing": "Publishing...",
   "common_save": "Save",
   "validation_required": "This field is required",
+  "validation_slugTooShort": "Slug must be at least 3 characters",
+  "validation_slugFormat": "Slug can only contain lowercase letters, numbers, and hyphens",
   "validation_tooLong": "This field is too long",
   "validation_timeLimitMin": "Time limit must be at least 100 ms",
   "validation_timeLimitMax": "Time limit must be at most 30000 ms",
