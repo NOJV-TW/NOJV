@@ -38,7 +38,7 @@ pnpm format               # Prettier check
 pnpm format:write         # Prettier fix
 pnpm test:unit            # Vitest unit tests
 pnpm test:integration     # Vitest integration tests
-pnpm test:e2e             # Playwright E2E tests
+pnpm test:e2e             # Playwright E2E tests (local only, not in CI)
 pnpm ci:verify            # Full CI pipeline locally
 pnpm db:generate          # Regenerate Prisma client
 pnpm db:push              # Push schema to DB (dev)
