@@ -201,7 +201,7 @@ export const courseProblemRepo = {
     return prisma.courseProblem.findMany({
       where: { courseId },
       select: {
-        problem: { select: { id: true, slug: true, summary: true, statements: true } }
+        problem: { select: { id: true, summary: true, statements: true } }
       },
       orderBy: { createdAt: "asc" }
     });

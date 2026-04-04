@@ -320,7 +320,7 @@ export async function getExportData(courseSlug: string, assessmentSlug: string) 
     const localized = pickProblemStatement(
       p.problem.statements,
       DEFAULT_LOCALE,
-      p.problem.slug,
+      p.problem.id,
       p.problem.summary
     );
     return { problemId: p.problem.id, title: localized.title };

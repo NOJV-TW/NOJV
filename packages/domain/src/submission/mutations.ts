@@ -32,7 +32,7 @@ export async function createQueuedSubmissionRecord(
   clientIp: string
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, payload.problemSlug);
+    const problem = await requireProblem(tx, payload.problemId);
     const courseContext = payload.assessment
       ? await requireCourseAssessment(
           tx,

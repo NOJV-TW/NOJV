@@ -16,7 +16,7 @@ export const contestFormSchema = z.object({
   ...ipLockFormFields,
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),
-  problemSlugsText: z.string().min(1),
+  problemIdsText: z.string().min(1),
   scoreboardMode: assessmentScoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("icpc"),
   slug: slugSchema,

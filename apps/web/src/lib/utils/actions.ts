@@ -1,11 +1,11 @@
 export async function postProblemAction(
-  problemSlug: string,
+  problemId: string,
   actionName: string,
   data: Record<string, string>
 ): Promise<void> {
   const fd = new FormData();
   for (const [key, value] of Object.entries(data)) fd.set(key, value);
-  const response = await fetch(`/problems/${problemSlug}/edit?/${actionName}`, {
+  const response = await fetch(`/problems/${problemId}/edit?/${actionName}`, {
     method: "POST",
     body: fd
   });

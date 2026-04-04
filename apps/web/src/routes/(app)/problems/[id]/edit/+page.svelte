@@ -49,7 +49,7 @@
       onpublish={handlePublish}
     >
       {#snippet basic()}
-        <BasicInfoTab formData={data.form} mode="edit" problemSlug={data.problem.slug} />
+        <BasicInfoTab formData={data.form} />
       {/snippet}
 
       {#snippet submission()}
@@ -57,7 +57,7 @@
       {/snippet}
 
       {#snippet testcase()}
-        <TestcaseTab testcaseSets={data.testcaseSets} problemSlug={data.problem.slug} />
+        <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
       {/snippet}
 
       {#snippet judge()}
