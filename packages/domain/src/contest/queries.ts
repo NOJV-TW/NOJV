@@ -34,9 +34,9 @@ export interface ContestDetailData {
   pageLockEnabled: boolean;
   participantCount: number;
   problems: {
+    id: string;
     ordinal: number;
     points: number;
-    slug: string;
     title: string;
   }[];
   scoreboardMode: AssessmentScoreboardMode;
@@ -115,9 +115,9 @@ export async function getContestDetail(contestSlug: string): Promise<ContestDeta
     pageLockEnabled: contest.pageLockEnabled,
     participantCount: contest._count.participations,
     problems: contest.problems.map((cp) => ({
+      id: cp.problem.id,
       ordinal: cp.ordinal,
       points: cp.points,
-      slug: cp.problem.slug,
       title: cp.problem.defaultTitle
     })),
     scoreboardMode: contest.scoreboardMode as AssessmentScoreboardMode,
@@ -164,9 +164,9 @@ export async function getContestWorkspaceData(
       : null,
     participantCount: contest._count.participations,
     problems: contest.problems.map((cp) => ({
+      id: cp.problem.id,
       ordinal: cp.ordinal,
       points: cp.points,
-      slug: cp.problem.slug,
       title: cp.problem.defaultTitle
     })),
     scoreboardMode: contest.scoreboardMode as AssessmentScoreboardMode,

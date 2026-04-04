@@ -2,6 +2,8 @@
 
 > Date: 2026-04-03
 > Status: Design Complete
+>
+> **Note:** After this plan was written, the Problem model's `slug` field was removed. Problems are now identified by `id` in routes (e.g., `/problems/[id]`, `/problems/[id]/edit`).
 
 ## Background
 

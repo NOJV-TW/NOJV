@@ -11,26 +11,16 @@
 
   interface Props {
     formData: unknown;
-    mode?: "create" | "edit";
-    problemSlug?: string;
-    formAction?: string;
   }
 
-  let {
-    formData,
-    mode = "edit",
-    problemSlug = "",
-    formAction = mode === "create" ? "?/create" : "?/update"
-  }: Props = $props();
-
-  const isCreate = mode === "create";
+  let { formData }: Props = $props();
 
   const { form, errors, submitting, message: formMessage, enhance } = superForm(
     untrack(() => formData),
-    isCreate ? {} : { dataType: "json" }
+    { dataType: "json" }
   );
 
-  // Tags - sync with superform store (edit mode only, create doesn't support arrays in FormData)
+  // Tags - sync with superform store
   let tags = $state<string[]>($form.tags ?? []);
   $effect(() => {
     $form.tags = tags;
@@ -41,9 +31,7 @@
   // Validation message translation
   const validationMessages: Record<string, () => string> = {
     validation_required: m.validation_required,
-    validation_tooLong: m.validation_tooLong,
-    validation_slugTooShort: m.validation_slugTooShort,
-    validation_slugFormat: m.validation_slugFormat
+    validation_tooLong: m.validation_tooLong
   };
 
   function tr(err: string[] | undefined): string {
@@ -64,7 +52,7 @@
   };
 </script>
 
-<form class="grid gap-4" method="POST" action={formAction} use:enhance>
+<form class="grid gap-4" method="POST" action="?/update" use:enhance>
   <!-- Title -->
   <label class="text-sm text-muted-foreground">
     <span>{m.admin_title()} <span class="text-red-500">*</span></span>
@@ -154,17 +142,7 @@
     </label>
   </div>
 
-  <!-- Tags (edit mode) / Advanced (create mode) -->
-  {#if !isCreate}
-    <div class="text-sm text-muted-foreground">
-      <span>{m.admin_tags()}</span>
-      <div class="mt-2">
-        <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
-      </div>
-    </div>
-  {/if}
-
-  <!-- Advanced Options (create: slug + summary, edit: summary only) -->
+  <!-- Advanced Options -->
   <button
     type="button"
     class="text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
@@ -174,18 +152,6 @@
   </button>
   {#if showAdvanced}
     <div class="grid gap-4">
-      {#if isCreate}
-        <label class="text-sm text-muted-foreground">
-          <span>{m.admin_slug()} <HelpTooltip text={m.admin_slugTooltip()} /></span>
-          <input
-            class={inputClassName}
-            name="slug"
-            bind:value={$form.slug}
-            placeholder={m.admin_slugPlaceholder()}
-          />
-          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.slug)}</span>{/if}
-        </label>
-      {/if}
       <label class="text-sm text-muted-foreground">
         <span>{m.admin_summaryLabel()} <HelpTooltip text={m.admin_summaryTooltip()} /></span>
         <textarea
@@ -194,6 +160,12 @@
           bind:value={$form.summary}
         ></textarea>
       </label>
+      <div class="text-sm text-muted-foreground">
+        <span>{m.admin_tags()}</span>
+        <div class="mt-2">
+          <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
+        </div>
+      </div>
     </div>
   {/if}
 
@@ -210,7 +182,7 @@
       {#if $submitting}
         {m.common_saving()}
       {:else}
-        {isCreate ? m.admin_saveBasicInfo() : m.common_saveSettings()}
+        {m.common_saveSettings()}
       {/if}
     </button>
   </div>

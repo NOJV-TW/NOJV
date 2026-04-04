@@ -25,7 +25,6 @@ export interface ProgressStudent {
 
 export interface ProgressProblem {
   problemId: string;
-  slug: string;
   title: string;
 }
 
@@ -77,10 +76,10 @@ export async function getStudentProgressMatrix(
       const localized = pickProblemStatement(
         p.problem.statements,
         DEFAULT_LOCALE,
-        p.problem.slug,
+        p.problem.id,
         p.problem.summary
       );
-      return { problemId: p.problem.id, slug: p.problem.slug, title: localized.title };
+      return { problemId: p.problem.id, title: localized.title };
     });
   } else {
     const courseProblems = await courseProblemRepo.findByCourseId(course.id);
@@ -89,10 +88,10 @@ export async function getStudentProgressMatrix(
       const localized = pickProblemStatement(
         cp.problem.statements,
         DEFAULT_LOCALE,
-        cp.problem.slug,
+        cp.problem.id,
         cp.problem.summary
       );
-      return { problemId: cp.problem.id, slug: cp.problem.slug, title: localized.title };
+      return { problemId: cp.problem.id, title: localized.title };
     });
   }
 

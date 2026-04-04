@@ -37,10 +37,10 @@
         </span>
       </div>
       <div class="mt-5 space-y-3">
-        {#each data.problems as problem (problem.slug)}
+        {#each data.problems as problem (problem.id)}
           <a
             class="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4 transition hover:-translate-y-0.5"
-            href="/problems/{problem.slug}?course={data.course.slug}&assessment={data.assessment.slug}"
+            href="/problems/{problem.id}?course={data.course.slug}&assessment={data.assessment.slug}"
           >
             <div>
               <p

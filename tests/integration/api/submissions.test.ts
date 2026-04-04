@@ -92,7 +92,7 @@ describe("submission queries (real DB)", () => {
         mode: "practice"
       });
 
-      const results = await listProblemSubmissions(user.id, problem.slug);
+      const results = await listProblemSubmissions(user.id, problem.id);
       expect(results).toHaveLength(2);
       expect(results.every((r) => r.id)).toBe(true);
       expect(results.every((r) => r.submittedAt)).toBe(true);
@@ -117,11 +117,11 @@ describe("submission queries (real DB)", () => {
         mode: "practice"
       });
 
-      const results = await listProblemSubmissions(user.id, problem.slug);
+      const results = await listProblemSubmissions(user.id, problem.id);
       expect(results).toHaveLength(1);
     });
 
-    it("returns empty array for nonexistent problem slug", async () => {
+    it("returns empty array for nonexistent problem id", async () => {
       const user = await createTestUser();
       const results = await listProblemSubmissions(user.id, "does-not-exist");
       expect(results).toEqual([]);
@@ -140,7 +140,7 @@ describe("submission queries (real DB)", () => {
         mode: "practice"
       });
 
-      const results = await listProblemSubmissions(user2.id, problem.slug);
+      const results = await listProblemSubmissions(user2.id, problem.id);
       expect(results).toHaveLength(0);
     });
 
@@ -167,7 +167,7 @@ describe("submission queries (real DB)", () => {
         mode: "practice"
       });
 
-      const results = await listProblemSubmissions(user.id, problem.slug);
+      const results = await listProblemSubmissions(user.id, problem.id);
       expect(results).toHaveLength(2);
       // Most recent first
       expect(results[0]!.id).toBe(sub2.id);

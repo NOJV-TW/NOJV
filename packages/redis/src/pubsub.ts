@@ -16,7 +16,6 @@ function publishEvent(channel: string, event: SSEEvent): Promise<number> {
 export async function publishVerdict(submission: {
   id: string;
   problemId: string;
-  problemSlug: string;
   score: number;
   status: string;
   userId: string;
@@ -27,8 +26,7 @@ export async function publishVerdict(submission: {
       submissionId: submission.id,
       verdict: submission.status,
       score: submission.score,
-      problemId: submission.problemId,
-      problemSlug: submission.problemSlug
+      problemId: submission.problemId
     });
   } catch {
     // Non-critical: don't fail if publish fails

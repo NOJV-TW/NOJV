@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   listWithCounts,
-  findDetailBySlug,
+  findDetailById,
   countPublic,
   count: countProblems,
   groupAcceptedByProblem,
@@ -11,7 +11,7 @@ const {
   countCourses
 } = vi.hoisted(() => ({
   listWithCounts: vi.fn(),
-  findDetailBySlug: vi.fn(),
+  findDetailById: vi.fn(),
   countPublic: vi.fn(),
   count: vi.fn(),
   groupAcceptedByProblem: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock("@nojv/db", () => ({
     count: countProblems,
     countPublic,
     listWithCounts,
-    findDetailBySlug
+    findDetailById
   },
   problemStatementRepo: {
     fullTextSearch: vi.fn().mockResolvedValue([]),
@@ -64,7 +64,7 @@ describe("DB-backed read model", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listWithCounts.mockResolvedValue([]);
-    findDetailBySlug.mockResolvedValue(null);
+    findDetailById.mockResolvedValue(null);
     countProblems.mockResolvedValue(0);
     countPublic.mockResolvedValue(0);
     groupAcceptedByProblem.mockResolvedValue([]);
@@ -80,7 +80,6 @@ describe("DB-backed read model", () => {
         defaultTitle: "Compiler Intro",
         difficulty: "easy",
         id: "prob_compiler_intro",
-        slug: "compiler-intro",
         summary: "Introductory parser warmup.",
         tags: [],
         visibility: "public"
@@ -95,7 +94,7 @@ describe("DB-backed read model", () => {
       expect.objectContaining({
         acceptanceRate: 0.5,
         difficulty: "easy",
-        slug: "compiler-intro",
+        id: "prob_compiler_intro",
         title: "Compiler Intro",
         totalSubmissions: 2
       })
@@ -120,7 +119,7 @@ describe("DB-backed read model", () => {
             {
               ordinal: 1,
               problem: {
-                slug: "compiler-intro"
+                id: "prob_compiler_intro"
               }
             }
           ],
@@ -159,7 +158,7 @@ describe("DB-backed read model", () => {
             author: {
               username: "teacher_amelia"
             },
-            slug: "compiler-intro",
+            id: "prob_compiler_intro",
             statements: [
               {
                 bodyMarkdown: "Write a recursive descent parser.",
@@ -188,7 +187,7 @@ describe("DB-backed read model", () => {
     );
     expect(detail?.problems[0]).toEqual(
       expect.objectContaining({
-        slug: "compiler-intro",
+        id: "prob_compiler_intro",
         title: "Compiler Intro"
       })
     );
@@ -202,8 +201,8 @@ describe("DB-backed read model", () => {
     expect(detail).toBeNull();
   });
 
-  it("returns null when a problem slug is not found", async () => {
-    findDetailBySlug.mockResolvedValue(null);
+  it("returns null when a problem id is not found", async () => {
+    findDetailById.mockResolvedValue(null);
 
     const detail = await getProblemPageData("nonexistent-problem", "en");
 
@@ -211,13 +210,12 @@ describe("DB-backed read model", () => {
   });
 
   it("returns problem detail with samples from visible testcase set", async () => {
-    findDetailBySlug.mockResolvedValue({
+    findDetailById.mockResolvedValue({
       _count: { submissions: 10 },
       author: { username: "admin_user" },
       defaultTitle: "A+B Problem",
       difficulty: "easy",
       id: "prob_ab",
-      slug: "a-plus-b",
       statements: [
         {
           bodyMarkdown: "Given two integers, compute their sum.",
@@ -244,7 +242,7 @@ describe("DB-backed read model", () => {
     });
     countSubmissions.mockResolvedValue(5);
 
-    const detail = await getProblemPageData("a-plus-b", "en");
+    const detail = await getProblemPageData("prob_ab", "en");
 
     expect(detail).not.toBeNull();
     expect(detail?.title).toBe("A+B Problem");
@@ -266,7 +264,6 @@ describe("DB-backed read model", () => {
         defaultTitle: "Hard Problem",
         difficulty: "hard",
         id: "prob_hard",
-        slug: "hard-problem",
         summary: "A hard problem.",
         tags: [],
         visibility: "public"
@@ -288,7 +285,6 @@ describe("DB-backed read model", () => {
         defaultTitle: "New Problem",
         difficulty: "medium",
         id: "prob_new",
-        slug: "new-problem",
         summary: "A new problem.",
         tags: [],
         visibility: "public"

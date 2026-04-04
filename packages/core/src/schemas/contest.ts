@@ -30,7 +30,7 @@ const contestCreateBaseSchema = z.object({
   ...ipLockFields,
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),
-  problemSlugs: z.array(slugSchema).min(1).max(32),
+  problemIds: z.array(slugSchema).min(1).max(32),
   scoreboardMode: assessmentScoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("icpc"),
   slug: slugSchema,

@@ -19,13 +19,13 @@ export async function seedContests(prisma: PrismaClient) {
 
   // Link problems to contests
   const contestProblemLinks = [
-    { contestId: springQualifier.id, problemSlug: "warmup-sum", ordinal: 1, points: 100 },
-    { contestId: springQualifier.id, problemSlug: "graph-docking", ordinal: 2, points: 300 }
+    { contestId: springQualifier.id, problemId: "warmup-sum", ordinal: 1, points: 100 },
+    { contestId: springQualifier.id, problemId: "graph-docking", ordinal: 2, points: 300 }
   ];
 
   for (const link of contestProblemLinks) {
     const problem = await prisma.problem.findUniqueOrThrow({
-      where: { slug: link.problemSlug }
+      where: { slug: link.problemId }
     });
 
     await prisma.contestProblem.upsert({
