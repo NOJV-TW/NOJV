@@ -289,11 +289,11 @@
         type="button"
       >
         <Tags class="h-3.5 w-3.5" />
-        {showPublicCardTags ? `- ${m.admin_tags()}` : `+ ${m.admin_tags()}`}
+        {showPublicCardTags ? "隱藏更多tag" : "顯示更多tag"}
       </button>
     </div>
 
-    {#if publicAllTags.length > 0}
+    {#if showPublicCardTags && publicAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
@@ -465,11 +465,11 @@
         type="button"
       >
         <Tags class="h-3.5 w-3.5" />
-        {showMineCardTags ? `- ${m.admin_tags()}` : `+ ${m.admin_tags()}`}
+        {showMineCardTags ? "隱藏更多tag" : "顯示更多tag"}
       </button>
     </div>
 
-    {#if mineAllTags.length > 0}
+    {#if showMineCardTags && mineAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
