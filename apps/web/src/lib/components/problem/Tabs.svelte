@@ -135,7 +135,8 @@
       params.delete("tab");
     }
     const qs = params.toString();
-    goto(qs ? `?${qs}` : "", { keepFocus: true, noScroll: true });
+    const target = qs ? `?${qs}` : currentUrl.pathname;
+    goto(target, { keepFocus: true, noScroll: true });
   }
 
   // Build page numbers for pagination
