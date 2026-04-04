@@ -7,8 +7,5 @@ await build({
   target: "node24",
   format: "esm",
   outfile: "dist/index.js",
-  packages: "external",
-  banner: {
-    js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
-  }
+  packages: "external"
 });
