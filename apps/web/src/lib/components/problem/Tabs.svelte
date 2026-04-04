@@ -298,6 +298,7 @@
       {/each}
       <button
         class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
+        aria-pressed={showPublicCardTags}
         onclick={() => { showPublicCardTags = !showPublicCardTags; }}
         type="button"
       >
@@ -366,6 +367,7 @@
             class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
               problem.difficulty
             ] ?? 'bg-muted text-muted-foreground'}"
+            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
           >
             {problem.difficulty}
           </span>
@@ -474,6 +476,7 @@
       {/each}
       <button
         class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
+        aria-pressed={showMineCardTags}
         onclick={() => { showMineCardTags = !showMineCardTags; }}
         type="button"
       >
@@ -529,6 +532,7 @@
             class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
               problem.difficulty
             ] ?? 'bg-muted text-muted-foreground'}"
+            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
           >
             {problem.difficulty}
           </span>
