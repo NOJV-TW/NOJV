@@ -289,7 +289,7 @@
         type="button"
       >
         <Tags class="h-3.5 w-3.5" />
-        {showPublicCardTags ? "隱藏更多tag" : "顯示更多tag"}
+        {showPublicCardTags ? m.problems_hideMoreTags() : m.problems_showMoreTags()}
       </button>
     </div>
 
@@ -465,7 +465,7 @@
         type="button"
       >
         <Tags class="h-3.5 w-3.5" />
-        {showMineCardTags ? "隱藏更多tag" : "顯示更多tag"}
+        {showMineCardTags ? m.problems_hideMoreTags() : m.problems_showMoreTags()}
       </button>
     </div>
 
