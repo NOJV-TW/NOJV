@@ -26,7 +26,7 @@ export const submissionDraftSchema = z.object({
   entryFile: z.string().trim().min(1).max(300).optional(),
   language: languageSchema,
   mode: submissionModeSchema.optional(),
-  problemSlug: slugSchema,
+  problemId: slugSchema,
   sampleOnly: z.boolean().optional(),
   sourceCode: sourceCodeSchema,
   sourceFiles: z.array(sourceFileSchema).max(200).optional()

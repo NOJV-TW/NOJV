@@ -10,9 +10,27 @@ export const submissionRepo = {
     return prisma.submission.findUnique({ where: { id } });
   },
 
-  findByIdWithProblemSlug(id: string) {
+  findByIdWithProblemId(id: string) {
     return prisma.submission.findUnique({
-      include: { problem: { select: { slug: true } } },
+      select: {
+        id: true,
+        problemId: true,
+        status: true,
+        language: true,
+        sourceCode: true,
+        score: true,
+        runtimeMs: true,
+        sampleOnly: true,
+        userId: true,
+        createdAt: true,
+        contestParticipationId: true,
+        courseAssessmentId: true,
+        courseId: true,
+        mode: true,
+        verdictDetail: true,
+        subtaskResults: true,
+        compilerOutput: true
+      },
       where: { id }
     });
   },
@@ -178,7 +196,7 @@ export const submissionRepo = {
       select: {
         id: true,
         language: true,
-        problem: { select: { slug: true } },
+        problemId: true,
         sampleOnly: true,
         sourceCode: true
       },
@@ -213,7 +231,7 @@ export const submissionRepo = {
         status: true,
         language: true,
         createdAt: true,
-        problem: { select: { slug: true, defaultTitle: true } }
+        problem: { select: { id: true, defaultTitle: true } }
       }
     });
   },
@@ -244,7 +262,7 @@ export const submissionRepo = {
         language: true,
         createdAt: true,
         user: { select: { username: true, name: true } },
-        problem: { select: { slug: true, defaultTitle: true } }
+        problem: { select: { id: true, defaultTitle: true } }
       }
     });
   },
@@ -352,7 +370,6 @@ export const submissionRepo = {
   complete(id: string, data: Prisma.SubmissionUpdateInput) {
     return prisma.submission.update({
       data,
-      include: { problem: { select: { slug: true } } },
       where: { id }
     });
   },

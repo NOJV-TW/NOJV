@@ -26,7 +26,7 @@ export const courseJoinRequestSchema = z.object({
 
 export const courseProblemAttachSchema = z.object({
   courseSlug: slugSchema,
-  problemSlug: slugSchema
+  problemId: slugSchema
 });
 
 export const manualCourseEnrollmentSchema = z.object({
@@ -57,7 +57,7 @@ export const courseAssessmentCreateSchema = z
     maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
     pageLockEnabled: z.boolean().default(false),
-    problemSlugs: z.array(slugSchema).min(1).max(32),
+    problemIds: z.array(slugSchema).min(1).max(32),
     scoreboardMode: assessmentScoreboardModeSchema.optional(),
     slug: slugSchema,
     summary: z.string().trim().min(8).max(2_000),

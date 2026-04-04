@@ -13,18 +13,18 @@ describe("submissionDraftSchema", () => {
     const result = submissionDraftSchema.parse({
       language: "cpp",
       mode: "practice",
-      problemSlug: "two-sum-plus",
+      problemId: "two-sum-plus",
       sourceCode: "int main() { return 0; }"
     });
 
-    expect(result.problemSlug).toBe("two-sum-plus");
+    expect(result.problemId).toBe("two-sum-plus");
   });
 
   it("accepts multi-file submissions with entry file", () => {
     const result = submissionDraftSchema.parse({
       language: "typescript",
       mode: "practice",
-      problemSlug: "multi-file-ts",
+      problemId: "multi-file-ts",
       sourceCode: "// fallback entry source",
       entryFile: "src/main.ts",
       sourceFiles: [

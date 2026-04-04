@@ -78,20 +78,16 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 
 ### Problem
 
-| Field                 | Type              | Notes                                 |
-| --------------------- | ----------------- | ------------------------------------- |
-| `slug`                | String            | Unique, URL-friendly                  |
-| `visibility`          | ProblemVisibility | public or private (course-only)       |
-| `judgeType`           | JudgeType         | standard, checker, or interactive     |
-| `submissionType`      | SubmissionType    | function (template) or full_source    |
-| `timeLimitMs`         | Int               | Execution time limit                  |
-| `memoryLimitMb`       | Int               | Memory limit                          |
-| `pipelineConfig`      | Json?             | Custom pipeline stages                |
-| `checkerScript`       | String?           | Custom checker source code            |
-| `interactorScript`    | String?           | Interactive judge source code         |
-| `scoringScript`       | String?           | Custom scoring script                 |
-| `artifactPatterns`    | String[]          | Glob patterns for artifact collection |
-| `networkAccessConfig` | Json?             | Firewall rules and sidecar services   |
+| Field            | Type              | Notes                                 |
+| ---------------- | ----------------- | ------------------------------------- |
+| `id`             | String            | CUID, primary key                     |
+| `defaultTitle`   | String            | Problem title                         |
+| `visibility`     | ProblemVisibility | public or private (course-only)       |
+| `status`         | ProblemStatus     | draft or published                    |
+| `submissionType` | SubmissionType    | function, full_source, or zip_project |
+| `timeLimitMs`    | Int               | Execution time limit                  |
+| `memoryLimitMb`  | Int               | Memory limit                          |
+| `judgeConfig`    | Json?             | Unified judge configuration           |
 
 ### Submission
 
