@@ -18,8 +18,7 @@ const submissionVerdictEventSchema = z.object({
   submissionId: z.string(),
   verdict: z.string(),
   score: z.number(),
-  problemId: z.string(),
-  problemSlug: z.string().nullable()
+  problemId: z.string()
 });
 
 const contestStartingEventSchema = z.object({ type: z.literal(SSE_CONTEST_STARTING) });

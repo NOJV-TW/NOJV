@@ -177,8 +177,7 @@ export async function findForRejudge(input: {
     submissionId: s.id,
     draft: {
       language: s.language,
-      // SubmissionDraft still uses problemSlug field name (core schema rename pending)
-      problemSlug: s.problemId,
+      problemId: s.problemId,
       sampleOnly: s.sampleOnly,
       sourceCode: s.sourceCode
     }

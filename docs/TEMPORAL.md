@@ -16,7 +16,7 @@ In development, `WORKER_MODE=all` runs both queues in a single process. In produ
 ### submissionJudgeWorkflow
 
 **Queue**: `judge`
-**Input**: `{ submissionId, draft: { mode, problemSlug, language, sourceCode } }`
+**Input**: `{ submissionId, draft: { mode, problemId, language, sourceCode } }`
 **Query**: `getStatus()` → `queued | compiling | running | completed | failed`
 **Workflow ID**: `judge-{submissionId}`
 
