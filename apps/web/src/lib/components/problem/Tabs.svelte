@@ -160,20 +160,6 @@
   );
   let showPublicCardTags = $state(false);
   let showMineCardTags = $state(false);
-  let showPublicTags = $state(false);
-  let showMineTags = $state(false);
-
-  $effect(() => {
-    if (publicSelectedTags.size > 0) {
-      showPublicTags = true;
-    }
-  });
-
-  $effect(() => {
-    if (mineSelectedTags.size > 0) {
-      showMineTags = true;
-    }
-  });
 
   function filterProblems<
     T extends {
@@ -303,33 +289,29 @@
         type="button"
       >
         <Tags class="h-3.5 w-3.5" />
-        {showPublicCardTags ? "收起 tags" : "顯示更多 tags"}
+        {showPublicCardTags ? `- ${m.admin_tags()}` : `+ ${m.admin_tags()}`}
       </button>
     </div>
 
-    {#if showPublicTags}
+    {#if publicAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
         role="group"
       >
-        {#if publicAllTags.length === 0}
-          <span class="text-xs text-muted-foreground">No tags yet</span>
-        {:else}
-          {#each publicAllTags as tag (tag)}
-            <button
-              class="rounded-full border px-3 py-1 text-xs font-medium transition {publicSelectedTags.has(
-                tag
-              )
-                ? 'border-primary bg-primary text-white'
-                : 'border-border hover:bg-[color:var(--color-panel)]'}"
-              onclick={() => togglePublicTag(tag)}
-              type="button"
-            >
-              {tag}
-            </button>
-          {/each}
-        {/if}
+        {#each publicAllTags as tag (tag)}
+          <button
+            class="rounded-full border px-3 py-1 text-xs font-medium transition {publicSelectedTags.has(
+              tag
+            )
+              ? 'border-primary bg-primary text-white'
+              : 'border-border hover:bg-[color:var(--color-panel)]'}"
+            onclick={() => togglePublicTag(tag)}
+            type="button"
+          >
+            {tag}
+          </button>
+        {/each}
       </div>
     {/if}
   </div>
@@ -366,22 +348,20 @@
         <div>
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
         </div>
-        <div>
+        <div class="flex flex-wrap items-center gap-2">
           <span
-            class="mt-1 inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
+            class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
               problem.difficulty
             ] ?? 'bg-muted text-muted-foreground'}"
           >
             {problem.difficulty}
           </span>
           {#if showPublicCardTags && problem.tags.length > 0}
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              {#each problem.tags as tag (tag)}
-                <span class="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  {tag}
-                </span>
-              {/each}
-            </div>
+            {#each problem.tags as tag (tag)}
+              <span class="inline-flex rounded-full border border-border bg-muted/40 px-3 py-1 text-sm font-semibold text-muted-foreground">
+                {tag}
+              </span>
+            {/each}
           {/if}
         </div>
         <div class="sm:text-right">
@@ -485,33 +465,29 @@
         type="button"
       >
         <Tags class="h-3.5 w-3.5" />
-        {showMineCardTags ? "收起 tags" : "顯示更多 tags"}
+        {showMineCardTags ? `- ${m.admin_tags()}` : `+ ${m.admin_tags()}`}
       </button>
     </div>
 
-    {#if showMineTags}
+    {#if mineAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
         role="group"
       >
-        {#if mineAllTags.length === 0}
-          <span class="text-xs text-muted-foreground">No tags yet</span>
-        {:else}
-          {#each mineAllTags as tag (tag)}
-            <button
-              class="rounded-full border px-3 py-1 text-xs font-medium transition {mineSelectedTags.has(
-                tag
-              )
-                ? 'border-primary bg-primary text-white'
-                : 'border-border hover:bg-[color:var(--color-panel)]'}"
-              onclick={() => toggleMineTag(tag)}
-              type="button"
-            >
-              {tag}
-            </button>
-          {/each}
-        {/if}
+        {#each mineAllTags as tag (tag)}
+          <button
+            class="rounded-full border px-3 py-1 text-xs font-medium transition {mineSelectedTags.has(
+              tag
+            )
+              ? 'border-primary bg-primary text-white'
+              : 'border-border hover:bg-[color:var(--color-panel)]'}"
+            onclick={() => toggleMineTag(tag)}
+            type="button"
+          >
+            {tag}
+          </button>
+        {/each}
       </div>
     {/if}
   </div>
@@ -535,22 +511,20 @@
         <a href="/problems/{problem.id}" class="transition hover:opacity-80">
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
         </a>
-        <div>
+        <div class="flex flex-wrap items-center gap-2">
           <span
-            class="mt-1 inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
+            class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
               problem.difficulty
             ] ?? 'bg-muted text-muted-foreground'}"
           >
             {problem.difficulty}
           </span>
           {#if showMineCardTags && problem.tags.length > 0}
-            <div class="mt-2 flex flex-wrap gap-1.5">
-              {#each problem.tags as tag (tag)}
-                <span class="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  {tag}
-                </span>
-              {/each}
-            </div>
+            {#each problem.tags as tag (tag)}
+              <span class="inline-flex rounded-full border border-border bg-muted/40 px-3 py-1 text-sm font-semibold text-muted-foreground">
+                {tag}
+              </span>
+            {/each}
           {/if}
         </div>
         <div class="flex flex-wrap gap-1.5 sm:justify-end">
