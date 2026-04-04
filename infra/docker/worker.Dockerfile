@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:24-bookworm-slim AS builder
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -39,38 +39,49 @@ RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/worker build
 
 # 3. Production image
-FROM node:24-alpine
+FROM node:24-bookworm-slim
 
-RUN apk add --no-cache docker-cli \
-  && addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 --ingroup nodejs appuser
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends docker.io ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs --create-home appuser
 
 WORKDIR /app
 
-# Worker app bundle
-COPY --from=builder --chown=appuser:nodejs /build/apps/worker/dist/ ./dist/
-COPY --from=builder --chown=appuser:nodejs /build/apps/worker/package.json .
-
-# Full node_modules from root — pnpm hoists all npm packages here and
-# creates @nojv/* symlinks pointing to ../../packages/<name>.
+# Root node_modules contains pnpm virtual store; app-level node_modules symlinks
+# resolve into this directory.
 COPY --from=builder --chown=appuser:nodejs /build/node_modules/ ./node_modules/
 
 # Workspace package dist + package.json — the symlinks above resolve to these.
 COPY --from=builder --chown=appuser:nodejs /build/packages/core/dist/ ./packages/core/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/core/package.json ./packages/core/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/core/node_modules/ ./packages/core/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/dist/ ./packages/db/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/package.json ./packages/db/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/db/node_modules/ ./packages/db/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/dist/ ./packages/temporal/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/package.json ./packages/temporal/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/node_modules/ ./packages/temporal/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/domain/dist/ ./packages/domain/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/domain/package.json ./packages/domain/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/domain/node_modules/ ./packages/domain/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/dist/ ./packages/redis/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./packages/redis/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/dist/ ./packages/job-dispatch/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/package.json ./packages/job-dispatch/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/node_modules/ ./packages/job-dispatch/node_modules/
 
 # Prisma generated client output (prisma-client generator)
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ ./packages/db/generated/prisma/
+
+# Keep app directory depth so pnpm relative symlinks remain valid in runtime.
+COPY --from=builder --chown=appuser:nodejs /build/apps/worker/dist/ ./apps/worker/dist/
+COPY --from=builder --chown=appuser:nodejs /build/apps/worker/package.json ./apps/worker/package.json
+COPY --from=builder --chown=appuser:nodejs /build/apps/worker/node_modules/ ./apps/worker/node_modules/
+
+WORKDIR /app/apps/worker
 
 ENV NODE_ENV=production
 EXPOSE 8080
