@@ -4,7 +4,7 @@
   import { page } from "$app/stores";
   import { difficultyColor } from "$lib/types";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
-  import { FileCode, Pencil, Search } from "@lucide/svelte";
+  import { FileCode, Pencil, Search, Tags } from "@lucide/svelte";
 
   let creating = $state(false);
 
@@ -158,6 +158,8 @@
   let mineAllTags = $derived(
     [...new Set((editableProblems ?? []).flatMap((p) => p.tags))].sort()
   );
+  let showPublicCardTags = $state(false);
+  let showMineCardTags = $state(false);
   let showPublicTags = $state(false);
   let showMineTags = $state(false);
 
@@ -296,11 +298,12 @@
         </button>
       {/each}
       <button
-        class="ml-auto rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-[color:var(--color-panel)]"
-        onclick={() => { showPublicTags = !showPublicTags; }}
+        class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
+        onclick={() => { showPublicCardTags = !showPublicCardTags; }}
         type="button"
       >
-        {showPublicTags ? "Hide tags" : "More tags"}
+        <Tags class="h-3.5 w-3.5" />
+        {showPublicCardTags ? "收起 tags" : "顯示更多 tags"}
       </button>
     </div>
 
@@ -371,6 +374,15 @@
           >
             {problem.difficulty}
           </span>
+          {#if showPublicCardTags && problem.tags.length > 0}
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              {#each problem.tags as tag (tag)}
+                <span class="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {tag}
+                </span>
+              {/each}
+            </div>
+          {/if}
         </div>
         <div class="sm:text-right">
           <p class="text-sm text-muted-foreground">{m.common_acceptance()}</p>
@@ -468,11 +480,12 @@
         </button>
       {/each}
       <button
-        class="ml-auto rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:bg-[color:var(--color-panel)]"
-        onclick={() => { showMineTags = !showMineTags; }}
+        class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
+        onclick={() => { showMineCardTags = !showMineCardTags; }}
         type="button"
       >
-        {showMineTags ? "Hide tags" : "More tags"}
+        <Tags class="h-3.5 w-3.5" />
+        {showMineCardTags ? "收起 tags" : "顯示更多 tags"}
       </button>
     </div>
 
@@ -504,7 +517,7 @@
   </div>
 
   <section class="grid gap-4">
-    {#if editableProblems.length === 0}
+    {#if (editableProblems?.length ?? 0) === 0}
       <EmptyState
         icon={FileCode}
         title={m.problems_myProblemsEmpty()}
@@ -530,6 +543,15 @@
           >
             {problem.difficulty}
           </span>
+          {#if showMineCardTags && problem.tags.length > 0}
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              {#each problem.tags as tag (tag)}
+                <span class="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  {tag}
+                </span>
+              {/each}
+            </div>
+          {/if}
         </div>
         <div class="flex flex-wrap gap-1.5 sm:justify-end">
           {#if problem.status === "draft"}
