@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/stores";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
   import UserIcon from "@lucide/svelte/icons/user";
@@ -33,6 +33,7 @@
   async function handleSignOut() {
     await authClient.signOut();
     open = false;
+    await invalidateAll();
     await goto("/");
   }
 </script>

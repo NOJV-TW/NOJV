@@ -1,6 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
@@ -97,7 +97,8 @@
 
   async function handleSignOut() {
     await authClient.signOut();
-    goto("/");
+    await invalidateAll();
+    await goto("/");
   }
 </script>
 
