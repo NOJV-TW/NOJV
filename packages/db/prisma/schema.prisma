@@ -161,7 +161,6 @@ model User {
 
 model Problem {
   id                  String                  @id @default(cuid())
-  slug                String                  @unique
   defaultTitle        String
   summary             String                  @db.Text
   difficulty          String

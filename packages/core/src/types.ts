@@ -67,8 +67,8 @@ export const submissionVerdictSchema = z.enum(submissionVerdicts);
 export const submissionOperationStatusSchema = z.enum(submissionOperationStatuses);
 export const slugSchema = z
   .string()
-  .min(3)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  .min(3, "validation_slugTooShort")
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "validation_slugFormat");
 
 export const isoDateTimeSchema = z.iso.datetime();
 export const sourceCodeSchema = z.string().trim().min(1).max(50_000);
@@ -113,6 +113,7 @@ export const ipLockFormFields = {
 export const sessionUserSchema = z.object({
   disabled: z.boolean().default(false),
   email: z.string(),
+  emailVerified: z.boolean().default(false),
   username: z.string().nullable(),
   id: z.string(),
   name: z.string(),

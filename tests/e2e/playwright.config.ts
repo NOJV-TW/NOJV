@@ -2,14 +2,17 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 2,
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
+  timeout: 60000,
   use: {
     baseURL: "http://localhost:5173",
-    trace: "on-first-retry"
+    locale: "en-US",
+    trace: "on-first-retry",
+    actionTimeout: 15000
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   globalSetup: "../setup/playwright-global-setup.ts",

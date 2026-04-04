@@ -27,7 +27,7 @@ const assessmentFormSchema = z.object({
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   opensAt: z.string().min(1),
   pageLockEnabled: z.boolean().default(false),
-  problemSlugsText: z.string().min(1),
+  problemIdsText: z.string().min(1),
   scoreboardMode: assessmentScoreboardModeSchema.optional(),
   slug: slugSchema,
   summary: z.string().min(8).max(2_000),
@@ -47,7 +47,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     contests,
     contestForm,
     courseSlug: params.slug,
-    problemSlugs: courseData.course.problemSlugs,
+    problemIds: courseData.course.problemIds,
     form
   };
 };
@@ -69,8 +69,7 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const { problemSlugsText, ipWhitelistText, opensAt, dueAt, closesAt, ...rest } =
-        form.data;
+      const { problemIdsText, ipWhitelistText, opensAt, dueAt, closesAt, ...rest } = form.data;
       const payload = courseAssessmentCreateSchema.parse({
         ...rest,
         ipWhitelist: ipWhitelistText
@@ -81,7 +80,7 @@ export const actions = {
         courseSlug: slug,
         dueAt: new Date(dueAt).toISOString(),
         opensAt: new Date(opensAt).toISOString(),
-        problemSlugs: problemSlugsText
+        problemIds: problemIdsText
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)
@@ -110,7 +109,7 @@ export const actions = {
     if (!form.valid) return fail(400, { contestForm: form });
 
     try {
-      const { problemSlugsText, ipWhitelistText, startsAt, endsAt, frozenAt, ...rest } =
+      const { problemIdsText, ipWhitelistText, startsAt, endsAt, frozenAt, ...rest } =
         form.data;
       const payload = contestCreateSchema.parse({
         ...rest,
@@ -121,7 +120,7 @@ export const actions = {
           .filter(Boolean),
         endsAt: new Date(endsAt).toISOString(),
         frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
-        problemSlugs: problemSlugsText
+        problemIds: problemIdsText
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),

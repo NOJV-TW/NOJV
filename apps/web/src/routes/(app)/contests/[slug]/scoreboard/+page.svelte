@@ -192,7 +192,7 @@
             <th class="px-3 py-2.5 text-right font-medium">Penalty</th>
             {#each scoreboard.problems as prob}
               <th class="px-3 py-2.5 text-center font-medium">
-                <a href="/problems/{prob.slug}" class="hover:underline">
+                <a href="/problems/{prob.id}" class="hover:underline">
                   {String.fromCharCode(65 + prob.ordinal)}
                 </a>
               </th>
@@ -237,7 +237,7 @@
             <th class="px-3 py-2.5 text-right font-medium">Total</th>
             {#each scoreboard.problems as prob}
               <th class="px-3 py-2.5 text-center font-medium">
-                <a href="/problems/{prob.slug}" class="hover:underline">
+                <a href="/problems/{prob.id}" class="hover:underline">
                   {String.fromCharCode(65 + prob.ordinal)}
                 </a>
                 <span class="block text-xs font-normal text-muted-foreground">{prob.points}</span>

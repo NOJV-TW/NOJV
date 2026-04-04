@@ -29,13 +29,13 @@ export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
   difficulty: ProblemDifficulty;
+  id: string;
   inputFormat: string;
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
   samples: { explanation: string; input: string; output: string }[];
-  slug: string;
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;
@@ -170,9 +170,9 @@ function mapPersistedProblemDetail(
     author?: { username: string | null } | null;
     defaultTitle: string;
     difficulty: string;
+    id: string;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
-    slug: string;
     statements?: {
       bodyMarkdown: string;
       inputFormat?: string;
@@ -222,13 +222,13 @@ function mapPersistedProblemDetail(
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
     difficulty: parseDifficulty(problem.difficulty),
+    id: problem.id,
     inputFormat: localized.inputFormat,
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
-    slug: problem.slug,
     starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
@@ -259,7 +259,7 @@ export type ProblemUserStatus = "ac" | "attempted" | null;
 export interface ProblemCardWithStatus {
   acceptanceRate: number;
   difficulty: string;
-  slug: string;
+  id: string;
   status: ProblemUserStatus;
   tags: string[];
   title: string;
@@ -344,7 +344,7 @@ export async function listProblemCards(
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
       difficulty: parseDifficulty(problem.difficulty),
-      slug: problem.slug,
+      id: problem.id,
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
       title: problem.defaultTitle,
@@ -360,15 +360,16 @@ export async function listEditableProblems(userId: string) {
 
   return problems.map((problem) => ({
     difficulty: parseDifficulty(problem.difficulty),
-    slug: problem.slug,
+    id: problem.id,
+    status: problem.status,
     tags: problem.tags,
     title: problem.defaultTitle,
     visibility: problem.visibility
   }));
 }
 
-export async function getProblemPageData(slug: string, locale: string = DEFAULT_LOCALE) {
-  const persistedProblem = await problemRepo.findDetailBySlug(slug);
+export async function getProblemPageData(id: string, locale: string = DEFAULT_LOCALE) {
+  const persistedProblem = await problemRepo.findDetailById(id);
 
   if (!persistedProblem) {
     return null;
@@ -387,6 +388,6 @@ export async function getProblemPageData(slug: string, locale: string = DEFAULT_
   );
 }
 
-export async function getProblemTestcaseSets(problemSlug: string) {
-  return testcaseSetRepo.findByProblemSlug(problemSlug);
+export async function getProblemTestcaseSets(problemId: string) {
+  return testcaseSetRepo.findByProblemId(problemId);
 }

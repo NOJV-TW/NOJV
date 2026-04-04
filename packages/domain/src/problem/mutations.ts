@@ -8,7 +8,6 @@ import {
   type TransactionClient
 } from "@nojv/db";
 import type {
-  JudgeType,
   Language,
   PlatformRole,
   ProblemCreate,
@@ -22,7 +21,7 @@ import type {
 } from "@nojv/core";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
 
 // ─── Actor context (domain-level, no SvelteKit dependency) ──────────
@@ -41,59 +40,40 @@ export interface ProblemActorContext {
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
-  checkerScript?: string | undefined;
   difficulty: ProblemDifficulty;
   inputFormat?: string | undefined;
-  interactorScript?: string | undefined;
-  judgeType?: JudgeType | undefined;
+  judgeConfig?: unknown;
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
   statement?: string | undefined;
+  status?: string | undefined;
   submissionType?: SubmissionType | undefined;
   summary: string;
   tags?: string[] | undefined;
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
-  pipelineConfig?: unknown;
-  scoringScript?: string | undefined;
-  scoringLanguage?: string | undefined;
-  artifactPatterns?: string[] | undefined;
-  networkAccessConfig?: unknown;
 }
 
 // ─── Shared problem helpers ─────────────────────────────────────────
 
 export async function createProblemDefinition(
   tx: TransactionClient,
-  problemSlug: string,
   input: CreateProblemDefinitionInput
 ) {
-  // Cast needed: generated Prisma client is stale and missing pipeline fields.
-  // TODO: remove cast after running `pnpm db:generate`
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const problem = await problemRepo.withTx(tx).create({
     authorId: input.authorId ?? null,
-    checkerScript: input.checkerScript ?? null,
     defaultTitle: input.title,
     difficulty: input.difficulty,
-    id: `problem_${problemSlug}`,
-    interactorScript: input.interactorScript ?? null,
-    judgeType: input.judgeType ?? "standard",
+    judgeConfig: input.judgeConfig ?? undefined,
     memoryLimitMb: input.memoryLimitMb ?? 256,
-    slug: problemSlug,
+    status: input.status ?? "published",
     submissionType: input.submissionType ?? "full_source",
     summary: input.summary,
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
-    visibility: input.visibility ?? "public",
-    pipelineConfig: input.pipelineConfig ?? undefined,
-    scoringScript: input.scoringScript ?? null,
-    scoringLanguage: input.scoringLanguage ?? null,
-    artifactPatterns: input.artifactPatterns ?? [],
-    networkAccessConfig: input.networkAccessConfig ?? undefined
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any);
+    visibility: input.visibility ?? "public"
+  });
 
   if (input.statement) {
     await problemStatementRepo.withTx(tx).create({
@@ -109,11 +89,11 @@ export async function createProblemDefinition(
   return problem;
 }
 
-export async function requireProblem(tx: TransactionClient, problemSlug: string) {
-  const problem = await problemRepo.withTx(tx).findBySlug(problemSlug);
+export async function requireProblem(tx: TransactionClient, problemId: string) {
+  const problem = await problemRepo.withTx(tx).findById(problemId);
 
   if (!problem) {
-    throw new NotFoundError(`Problem not found: ${problemSlug}`);
+    throw new NotFoundError(`Problem not found: ${problemId}`);
   }
 
   return problem;
@@ -173,7 +153,7 @@ function assertProblemOwnership(
 
 export async function updateProblemTemplates(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   templates: {
     driverCode: string;
     insertionMarker: string;
@@ -182,7 +162,7 @@ export async function updateProblemTemplates(
   }[]
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
     await replaceTemplates(tx, problem.id, templates);
@@ -192,23 +172,10 @@ export async function updateProblemTemplates(
 }
 
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
-  const slug =
-    payload.slug ||
-    payload.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
-
   return runTransaction(async (tx) => {
-    const existing = await problemRepo.withTx(tx).findBySlug(slug);
-
-    if (existing) {
-      throw new ConflictError(`Problem slug already exists: ${slug}`);
-    }
-
     const author = await ensureUser(tx, actor.userId, actor);
 
-    const problem = await createProblemDefinition(tx, slug, {
+    const problem = await createProblemDefinition(tx, {
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
@@ -235,11 +202,11 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
 
 export async function updateProblemRecord(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   payload: ProblemUpdate
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
 
     assertProblemOwnership(problem, actor);
 
@@ -249,25 +216,13 @@ export async function updateProblemRecord(
     if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
     if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
     if (payload.tags !== undefined) updateData.tags = payload.tags;
-    if (payload.judgeType !== undefined) updateData.judgeType = payload.judgeType;
     if (payload.submissionType !== undefined)
       updateData.submissionType = payload.submissionType;
     if (payload.timeLimitMs !== undefined) updateData.timeLimitMs = payload.timeLimitMs;
     if (payload.memoryLimitMb !== undefined) updateData.memoryLimitMb = payload.memoryLimitMb;
-    if (payload.checkerScript !== undefined) updateData.checkerScript = payload.checkerScript;
-    if (payload.interactorScript !== undefined)
-      updateData.interactorScript = payload.interactorScript;
     if (payload.summary !== undefined) updateData.summary = payload.summary;
-    if (payload.pipelineConfig !== undefined)
-      updateData.pipelineConfig = payload.pipelineConfig;
-    if (payload.scoringScript !== undefined) updateData.scoringScript = payload.scoringScript;
-    if (payload.scoringLanguage !== undefined)
-      updateData.scoringLanguage = payload.scoringLanguage;
-    if (payload.artifactPatterns !== undefined)
-      updateData.artifactPatterns = payload.artifactPatterns;
-    if (payload.networkAccessConfig !== undefined)
-      updateData.networkAccessConfig = payload.networkAccessConfig;
     if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
+    if (payload.status !== undefined) updateData.status = payload.status;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -310,11 +265,11 @@ export async function updateProblemRecord(
 
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   payload: ProblemTestcaseSetCreate
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
 
     assertProblemOwnership(problem, actor);
 
@@ -345,12 +300,12 @@ export async function createProblemTestcaseSetRecord(
 
 export async function updateTestcaseSetRecord(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   setId: string,
   payload: TestcaseSetUpdate
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
     return testcaseSetRepo.update(setId, payload);
@@ -359,11 +314,11 @@ export async function updateTestcaseSetRecord(
 
 export async function deleteTestcaseSetRecord(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   setId: string
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
     return testcaseSetRepo.delete(setId);
@@ -372,12 +327,12 @@ export async function deleteTestcaseSetRecord(
 
 export async function updateTestcaseRecord(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   testcaseId: string,
   payload: TestcaseUpdate
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
     return testcaseRepo.update(testcaseId, payload);
@@ -386,11 +341,11 @@ export async function updateTestcaseRecord(
 
 export async function deleteTestcaseRecord(
   actor: ProblemActorContext,
-  problemSlug: string,
+  problemId: string,
   testcaseId: string
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemSlug);
+    const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
     return testcaseRepo.delete(testcaseId);

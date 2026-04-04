@@ -5,7 +5,6 @@ import {
   problemDifficultySchema,
   problemStatusSchema,
   problemVisibilitySchema,
-  slugSchema,
   submissionTypeSchema
 } from "../types";
 
@@ -20,23 +19,31 @@ export const problemTemplateSchema = z.object({
 
 export const problemCreateSchema = z.object({
   difficulty: problemDifficultySchema,
-  inputFormat: z.string().trim().max(4_000).default(""),
+  inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
-  outputFormat: z.string().trim().max(4_000).default(""),
-  slug: slugSchema,
-  statement: z.string().trim().min(16).max(12_000),
+  outputFormat: z
+    .string()
+    .trim()
+    .min(1, "validation_required")
+    .max(4_000, "validation_tooLong"),
+  statement: z.string().trim().min(1, "validation_required").max(12_000, "validation_tooLong"),
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
   templates: z.array(problemTemplateSchema).max(10).default([]),
-  timeLimitMs: z.coerce.number().int().min(100).max(30_000).default(1_000),
-  title: z.string().trim().min(3).max(120),
+  timeLimitMs: z.coerce
+    .number()
+    .int()
+    .min(100, "validation_timeLimitMin")
+    .max(30_000, "validation_timeLimitMax")
+    .default(1_000),
+  title: z.string().trim().min(1, "validation_required").max(120, "validation_tooLong"),
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
   status: problemStatusSchema.default("draft")
 });
 
-export const problemUpdateSchema = problemCreateSchema.omit({ slug: true }).partial();
+export const problemUpdateSchema = problemCreateSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
   expectedStdout: z.string().max(200_000),
@@ -70,7 +77,7 @@ export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),
   difficulty: problemDifficultySchema,
-  slug: slugSchema,
+  id: z.string().min(1),
   title: z.string().min(1),
   totalSubmissions: z.number().int().nonnegative()
 });

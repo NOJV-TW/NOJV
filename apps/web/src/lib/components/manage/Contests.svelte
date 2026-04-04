@@ -23,7 +23,7 @@
       ipWhitelistText: string;
       maxAttempts?: number | null | undefined;
       pageLockEnabled: boolean;
-      problemSlugsText: string;
+      problemIdsText: string;
       scoreboardMode: AssessmentScoreboardMode;
       scoringMode: ContestScoringMode;
       slug: string;
@@ -32,11 +32,11 @@
       summary: string;
       title: string;
     }>;
-    problemSlugs: string[];
+    problemIds: string[];
   }
 
-  let { contests, courseSlug, form: formData, problemSlugs }: Props = $props();
-  const initialProblemSlugs = untrack(() => problemSlugs);
+  let { contests, courseSlug, form: formData, problemIds }: Props = $props();
+  const initialProblemSlugs = untrack(() => problemIds);
 
   type UiLang = "zh" | "en";
   let uiLang = $state<UiLang>("zh");
@@ -139,7 +139,7 @@
 
   if (!$form.startsAt) $form.startsAt = defaultStart;
   if (!$form.endsAt) $form.endsAt = defaultEnd;
-  if (!$form.problemSlugsText) $form.problemSlugsText = initialProblemSlugs.join(", ");
+  if (!$form.problemIdsText) $form.problemIdsText = initialProblemSlugs.join(", ");
   if (!$form.scoringMode) $form.scoringMode = "icpc";
 </script>
 
@@ -361,12 +361,12 @@
       <div>
         <textarea
           class={textareaClassName}
-          name="problemSlugsText"
-          bind:value={$form.problemSlugsText}
+          name="problemIdsText"
+          bind:value={$form.problemIdsText}
           placeholder="problem-one, problem-two"
           required
         ></textarea>
-        {#if $errors.problemSlugsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlugsText}</span>{/if}
+        {#if $errors.problemIdsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemIdsText}</span>{/if}
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         <div>

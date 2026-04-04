@@ -177,7 +177,7 @@
               {formatVerdictLabel(sub.status)}
             </span>
             <a
-              href="/problems/{sub.problem.slug}"
+              href="/problems/{sub.problem.id}"
               class="truncate hover:underline"
             >
               {sub.problem.defaultTitle}
@@ -200,14 +200,14 @@
     </p>
     {#if data.recommendations.length > 0}
       <ul class="mt-4 space-y-3">
-        {#each data.recommendations as rec (rec.slug)}
+        {#each data.recommendations as rec (rec.id)}
           <li class="flex flex-wrap items-center gap-2 text-sm">
             <span
               class="rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {difficultyColor[rec.difficulty] ?? 'bg-muted text-muted-foreground'}"
             >
               {rec.difficulty}
             </span>
-            <a href="/problems/{rec.slug}" class="font-medium hover:underline">
+            <a href="/problems/{rec.id}" class="font-medium hover:underline">
               {rec.defaultTitle}
             </a>
             {#each rec.tags as tag (tag)}

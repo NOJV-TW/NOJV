@@ -88,7 +88,7 @@ export const assessmentRepo = {
         problems: {
           select: {
             problemId: true,
-            problem: { select: { id: true, slug: true, summary: true, statements: true } }
+            problem: { select: { id: true, summary: true, statements: true } }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -158,7 +158,7 @@ export const assessmentRepo = {
         problems: {
           select: {
             problemId: true,
-            problem: { select: { id: true, slug: true, summary: true, statements: true } }
+            problem: { select: { id: true, summary: true, statements: true } }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -199,7 +199,7 @@ export const assessmentProblemRepo = {
   findByAssessmentId(assessmentId: string) {
     return prisma.courseAssessmentProblem.findMany({
       where: { assessmentId },
-      include: { problem: { select: { id: true, slug: true, defaultTitle: true } } }
+      include: { problem: { select: { id: true, defaultTitle: true } } }
     });
   },
 
