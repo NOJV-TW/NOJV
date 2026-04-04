@@ -47,10 +47,11 @@
 
   let { editableProblems, publicResult, showCreate }: Props = $props();
 
-  let tab = $state<"public" | "mine">("public");
-
   // ─── Public tab: URL-driven state ─────────────────────────────────
   let currentUrl = $derived($page.url);
+  let tab = $derived<"public" | "mine">(
+    showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public"
+  );
   let publicSearch = $derived(currentUrl.searchParams.get("q") ?? "");
   let publicDifficulty = $derived<Difficulty>(
     (currentUrl.searchParams.get("difficulty") as Difficulty) || "all"
@@ -124,6 +125,17 @@
 
   function goToPage(p: number) {
     updatePublicUrl({ page: p > 1 ? String(p) : undefined });
+  }
+
+  function setTab(nextTab: "public" | "mine") {
+    const params = new URLSearchParams(currentUrl.searchParams);
+    if (nextTab === "mine") {
+      params.set("tab", "mine");
+    } else {
+      params.delete("tab");
+    }
+    const qs = params.toString();
+    goto(qs ? `?${qs}` : "?", { keepFocus: true, noScroll: true });
   }
 
   // Build page numbers for pagination
@@ -214,7 +226,7 @@
     class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'public'
       ? 'border-primary bg-primary text-white'
       : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
-    onclick={() => { tab = "public"; }}
+    onclick={() => setTab("public")}
     type="button"
   >
     {m.problems_publicLibrary()}
@@ -224,7 +236,7 @@
       class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'mine'
         ? 'border-primary bg-primary text-white'
         : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
-      onclick={() => { tab = "mine"; }}
+      onclick={() => setTab("mine")}
       type="button"
     >
       {m.problems_myProblems()}
