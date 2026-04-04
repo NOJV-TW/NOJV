@@ -52,11 +52,15 @@ services:
     ports:
       - "7233:7233"
     healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health"]
+      test:
+        [
+          "CMD-SHELL",
+          "if command -v temporal >/dev/null 2>&1 && (temporal operator cluster health --address 127.0.0.1:7233 >/dev/null 2>&1 || temporal operator cluster health --address temporal:7233 >/dev/null 2>&1); then exit 0; fi; if command -v tctl >/dev/null 2>&1 && (tctl --address 127.0.0.1:7233 cluster health >/dev/null 2>&1 || tctl --address temporal:7233 cluster health >/dev/null 2>&1); then exit 0; fi; if command -v nc >/dev/null 2>&1 && (nc -z 127.0.0.1 7233 >/dev/null 2>&1 || nc -z temporal 7233 >/dev/null 2>&1); then exit 0; fi; exit 1"
+        ]
       interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
 
   temporal-ui:
     image: temporalio/ui:2.38.2
@@ -68,6 +72,18 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
     ports:
       - "8080:8080"
+
+  migrator:
+    profiles: ["deploy"]
+    build:
+      context: .
+      dockerfile: infra/docker/migrator.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nojv
+    restart: "no"
 
   web:
     profiles: ["prod"]

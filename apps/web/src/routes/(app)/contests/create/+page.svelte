@@ -273,18 +273,18 @@
     <!-- Problems -->
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <ListIcon class="h-4 w-4" />
-      <span>{m.contestCreate_problemSlugs()}</span>
+      <span>{m.contestCreate_problemIds()}</span>
     </div>
     <div>
       <input
         class={inputClassName}
-        id="problemSlugsText"
-        name="problemSlugsText"
+        id="problemIdsText"
+        name="problemIdsText"
         type="text"
-        placeholder={m.contestCreate_problemSlugsPlaceholder()}
-        bind:value={$form.problemSlugsText}
+        placeholder={m.contestCreate_problemIdsPlaceholder()}
+        bind:value={$form.problemIdsText}
       />
-      {#if $errors.problemSlugsText}<p class="mt-1 text-xs text-red-600">{$errors.problemSlugsText}</p>{/if}
+      {#if $errors.problemIdsText}<p class="mt-1 text-xs text-red-600">{$errors.problemIdsText}</p>{/if}
     </div>
 
     <button

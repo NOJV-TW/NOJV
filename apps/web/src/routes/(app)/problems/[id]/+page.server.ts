@@ -9,13 +9,13 @@ const { listProblemSubmissions } = submissionDomain;
 import { assessmentPath } from "$lib/types";
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
-  const { slug } = params;
+  const { id } = params;
   const userId = locals.user?.id ?? null;
   const course = url.searchParams.get("course");
   const assessment = url.searchParams.get("assessment");
   const contest = url.searchParams.get("contest");
 
-  const problem = await getProblemPageData(slug);
+  const problem = await getProblemPageData(id);
 
   if (!problem) {
     error(404, "Problem not found");
@@ -47,7 +47,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const submissions = userId
     ? await listProblemSubmissions(
         userId,
-        slug,
+        id,
         assessmentContext
           ? { assessmentSlug: assessmentContext.slug, courseSlug: assessmentContext.courseSlug }
           : undefined

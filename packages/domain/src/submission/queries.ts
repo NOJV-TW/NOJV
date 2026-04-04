@@ -31,10 +31,10 @@ export async function getSubmissionForUser(
 
 export async function listProblemSubmissions(
   userId: string,
-  problemSlug: string,
+  problemId: string,
   assessmentFilter?: { assessmentSlug: string; courseSlug: string }
 ) {
-  const problemP = problemRepo.findIdBySlug(problemSlug);
+  const problemP = problemRepo.findById(problemId);
 
   const assessmentP = assessmentFilter
     ? assessmentRepo.findByCourseAndSlug(

@@ -109,7 +109,7 @@ export async function getAdminDashboard() {
   const problemMap = new Map(
     failureProblems.map((problem) => [
       problem.id,
-      { slug: problem.slug, title: problem.defaultTitle }
+      { id: problem.id, title: problem.defaultTitle }
     ])
   );
 
@@ -117,7 +117,7 @@ export async function getAdminDashboard() {
     const problem = problemMap.get(row.problemId);
     return {
       problemId: row.problemId,
-      slug: problem?.slug ?? "unknown",
+      id: problem?.id ?? row.problemId,
       title: problem?.title ?? "Unknown problem",
       errorCount: row._count._all
     };

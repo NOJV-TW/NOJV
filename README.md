@@ -164,25 +164,42 @@ The worker selects its executor via `EXECUTION_BACKEND` (`docker` locally, `kube
 - Command: `pnpm ci:verify`
 - Checks: formatting, lint, tests, builds, Prisma schema validation, Docker Compose config validation
 
-## GCP Deployment
+## CD To Remote Server
 
-| Component | Service               |
-| --------- | --------------------- |
-| web       | Cloud Run             |
-| migrator  | Cloud Run Job         |
-| worker    | GKE deployment (KEDA) |
-| sandbox   | Kubernetes Jobs       |
-| postgres  | Cloud SQL             |
-| redis     | Memorystore           |
-| images    | Artifact Registry     |
-| secrets   | Secret Manager        |
+- CI workflow: `.github/workflows/ci.yml`
+- CD workflow: `.github/workflows/deploy.yml`
+- Trigger: CD runs automatically when CI succeeds for a push to `main`
+- Deploy target: self-hosted Linux runner on remote server
+- Deploy source: exact commit SHA that passed CI
 
-```bash
-gcloud builds submit --config infra/gcp/cloudbuild.yaml \
-  --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260312
-```
+The CD workflow performs Docker Compose based rollout on the remote server:
 
-See [Deployment Guide](docs/DEPLOYMENT.md) for details.
+1. Start/verify infra services (`postgres`, `redis`, `temporal`, `temporal-ui`)
+2. Build images for the passed commit (`sandbox-image`, `migrator`, `web`, `worker`)
+3. Run database migrations
+4. Deploy `web` and `worker`
+5. Verify endpoint and container health
+
+Required deployment auth values (one source is enough):
+
+1. `.env` in the remote runner workspace
+2. Remote runner environment variables
+
+Required:
+
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+
+Optional OAuth:
+
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+Note: the deploy workflow keeps runner local `.env` by using checkout with `clean: false`.
+
+See [Deployment Guide](docs/DEPLOYMENT.md) for full operational details.
 
 ## Documentation Index
 
@@ -197,7 +214,7 @@ See [Deployment Guide](docs/DEPLOYMENT.md) for details.
 | [Redis Architecture](docs/REDIS.md)                 | Key schema, pub/sub, scoreboard                     |
 | [Security](docs/SECURITY.md)                        | Auth, trust boundaries, sandbox isolation           |
 | [Reliability](docs/RELIABILITY.md)                  | Invariants, failure modes, operational expectations |
-| [Deployment](docs/DEPLOYMENT.md)                    | Docker Compose, GCP, microservice modes             |
+| [Deployment](docs/DEPLOYMENT.md)                    | Docker Compose, CI/CD rollout, microservice modes   |
 | [Getting Started](docs/runbooks/getting-started.md) | Bootstrap procedures for new developers             |
 
 ## Design Documents

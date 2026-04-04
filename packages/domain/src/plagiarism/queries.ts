@@ -141,7 +141,7 @@ export async function getAssessmentProblemMap(assessmentId: string) {
   return Object.fromEntries(
     assessmentProblems.map((ap) => [
       ap.problemId,
-      { slug: ap.problem.slug, title: ap.problem.defaultTitle }
+      { id: ap.problem.id, title: ap.problem.defaultTitle }
     ])
   );
 }

@@ -27,7 +27,6 @@ export interface ScoreboardEntry {
 
 export interface ScoreboardProblem {
   id: string;
-  slug: string;
   title: string;
   ordinal: number;
   points: number;
@@ -64,7 +63,7 @@ interface ContestRow {
     problemId: string;
     ordinal: number;
     points: number;
-    problem: { slug: string; defaultTitle: string };
+    problem: { id: string; defaultTitle: string };
   }[];
 }
 
@@ -108,7 +107,6 @@ export async function getScoreboard(
     id: cp.problemId,
     ordinal: cp.ordinal,
     points: cp.points,
-    slug: cp.problem.slug,
     title: cp.problem.defaultTitle
   }));
 

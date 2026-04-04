@@ -142,7 +142,6 @@
         acRate: Math.round(acRate),
         attemptRate: Math.round(attemptRate),
         avgProblemScore: Number(avgProblemScore.toFixed(1)),
-        slug: problem.slug,
         title: problem.title
       };
     });
@@ -201,7 +200,7 @@
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "category",
-      data: problemPerformanceRows.map((row) => row.slug),
+      data: problemPerformanceRows.map((row) => row.title),
       axisLabel: {
         fontSize: 11,
         interval: 0,
@@ -237,7 +236,7 @@
     tooltip: { trigger: "axis" },
     xAxis: {
       type: "category",
-      data: problemPerformanceRows.map((row) => row.slug),
+      data: problemPerformanceRows.map((row) => row.title),
       axisLabel: {
         fontSize: 11,
         interval: 0,

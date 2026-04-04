@@ -40,19 +40,16 @@ export async function createTestProblem(
     const author = await createTestUser({ platformRole: "teacher" });
     authorId = author.id;
   }
-  const slug = overrides.slug ?? `test-problem-${id}`;
-
   const problem = await testPrisma.problem.create({
     data: {
       id,
-      slug,
       defaultTitle: overrides.defaultTitle ?? `Test Problem ${id}`,
       difficulty: overrides.difficulty ?? "easy",
       summary: overrides.summary ?? "A test problem",
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
       visibility: overrides.visibility ?? "public",
-      ...overrides,
+      ...Object.fromEntries(Object.entries(overrides).filter(([k]) => k !== "slug")),
       authorId
     }
   });

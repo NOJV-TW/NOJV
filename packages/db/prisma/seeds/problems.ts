@@ -34,7 +34,6 @@ type SeedProblemDef = {
   difficulty: string;
   id: string;
   memoryLimitMb: number;
-  slug: string;
   summary: string;
   timeLimitMs: number;
   visibility: "public" | "private";
@@ -53,19 +52,18 @@ type SeedFunctionTemplate = {
 };
 
 type SeedFunctionTemplateDef = {
-  slug: string;
+  problemId: string;
   templates: SeedFunctionTemplate[];
 };
 
-const hardenedSlugs = [
-  "stateful-dhcp-parser",
-  "memory-leak-forensics",
-  "noisy-oracle-hunt"
+const hardenedIds = [
+  "problem_stateful-dhcp-parser",
+  "problem_memory-leak-forensics",
+  "problem_noisy-oracle-hunt"
 ] as const;
 
 export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void {
   const ids = new Set<string>();
-  const slugs = new Set<string>();
 
   for (const def of problemDefs) {
     if (ids.has(def.id)) {
@@ -73,39 +71,34 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
     }
     ids.add(def.id);
 
-    if (slugs.has(def.slug)) {
-      throw new Error(`Duplicate seed problem slug: ${def.slug}`);
-    }
-    slugs.add(def.slug);
-
     if (!def.statements.en?.title || !def.statements["zh-TW"]?.title) {
-      throw new Error(`Missing required locales for problem: ${def.slug}`);
+      throw new Error(`Missing required locales for problem: ${def.id}`);
     }
 
     if (def.testcases.sample.cases.length === 0 || def.testcases.hidden.cases.length === 0) {
-      throw new Error(`Sample/hidden testcase sets must be non-empty: ${def.slug}`);
+      throw new Error(`Sample/hidden testcase sets must be non-empty: ${def.id}`);
     }
 
     if (def.judgeConfig) {
       const config = def.judgeConfig;
       if (config.type === "checker" && !(config.checkerScript as string)?.trim()) {
-        throw new Error(`Checker judge requires checkerScript in judgeConfig: ${def.slug}`);
+        throw new Error(`Checker judge requires checkerScript in judgeConfig: ${def.id}`);
       }
       if (config.type === "interactive" && !(config.interactorScript as string)?.trim()) {
         throw new Error(
-          `Interactive judge requires interactorScript in judgeConfig: ${def.slug}`
+          `Interactive judge requires interactorScript in judgeConfig: ${def.id}`
         );
       }
     }
   }
 
-  for (const slug of hardenedSlugs) {
-    const def = problemDefs.find((entry) => entry.slug === slug);
+  for (const id of hardenedIds) {
+    const def = problemDefs.find((entry) => entry.id === id);
     if (!def) {
-      throw new Error(`Missing hardened seed problem: ${slug}`);
+      throw new Error(`Missing hardened seed problem: ${id}`);
     }
     if (def.difficulty !== "hard") {
-      throw new Error(`Hardened problem must be hard difficulty: ${slug}`);
+      throw new Error(`Hardened problem must be hard difficulty: ${id}`);
     }
   }
 }
@@ -114,41 +107,43 @@ export function validateTemplateDefinitions(
   problemDefs: SeedProblemDef[],
   functionTemplateDefs: SeedFunctionTemplateDef[]
 ): void {
-  const problemBySlug = new Map(problemDefs.map((def) => [def.slug, def]));
-  const templateSlugs = new Set<string>();
+  const problemById = new Map(problemDefs.map((def) => [def.id, def]));
+  const templateIds = new Set<string>();
 
   for (const bundle of functionTemplateDefs) {
-    if (templateSlugs.has(bundle.slug)) {
-      throw new Error(`Duplicate template bundle slug: ${bundle.slug}`);
+    if (templateIds.has(bundle.problemId)) {
+      throw new Error(`Duplicate template bundle for problem: ${bundle.problemId}`);
     }
-    templateSlugs.add(bundle.slug);
+    templateIds.add(bundle.problemId);
 
-    const problem = problemBySlug.get(bundle.slug);
+    const problem = problemById.get(bundle.problemId);
     if (!problem) {
-      throw new Error(`Template references unknown problem slug: ${bundle.slug}`);
+      throw new Error(`Template references unknown problem id: ${bundle.problemId}`);
     }
 
     if (bundle.templates.length === 0) {
-      throw new Error(`Template bundle must include at least one template: ${bundle.slug}`);
+      throw new Error(
+        `Template bundle must include at least one template: ${bundle.problemId}`
+      );
     }
 
     for (const template of bundle.templates) {
       if (!template.templateCode.trim()) {
-        throw new Error(`Template code cannot be empty: ${bundle.slug}`);
+        throw new Error(`Template code cannot be empty: ${bundle.problemId}`);
       }
 
       const markerCount = template.driverCode.split(template.insertionMarker).length - 1;
       if (markerCount !== 1) {
         throw new Error(
-          `Template marker must appear exactly once for ${bundle.slug} (${template.language})`
+          `Template marker must appear exactly once for ${bundle.problemId} (${template.language})`
         );
       }
     }
   }
 
   for (const problem of problemDefs) {
-    if (problem.submissionType === "function" && !templateSlugs.has(problem.slug)) {
-      throw new Error(`Function-mode problem is missing templates: ${problem.slug}`);
+    if (problem.submissionType === "function" && !templateIds.has(problem.id)) {
+      throw new Error(`Function-mode problem is missing templates: ${problem.id}`);
     }
   }
 }
@@ -161,7 +156,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "easy",
       id: "problem_warmup-sum",
       memoryLimitMb: 256,
-      slug: "warmup-sum",
       summary:
         "The sandbox-backed testcase judge uses this task to exercise the editor, queue, and submission lifecycle.",
       timeLimitMs: 1000,
@@ -207,7 +201,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "medium",
       id: "problem_graph-docking",
       memoryLimitMb: 256,
-      slug: "graph-docking",
       summary: "A medium problem used to show richer catalog metadata on the problem page.",
       timeLimitMs: 2000,
       visibility: "public" as const,
@@ -250,7 +243,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "hard",
       id: "problem_distributed-labyrinth",
       memoryLimitMb: 512,
-      slug: "distributed-labyrinth",
       summary:
         "A hard graph problem that showcases the catalog's ability to carry richer editorial metadata and higher-difficulty workloads.",
       timeLimitMs: 3000,
@@ -295,7 +287,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "medium",
       id: "problem_process-log-parser",
       memoryLimitMb: 256,
-      slug: "process-log-parser",
       summary:
         "A private course problem for assignments where the public catalog should not reveal the prompt.",
       timeLimitMs: 1000,
@@ -349,7 +340,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "hard",
       id: "problem_fork-bomb-safeguard",
       memoryLimitMb: 512,
-      slug: "fork-bomb-safeguard",
       summary: "A private exam problem that should only surface inside a course assessment.",
       timeLimitMs: 2000,
       visibility: "private" as const,
@@ -392,7 +382,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "easy",
       id: "problem_add-two-numbers",
       memoryLimitMb: 256,
-      slug: "add-two-numbers",
       submissionType: "function" as const,
       summary: "Write a function that adds two integers.",
       timeLimitMs: 1000,
@@ -438,7 +427,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       difficulty: "easy",
       id: "problem_float-compare",
       memoryLimitMb: 256,
-      slug: "float-compare",
       submissionType: "full_source" as const,
       judgeConfig: {
         type: "checker",
@@ -504,7 +492,6 @@ if __name__ == "__main__":
       difficulty: "medium",
       id: "problem_guess-the-number",
       memoryLimitMb: 256,
-      slug: "guess-the-number",
       submissionType: "full_source" as const,
       judgeConfig: {
         type: "interactive",
@@ -585,7 +572,6 @@ if __name__ == "__main__":
       difficulty: "hard",
       id: "problem_stateful-dhcp-parser",
       memoryLimitMb: 256,
-      slug: "stateful-dhcp-parser",
       submissionType: "function" as const,
       summary:
         "Implement a resilient TLV parser over DHCP option bytes with malformed-stream handling and canonical formatting.",
@@ -639,7 +625,6 @@ if __name__ == "__main__":
       difficulty: "hard",
       id: "problem_memory-leak-forensics",
       memoryLimitMb: 256,
-      slug: "memory-leak-forensics",
       submissionType: "function" as const,
       summary:
         "Analyze allocator event streams and report peak allocation, leaked block count, and invalid free attempts.",
@@ -697,7 +682,6 @@ if __name__ == "__main__":
       difficulty: "hard",
       id: "problem_noisy-oracle-hunt",
       memoryLimitMb: 256,
-      slug: "noisy-oracle-hunt",
       submissionType: "full_source" as const,
       judgeConfig: {
         type: "interactive",
@@ -783,7 +767,6 @@ if __name__ == "__main__":
         difficulty: def.difficulty,
         id: def.id,
         memoryLimitMb: def.memoryLimitMb,
-        slug: def.slug,
         summary: def.summary,
         timeLimitMs: def.timeLimitMs,
         visibility: def.visibility,
@@ -799,7 +782,7 @@ if __name__ == "__main__":
         judgeConfig: def.judgeConfig ?? undefined,
         status: def.status ?? "published"
       },
-      where: { slug: def.slug }
+      where: { id: def.id }
     });
 
     // Upsert statements for each locale
@@ -866,14 +849,14 @@ if __name__ == "__main__":
     }
 
     console.log(
-      `  Problem: ${def.slug} (${Object.keys(def.statements).join(", ")} statements, ${Object.keys(def.testcases).length} testcase sets)`
+      `  Problem: ${def.id} (${Object.keys(def.statements).join(", ")} statements, ${Object.keys(def.testcases).length} testcase sets)`
     );
   }
 
   // --- Problem Templates (for function-mode problems) ---
   const functionTemplateDefs: SeedFunctionTemplateDef[] = [
     {
-      slug: "add-two-numbers",
+      problemId: "problem_add-two-numbers",
       templates: [
         {
           driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
@@ -892,7 +875,7 @@ if __name__ == "__main__":
       ]
     },
     {
-      slug: "stateful-dhcp-parser",
+      problemId: "problem_stateful-dhcp-parser",
       templates: [
         {
           driverCode: `# __USER_CODE__
@@ -926,7 +909,7 @@ if __name__ == "__main__":
       ]
     },
     {
-      slug: "memory-leak-forensics",
+      problemId: "problem_memory-leak-forensics",
       templates: [
         {
           driverCode: `# __USER_CODE__
@@ -959,7 +942,7 @@ if __name__ == "__main__":
   validateTemplateDefinitions(problemDefs, functionTemplateDefs);
 
   for (const tplDef of functionTemplateDefs) {
-    const problem = await prisma.problem.findUnique({ where: { slug: tplDef.slug } });
+    const problem = await prisma.problem.findUnique({ where: { id: tplDef.problemId } });
     if (!problem) continue;
 
     for (const tpl of tplDef.templates) {
@@ -985,6 +968,6 @@ if __name__ == "__main__":
       });
     }
 
-    console.log(`  Templates: ${tplDef.templates.length} upserted for ${tplDef.slug}`);
+    console.log(`  Templates: ${tplDef.templates.length} upserted for ${tplDef.problemId}`);
   }
 }

@@ -4,7 +4,7 @@ interface EditorSessionIdentifierInput {
   assessmentSlug?: string | undefined;
   contestSlug?: string | undefined;
   courseSlug?: string | undefined;
-  problemSlug: string;
+  problemId: string;
 }
 
 function sanitizeSessionSegment(value: string) {
@@ -26,18 +26,18 @@ function joinSessionSegments(prefix: string, segments: string[]) {
 
 function buildEditorSessionId(input: EditorSessionIdentifierInput) {
   if (input.contestSlug) {
-    return joinSessionSegments("editor", [input.problemSlug, "contest", input.contestSlug]);
+    return joinSessionSegments("editor", [input.problemId, "contest", input.contestSlug]);
   }
 
   if (input.courseSlug && input.assessmentSlug) {
     return joinSessionSegments("editor", [
-      input.problemSlug,
+      input.problemId,
       input.courseSlug,
       input.assessmentSlug
     ]);
   }
 
-  return joinSessionSegments("editor", [input.problemSlug, "practice"]);
+  return joinSessionSegments("editor", [input.problemId, "practice"]);
 }
 
 describe("buildEditorSessionId", () => {
@@ -45,7 +45,7 @@ describe("buildEditorSessionId", () => {
     expect(
       buildEditorSessionId({
         contestSlug: "spring-qualifier-2026",
-        problemSlug: "warmup-sum"
+        problemId: "warmup-sum"
       })
     ).toBe("editor_warmup-sum_contest_spring-qualifier-2026");
   });
@@ -55,7 +55,7 @@ describe("buildEditorSessionId", () => {
       buildEditorSessionId({
         assessmentSlug: "hw1-process-trace",
         courseSlug: "os-lab-spring-2026",
-        problemSlug: "process-log-parser"
+        problemId: "process-log-parser"
       })
     ).toBe("editor_process-log-parser_os-lab-spring-2026_hw1-process-trace");
   });

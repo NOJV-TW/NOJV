@@ -51,7 +51,7 @@
           class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
         >
           <p class="text-sm text-muted-foreground">{m.courseDetail_problemPool()}</p>
-          <p class="mt-2 text-lg font-semibold">{course.problemSlugs.length}</p>
+          <p class="mt-2 text-lg font-semibold">{course.problemIds.length}</p>
         </div>
       </div>
     </div>
