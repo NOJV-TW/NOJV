@@ -25,7 +25,7 @@
 </script>
 
 <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-  <form class="grid gap-4" method="POST" action="?/updateBasicInfo" use:enhance>
+  <form class="grid gap-4" method="POST" action="?/update" use:enhance>
     <!-- Title -->
     <label class="text-sm text-muted-foreground">
       {m.admin_title()}
