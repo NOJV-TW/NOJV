@@ -98,15 +98,15 @@ export async function seedCourses(
   }
 
   // Course problems
-  const osLabProblemSlugs = [
-    "warmup-sum",
-    "graph-docking",
-    "process-log-parser",
-    "fork-bomb-safeguard"
+  const osLabProblemIds = [
+    "problem_warmup-sum",
+    "problem_graph-docking",
+    "problem_process-log-parser",
+    "problem_fork-bomb-safeguard"
   ];
 
-  for (const slug of osLabProblemSlugs) {
-    const problem = await prisma.problem.findUniqueOrThrow({ where: { slug } });
+  for (const problemId of osLabProblemIds) {
+    const problem = await prisma.problem.findUniqueOrThrow({ where: { id: problemId } });
     await prisma.courseProblem.upsert({
       create: {
         addedByUserId: teacher.id,
@@ -174,13 +174,13 @@ export async function seedCourses(
 
   // Assessment problem links (hw1 only — midterm is now a contest)
   const assessmentProblemLinks = [
-    { assessmentId: hw1.id, problemSlug: "warmup-sum", ordinal: 1 },
-    { assessmentId: hw1.id, problemSlug: "process-log-parser", ordinal: 2 }
+    { assessmentId: hw1.id, problemId: "problem_warmup-sum", ordinal: 1 },
+    { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 }
   ];
 
   for (const link of assessmentProblemLinks) {
     const problem = await prisma.problem.findUniqueOrThrow({
-      where: { slug: link.problemSlug }
+      where: { id: link.problemId }
     });
 
     await prisma.courseAssessmentProblem.upsert({
@@ -204,13 +204,13 @@ export async function seedCourses(
 
   // Midterm contest problem links
   const midtermProblemLinks = [
-    { contestId: midterm.id, problemSlug: "graph-docking", ordinal: 1, points: 100 },
-    { contestId: midterm.id, problemSlug: "fork-bomb-safeguard", ordinal: 2, points: 100 }
+    { contestId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
+    { contestId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 }
   ];
 
   for (const link of midtermProblemLinks) {
     const problem = await prisma.problem.findUniqueOrThrow({
-      where: { slug: link.problemSlug }
+      where: { id: link.problemId }
     });
 
     await prisma.contestProblem.upsert({

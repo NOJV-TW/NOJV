@@ -50,7 +50,7 @@ export const actions = {
         courseSlug: slug
       });
       await attachProblemToCourseRecord(actor, payload);
-      return message(form, `Attached ${payload.problemSlug} to course.`);
+      return message(form, `Attached ${payload.problemId} to course.`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Problem attachment failed.";
       return fail(400, { form, error: msg });

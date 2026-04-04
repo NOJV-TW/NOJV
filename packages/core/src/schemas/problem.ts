@@ -5,7 +5,6 @@ import {
   problemDifficultySchema,
   problemStatusSchema,
   problemVisibilitySchema,
-  slugSchema,
   submissionTypeSchema
 } from "../types";
 
@@ -27,7 +26,6 @@ export const problemCreateSchema = z.object({
     .trim()
     .min(1, "validation_required")
     .max(4_000, "validation_tooLong"),
-  slug: slugSchema.or(z.literal("")).default(""),
   statement: z.string().trim().min(1, "validation_required").max(12_000, "validation_tooLong"),
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),
@@ -45,7 +43,7 @@ export const problemCreateSchema = z.object({
   status: problemStatusSchema.default("draft")
 });
 
-export const problemUpdateSchema = problemCreateSchema.omit({ slug: true }).partial();
+export const problemUpdateSchema = problemCreateSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
   expectedStdout: z.string().max(200_000),
@@ -79,7 +77,7 @@ export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),
   difficulty: problemDifficultySchema,
-  slug: slugSchema,
+  id: z.string().min(1),
   title: z.string().min(1),
   totalSubmissions: z.number().int().nonnegative()
 });

@@ -10,13 +10,13 @@
     assessments={data.assessments}
     courseSlug={data.courseSlug}
     form={data.form}
-    problemSlugs={data.problemSlugs}
+    problemIds={data.problemIds}
   />
 
   <ManageContests
     contests={data.contests}
     courseSlug={data.courseSlug}
     form={data.contestForm}
-    problemSlugs={data.problemSlugs}
+    problemIds={data.problemIds}
   />
 </div>

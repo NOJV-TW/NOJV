@@ -13,13 +13,13 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/dashboard`                                         | User stats, activity chart, language/difficulty distribution, recommendations |
 | `/problems`                                          | Problem listing with filters (difficulty, tags, status)                       |
 | `/problems/create`                                   | Problem creation (admin/teacher)                                              |
-| `/problems/[slug]`                                   | Problem workspace: Monaco editor, testcases, submit/run                       |
-| `/problems/[slug]/edit`                              | Problem editor (admin/teacher)                                                |
+| `/problems/[id]`                                     | Problem workspace: Monaco editor, testcases, submit/run                       |
+| `/problems/[id]/edit`                                | Problem editor (admin/teacher)                                                |
 | `/submissions`                                       | User submission history                                                       |
 | `/contests`                                          | Contest listing, invite code join                                             |
 | `/contests/create`                                   | Contest creation (admin/teacher)                                              |
 | `/contests/[slug]`                                   | Contest detail and problem list                                               |
-| `/contests/[slug]/problems/[problemSlug]`            | Contest problem workspace                                                     |
+| `/contests/[slug]/problems/[problemId]`              | Contest problem workspace                                                     |
 | `/contests/[slug]/scoreboard`                        | Real-time scoreboard (ICPC/IOI)                                               |
 | `/courses`                                           | Course listing                                                                |
 | `/courses/[slug]`                                    | Course detail                                                                 |
@@ -60,7 +60,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/contests/[slug]/scoreboard/chart`    | GET       | Scoreboard chart data                                |
 | `/api/contests/[slug]/scoreboard/unfreeze` | GET       | Unfreeze scoreboard (admin/teacher)                  |
 | `/api/plagiarism/[assessmentId]`           | GET, POST | Plagiarism reports and trigger detection             |
-| `/api/problems/[slug]/editorials`          | GET, POST | Problem editorials (AC-gated)                        |
+| `/api/problems/[id]/editorials`            | GET, POST | Problem editorials (AC-gated)                        |
+| `/api/problems/create`                     | POST      | Create problem (admin/teacher)                       |
 | `/api/ip-violations`                       | GET       | IP violation logs (admin/teacher)                    |
 | `/api/healthz`                             | GET       | Health check                                         |
 

@@ -89,9 +89,9 @@ describe("read model (real DB)", () => {
       expect(result.problems[0]!.acceptanceRate).toBe(0);
     });
 
-    it("includes slug, difficulty, and tags", async () => {
+    it("includes id, difficulty, and tags", async () => {
       await createTestProblem({
-        slug: "two-sum",
+        id: "two-sum",
         difficulty: "hard",
         visibility: "public",
         tags: ["array", "hash-table"]
@@ -99,7 +99,7 @@ describe("read model (real DB)", () => {
 
       const result = await listProblemCards();
       expect(result.problems).toHaveLength(1);
-      expect(result.problems[0]!.slug).toBe("two-sum");
+      expect(result.problems[0]!.id).toBe("two-sum");
       expect(result.problems[0]!.difficulty).toBe("hard");
       expect(result.problems[0]!.tags).toEqual(["array", "hash-table"]);
     });
@@ -108,7 +108,7 @@ describe("read model (real DB)", () => {
   // --- getProblemPageData ---
 
   describe("getProblemPageData", () => {
-    it("returns null for nonexistent slug", async () => {
+    it("returns null for nonexistent id", async () => {
       const result = await getProblemPageData("nonexistent");
       expect(result).toBeNull();
     });
@@ -116,7 +116,7 @@ describe("read model (real DB)", () => {
     it("returns full problem detail with statement and samples", async () => {
       const author = await createTestUser({ platformRole: "teacher", username: "prof" });
       await createTestProblem({
-        slug: "detail-problem",
+        id: "detail-problem",
         authorId: author.id,
         difficulty: "medium",
         visibility: "public",
@@ -125,7 +125,7 @@ describe("read model (real DB)", () => {
 
       const detail = await getProblemPageData("detail-problem", "en");
       expect(detail).not.toBeNull();
-      expect(detail!.slug).toBe("detail-problem");
+      expect(detail!.id).toBe("detail-problem");
       expect(detail!.title).toBe("Detail Problem");
       expect(detail!.difficulty).toBe("medium");
       expect(detail!.authorUsername).toBe("prof");
@@ -134,7 +134,7 @@ describe("read model (real DB)", () => {
 
     it("includes sample testcases from non-hidden testcase set", async () => {
       await createTestProblem({
-        slug: "samples-problem",
+        id: "samples-problem",
         visibility: "public"
       });
 
@@ -148,7 +148,7 @@ describe("read model (real DB)", () => {
 
     it("includes input/output format from statement", async () => {
       await createTestProblem({
-        slug: "format-problem",
+        id: "format-problem",
         visibility: "public"
       });
 
@@ -161,7 +161,7 @@ describe("read model (real DB)", () => {
     it("counts total submissions and acceptance rate", async () => {
       const user = await createTestUser();
       const problem = await createTestProblem({
-        slug: "counted-problem",
+        id: "counted-problem",
         authorId: user.id,
         visibility: "public"
       });
@@ -255,7 +255,7 @@ describe("read model (real DB)", () => {
       expect(data!.course.slug).toBe("read-model-course");
       expect(data!.course.assessments).toHaveLength(1);
       expect(data!.course.assessments[0]!.title).toBe("Midterm");
-      expect(data!.course.assessments[0]!.problemSlugs).toContain(problem.slug);
+      expect(data!.course.assessments[0]!.problemIds).toContain(problem.id);
       expect(data!.course.members).toHaveLength(1);
       expect(data!.problems).toHaveLength(1);
     });

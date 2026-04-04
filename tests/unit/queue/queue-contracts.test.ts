@@ -7,7 +7,7 @@ describe("queue contracts", () => {
       submissionId: "sub-123",
       draft: {
         mode: "practice",
-        problemSlug: "two-sum",
+        problemId: "two-sum",
         language: "python",
         sourceCode: "print('hello')"
       }

@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     ])
   );
 
-  // Build a lookup of problemId -> slug for display
+  // Build a lookup of problemId -> title for display
   const problemMap = await getAssessmentProblemMap(assessment.id);
 
   return {

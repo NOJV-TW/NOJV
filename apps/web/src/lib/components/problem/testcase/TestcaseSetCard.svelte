@@ -19,10 +19,10 @@
       weight: number;
       testcases: TestcaseData[];
     };
-    problemSlug: string;
+    problemId: string;
   }
 
-  let { set, problemSlug }: Props = $props();
+  let { set, problemId }: Props = $props();
 
   let expanded = $state(false);
   let editing = $state(false);
@@ -50,7 +50,7 @@
   async function saveSet() {
     saving = true;
     try {
-      await postProblemAction(problemSlug, "updateTestcaseSet", {
+      await postProblemAction(problemId, "updateTestcaseSet", {
         setId: set.id,
         data: JSON.stringify({ name: editName, weight: editWeight, isHidden: editIsHidden })
       });
@@ -64,7 +64,7 @@
   async function deleteSet() {
     saving = true;
     try {
-      await postProblemAction(problemSlug, "deleteTestcaseSet", { setId: set.id });
+      await postProblemAction(problemId, "deleteTestcaseSet", { setId: set.id });
       confirmDelete = false;
       await invalidateAll();
     } finally {
@@ -81,7 +81,7 @@
   async function saveTestcase(tcId: string) {
     saving = true;
     try {
-      await postProblemAction(problemSlug, "updateTestcase", {
+      await postProblemAction(problemId, "updateTestcase", {
         testcaseId: tcId,
         data: JSON.stringify({ stdin: editStdin, expectedStdout: editExpectedStdout })
       });
@@ -95,7 +95,7 @@
   async function deleteTestcase(tcId: string) {
     saving = true;
     try {
-      await postProblemAction(problemSlug, "deleteTestcase", { testcaseId: tcId });
+      await postProblemAction(problemId, "deleteTestcase", { testcaseId: tcId });
       confirmDeleteTestcaseId = null;
       await invalidateAll();
     } finally {
