@@ -35,7 +35,7 @@ RUN pnpm --filter @nojv/job-dispatch build
 RUN pnpm --filter @nojv/domain build
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build
 
-# 3. Production image — only the SvelteKit build output
+# 3. Production image
 FROM node:24-alpine
 
 RUN addgroup --system --gid 1001 nodejs \
@@ -43,8 +43,28 @@ RUN addgroup --system --gid 1001 nodejs \
 
 WORKDIR /app
 
+# SvelteKit server bundle
 COPY --from=builder --chown=appuser:nodejs /build/apps/web/build ./build
 COPY --from=builder --chown=appuser:nodejs /build/apps/web/package.json .
+
+# Full node_modules — pnpm hoists all npm packages here and
+# creates @nojv/* symlinks pointing to ../../packages/<name>.
+COPY --from=builder --chown=appuser:nodejs /build/node_modules/ ./node_modules/
+
+# Workspace package dist + package.json — the symlinks above resolve to these.
+COPY --from=builder --chown=appuser:nodejs /build/packages/core/dist/ ./packages/core/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/core/package.json ./packages/core/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/db/dist/ ./packages/db/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/db/package.json ./packages/db/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/domain/dist/ ./packages/domain/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/domain/package.json ./packages/domain/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/redis/dist/ ./packages/redis/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./packages/redis/package.json
+COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/dist/ ./packages/job-dispatch/dist/
+COPY --from=builder --chown=appuser:nodejs /build/packages/job-dispatch/package.json ./packages/job-dispatch/package.json
+
+# Prisma generated client output (prisma-client generator)
+COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ ./packages/db/generated/prisma/
 
 ENV NODE_ENV=production
 EXPOSE 3000
