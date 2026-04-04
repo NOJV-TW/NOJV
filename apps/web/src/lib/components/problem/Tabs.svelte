@@ -2,8 +2,9 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { difficultyColor } from "$lib/types";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
-  import { FileCode, Pencil, Search } from "@lucide/svelte";
+  import { FileCode, Pencil, Search, Tags } from "@lucide/svelte";
 
   let creating = $state(false);
 
@@ -46,10 +47,11 @@
 
   let { editableProblems, publicResult, showCreate }: Props = $props();
 
-  let tab = $state<"public" | "mine">("public");
-
   // ─── Public tab: URL-driven state ─────────────────────────────────
   let currentUrl = $derived($page.url);
+  let tab = $derived<"public" | "mine">(
+    showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public"
+  );
   let publicSearch = $derived(currentUrl.searchParams.get("q") ?? "");
   let publicDifficulty = $derived<Difficulty>(
     (currentUrl.searchParams.get("difficulty") as Difficulty) || "all"
@@ -76,7 +78,7 @@
 
   // Debounce timer for search input
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
-  let searchInputValue = $state(publicSearch);
+  let searchInputValue = $state("");
 
   // Keep searchInputValue in sync when URL changes externally
   $effect(() => {
@@ -125,6 +127,18 @@
     updatePublicUrl({ page: p > 1 ? String(p) : undefined });
   }
 
+  function setTab(nextTab: "public" | "mine") {
+    const params = new URLSearchParams(currentUrl.searchParams);
+    if (nextTab === "mine") {
+      params.set("tab", "mine");
+    } else {
+      params.delete("tab");
+    }
+    const qs = params.toString();
+    const target = qs ? `?${qs}` : currentUrl.pathname;
+    goto(target, { keepFocus: true, noScroll: true });
+  }
+
   // Build page numbers for pagination
   let paginationPages = $derived.by(() => {
     const pages: number[] = [];
@@ -157,6 +171,8 @@
   let mineAllTags = $derived(
     [...new Set((editableProblems ?? []).flatMap((p) => p.tags))].sort()
   );
+  let showPublicCardTags = $state(false);
+  let showMineCardTags = $state(false);
 
   function filterProblems<
     T extends {
@@ -211,7 +227,7 @@
     class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'public'
       ? 'border-primary bg-primary text-white'
       : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
-    onclick={() => { tab = "public"; }}
+    onclick={() => setTab("public")}
     type="button"
   >
     {m.problems_publicLibrary()}
@@ -221,7 +237,7 @@
       class="rounded-full border px-4 py-2 text-sm font-medium transition {tab === 'mine'
         ? 'border-primary bg-primary text-white'
         : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
-      onclick={() => { tab = "mine"; }}
+      onclick={() => setTab("mine")}
       type="button"
     >
       {m.problems_myProblems()}
@@ -280,9 +296,18 @@
           {d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1)}
         </button>
       {/each}
+      <button
+        class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
+        aria-pressed={showPublicCardTags}
+        onclick={() => { showPublicCardTags = !showPublicCardTags; }}
+        type="button"
+      >
+        <Tags class="h-3.5 w-3.5" />
+        {showPublicCardTags ? m.problems_hideMoreTags() : m.problems_showMoreTags()}
+      </button>
     </div>
 
-    {#if publicAllTags.length > 0}
+    {#if showPublicCardTags && publicAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
@@ -337,9 +362,22 @@
         <div>
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
         </div>
-        <div>
-          <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
-          <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
+        <div class="flex flex-wrap items-center gap-2">
+          <span
+            class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
+              problem.difficulty
+            ] ?? 'bg-muted text-muted-foreground'}"
+            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
+          >
+            {problem.difficulty}
+          </span>
+          {#if showPublicCardTags && problem.tags.length > 0}
+            {#each problem.tags as tag (tag)}
+              <span class="inline-flex rounded-full border border-border bg-muted/40 px-3 py-1 text-sm font-semibold text-muted-foreground">
+                {tag}
+              </span>
+            {/each}
+          {/if}
         </div>
         <div class="sm:text-right">
           <p class="text-sm text-muted-foreground">{m.common_acceptance()}</p>
@@ -436,9 +474,18 @@
           {d === "all" ? m.problems_allDifficulties() : d.charAt(0).toUpperCase() + d.slice(1)}
         </button>
       {/each}
+      <button
+        class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
+        aria-pressed={showMineCardTags}
+        onclick={() => { showMineCardTags = !showMineCardTags; }}
+        type="button"
+      >
+        <Tags class="h-3.5 w-3.5" />
+        {showMineCardTags ? m.problems_hideMoreTags() : m.problems_showMoreTags()}
+      </button>
     </div>
 
-    {#if mineAllTags.length > 0}
+    {#if showMineCardTags && mineAllTags.length > 0}
       <div
         class="flex flex-wrap items-center gap-2"
         aria-label={m.problems_filterByTag()}
@@ -462,7 +509,7 @@
   </div>
 
   <section class="grid gap-4">
-    {#if editableProblems.length === 0}
+    {#if (editableProblems?.length ?? 0) === 0}
       <EmptyState
         icon={FileCode}
         title={m.problems_myProblemsEmpty()}
@@ -480,9 +527,22 @@
         <a href="/problems/{problem.id}" class="transition hover:opacity-80">
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
         </a>
-        <div>
-          <p class="text-sm text-muted-foreground">{m.common_difficulty()}</p>
-          <p class="mt-1 text-lg font-semibold capitalize">{problem.difficulty}</p>
+        <div class="flex flex-wrap items-center gap-2">
+          <span
+            class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
+              problem.difficulty
+            ] ?? 'bg-muted text-muted-foreground'}"
+            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
+          >
+            {problem.difficulty}
+          </span>
+          {#if showMineCardTags && problem.tags.length > 0}
+            {#each problem.tags as tag (tag)}
+              <span class="inline-flex rounded-full border border-border bg-muted/40 px-3 py-1 text-sm font-semibold text-muted-foreground">
+                {tag}
+              </span>
+            {/each}
+          {/if}
         </div>
         <div class="flex flex-wrap gap-1.5 sm:justify-end">
           {#if problem.status === "draft"}
