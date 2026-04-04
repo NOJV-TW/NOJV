@@ -456,6 +456,8 @@
   "problems_previousPage": "上一頁",
   "problems_publicLibrary": "公開題庫",
   "problems_searchProblems": "搜尋題目...",
+  "problems_showMoreTags": "顯示更多標籤",
+  "problems_hideMoreTags": "隱藏更多標籤",
   "problems_statusAc": "已通過",
   "problems_statusAttempted": "已嘗試",
   "runtimeStats_heading": "執行時期資料",
