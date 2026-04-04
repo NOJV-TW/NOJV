@@ -39,7 +39,7 @@ describe("courseAssessmentCreateSchema", () => {
       closesAt: "2026-03-20T12:00:00.000Z",
       courseSlug: "os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
-      problemSlugs: ["warmup-sum"],
+      problemIds: ["warmup-sum"],
       slug: "hw1-process-warmup",
       summary: "First assignment",
       title: "Homework 1",

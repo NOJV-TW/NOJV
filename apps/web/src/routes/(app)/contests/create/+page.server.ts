@@ -30,7 +30,7 @@ export const actions = {
 
     try {
       const {
-        problemSlugsText,
+        problemIdsText,
         ipWhitelistText,
         startsAt,
         endsAt,
@@ -51,7 +51,7 @@ export const actions = {
           .split("\n")
           .map((s) => s.trim())
           .filter(Boolean),
-        problemSlugs: problemSlugsText
+        problemIds: problemIdsText
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),

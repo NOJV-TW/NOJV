@@ -32,17 +32,17 @@
       maxAttempts?: number | null | undefined;
       opensAt: string;
       pageLockEnabled: boolean;
-      problemSlugsText: string;
+      problemIdsText: string;
       scoreboardMode?: AssessmentScoreboardMode | undefined;
       slug: string;
       summary: string;
       title: string;
     }>;
-    problemSlugs: string[];
+    problemIds: string[];
   }
 
-  let { assessments, courseSlug, form: formData, problemSlugs }: Props = $props();
-  const initialProblemSlugs = untrack(() => problemSlugs);
+  let { assessments, courseSlug, form: formData, problemIds }: Props = $props();
+  const initialProblemSlugs = untrack(() => problemIds);
 
   type UiLang = "zh" | "en";
   let uiLang = $state<UiLang>("zh");
@@ -152,7 +152,7 @@
   if (!$form.opensAt) $form.opensAt = defaultWindow.opensAt;
   if (!$form.dueAt) $form.dueAt = defaultWindow.dueAt;
   if (!$form.closesAt) $form.closesAt = defaultWindow.closesAt;
-  if (!$form.problemSlugsText) $form.problemSlugsText = initialProblemSlugs.join(", ");
+  if (!$form.problemIdsText) $form.problemIdsText = initialProblemSlugs.join(", ");
   if (!$form.allowedLanguages) $form.allowedLanguages = [];
 
   function toggleLanguage(lang: Language) {
@@ -404,12 +404,12 @@
       <div>
         <textarea
           class={textareaClassName}
-          name="problemSlugsText"
-          bind:value={$form.problemSlugsText}
+          name="problemIdsText"
+          bind:value={$form.problemIdsText}
           placeholder="problem-one, problem-two"
           required
         ></textarea>
-        {#if $errors.problemSlugsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemSlugsText}</span>{/if}
+        {#if $errors.problemIdsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemIdsText}</span>{/if}
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         <div>

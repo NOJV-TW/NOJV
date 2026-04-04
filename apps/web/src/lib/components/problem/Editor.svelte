@@ -197,7 +197,7 @@
       contestSlug,
       language,
       mode: contestSlug ? "contest" : (assessment ? "assignment" : "practice"),
-      problemSlug: problem.id,
+      problemId: problem.id,
       sampleOnly: options?.sampleOnly ?? false,
     };
 

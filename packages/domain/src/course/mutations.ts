@@ -116,8 +116,7 @@ export async function attachProblemToCourseRecord(
   return runTransaction(async (tx) => {
     const user = await ensureUser(tx, actor.userId, actor);
     const course = await requireCourse(tx, payload.courseSlug);
-    // NOTE: problemSlug field in CourseProblemAttach now contains a problem ID (core schema rename pending)
-    const problem = await requireProblem(tx, payload.problemSlug);
+    const problem = await requireProblem(tx, payload.problemId);
     assertCourseProblemAccess(problem, actor);
 
     return courseProblemRepo.withTx(tx).upsert(
@@ -257,8 +256,7 @@ export async function createCourseAssessmentRecord(
       title: payload.title
     });
 
-    // NOTE: problemSlugs field in CourseAssessmentCreate now contains problem IDs (core schema rename pending)
-    const problemIds = payload.problemSlugs;
+    const problemIds = payload.problemIds;
     const problems = await problemRepo.withTx(tx).findMany({
       id: { in: problemIds }
     });

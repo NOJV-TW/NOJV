@@ -229,7 +229,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       visibility: "published"
     });
 
-    await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs);
+    await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);
 
     return contest;
   });
@@ -281,10 +281,10 @@ export async function updateContestRecord(
     }
 
     // Replace problems if provided
-    if (payload.problemSlugs !== undefined) {
+    if (payload.problemIds !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
-      await resolveAndAttachContestProblems(tx, contest.id, payload.problemSlugs);
+      await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);
     }
 
     return { id: contest.id };
