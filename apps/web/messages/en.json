@@ -456,6 +456,8 @@
   "problems_previousPage": "Previous page",
   "problems_publicLibrary": "Public Library",
   "problems_searchProblems": "Search problems...",
+  "problems_showMoreTags": "Show more tags",
+  "problems_hideMoreTags": "Hide more tags",
   "problems_statusAc": "Solved",
   "problems_statusAttempted": "Attempted",
   "runtimeStats_heading": "Runtime persistence",
