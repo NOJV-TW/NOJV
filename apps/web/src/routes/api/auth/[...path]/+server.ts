@@ -5,11 +5,17 @@ import { getAuth } from "$lib/auth";
 import { createLogger } from "$lib/server/logger";
 
 const logger = createLogger("auth-route");
-const authHandler = toSvelteKitHandler(getAuth());
+
+let _authHandler: RequestHandler | null = null;
+
+function getAuthHandler(): RequestHandler {
+  _authHandler ??= toSvelteKitHandler(getAuth());
+  return _authHandler;
+}
 
 const handleAuth: RequestHandler = async (event) => {
   try {
-    return await authHandler(event);
+    return await getAuthHandler()(event);
   } catch (error) {
     logger.error("Auth route failed", {
       error: error instanceof Error ? error.message : String(error),
