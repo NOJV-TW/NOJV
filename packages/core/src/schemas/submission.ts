@@ -20,13 +20,22 @@ const sourceFileSchema = z.object({
   content: z.string().max(500_000)
 });
 
+// Problem IDs are persisted DB identifiers (e.g. "problem_noisy-oracle-hunt"),
+// so they must allow underscores in addition to slug-like characters.
+const problemIdentifierSchema = z
+  .string()
+  .trim()
+  .min(1, "validation_required")
+  .max(128, "validation_tooLong")
+  .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
+
 export const submissionDraftSchema = z.object({
   assessment: assessmentContextSchema.optional(),
   contestSlug: slugSchema.optional(),
   entryFile: z.string().trim().min(1).max(300).optional(),
   language: languageSchema,
   mode: submissionModeSchema.optional(),
-  problemId: slugSchema,
+  problemId: problemIdentifierSchema,
   sampleOnly: z.boolean().optional(),
   sourceCode: sourceCodeSchema,
   sourceFiles: z.array(sourceFileSchema).max(200).optional()

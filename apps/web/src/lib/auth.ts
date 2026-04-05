@@ -4,17 +4,52 @@ import { username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
 import { prismaAdapterClient as prisma } from "@nojv/db";
+import { getWebEnv } from "$lib/server/env";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
+function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
+  const githubId = env.GITHUB_CLIENT_ID;
+  const githubSecret = env.GITHUB_CLIENT_SECRET;
+  const googleId = env.GOOGLE_CLIENT_ID;
+  const googleSecret = env.GOOGLE_CLIENT_SECRET;
+
+  if ((githubId && !githubSecret) || (!githubId && githubSecret)) {
+    throw new Error(
+      "GitHub OAuth config is incomplete: set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET"
+    );
+  }
+
+  if ((googleId && !googleSecret) || (!googleId && googleSecret)) {
+    throw new Error(
+      "Google OAuth config is incomplete: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+    );
+  }
+
+  return {
+    ...(githubId && githubSecret
+      ? {
+          github: {
+            clientId: githubId,
+            clientSecret: githubSecret
+          }
+        }
+      : {}),
+    ...(googleId && googleSecret
+      ? {
+          google: {
+            clientId: googleId,
+            clientSecret: googleSecret
+          }
+        }
+      : {})
+  };
 }
 
 function createAuth() {
+  const env = getWebEnv();
+
   return betterAuth({
-    secret: requiredEnv("BETTER_AUTH_SECRET"),
-    baseURL: requiredEnv("BETTER_AUTH_URL"),
+    secret: env.BETTER_AUTH_SECRET,
+    baseURL: env.BETTER_AUTH_URL,
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     emailAndPassword: {
       enabled: true,
@@ -24,16 +59,7 @@ function createAuth() {
         verify: async ({ hash, password }) => bcrypt.compare(password, hash)
       }
     },
-    socialProviders: {
-      github: {
-        clientId: requiredEnv("GITHUB_CLIENT_ID"),
-        clientSecret: requiredEnv("GITHUB_CLIENT_SECRET")
-      },
-      google: {
-        clientId: requiredEnv("GOOGLE_CLIENT_ID"),
-        clientSecret: requiredEnv("GOOGLE_CLIENT_SECRET")
-      }
-    },
+    socialProviders: buildSocialProviders(env),
     user: {
       additionalFields: {
         disabled: { type: "boolean", defaultValue: false, input: false },

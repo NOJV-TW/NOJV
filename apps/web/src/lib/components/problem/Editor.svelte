@@ -198,6 +198,8 @@
       language,
       mode: contestSlug ? "contest" : (assessment ? "assignment" : "practice"),
       problemId: problem.id,
+      // Backward compatibility: some stale backend bundles still validate `problemSlug`.
+      problemSlug: problem.id,
       sampleOnly: options?.sampleOnly ?? false,
     };
 

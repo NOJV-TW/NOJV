@@ -121,6 +121,13 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  const cleanPath = stripLocalePrefix(event.url.pathname);
+
+  // Let better-auth own the callback/sign-in flow without additional middleware.
+  if (cleanPath.startsWith("/api/auth")) {
+    return resolve(event);
+  }
+
   // --- Auth: populate event.locals with session/user/sessionUser ---
   const session = await getAuth().api.getSession({
     headers: event.request.headers
@@ -137,8 +144,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.session = null;
     event.locals.user = null;
     event.locals.sessionUser = null;
-    const clean = stripLocalePrefix(event.url.pathname);
-    if (!clean.startsWith("/signin") && !clean.startsWith("/signup")) {
+    if (!cleanPath.startsWith("/signin") && !cleanPath.startsWith("/signup")) {
       redirect(302, "/signin?error=account-disabled");
     }
   }
@@ -147,23 +153,22 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (
     event.locals.sessionUser &&
     !event.locals.sessionUser.username &&
-    !isProfileExempt(event.url.pathname)
+    !isProfileExempt(cleanPath)
   ) {
     redirect(302, "/complete-profile");
   }
 
   // --- Guard: page lock enforcement ---
   if (event.locals.sessionUser) {
-    const clean = stripLocalePrefix(event.url.pathname);
-    if (!isPageLockExempt(clean)) {
+    if (!isPageLockExempt(cleanPath)) {
       const lockCtx = await getCachedPageLockContext(event.locals.sessionUser.id);
       if (lockCtx) {
         if (lockCtx.type === "contest") {
-          if (!isContestAllowed(clean, event.url.searchParams, lockCtx)) {
+          if (!isContestAllowed(cleanPath, event.url.searchParams, lockCtx)) {
             redirect(302, `/contests/${lockCtx.contestSlug}`);
           }
         } else {
-          if (!isAssessmentAllowed(clean, event.url.searchParams, lockCtx)) {
+          if (!isAssessmentAllowed(cleanPath, event.url.searchParams, lockCtx)) {
             redirect(
               302,
               `/courses/${lockCtx.courseSlug}/assignments/${lockCtx.assessmentSlug}`
