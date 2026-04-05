@@ -205,7 +205,7 @@ export async function executeSandbox(
   const template = judgeContext.templates.find((t) => t.language === draft.language);
   const activeSets = draft.sampleOnly
     ? judgeContext.testcaseSets.filter((ts) => !ts.isHidden)
-    : judgeContext.testcaseSets.filter((ts) => ts.isHidden);
+    : judgeContext.testcaseSets;
   const testcases = activeSets.flatMap((ts) => ts.testcases);
 
   const staticAnalysisConfig = judgeContext.pipelineConfig?.stages.find(
