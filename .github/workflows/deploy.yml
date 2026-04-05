@@ -54,11 +54,18 @@ jobs:
           : "${BETTER_AUTH_SECRET:?Missing BETTER_AUTH_SECRET from .env or runner environment}"
           : "${BETTER_AUTH_URL:?Missing BETTER_AUTH_URL from .env or runner environment}"
 
+          DEPLOY_WITH_SEED="${DEPLOY_WITH_SEED:-false}"
+          if [[ "$DEPLOY_WITH_SEED" != "true" && "$DEPLOY_WITH_SEED" != "false" ]]; then
+            echo "DEPLOY_WITH_SEED must be 'true' or 'false' (got: $DEPLOY_WITH_SEED)" >&2
+            exit 1
+          fi
+
           echo "::add-mask::$BETTER_AUTH_SECRET"
 
           {
             echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
             echo "BETTER_AUTH_URL=$BETTER_AUTH_URL"
+            echo "DEPLOY_WITH_SEED=$DEPLOY_WITH_SEED"
             echo "GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}"
             echo "GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}"
             echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}"
@@ -88,6 +95,22 @@ jobs:
         run: |
           set -euo pipefail
           docker compose --profile deploy run --rm migrator
+
+      - name: Optionally seed demo data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${DEPLOY_WITH_SEED:-false}" != "true" ]]; then
+            echo "DEPLOY_WITH_SEED is not true; skipping seed step."
+            exit 0
+          fi
+
+          docker compose --profile deploy run --rm migrator sh -lc '
+            set -euo pipefail
+            pnpm -C packages/db db:seed:validate
+            pnpm -C packages/db exec node --import tsx prisma/seed.ts
+          '
 
       - name: Roll out web and worker
         shell: bash
