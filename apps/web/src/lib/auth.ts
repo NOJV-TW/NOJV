@@ -13,11 +13,15 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
   const googleSecret = env.GOOGLE_CLIENT_SECRET;
 
   if ((githubId && !githubSecret) || (!githubId && githubSecret)) {
-    throw new Error("GitHub OAuth config is incomplete: set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET");
+    throw new Error(
+      "GitHub OAuth config is incomplete: set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET"
+    );
   }
 
   if ((googleId && !googleSecret) || (!googleId && googleSecret)) {
-    throw new Error("Google OAuth config is incomplete: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET");
+    throw new Error(
+      "Google OAuth config is incomplete: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+    );
   }
 
   return {

@@ -8,19 +8,19 @@ const logger = createLogger("auth-route");
 const authHandler = toSvelteKitHandler(getAuth());
 
 const handleAuth: RequestHandler = async (event) => {
-	try {
-		return await authHandler(event);
-	} catch (error) {
-		logger.error("Auth route failed", {
-			error: error instanceof Error ? error.message : String(error),
-			method: event.request.method,
-			path: event.url.pathname,
-			provider: event.url.pathname.split("/").at(-1) ?? null,
-			query: event.url.searchParams.toString(),
-			stack: error instanceof Error ? error.stack : undefined
-		});
-		throw error;
-	}
+  try {
+    return await authHandler(event);
+  } catch (error) {
+    logger.error("Auth route failed", {
+      error: error instanceof Error ? error.message : String(error),
+      method: event.request.method,
+      path: event.url.pathname,
+      provider: event.url.pathname.split("/").at(-1) ?? null,
+      query: event.url.searchParams.toString(),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
+  }
 };
 
 export const GET: RequestHandler = handleAuth;
