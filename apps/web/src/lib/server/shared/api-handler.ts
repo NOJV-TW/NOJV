@@ -28,6 +28,15 @@ export function apiHandler(handler: ApiHandler): ApiHandler {
       }
 
       if (error instanceof ZodError) {
+        logger.warn("API validation failed", {
+          issues: error.issues.map((issue) => ({
+            code: issue.code,
+            message: issue.message,
+            path: issue.path.map((segment) => String(segment)).join(".")
+          })),
+          method: event.request.method,
+          url: event.url.pathname
+        });
         return json({ issues: error.issues }, { status: 400 });
       }
 
