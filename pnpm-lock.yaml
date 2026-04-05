@@ -93,6 +93,9 @@ importers:
       '@fontsource/manrope':
         specifier: ^5.2.8
         version: 5.2.8
+      '@grpc/grpc-js':
+        specifier: ^1.14.3
+        version: 1.14.3
       '@internationalized/date':
         specifier: ^3.12.0
         version: 3.12.0
