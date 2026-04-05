@@ -18,6 +18,11 @@ const allowedHosts =
 
 export default defineConfig({
   server: allowedHosts ? { allowedHosts } : undefined,
+  ssr: {
+    // @grpc/grpc-js relies on dynamic requires, proto loading and Node http2
+    // internals that break when bundled by Vite. Keep it as an external import.
+    external: ["@grpc/grpc-js"]
+  },
   plugins: [
     paraglideVitePlugin({
       project: "./project.inlang",
