@@ -46,6 +46,7 @@ export function apiHandler(handler: ApiHandler): ApiHandler {
         logger.error("Unhandled API error", {
           err: error instanceof Error ? error.message : String(error),
           method: event.request.method,
+          stack: error instanceof Error ? error.stack : undefined,
           url: event.url.pathname
         });
       }
