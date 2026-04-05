@@ -264,15 +264,22 @@ Optional OAuth values:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 
+Optional deployment behavior:
+
+- `DEPLOY_WITH_SEED` (default `false`)
+  - When set to `true`, the workflow runs seed validation and seed import after migrations.
+  - Intended for demo/staging environments. Keep `false` for production.
+
 ### Deployment steps executed by workflow
 
 1. Checkout the exact commit SHA that passed CI
 2. Start/verify infra services (`postgres`, `redis`, `temporal`, `temporal-ui`)
 3. Build runtime images (`sandbox-image`, `migrator`, `web`, `worker`)
 4. Run database migrations using `migrator`
-5. Roll out `web` and `worker` with `--wait --remove-orphans`
-6. Verify web reachability and container health status
-7. Dump diagnostics automatically if any step fails
+5. Optionally run seed validation and seed import (`DEPLOY_WITH_SEED=true`)
+6. Roll out `web` and `worker` with `--wait --remove-orphans`
+7. Verify web reachability and container health status
+8. Dump diagnostics automatically if any step fails
 
 ## Rollback Procedure (Remote Docker Compose)
 
