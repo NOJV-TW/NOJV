@@ -20,3 +20,4 @@ export {
   PlagiarismNotFoundError,
   PlagiarismForbiddenError
 } from "./queries";
+export { dispatchPlagiarismCheck } from "@nojv/job-dispatch";
