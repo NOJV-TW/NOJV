@@ -7,6 +7,15 @@ import {
   type Prisma
 } from "@nojv/db";
 
+function toDailyActivityArray(value: unknown): DailyActivity[] {
+  if (!Array.isArray(value)) return [];
+  return value as DailyActivity[];
+}
+
+function toJsonValue(value: DailyActivity[]): Prisma.InputJsonValue {
+  return value as unknown as Prisma.InputJsonValue;
+}
+
 export async function updateUserStats(submission: {
   id: string;
   language: string;
@@ -59,7 +68,7 @@ export async function updateUserStats(submission: {
         totalAttempts: 1,
         languageDist: langDist,
         difficultyDist: diffDist,
-        dailyActivity: daily as unknown as Prisma.InputJsonValue,
+        dailyActivity: toJsonValue(daily),
         lastSubmittedAt: new Date()
       });
     } else {
@@ -71,7 +80,7 @@ export async function updateUserStats(submission: {
         diffDist[difficulty] = (diffDist[difficulty] ?? 0) + 1;
       }
 
-      const daily = (existing.dailyActivity ?? []) as unknown as DailyActivity[];
+      const daily = toDailyActivityArray(existing.dailyActivity);
       if (isAc) {
         const todayEntry = daily.find((d) => d.date === today);
         if (todayEntry) {
@@ -87,7 +96,7 @@ export async function updateUserStats(submission: {
         totalAttempts: { increment: 1 },
         languageDist: langDist,
         difficultyDist: diffDist,
-        dailyActivity: daily as unknown as Prisma.InputJsonValue,
+        dailyActivity: toJsonValue(daily),
         lastSubmittedAt: new Date()
       });
     }
