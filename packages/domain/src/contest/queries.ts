@@ -1,5 +1,7 @@
-import { contestRepo } from "@nojv/db";
+import { contestRepo, runTransaction } from "@nojv/db";
 import type { AssessmentScoreboardMode, ContestScoringMode, Language } from "@nojv/core";
+
+import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -201,4 +203,33 @@ export async function unfreezeContest(slug: string) {
  */
 export async function getContestParticipationForIpCheck(contestId: string, userId: string) {
   return contestRepo.findParticipation(contestId, userId);
+}
+
+/**
+ * Run IP lock check for a contest page visit inside a transaction.
+ * Encapsulates the full transaction + checkIpLock call so the web layer
+ * doesn't need to import `runTransaction` or know about `TransactionClient`.
+ */
+export async function checkContestIpAccess(
+  config: {
+    ipWhitelistEnabled: boolean;
+    ipBindingEnabled: boolean;
+    ipWhitelist: string[];
+    ipViolationMode: string;
+  },
+  clientIp: string,
+  contestId: string,
+  userId: string,
+  participation: { id: string; boundIp: string | null } | null
+): Promise<IpCheckResult> {
+  return runTransaction(async (tx) => {
+    return checkIpLock(
+      tx,
+      config,
+      clientIp,
+      participation,
+      { userId, contestId },
+      "contestParticipation"
+    );
+  });
 }
