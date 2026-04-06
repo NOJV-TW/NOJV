@@ -49,7 +49,7 @@
       onpublish={handlePublish}
     >
       {#snippet basic()}
-        <BasicInfoTab formData={data.form} />
+        <BasicInfoTab formData={data.form} problemId={data.problem.id} />
       {/snippet}
 
       {#snippet submission()}

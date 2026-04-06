@@ -192,4 +192,4 @@ In IOI scoring mode:
 - [Architecture Overview](../ARCHITECTURE.md)
 - [Temporal Workflows](TEMPORAL.md)
 - [Database Schema](DATABASE.md)
-- [Judge Pipeline Extensibility Spec](plans/SPEC.md)
+- [Judge Pipeline Extensibility Spec](plans/completed/SPEC.md)

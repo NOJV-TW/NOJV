@@ -3,9 +3,11 @@ import {
   courseRepo,
   assessmentRepo,
   problemRepo,
+  runTransaction,
   submissionRepo,
   userRepo
 } from "@nojv/db";
+import { getRedis } from "@nojv/redis";
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
@@ -144,4 +146,31 @@ export async function getAdminDashboard() {
     recentErrors,
     dbOk
   };
+}
+
+// ─── System health check ──────────────────────────────────────────
+
+export async function checkSystemHealth(
+  timeoutMs = 3000
+): Promise<{ postgres: string; redis: string }> {
+  function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+    ]);
+  }
+
+  const [postgres, redis] = await Promise.all([
+    withTimeout(
+      runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
+      timeoutMs
+    )
+      .then(() => "ok" as string)
+      .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`),
+    withTimeout(getRedis().ping(), timeoutMs)
+      .then(() => "ok" as string)
+      .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`)
+  ]);
+
+  return { postgres, redis };
 }

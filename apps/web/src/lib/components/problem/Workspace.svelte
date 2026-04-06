@@ -529,11 +529,13 @@
   </div>
 </div>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- Resize handle (desktop only) -->
 <div
   class="hidden w-1 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 active:bg-primary/60 lg:flex"
   role="separator"
   aria-orientation="vertical"
+  aria-label="Resize panels"
   tabindex="0"
   onmousedown={startResize}
   onkeydown={(e) => {

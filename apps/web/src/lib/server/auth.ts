@@ -1,11 +1,11 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { courseRepo } from "@nojv/db";
 import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
 
 import {
   canEditProblem,
   canManageCourse,
+  courseDomain,
   resolveEffectiveCourseRole,
   HttpError,
   NotFoundError,
@@ -105,7 +105,7 @@ export function resolveCoursePermissionRole(input: {
 }
 
 export async function resolveCoursePermission(courseSlug: string, actor: ActorContext) {
-  const course = await courseRepo.findBySlugWithUserMembership(courseSlug, actor.userId);
+  const course = await courseDomain.findCourseWithMembership(courseSlug, actor.userId);
 
   if (!course) {
     throw new NotFoundError(`Course not found: ${courseSlug}`);
