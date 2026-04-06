@@ -75,6 +75,7 @@
         action="?/joinByCode"
         use:enhance
       >
+        <!-- svelte-ignore a11y_autofocus -->
         <input
           class="w-full rounded-full border border-border px-4 py-2.5 text-sm"
           name="code"

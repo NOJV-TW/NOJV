@@ -2,9 +2,10 @@
   interface Props {
     checked: boolean;
     onchange?: (checked: boolean) => void;
+    "aria-label"?: string;
   }
 
-  let { checked = $bindable(), onchange }: Props = $props();
+  let { checked = $bindable(), onchange, "aria-label": ariaLabel = "Toggle" }: Props = $props();
 </script>
 
 <button
@@ -13,6 +14,7 @@
   onclick={() => { checked = !checked; onchange?.(checked); }}
   role="switch"
   aria-checked={checked}
+  aria-label={ariaLabel}
   type="button"
 >
   <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform
