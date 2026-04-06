@@ -113,7 +113,7 @@
   );
 
   // Monaco editor
-  let editorContainer: HTMLDivElement;
+  let editorContainer: HTMLDivElement = $state(null!);
   let monacoEditor: Monaco.editor.IStandaloneCodeEditor | undefined;
   let monacoModule: typeof Monaco | undefined;
 
