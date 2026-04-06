@@ -84,6 +84,7 @@
   "admin_templateCode": "Template Code",
   "admin_templatePreviewHint": "The user will see the Template Code in the editor. On submission, their code replaces the marker in Driver Code.",
   "admin_timeLimit": "Time Limit (ms)",
+  "admin_slug": "Slug",
   "admin_title": "Title",
   "admin_updateProblem": "Update problem",
   "admin_updating": "Updating...",

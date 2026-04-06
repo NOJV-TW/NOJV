@@ -21,7 +21,7 @@
 
   // Template data (for function mode)
   let templatesByLang = $state<Partial<Record<Language, TemplateInfo>>>(
-    problem.templates ? { ...problem.templates } : {}
+    untrack(() => (problem.templates ? { ...problem.templates } : {}))
   );
 
   // Populate templates into form data before submission

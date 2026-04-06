@@ -22,7 +22,7 @@ test.describe("Contests", () => {
     // Contest title should be visible in the detail header
     await expect(page.getByRole("heading", { name: "Spring Qualifier 2026" })).toBeVisible();
     // Contest problems section should be present
-    await expect(page.getByText("Problems")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Problems" })).toBeVisible();
     await context.close();
   });
 

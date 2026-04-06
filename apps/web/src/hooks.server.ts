@@ -123,6 +123,17 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
 export const handle: Handle = async ({ event, resolve }) => {
   const cleanPath = stripLocalePrefix(event.url.pathname);
 
+  // --- CSRF: validate Origin header on mutating API requests ---
+  if (
+    cleanPath.startsWith("/api/") &&
+    !["GET", "HEAD", "OPTIONS"].includes(event.request.method)
+  ) {
+    const origin = event.request.headers.get("origin");
+    if (origin && origin !== event.url.origin) {
+      return new Response("CSRF validation failed", { status: 403 });
+    }
+  }
+
   // Let better-auth own the callback/sign-in flow without additional middleware.
   if (cleanPath.startsWith("/api/auth")) {
     return resolve(event);

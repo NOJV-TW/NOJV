@@ -1,13 +1,31 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { submissionDomain } from "@nojv/domain";
-import { querySubmissionStatus } from "@nojv/job-dispatch";
 
-const { getSubmissionForUser } = submissionDomain;
+const { getSubmissionForUser, querySubmissionStatus } = submissionDomain;
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
 const TERMINAL_STATUSES = new Set(["completed", "failed"]);
+const MAX_SSE_PER_USER = 5;
+
+const sseConnectionCounts = new Map<string, number>();
+
+function acquireSseSlot(userId: string): boolean {
+  const current = sseConnectionCounts.get(userId) ?? 0;
+  if (current >= MAX_SSE_PER_USER) return false;
+  sseConnectionCounts.set(userId, current + 1);
+  return true;
+}
+
+function releaseSseSlot(userId: string): void {
+  const current = sseConnectionCounts.get(userId) ?? 0;
+  if (current <= 1) {
+    sseConnectionCounts.delete(userId);
+  } else {
+    sseConnectionCounts.set(userId, current - 1);
+  }
+}
 
 export const GET: RequestHandler = (event) => {
   const actor = getActorContext(event);
@@ -19,10 +37,32 @@ export const GET: RequestHandler = (event) => {
   const userId = actor.userId;
   const isAdmin = actor.platformRole === "admin";
 
+  if (!acquireSseSlot(userId)) {
+    return new Response("Too many concurrent connections", { status: 429 });
+  }
+
+  let released = false;
+  function releaseOnce() {
+    if (!released) {
+      released = true;
+      releaseSseSlot(userId);
+    }
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder();
       const startTime = Date.now();
+
+      // Handle client disconnect
+      event.request.signal.addEventListener("abort", () => {
+        releaseOnce();
+        try {
+          controller.close();
+        } catch {
+          // Already closed
+        }
+      });
 
       function send(data: Record<string, unknown>) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
@@ -60,6 +100,7 @@ export const GET: RequestHandler = (event) => {
       } catch {
         send({ error: "Submission not found." });
       }
+      releaseOnce();
       controller.close();
     }
   });

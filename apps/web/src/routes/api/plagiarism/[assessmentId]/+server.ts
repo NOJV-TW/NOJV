@@ -6,13 +6,13 @@ import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/se
 import { canManageCourse, plagiarismDomain } from "@nojv/domain";
 import { apiHandler } from "$lib/server/shared/api-handler";
 import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
-import { dispatchPlagiarismCheck } from "@nojv/job-dispatch";
 
 const {
   resolvePlagiarismTarget,
   createPlagiarismReport,
   listPlagiarismReports,
-  getPlagiarismSourceCode
+  getPlagiarismSourceCode,
+  dispatchPlagiarismCheck
 } = plagiarismDomain;
 
 export const POST: RequestHandler = apiHandler(async (event) => {
