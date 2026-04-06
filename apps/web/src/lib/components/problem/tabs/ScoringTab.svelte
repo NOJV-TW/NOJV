@@ -14,7 +14,7 @@
   let { problem }: Props = $props();
 
   // ─── State derived from problem.judgeConfig.scoring ─────────────────
-  const cfg = problem.judgeConfig?.scoring ?? {};
+  let cfg = $derived(problem.judgeConfig?.scoring ?? {});
 
   // Testcase sets from problem data (subtasks = weight > 0)
   // These come from the testcaseSets loaded in the page
