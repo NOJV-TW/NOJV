@@ -4,17 +4,17 @@ Track documentation quality and implementation legibility as an honest ledger.
 
 ## Current Grades
 
-| Area | Grade | Evidence | Next Upgrade |
-| --- | --- | --- | --- |
-| Knowledge-store navigation | B+ | CLAUDE.md maps all required docs with reading order. | Add runbook index and reference catalog. |
-| Product specification | B | Core goals, roles, and shipped features documented in PRODUCT_SENSE.md. | Add per-feature acceptance specs. |
-| Architecture docs | A- | Multi-tier diagram, dependency graph, package descriptions, and runtime entries all match implementation. | Add sequence diagrams for key flows. |
-| Frontend guidance | B+ | Route map, API endpoints, component contracts, and runtime boundaries documented. | Add component-level accessibility evidence. |
-| Design guidance | B | Design system tokens, fonts, and interaction patterns documented from shipped code. | Add visual reference snapshots. |
-| Reliability guidance | B+ | Failure modes, operational invariants, and health checks documented. | Define measurable SLOs and add recovery drill procedures. |
-| Security guidance | B+ | Handling rules, sensitive data, and threat model cover all current attack surfaces. | Add automated security scanning to CI. |
-| Schema documentation | B | Domain model overview, enums, and relationships documented. | Generate schema docs automatically from Prisma schema. |
-| Test coverage | C+ | Vitest unit/integration and Playwright E2E configured but coverage gaps exist. | Add coverage thresholds and missing integration tests. |
+| Area                       | Grade | Evidence                                                                                                  | Next Upgrade                                              |
+| -------------------------- | ----- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Knowledge-store navigation | B+    | CLAUDE.md maps all required docs with reading order.                                                      | Add runbook index and reference catalog.                  |
+| Product specification      | B     | Core goals, roles, and shipped features documented in PRODUCT_SENSE.md.                                   | Add per-feature acceptance specs.                         |
+| Architecture docs          | A-    | Multi-tier diagram, dependency graph, package descriptions, and runtime entries all match implementation. | Add sequence diagrams for key flows.                      |
+| Frontend guidance          | B+    | Route map, API endpoints, component contracts, and runtime boundaries documented.                         | Add component-level accessibility evidence.               |
+| Design guidance            | B     | Design system tokens, fonts, and interaction patterns documented from shipped code.                       | Add visual reference snapshots.                           |
+| Reliability guidance       | B+    | Failure modes, operational invariants, and health checks documented.                                      | Define measurable SLOs and add recovery drill procedures. |
+| Security guidance          | B+    | Handling rules, sensitive data, and threat model cover all current attack surfaces.                       | Add automated security scanning to CI.                    |
+| Schema documentation       | B     | Domain model overview, enums, and relationships documented.                                               | Generate schema docs automatically from Prisma schema.    |
+| Test coverage              | C+    | Vitest unit/integration and Playwright E2E configured but coverage gaps exist.                            | Add coverage thresholds and missing integration tests.    |
 
 ## Doc Drift Status
 

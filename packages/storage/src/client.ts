@@ -6,13 +6,15 @@ export function createStorageClient(): S3Client {
   const secretAccessKey = process.env.S3_SECRET_KEY;
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
-    throw new Error("Missing S3 environment variables (S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY)");
+    throw new Error(
+      "Missing S3 environment variables (S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY)"
+    );
   }
 
   return new S3Client({
     endpoint,
     region: process.env.S3_REGION ?? "auto",
     credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: true,
+    forcePathStyle: true
   });
 }

@@ -4,16 +4,16 @@ Security requirements are first-class because this system handles authentication
 
 ## Sensitive Data
 
-| Data | Storage | Protection |
-| --- | --- | --- |
-| Passwords | PostgreSQL `Account.password` | bcrypt hash |
-| OAuth tokens | PostgreSQL `Account.accessToken` | Encrypted by better-auth |
-| Session tokens | PostgreSQL `Session.token` | httpOnly cookie |
-| Source code | PostgreSQL `Submission.sourceCode` | Per-user access control |
-| Hidden testcases | PostgreSQL `Testcase` (isHidden=true) | Never exposed to students |
-| Problem images | S3-compatible storage | Public read for problem paths |
-| S3 credentials | Environment variables | .env untracked, Secret Manager in prod |
-| Database credentials | Environment variables | .env untracked, Secret Manager in prod |
+| Data                 | Storage                               | Protection                             |
+| -------------------- | ------------------------------------- | -------------------------------------- |
+| Passwords            | PostgreSQL `Account.password`         | bcrypt hash                            |
+| OAuth tokens         | PostgreSQL `Account.accessToken`      | Encrypted by better-auth               |
+| Session tokens       | PostgreSQL `Session.token`            | httpOnly cookie                        |
+| Source code          | PostgreSQL `Submission.sourceCode`    | Per-user access control                |
+| Hidden testcases     | PostgreSQL `Testcase` (isHidden=true) | Never exposed to students              |
+| Problem images       | S3-compatible storage                 | Public read for problem paths          |
+| S3 credentials       | Environment variables                 | .env untracked, Secret Manager in prod |
+| Database credentials | Environment variables                 | .env untracked, Secret Manager in prod |
 
 ## Handling Rules
 
@@ -33,18 +33,19 @@ Security requirements are first-class because this system handles authentication
 
 ## Input Validation
 
-| Input | Schema | Limits |
-| --- | --- | --- |
-| Source code | `sourceCodeSchema` | 1–50,000 chars, trimmed |
-| Slug | `slugSchema` | 3+ chars, `[a-z0-9-]+` |
-| Problem statement | Markdown text | Per-field limits (statement 12k, input/output 4k) |
-| Problem images | File upload | png/jpeg/gif/webp, 5MB max |
-| Testcase input | Text | Stored as `@db.Text` |
-| Editorial | `content` field | 10–50,000 chars |
+| Input             | Schema             | Limits                                            |
+| ----------------- | ------------------ | ------------------------------------------------- |
+| Source code       | `sourceCodeSchema` | 1–50,000 chars, trimmed                           |
+| Slug              | `slugSchema`       | 3+ chars, `[a-z0-9-]+`                            |
+| Problem statement | Markdown text      | Per-field limits (statement 12k, input/output 4k) |
+| Problem images    | File upload        | png/jpeg/gif/webp, 5MB max                        |
+| Testcase input    | Text               | Stored as `@db.Text`                              |
+| Editorial         | `content` field    | 10–50,000 chars                                   |
 
 ## Review Expectations
 
 Flag for security review when:
+
 - Adding or modifying authentication or authorization logic
 - Changing sandbox isolation configuration
 - Adding new API routes that handle user input

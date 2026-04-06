@@ -45,6 +45,7 @@ docs/
 ### CREATE: `AGENT.md`
 
 Content migrated from current `CLAUDE.md`:
+
 - Reading order (updated to include new docs)
 - Quick reference (one-liner per technology)
 - Common commands
@@ -52,6 +53,7 @@ Content migrated from current `CLAUDE.md`:
 - Rules section
 
 Reading order update:
+
 1. Architecture Overview
 2. Product Sense
 3. Frontend Surface
@@ -71,6 +73,7 @@ Reading order update:
 ### REWRITE: `CLAUDE.md`
 
 Becomes:
+
 ```markdown
 # AGENTS.md
 
@@ -81,6 +84,7 @@ living documents instead of treating `README.md` as the full source of truth.
 ```
 
 And `CLAUDE.md` becomes a thin redirect:
+
 ```markdown
 See [AGENT.md](AGENT.md).
 ```
@@ -88,18 +92,21 @@ See [AGENT.md](AGENT.md).
 Wait — actually the reference repo puts the real content in CLAUDE.md with the AGENTS.md title. Let me follow the same pattern: `CLAUDE.md` contains the full navigation content (titled `# AGENTS.md`), no separate AGENT.md file needed. This way all AI tools (Claude, Cursor, Copilot) find it via their respective entrypoint filenames.
 
 **Revised approach:**
+
 - `CLAUDE.md` — full navigation content (titled `# AGENTS.md`)
 - No separate `AGENT.md` file (avoids duplication)
 
 ### REWRITE: `ARCHITECTURE.md`
 
 Remove:
+
 - Authentication & Authorization section (→ `SECURITY.md`)
 - Validation section (→ `SECURITY.md` handling rules)
 - Internationalization section (→ `FRONTEND.md`)
 - Real-Time Events section (→ `FRONTEND.md`)
 
 Keep and tighten:
+
 - Multi-tier diagram
 - System domains table
 - Package structure + dependency graph + dependency rules
@@ -109,6 +116,7 @@ Keep and tighten:
 ### CREATE: `docs/DESIGN.md`
 
 Sections:
+
 - Implemented design system: Tailwind CSS 4, Manrope/JetBrains Mono/Fraunces fonts, color tokens
 - Component grammar: cards, tabs, badges, Monaco editor, markdown renderer
 - Interaction patterns: problem workspace split-pane, contest timers, form validation feedback
@@ -121,6 +129,7 @@ Source: read `apps/web/src/app.css`, component library, existing pages
 ### CREATE: `docs/PRODUCT_SENSE.md`
 
 Sections:
+
 - Users and outcomes (student, teacher/admin, contest organizer, course instructor)
 - Shipped scope (problems, submissions, contests, courses, assessments, plagiarism, editorials)
 - Tradeoff rules (auditability, simplicity, PostgreSQL as truth, auth/authz separation)
@@ -129,11 +138,13 @@ Sections:
 ### CREATE: `docs/QUALITY_SCORE.md`
 
 Sections:
+
 - Current grades table (area, grade, evidence, next upgrade)
 - Doc drift status
 - Notes on when to update
 
 Areas to grade:
+
 - Knowledge-store navigation
 - Product specification
 - Architecture docs
@@ -147,6 +158,7 @@ Areas to grade:
 ### CREATE: `docs/PLANS.md`
 
 Sections:
+
 - Plan locations (active/, completed/)
 - Naming convention (YYYY-MM-DD-short-topic.md)
 - Lifecycle (active → completed)
@@ -155,12 +167,14 @@ Sections:
 ### REWRITE: `docs/SECURITY.md`
 
 Remove (→ `THREAT_MODEL.md`):
+
 - Trust boundaries diagram
 - Sandbox isolation details
 - Contest security (IP binding, whitelist, page lock)
 - Full auth provider descriptions
 
 Keep and restructure:
+
 - Sensitive data table (what, where, protection)
 - Handling rules (actionable rules for developers, like reference repo)
 - Input validation table
@@ -194,14 +208,17 @@ Sections (following reference repo pattern):
 ### REWRITE: `docs/FRONTEND.md`
 
 Remove:
+
 - Auth flow section (→ `SECURITY.md` handling rules)
 - Permission model tables (→ `SECURITY.md`)
 
 Add:
+
 - Component contracts (shared UI patterns: Workspace, MarkdownRenderer, ImageDropZone, etc.)
 - Validation expectations per route
 
 Keep:
+
 - Route map (already good)
 - API routes table
 - Runtime boundaries (server-side vs client-side)
@@ -225,14 +242,14 @@ Keep:
 Dispatch parallel agents grouped by independence:
 
 **Wave 1** (5 parallel agents — all independent):
+
 1. Agent: `CLAUDE.md` + `ARCHITECTURE.md` rewrites
 2. Agent: `docs/DESIGN.md` (new — needs to read app.css and components)
 3. Agent: `docs/PRODUCT_SENSE.md` + `docs/QUALITY_SCORE.md` + `docs/PLANS.md` (new)
 4. Agent: `docs/THREAT_MODEL.md` (new — needs full system context)
 5. Agent: `docs/SECURITY.md` + `docs/FRONTEND.md` rewrites
 
-**Wave 2** (after wave 1, 1 agent):
-6. Agent: Final consistency check — verify cross-references, Related Docs links, no content overlap
+**Wave 2** (after wave 1, 1 agent): 6. Agent: Final consistency check — verify cross-references, Related Docs links, no content overlap
 
 ## Success Criteria
 
