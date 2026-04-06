@@ -1,9 +1,8 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { submissionDomain } from "@nojv/domain";
-import { querySubmissionStatus } from "@nojv/job-dispatch";
 
-const { getSubmissionForUser } = submissionDomain;
+const { getSubmissionForUser, querySubmissionStatus } = submissionDomain;
 
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;

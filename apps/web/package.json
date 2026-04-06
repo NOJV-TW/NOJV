@@ -23,8 +23,6 @@
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
     "@nojv/domain": "workspace:*",
-    "@nojv/job-dispatch": "workspace:*",
-    "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.5.4",
