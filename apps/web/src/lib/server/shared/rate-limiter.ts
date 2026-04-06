@@ -1,27 +1,37 @@
 import { dev } from "$app/environment";
 import { fail } from "@sveltejs/kit";
-import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
+import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
+import { getRedis } from "@nojv/redis";
 
 // In dev/test, use generous limits to avoid E2E test flakiness
 const multiplier = dev ? 10 : 1;
 
+function createRateLimiter(points: number, duration: number) {
+  try {
+    const redis = getRedis();
+    return new RateLimiterRedis({
+      storeClient: redis,
+      points: points * multiplier,
+      duration,
+      keyPrefix: "rl"
+    });
+  } catch {
+    // Fallback to memory if Redis is not available (e.g., during build)
+    return new RateLimiterMemory({
+      points: points * multiplier,
+      duration
+    });
+  }
+}
+
 // General API rate limiter: 60 requests per minute per IP
-export const apiRateLimiter = new RateLimiterMemory({
-  points: 60 * multiplier,
-  duration: 60
-});
+export const apiRateLimiter = createRateLimiter(60, 60);
 
 // Stricter limiter for write API endpoints (POST): 10 requests per minute per IP
-export const writeApiRateLimiter = new RateLimiterMemory({
-  points: 10 * multiplier,
-  duration: 60
-});
+export const writeApiRateLimiter = createRateLimiter(10, 60);
 
 // Form action rate limiter: 20 requests per minute per IP
-const formActionRateLimiter = new RateLimiterMemory({
-  points: 20 * multiplier,
-  duration: 60
-});
+const formActionRateLimiter = createRateLimiter(20, 60);
 
 /**
  * Consume a form action rate limit token. Returns a SvelteKit fail(429) if exceeded.
