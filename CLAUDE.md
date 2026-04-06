@@ -1,28 +1,34 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file is the agent entrypoint for this repository. Read it first, then follow the linked living documents.
+This file is the agent entrypoint for this repository. Read it first, then follow the linked living documents instead of treating `README.md` as the full source of truth.
 
 ## Reading Order
 
 1. [Architecture Overview](ARCHITECTURE.md)
-2. [Frontend Surface](docs/FRONTEND.md)
-3. [Temporal Workflows](docs/TEMPORAL.md)
-4. [Judge Pipeline](docs/JUDGE_PIPELINE.md)
-5. [Database Schema](docs/DATABASE.md)
-6. [Redis Architecture](docs/REDIS.md)
-7. [Security Requirements](docs/SECURITY.md)
-8. [Reliability Invariants](docs/RELIABILITY.md)
-9. [Deployment Guide](docs/DEPLOYMENT.md)
-10. [Getting Started Runbook](docs/runbooks/getting-started.md)
+2. [Product Sense](docs/PRODUCT_SENSE.md)
+3. [Frontend Surface](docs/FRONTEND.md)
+4. [Design Rules](docs/DESIGN.md)
+5. [Temporal Workflows](docs/TEMPORAL.md)
+6. [Judge Pipeline](docs/JUDGE_PIPELINE.md)
+7. [Database Schema](docs/DATABASE.md)
+8. [Redis Architecture](docs/REDIS.md)
+9. [Security Requirements](docs/SECURITY.md)
+10. [Threat Model](docs/THREAT_MODEL.md)
+11. [Reliability Invariants](docs/RELIABILITY.md)
+12. [Deployment Guide](docs/DEPLOYMENT.md)
+13. [Quality Ledger](docs/QUALITY_SCORE.md)
+14. [Planning System](docs/PLANS.md)
+15. [Getting Started Runbook](docs/runbooks/getting-started.md)
 
 ## Quick Reference
 
 - **Monorepo**: pnpm workspaces + Turborepo, Node.js >= 24, ESM throughout
 - **Frontend**: SvelteKit + Vite + Tailwind CSS 4 + Bits UI + Monaco Editor
 - **Auth**: better-auth (email/password, GitHub, Google)
-- **Orchestration**: Temporal (TypeScript SDK), replaces BullMQ
+- **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 17, Prisma 7
 - **Cache**: Redis 8 (pub/sub, rate limiting, scoreboards, cooldown, hot cache)
+- **Object Storage**: S3-compatible (MinIO local, GCS/R2/S3 production) via `@nojv/storage`
 - **Validation**: Zod 4 everywhere (schemas in `@nojv/core`)
 - **Testing**: Vitest (unit/integration), Playwright (E2E)
 - **Sandbox**: Docker (local) or Kubernetes (production) with seccomp + capability drop
@@ -61,6 +67,7 @@ packages/
   domain/           Business logic — queries, commands, scoring, stats
   redis/            Redis connection, key registry, pub/sub, cache, cooldown
   job-dispatch/     Temporal client wrapper, workflow dispatch API
+  storage/          S3-compatible object storage (problem images)
   temporal/         Temporal workflows, activities (thin wrappers over domain)
 
 tooling/
@@ -80,5 +87,5 @@ docs/               Design documents, runbooks, specifications
 ## Rules
 
 - Keep this file short and navigational.
-- Keep durable architecture, security, and reliability detail in the linked docs.
-- Keep the linked docs aligned with landed code, not speculative future-tense guidance.
+- Keep durable product, architecture, reliability, and security detail in the linked docs.
+- Keep the linked docs aligned with landed code instead of preserving speculative or stale future-tense guidance.
