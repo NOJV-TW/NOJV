@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -15,7 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "latest"
+    "@aws-sdk/client-s3": "^3.1024.0"
   },
   "devDependencies": {
     "tsdown": "^0.21.2"
