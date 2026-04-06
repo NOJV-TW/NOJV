@@ -4,15 +4,17 @@
 
 ### Services
 
-| Service       | Image                          | Port | Purpose                          |
-| ------------- | ------------------------------ | ---- | -------------------------------- |
-| postgres      | postgres:17-alpine             | 5432 | Database (app + Temporal)        |
-| redis         | redis:8-alpine                 | 6379 | Cache, pub/sub, scoreboard       |
-| temporal      | temporalio/auto-setup:latest   | 7233 | Workflow engine                  |
-| temporal-ui   | temporalio/ui:latest           | 8080 | Workflow monitoring              |
-| web           | Custom (prod profile)          | 3000 | SvelteKit production build       |
-| worker        | Custom (prod profile)          | 8080 | Temporal worker                  |
-| sandbox-image | Custom (sandbox-build profile) | —    | Build-only: sandbox Docker image |
+| Service       | Image                          | Port       | Purpose                          |
+| ------------- | ------------------------------ | ---------- | -------------------------------- |
+| postgres      | postgres:17-alpine             | 5432       | Database (app + Temporal)        |
+| redis         | redis:8-alpine                 | 6379       | Cache, pub/sub, scoreboard       |
+| minio         | minio/minio                    | 9000, 9001 | S3-compatible object storage     |
+| minio-init    | minio/mc                       | —          | Creates bucket + public policy   |
+| temporal      | temporalio/auto-setup:latest   | 7233       | Workflow engine                  |
+| temporal-ui   | temporalio/ui:latest           | 8080       | Workflow monitoring              |
+| web           | Custom (prod profile)          | 3000       | SvelteKit production build       |
+| worker        | Custom (prod profile)          | 8080       | Temporal worker                  |
+| sandbox-image | Custom (sandbox-build profile) | —          | Build-only: sandbox Docker image |
 
 ### Quick Start
 
@@ -83,6 +85,19 @@ It shares the same PostgreSQL instance as the application (separate schema).
 | `PORT`               | `8082`               | Health server port (avoid 8080 used by Temporal UI) |
 | `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue                 |
 | `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`             |
+
+### Object Storage (S3-Compatible)
+
+| Variable        | Default                 | Purpose                              |
+| --------------- | ----------------------- | ------------------------------------ |
+| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)        |
+| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key                        |
+| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key                        |
+| `S3_BUCKET`     | `nojv`                  | Bucket name                          |
+| `S3_PUBLIC_URL` | (same as endpoint)      | Public URL for images (optional CDN) |
+| `S3_REGION`     | `auto`                  | S3 region                            |
+
+Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2, or AWS S3 — change env vars only.
 
 ### Kubernetes (Production Only)
 

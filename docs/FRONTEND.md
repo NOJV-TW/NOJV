@@ -61,6 +61,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/contests/[slug]/scoreboard/unfreeze` | GET       | Unfreeze scoreboard (admin/teacher)                  |
 | `/api/plagiarism/[assessmentId]`           | GET, POST | Plagiarism reports and trigger detection             |
 | `/api/problems/[id]/editorials`            | GET, POST | Problem editorials (AC-gated)                        |
+| `/api/problems/[id]/images`                | POST      | Upload problem image (admin/teacher)                 |
 | `/api/problems/create`                     | POST      | Create problem (admin/teacher)                       |
 | `/api/ip-violations`                       | GET       | IP violation logs (admin/teacher)                    |
 | `/api/healthz`                             | GET       | Health check                                         |
@@ -82,36 +83,38 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Editor**: Monaco Editor for code submission
 - **Markdown**: marked + marked-katex-extension for problem statements
 - **Forms**: sveltekit-superforms + Zod for validated form handling
+- **Image upload**: `ImageDropZone` component — drag-and-drop / paste images into markdown textareas
 - **Charts**: ECharts for dashboard statistics
 - **SSE**: EventSource for real-time submission status and contest events
 
-## Auth Flow
+## Shared UI Contracts
 
-1. User signs in via `/signin` (email/password or OAuth)
-2. better-auth creates session token, stored in cookie
-3. `hooks.server.ts` resolves session on every request via `auth.api.getSession()`
-4. `locals.user` and `locals.session` are available in all server-side code
-5. `(app)/+layout.server.ts` redirects to `/signin` if no session
-6. Profile completion required (`/complete-profile`) before accessing content
+- `Workspace` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
+- `MarkdownRenderer` renders problem statements, editorials, and input/output format descriptions using `marked` + KaTeX + DOMPurify.
+- `ImageDropZone` wraps textareas with drag-and-drop and paste image upload support. Used in problem editor for statement, inputFormat, and outputFormat fields.
+- `TagInput` provides tag management with add/remove for problem categorization.
+- `MonacoEditor` wraps the Monaco editor instance with language selection, theme support, and template loading.
+- Form validation uses `sveltekit-superforms` with Zod schemas from `@nojv/core`. Error messages are displayed inline with i18n support.
+- Status badges, difficulty labels, and verdict chips use consistent color coding across all surfaces.
+- ECharts powers the dashboard statistics: activity heatmap, language distribution, difficulty breakdown.
 
-## Permission Model
+## Internationalization
 
-| Platform Role | Capabilities                                          |
-| ------------- | ----------------------------------------------------- |
-| admin         | Full access, user management, all course management   |
-| teacher       | Create courses/contests/problems, manage own courses  |
-| student       | Submit solutions, join courses/contests, view content |
+- Locales: `en`, `zh-TW` (default)
+- Problem statements: per-locale in `ProblemStatementI18n` table
+- UI strings: Inlang Paraglide JS with message files in `project.inlang/`
+- User locale preference stored in `User.locale`
 
-| Course Role | Capabilities                                               |
-| ----------- | ---------------------------------------------------------- |
-| teacher     | Full course management, grade export, plagiarism detection |
-| ta          | Member management, progress viewing                        |
-| student     | Submit assignments, view content                           |
+## Real-Time Events
 
-Effective role = `max(platformRole, courseRole)`. Admin overrides everything.
+- **Transport**: Server-Sent Events (SSE) via `/api/events/stream`
+- **Broker**: Redis pub/sub via `@nojv/redis`
+- **Events**: submission verdict, contest starting/ending, assignment deadline
+- **Submission polling**: Temporal `workflow.query("getStatus")` with DB fallback
 
 ## Related Docs
 
+- [Design Rules](DESIGN.md)
+- [Product Sense](PRODUCT_SENSE.md)
 - [Architecture Overview](../ARCHITECTURE.md)
 - [Security Requirements](SECURITY.md)
-- [Temporal Workflows](TEMPORAL.md)

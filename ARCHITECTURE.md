@@ -30,6 +30,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │  @nojv/core          Zod schemas, DTO types, enums, contracts       │
 │  @nojv/redis         Pub/sub, cache, key registry, TTL policies     │
 │  @nojv/job-dispatch  Temporal client wrapper, stable dispatch API   │
+│  @nojv/storage       S3-compatible object storage (images)          │
 │  tooling/            ESLint, Prettier, TypeScript configs           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -56,6 +57,7 @@ packages/
   db/               Prisma schema, migrations, repositories (depends: core)
   redis/            Connection, key registry, pub/sub, cache (depends: core)
   job-dispatch/     Temporal client wrapper, dispatch API (depends: core)
+  storage/          S3-compatible object storage for images (depends: none)
   temporal/         Workflows + activities (depends: core, domain, redis)
   domain/           Business logic (depends: core, db, redis, job-dispatch)
 
@@ -70,9 +72,9 @@ apps/
 ```
                     core
                    ↗  ↑  ↖
-                 db  redis  job-dispatch
-                  ↖   ↑   ↗
-                   domain
+                 db  redis  job-dispatch   storage
+                  ↖   ↑   ↗                 ↑
+                   domain                   web
                   ↗       ↖
            temporal        web
               ↑
@@ -91,7 +93,8 @@ No cycles. `domain` → `job-dispatch` for dispatching workflows. `temporal` →
 | `job-dispatch`   | `core`                                | domain, db, redis, temporal       |
 | `domain`         | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker             |
 | `temporal`       | `core`, `domain`, `redis`             | db, job-dispatch, web             |
-| `web`            | `core`, `domain`                      | db, redis, job-dispatch, temporal |
+| `storage`        | (nothing)                             | everything                        |
+| `web`            | `core`, `domain`, `storage`           | db, redis, job-dispatch, temporal |
 | `worker`         | `core`, `temporal`, `db`, `redis`     | domain, job-dispatch, web         |
 | `sandbox-runner` | `core`                                | everything else                   |
 
@@ -185,6 +188,16 @@ Stable dispatch API wrapping Temporal client. Contains:
 
 Domain and web layers never see Temporal internals (workflow IDs, task queues, gRPC).
 
+### @nojv/storage
+
+S3-compatible object storage via `@aws-sdk/client-s3`. Contains:
+
+- Client factory — creates S3Client from environment variables
+- Image operations — upload and delete problem images
+- Path convention: `problems/{problemId}/images/{uuid}.{ext}`
+
+Local dev uses MinIO (Docker). Production uses any S3-compatible service (GCS, R2, S3) — switch via env vars only.
+
 ### @nojv/temporal
 
 Temporal workflow and activity definitions. Used only by `apps/worker`.
@@ -206,48 +219,13 @@ Single source of all business logic. Organized by domain:
   - **Orchestration functions** — called by web, may dispatch workflows via job-dispatch
   - **Data functions** — called by temporal activities, pure DB + event operations
 
-## Cross-Cutting Concerns
-
-### Authentication & Authorization
-
-- **Auth library**: better-auth with Prisma adapter
-- **Providers**: Email/password (bcrypt), GitHub OAuth, Google OAuth
-- **Session**: Token-based with IP and user-agent tracking
-- **Platform roles**: admin, teacher, student
-- **Course roles**: teacher, ta, student
-- **Effective role**: `max(platformRole, courseRole)` — admin overrides all
-
-### Validation
-
-Zod 4 schemas defined in `@nojv/core`, used in:
-
-- SvelteKit form actions (via sveltekit-superforms)
-- API route request validation
-- Temporal activity input validation
-- Prisma seed validation
-
-### Internationalization
-
-- Locales: `en`, `zh-TW` (default)
-- Problem statements: per-locale in `ProblemStatementI18n` table
-- UI strings: Inlang Paraglide JS
-- User locale preference stored in `User.locale`
-
-### Real-Time Events
-
-- **Transport**: Server-Sent Events (SSE) via `/api/events/stream`
-- **Broker**: Redis pub/sub via `@nojv/redis`
-- **Events**: submission verdict, contest starting/ending, assignment deadline
-- **Submission polling**: Temporal `workflow.query("getStatus")` with DB fallback
-
 ## Related Docs
 
+- [Product Sense](docs/PRODUCT_SENSE.md)
 - [Frontend Surface](docs/FRONTEND.md)
 - [Temporal Workflows](docs/TEMPORAL.md)
 - [Judge Pipeline](docs/JUDGE_PIPELINE.md)
 - [Database Schema](docs/DATABASE.md)
 - [Redis Architecture](docs/REDIS.md)
 - [Security Requirements](docs/SECURITY.md)
-- [Reliability Invariants](docs/RELIABILITY.md)
 - [Deployment Guide](docs/DEPLOYMENT.md)
-- [Architecture Redesign Plan](docs/plans/2026-04-02-microservice-architecture-redesign.md)

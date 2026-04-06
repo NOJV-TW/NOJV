@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { ChevronDown, ChevronRight, Pencil, Trash2, Eye, EyeOff } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
@@ -32,9 +33,9 @@
   let saving = $state(false);
 
   // Edit state for set
-  let editName = $state(set.name);
-  let editWeight = $state(set.weight);
-  let editIsHidden = $state(set.isHidden);
+  let editName = $state(untrack(() => set.name));
+  let editWeight = $state(untrack(() => set.weight));
+  let editIsHidden = $state(untrack(() => set.isHidden));
 
   // Edit state for testcase
   let editStdin = $state("");
