@@ -4,6 +4,10 @@
   let { children } = $props();
 </script>
 
+<svelte:head>
+  <title>NOJV</title>
+</svelte:head>
+
 <div class="min-h-screen bg-gradient-to-br from-stone-50 to-orange-50/40 px-4">
   <div class="mx-auto max-w-7xl pt-4">
     <Header />
