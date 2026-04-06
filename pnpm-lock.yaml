@@ -111,12 +111,6 @@ importers:
       '@nojv/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@nojv/job-dispatch':
-        specifier: workspace:*
-        version: link:../../packages/job-dispatch
-      '@nojv/redis':
-        specifier: workspace:*
-        version: link:../../packages/redis
       '@nojv/storage':
         specifier: workspace:*
         version: link:../../packages/storage

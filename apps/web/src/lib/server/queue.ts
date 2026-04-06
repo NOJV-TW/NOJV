@@ -1,1 +1,3 @@
-export { dispatchSubmissionJudge as dispatchSubmissionJob } from "@nojv/job-dispatch";
+import { submissionDomain } from "@nojv/domain";
+
+export const dispatchSubmissionJob = submissionDomain.dispatchSubmissionJudge;

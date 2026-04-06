@@ -249,6 +249,12 @@ function mapPersistedCourse(course: {
   } satisfies CoursePageDetailData;
 }
 
+// ─── Course permission queries ──────────────────────────────────────
+
+export async function findCourseWithMembership(courseSlug: string, userId: string) {
+  return courseRepo.findBySlugWithUserMembership(courseSlug, userId);
+}
+
 // ─── Public query functions ──────────────────────────────────────────
 
 export async function listCourseCards(userId?: string) {
