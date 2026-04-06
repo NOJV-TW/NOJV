@@ -37,6 +37,37 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        mc alias set local http://minio:9000 minioadmin minioadmin &&
+        mc mb --ignore-existing local/nojv &&
+        mc anonymous set download local/nojv/problems
+      "
+    restart: "no"
+
   temporal:
     image: temporalio/auto-setup:1.28.1
     restart: unless-stopped
@@ -168,3 +199,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  minio_data:

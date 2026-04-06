@@ -12,3 +12,4 @@ export {
   type SubmissionJudgeContext,
   type TestcaseSetGroup
 } from "./judge-context";
+export { dispatchSubmissionJudge, querySubmissionStatus } from "@nojv/job-dispatch";

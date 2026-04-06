@@ -6,14 +6,16 @@
   import { inputClassName } from "$lib/utils";
   import TagInput from "$lib/components/ui/TagInput.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
+  import ImageDropZone from "$lib/components/ui/ImageDropZone.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
   interface Props {
     formData: unknown;
+    problemId: string;
   }
 
-  let { formData }: Props = $props();
+  let { formData, problemId }: Props = $props();
 
   const { form, errors, submitting, message: formMessage, enhance } = superForm(
     untrack(() => formData),
@@ -109,12 +111,13 @@
   <!-- Statement -->
   <label class="text-sm text-muted-foreground">
     <span>{m.admin_statement()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_statementTooltip()} /></span>
-    <textarea
+    <ImageDropZone
       class="{textareaClassName} min-h-40"
       name="statement"
       bind:value={$form.statement}
+      {problemId}
       required
-    ></textarea>
+    />
     {#if $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
   </label>
 
@@ -122,22 +125,24 @@
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-sm text-muted-foreground">
       <span>{m.admin_inputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
-      <textarea
+      <ImageDropZone
         class={textareaClassName}
         name="inputFormat"
         bind:value={$form.inputFormat}
+        {problemId}
         required
-      ></textarea>
+      />
       {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
     </label>
     <label class="text-sm text-muted-foreground">
       <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
-      <textarea
+      <ImageDropZone
         class={textareaClassName}
         name="outputFormat"
         bind:value={$form.outputFormat}
+        {problemId}
         required
-      ></textarea>
+      />
       {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
     </label>
   </div>

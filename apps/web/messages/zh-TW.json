@@ -84,6 +84,7 @@
   "admin_templateCode": "模板程式碼",
   "admin_templatePreviewHint": "使用者將在編輯器中看到模板程式碼。提交時，使用者的程式碼將取代 Driver 程式碼中的標記。",
   "admin_timeLimit": "時間限制 (ms)",
+  "admin_slug": "網址代碼",
   "admin_title": "標題",
   "admin_updateProblem": "更新題目",
   "admin_updating": "更新中...",

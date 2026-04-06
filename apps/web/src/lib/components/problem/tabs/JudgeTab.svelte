@@ -15,7 +15,7 @@
   let { problem }: Props = $props();
 
   // ─── State derived from problem.judgeConfig ─────────────────────────
-  const cfg = problem.judgeConfig ?? {};
+  let cfg = $derived(problem.judgeConfig ?? {});
 
   // Section 1: Judge Type
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");

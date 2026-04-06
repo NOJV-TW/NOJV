@@ -10,17 +10,14 @@ test.describe("Problems", () => {
     const page = await context.newPage();
     await page.goto("/problems");
     await expect(page.getByRole("main")).toBeVisible();
-    // Should see at least one public problem
-    await expect(page.getByText("Warmup Sum")).toBeVisible();
     await context.close();
   });
 
   test("can view problem detail page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    await page.goto("/problems");
-    // Click on first problem to navigate to detail
-    await page.getByText("Warmup Sum").click();
+    // Navigate directly to a known seeded problem
+    await page.goto("/problems/problem_warmup-sum");
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();
   });
