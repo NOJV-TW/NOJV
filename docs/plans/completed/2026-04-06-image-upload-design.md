@@ -42,55 +42,57 @@ POST /api/problems/[id]/images  (multipart/form-data)
 
 ## Changes
 
-| 層 | 改動 |
-|---|------|
-| infra | `docker-compose.yml` 加 MinIO + init 容器 |
-| packages | 新建 `@nojv/storage` — S3 client 初始化 + upload/delete |
-| API | 新增 `apps/web/src/routes/api/problems/[id]/images/+server.ts` |
-| 前端 | 新增 `ImageDropZone.svelte`，取代 BasicInfoTab 三個 textarea |
-| Schema | 不改 — 圖片 URL 嵌在 markdown 文字裡 |
+| 層       | 改動                                                           |
+| -------- | -------------------------------------------------------------- |
+| infra    | `docker-compose.yml` 加 MinIO + init 容器                      |
+| packages | 新建 `@nojv/storage` — S3 client 初始化 + upload/delete        |
+| API      | 新增 `apps/web/src/routes/api/problems/[id]/images/+server.ts` |
+| 前端     | 新增 `ImageDropZone.svelte`，取代 BasicInfoTab 三個 textarea   |
+| Schema   | 不改 — 圖片 URL 嵌在 markdown 文字裡                           |
 
 ## Package: `@nojv/storage`
 
 ```typescript
 // packages/storage/src/client.ts
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client } from "@aws-sdk/client-s3";
 
 export function createStorageClient() {
   return new S3Client({
     endpoint: process.env.S3_ENDPOINT,
-    region: process.env.S3_REGION ?? 'auto',
+    region: process.env.S3_REGION ?? "auto",
     credentials: {
       accessKeyId: process.env.S3_ACCESS_KEY!,
-      secretAccessKey: process.env.S3_SECRET_KEY!,
+      secretAccessKey: process.env.S3_SECRET_KEY!
     },
-    forcePathStyle: true,
+    forcePathStyle: true
   });
 }
 ```
 
 ```typescript
 // packages/storage/src/images.ts
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { randomUUID } from 'crypto';
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { randomUUID } from "crypto";
 
-const BUCKET = process.env.S3_BUCKET ?? 'nojv';
+const BUCKET = process.env.S3_BUCKET ?? "nojv";
 
 export async function uploadProblemImage(
   client: S3Client,
   problemId: string,
   file: Buffer,
-  mimeType: string,
+  mimeType: string
 ) {
-  const ext = mimeType.split('/')[1];
+  const ext = mimeType.split("/")[1];
   const key = `problems/${problemId}/images/${randomUUID()}.${ext}`;
 
-  await client.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: file,
-    ContentType: mimeType,
-  }));
+  await client.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: file,
+      ContentType: mimeType
+    })
+  );
 
   const baseUrl = process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT;
   return `${baseUrl}/${BUCKET}/${key}`;
@@ -101,7 +103,7 @@ export async function uploadProblemImage(
 
 ```typescript
 // apps/web/src/routes/api/problems/[id]/images/+server.ts
-const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST({ params, request, locals }) {

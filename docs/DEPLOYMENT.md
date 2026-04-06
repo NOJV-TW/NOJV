@@ -88,14 +88,14 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Object Storage (S3-Compatible)
 
-| Variable        | Default                 | Purpose                                  |
-| --------------- | ----------------------- | ---------------------------------------- |
-| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)            |
-| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key                            |
-| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key                            |
-| `S3_BUCKET`     | `nojv`                  | Bucket name                              |
-| `S3_PUBLIC_URL` | (same as endpoint)      | Public URL for images (optional CDN)     |
-| `S3_REGION`     | `auto`                  | S3 region                                |
+| Variable        | Default                 | Purpose                              |
+| --------------- | ----------------------- | ------------------------------------ |
+| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)        |
+| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key                        |
+| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key                        |
+| `S3_BUCKET`     | `nojv`                  | Bucket name                          |
+| `S3_PUBLIC_URL` | (same as endpoint)      | Public URL for images (optional CDN) |
+| `S3_REGION`     | `auto`                  | S3 region                            |
 
 Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2, or AWS S3 — change env vars only.
 

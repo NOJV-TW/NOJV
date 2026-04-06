@@ -16,39 +16,39 @@ Bits UI (headless Svelte components, similar to Radix) provides accessible primi
 
 shadcn-svelte-style components in `$lib/components/ui/`:
 
-| Component      | Variants / Notes                                                                 |
-| -------------- | -------------------------------------------------------------------------------- |
-| Button         | `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`; sizes: `default`, `sm`, `lg`, `icon`, `icon-sm`, `icon-lg` |
-| Badge          | `default`, `secondary`, `destructive`, `outline`; renders as `<a>` or `<span>`  |
-| Card           | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, CardAction |
-| Dialog         | Full set: trigger, content, header, footer, overlay, close, portal               |
-| DropdownMenu   | Full set including sub-menus, checkbox items, radio groups, shortcuts            |
-| Select         | Full set with scroll buttons, groups, portal                                     |
-| Tabs           | Tabs, TabsList, TabsTrigger, TabsContent                                         |
-| Table          | Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter, TableCaption |
-| Input          | Single styled input component                                                    |
-| Separator      | Horizontal/vertical separator                                                    |
+| Component    | Variants / Notes                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Button       | `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`; sizes: `default`, `sm`, `lg`, `icon`, `icon-sm`, `icon-lg` |
+| Badge        | `default`, `secondary`, `destructive`, `outline`; renders as `<a>` or `<span>`                                                |
+| Card         | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, CardAction                                             |
+| Dialog       | Full set: trigger, content, header, footer, overlay, close, portal                                                            |
+| DropdownMenu | Full set including sub-menus, checkbox items, radio groups, shortcuts                                                         |
+| Select       | Full set with scroll buttons, groups, portal                                                                                  |
+| Tabs         | Tabs, TabsList, TabsTrigger, TabsContent                                                                                      |
+| Table        | Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter, TableCaption                                      |
+| Input        | Single styled input component                                                                                                 |
+| Separator    | Horizontal/vertical separator                                                                                                 |
 
 Custom components in `$lib/components/ui/`:
 
-| Component     | Purpose                                                                 |
-| ------------- | ----------------------------------------------------------------------- |
-| EmptyState    | Icon + title + description + optional CTA for zero-data states          |
-| ToastContainer | Fixed bottom-right toast stack with success/error/info type styling    |
-| TagInput      | Pill-based tag entry with space/enter to add, backspace to remove       |
-| ToggleSwitch  | Accessible toggle switch (`role="switch"`, `aria-checked`)              |
-| HelpTooltip   | `CircleHelp` icon with Bits UI Tooltip for inline help text             |
-| ImageDropZone | Textarea with drag-and-drop + paste image upload, markdown insertion    |
+| Component      | Purpose                                                              |
+| -------------- | -------------------------------------------------------------------- |
+| EmptyState     | Icon + title + description + optional CTA for zero-data states       |
+| ToastContainer | Fixed bottom-right toast stack with success/error/info type styling  |
+| TagInput       | Pill-based tag entry with space/enter to add, backspace to remove    |
+| ToggleSwitch   | Accessible toggle switch (`role="switch"`, `aria-checked`)           |
+| HelpTooltip    | `CircleHelp` icon with Bits UI Tooltip for inline help text          |
+| ImageDropZone  | Textarea with drag-and-drop + paste image upload, markdown insertion |
 
 ### Typography
 
 Three font families, all self-hosted via `@fontsource`:
 
-| Token            | Font          | Weights    | Usage                                    |
-| ---------------- | ------------- | ---------- | ---------------------------------------- |
-| `--font-sans`    | Manrope       | 400-700    | All UI text (body, labels, navigation)   |
-| `--font-display` | Fraunces      | 400, 700   | Brand wordmark ("NOJV"), section headings in contest/course views |
-| `--font-mono`    | JetBrains Mono | 400, 500, 700 | Code editor, code blocks, sample I/O, character counts |
+| Token            | Font           | Weights       | Usage                                                             |
+| ---------------- | -------------- | ------------- | ----------------------------------------------------------------- |
+| `--font-sans`    | Manrope        | 400-700       | All UI text (body, labels, navigation)                            |
+| `--font-display` | Fraunces       | 400, 700      | Brand wordmark ("NOJV"), section headings in contest/course views |
+| `--font-mono`    | JetBrains Mono | 400, 500, 700 | Code editor, code blocks, sample I/O, character counts            |
 
 Monaco Editor uses `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace` at 14px with no minimap.
 
@@ -57,6 +57,7 @@ Monaco Editor uses `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monos
 Warm-toned light/dark theme with manual toggle (persisted in `localStorage` as `nojv-theme`). A 200ms CSS transition on `background-color`, `border-color`, and `color` smooths the switch (applied via `.theme-transition` class).
 
 **Light mode** -- warm cream base:
+
 - Background: `#f7f1e8` (cream) with subtle radial gradients (burnt orange top-left, blue-grey top-right)
 - Primary: `#c4682d` (burnt orange)
 - Foreground: `#1f1916` (near-black warm)
@@ -64,6 +65,7 @@ Warm-toned light/dark theme with manual toggle (persisted in `localStorage` as `
 - Borders: `rgba(79, 52, 35, 0.14)` (translucent warm brown)
 
 **Dark mode** -- deep warm brown base:
+
 - Background: `#1a1412` with matching muted radial gradients
 - Primary: `#d4834a` (lighter burnt orange for contrast)
 - Foreground: `#f5ede4` (warm white)
@@ -71,6 +73,7 @@ Warm-toned light/dark theme with manual toggle (persisted in `localStorage` as `
 - Borders: `rgba(255, 250, 244, 0.1)`
 
 Custom tokens beyond the standard set:
+
 - `--panel`: translucent card background for glassmorphism surfaces
 - `--panel-strong`: higher-opacity variant for nested panels (e.g., locale switcher pill)
 
@@ -80,16 +83,16 @@ Selection highlight uses the primary color at 18% opacity (light) / 25% opacity 
 
 These color assignments are used consistently across the entire codebase:
 
-| Semantic Meaning  | Color Pattern                                                        |
-| ----------------- | -------------------------------------------------------------------- |
-| Accepted / passed | `emerald-500/600` foreground, `emerald-500/15` background            |
-| Wrong / failed    | `red-500/600` foreground, `red-500/15` background                    |
-| Warning / TLE     | `amber-500/600` foreground, `amber-500/15` background                |
-| MLE               | `orange-500/600` foreground, `orange-500/15` background              |
-| Runtime error     | `purple-500/600` foreground, `purple-500/15` background              |
-| Info / queued     | `blue-500/600` foreground, `blue-500/15` background                  |
-| Checker judge     | `violet-500/15` background, `violet-600/700` foreground              |
-| Interactive judge | `sky-500/15` background, `sky-600/700` foreground                    |
+| Semantic Meaning  | Color Pattern                                             |
+| ----------------- | --------------------------------------------------------- |
+| Accepted / passed | `emerald-500/600` foreground, `emerald-500/15` background |
+| Wrong / failed    | `red-500/600` foreground, `red-500/15` background         |
+| Warning / TLE     | `amber-500/600` foreground, `amber-500/15` background     |
+| MLE               | `orange-500/600` foreground, `orange-500/15` background   |
+| Runtime error     | `purple-500/600` foreground, `purple-500/15` background   |
+| Info / queued     | `blue-500/600` foreground, `blue-500/15` background       |
+| Checker judge     | `violet-500/15` background, `violet-600/700` foreground   |
+| Interactive judge | `sky-500/15` background, `sky-600/700` foreground         |
 
 All semantic colors use the `dark:text-{color}-400` pattern for dark mode contrast.
 
@@ -108,6 +111,7 @@ All semantic colors use the `dark:text-{color}-400` pattern for dark mode contra
 ### Markdown Rendering
 
 `MarkdownRenderer.svelte` renders problem statements, editorials, and rich text using:
+
 - `marked` for Markdown-to-HTML conversion
 - `marked-katex-extension` for LaTeX math (both inline `$...$` and display `$$...$$`)
 - `isomorphic-dompurify` for XSS sanitization (with KaTeX MathML tags/attributes allowlisted)
@@ -141,6 +145,7 @@ Verdicts are displayed as colored text labels derived from the verdict enum (`fo
 ### Toast Notifications
 
 Fixed bottom-right stack. Three types with distinct border/background colors:
+
 - **success**: emerald border, emerald tint background
 - **error**: red border, red tint background
 - **info**: blue border, blue tint background
@@ -156,6 +161,7 @@ Each toast has a dismiss button (X icon). Toasts are used for SSE-delivered subm
 ### Status Communication
 
 Assessment/contest states use consistent color coding:
+
 - **Upcoming**: blue
 - **Active/Open**: emerald
 - **Grace period**: amber
