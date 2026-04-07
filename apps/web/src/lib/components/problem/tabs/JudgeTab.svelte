@@ -10,9 +10,10 @@
 
   interface Props {
     problem: ProblemDetail;
+    ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { problem }: Props = $props();
+  let { problem, ondirtychange }: Props = $props();
 
   // ─── State derived from problem.judgeConfig ─────────────────────────
   let cfg = $derived(problem.judgeConfig ?? {});
@@ -167,6 +168,15 @@ sys.stdout.flush()
     return config;
   }
 
+  // ─── Dirty tracking ─────────────────────────────────────────────────
+  let initialConfig = $state(JSON.stringify(buildJudgeConfig()));
+
+  $effect(() => {
+    const current = JSON.stringify(buildJudgeConfig());
+    const isDirty = current !== initialConfig;
+    ondirtychange?.(isDirty);
+  });
+
   async function handleSave() {
     saving = true;
     saveMessage = "";
@@ -180,6 +190,7 @@ sys.stdout.flush()
       });
       if (response.ok) {
         saveMessage = "saved";
+        initialConfig = JSON.stringify(buildJudgeConfig());
       } else {
         saveMessage = "error";
       }
