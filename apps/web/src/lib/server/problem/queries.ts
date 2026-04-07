@@ -12,5 +12,6 @@ export const {
   updateTestcaseSetRecord,
   deleteTestcaseSetRecord,
   updateTestcaseRecord,
-  deleteTestcaseRecord
+  deleteTestcaseRecord,
+  deleteProblemRecord
 } = problemDomain;

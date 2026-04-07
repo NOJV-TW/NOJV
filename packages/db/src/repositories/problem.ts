@@ -42,9 +42,14 @@ export const problemRepo = {
     });
   },
 
-  /** Count public problems. */
+  /** Delete a problem by ID (cascades to all related records). */
+  delete(id: string) {
+    return prisma.problem.delete({ where: { id } });
+  },
+
+  /** Count public published problems. */
   countPublic() {
-    return prisma.problem.count({ where: { visibility: "public" } });
+    return prisma.problem.count({ where: { visibility: "public", status: "published" } });
   },
 
   count(where: Prisma.ProblemWhereInput = {}) {
@@ -102,6 +107,7 @@ export const problemRepo = {
     return prisma.problem.findMany({
       where: {
         visibility: "public",
+        status: "published",
         ...(opts.excludeIds && opts.excludeIds.length > 0
           ? { id: { notIn: opts.excludeIds } }
           : {}),

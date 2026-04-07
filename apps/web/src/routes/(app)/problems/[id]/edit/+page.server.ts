@@ -22,7 +22,8 @@ import {
   updateTestcaseSetRecord,
   deleteTestcaseSetRecord,
   updateTestcaseRecord,
-  deleteTestcaseRecord
+  deleteTestcaseRecord,
+  deleteProblemRecord
 } from "$lib/server/problem/queries";
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
@@ -215,5 +216,23 @@ export const actions: Actions = {
     await updateProblemRecord(actor, problemId, { status: "published" });
 
     return { success: true };
+  },
+
+  deleteProblem: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const problemId = event.params.id;
+
+    // Only draft problems can be deleted
+    const problem = await getProblemPageData(problemId);
+    if (problem?.status !== "draft") {
+      error(403, "Published problems cannot be deleted");
+    }
+
+    await deleteProblemRecord(actor, problemId);
+
+    redirect(302, "/problems");
   }
 };
