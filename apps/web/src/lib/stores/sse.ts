@@ -6,6 +6,7 @@ import {
   sseEventSchema,
   type SSEEvent
 } from "@nojv/core";
+import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
 const listeners = new Map<string, Set<(data: SSEEvent) => void>>();
@@ -74,6 +75,14 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
   };
 }
 
-function handleDefaultEvent(_data: SSEEvent) {
-  // SSE events are handled by specific listeners — no global toasts
+function handleDefaultEvent(data: SSEEvent) {
+  if (data.type === SSE_CONTEST_STARTING) {
+    toasts.add({ message: "Contest starting soon!", type: "info" });
+  }
+  if (data.type === SSE_CONTEST_ENDING) {
+    toasts.add({ message: "Contest ending soon!", type: "info" });
+  }
+  if (data.type === SSE_ASSIGNMENT_DEADLINE) {
+    toasts.add({ message: "Assignment deadline approaching!", type: "info" });
+  }
 }

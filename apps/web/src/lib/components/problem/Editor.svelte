@@ -297,16 +297,16 @@
   }
 </script>
 
-<div class="flex h-full flex-col bg-muted">
+<div class="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]">
   <!-- Top toolbar -->
   <div
-    class="flex h-10 items-center justify-between border-b border-border bg-card px-2"
+    class="flex h-11 items-center justify-between border-b border-border bg-muted/40 px-3"
   >
     <div class="flex items-center gap-3">
-      <span class="text-xs font-medium text-muted-foreground">&lt;/&gt; {m.editor_code()}</span>
+      <span class="text-xs font-semibold text-foreground/70">&lt;/&gt;</span>
       {#if !isZipProject}
         <select
-          class="rounded-md border border-border bg-transparent px-2 text-xs"
+          class="rounded-lg border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-xs font-medium text-foreground outline-none transition focus:border-primary"
           onchange={(e) => {
             const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
             if (parsed.success) language = parsed.data;
@@ -318,26 +318,26 @@
           {/each}
         </select>
       {/if}
-      <span class="text-xs text-muted-foreground">
-        {#if contestSlug}
-          {m.editor_contestMode()}
-        {:else if assessment}
-          {m.editor_assignmentMode()}
-        {:else}
-          {m.editor_practiceMode()}
-        {/if}
-      </span>
       {#if isFunctionMode}
-        <span class="rounded-md bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+        <span class="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
           {m.editor_functionModeHint()}
         </span>
       {/if}
       {#if isZipProject}
-        <span class="rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+        <span class="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
           Multi-file Project
         </span>
       {/if}
     </div>
+    <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+      {#if contestSlug}
+        {m.editor_contestMode()}
+      {:else if assessment}
+        {m.editor_assignmentMode()}
+      {:else}
+        {m.editor_practiceMode()}
+      {/if}
+    </span>
   </div>
 
   <!-- Editor area -->
@@ -353,9 +353,9 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border bg-card px-4 py-2.5"
+    class="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5"
   >
-    <span class="text-xs text-muted-foreground">
+    <span class="text-xs font-medium text-muted-foreground">
       {#if isZipProject}
         {zipFiles.length} file{zipFiles.length !== 1 ? "s" : ""}
       {:else}
@@ -364,7 +364,7 @@
     </span>
     <div class="flex items-center gap-2">
       <button
-        class="rounded-lg border border-border bg-card px-4 py-1.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        class="rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground transition hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isRunning || (!isZipProject && availableLanguages.length === 0)}
         onclick={() => void handleRun()}
         type="button"
@@ -372,7 +372,7 @@
         {isRunning ? m.editor_running() : m.editor_run()}
       </button>
       <button
-        class="rounded-lg bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        class="rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isSubmitting || (!isZipProject && availableLanguages.length === 0)}
         onclick={() => void handleSubmit()}
         type="button"
@@ -384,7 +384,7 @@
 
   <!-- Bottom panel -->
   <div
-    class="flex h-[35%] min-h-[180px] flex-col border-t border-border bg-card"
+    class="flex h-[35%] min-h-[180px] flex-col border-t border-border"
   >
     <!-- Bottom tabs -->
     <div class="flex items-center border-b border-border px-2">

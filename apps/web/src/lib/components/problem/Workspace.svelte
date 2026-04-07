@@ -7,6 +7,7 @@
   import { SSE_SUBMISSION_VERDICT } from "@nojv/core";
   import { onSSEEvent } from "$lib/stores/sse";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
+  import CodeBlock from "../ui/CodeBlock.svelte";
   import ProblemEditor from "./Editor.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
 
@@ -386,17 +387,15 @@
             {/if}
 
             <div class="mt-5">
-              <p class="text-xs font-medium text-muted-foreground">{m.editor_code()}</p>
               {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
-                <div class="mt-2 flex items-center gap-2 rounded-lg bg-muted px-4 py-3">
+                <div class="flex items-center gap-2 rounded-lg bg-muted px-4 py-3">
                   <div
                     class="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground"
                   ></div>
                   <span class="text-xs text-muted-foreground">{m.problemDetail_loadingSource()}</span>
                 </div>
               {:else}
-                <pre
-                  class="mt-2 max-h-[50vh] overflow-auto rounded-lg bg-muted px-4 py-3 font-mono text-xs leading-5 text-foreground">{entry.sourceCode ?? ""}</pre>
+                <CodeBlock code={entry.sourceCode ?? ""} language={entry.language} />
               {/if}
             </div>
           </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import Header from "$lib/components/layout/Header.svelte";
+  import ToastContainer from "$lib/components/ui/ToastContainer.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
 
   let { children } = $props();
@@ -22,3 +23,4 @@
     {@render children()}
   </main>
 </div>
+<ToastContainer />
