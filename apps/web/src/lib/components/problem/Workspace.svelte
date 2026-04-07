@@ -6,7 +6,6 @@
   import { difficultyColor, formatVerdictLabel, verdictColor } from "$lib/types";
   import { SSE_SUBMISSION_VERDICT } from "@nojv/core";
   import { onSSEEvent } from "$lib/stores/sse";
-  import { toasts } from "$lib/stores/toast";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import ProblemEditor from "./Editor.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
@@ -113,16 +112,7 @@
     unsubVerdict = onSSEEvent(SSE_SUBMISSION_VERDICT, (data) => {
       if (data.type !== SSE_SUBMISSION_VERDICT) return;
       if (data.problemId !== problem.id) return;
-
-      const verdict = data.verdict;
-      const score = data.score;
-      const isAc = verdict === "accepted";
-      toasts.add({
-        message: isAc
-          ? `Accepted! Score: ${String(score)}/100`
-          : `Verdict: ${verdict} (${String(score)}/100)`,
-        type: isAc ? "success" : "info"
-      });
+      // Verdict is displayed directly in the workspace UI — no toast needed
     });
   });
 
