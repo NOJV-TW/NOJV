@@ -38,7 +38,9 @@ test.describe("Problem Lifecycle", () => {
     // Fill required fields
     await page.locator("input[name='title']").clear();
     await page.locator("input[name='title']").fill("E2E Lifecycle Problem");
-    await page.locator("textarea[name='statement']").fill("Given two integers, output their sum.");
+    await page
+      .locator("textarea[name='statement']")
+      .fill("Given two integers, output their sum.");
     await page.locator("textarea[name='inputFormat']").fill("Two integers a and b");
     await page.locator("textarea[name='outputFormat']").fill("Print a + b");
 
