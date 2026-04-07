@@ -13,14 +13,20 @@
   interface Props {
     formData: unknown;
     problemId: string;
+    ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { formData, problemId }: Props = $props();
+  let { formData, problemId, ondirtychange }: Props = $props();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(
+  const { form, errors, submitting, tainted, message: formMessage, enhance } = superForm(
     untrack(() => formData),
     { dataType: "json" }
   );
+
+  $effect(() => {
+    const dirty = $tainted ? Object.values($tainted).some(Boolean) : false;
+    ondirtychange?.(dirty);
+  });
 
   // Tags - sync with superform store
   let tags = $state<string[]>($form.tags ?? []);

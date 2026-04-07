@@ -11,12 +11,18 @@
   interface Props {
     problem: ProblemDetail;
     formData: any;
+    ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { problem, formData }: Props = $props();
+  let { problem, formData, ondirtychange }: Props = $props();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
+  const { form, errors, submitting, tainted, message: formMessage, enhance } = superForm(untrack(() => formData), {
     dataType: 'json',
+  });
+
+  $effect(() => {
+    const dirty = $tainted ? Object.values($tainted).some(Boolean) : false;
+    ondirtychange?.(dirty);
   });
 
   // Template data (for function mode)
