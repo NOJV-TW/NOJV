@@ -30,6 +30,11 @@
     "db:seed:validate": "pnpm --filter @nojv/db db:seed:validate",
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
+  "pnpm": {
+    "overrides": {
+      "@grpc/grpc-js": "~1.12.4"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@nojv/eslint-config": "workspace:*",
