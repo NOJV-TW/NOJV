@@ -329,15 +329,15 @@
         </span>
       {/if}
     </div>
-    <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-      {#if contestSlug}
+    {#if contestSlug}
+      <span class="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
         {m.editor_contestMode()}
-      {:else if assessment}
+      </span>
+    {:else if assessment}
+      <span class="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
         {m.editor_assignmentMode()}
-      {:else}
-        {m.editor_practiceMode()}
-      {/if}
-    </span>
+      </span>
+    {/if}
   </div>
 
   <!-- Editor area -->
