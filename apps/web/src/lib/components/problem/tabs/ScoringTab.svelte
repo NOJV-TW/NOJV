@@ -9,9 +9,10 @@
 
   interface Props {
     problem: ProblemDetail;
+    ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { problem }: Props = $props();
+  let { problem, ondirtychange }: Props = $props();
 
   // ─── State derived from problem.judgeConfig.scoring ─────────────────
   let cfg = $derived(problem.judgeConfig?.scoring ?? {});
@@ -121,6 +122,15 @@ print(json.dumps({"score": score}))
     return config;
   }
 
+  // ─── Dirty tracking ─────────────────────────────────────────────────
+  let initialConfig = $state(JSON.stringify(buildScoringConfig()));
+
+  $effect(() => {
+    const current = JSON.stringify(buildScoringConfig());
+    const isDirty = current !== initialConfig;
+    ondirtychange?.(isDirty);
+  });
+
   async function handleSave() {
     saving = true;
     saveMessage = "";
@@ -134,6 +144,7 @@ print(json.dumps({"score": score}))
       });
       if (response.ok) {
         saveMessage = "saved";
+        initialConfig = JSON.stringify(buildScoringConfig());
       } else {
         saveMessage = "error";
       }

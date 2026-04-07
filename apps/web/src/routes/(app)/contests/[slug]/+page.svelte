@@ -28,14 +28,13 @@
         : 0
   );
 
-  // Toast notifications at 5min and 1min remaining
+  // Countdown warnings
   let notified5min = $state(false);
   let notified1min = $state(false);
 
   $effect(() => {
     if (!isActive) return;
     const ms = remainingMs;
-
     if (ms <= 5 * 60 * 1000 && ms > 4 * 60 * 1000 && !notified5min) {
       notified5min = true;
       toasts.add({ message: "5 minutes remaining!", type: "info", duration: 8000 });

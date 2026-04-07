@@ -13,14 +13,22 @@
   interface Props {
     formData: unknown;
     problemId: string;
+    ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { formData, problemId }: Props = $props();
+  let { formData, problemId, ondirtychange }: Props = $props();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(
+  let attempted = $state(false);
+
+  const { form, errors, submitting, tainted, message: formMessage, enhance } = superForm(
     untrack(() => formData),
-    { dataType: "json" }
+    { dataType: "json", onSubmit: () => { attempted = true; } }
   );
+
+  $effect(() => {
+    const dirty = $tainted ? Object.values($tainted).some(Boolean) : false;
+    ondirtychange?.(dirty);
+  });
 
   // Tags - sync with superform store
   let tags = $state<string[]>($form.tags ?? []);
@@ -64,7 +72,7 @@
       bind:value={$form.title}
       required
     />
-    {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
+    {#if attempted && $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
   </label>
 
   <!-- Difficulty + Visibility -->
@@ -86,7 +94,7 @@
           <Select.Item value="hard" label={m.admin_difficultyHard()}>{m.admin_difficultyHard()}</Select.Item>
         </Select.Content>
       </Select.Root>
-      {#if $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.difficulty)}</span>{/if}
+      {#if attempted && $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.difficulty)}</span>{/if}
     </div>
     <div class="space-y-1.5">
       <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
@@ -104,7 +112,7 @@
           <Select.Item value="public" label={m.admin_visibilityPublic()}>{m.admin_visibilityPublic()}</Select.Item>
         </Select.Content>
       </Select.Root>
-      {#if $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.visibility)}</span>{/if}
+      {#if attempted && $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.visibility)}</span>{/if}
     </div>
   </div>
 
@@ -118,7 +126,7 @@
       {problemId}
       required
     />
-    {#if $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
+    {#if attempted && $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
   </label>
 
   <!-- Input / Output Format -->
@@ -132,7 +140,7 @@
         {problemId}
         required
       />
-      {#if $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
+      {#if attempted && $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
     </label>
     <label class="text-sm text-muted-foreground">
       <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
@@ -143,7 +151,7 @@
         {problemId}
         required
       />
-      {#if $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
+      {#if attempted && $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
     </label>
   </div>
 
@@ -175,10 +183,7 @@
   {/if}
 
   <!-- Submit -->
-  <div class="mt-2 flex items-center justify-end gap-3">
-    {#if $formMessage}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
-    {/if}
+  <div class="mt-2 flex items-center gap-3">
     <button
       class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
       disabled={$submitting}
@@ -190,5 +195,8 @@
         {m.common_saveSettings()}
       {/if}
     </button>
+    {#if $formMessage}
+      <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
+    {/if}
   </div>
 </form>
