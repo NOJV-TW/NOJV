@@ -1,10 +1,11 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
   import { difficultyColor } from "$lib/types";
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
-  import { FileCode, Pencil, Search, Tags } from "@lucide/svelte";
+  import { FileCode, Pencil, Search, Tags, Trash2 } from "@lucide/svelte";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
 
   let creating = $state(false);
 
@@ -217,6 +218,26 @@
     if (next.has(tag)) next.delete(tag);
     else next.add(tag);
     mineSelectedTags = next;
+  }
+
+  let showDeleteConfirm = $state(false);
+  let deletingProblemId = $state<string | null>(null);
+  let deleting = $state(false);
+
+  function handleDeleteClick(problemId: string) {
+    deletingProblemId = problemId;
+    showDeleteConfirm = true;
+  }
+
+  async function handleDeleteConfirmed() {
+    if (!deletingProblemId) return;
+    showDeleteConfirm = false;
+    deleting = true;
+    const fd = new FormData();
+    await fetch(`/problems/${deletingProblemId}/edit?/deleteProblem`, { method: "POST", body: fd });
+    deleting = false;
+    deletingProblemId = null;
+    await invalidateAll();
   }
 
   const difficulties: Difficulty[] = ["all", "easy", "medium", "hard"];
@@ -558,14 +579,38 @@
             {problem.visibility}
           </span>
         </div>
-        <a
-          href="/problems/{problem.id}/edit"
-          class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground hover:bg-[color:var(--color-panel)]"
-        >
-          <Pencil class="h-3 w-3" />
-          {m.problemDetail_editProblem()}
-        </a>
+        <div class="flex items-center gap-2">
+          <a
+            href="/problems/{problem.id}/edit"
+            class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground hover:bg-[color:var(--color-panel)]"
+          >
+            <Pencil class="h-3 w-3" />
+            {m.problemDetail_editProblem()}
+          </a>
+          {#if problem.status === "draft"}
+            <button
+              class="inline-flex items-center gap-1.5 rounded-full border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+              disabled={deleting && deletingProblemId === problem.id}
+              onclick={() => handleDeleteClick(problem.id)}
+              type="button"
+            >
+              <Trash2 class="h-3 w-3" />
+              {m.common_delete()}
+            </button>
+          {/if}
+        </div>
       </div>
     {/each}
   </section>
 {/if}
+
+<ConfirmDialog
+  bind:open={showDeleteConfirm}
+  title={m.admin_deleteProblemTitle()}
+  message={m.admin_deleteProblemMessage()}
+  confirmText={m.common_delete()}
+  cancelText={m.admin_cancel()}
+  variant="danger"
+  onconfirm={handleDeleteConfirmed}
+  oncancel={() => { showDeleteConfirm = false; deletingProblemId = null; }}
+/>
