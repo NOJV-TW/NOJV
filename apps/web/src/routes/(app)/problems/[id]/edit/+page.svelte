@@ -15,6 +15,8 @@
   let publishing = $state(false);
   let dirty = $state(false);
   let showPublishConfirm = $state(false);
+  let showDeleteConfirm = $state(false);
+  let deleting = $state(false);
 
   // Publish requires: at least one testcase set
   let canPublish = $derived(
@@ -30,6 +32,19 @@
 
   function handlePublishClick() {
     showPublishConfirm = true;
+  }
+
+  function handleDeleteConfirmed() {
+    showDeleteConfirm = false;
+    deleting = true;
+    const fd = new FormData();
+    fetch(`?/deleteProblem`, { method: "POST", body: fd }).then((res) => {
+      if (res.redirected) {
+        window.location.href = res.url;
+      } else {
+        deleting = false;
+      }
+    });
   }
 
   function handlePublishConfirmed() {
@@ -52,6 +67,16 @@
       <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
         Draft
       </span>
+    {/if}
+    {#if data.problem.status === "draft"}
+      <button
+        class="ml-auto rounded-full border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+        disabled={deleting}
+        type="button"
+        onclick={() => (showDeleteConfirm = true)}
+      >
+        {deleting ? m.common_deleting() : m.common_delete()}
+      </button>
     {/if}
   </div>
 
@@ -86,6 +111,17 @@
       {/snippet}
     </ProblemTabs>
   </section>
+
+  <ConfirmDialog
+    bind:open={showDeleteConfirm}
+    title={m.admin_deleteProblemTitle()}
+    message={m.admin_deleteProblemMessage()}
+    confirmText={m.common_delete()}
+    cancelText={m.admin_cancel()}
+    variant="danger"
+    onconfirm={handleDeleteConfirmed}
+    oncancel={() => (showDeleteConfirm = false)}
+  />
 
   <ConfirmDialog
     bind:open={showPublishConfirm}

@@ -171,6 +171,14 @@ export async function updateProblemTemplates(
   });
 }
 
+export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+    return problemRepo.delete(problemId);
+  });
+}
+
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
   return runTransaction(async (tx) => {
     const author = await ensureUser(tx, actor.userId, actor);

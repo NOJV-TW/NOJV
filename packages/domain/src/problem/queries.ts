@@ -280,7 +280,7 @@ export async function listProblemCards(
   const page = Math.max(1, params.page ?? 1);
 
   // Build the where clause
-  const where: Prisma.ProblemWhereInput = { visibility: "public" };
+  const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
   // Full-text search: find matching problem IDs via GIN index + LIKE fallback
   if (params.q && params.q.trim().length > 0) {
