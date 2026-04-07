@@ -38,12 +38,10 @@
     showDeleteConfirm = false;
     deleting = true;
     const fd = new FormData();
-    fetch(`?/deleteProblem`, { method: "POST", body: fd }).then((res) => {
-      if (res.redirected) {
-        window.location.href = res.url;
-      } else {
-        deleting = false;
-      }
+    fetch(`?/deleteProblem`, { method: "POST", body: fd, redirect: "follow" }).then(() => {
+      window.location.href = "/problems?tab=mine";
+    }).catch(() => {
+      deleting = false;
     });
   }
 

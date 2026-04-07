@@ -172,11 +172,10 @@ export async function updateProblemTemplates(
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
-  return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
-    return problemRepo.delete(problemId);
-  });
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  assertProblemOwnership(problem, actor);
+  return problemRepo.delete(problemId);
 }
 
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {

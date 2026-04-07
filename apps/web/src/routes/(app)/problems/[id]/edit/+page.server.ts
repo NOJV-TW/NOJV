@@ -233,6 +233,6 @@ export const actions: Actions = {
 
     await deleteProblemRecord(actor, problemId);
 
-    redirect(302, "/problems");
+    redirect(302, "/problems?tab=mine");
   }
 };
