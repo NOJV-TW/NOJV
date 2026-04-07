@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { toasts } from "$lib/stores/toast";
+
   let { data } = $props();
 
   let contest = $derived(data.contest);
@@ -26,6 +28,22 @@
         : 0
   );
 
+  // Countdown warnings
+  let notified5min = $state(false);
+  let notified1min = $state(false);
+
+  $effect(() => {
+    if (!isActive) return;
+    const ms = remainingMs;
+    if (ms <= 5 * 60 * 1000 && ms > 4 * 60 * 1000 && !notified5min) {
+      notified5min = true;
+      toasts.add({ message: "5 minutes remaining!", type: "info", duration: 8000 });
+    }
+    if (ms <= 60 * 1000 && ms > 0 && !notified1min) {
+      notified1min = true;
+      toasts.add({ message: "1 minute remaining!", type: "error", duration: 10000 });
+    }
+  });
 
   function formatDuration(ms: number): string {
     if (ms <= 0) return "00:00:00";
