@@ -7,6 +7,7 @@ import {
   courseRepo,
   problemRepo,
   runTransaction,
+  type Prisma,
   type TransactionClient
 } from "@nojv/db";
 import type {
@@ -253,7 +254,10 @@ export async function createCourseAssessmentRecord(
       slug: payload.slug,
       status: "published",
       summary: payload.summary,
-      title: payload.title
+      title: payload.title,
+      ...(payload.adjustmentRules
+        ? { adjustmentRules: payload.adjustmentRules as Prisma.InputJsonValue }
+        : {})
     });
 
     const problemIds = payload.problemIds;
