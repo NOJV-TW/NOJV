@@ -147,21 +147,17 @@ export async function getCourseManageAnalytics(
   });
 
   const totalSubmissions = submissions.length;
-  const acceptedSubmissionsTotal = submissions.filter(
-    (submission) => submission.status === "accepted"
-  ).length;
+  const acceptedSubmissionsTotal = statusMap.get("accepted") ?? 0;
   const pendingJudgeCount =
     (statusMap.get("queued") ?? 0) +
     (statusMap.get("compiling") ?? 0) +
     (statusMap.get("running") ?? 0);
 
-  const activeStudents = new Set(
-    submissions
-      .filter((submission) => studentIds.has(submission.userId))
-      .map((submission) => submission.userId)
-  );
+  // studentSubmissionCount was populated only for student userIds in the
+  // aggregation loop above, so its size is the distinct active-student count.
+  const activeStudentCount = studentSubmissionCount.size;
   const participationRate =
-    students.length > 0 ? Math.round((activeStudents.size / students.length) * 100) : 0;
+    students.length > 0 ? Math.round((activeStudentCount / students.length) * 100) : 0;
 
   const acceptedRate =
     totalSubmissions > 0 ? Math.round((acceptedSubmissionsTotal / totalSubmissions) * 100) : 0;
