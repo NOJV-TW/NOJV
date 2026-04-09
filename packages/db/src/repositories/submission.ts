@@ -66,7 +66,8 @@ export const submissionRepo = {
                 { orderIndex: "asc" as const },
                 { path: "asc" as const }
               ]
-            }
+            },
+            advancedTestcases: { orderBy: { ordinal: "asc" as const } }
           }
         }
       },

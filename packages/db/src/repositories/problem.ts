@@ -260,6 +260,27 @@ export const problemWorkspaceFileRepo = {
   }
 };
 
+export const advancedTestcaseRepo = {
+  findByProblemId(problemId: string) {
+    return prisma.advancedTestcase.findMany({
+      where: { problemId },
+      orderBy: { ordinal: "asc" as const }
+    });
+  },
+
+  withTx(tx: TxClient) {
+    return {
+      deleteByProblemId(problemId: string) {
+        return tx.advancedTestcase.deleteMany({ where: { problemId } });
+      },
+
+      createMany(data: Prisma.AdvancedTestcaseCreateManyInput[]) {
+        return tx.advancedTestcase.createMany({ data });
+      }
+    };
+  }
+};
+
 export const testcaseSetRepo = {
   findByProblemId(problemId: string) {
     return prisma.testcaseSet.findMany({

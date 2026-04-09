@@ -25,6 +25,14 @@ export type ProblemMode = z.infer<typeof problemModeSchema>;
 export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
 export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
 
+export const advancedResourceLimitsSchema = z.object({
+  totalTimeMs: z.number().int().min(1_000).max(600_000),
+  memoryMb: z.number().int().min(16).max(8_192),
+  networkEnabled: z.boolean()
+});
+
+export type AdvancedResourceLimits = z.infer<typeof advancedResourceLimitsSchema>;
+
 export const problemSampleSchema = z.object({
   stdin: z.string().max(200_000),
   expected: z.string().max(200_000)
@@ -97,7 +105,8 @@ export const problemCreateSchema = z.object({
   mode: problemModeSchema.default("standard"),
   samples: problemSamplesSchema.optional(),
   advancedImageRef: z.string().max(500).optional(),
-  advancedImageSource: problemImageSourceSchema.optional()
+  advancedImageSource: problemImageSourceSchema.optional(),
+  advancedResourceLimits: advancedResourceLimitsSchema.optional()
 });
 
 export const problemUpdateSchema = problemCreateSchema.partial();

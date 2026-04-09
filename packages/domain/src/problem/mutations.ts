@@ -1,4 +1,5 @@
 import {
+  advancedTestcaseRepo,
   problemRepo,
   problemStatementRepo,
   problemTemplateRepo,
@@ -243,6 +244,9 @@ export async function updateProblemRecord(
       updateData.advancedImageRef = payload.advancedImageRef;
     if (payload.advancedImageSource !== undefined)
       updateData.advancedImageSource = payload.advancedImageSource;
+    if (payload.advancedResourceLimits !== undefined)
+      updateData.advancedResourceLimits =
+        payload.advancedResourceLimits as Prisma.InputJsonValue;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -357,6 +361,44 @@ export async function updateProblemWorkspace(
     }
 
     return { id: problem.id, fileCount: payload.files.length };
+  });
+}
+
+export interface AdvancedTestcasePayload {
+  stdin: string;
+  expected: string;
+  files: Record<string, string>;
+}
+
+/**
+ * Replace the Advanced Mode testcase bag for a problem. Wholesale
+ * replacement keeps the API simple for the UI (which ships the whole
+ * list on save).
+ */
+export async function replaceAdvancedTestcases(
+  actor: ProblemActorContext,
+  problemId: string,
+  cases: AdvancedTestcasePayload[]
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+
+    await advancedTestcaseRepo.withTx(tx).deleteByProblemId(problem.id);
+
+    if (cases.length > 0) {
+      await advancedTestcaseRepo.withTx(tx).createMany(
+        cases.map((c, index) => ({
+          expected: c.expected,
+          files: c.files as Prisma.InputJsonValue,
+          ordinal: index,
+          problemId: problem.id,
+          stdin: c.stdin
+        }))
+      );
+    }
+
+    return { id: problem.id, count: cases.length };
   });
 }
 

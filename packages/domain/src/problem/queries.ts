@@ -54,6 +54,11 @@ export interface ProblemDetail {
   // Phase 7: advanced-mode metadata
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
+  advancedResourceLimits: {
+    totalTimeMs: number;
+    memoryMb: number;
+    networkEnabled: boolean;
+  } | null;
 }
 
 /**
@@ -227,6 +232,7 @@ function mapPersistedProblemDetail(
     mode?: ProblemMode | null;
     advancedImageRef?: string | null;
     advancedImageSource?: ProblemImageSource | null;
+    advancedResourceLimits?: unknown;
   },
   locale: string,
   totalSubmissions: number,
@@ -270,8 +276,21 @@ function mapPersistedProblemDetail(
     totalSubmissions,
     visibility: problem.visibility,
     advancedImageRef: problem.advancedImageRef ?? null,
-    advancedImageSource: problem.advancedImageSource ?? null
+    advancedImageSource: problem.advancedImageSource ?? null,
+    advancedResourceLimits: parseAdvancedResourceLimits(problem.advancedResourceLimits)
   };
+}
+
+function parseAdvancedResourceLimits(
+  raw: unknown
+): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
+  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
+  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
+  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
+  return { totalTimeMs, memoryMb, networkEnabled };
 }
 
 // ─── Public query functions ─────────────────────────────────────────

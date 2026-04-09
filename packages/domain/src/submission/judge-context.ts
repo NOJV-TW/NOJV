@@ -57,6 +57,11 @@ export interface AdvancedModeContext {
     memoryMb: number;
     networkEnabled: boolean;
   };
+  testcases: {
+    stdin: string;
+    expected: string;
+    files: Record<string, string>;
+  }[];
 }
 
 export interface SubmissionJudgeContext {
@@ -176,18 +181,26 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 
   // Phase 7: surface advanced-mode container config when the problem is in
-  // advanced mode. We default to safe limits if the schema columns are unset.
+  // advanced mode. Reads Problem.advancedResourceLimits if set, otherwise
+  // falls back to safe defaults.
   const mode: ProblemMode = problem.mode;
+  const parsedLimits = parseAdvancedResourceLimits(problem.advancedResourceLimits);
+  const advancedTestcases = problem.advancedTestcases.map((c) => ({
+    stdin: c.stdin,
+    expected: c.expected,
+    files: (c.files as Record<string, string> | null) ?? {}
+  }));
   const advanced: AdvancedModeContext | null =
     mode === "advanced" && problem.advancedImageRef && problem.advancedImageSource
       ? {
           imageRef: problem.advancedImageRef,
           imageSource: problem.advancedImageSource as ProblemImageSource,
-          resourceLimits: {
+          resourceLimits: parsedLimits ?? {
             totalTimeMs: 30_000,
             memoryMb: 1_024,
             networkEnabled: false
-          }
+          },
+          testcases: advancedTestcases
         }
       : null;
 
@@ -260,6 +273,18 @@ function collectSamples(problem: {
     if (legacy.length >= 5) break;
   }
   return legacy;
+}
+
+function parseAdvancedResourceLimits(
+  raw: unknown
+): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
+  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
+  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
+  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
+  return { totalTimeMs, memoryMb, networkEnabled };
 }
 
 export async function updateSubmissionStatus(

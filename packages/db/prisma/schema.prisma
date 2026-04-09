@@ -190,14 +190,16 @@ model Problem {
   judgeConfig         Json?
   mode                ProblemMode             @default(standard)
   samples             Json?
-  advancedImageRef    String?
-  advancedImageSource ProblemImageSource?
+  advancedImageRef       String?
+  advancedImageSource    ProblemImageSource?
+  advancedResourceLimits Json?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   statements          ProblemStatementI18n[]
   testcaseSets        TestcaseSet[]
   templates           ProblemTemplate[]
   workspaceFiles      ProblemWorkspaceFile[]
+  advancedTestcases   AdvancedTestcase[]
   submissions         Submission[]
   contestLinks        ContestProblem[]
   courseLinks         CourseProblem[]
@@ -249,6 +251,25 @@ model Testcase {
   testcaseSet    TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
 
   @@unique([testcaseSetId, ordinal])
+}
+
+/// Phase 7 Advanced Mode: per-case file bag used only when Problem.mode = "advanced".
+/// Each row is one testcase exposed to the TA container as
+/// `/workspace/testcases/{ordinal}/`. Files are stored inline as a JSON
+/// dict of `{ relativePath: content }` (base64 encoded for binary).
+model AdvancedTestcase {
+  id        String   @id @default(cuid())
+  problemId String
+  ordinal   Int
+  stdin     String   @db.Text
+  expected  String   @db.Text
+  files     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, ordinal])
+  @@index([problemId])
 }
 
 model ProblemTemplate {

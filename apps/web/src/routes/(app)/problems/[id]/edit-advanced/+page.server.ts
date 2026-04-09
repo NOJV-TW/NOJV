@@ -1,19 +1,14 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
-import { advancedImageConfigSchema } from "@nojv/core";
+import { advancedImageConfigSchema, advancedResourceLimitsSchema } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { problemDomain } from "@nojv/domain";
+import { advancedTestcaseRepo } from "@nojv/db";
 
-const { getProblemPageData, updateProblemRecord } = problemDomain;
+const { getProblemPageData, updateProblemRecord, replaceAdvancedTestcases } = problemDomain;
 
-/**
- * Phase 7 advanced-mode case shape used by AdvancedTestcasesSection. The
- * persistence layer stores these inside the problem's testcase set / sample
- * bag (TODO: full plumb-through wired up in Phase 8 once the storage layout
- * is finalized).
- */
 const advancedCaseSchema = z.object({
   stdin: z.string().max(200_000),
   expected: z.string().max(200_000),
@@ -21,6 +16,11 @@ const advancedCaseSchema = z.object({
 });
 
 const advancedTestcasesPayloadSchema = z.array(advancedCaseSchema).max(256);
+
+// Extended image config: optional resource limits on the save payload.
+const advancedImageSavePayloadSchema = advancedImageConfigSchema.extend({
+  resourceLimits: advancedResourceLimitsSchema.optional()
+});
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   if (!locals.user) {
@@ -36,19 +36,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     redirect(302, `/problems/${params.id}/edit`);
   }
 
+  const existingCases = await advancedTestcaseRepo.findByProblemId(params.id);
+
   return {
     problem,
     imageConfig: {
       source: problem.advancedImageSource ?? "registry",
       ref: problem.advancedImageRef ?? "",
-      resourceLimits: {
-        // TODO(phase-7-followup): persist resourceLimits per-problem instead
-        // of falling back to defaults each load.
+      resourceLimits: problem.advancedResourceLimits ?? {
         totalTimeMs: 30_000,
         memoryMb: 1_024,
         networkEnabled: false
       }
-    }
+    },
+    advancedCases: existingCases.map((c) => ({
+      stdin: c.stdin,
+      expected: c.expected,
+      files: (c.files ?? {}) as Record<string, string>
+    }))
   };
 };
 
@@ -85,12 +90,13 @@ function parseJsonField<T>(
 export const actions: Actions = {
   updateImage: advancedAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), advancedImageConfigSchema);
+    const data = parseJsonField(formData.get("data"), advancedImageSavePayloadSchema);
     try {
       await updateProblemRecord(actor, problemId, {
         mode: "advanced",
         advancedImageRef: data.ref,
-        advancedImageSource: data.source
+        advancedImageSource: data.source,
+        ...(data.resourceLimits ? { advancedResourceLimits: data.resourceLimits } : {})
       });
     } catch (err) {
       return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
@@ -98,12 +104,14 @@ export const actions: Actions = {
     return { success: true };
   }),
 
-  updateAdvancedTestcases: advancedAction(async ({ event }) => {
+  updateAdvancedTestcases: advancedAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
     const data = parseJsonField(formData.get("data"), advancedTestcasesPayloadSchema);
-    // TODO(phase-7-followup): persist `data` to ProblemWorkspaceFile or a
-    // dedicated AdvancedTestcase table once the storage layout is finalized
-    // in Phase 8. For now we accept the payload so the UI flow is unblocked.
-    return { success: true, count: data.length };
+    try {
+      const result = await replaceAdvancedTestcases(actor, problemId, data);
+      return { success: true, count: result.count };
+    } catch (err) {
+      return fail(400, { message: err instanceof Error ? err.message : "Save failed" });
+    }
   })
 };

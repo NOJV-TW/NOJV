@@ -357,6 +357,8 @@ export async function executeSandbox(
   // Graded path: iterate testcase sets (Phase 2: all isHidden=true after
   // the data migration runs; getJudgeContext already filters them).
   const useSamples = draft.sampleOnly;
+  const useAdvanced = judgeContext.mode === "advanced" && judgeContext.advanced !== null;
+
   const testcasesForSandbox = useSamples
     ? judgeContext.samples.map((s, i) => ({
         index: i,
@@ -365,36 +367,48 @@ export async function executeSandbox(
         weight: 0,
         isSample: true
       }))
-    : judgeContext.testcaseSets.flatMap((ts) =>
-        ts.testcases.map((tc, i) => ({
+    : useAdvanced
+      ? (judgeContext.advanced?.testcases ?? []).map((c, i) => ({
           index: i,
-          input: tc.stdin,
-          ...(tc.expectedStdout != null ? { expected: tc.expectedStdout } : {}),
-          weight: tc.weight,
+          input: c.stdin,
+          expected: c.expected,
+          weight: 1,
           isSample: false
         }))
-      );
+      : judgeContext.testcaseSets.flatMap((ts) =>
+          ts.testcases.map((tc, i) => ({
+            index: i,
+            input: tc.stdin,
+            ...(tc.expectedStdout != null ? { expected: tc.expectedStdout } : {}),
+            weight: tc.weight,
+            isSample: false
+          }))
+        );
 
-  const activeSets = useSamples ? [] : judgeContext.testcaseSets;
+  const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 
   const sources = mergeSandboxSources(draft, judgeContext);
 
   // Phase 7: build the advanced-mode payload (when applicable). Standard
   // mode submissions go through the existing pipeline unchanged.
-  const advancedPayload =
-    judgeContext.mode === "advanced" && judgeContext.advanced
-      ? {
-          imageRef: judgeContext.advanced.imageRef,
-          imageSource: judgeContext.advanced.imageSource,
-          totalTimeMs: judgeContext.advanced.resourceLimits.totalTimeMs,
-          memoryMb: judgeContext.advanced.resourceLimits.memoryMb,
-          networkEnabled: judgeContext.advanced.resourceLimits.networkEnabled
-          // TODO(phase-7-followup): once advanced-mode testcase auxiliary
-          // files are persisted (sample bag from D4), populate
-          // `testcaseFiles: { [index]: { path: content } }` here so the
-          // sandbox-runner can drop them into /workspace/testcases/N/.
-        }
-      : undefined;
+  let advancedPayload: SandboxRequest["advanced"] | undefined;
+  if (judgeContext.mode === "advanced" && judgeContext.advanced) {
+    const ctx = judgeContext.advanced;
+    const testcaseFiles: Record<number, Record<string, string>> = {};
+    for (const [idx, c] of ctx.testcases.entries()) {
+      if (Object.keys(c.files).length > 0) {
+        testcaseFiles[idx] = c.files;
+      }
+    }
+    advancedPayload = {
+      imageRef: ctx.imageRef,
+      imageSource: ctx.imageSource,
+      totalTimeMs: ctx.resourceLimits.totalTimeMs,
+      memoryMb: ctx.resourceLimits.memoryMb,
+      networkEnabled: ctx.resourceLimits.networkEnabled,
+      ...(Object.keys(testcaseFiles).length > 0 ? { testcaseFiles } : {})
+    };
+  }
 
   const request: SandboxRequest = {
     submissionId,
