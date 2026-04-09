@@ -1,8 +1,13 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { superForm } from "sveltekit-superforms";
+  import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
-  import { supportedLanguages, type Language, type SubmissionType } from "@nojv/core";
+  import {
+    supportedLanguages,
+    type Language,
+    type ProblemCreate,
+    type SubmissionType
+  } from "@nojv/core";
   import type { ProblemDetail, TemplateInfo } from "$lib/types";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
   import CodeTemplateEditor from "$lib/components/problem/CodeTemplateEditor.svelte";
@@ -10,7 +15,7 @@
 
   interface Props {
     problem: ProblemDetail;
-    formData: any;
+    formData: SuperValidated<ProblemCreate>;
     ondirtychange?: (dirty: boolean) => void;
   }
 
@@ -129,39 +134,6 @@
       submissionType={$form.submissionType ?? "full_source"}
       bind:templatesByLang
     />
-  {/if}
-
-  <!-- ZIP Project mode: additional fields -->
-  {#if $form.submissionType === "zip_project"}
-    <div class="border-t border-border pt-5">
-      <label class="text-sm text-muted-foreground">
-        {m.admin_zipFileStructure()}
-        <textarea
-          class="{monoTextareaClassName} min-h-32"
-          bind:value={$form.zipFileStructure}
-          placeholder={m.admin_zipFileStructurePlaceholder()}
-        ></textarea>
-      </label>
-
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        <label class="text-sm text-muted-foreground">
-          <span>{m.admin_zipCompileCommand()} <HelpTooltip text={m.admin_helpZipCompileCommand()} /></span>
-          <input
-            class={inputClassName}
-            bind:value={$form.zipCompileCommand}
-            placeholder={m.admin_zipCompileCommandPlaceholder()}
-          />
-        </label>
-        <label class="text-sm text-muted-foreground">
-          <span>{m.admin_zipEntryPoint()} <HelpTooltip text={m.admin_helpZipEntryPoint()} /></span>
-          <input
-            class={inputClassName}
-            bind:value={$form.zipEntryPoint}
-            placeholder={m.admin_zipEntryPointPlaceholder()}
-          />
-        </label>
-      </div>
-    </div>
   {/if}
 
   <!-- Submit -->

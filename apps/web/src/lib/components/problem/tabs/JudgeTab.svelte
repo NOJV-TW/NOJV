@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -15,8 +16,10 @@
 
   let { problem, ondirtychange }: Props = $props();
 
-  // ─── State derived from problem.judgeConfig ─────────────────────────
-  let cfg = $derived(problem.judgeConfig ?? {});
+  // ─── Initial config snapshot from problem.judgeConfig ───────────────
+  // Used only to seed the $state values below; not reactive — the
+  // component owns the state once mounted.
+  const cfg = untrack(() => problem.judgeConfig ?? {});
 
   // Section 1: Judge Type
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");

@@ -19,9 +19,9 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
-    "@temporalio/client": "^1.11.7"
+    "@temporalio/client": "^1.15.0"
   },
   "devDependencies": {
-    "tsdown": "^0.21.2"
+    "tsdown": "^0.21.7"
   }
 }

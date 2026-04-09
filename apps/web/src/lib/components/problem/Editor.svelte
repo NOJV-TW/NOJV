@@ -60,8 +60,7 @@
     }
     // Filter by template availability (function-mode problems)
     if (problem.submissionType === "function") {
-      const templateLangs = Object.keys(problem.templates) as Language[];
-      langs = langs.filter((l) => templateLangs.includes(l));
+      langs = langs.filter((l) => l in problem.templates);
     }
     return langs;
   });

@@ -19,6 +19,7 @@ import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
 
@@ -245,31 +246,28 @@ export async function updateContestRecord(
   return runTransaction(async (tx) => {
     const contest = await requireContest(tx, contestSlug);
 
-    const updateData: Prisma.ContestUncheckedUpdateInput = {};
-    if (payload.title !== undefined) updateData.title = payload.title;
-    if (payload.summary !== undefined) updateData.summary = payload.summary;
+    // Fields that pass through unchanged.
+    const updateData: Prisma.ContestUncheckedUpdateInput = stripUndefined({
+      title: payload.title,
+      summary: payload.summary,
+      scoringMode: payload.scoringMode,
+      submitCooldownSec: payload.submitCooldownSec,
+      allowedLanguages: payload.allowedLanguages,
+      ipWhitelistEnabled: payload.ipWhitelistEnabled,
+      ipBindingEnabled: payload.ipBindingEnabled,
+      ipWhitelist: payload.ipWhitelist,
+      ipViolationMode: payload.ipViolationMode,
+      pageLockEnabled: payload.pageLockEnabled,
+      scoreboardMode: payload.scoreboardMode
+    });
+
+    // Fields that need transformation or null-coalescing.
     if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
     if (payload.endsAt !== undefined) updateData.endsAt = new Date(payload.endsAt);
-    if (payload.scoringMode !== undefined) updateData.scoringMode = payload.scoringMode;
-    if (payload.submitCooldownSec !== undefined)
-      updateData.submitCooldownSec = payload.submitCooldownSec;
-    if (payload.frozenAt !== undefined)
+    if (payload.frozenAt !== undefined) {
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
-    if (payload.allowedLanguages !== undefined)
-      updateData.allowedLanguages = payload.allowedLanguages;
-    if (payload.ipWhitelistEnabled !== undefined)
-      updateData.ipWhitelistEnabled = payload.ipWhitelistEnabled;
-    if (payload.ipBindingEnabled !== undefined)
-      updateData.ipBindingEnabled = payload.ipBindingEnabled;
-    if (payload.ipWhitelist !== undefined) updateData.ipWhitelist = payload.ipWhitelist;
-    if (payload.ipViolationMode !== undefined)
-      updateData.ipViolationMode = payload.ipViolationMode;
+    }
     if (payload.maxAttempts !== undefined) updateData.maxAttempts = payload.maxAttempts ?? null;
-    if (payload.pageLockEnabled !== undefined)
-      updateData.pageLockEnabled = payload.pageLockEnabled;
-    if (payload.scoreboardMode !== undefined)
-      updateData.scoreboardMode = payload.scoreboardMode;
-
     if (payload.courseSlug !== undefined) {
       updateData.courseId = payload.courseSlug
         ? (await requireCourse(tx, payload.courseSlug)).id

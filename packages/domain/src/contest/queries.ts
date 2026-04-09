@@ -99,7 +99,7 @@ export async function listCourseContests(courseSlug: string): Promise<ContestLis
 export async function getContestDetail(contestSlug: string): Promise<ContestDetailData | null> {
   const contest = await contestRepo.findDetailBySlug(contestSlug);
 
-  if (!contest || contest.visibility !== "published") {
+  if (contest?.visibility !== "published") {
     return null;
   }
 
@@ -138,7 +138,7 @@ export async function getContestWorkspaceData(
 ): Promise<ContestWorkspaceData | null> {
   const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
 
-  if (!contest || contest.visibility !== "published") {
+  if (contest?.visibility !== "published") {
     return null;
   }
 

@@ -186,7 +186,7 @@
   "admin_helpLatePenaltyDecay": "Score decays exponentially. Half-life = time until score is halved.",
   "admin_helpTimeBonus": "Bonus points for fast execution. Max bonus at 0 ms, linearly decreasing to 0 at baseline.",
   "admin_helpMemoryPenalty": "Deduct points if memory usage exceeds the threshold.",
-  "admin_helpCustomScoringScript": "Script receives { rawScore, testcaseResults, submittedAt, runtimeMs, ... } on stdin.\nMust output { finalScore, feedback } as JSON.",
+  "admin_helpCustomScoringScript": "Script receives a JSON payload on stdin with rawScore, testcaseResults, submittedAt, runtimeMs, and more.\nMust output JSON with finalScore and feedback fields.",
   "admin_helpZipCompileCommand": "Command to compile the project (e.g. make, gcc main.c -o main). Leave empty for interpreted languages.",
   "admin_helpZipEntryPoint": "Main file to execute (e.g. main.c, src/main.py). Used to determine the run command.",
   "admin_saving": "Saving...",

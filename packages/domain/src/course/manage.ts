@@ -1,7 +1,6 @@
 import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from "@nojv/db";
-import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { pickProblemStatement } from "../shared/pick-problem-statement";
+import { localizeProblem } from "../shared/pick-problem-statement";
 
 // ─── Course manage analytics ────────────────────────────────────────
 
@@ -316,15 +315,10 @@ export async function getExportData(courseSlug: string, assessmentSlug: string) 
   const assessment = await assessmentRepo.findWithProblemDetails(course.id, assessmentSlug);
   if (!assessment) return null;
 
-  const problems = assessment.problems.map((p) => {
-    const localized = pickProblemStatement(
-      p.problem.statements,
-      DEFAULT_LOCALE,
-      p.problem.id,
-      p.problem.summary
-    );
-    return { problemId: p.problem.id, title: localized.title };
-  });
+  const problems = assessment.problems.map((p) => ({
+    problemId: p.problem.id,
+    title: localizeProblem(p.problem).title
+  }));
 
   const memberships = await courseMembershipRepo.findStudents(course.id);
   const students = memberships.map((m) => ({
