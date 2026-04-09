@@ -45,7 +45,7 @@ docker compose up -d
 
 This starts:
 
-- PostgreSQL 18 on port 5432
+- PostgreSQL 17 on port 5432
 - Redis 8 on port 6379
 - Temporal Server on port 7233
 - Temporal UI on port 8080
