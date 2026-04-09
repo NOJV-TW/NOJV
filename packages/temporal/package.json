@@ -38,16 +38,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@temporalio/activity": "^1.11.7",
-    "@temporalio/client": "^1.11.7",
-    "@temporalio/common": "^1.11.7",
-    "@temporalio/workflow": "^1.11.7",
     "@nojv/core": "workspace:*",
     "@nojv/domain": "workspace:*",
     "@nojv/redis": "workspace:*",
+    "@temporalio/activity": "^1.15.0",
+    "@temporalio/client": "^1.15.0",
+    "@temporalio/common": "^1.15.0",
+    "@temporalio/workflow": "^1.15.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "tsdown": "^0.21.2"
+    "tsdown": "^0.21.7"
   }
 }

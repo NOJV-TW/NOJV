@@ -1,5 +1,10 @@
 import { z } from "zod";
-import type { SandboxResult } from "@nojv/core";
+import {
+  artifactEntrySchema,
+  customScriptStageResultSchema,
+  staticAnalysisResultSchema,
+  type SandboxResult
+} from "@nojv/core";
 
 const sandboxTestcaseResultSchema = z.object({
   index: z.number(),
@@ -10,34 +15,6 @@ const sandboxTestcaseResultSchema = z.object({
   timeMs: z.number(),
   score: z.number().optional(),
   feedback: z.string().optional()
-});
-
-const staticAnalysisViolationSchema = z.object({
-  line: z.number().optional(),
-  column: z.number().optional(),
-  rule: z.string(),
-  message: z.string(),
-  severity: z.enum(["error", "warning"])
-});
-
-const staticAnalysisResultSchema = z.object({
-  passed: z.boolean(),
-  violations: z.array(staticAnalysisViolationSchema)
-});
-
-const artifactEntrySchema = z.object({
-  path: z.string(),
-  sizeBytes: z.number()
-});
-
-const customScriptStageResultSchema = z.object({
-  name: z.string(),
-  runAt: z.enum(["before-compile", "after-compile", "after-check"]),
-  passed: z.boolean(),
-  exitCode: z.number(),
-  timedOut: z.boolean(),
-  feedback: z.string().optional(),
-  metadata: z.unknown().optional()
 });
 
 const rawSchema = z.object({
@@ -51,8 +28,13 @@ const rawSchema = z.object({
   scoringFeedback: z.string().optional()
 });
 
-export function parseSandboxResult(data: unknown) {
+export function parseSandboxResult(
+  data: unknown
+): { success: true; data: SandboxResult } | { success: false } {
   const result = rawSchema.safeParse(data);
-  if (!result.success) return { success: false as const };
-  return { success: true as const, data: result.data as unknown as SandboxResult };
+  if (!result.success) return { success: false };
+  // Zod's `.optional()` infers `T | undefined`, which under
+  // `exactOptionalPropertyTypes: true` doesn't unify with `prop?: T`.
+  // The shape is structurally identical — assert through unknown.
+  return { success: true, data: result.data as unknown as SandboxResult };
 }

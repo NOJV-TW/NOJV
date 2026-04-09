@@ -12,6 +12,7 @@ import type {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
+import { toJsonValue } from "../shared/to-json-value";
 
 // --- Types ---
 
@@ -124,21 +125,9 @@ export async function completeJudge(
     runtimeMs: result.runtimeMs,
     score: result.score,
     status: result.verdict,
-    verdictDetail: JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue,
-    ...(result.subtaskResults
-      ? {
-          subtaskResults: JSON.parse(
-            JSON.stringify(result.subtaskResults)
-          ) as Prisma.InputJsonValue
-        }
-      : {}),
-    ...(result.pipelineResult
-      ? {
-          pipelineResult: JSON.parse(
-            JSON.stringify(result.pipelineResult)
-          ) as Prisma.InputJsonValue
-        }
-      : {}),
+    verdictDetail: toJsonValue(result),
+    ...(result.subtaskResults ? { subtaskResults: toJsonValue(result.subtaskResults) } : {}),
+    ...(result.pipelineResult ? { pipelineResult: toJsonValue(result.pipelineResult) } : {}),
     ...(result.artifactPaths ? { artifactPaths: result.artifactPaths } : {})
   });
 

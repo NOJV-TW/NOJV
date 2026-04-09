@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { problemMiniSelect, problemPreviewSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -88,7 +89,7 @@ export const assessmentRepo = {
         problems: {
           select: {
             problemId: true,
-            problem: { select: { id: true, summary: true, statements: true } }
+            problem: { select: problemPreviewSelect }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -158,7 +159,7 @@ export const assessmentRepo = {
         problems: {
           select: {
             problemId: true,
-            problem: { select: { id: true, summary: true, statements: true } }
+            problem: { select: problemPreviewSelect }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -199,7 +200,7 @@ export const assessmentProblemRepo = {
   findByAssessmentId(assessmentId: string) {
     return prisma.courseAssessmentProblem.findMany({
       where: { assessmentId },
-      include: { problem: { select: { id: true, defaultTitle: true } } }
+      include: { problem: { select: problemMiniSelect } }
     });
   },
 

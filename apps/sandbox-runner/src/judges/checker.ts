@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
-import { runProcess, parseJudgeOutput } from "./run-process.js";
+import { runProcess, classifySolutionVerdict, parseJudgeOutput } from "./run-process.js";
 
 /** Checker timeout: generous since checkers should be fast. */
 const CHECKER_TIMEOUT_MS = 30_000;
@@ -22,49 +22,8 @@ export async function judgeChecker(
   // Step 1: Run the solution
   const solution = await runProcess(runCommand, { stdin: testcase.input, timeoutMs });
 
-  if (solution.spawnError) {
-    return {
-      index: testcase.index,
-      verdict: "SE",
-      stdout: solution.stdout,
-      stderr: solution.stderr,
-      exitCode: solution.exitCode,
-      timeMs: solution.timeMs
-    };
-  }
-
-  if (solution.timedOut) {
-    return {
-      index: testcase.index,
-      verdict: "TLE",
-      stdout: solution.stdout,
-      stderr: solution.stderr,
-      exitCode: solution.exitCode,
-      timeMs: solution.timeMs
-    };
-  }
-
-  if (!solution.timedOut && solution.signal === "SIGKILL") {
-    return {
-      index: testcase.index,
-      verdict: "MLE",
-      stdout: solution.stdout,
-      stderr: solution.stderr,
-      exitCode: solution.exitCode,
-      timeMs: solution.timeMs
-    };
-  }
-
-  if (solution.exitCode !== 0) {
-    return {
-      index: testcase.index,
-      verdict: "RE",
-      stdout: solution.stdout,
-      stderr: solution.stderr,
-      exitCode: solution.exitCode,
-      timeMs: solution.timeMs
-    };
-  }
+  const errorVerdict = classifySolutionVerdict(solution, testcase.index);
+  if (errorVerdict) return errorVerdict;
 
   // Step 2: Write temp files for checker
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "checker-"));

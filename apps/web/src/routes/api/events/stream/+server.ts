@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
-import { createSubscriber } from "$lib/server/redis";
+import { createSubscriber } from "@nojv/redis";
 import { userChannel } from "@nojv/core";
 import { z } from "zod";
 

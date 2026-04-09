@@ -1,6 +1,7 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
+import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { canEditProblem } from "@nojv/domain";
 import { createStorageClient, uploadProblemImage } from "@nojv/storage";
 
@@ -40,12 +41,15 @@ function detectImageType(buffer: Buffer): string | null {
   return null;
 }
 
-export const POST: RequestHandler = async (event) => {
+export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   if (!canEditProblem(actor.platformRole)) {
     error(403, "Not authorized to edit problems");
   }
+
+  const problemId = event.params.id;
+  if (!problemId) error(400, "Missing problem id");
 
   const formData = await event.request.formData();
   const file = formData.get("image");
@@ -70,7 +74,7 @@ export const POST: RequestHandler = async (event) => {
     error(400, "Invalid file type. File content does not match an allowed image format.");
   }
 
-  const url = await uploadProblemImage(client, event.params.id, buffer, detectedType);
+  const url = await uploadProblemImage(client, problemId, buffer, detectedType);
 
   return json({ url });
-};
+});

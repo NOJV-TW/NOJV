@@ -5,13 +5,14 @@ import type * as k8s from "@kubernetes/client-node";
 const require = createRequire(import.meta.url);
 
 import {
+  normalizeRelativePath,
   sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult
 } from "@nojv/core";
-
 import { parseSandboxResult } from "./sandbox-schema";
+import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 
 export interface K8sExecutorConfig {
   namespace: string;
@@ -25,26 +26,6 @@ export interface K8sExecutorConfig {
 const JOB_DEADLINE_SECONDS = 120;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
-
-function normalizeRelativePath(rawPath: string): string | null {
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) {
-    return null;
-  }
-
-  const segments = normalized.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some(
-      (segment) =>
-        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
-    )
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
-}
 
 export class K8sExecutor implements SandboxExecutor {
   private coreApi: k8s.CoreV1Api;
@@ -68,20 +49,8 @@ export class K8sExecutor implements SandboxExecutor {
       await this.createJob(jobName, ns);
 
       const outcome = await this.waitForJobCompletion(jobName, ns);
-
       if (outcome === "failed") {
-        return {
-          testcaseResults: [
-            {
-              index: 0,
-              verdict: "SE",
-              stdout: "",
-              stderr: "Sandbox job failed or timed out.",
-              exitCode: -1,
-              timeMs: 0
-            }
-          ]
-        };
+        return sandboxSystemError("Sandbox job failed or timed out.");
       }
 
       const logs = await this.getPodLogs(jobName, ns);
@@ -129,50 +98,16 @@ export class K8sExecutor implements SandboxExecutor {
       data[mainSourceName] = request.sourceCode;
     }
 
-    data["config.json"] = JSON.stringify({
-      submissionId: request.submissionId,
-      language: request.language,
-      judgeType: request.judgeType,
-      submissionType: request.submissionType,
-      limits: request.limits,
-      ...(request.entryFile ? { entryFile: request.entryFile } : {}),
-      ...(request.template ? { template: request.template } : {}),
-      ...(request.judgeConfig.checkerLanguage
-        ? { checkerLanguage: request.judgeConfig.checkerLanguage }
-        : {}),
-      ...(request.judgeConfig.interactorLanguage
-        ? { interactorLanguage: request.judgeConfig.interactorLanguage }
-        : {}),
-      ...(request.pipeline ? { pipeline: request.pipeline } : {}),
-      ...(request.staticAnalysis ? { staticAnalysis: request.staticAnalysis } : {}),
-      ...(request.scoring ? { scoring: request.scoring } : {}),
-      ...(request.artifactCollection ? { artifactCollection: request.artifactCollection } : {}),
-      ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
-    });
+    data["config.json"] = JSON.stringify(buildSandboxConfigJson(request, sourceFileMap));
 
-    // Checker / interactor scripts (if applicable)
     if (request.judgeConfig.checkerScript) {
-      const checkerExt =
-        request.judgeConfig.checkerLanguage === "cpp"
-          ? "cpp"
-          : request.judgeConfig.checkerLanguage === "c"
-            ? "c"
-            : "py";
-      data[`checker.${checkerExt}`] = request.judgeConfig.checkerScript;
+      const ext = sourceExtension(request.judgeConfig.checkerLanguage);
+      data[`checker.${ext}`] = request.judgeConfig.checkerScript;
     }
 
     if (request.judgeConfig.interactorScript) {
-      const interactorExt =
-        request.judgeConfig.interactorLanguage === "cpp"
-          ? "cpp"
-          : request.judgeConfig.interactorLanguage === "c"
-            ? "c"
-            : request.judgeConfig.interactorLanguage === "go"
-              ? "go"
-              : request.judgeConfig.interactorLanguage === "rust"
-                ? "rs"
-                : "py";
-      data[`interactor.${interactorExt}`] = request.judgeConfig.interactorScript;
+      const ext = sourceExtension(request.judgeConfig.interactorLanguage);
+      data[`interactor.${ext}`] = request.judgeConfig.interactorScript;
     }
 
     // Testcase data as flat keys
@@ -329,18 +264,7 @@ export class K8sExecutor implements SandboxExecutor {
       }
     }
 
-    return {
-      testcaseResults: [
-        {
-          index: 0,
-          verdict: "SE",
-          stdout: logs,
-          stderr: "Failed to parse sandbox runner output.",
-          exitCode: -1,
-          timeMs: 0
-        }
-      ]
-    };
+    return sandboxSystemError("Failed to parse sandbox runner output.", logs);
   }
 
   private async cleanup(jobName: string, namespace: string): Promise<void> {

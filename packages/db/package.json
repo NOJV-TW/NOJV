@@ -28,16 +28,15 @@
     "seed": "node --env-file=../../.env --import tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.2",
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
     "pg": "^8.20.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^3.0.0",
     "bcryptjs": "^3.0.3",
-    "prisma": "^7.4.2",
-    "tsdown": "^0.21.2",
+    "prisma": "^7.7.0",
+    "tsdown": "^0.21.7",
     "tsx": "^4.21.0"
   }
 }

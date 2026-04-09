@@ -1,7 +1,7 @@
 // Re-export from domain — original logic has been moved to @nojv/domain
 // SvelteKit-specific loaders remain here as thin wrappers around domain functions.
 import { error } from "@sveltejs/kit";
-import { courseDomain, getClientIp } from "@nojv/domain";
+import { courseDomain, getClientIp, NotFoundError } from "@nojv/domain";
 
 const { loadAssessmentDetail, listUserAssessments, ForbiddenIpError } = courseDomain;
 type CoursePageDetailData = courseDomain.CoursePageDetailData;
@@ -54,15 +54,8 @@ export function createAssessmentDetailLoader() {
         windowState
       };
     } catch (err) {
-      if (err instanceof ForbiddenIpError) {
-        error(403, err.message);
-      }
-      if (err && typeof err === "object" && "name" in err) {
-        const namedErr = err as { name: string; message: string };
-        if (namedErr.name === "NotFoundError") {
-          error(404, namedErr.message);
-        }
-      }
+      if (err instanceof ForbiddenIpError) error(403, err.message);
+      if (err instanceof NotFoundError) error(404, err.message);
       throw err;
     }
   };

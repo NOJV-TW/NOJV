@@ -1,10 +1,10 @@
 import { error } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { contestDomain, courseDomain, submissionDomain } from "@nojv/domain";
-import { getProblemPageData } from "$lib/server/problem/queries";
+import { contestDomain, courseDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
 const { getAssessmentContext } = courseDomain;
 const { getContestAllowedLanguages } = contestDomain;
+const { getProblemPageData } = problemDomain;
 const { listProblemSubmissions } = submissionDomain;
 import { assessmentPath } from "$lib/types";
 

@@ -86,6 +86,24 @@ export interface SandboxExecutor {
   execute(request: SandboxRequest): Promise<SandboxResult>;
 }
 
+// --- Path security ---
+
+/** Normalize a relative file path, rejecting traversal attacks and invalid segments. */
+export function normalizeRelativePath(rawPath: string): string | null {
+  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
+  if (!normalized || normalized.startsWith("/")) return null;
+
+  const segments = normalized.split("/").filter((s) => s.length > 0);
+  if (
+    segments.length === 0 ||
+    segments.some((s) => s === "." || s === ".." || s.includes("\0") || s.includes(":"))
+  ) {
+    return null;
+  }
+
+  return segments.join("/");
+}
+
 // --- Language file mapping ---
 
 export const sourceFileNames: Record<Language, string> = {

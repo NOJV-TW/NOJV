@@ -9,6 +9,7 @@ import {
   type TestcaseResult
 } from "./types.js";
 import { assembleSource, compile, compileChecker, sourceFileName } from "./compiler.js";
+import { pathExists } from "./utils.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
@@ -16,12 +17,13 @@ import { runStaticAnalysis } from "./stages/static-analysis.js";
 import { runCustomScoring, type ScoringInput } from "./stages/score.js";
 import { collectArtifacts } from "./stages/artifact.js";
 import { runCustomScriptStage, type CustomScriptContext } from "./stages/custom-script.js";
-import type {
-  StaticAnalysisResult,
-  ArtifactEntry,
-  CustomScriptRunAt,
-  CustomScriptStage,
-  CustomScriptStageResult
+import {
+  normalizeRelativePath,
+  type StaticAnalysisResult,
+  type ArtifactEntry,
+  type CustomScriptRunAt,
+  type CustomScriptStage,
+  type CustomScriptStageResult
 } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
@@ -56,39 +58,6 @@ async function readSourceCode(
   }
 
   throw new Error(`Source file not found. Tried: ${fileCandidates.join(", ")}`);
-}
-
-function normalizeRelativePath(rawPath: string | undefined): string | null {
-  if (!rawPath) {
-    return null;
-  }
-
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) {
-    return null;
-  }
-
-  const segments = normalized.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some(
-      (segment) =>
-        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
-    )
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
-}
-
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function writeWorkFile(
@@ -244,6 +213,23 @@ function pipelineCustomStages(
   );
 }
 
+/** State carried through the main pipeline that feeds every emitted output. */
+interface PipelineState {
+  staticAnalysisResult?: StaticAnalysisResult;
+  customStageResults: CustomScriptStageResult[];
+}
+
+/** Write a SandboxOutput to stdout, merging the accumulated pipeline state. */
+function emit(state: PipelineState, overrides: Partial<SandboxOutput>): void {
+  const output: SandboxOutput = {
+    testcaseResults: [],
+    ...(state.staticAnalysisResult ? { staticAnalysis: state.staticAnalysisResult } : {}),
+    ...(state.customStageResults.length > 0 ? { customStageResults: state.customStageResults } : {}),
+    ...overrides
+  };
+  process.stdout.write(JSON.stringify(output));
+}
+
 async function runCustomStagesAtHook(
   config: SandboxInput,
   runAt: CustomScriptRunAt,
@@ -275,10 +261,10 @@ async function main(): Promise<void> {
   // 2. Prepare source files in a work directory
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   await materializeConfiguredSources(config, workDir);
-  const customStageResults: CustomScriptStageResult[] = [];
+  const state: PipelineState = { customStageResults: [] };
 
   const defaultEntry = sourceFileName(config.language);
-  const entryFile = normalizeRelativePath(config.entryFile) ?? defaultEntry;
+  const entryFile = (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
   if (config.submissionType === "function") {
@@ -296,11 +282,9 @@ async function main(): Promise<void> {
     try {
       assembledSource = assembleSource(rawSource, config);
     } catch (err) {
-      const output: SandboxOutput = {
-        compilationError: err instanceof Error ? err.message : "Source assembly failed.",
-        testcaseResults: []
-      };
-      process.stdout.write(JSON.stringify(output));
+      emit(state, {
+        compilationError: err instanceof Error ? err.message : "Source assembly failed."
+      });
       return;
     }
 
@@ -313,33 +297,23 @@ async function main(): Promise<void> {
   }
 
   // ─── Pipeline Stage: Static Analysis ───────────────────────────
-  let staticAnalysisResult: StaticAnalysisResult | undefined;
-
   if (config.staticAnalysis) {
     log("Running static analysis...");
-    staticAnalysisResult = await runStaticAnalysis(srcFile, config.staticAnalysis);
+    state.staticAnalysisResult = await runStaticAnalysis(srcFile, config.staticAnalysis);
     log(
-      `Static analysis: ${staticAnalysisResult.passed ? "PASSED" : "FAILED"} (${String(staticAnalysisResult.violations.length)} violations)`
+      `Static analysis: ${state.staticAnalysisResult.passed ? "PASSED" : "FAILED"} (${String(state.staticAnalysisResult.violations.length)} violations)`
     );
 
-    // If static analysis fails and pipeline doesn't have continueOnFail, abort
-    if (!staticAnalysisResult.passed) {
+    if (!state.staticAnalysisResult.passed) {
       const saStage = config.pipeline?.stages.find((s) => s.type === "static-analysis");
       const continueOnFail = saStage ? saStage.continueOnFail : false;
 
       if (!continueOnFail) {
-        const violationMessages = staticAnalysisResult.violations
+        const violationMessages = state.staticAnalysisResult.violations
           .filter((v) => v.severity === "error")
           .map((v) => `Line ${String(v.line ?? "?")}: ${v.message}`)
           .join("\n");
-
-        const output: SandboxOutput = {
-          compilationError: `Static analysis failed:\n${violationMessages}`,
-          testcaseResults: [],
-          staticAnalysis: staticAnalysisResult,
-          ...(customStageResults.length > 0 ? { customStageResults } : {})
-        };
-        process.stdout.write(JSON.stringify(output));
+        emit(state, { compilationError: `Static analysis failed:\n${violationMessages}` });
         return;
       }
     }
@@ -355,17 +329,11 @@ async function main(): Promise<void> {
       workDir,
       sourcePath: srcFile
     },
-    customStageResults
+    state.customStageResults
   );
 
   if (beforeCompileError) {
-    const output: SandboxOutput = {
-      pipelineError: beforeCompileError,
-      testcaseResults: [],
-      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-      ...(customStageResults.length > 0 ? { customStageResults } : {})
-    };
-    process.stdout.write(JSON.stringify(output));
+    emit(state, { pipelineError: beforeCompileError });
     return;
   }
 
@@ -374,13 +342,7 @@ async function main(): Promise<void> {
   const compileResult = await compile(config, srcFile, workDir);
 
   if (!compileResult.success) {
-    const output: SandboxOutput = {
-      compilationError: compileResult.error,
-      testcaseResults: [],
-      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-      ...(customStageResults.length > 0 ? { customStageResults } : {})
-    };
-    process.stdout.write(JSON.stringify(output));
+    emit(state, { compilationError: compileResult.error });
     return;
   }
 
@@ -391,26 +353,16 @@ async function main(): Promise<void> {
   if (config.judgeType === "checker") {
     const checkerPath = await findScript("checker");
     if (!checkerPath) {
-      const output: SandboxOutput = {
-        compilationError: "Checker judge requires a checker script in /submission/.",
-        testcaseResults: [],
-        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-        ...(customStageResults.length > 0 ? { customStageResults } : {})
-      };
-      process.stdout.write(JSON.stringify(output));
+      emit(state, { compilationError: "Checker judge requires a checker script in /submission/." });
       return;
     }
 
     const checkerLang = config.checkerLanguage ?? "python";
     const checkerResult = await compileChecker(checkerPath, checkerLang, workDir, "checker");
     if (!checkerResult.success) {
-      const output: SandboxOutput = {
-        compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
-        testcaseResults: [],
-        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-        ...(customStageResults.length > 0 ? { customStageResults } : {})
-      };
-      process.stdout.write(JSON.stringify(output));
+      emit(state, {
+        compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`
+      });
       return;
     }
     checkerCommand = checkerResult.runCommand;
@@ -419,13 +371,9 @@ async function main(): Promise<void> {
   if (config.judgeType === "interactive") {
     const interactorPath = await findScript("interactor");
     if (!interactorPath) {
-      const output: SandboxOutput = {
-        compilationError: "Interactive judge requires an interactor script in /submission/.",
-        testcaseResults: [],
-        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-        ...(customStageResults.length > 0 ? { customStageResults } : {})
-      };
-      process.stdout.write(JSON.stringify(output));
+      emit(state, {
+        compilationError: "Interactive judge requires an interactor script in /submission/."
+      });
       return;
     }
 
@@ -437,13 +385,9 @@ async function main(): Promise<void> {
       "interactor"
     );
     if (!interactorResult.success) {
-      const output: SandboxOutput = {
-        compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,
-        testcaseResults: [],
-        ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-        ...(customStageResults.length > 0 ? { customStageResults } : {})
-      };
-      process.stdout.write(JSON.stringify(output));
+      emit(state, {
+        compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`
+      });
       return;
     }
     interactorCommand = interactorResult.runCommand;
@@ -459,17 +403,11 @@ async function main(): Promise<void> {
       workDir,
       sourcePath: srcFile
     },
-    customStageResults
+    state.customStageResults
   );
 
   if (afterCompileError) {
-    const output: SandboxOutput = {
-      pipelineError: afterCompileError,
-      testcaseResults: [],
-      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-      ...(customStageResults.length > 0 ? { customStageResults } : {})
-    };
-    process.stdout.write(JSON.stringify(output));
+    emit(state, { pipelineError: afterCompileError });
     return;
   }
 
@@ -529,17 +467,11 @@ async function main(): Promise<void> {
       rawScore: computeRawScore(results),
       testcaseResults: results
     },
-    customStageResults
+    state.customStageResults
   );
 
   if (afterCheckError) {
-    const output: SandboxOutput = {
-      pipelineError: afterCheckError,
-      testcaseResults: results,
-      ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
-      ...(customStageResults.length > 0 ? { customStageResults } : {})
-    };
-    process.stdout.write(JSON.stringify(output));
+    emit(state, { pipelineError: afterCheckError, testcaseResults: results });
     return;
   }
 
@@ -581,16 +513,12 @@ async function main(): Promise<void> {
     }
   }
 
-  // ─── Output JSON result to stdout ──────────────────────────────
-  const output: SandboxOutput = {
+  emit(state, {
     testcaseResults: results,
-    ...(staticAnalysisResult ? { staticAnalysis: staticAnalysisResult } : {}),
     ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
-    ...(customStageResults.length > 0 ? { customStageResults } : {}),
     ...(customScore !== undefined ? { customScore } : {}),
     ...(scoringFeedback ? { scoringFeedback } : {})
-  };
-  process.stdout.write(JSON.stringify(output));
+  });
 }
 
 /**

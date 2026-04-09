@@ -2,9 +2,17 @@ import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { readString } from "$lib/server/shared/form-utils";
 import { userDomain } from "@nojv/domain";
 
 const { listUsersPaginated, updateUserRole, toggleUserDisabled } = userDomain;
+
+const PLATFORM_ROLES = ["admin", "teacher", "student"] as const;
+type PlatformRole = (typeof PLATFORM_ROLES)[number];
+
+function isPlatformRole(value: string): value is PlatformRole {
+  return (PLATFORM_ROLES as readonly string[]).includes(value);
+}
 
 export const load: PageServerLoad = async ({ url }) => {
   const search = url.searchParams.get("search") ?? "";
@@ -17,14 +25,7 @@ export const load: PageServerLoad = async ({ url }) => {
     page
   });
 
-  return {
-    users,
-    totalCount,
-    page,
-    totalPages,
-    search,
-    roleFilter
-  };
+  return { users, totalCount, page, totalPages, search, roleFilter };
 };
 
 export const actions = {
@@ -33,22 +34,18 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    if (actor.platformRole !== "admin") return fail(403, { error: "Forbidden" });
-
     const formData = await event.request.formData();
-    const userId = formData.get("userId") as string;
-    const role = formData.get("role") as string;
+    const userId = readString(formData, "userId");
+    const role = readString(formData, "role");
 
-    if (!userId || !["admin", "teacher", "student"].includes(role)) {
+    if (!userId || !isPlatformRole(role)) {
       return fail(400, { error: "Invalid input." });
     }
-
     if (userId === actor.userId) {
       return fail(400, { error: "Cannot change your own role." });
     }
 
-    await updateUserRole(userId, role as "admin" | "teacher" | "student");
-
+    await updateUserRole(userId, role);
     return { success: true };
   },
 
@@ -57,15 +54,11 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    if (actor.platformRole !== "admin") return fail(403, { error: "Forbidden" });
-
-    const formData = await event.request.formData();
-    const userId = formData.get("userId") as string;
+    const userId = readString(await event.request.formData(), "userId");
 
     if (!userId) {
       return fail(400, { error: "Invalid input." });
     }
-
     if (userId === actor.userId) {
       return fail(400, { error: "Cannot disable yourself." });
     }
