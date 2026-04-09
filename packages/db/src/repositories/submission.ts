@@ -40,6 +40,17 @@ export const submissionRepo = {
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {
+        contestParticipation: {
+          select: {
+            contestId: true,
+            contest: {
+              select: { adjustmentRules: true, endsAt: true, startsAt: true }
+            }
+          }
+        },
+        courseAssessment: {
+          select: { adjustmentRules: true, dueAt: true, opensAt: true }
+        },
         problem: {
           include: {
             templates: true,
@@ -48,6 +59,13 @@ export const submissionRepo = {
                 testcases: { orderBy: { ordinal: "asc" as const } }
               },
               orderBy: { createdAt: "asc" as const }
+            },
+            workspaceFiles: {
+              orderBy: [
+                { language: "asc" as const },
+                { orderIndex: "asc" as const },
+                { path: "asc" as const }
+              ]
             }
           }
         }

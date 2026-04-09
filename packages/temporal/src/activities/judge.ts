@@ -35,6 +35,7 @@ interface SubtaskResultItem {
   cases: { ordinal: number; runtimeMs: number; testcaseId: string; verdict: string }[];
   label: string;
   passed: boolean;
+  rawScore: number;
   testcaseSetId: string;
   weight: number;
 }
@@ -47,9 +48,23 @@ const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error"
 };
 
+/**
+ * Compute per-subtask results, honoring the configured strategy for
+ * each set.
+ *
+ * - `all_or_nothing`: subtask passes only if every case passed. Score is
+ *   the full weight on pass, zero otherwise.
+ * - `proportional`: subtask score = weight * (passed / total). Subtask
+ *   is "passed" if all cases passed.
+ * - `minimum`: subtask score = weight * min(caseScores) where each
+ *   AC case counts as 1.0 and non-AC as 0.0. Equivalent to
+ *   all_or_nothing for binary verdicts, but reserved for future partial
+ *   checker support.
+ */
 function buildSubtaskResults(
   result: SandboxResult,
-  testcaseSets: submissionDomain.TestcaseSetGroup[]
+  testcaseSets: submissionDomain.TestcaseSetGroup[],
+  strategies: submissionDomain.SubtaskStrategyMap
 ): SubtaskResultItem[] {
   let flatIndex = 0;
   const subtaskResults: SubtaskResultItem[] = [];
@@ -66,10 +81,28 @@ function buildSubtaskResults(
       });
     }
 
+    const total = cases.length;
+    const passed = cases.filter((c) => c.verdict === "AC").length;
+    const allPassed = total > 0 && passed === total;
+
+    const strategy = strategies[ts.id] ?? "all_or_nothing";
+    let rawScore: number;
+    if (total === 0) {
+      rawScore = 0;
+    } else if (strategy === "proportional") {
+      rawScore = ts.weight * (passed / total);
+    } else if (strategy === "minimum") {
+      rawScore = allPassed ? ts.weight : 0;
+    } else {
+      // all_or_nothing default
+      rawScore = allPassed ? ts.weight : 0;
+    }
+
     subtaskResults.push({
       cases,
       label: ts.name,
-      passed: cases.every((c) => c.verdict === "AC"),
+      passed: allPassed,
+      rawScore,
       testcaseSetId: ts.id,
       weight: ts.weight
     });
@@ -80,7 +113,8 @@ function buildSubtaskResults(
 
 function mapResult(
   result: SandboxResult,
-  testcaseSets: submissionDomain.TestcaseSetGroup[]
+  testcaseSets: submissionDomain.TestcaseSetGroup[],
+  judgeContext: submissionDomain.SubmissionJudgeContext
 ): SubmissionResult {
   const caseResults = result.testcaseResults.map((t) => ({
     index: t.index,
@@ -127,26 +161,69 @@ function mapResult(
   }
 
   const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
-  const subtaskResults = buildSubtaskResults(result, testcaseSets);
+  const subtaskResults = buildSubtaskResults(
+    result,
+    testcaseSets,
+    judgeContext.subtaskStrategies
+  );
 
   const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
-  const passedWeight = subtaskResults.reduce((s, st) => s + (st.passed ? st.weight : 0), 0);
-  let score = totalWeight > 0 ? Math.round((passedWeight / totalWeight) * 100) : 0;
+  const rawScoreSum = subtaskResults.reduce((s, st) => s + st.rawScore, 0);
+  let score = totalWeight > 0 ? Math.round((rawScoreSum / totalWeight) * 100) : 0;
 
   if (result.customScore !== undefined) {
     score = result.customScore;
   }
 
-  if (result.testcaseResults.every((t) => t.verdict === "AC")) {
+  // Apply assessment/contest adjustment rules to raw score.
+  const adjustmentRules =
+    judgeContext.adjustment.assessmentAdjustmentRules ??
+    judgeContext.adjustment.contestAdjustmentRules ??
+    null;
+
+  if (adjustmentRules && adjustmentRules.length > 0) {
+    const adjusted = submissionDomain.applyAdjustmentRules({
+      dueAt: judgeContext.adjustment.dueAt,
+      rawScore: score,
+      rules: adjustmentRules,
+      runtimeMs,
+      submittedAt: judgeContext.adjustment.submittedAt
+    });
+    score = adjusted.score;
+    if (adjusted.adjustments.length > 0) {
+      pipelineResult.adjustments = adjusted.adjustments;
+    }
+  }
+
+  const allAc = result.testcaseResults.every((t) => t.verdict === "AC");
+
+  if (allAc && score >= 100) {
     return {
       accepted: true,
       caseResults,
       feedback: result.scoringFeedback ?? "All testcases passed",
       runtimeMs,
-      score: result.customScore ?? 100,
+      score: result.customScore ?? score,
       subtaskResults,
       verdict: "accepted",
-      ...(hasPipelineResult ? { pipelineResult } : {}),
+      ...(hasPipelineResult || adjustmentRules ? { pipelineResult } : {}),
+      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+    };
+  }
+
+  if (allAc) {
+    // All AC but score < 100 (e.g. late penalty dropped it). Still
+    // counts as "accepted" in verdict semantics, score reflects penalty.
+    return {
+      accepted: true,
+      caseResults,
+      feedback:
+        result.scoringFeedback ?? `All testcases passed (score adjusted to ${String(score)})`,
+      runtimeMs,
+      score,
+      subtaskResults,
+      verdict: "accepted",
+      ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {}),
       ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
     };
   }
@@ -166,7 +243,7 @@ function mapResult(
         score,
         subtaskResults,
         verdict,
-        ...(hasPipelineResult ? { pipelineResult } : {}),
+        ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {}),
         ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
       };
     }
@@ -180,7 +257,7 @@ function mapResult(
     score,
     subtaskResults,
     verdict: "runtime_error" as const,
-    ...(hasPipelineResult ? { pipelineResult } : {}),
+    ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {}),
     ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
   };
 }
@@ -193,6 +270,78 @@ export async function fetchJudgeContext(
   return submissionDomain.getJudgeContext(submissionId);
 }
 
+/**
+ * Merge student-submitted files with teacher workspace files into the
+ * source-file payload sent to the sandbox.
+ *
+ * - Student's `draft.sourceCode` populates the main editable file
+ *   (identified by language or by `draft.entryFile`).
+ * - Student's `draft.sourceFiles` (if provided) overrides any editable
+ *   workspace file whose path matches.
+ * - Teacher workspace files (readonly + hidden) are always added. If a
+ *   student file collides with a readonly/hidden path, the teacher file
+ *   wins (students cannot override locked files).
+ */
+function mergeSandboxSources(
+  draft: SubmissionDraft,
+  judgeContext: submissionDomain.SubmissionJudgeContext
+): {
+  sourceCode: string;
+  sourceFiles?: { path: string; content: string }[];
+  entryFile?: string;
+} {
+  const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
+
+  if (langFiles.length === 0) {
+    // No workspace files configured — legacy path, just pass the draft through.
+    return {
+      sourceCode: draft.sourceCode,
+      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
+      ...(draft.entryFile ? { entryFile: draft.entryFile } : {})
+    };
+  }
+
+  const merged = new Map<string, string>();
+
+  // Start with all workspace files (teacher-provided content).
+  for (const wf of langFiles) {
+    merged.set(wf.path, wf.content);
+  }
+
+  // Overlay student sourceFiles, but only for editable paths.
+  const editablePaths = new Set(
+    langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path)
+  );
+
+  if (draft.sourceFiles) {
+    for (const f of draft.sourceFiles) {
+      if (editablePaths.has(f.path)) {
+        merged.set(f.path, f.content);
+      }
+      // Non-editable student files are ignored (teacher version wins).
+    }
+  }
+
+  // Handle the single sourceCode field: place it at draft.entryFile if
+  // provided, otherwise at the first editable file's path.
+  const fallbackEditable = langFiles.find((f) => f.visibility === "editable");
+  const mainPath = draft.entryFile ?? fallbackEditable?.path ?? null;
+  if (mainPath && draft.sourceCode && editablePaths.has(mainPath)) {
+    merged.set(mainPath, draft.sourceCode);
+  }
+
+  const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
+    path,
+    content
+  }));
+
+  return {
+    sourceCode: mainPath ? (merged.get(mainPath) ?? draft.sourceCode) : draft.sourceCode,
+    sourceFiles,
+    ...(mainPath ? { entryFile: mainPath } : {})
+  };
+}
+
 export async function executeSandbox(
   submissionId: string,
   draft: SubmissionDraft,
@@ -203,43 +352,41 @@ export async function executeSandbox(
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
   const template = judgeContext.templates.find((t) => t.language === draft.language);
-  const activeSets = draft.sampleOnly
-    ? judgeContext.testcaseSets.filter((ts) => !ts.isHidden)
-    : judgeContext.testcaseSets;
-  const testcases = activeSets.flatMap((ts) => ts.testcases);
 
-  const staticAnalysisConfig = judgeContext.pipelineConfig?.stages.find(
-    (s) => s.type === "static-analysis"
-  )?.config;
+  // Sample path: ignore testcase sets, use Problem.samples directly.
+  // Graded path: iterate testcase sets (Phase 2: all isHidden=true after
+  // the data migration runs; getJudgeContext already filters them).
+  const useSamples = draft.sampleOnly;
+  const testcasesForSandbox = useSamples
+    ? judgeContext.samples.map((s, i) => ({
+        index: i,
+        input: s.stdin,
+        expected: s.expected,
+        weight: 0,
+        isSample: true
+      }))
+    : judgeContext.testcaseSets.flatMap((ts) =>
+        ts.testcases.map((tc, i) => ({
+          index: i,
+          input: tc.stdin,
+          ...(tc.expectedStdout != null ? { expected: tc.expectedStdout } : {}),
+          weight: tc.weight,
+          isSample: false
+        }))
+      );
 
-  const scoringConfig = judgeContext.scoringScript
-    ? {
-        script: judgeContext.scoringScript,
-        language: (judgeContext.scoringLanguage ?? "python") as "python",
-        timeoutMs: 30_000
-      }
-    : undefined;
+  const activeSets = useSamples ? [] : judgeContext.testcaseSets;
 
-  const artifactPatterns = judgeContext.artifactPatterns;
-  const artifactConfig =
-    artifactPatterns.length > 0
-      ? { patterns: artifactPatterns, maxTotalSizeBytes: 10_000_000 }
-      : undefined;
+  const sources = mergeSandboxSources(draft, judgeContext);
 
   const request: SandboxRequest = {
     submissionId,
-    sourceCode: draft.sourceCode,
-    ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
-    ...(draft.entryFile ? { entryFile: draft.entryFile } : {}),
+    sourceCode: sources.sourceCode,
+    ...(sources.sourceFiles ? { sourceFiles: sources.sourceFiles } : {}),
+    ...(sources.entryFile ? { entryFile: sources.entryFile } : {}),
     language: draft.language,
     submissionType: judgeContext.submissionType,
-    testcases: testcases.map((tc, i) => ({
-      index: i,
-      input: tc.stdin,
-      ...(tc.expectedStdout != null ? { expected: tc.expectedStdout } : {}),
-      weight: tc.weight,
-      isSample: !tc.isHidden
-    })),
+    testcases: testcasesForSandbox,
     judgeType: judgeContext.judgeType,
     judgeConfig: {
       ...(judgeContext.checkerScript != null
@@ -250,8 +397,8 @@ export async function executeSandbox(
         : {})
     },
     limits: {
-      timeoutMs: judgeContext.timeLimitMs,
-      memoryMb: judgeContext.memoryLimitMb
+      timeoutMs: judgeContext.runtime.timeLimitMs,
+      memoryMb: judgeContext.runtime.memoryLimitMb
     },
     ...(template
       ? {
@@ -260,19 +407,20 @@ export async function executeSandbox(
             insertionMarker: template.insertionMarker
           }
         }
-      : {}),
-    ...(judgeContext.pipelineConfig ? { pipeline: judgeContext.pipelineConfig } : {}),
-    ...(staticAnalysisConfig ? { staticAnalysis: staticAnalysisConfig } : {}),
-    ...(scoringConfig ? { scoring: scoringConfig } : {}),
-    ...(artifactConfig ? { artifactCollection: artifactConfig } : {}),
-    ...(judgeContext.networkAccessConfig
-      ? { networkAccess: judgeContext.networkAccessConfig }
       : {})
   };
 
   const result = await executor.execute(request);
 
-  return submissionResultSchema.parse(mapResult(result, activeSets));
+  // Sample runs don't apply scoring/adjustments — they're for student
+  // feedback only and never go to final grades.
+  if (useSamples) {
+    const mapped = mapResult(result, [], judgeContext);
+    mapped.score = 0;
+    return submissionResultSchema.parse(mapped);
+  }
+
+  return submissionResultSchema.parse(mapResult(result, activeSets, judgeContext));
 }
 
 export async function completeSubmission(

@@ -1,14 +1,19 @@
 import { submissionRepo } from "@nojv/db";
 import type { Prisma } from "@nojv/db";
 import type {
+  AdjustmentRules,
+  Compare,
   JudgeConfig,
   JudgeType,
   NetworkAccessConfig,
   PipelineConfig,
   ProblemJudgeTestcase,
+  ProblemSample,
+  Runtime,
   SubmissionDraft,
   SubmissionResult,
-  SubmissionType
+  SubmissionType,
+  WorkspaceFileVisibility
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -24,18 +29,42 @@ export interface TestcaseSetGroup {
   weight: number;
 }
 
+export interface WorkspaceFileEntry {
+  content: string;
+  editableRegions: [number, number][] | null;
+  language: string;
+  orderIndex: number;
+  path: string;
+  visibility: WorkspaceFileVisibility;
+}
+
+export type SubtaskStrategyMap = Record<string, "all_or_nothing" | "proportional" | "minimum">;
+
+export interface AdjustmentContext {
+  assessmentAdjustmentRules: AdjustmentRules | null;
+  contestAdjustmentRules: AdjustmentRules | null;
+  dueAt: Date | null;
+  submittedAt: Date;
+}
+
 export interface SubmissionJudgeContext {
+  adjustment: AdjustmentContext;
   artifactPatterns: string[];
   checkerScript: string | null;
+  compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
   memoryLimitMb: number;
   networkAccessConfig: NetworkAccessConfig | null;
   pipelineConfig: PipelineConfig | null;
   problemId: string;
+  problemMode: "standard" | "advanced";
+  runtime: Runtime;
+  samples: ProblemSample[];
   scoringLanguage: string | null;
   scoringScript: string | null;
   submissionType: SubmissionType;
+  subtaskStrategies: SubtaskStrategyMap;
   templates: {
     driverCode: string;
     insertionMarker: string;
@@ -45,6 +74,7 @@ export interface SubmissionJudgeContext {
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
+  workspaceFiles: WorkspaceFileEntry[];
 }
 
 export interface CompletedSubmission {
@@ -70,36 +100,85 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     type: "standard" as const
   };
 
-  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
-    id: ts.id,
-    isHidden: ts.isHidden,
-    name: ts.name,
-    testcases: ts.testcases.map((testcase) => ({
-      expectedStdout: testcase.expectedStdout ?? undefined,
-      id: testcase.id,
-      inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
+  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets
+    // Phase 2: only graded sets go into the testcase pipeline. Samples (if
+    // any legacy isHidden=false sets remain) are exposed via the `samples`
+    // field below and only run when draft.sampleOnly is true.
+    .filter((ts) => ts.isHidden)
+    .map((ts) => ({
+      id: ts.id,
       isHidden: ts.isHidden,
-      stdin: testcase.stdin,
+      name: ts.name,
+      testcases: ts.testcases.map((testcase) => ({
+        expectedStdout: testcase.expectedStdout ?? undefined,
+        id: testcase.id,
+        inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
+        isHidden: ts.isHidden,
+        stdin: testcase.stdin,
+        weight: ts.weight
+      })),
       weight: ts.weight
-    })),
-    weight: ts.weight
+    }));
+
+  // Samples come from Problem.samples JSON (Phase 1 column). Legacy
+  // problems may still have unmigrated isHidden=false sets; collect those
+  // as a fallback so running the sample path keeps working until the
+  // data migration script runs in production.
+  const samples = collectSamples(problem);
+
+  // Runtime: authoritative source is judgeConfig.runtime. Legacy problems
+  // fall back to Problem.timeLimitMs / memoryLimitMb.
+  const runtime: Runtime = judgeConfig.runtime ?? {
+    env: {},
+    memoryLimitMb: problem.memoryLimitMb,
+    timeLimitMs: problem.timeLimitMs
+  };
+
+  const subtaskStrategies: SubtaskStrategyMap =
+    (judgeConfig.scoring?.subtaskStrategies as SubtaskStrategyMap | undefined) ?? {};
+
+  const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
+    content: f.content,
+    editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+    language: f.language,
+    orderIndex: f.orderIndex,
+    path: f.path,
+    visibility: f.visibility as WorkspaceFileVisibility
   }));
 
+  const assessment = submission.courseAssessment;
+  const contest = submission.contestParticipation?.contest ?? null;
+
+  const adjustment: AdjustmentContext = {
+    assessmentAdjustmentRules: (assessment?.adjustmentRules as AdjustmentRules | null) ?? null,
+    contestAdjustmentRules: (contest?.adjustmentRules as AdjustmentRules | null) ?? null,
+    dueAt: assessment?.dueAt ?? contest?.endsAt ?? null,
+    submittedAt: submission.createdAt
+  };
+
   return {
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
+    adjustment,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- removed in phase-5
     artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
     checkerScript: judgeConfig.checkerScript ?? null,
+    compare: judgeConfig.compare ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
-    memoryLimitMb: problem.memoryLimitMb,
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
+    memoryLimitMb: runtime.memoryLimitMb,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- removed in phase-5
     networkAccessConfig: judgeConfig.networkAccess ?? null,
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- removed in phase-5
     pipelineConfig: (judgeConfig.pipeline as PipelineConfig | undefined) ?? null,
     problemId: submission.problemId,
-    scoringLanguage: judgeConfig.scoring?.language ?? null,
-    scoringScript: judgeConfig.scoring?.script ?? null,
+    problemMode: problem.mode,
+    runtime,
+    samples,
+    // scoring script support is deprecated in Phase 2 — kept nullable for
+    // the narrow set of problems that still depend on it until Phase 5.
+    scoringLanguage: null,
+    scoringScript: null,
     submissionType: problem.submissionType,
+    subtaskStrategies,
     templates: problem.templates.map((t) => ({
       driverCode: t.driverCode,
       insertionMarker: t.insertionMarker,
@@ -108,8 +187,42 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     })),
     testcaseSets,
     testcases: testcaseSets.flatMap((ts) => ts.testcases),
-    timeLimitMs: problem.timeLimitMs
+    timeLimitMs: runtime.timeLimitMs,
+    workspaceFiles
   };
+}
+
+function collectSamples(problem: {
+  samples: unknown;
+  testcaseSets: {
+    isHidden: boolean;
+    testcases: { expectedStdout: string | null; stdin: string }[];
+  }[];
+}): ProblemSample[] {
+  if (Array.isArray(problem.samples)) {
+    const parsed = problem.samples
+      .filter(
+        (s): s is { stdin: string; expected: string } =>
+          typeof s === "object" &&
+          s !== null &&
+          typeof (s as { stdin?: unknown }).stdin === "string" &&
+          typeof (s as { expected?: unknown }).expected === "string"
+      )
+      .map((s) => ({ stdin: s.stdin, expected: s.expected }));
+    if (parsed.length > 0) return parsed;
+  }
+
+  // Legacy fallback: treat isHidden=false testcases as samples.
+  const legacy: ProblemSample[] = [];
+  for (const set of problem.testcaseSets) {
+    if (set.isHidden) continue;
+    for (const tc of set.testcases) {
+      if (legacy.length >= 5) break;
+      legacy.push({ stdin: tc.stdin, expected: tc.expectedStdout ?? "" });
+    }
+    if (legacy.length >= 5) break;
+  }
+  return legacy;
 }
 
 export async function updateSubmissionStatus(
