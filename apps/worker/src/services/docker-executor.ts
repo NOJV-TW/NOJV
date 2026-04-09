@@ -142,12 +142,11 @@ export class DockerExecutor implements SandboxExecutor {
     const workDir = join(tempDir, "_workspace");
     await mkdir(workDir, { mode: 0o777, recursive: true });
 
-    // Phase 5: network access is no longer configured per-request.
-    // Standard mode always runs with --network none. Advanced mode is
-    // dispatched via a separate code path that decides networking
-    // based on request.advanced.networkEnabled.
-    const advancedNetwork = request.advanced?.networkEnabled === true;
-    const networkArgs = advancedNetwork ? this.buildNetworkArgs() : ["--network", "none"];
+    // Standard mode is hardcoded to --network none by design: student
+    // submissions must never reach the network. Advanced mode has its
+    // own container launch path (see runAdvancedContainer) which is
+    // where request.advanced.networkEnabled is honored.
+    const networkArgs = ["--network", "none"];
 
     const args = [
       "run",
@@ -376,6 +375,13 @@ export class DockerExecutor implements SandboxExecutor {
 
     // 4. Spawn the TA image
     const containerName = `nojv-advanced-${sanitizeId(request.submissionId).slice(0, 40)}`;
+    // Advanced Mode containers are TA-provided and run with the
+    // TA's chosen network mode. When networkEnabled is true, the
+    // container joins the default Docker bridge network — this
+    // grants access to other Docker networks and the host gateway,
+    // so advanced-mode images must be treated as trusted code
+    // provided by the problem author. Students never pick the
+    // network mode; it's configured on the Problem row by the TA.
     const networkArgs = request.advanced.networkEnabled
       ? ["--network", "bridge"]
       : ["--network", "none"];
@@ -590,21 +596,6 @@ export class DockerExecutor implements SandboxExecutor {
       customScore: result.score,
       ...(result.feedback ? { scoringFeedback: result.feedback } : {})
     };
-  }
-
-  /**
-   * Build Docker network arguments for controlled network access.
-   *
-   * When network access is enabled, we use a bridge network with iptables
-   * rules to restrict traffic to allowed destinations only.
-   * For now, we use the default bridge network. In production, a dedicated
-   * Docker network with iptables firewall rules should be configured.
-   */
-  private buildNetworkArgs(): string[] {
-    // TODO: Bridge network should only be enabled once host-level iptables
-    // enforcement is implemented. Until then, default to --network none
-    // to prevent unrestricted internet access from sandboxed submissions.
-    return ["--network", "none"];
   }
 }
 
