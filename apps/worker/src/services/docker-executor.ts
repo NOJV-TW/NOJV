@@ -5,13 +5,13 @@ import { dirname, join } from "node:path";
 
 import {
   normalizeRelativePath,
-  sourceExtensions,
   sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult
 } from "@nojv/core";
 import { parseSandboxResult } from "./sandbox-schema";
+import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 
 export interface DockerExecutorConfig {
   cpuLimit: string;
@@ -22,13 +22,6 @@ export interface DockerExecutorConfig {
 
 function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
-}
-
-function resolveScriptExtension(language: string | undefined): string {
-  if (language && language in sourceExtensions) {
-    return `.${sourceExtensions[language as SandboxRequest["language"]]}`;
-  }
-  return ".py";
 }
 
 export class DockerExecutor implements SandboxExecutor {
@@ -82,56 +75,32 @@ export class DockerExecutor implements SandboxExecutor {
       fileWrites.push(writeFile(join(tempDir, defaultSourcePath), request.sourceCode, "utf8"));
     }
 
-    const config: Record<string, unknown> = {
-      submissionId: request.submissionId,
-      language: request.language,
-      judgeType: request.judgeType,
-      submissionType: request.submissionType,
-      limits: request.limits,
-      ...(request.entryFile ? { entryFile: request.entryFile } : {}),
-      ...(request.template ? { template: request.template } : {}),
-      ...(request.judgeConfig.checkerLanguage
-        ? { checkerLanguage: request.judgeConfig.checkerLanguage }
-        : {}),
-      ...(request.judgeConfig.interactorLanguage
-        ? { interactorLanguage: request.judgeConfig.interactorLanguage }
-        : {}),
-      ...(request.pipeline ? { pipeline: request.pipeline } : {}),
-      ...(request.staticAnalysis ? { staticAnalysis: request.staticAnalysis } : {}),
-      ...(request.scoring ? { scoring: request.scoring } : {}),
-      ...(request.artifactCollection ? { artifactCollection: request.artifactCollection } : {}),
-      ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
-    };
-
-    fileWrites.push(writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"));
+    fileWrites.push(
+      writeFile(
+        join(tempDir, "config.json"),
+        JSON.stringify(buildSandboxConfigJson(request, sourceFileMap)),
+        "utf8"
+      )
+    );
 
     if (request.judgeConfig.checkerScript) {
-      const checkerExt = resolveScriptExtension(request.judgeConfig.checkerLanguage);
+      const ext = sourceExtension(request.judgeConfig.checkerLanguage);
       fileWrites.push(
-        writeFile(
-          join(tempDir, `checker${checkerExt}`),
-          request.judgeConfig.checkerScript,
-          "utf8"
-        )
+        writeFile(join(tempDir, `checker.${ext}`), request.judgeConfig.checkerScript, "utf8")
       );
     }
 
     if (request.judgeConfig.interactorScript) {
-      const interactorExt = resolveScriptExtension(request.judgeConfig.interactorLanguage);
+      const ext = sourceExtension(request.judgeConfig.interactorLanguage);
       fileWrites.push(
-        writeFile(
-          join(tempDir, `interactor${interactorExt}`),
-          request.judgeConfig.interactorScript,
-          "utf8"
-        )
+        writeFile(join(tempDir, `interactor.${ext}`), request.judgeConfig.interactorScript, "utf8")
       );
     }
 
-    // Write scoring script if provided
     if (request.scoring?.script) {
-      const scoringExt = resolveScriptExtension(request.scoring.language);
+      const ext = sourceExtension(request.scoring.language);
       fileWrites.push(
-        writeFile(join(tempDir, `scoring${scoringExt}`), request.scoring.script, "utf8")
+        writeFile(join(tempDir, `scoring.${ext}`), request.scoring.script, "utf8")
       );
     }
 
@@ -234,20 +203,20 @@ export class DockerExecutor implements SandboxExecutor {
 
       child.on("error", (error: Error) => {
         clearTimeout(timer);
-        settle(systemError(`Docker failed to start: ${error.message}`));
+        settle(sandboxSystemError(`Docker failed to start: ${error.message}`));
       });
 
       child.on("close", (exitCode: number | null) => {
         clearTimeout(timer);
 
         if (timedOut) {
-          settle(systemError("Sandbox execution timed out."));
+          settle(sandboxSystemError("Sandbox execution timed out."));
           return;
         }
 
         if (exitCode !== 0) {
           settle(
-            systemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim())
+            sandboxSystemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim())
           );
           return;
         }
@@ -257,13 +226,15 @@ export class DockerExecutor implements SandboxExecutor {
           settle(
             parsed.success
               ? parsed.data
-              : systemError(
+              : sandboxSystemError(
                   `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`
                 )
           );
         } catch {
           settle(
-            systemError(`Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`)
+            sandboxSystemError(
+              `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`
+            )
           );
         }
       });
@@ -296,20 +267,4 @@ function forceRemoveContainer(containerName: string): void {
 
   child.stdin.end();
   child.on("error", () => undefined);
-}
-
-function systemError(message: string): SandboxResult {
-  return {
-    testcaseResults: [
-      {
-        exitCode: -1,
-        feedback: message,
-        index: 0,
-        stderr: message,
-        stdout: "",
-        timeMs: 0,
-        verdict: "SE"
-      }
-    ]
-  };
 }
