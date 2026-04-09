@@ -169,7 +169,7 @@ function parseEditableRegions(raw: unknown): [number, number][] | null {
   const result: [number, number][] = [];
   for (const entry of raw) {
     if (!Array.isArray(entry) || entry.length !== 2) return null;
-    const [start, end] = entry;
+    const [start, end] = entry as [unknown, unknown];
     if (typeof start !== "number" || typeof end !== "number") return null;
     if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
     if (start < 1 || end < start) return null;
