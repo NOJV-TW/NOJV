@@ -83,10 +83,10 @@ export interface ProblemDetail extends ProblemOverview {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
+  mode: "standard" | "advanced";
   samples: {
-    explanation: string;
-    input: string;
-    output: string;
+    stdin: string;
+    expected: string;
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;

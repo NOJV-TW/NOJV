@@ -35,8 +35,9 @@ export interface ProblemDetail {
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
+  mode: "standard" | "advanced";
   outputFormat: string;
-  samples: { explanation: string; input: string; output: string }[];
+  samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;
@@ -102,6 +103,7 @@ import { pickProblemStatement } from "../shared/pick-problem-statement";
 // ─── Internal helpers ───────────────────────────────────────────────
 
 function buildProblemSamples(problem: {
+  samples?: unknown;
   testcaseSets?: {
     isHidden: boolean;
     testcases: {
@@ -109,7 +111,24 @@ function buildProblemSamples(problem: {
       stdin: string;
     }[];
   }[];
-}) {
+}): { stdin: string; expected: string }[] {
+  // Phase 1+: Problem.samples JSON column is the authoritative source.
+  if (Array.isArray(problem.samples)) {
+    const parsed = problem.samples
+      .filter(
+        (s): s is { stdin: string; expected: string } =>
+          typeof s === "object" &&
+          s !== null &&
+          typeof (s as { stdin?: unknown }).stdin === "string" &&
+          typeof (s as { expected?: unknown }).expected === "string"
+      )
+      .map((s) => ({ stdin: s.stdin, expected: s.expected }));
+    if (parsed.length > 0) return parsed;
+  }
+
+  // Legacy fallback: problems whose data has not yet been migrated still
+  // have samples represented as an isHidden=false TestcaseSet. This path
+  // disappears after the Phase 1 data migration runs in production.
   const visibleSet =
     problem.testcaseSets?.find((testcaseSet) => !testcaseSet.isHidden) ??
     problem.testcaseSets?.[0];
@@ -119,9 +138,8 @@ function buildProblemSamples(problem: {
   }
 
   return visibleSet.testcases.map((tc) => ({
-    explanation: "",
-    input: tc.stdin,
-    output: tc.expectedStdout ?? ""
+    stdin: tc.stdin,
+    expected: tc.expectedStdout ?? ""
   }));
 }
 
@@ -174,6 +192,8 @@ function mapPersistedProblemDetail(
     id: string;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
+    mode?: "standard" | "advanced";
+    samples?: unknown;
     statements?: {
       bodyMarkdown: string;
       inputFormat?: string;
@@ -228,6 +248,7 @@ function mapPersistedProblemDetail(
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
+    mode: problem.mode ?? "standard",
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),

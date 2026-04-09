@@ -86,7 +86,7 @@
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
   let testcases = $state(
-    initialProblem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
+    initialProblem.samples.map((s) => ({ input: s.stdin, expectedOutput: s.expected }))
   );
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);

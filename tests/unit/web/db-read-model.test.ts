@@ -251,8 +251,8 @@ describe("DB-backed read model", () => {
     expect(detail?.outputFormat).toBe("A single integer");
     expect(detail?.tags).toEqual(["math", "beginner"]);
     expect(detail?.samples).toHaveLength(1);
-    expect(detail?.samples[0]?.input).toBe("1 2\n");
-    expect(detail?.samples[0]?.output).toBe("3\n");
+    expect(detail?.samples[0]?.stdin).toBe("1 2\n");
+    expect(detail?.samples[0]?.expected).toBe("3\n");
     expect(detail?.starterByLanguage).toBeDefined();
     expect(detail?.starterByLanguage.python).toBeDefined();
   });
