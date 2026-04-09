@@ -5,12 +5,12 @@ import type * as k8s from "@kubernetes/client-node";
 const require = createRequire(import.meta.url);
 
 import {
+  normalizeRelativePath,
   sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult
 } from "@nojv/core";
-
 import { parseSandboxResult } from "./sandbox-schema";
 
 export interface K8sExecutorConfig {
@@ -25,26 +25,6 @@ export interface K8sExecutorConfig {
 const JOB_DEADLINE_SECONDS = 120;
 const JOB_POLL_INTERVAL_MS = 1_000;
 const TTL_AFTER_FINISHED_SECONDS = 60;
-
-function normalizeRelativePath(rawPath: string): string | null {
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) {
-    return null;
-  }
-
-  const segments = normalized.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some(
-      (segment) =>
-        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
-    )
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
-}
 
 export class K8sExecutor implements SandboxExecutor {
   private coreApi: k8s.CoreV1Api;

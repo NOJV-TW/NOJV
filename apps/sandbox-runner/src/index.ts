@@ -16,12 +16,13 @@ import { runStaticAnalysis } from "./stages/static-analysis.js";
 import { runCustomScoring, type ScoringInput } from "./stages/score.js";
 import { collectArtifacts } from "./stages/artifact.js";
 import { runCustomScriptStage, type CustomScriptContext } from "./stages/custom-script.js";
-import type {
-  StaticAnalysisResult,
-  ArtifactEntry,
-  CustomScriptRunAt,
-  CustomScriptStage,
-  CustomScriptStageResult
+import {
+  normalizeRelativePath,
+  type StaticAnalysisResult,
+  type ArtifactEntry,
+  type CustomScriptRunAt,
+  type CustomScriptStage,
+  type CustomScriptStageResult
 } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
@@ -56,30 +57,6 @@ async function readSourceCode(
   }
 
   throw new Error(`Source file not found. Tried: ${fileCandidates.join(", ")}`);
-}
-
-function normalizeRelativePath(rawPath: string | undefined): string | null {
-  if (!rawPath) {
-    return null;
-  }
-
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) {
-    return null;
-  }
-
-  const segments = normalized.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some(
-      (segment) =>
-        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
-    )
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
@@ -278,7 +255,7 @@ async function main(): Promise<void> {
   const customStageResults: CustomScriptStageResult[] = [];
 
   const defaultEntry = sourceFileName(config.language);
-  const entryFile = normalizeRelativePath(config.entryFile) ?? defaultEntry;
+  const entryFile = (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
   if (config.submissionType === "function") {

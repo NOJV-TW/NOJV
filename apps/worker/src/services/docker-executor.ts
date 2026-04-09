@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import {
+  normalizeRelativePath,
   sourceExtensions,
   sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult
 } from "@nojv/core";
-
 import { parseSandboxResult } from "./sandbox-schema";
 
 export interface DockerExecutorConfig {
@@ -29,26 +29,6 @@ function resolveScriptExtension(language: string | undefined): string {
     return `.${sourceExtensions[language as SandboxRequest["language"]]}`;
   }
   return ".py";
-}
-
-function normalizeRelativePath(rawPath: string): string | null {
-  const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
-  if (!normalized || normalized.startsWith("/")) {
-    return null;
-  }
-
-  const segments = normalized.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length === 0 ||
-    segments.some(
-      (segment) =>
-        segment === "." || segment === ".." || segment.includes("\0") || segment.includes(":")
-    )
-  ) {
-    return null;
-  }
-
-  return segments.join("/");
 }
 
 export class DockerExecutor implements SandboxExecutor {
