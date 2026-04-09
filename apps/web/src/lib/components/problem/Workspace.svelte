@@ -519,7 +519,8 @@
 </div>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<!-- Resize handle (desktop only) -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- Resize handle (desktop only) — role="separator" carries keyboard intent -->
 <div
   class="hidden w-1 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 active:bg-primary/60 lg:flex"
   role="separator"

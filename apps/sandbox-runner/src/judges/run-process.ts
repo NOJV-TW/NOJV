@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import type { TestcaseResult } from "../types.js";
 
 export interface RunProcessResult {
   stdout: string;
@@ -88,6 +89,26 @@ export function runProcess(
       });
     });
   });
+}
+
+/** Classify a solution run into an error verdict (SE/TLE/MLE/RE), or `null` if it succeeded. */
+export function classifySolutionVerdict(
+  result: RunProcessResult,
+  testcaseIndex: number
+): TestcaseResult | null {
+  const base = {
+    index: testcaseIndex,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+    timeMs: result.timeMs
+  };
+
+  if (result.spawnError) return { ...base, verdict: "SE" };
+  if (result.timedOut) return { ...base, verdict: "TLE" };
+  if (result.signal === "SIGKILL") return { ...base, verdict: "MLE" };
+  if (result.exitCode !== 0) return { ...base, verdict: "RE" };
+  return null;
 }
 
 /**

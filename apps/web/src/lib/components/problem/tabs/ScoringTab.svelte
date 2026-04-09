@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { ProblemDetail } from "$lib/types";
   import { inputClassName } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
   import ToggleSwitch from "$lib/components/ui/ToggleSwitch.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
-  import type { SubtaskScoringStrategy, ScoringRule } from "@nojv/core";
+  import type { ScoringConfig, SubtaskScoringStrategy, ScoringRule } from "@nojv/core";
 
   interface Props {
     problem: ProblemDetail;
@@ -14,8 +15,12 @@
 
   let { problem, ondirtychange }: Props = $props();
 
-  // ─── State derived from problem.judgeConfig.scoring ─────────────────
-  let cfg = $derived(problem.judgeConfig?.scoring ?? {});
+  // ─── Initial config snapshot from problem.judgeConfig.scoring ───────
+  // Used only to seed the $state values below; not reactive — the
+  // component owns the state once mounted.
+  const cfg: Partial<ScoringConfig> = untrack(
+    () => problem.judgeConfig?.scoring ?? {}
+  );
 
   // Testcase sets from problem data (subtasks = weight > 0)
   // These come from the testcaseSets loaded in the page

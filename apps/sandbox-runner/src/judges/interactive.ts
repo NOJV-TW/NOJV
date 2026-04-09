@@ -106,92 +106,38 @@ function runInteractive(
       if (!solutionDone || !interactorDone) return;
       clearTimeout(timer);
 
-      const timeMs = Math.round(performance.now() - startTime);
       const solStdout = Buffer.concat(solutionStdout).toString("utf-8");
       const solStderr = Buffer.concat(solutionStderr).toString("utf-8");
       const intStderr = Buffer.concat(interactorStderr).toString("utf-8");
+      const base = {
+        index: testcase.index,
+        stdout: solStdout,
+        exitCode: solutionExitCode,
+        timeMs: Math.round(performance.now() - startTime)
+      };
 
-      if (timedOut) {
-        resolve({
-          index: testcase.index,
-          verdict: "TLE",
-          stdout: solStdout,
-          stderr: solStderr,
-          exitCode: solutionExitCode,
-          timeMs
-        });
-        return;
-      }
-
-      // SE: solution failed to spawn
-      if (solutionSpawnError) {
-        resolve({
-          index: testcase.index,
-          verdict: "SE",
-          stdout: solStdout,
-          stderr: solStderr,
-          exitCode: solutionExitCode,
-          timeMs
-        });
-        return;
-      }
-
-      // SE: interactor failed to spawn (system error, not user's fault)
+      if (timedOut) return resolve({ ...base, verdict: "TLE", stderr: solStderr });
+      if (solutionSpawnError) return resolve({ ...base, verdict: "SE", stderr: solStderr });
       if (interactorSpawnError) {
-        resolve({
-          index: testcase.index,
+        return resolve({
+          ...base,
           verdict: "SE",
-          stdout: solStdout,
           stderr: `Interactor error: ${intStderr}`,
-          exitCode: solutionExitCode,
-          timeMs,
           feedback: "Interactor failed to start (system error)."
         });
-        return;
       }
-
-      // SE: interactor crashed with signal (system error)
       if (interactorSignal) {
-        resolve({
-          index: testcase.index,
+        return resolve({
+          ...base,
           verdict: "SE",
-          stdout: solStdout,
           stderr: `Interactor crashed with signal ${interactorSignal}.\n${intStderr}`,
-          exitCode: solutionExitCode,
-          timeMs,
           feedback: `Interactor crashed (${interactorSignal}).`
         });
-        return;
       }
+      if (solutionSignal === "SIGKILL") return resolve({ ...base, verdict: "MLE", stderr: solStderr });
+      if (solutionExitCode !== 0) return resolve({ ...base, verdict: "RE", stderr: solStderr });
 
-      // MLE: solution killed by external SIGKILL (e.g. OOM killer)
-      if (solutionSignal === "SIGKILL") {
-        resolve({
-          index: testcase.index,
-          verdict: "MLE",
-          stdout: solStdout,
-          stderr: solStderr,
-          exitCode: solutionExitCode,
-          timeMs
-        });
-        return;
-      }
-
-      // If solution crashed, report RE
-      if (solutionExitCode !== 0) {
-        resolve({
-          index: testcase.index,
-          verdict: "RE",
-          stdout: solStdout,
-          stderr: solStderr,
-          exitCode: solutionExitCode,
-          timeMs
-        });
-        return;
-      }
-
-      // Parse interactor's verdict
-      // Interactor protocol: stderr line 1 = score, lines 2+ = feedback
+      // Parse interactor's verdict — stderr line 1 = score, lines 2+ = feedback
       const intLines = intStderr.trim().split("\n");
       const parsed = parseJudgeOutput(
         interactorExitCode,
@@ -199,19 +145,13 @@ function runInteractive(
         intLines.slice(1).join("\n")
       );
 
-      const result: TestcaseResult = {
-        index: testcase.index,
+      resolve({
+        ...base,
         verdict: parsed.accepted ? "AC" : "WA",
-        stdout: solStdout,
         stderr: solStderr,
-        exitCode: solutionExitCode,
-        timeMs,
-        score: parsed.score
-      };
-      if (parsed.feedback) {
-        result.feedback = parsed.feedback;
-      }
-      resolve(result);
+        score: parsed.score,
+        ...(parsed.feedback ? { feedback: parsed.feedback } : {})
+      });
     }
 
     solution.on("close", (code, signal) => {

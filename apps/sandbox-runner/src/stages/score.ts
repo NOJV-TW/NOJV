@@ -33,6 +33,13 @@ export async function runCustomScoring(
   config: ScoringConfig,
   input: ScoringInput
 ): Promise<ScoringOutput> {
+  if (!config.script) {
+    return {
+      finalScore: input.rawScore,
+      feedback: "Scoring config has no script defined."
+    };
+  }
+
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "scoring-"));
 
   try {

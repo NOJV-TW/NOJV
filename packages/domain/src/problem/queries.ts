@@ -7,6 +7,7 @@ import {
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
+  judgeConfigSchema,
   problemDifficultySchema,
   submissionTypeSchema,
   type JudgeConfig,
@@ -214,8 +215,8 @@ function mapPersistedProblemDetail(
   const submissionType = parseSubmissionType(problem.submissionType);
   const problemTemplates = problem.templates ?? [];
 
-  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? {
-    type: "standard" as const
+  const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+    type: "standard"
   };
 
   return {

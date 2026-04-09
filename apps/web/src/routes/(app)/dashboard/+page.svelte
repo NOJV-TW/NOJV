@@ -2,12 +2,32 @@
   import { m } from "$lib/paraglide/messages.js";
   import EChart from "$lib/components/charts/EChart.svelte";
   import { difficultyColor, verdictColor, formatVerdictLabel } from "$lib/types";
-  import type { DailyActivity, LanguageDist, DifficultyDist } from "@nojv/core";
+  import {
+    dailyActivityArraySchema,
+    difficultyDistSchema,
+    languageDistSchema
+  } from "@nojv/core";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
 
   const stats = $derived(data.stats);
+
+  // Validate JSON-column data at the boundary so downstream code can rely on
+  // real types. safeParse falls back to an empty value on malformed data.
+  const dailyActivity = $derived(
+    dailyActivityArraySchema.safeParse(stats.dailyActivity ?? []).data ?? []
+  );
+  const languageDist = $derived(
+    languageDistSchema.safeParse(stats.languageDist ?? {}).data ?? {}
+  );
+  const difficultyDist = $derived(
+    difficultyDistSchema.safeParse(stats.difficultyDist ?? {}).data ?? {}
+  );
+
+  const hasActivity = $derived(dailyActivity.length > 0);
+  const hasLanguageData = $derived(Object.keys(languageDist).length > 0);
+  const hasDifficultyData = $derived(Object.keys(difficultyDist).length > 0);
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -16,65 +36,73 @@
   );
 
   // -- Activity line chart (last 30 days) --
-  const activityOption: EChartsOption = $derived.by(() => {
-    const raw = (stats.dailyActivity ?? []) as DailyActivity[];
-    const dates = raw.map((d) => d.date);
-    const counts = raw.map((d) => d.acCount);
-
-    return {
-      grid: { left: 40, right: 16, top: 16, bottom: 32 },
-      xAxis: { type: "category", data: dates, axisLabel: { fontSize: 11 } },
-      yAxis: { type: "value", minInterval: 1, axisLabel: { fontSize: 11 } },
-      series: [
-        {
-          type: "line",
-          data: counts,
-          smooth: true,
-          areaStyle: { opacity: 0.15 },
-          lineStyle: { width: 2 },
-          itemStyle: { color: "#10b981" }
-        }
-      ],
-      tooltip: { trigger: "axis" }
-    };
+  const activityOption: EChartsOption = $derived({
+    grid: { left: 40, right: 16, top: 16, bottom: 32 },
+    xAxis: {
+      type: "category",
+      data: dailyActivity.map((d) => d.date),
+      axisLabel: { fontSize: 11 }
+    },
+    yAxis: { type: "value", minInterval: 1, axisLabel: { fontSize: 11 } },
+    series: [
+      {
+        type: "line",
+        data: dailyActivity.map((d) => d.acCount),
+        smooth: true,
+        areaStyle: { opacity: 0.15 },
+        lineStyle: { width: 2 },
+        itemStyle: { color: "#10b981" }
+      }
+    ],
+    tooltip: { trigger: "axis" }
   });
 
   // -- Language pie chart --
-  const languageOption: EChartsOption = $derived.by(() => {
-    const dist = (stats.languageDist ?? {}) as LanguageDist;
-    const pieData = Object.entries(dist).map(([name, value]) => ({ name, value }));
-
-    return {
-      tooltip: { trigger: "item" },
-      series: [
-        {
-          type: "pie",
-          radius: ["35%", "65%"],
-          data: pieData,
-          label: { fontSize: 12 },
-          emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: "rgba(0,0,0,0.2)" } }
+  const languageOption: EChartsOption = $derived({
+    tooltip: { trigger: "item" },
+    series: [
+      {
+        type: "pie",
+        radius: ["35%", "65%"],
+        data: Object.entries(languageDist).map(([name, value]) => ({ name, value })),
+        label: { fontSize: 12 },
+        emphasis: {
+          itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: "rgba(0,0,0,0.2)" }
         }
-      ]
-    };
+      }
+    ]
   });
 
   // -- Difficulty bar chart --
-  const difficultyOption: EChartsOption = $derived.by(() => {
-    const dist = (stats.difficultyDist ?? {}) as DifficultyDist;
-    const categories = ["easy", "medium", "hard"];
-    const colors: Record<string, string> = { easy: "#10b981", medium: "#f59e0b", hard: "#ef4444" };
-    const values = categories.map((c) => ({
-      value: dist[c] ?? 0,
-      itemStyle: { color: colors[c]! }
-    }));
+  const DIFFICULTY_COLORS: Record<string, string> = {
+    easy: "#10b981",
+    medium: "#f59e0b",
+    hard: "#ef4444"
+  };
+  const DIFFICULTY_CATEGORIES = ["easy", "medium", "hard"] as const;
 
-    return {
-      grid: { left: 60, right: 16, top: 16, bottom: 24 },
-      xAxis: { type: "value", minInterval: 1, axisLabel: { fontSize: 11 } },
-      yAxis: { type: "category", data: categories, axisLabel: { fontSize: 12, formatter: (v: string) => v.charAt(0).toUpperCase() + v.slice(1) } },
-      series: [{ type: "bar", data: values, barWidth: 20 }],
-      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
-    };
+  const difficultyOption: EChartsOption = $derived({
+    grid: { left: 60, right: 16, top: 16, bottom: 24 },
+    xAxis: { type: "value", minInterval: 1, axisLabel: { fontSize: 11 } },
+    yAxis: {
+      type: "category",
+      data: [...DIFFICULTY_CATEGORIES],
+      axisLabel: {
+        fontSize: 12,
+        formatter: (v: string) => v.charAt(0).toUpperCase() + v.slice(1)
+      }
+    },
+    series: [
+      {
+        type: "bar",
+        barWidth: 20,
+        data: DIFFICULTY_CATEGORIES.map((c) => ({
+          value: difficultyDist[c] ?? 0,
+          itemStyle: { color: DIFFICULTY_COLORS[c]! }
+        }))
+      }
+    ],
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
   });
 
   function timeAgo(date: Date | string): string {
@@ -126,7 +154,7 @@
     <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
       {m.dashboard_activityChart()}
     </p>
-    {#if ((stats.dailyActivity ?? []) as Array<unknown>).length > 0}
+    {#if hasActivity}
       <EChart option={activityOption} class="mt-4 h-56 w-full" />
     {:else}
       <p class="mt-4 text-sm text-muted-foreground">{m.dashboard_noActivity()}</p>
@@ -141,7 +169,7 @@
       <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
         {m.dashboard_languageDist()}
       </p>
-      {#if Object.keys((stats.languageDist ?? {}) as Record<string, unknown>).length > 0}
+      {#if hasLanguageData}
         <EChart option={languageOption} class="mt-4 h-56 w-full" />
       {:else}
         <p class="mt-4 text-sm text-muted-foreground">{m.dashboard_noActivity()}</p>
@@ -153,7 +181,7 @@
       <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
         {m.dashboard_difficultyDist()}
       </p>
-      {#if Object.keys((stats.difficultyDist ?? {}) as Record<string, unknown>).length > 0}
+      {#if hasDifficultyData}
         <EChart option={difficultyOption} class="mt-4 h-56 w-full" />
       {:else}
         <p class="mt-4 text-sm text-muted-foreground">{m.dashboard_noActivity()}</p>

@@ -251,7 +251,7 @@ export const testcaseSetRepo = {
     });
   },
 
-  update(id: string, data: { name?: string; weight?: number; isHidden?: boolean }) {
+  update(id: string, data: Prisma.TestcaseSetUpdateInput) {
     return prisma.testcaseSet.update({ where: { id }, data });
   },
 
@@ -269,7 +269,7 @@ export const testcaseSetRepo = {
 };
 
 export const testcaseRepo = {
-  update(id: string, data: { stdin?: string; expectedStdout?: string }) {
+  update(id: string, data: Prisma.TestcaseUpdateInput) {
     return prisma.testcase.update({ where: { id }, data });
   },
 

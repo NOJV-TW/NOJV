@@ -55,9 +55,9 @@ vi.mock("@nojv/db", () => ({
   runTransaction: vi.fn()
 }));
 
-import { listProblemCards, getProblemPageData } from "$lib/server/problem/queries";
-import { courseDomain } from "@nojv/domain";
+import { courseDomain, problemDomain } from "@nojv/domain";
 
+const { listProblemCards, getProblemPageData } = problemDomain;
 const { getCoursePageData, getDashboardStats } = courseDomain;
 
 describe("DB-backed read model", () => {

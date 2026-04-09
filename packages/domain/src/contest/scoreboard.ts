@@ -84,6 +84,40 @@ function secondsSince(base: Date, later: Date): number {
   return Math.max(0, Math.floor((later.getTime() - base.getTime()) / 1000));
 }
 
+function groupByUser(submissions: SubmissionRow[]): Map<string, SubmissionRow[]> {
+  const byUser = new Map<string, SubmissionRow[]>();
+  for (const sub of submissions) {
+    const existing = byUser.get(sub.userId);
+    if (existing) {
+      existing.push(sub);
+    } else {
+      byUser.set(sub.userId, [sub]);
+    }
+  }
+  return byUser;
+}
+
+function resolveDisplayUsername(user: ParticipantRow["user"]): string {
+  return user.displayUsername ?? user.username ?? user.name;
+}
+
+/**
+ * Assigns dense ranks to a pre-sorted scoreboard. Entries that the `isTied`
+ * predicate considers equal to the previous entry share the previous entry's
+ * rank; otherwise they get `index + 1`.
+ */
+function assignRanks(
+  entries: ScoreboardEntry[],
+  isTied: (a: ScoreboardEntry, b: ScoreboardEntry) => boolean
+): void {
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!entry) continue;
+    const prev = i > 0 ? entries[i - 1] : undefined;
+    entry.rank = prev && isTied(prev, entry) ? prev.rank : i + 1;
+  }
+}
+
 // ─── Scoreboard ──────────────────────────────────────────────────────
 
 export async function getScoreboard(
@@ -175,21 +209,16 @@ function buildIcpcScoreboard(
 ): ScoreboardEntry[] {
   const frozenAt = contest.frozenAt;
 
-  // Track first AC per problem (global, unfrozen)
-  const firstAcByProblem = new Map<string, string>(); // problemId -> userId
-
-  // Group submissions by userId
-  const subsByUser = new Map<string, SubmissionRow[]>();
+  // Track first AC per problem (global, unfrozen). Submissions are sorted by
+  // createdAt asc, so the first AC seen is the global first blood.
+  const firstAcByProblem = new Map<string, string>();
   for (const sub of submissions) {
-    const existing = subsByUser.get(sub.userId) ?? [];
-    existing.push(sub);
-    subsByUser.set(sub.userId, existing);
-
-    // Submissions are sorted by createdAt asc, so first AC seen is the global first
     if (sub.status === "accepted" && !firstAcByProblem.has(sub.problemId)) {
       firstAcByProblem.set(sub.problemId, sub.userId);
     }
   }
+
+  const subsByUser = groupByUser(submissions);
 
   const entries: ScoreboardEntry[] = participants.map((p) => {
     const userSubs = subsByUser.get(p.userId) ?? [];
@@ -235,7 +264,7 @@ function buildIcpcScoreboard(
 
     return {
       displayName: p.user.name,
-      username: p.user.displayUsername ?? p.user.username ?? p.user.name,
+      username: resolveDisplayUsername(p.user),
       isFirstBlood,
       problems: problemScores,
       rank: 0,
@@ -251,19 +280,12 @@ function buildIcpcScoreboard(
     return a.totalPenalty - b.totalPenalty;
   });
 
-  // Assign ranks (same score+penalty = same rank)
-  let rank = 1;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    if (!entry) continue;
-    const prev = i > 0 ? entries[i - 1] : undefined;
-    if (prev?.totalScore === entry.totalScore && prev.totalPenalty === entry.totalPenalty) {
-      entry.rank = prev.rank;
-    } else {
-      entry.rank = rank;
-    }
-    rank = i + 2;
-  }
+  // Same score+penalty = same rank
+  assignRanks(
+    entries,
+    (prev, curr) =>
+      prev.totalScore === curr.totalScore && prev.totalPenalty === curr.totalPenalty
+  );
 
   return entries;
 }
@@ -279,23 +301,18 @@ function buildIoiScoreboard(
 ): ScoreboardEntry[] {
   const frozenAt = contest.frozenAt;
 
-  // Track first full-score per problem (global)
+  // Track first full-score per problem (global). Submissions are sorted by
+  // createdAt asc, so the first full score seen is the global first.
   const firstFullByProblem = new Map<string, string>();
   const pointsByProblem = new Map(problems.map((p) => [p.id, p.points]));
-
-  // Group submissions by userId
-  const subsByUser = new Map<string, SubmissionRow[]>();
   for (const sub of submissions) {
-    const existing = subsByUser.get(sub.userId) ?? [];
-    existing.push(sub);
-    subsByUser.set(sub.userId, existing);
-
-    // Submissions are sorted by createdAt asc, so first full score seen is the global first
     const maxPts = pointsByProblem.get(sub.problemId);
     if (maxPts != null && sub.score >= maxPts && !firstFullByProblem.has(sub.problemId)) {
       firstFullByProblem.set(sub.problemId, sub.userId);
     }
   }
+
+  const subsByUser = groupByUser(submissions);
 
   const entries: ScoreboardEntry[] = participants.map((p) => {
     const userSubs = subsByUser.get(p.userId) ?? [];
@@ -345,7 +362,7 @@ function buildIoiScoreboard(
 
     return {
       displayName: p.user.name,
-      username: p.user.displayUsername ?? p.user.username ?? p.user.name,
+      username: resolveDisplayUsername(p.user),
       isFirstBlood,
       problems: problemScores,
       rank: 0,
@@ -361,19 +378,8 @@ function buildIoiScoreboard(
     return a.totalPenalty - b.totalPenalty;
   });
 
-  // Assign ranks
-  let rank = 1;
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
-    if (!entry) continue;
-    const prev = i > 0 ? entries[i - 1] : undefined;
-    if (prev?.totalScore === entry.totalScore) {
-      entry.rank = prev.rank;
-    } else {
-      entry.rank = rank;
-    }
-    rank = i + 2;
-  }
+  // IOI ties on total score alone
+  assignRanks(entries, (prev, curr) => prev.totalScore === curr.totalScore);
 
   return entries;
 }

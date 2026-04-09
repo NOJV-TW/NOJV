@@ -8,16 +8,10 @@ import {
 import type { ContestLifecycleInput, AdminOverrideSignal } from "../types";
 import type * as contestActivities from "../activities/contest";
 import type * as notificationActivities from "../activities/notification";
+import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
-const contest = proxyActivities<typeof contestActivities>({
-  startToCloseTimeout: "30s",
-  retry: { maximumAttempts: 3 }
-});
-
-const notification = proxyActivities<typeof notificationActivities>({
-  startToCloseTimeout: "10s",
-  retry: { maximumAttempts: 2 }
-});
+const contest = proxyActivities<typeof contestActivities>(SHORT_ACTIVITY);
+const notification = proxyActivities<typeof notificationActivities>(NOTIFICATION_ACTIVITY);
 
 export const adminOverrideSignal = defineSignal<[AdminOverrideSignal]>("adminOverride");
 

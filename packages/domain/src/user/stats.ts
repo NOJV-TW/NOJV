@@ -1,19 +1,22 @@
-import type { DailyActivity, DifficultyDist, LanguageDist } from "@nojv/core";
 import {
-  problemRepo,
-  runTransaction,
-  submissionRepo,
-  userStatsRepo,
-  type Prisma
-} from "@nojv/db";
+  dailyActivityArraySchema,
+  difficultyDistSchema,
+  languageDistSchema,
+  type DailyActivity,
+  type DifficultyDist,
+  type LanguageDist
+} from "@nojv/core";
+import { problemRepo, runTransaction, submissionRepo, userStatsRepo } from "@nojv/db";
 
-function toDailyActivityArray(value: unknown): DailyActivity[] {
-  if (!Array.isArray(value)) return [];
-  return value as DailyActivity[];
-}
+import { toJsonValue } from "../shared/to-json-value";
 
-function toJsonValue(value: DailyActivity[]): Prisma.InputJsonValue {
-  return value as unknown as Prisma.InputJsonValue;
+/** Parse a JSON-column value with a Zod schema, returning `fallback` on failure. */
+function parseOr<T>(
+  schema: { safeParse: (v: unknown) => { data?: T } },
+  value: unknown,
+  fallback: T
+): T {
+  return schema.safeParse(value).data ?? fallback;
 }
 
 export async function updateUserStats(submission: {
@@ -72,15 +75,23 @@ export async function updateUserStats(submission: {
         lastSubmittedAt: new Date()
       });
     } else {
-      const langDist = (existing.languageDist ?? {}) as LanguageDist;
+      const langDist = parseOr<LanguageDist>(languageDistSchema, existing.languageDist, {});
       langDist[submission.language] = (langDist[submission.language] ?? 0) + 1;
 
-      const diffDist = (existing.difficultyDist ?? {}) as DifficultyDist;
+      const diffDist = parseOr<DifficultyDist>(
+        difficultyDistSchema,
+        existing.difficultyDist,
+        {}
+      );
       if (isFirstAc && difficulty) {
         diffDist[difficulty] = (diffDist[difficulty] ?? 0) + 1;
       }
 
-      const daily = toDailyActivityArray(existing.dailyActivity);
+      const daily = parseOr<DailyActivity[]>(
+        dailyActivityArraySchema,
+        existing.dailyActivity,
+        []
+      );
       if (isAc) {
         const todayEntry = daily.find((d) => d.date === today);
         if (todayEntry) {
