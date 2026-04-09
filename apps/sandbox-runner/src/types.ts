@@ -67,9 +67,7 @@ export const SandboxInputSchema = z.object({
       totalTimeMs: z.number().int().min(1_000).max(300_000),
       memoryMb: z.number().int().min(16).max(4096),
       networkEnabled: z.boolean(),
-      testcaseFiles: z
-        .record(z.string(), z.record(z.string(), z.string()))
-        .optional()
+      testcaseFiles: z.record(z.string(), z.record(z.string(), z.string())).optional()
     })
     .optional()
 });
