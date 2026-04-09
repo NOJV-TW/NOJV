@@ -9,6 +9,7 @@ import {
   type TestcaseResult
 } from "./types.js";
 import { assembleSource, compile, compileChecker, sourceFileName } from "./compiler.js";
+import { pathExists } from "./utils.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
@@ -57,15 +58,6 @@ async function readSourceCode(
   }
 
   throw new Error(`Source file not found. Tried: ${fileCandidates.join(", ")}`);
-}
-
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function writeWorkFile(
