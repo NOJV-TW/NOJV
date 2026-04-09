@@ -60,7 +60,7 @@ docs/               Design documents, runbooks, specifications
 - **Frontend**: SvelteKit, Vite, Tailwind CSS 4, Bits UI, Monaco Editor
 - **Auth**: better-auth (email/password, GitHub, Google)
 - **Orchestration**: Temporal (TypeScript SDK)
-- **Database**: PostgreSQL 17, Prisma 7
+- **Database**: PostgreSQL 18, Prisma 7
 - **Cache**: Redis 8 (pub/sub, rate limiting, scoreboards, cooldown, hot cache)
 - **Validation**: Zod 4
 - **Testing**: Vitest, Playwright
