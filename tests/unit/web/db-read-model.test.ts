@@ -303,10 +303,7 @@ describe("DB-backed read model", () => {
     expect(detail).not.toBeNull();
     // Hidden file must never escape the domain layer.
     expect(detail?.workspaceFiles).toHaveLength(2);
-    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual([
-      "solution.cpp",
-      "helpers.h"
-    ]);
+    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual(["solution.cpp", "helpers.h"]);
     expect(detail?.workspaceFiles.every((f) => f.visibility !== ("hidden" as string))).toBe(
       true
     );

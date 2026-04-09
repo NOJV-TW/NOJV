@@ -26,11 +26,7 @@ export const problemRepo = {
         author: { select: { username: true } },
         statements: true,
         workspaceFiles: {
-          orderBy: [
-            { language: "asc" },
-            { orderIndex: "asc" },
-            { path: "asc" }
-          ]
+          orderBy: [{ language: "asc" }, { orderIndex: "asc" }, { path: "asc" }]
         },
         testcaseSets: {
           include: {

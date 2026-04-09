@@ -937,14 +937,16 @@ if __name__ == "__main__":
       statements: {
         "zh-TW": {
           title: "Shell Scripting Lab",
-          body: '這是一道 Advanced Mode 題目。請上傳一份 ZIP 檔案，內含可執行的 shell 腳本（例如 `solve.sh`）。\n\n判題容器會把 ZIP 解壓到 `/workspace/submission/`，接著進入 `/workspace/testcases/<ordinal>/` 取得輸入與輔助檔案，執行 `bash /workspace/submission/solve.sh < stdin` 並與 `expected` 比對輸出。\n\n本題用於示範 Advanced Mode 的上傳介面與 TA 自訂判題映像檔流程。',
-          inputFormat: "每個 testcase 以 `stdin` 檔案提供標準輸入。部分 testcase 會在目錄中附上輔助檔案，腳本可透過相對路徑 `./aux.txt` 存取。",
+          body: "這是一道 Advanced Mode 題目。請上傳一份 ZIP 檔案，內含可執行的 shell 腳本（例如 `solve.sh`）。\n\n判題容器會把 ZIP 解壓到 `/workspace/submission/`，接著進入 `/workspace/testcases/<ordinal>/` 取得輸入與輔助檔案，執行 `bash /workspace/submission/solve.sh < stdin` 並與 `expected` 比對輸出。\n\n本題用於示範 Advanced Mode 的上傳介面與 TA 自訂判題映像檔流程。",
+          inputFormat:
+            "每個 testcase 以 `stdin` 檔案提供標準輸入。部分 testcase 會在目錄中附上輔助檔案，腳本可透過相對路徑 `./aux.txt` 存取。",
           outputFormat: "腳本的標準輸出需與 `expected` 完全相符。"
         },
         en: {
           title: "Shell Scripting Lab",
-          body: 'This is an Advanced Mode problem. Upload a ZIP file containing executable shell scripts (e.g. `solve.sh`).\n\nThe judge container extracts the ZIP into `/workspace/submission/`, then iterates `/workspace/testcases/<ordinal>/`, piping `stdin` into `bash /workspace/submission/solve.sh` and comparing stdout to `expected`.\n\nThis problem exists to demonstrate the Advanced Mode ZIP upload view and the TA-provided judge image flow.',
-          inputFormat: "Each testcase provides a `stdin` file as standard input. Some testcases additionally ship auxiliary files; the script can open them via relative paths like `./aux.txt`.",
+          body: "This is an Advanced Mode problem. Upload a ZIP file containing executable shell scripts (e.g. `solve.sh`).\n\nThe judge container extracts the ZIP into `/workspace/submission/`, then iterates `/workspace/testcases/<ordinal>/`, piping `stdin` into `bash /workspace/submission/solve.sh` and comparing stdout to `expected`.\n\nThis problem exists to demonstrate the Advanced Mode ZIP upload view and the TA-provided judge image flow.",
+          inputFormat:
+            "Each testcase provides a `stdin` file as standard input. Some testcases additionally ship auxiliary files; the script can open them via relative paths like `./aux.txt`.",
           outputFormat: "The script\u2019s standard output must match `expected` byte-for-byte."
         }
       },
@@ -1102,8 +1104,7 @@ if __name__ == "__main__":
     const testcaseSetCount = def.testcases ? Object.keys(def.testcases).length : 0;
     const extras: string[] = [];
     if (def.samples?.length) extras.push(`${def.samples.length} samples`);
-    if (def.workspaceFiles?.length)
-      extras.push(`${def.workspaceFiles.length} workspace files`);
+    if (def.workspaceFiles?.length) extras.push(`${def.workspaceFiles.length} workspace files`);
     if (def.advancedTestcases?.length)
       extras.push(`${def.advancedTestcases.length} advanced testcases`);
     const extrasLabel = extras.length ? `, ${extras.join(", ")}` : "";

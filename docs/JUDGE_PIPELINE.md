@@ -16,16 +16,16 @@ Before the sandbox starts, the domain layer merges `ProblemWorkspaceFile` rows (
 
 Language-specific build, run by the sandbox runner inside the isolated container:
 
-| Language   | Build command                                         | Entry file  |
-| ---------- | ----------------------------------------------------- | ----------- |
-| C          | `gcc -O2 -std=c17 -o main ...`                        | `main.c`    |
-| C++        | `g++ -O2 -std=c++20 -o main ...`                      | `main.cpp`  |
-| Go         | `go build -o main .` (or single file)                 | `main.go`   |
-| Java       | `javac -d . ...` then `java -cp . Main`               | `Main.java` |
-| JavaScript | none; `node main.mjs`                                 | `main.mjs`  |
-| Python     | none; `python3 main.py`                               | `main.py`   |
-| Rust       | `rustc -O -o main main.rs`                            | `main.rs`   |
-| TypeScript | none; `node --experimental-strip-types main.ts`       | `main.ts`   |
+| Language   | Build command                                   | Entry file  |
+| ---------- | ----------------------------------------------- | ----------- |
+| C          | `gcc -O2 -std=c17 -o main ...`                  | `main.c`    |
+| C++        | `g++ -O2 -std=c++20 -o main ...`                | `main.cpp`  |
+| Go         | `go build -o main .` (or single file)           | `main.go`   |
+| Java       | `javac -d . ...` then `java -cp . Main`         | `Main.java` |
+| JavaScript | none; `node main.mjs`                           | `main.mjs`  |
+| Python     | none; `python3 main.py`                         | `main.py`   |
+| Rust       | `rustc -O -o main main.rs`                      | `main.rs`   |
+| TypeScript | none; `node --experimental-strip-types main.ts` | `main.ts`   |
 
 Interpreted languages skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file.
 
@@ -49,7 +49,7 @@ Per-testcase verdict. The strategy is chosen by `judgeConfig.type`:
   - `ignore_case`
   - `float` (uses `floatAbsTol` / `floatRelTol`)
   - `regex_filter` (uses `ignoreLinePatterns` to strip matching lines before comparing)
-  - *Note: the schema defines all five modes; the sandbox runner at `apps/sandbox-runner/src/judges/standard.ts` currently implements trimmed-exact comparison. The remaining modes land alongside new runner support.*
+  - _Note: the schema defines all five modes; the sandbox runner at `apps/sandbox-runner/src/judges/standard.ts` currently implements trimmed-exact comparison. The remaining modes land alongside new runner support._
 - **`checker`** — a teacher-provided script (`bash` / `python` / `node` / `c` / `cpp`) receives `(input, expected, actual)` file paths and exits 0 for AC, non-zero for WA. Stderr becomes feedback.
 - **`interactive`** — a teacher-provided interactor communicates with the submission over stdin/stdout pipes and decides the verdict itself. Compiled the same way as a checker.
 
@@ -91,14 +91,16 @@ Validated against `advancedResultSchema` in `packages/core/src/schemas/advanced-
 
 ```jsonc
 {
-  "score": 0,                  // 0..100
-  "verdict": "accepted",       // accepted | wrong_answer | time_limit_exceeded
-                               // | memory_limit_exceeded | runtime_error | compile_error
+  "score": 0, // 0..100
+  "verdict": "accepted", // accepted | wrong_answer | time_limit_exceeded
+  // | memory_limit_exceeded | runtime_error | compile_error
   "feedback": "human-readable string",
-  "testcases": [               // optional, up to 1000
+  "testcases": [
+    // optional, up to 1000
     { "index": 0, "verdict": "AC", "runtimeMs": 120, "feedback": "..." }
   ],
-  "subtasks": [                // optional, up to 100
+  "subtasks": [
+    // optional, up to 100
     { "name": "sample", "score": 100, "passed": true }
   ]
 }
@@ -138,11 +140,11 @@ There is no "function" mode in the current design: editable regions on a `Proble
 
 `ProblemWorkspaceFile` is the authoritative source for starter code, scaffolding, and hidden assets. Each row has a `visibility`:
 
-| Visibility | Shown in UI | Student can edit                        | Present in sandbox |
-| ---------- | ----------- | --------------------------------------- | ------------------ |
-| `editable` | yes         | yes (optionally limited by `editableRegions`) | yes          |
-| `readonly` | yes (greyed out) | no                                 | yes                |
-| `hidden`   | no          | no                                      | yes                |
+| Visibility | Shown in UI      | Student can edit                              | Present in sandbox |
+| ---------- | ---------------- | --------------------------------------------- | ------------------ |
+| `editable` | yes              | yes (optionally limited by `editableRegions`) | yes                |
+| `readonly` | yes (greyed out) | no                                            | yes                |
+| `hidden`   | no               | no                                            | yes                |
 
 Editable regions are enforced in two places. The frontend uses Monaco read-only decorations, but that is only a UX hint. The server re-verifies by rebuilding the sandbox workspace from `ProblemWorkspaceFile` + the student's submitted editable-file contents in `mergeSandboxSources()`. A tampered client cannot inject replacements for readonly or hidden paths — the teacher version wins.
 
@@ -163,14 +165,14 @@ Rules are applied in array order and the running score is clamped to `[0, 100]` 
 
 Per-case verdicts (`SandboxVerdict` in `packages/core/src/sandbox.ts`):
 
-| Verdict | Meaning                          |
-| ------- | -------------------------------- |
-| AC      | Accepted                         |
-| WA      | Wrong Answer                     |
-| TLE     | Time Limit Exceeded              |
-| MLE     | Memory Limit Exceeded            |
-| RE      | Runtime Error (non-zero exit)    |
-| SE      | System Error (sandbox failure)   |
+| Verdict | Meaning                        |
+| ------- | ------------------------------ |
+| AC      | Accepted                       |
+| WA      | Wrong Answer                   |
+| TLE     | Time Limit Exceeded            |
+| MLE     | Memory Limit Exceeded          |
+| RE      | Runtime Error (non-zero exit)  |
+| SE      | System Error (sandbox failure) |
 
 ## Where the code lives
 
