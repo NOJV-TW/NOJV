@@ -31,9 +31,12 @@ ALTER TABLE "Contest"
 ALTER TABLE "CourseAssessment"
   ADD COLUMN "adjustmentRules" JSONB;
 
--- AlterTable
-ALTER TABLE "TestcaseSet"
-  DROP COLUMN "isHidden";
+-- NOTE: TestcaseSet.isHidden is deliberately NOT dropped in Phase 1.
+-- Dropping it has high blast radius (16 downstream references) and is
+-- deferred to Phase 5 when sample-handling UI is rewritten. The data
+-- migration script (problem-ui-redesign-phase-1.ts) still reads isHidden
+-- to extract samples into Problem.samples; the column then remains as a
+-- deprecated legacy field until Phase 5.
 
 -- CreateTable
 CREATE TABLE "ProblemWorkspaceFile" (

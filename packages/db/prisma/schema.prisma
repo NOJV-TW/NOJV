@@ -225,6 +225,9 @@ model TestcaseSet {
   id            String   @id @default(cuid())
   problemId     String
   name          String
+  /// Deprecated: will be removed in Phase 5 when sample handling moves to Problem.samples.
+  /// Still used by legacy code paths; Phase 1 migration script reads this to extract samples.
+  isHidden      Boolean  @default(true)
   weight        Int      @default(1)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
