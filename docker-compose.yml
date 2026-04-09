@@ -69,7 +69,7 @@ services:
     restart: "no"
 
   temporal:
-    image: temporalio/auto-setup:1.30.3
+    image: temporalio/auto-setup:1.29.1
     restart: unless-stopped
     depends_on:
       postgres:
