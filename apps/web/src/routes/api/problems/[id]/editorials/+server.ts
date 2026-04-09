@@ -5,8 +5,7 @@ import { languageSchema } from "@nojv/core";
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth, ForbiddenError, NotFoundError } from "$lib/server/auth";
-import { apiHandler } from "$lib/server/shared/api-handler";
-import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
+import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
 
 const { findProblemById, hasUserAcProblem, listEditorials, upsertEditorial } = problemDomain;
@@ -38,14 +37,8 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   return json(editorials);
 });
 
-export const POST: RequestHandler = apiHandler(async (event) => {
+export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
-
-  try {
-    await writeApiRateLimiter.consume(event.getClientAddress());
-  } catch {
-    return json({ error: "Too many requests" }, { status: 429 });
-  }
 
   const { id } = event.params;
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });

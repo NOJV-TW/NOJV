@@ -5,6 +5,7 @@ import {
   runTransaction,
   testcaseRepo,
   testcaseSetRepo,
+  type Prisma,
   type TransactionClient
 } from "@nojv/db";
 import type {
@@ -12,6 +13,7 @@ import type {
   PlatformRole,
   ProblemCreate,
   ProblemDifficulty,
+  ProblemStatus,
   ProblemTestcaseSetCreate,
   ProblemUpdate,
   ProblemVisibility,
@@ -22,6 +24,7 @@ import type {
 import { DEFAULT_LOCALE } from "@nojv/core";
 
 import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
 // ─── Actor context (domain-level, no SvelteKit dependency) ──────────
@@ -46,7 +49,7 @@ export interface CreateProblemDefinitionInput {
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
   statement?: string | undefined;
-  status?: string | undefined;
+  status?: ProblemStatus | undefined;
   submissionType?: SubmissionType | undefined;
   summary: string;
   tags?: string[] | undefined;
@@ -61,11 +64,10 @@ export async function createProblemDefinition(
   tx: TransactionClient,
   input: CreateProblemDefinitionInput
 ) {
-  const problem = await problemRepo.withTx(tx).create({
+  const createData: Prisma.ProblemUncheckedCreateInput = {
     authorId: input.authorId ?? null,
     defaultTitle: input.title,
     difficulty: input.difficulty,
-    judgeConfig: input.judgeConfig ?? undefined,
     memoryLimitMb: input.memoryLimitMb ?? 256,
     status: input.status ?? "published",
     submissionType: input.submissionType ?? "full_source",
@@ -73,7 +75,11 @@ export async function createProblemDefinition(
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
     visibility: input.visibility ?? "public"
-  });
+  };
+  if (input.judgeConfig !== undefined) {
+    createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
+  }
+  const problem = await problemRepo.withTx(tx).create(createData);
 
   if (input.statement) {
     await problemStatementRepo.withTx(tx).create({
@@ -315,7 +321,7 @@ export async function updateTestcaseSetRecord(
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    return testcaseSetRepo.update(setId, payload);
+    return testcaseSetRepo.update(setId, stripUndefined(payload));
   });
 }
 
@@ -342,7 +348,7 @@ export async function updateTestcaseRecord(
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    return testcaseRepo.update(testcaseId, payload);
+    return testcaseRepo.update(testcaseId, stripUndefined(payload));
   });
 }
 

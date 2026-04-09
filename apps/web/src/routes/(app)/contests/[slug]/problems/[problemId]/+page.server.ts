@@ -1,10 +1,10 @@
 import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad } from "./$types";
-import { contestDomain, submissionDomain } from "@nojv/domain";
-import { getProblemPageData } from "$lib/server/problem/queries";
+import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
 const { getContestWorkspaceData } = contestDomain;
+const { getProblemPageData } = problemDomain;
 const { listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 

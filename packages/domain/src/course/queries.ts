@@ -15,11 +15,10 @@ import type {
   PlatformRole,
   ProblemVisibility
 } from "@nojv/core";
-import { DEFAULT_LOCALE } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { checkIpLock } from "../shared/ip-utils";
-import { pickProblemStatement } from "../shared/pick-problem-statement";
+import { localizeProblem } from "../shared/pick-problem-statement";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -94,12 +93,7 @@ function mapProblemShelfEntry(problem: {
   summary: string;
   visibility: ProblemVisibility;
 }) {
-  const localized = pickProblemStatement(
-    problem.statements,
-    DEFAULT_LOCALE,
-    problem.id,
-    problem.summary
-  );
+  const localized = localizeProblem(problem);
 
   return {
     authorUsername: problem.author?.username ?? "course_staff",

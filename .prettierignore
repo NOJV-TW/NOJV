@@ -1,11 +1,16 @@
 .next
+.svelte-kit
 .turbo
+build
 coverage
 dist
 node_modules
+test-results
 apps/web/.next
+apps/web/build
 apps/workspace/dist
 packages/db/generated
 apps/web/src/lib/paraglide
 apps/web/src/paraglide
+apps/web/project.inlang
 pnpm-lock.yaml

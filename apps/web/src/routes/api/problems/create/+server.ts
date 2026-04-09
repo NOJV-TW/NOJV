@@ -1,11 +1,12 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
+import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
 
 const { createProblemRecord } = problemDomain;
 
-export const POST: RequestHandler = async (event) => {
+export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   if (actor.platformRole === "student" && !actor.emailVerified) {
@@ -29,4 +30,4 @@ export const POST: RequestHandler = async (event) => {
   });
 
   return json({ id: result.id });
-};
+});

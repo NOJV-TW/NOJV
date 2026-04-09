@@ -1,7 +1,15 @@
-export interface DailyActivity {
-  date: string;
-  acCount: number;
-}
+import { z } from "zod";
 
-export type LanguageDist = Record<string, number>;
-export type DifficultyDist = Record<string, number>;
+export const dailyActivitySchema = z.object({
+  date: z.string(),
+  acCount: z.number().int().nonnegative()
+});
+
+export const dailyActivityArraySchema = z.array(dailyActivitySchema);
+
+export const languageDistSchema = z.record(z.string(), z.number().int().nonnegative());
+export const difficultyDistSchema = z.record(z.string(), z.number().int().nonnegative());
+
+export type DailyActivity = z.infer<typeof dailyActivitySchema>;
+export type LanguageDist = z.infer<typeof languageDistSchema>;
+export type DifficultyDist = z.infer<typeof difficultyDistSchema>;

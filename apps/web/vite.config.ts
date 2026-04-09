@@ -1,7 +1,7 @@
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import { defineConfig, type UserConfig } from "vite";
 
 try {
   process.loadEnvFile("../../.env");
@@ -16,8 +16,7 @@ const allowedHosts =
         .map((host) => host.trim())
         .filter(Boolean);
 
-export default defineConfig({
-  server: allowedHosts ? { allowedHosts } : undefined,
+const config: UserConfig = {
   ssr: {
     // @grpc/grpc-js relies on dynamic requires, proto loading and Node http2
     // internals that break when bundled by Vite. Keep it as an external import.
@@ -31,4 +30,10 @@ export default defineConfig({
     tailwindcss(),
     sveltekit()
   ]
-});
+};
+
+if (allowedHosts) {
+  config.server = { allowedHosts };
+}
+
+export default defineConfig(config);

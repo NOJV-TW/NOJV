@@ -59,9 +59,10 @@
 
   function selectFile(index: number) {
     // Save current content before switching
-    if (monacoEditor && files[selectedIndex]) {
+    const current = files[selectedIndex];
+    if (monacoEditor && current) {
       const currentContent = monacoEditor.getValue();
-      if (files[selectedIndex].content !== currentContent) {
+      if (current.content !== currentContent) {
         files = files.map((f, i) =>
           i === selectedIndex ? { ...f, content: currentContent } : f
         );
@@ -127,7 +128,8 @@
       monacoEditor.onDidChangeModelContent(() => {
         if (!monacoEditor || readonly) return;
         const newContent = monacoEditor.getValue();
-        if (files[selectedIndex] && files[selectedIndex].content !== newContent) {
+        const current = files[selectedIndex];
+        if (current && current.content !== newContent) {
           files = files.map((f, i) =>
             i === selectedIndex ? { ...f, content: newContent } : f
           );

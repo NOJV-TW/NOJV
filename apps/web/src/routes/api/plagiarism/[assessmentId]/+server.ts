@@ -4,8 +4,7 @@ import type { RequestHandler } from "./$types";
 
 import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
 import { canManageCourse, plagiarismDomain } from "@nojv/domain";
-import { apiHandler } from "$lib/server/shared/api-handler";
-import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
+import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 
 const {
   resolvePlagiarismTarget,
@@ -15,14 +14,8 @@ const {
   dispatchPlagiarismCheck
 } = plagiarismDomain;
 
-export const POST: RequestHandler = apiHandler(async (event) => {
+export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
-
-  try {
-    await writeApiRateLimiter.consume(event.getClientAddress());
-  } catch {
-    return json({ error: "Too many requests" }, { status: 429 });
-  }
 
   const assessmentId = event.params.assessmentId;
   if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
