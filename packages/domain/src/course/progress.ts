@@ -5,9 +5,8 @@ import {
   courseRepo,
   submissionRepo
 } from "@nojv/db";
-import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { pickProblemStatement } from "../shared/pick-problem-statement";
+import { localizeProblem } from "../shared/pick-problem-statement";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -72,27 +71,16 @@ export async function getStudentProgressMatrix(
     }
 
     assessmentId = assessment.id;
-    problemRecords = assessment.problems.map((p) => {
-      const localized = pickProblemStatement(
-        p.problem.statements,
-        DEFAULT_LOCALE,
-        p.problem.id,
-        p.problem.summary
-      );
-      return { problemId: p.problem.id, title: localized.title };
-    });
+    problemRecords = assessment.problems.map((p) => ({
+      problemId: p.problem.id,
+      title: localizeProblem(p.problem).title
+    }));
   } else {
     const courseProblems = await courseProblemRepo.findByCourseId(course.id);
-
-    problemRecords = courseProblems.map((cp) => {
-      const localized = pickProblemStatement(
-        cp.problem.statements,
-        DEFAULT_LOCALE,
-        cp.problem.id,
-        cp.problem.summary
-      );
-      return { problemId: cp.problem.id, title: localized.title };
-    });
+    problemRecords = courseProblems.map((cp) => ({
+      problemId: cp.problem.id,
+      title: localizeProblem(cp.problem).title
+    }));
   }
 
   const problemIds = problemRecords.map((p) => p.problemId);

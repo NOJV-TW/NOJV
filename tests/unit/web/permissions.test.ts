@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  canEditProblem,
-  canManageCourse,
-  resolveEffectiveCourseRole
-} from "$lib/server/shared/permissions";
+import { canEditProblem, canManageCourse, resolveEffectiveCourseRole } from "@nojv/domain";
 
 describe("resolveEffectiveCourseRole", () => {
   it("admin platform role overrides course role", () => {

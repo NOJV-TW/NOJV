@@ -19,9 +19,9 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
-    "ioredis": "^5.9.3"
+    "ioredis": "^5.10.1"
   },
   "devDependencies": {
-    "tsdown": "^0.21.2"
+    "tsdown": "^0.21.7"
   }
 }

@@ -4,18 +4,21 @@ import { ZodError } from "zod";
 
 import { createLogger } from "../logger";
 import { classifyError } from "./handle-action-error";
-import { apiRateLimiter } from "./rate-limiter";
+import { apiRateLimiter, writeApiRateLimiter } from "./rate-limiter";
 
 const logger = createLogger("api");
 
 type ApiHandler = (event: RequestEvent) => Promise<Response>;
 
-export function apiHandler(handler: ApiHandler): ApiHandler {
+function wrapHandler(
+  handler: ApiHandler,
+  rateLimiter: { consume: (key: string) => Promise<unknown> }
+): ApiHandler {
   return async (event) => {
     const ip = event.getClientAddress();
 
     try {
-      await apiRateLimiter.consume(ip);
+      await rateLimiter.consume(ip);
     } catch {
       return json({ error: "Too many requests" }, { status: 429 });
     }
@@ -54,4 +57,14 @@ export function apiHandler(handler: ApiHandler): ApiHandler {
       return json({ message: classified.message }, { status: classified.status });
     }
   };
+}
+
+/** Wrap a read API handler with general rate limiting + error handling. */
+export function apiHandler(handler: ApiHandler): ApiHandler {
+  return wrapHandler(handler, apiRateLimiter);
+}
+
+/** Wrap a write API handler with stricter rate limiting + error handling. */
+export function writeApiHandler(handler: ApiHandler): ApiHandler {
+  return wrapHandler(handler, writeApiRateLimiter);
 }

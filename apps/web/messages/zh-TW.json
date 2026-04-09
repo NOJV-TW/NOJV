@@ -186,7 +186,7 @@
   "admin_helpLatePenaltyDecay": "分數以指數衰減。半衰期 = 分數減半所需時間。",
   "admin_helpTimeBonus": "執行速度快可獲得額外加分。0 ms 時獲得最大加分，線性遞減至基準時間為 0。",
   "admin_helpMemoryPenalty": "記憶體使用超過門檻值時扣分。",
-  "admin_helpCustomScoringScript": "腳本從 stdin 接收 { rawScore, testcaseResults, submittedAt, runtimeMs, ... }。\n必須輸出 { finalScore, feedback } 的 JSON。",
+  "admin_helpCustomScoringScript": "腳本從 stdin 接收 JSON，欄位包含 rawScore、testcaseResults、submittedAt、runtimeMs 等。\n必須輸出包含 finalScore 與 feedback 欄位的 JSON。",
   "admin_helpZipCompileCommand": "編譯專案的指令（例如 make、gcc main.c -o main）。直譯語言可留空。",
   "admin_helpZipEntryPoint": "要執行的主檔案（例如 main.c、src/main.py），用於決定執行指令。",
   "admin_saving": "儲存中...",

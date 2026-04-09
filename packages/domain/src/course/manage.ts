@@ -1,7 +1,6 @@
 import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from "@nojv/db";
-import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { pickProblemStatement } from "../shared/pick-problem-statement";
+import { localizeProblem } from "../shared/pick-problem-statement";
 
 // ─── Course manage analytics ────────────────────────────────────────
 
@@ -148,21 +147,17 @@ export async function getCourseManageAnalytics(
   });
 
   const totalSubmissions = submissions.length;
-  const acceptedSubmissionsTotal = submissions.filter(
-    (submission) => submission.status === "accepted"
-  ).length;
+  const acceptedSubmissionsTotal = statusMap.get("accepted") ?? 0;
   const pendingJudgeCount =
     (statusMap.get("queued") ?? 0) +
     (statusMap.get("compiling") ?? 0) +
     (statusMap.get("running") ?? 0);
 
-  const activeStudents = new Set(
-    submissions
-      .filter((submission) => studentIds.has(submission.userId))
-      .map((submission) => submission.userId)
-  );
+  // studentSubmissionCount was populated only for student userIds in the
+  // aggregation loop above, so its size is the distinct active-student count.
+  const activeStudentCount = studentSubmissionCount.size;
   const participationRate =
-    students.length > 0 ? Math.round((activeStudents.size / students.length) * 100) : 0;
+    students.length > 0 ? Math.round((activeStudentCount / students.length) * 100) : 0;
 
   const acceptedRate =
     totalSubmissions > 0 ? Math.round((acceptedSubmissionsTotal / totalSubmissions) * 100) : 0;
@@ -316,15 +311,10 @@ export async function getExportData(courseSlug: string, assessmentSlug: string) 
   const assessment = await assessmentRepo.findWithProblemDetails(course.id, assessmentSlug);
   if (!assessment) return null;
 
-  const problems = assessment.problems.map((p) => {
-    const localized = pickProblemStatement(
-      p.problem.statements,
-      DEFAULT_LOCALE,
-      p.problem.id,
-      p.problem.summary
-    );
-    return { problemId: p.problem.id, title: localized.title };
-  });
+  const problems = assessment.problems.map((p) => ({
+    problemId: p.problem.id,
+    title: localizeProblem(p.problem).title
+  }));
 
   const memberships = await courseMembershipRepo.findStudents(course.id);
   const students = memberships.map((m) => ({

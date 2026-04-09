@@ -2,16 +2,10 @@ import { proxyActivities, sleep } from "@temporalio/workflow";
 import type { AssessmentLifecycleInput } from "../types";
 import type * as assessmentActivities from "../activities/assessment";
 import type * as notificationActivities from "../activities/notification";
+import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
-const assessment = proxyActivities<typeof assessmentActivities>({
-  startToCloseTimeout: "30s",
-  retry: { maximumAttempts: 3 }
-});
-
-const notification = proxyActivities<typeof notificationActivities>({
-  startToCloseTimeout: "10s",
-  retry: { maximumAttempts: 2 }
-});
+const assessment = proxyActivities<typeof assessmentActivities>(SHORT_ACTIVITY);
+const notification = proxyActivities<typeof notificationActivities>(NOTIFICATION_ACTIVITY);
 
 const DEADLINE_REMINDER_HOURS = 24;
 
