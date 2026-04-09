@@ -6,7 +6,7 @@
 
 | Service       | Image                          | Port       | Purpose                          |
 | ------------- | ------------------------------ | ---------- | -------------------------------- |
-| postgres      | postgres:17-alpine             | 5432       | Database (app + Temporal)        |
+| postgres      | postgres:18-alpine             | 5432       | Database (app + Temporal)        |
 | redis         | redis:8-alpine                 | 6379       | Cache, pub/sub, scoreboard       |
 | minio         | minio/minio                    | 9000, 9001 | S3-compatible object storage     |
 | minio-init    | minio/mc                       | —          | Creates bucket + public policy   |

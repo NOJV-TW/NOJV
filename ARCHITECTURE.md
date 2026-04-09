@@ -23,7 +23,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │                                                                     │
 │  Persistence       @nojv/db (repositories, not raw Prisma client)   │
 │                                                                     │
-│  Data              PostgreSQL 17, Redis 8                           │
+│  Data              PostgreSQL 18, Redis 8                           │
 ├─────────────────────────────────────────────────────────────────────┤
 │ Infrastructure (cross-cutting, any layer may use)                   │
 │                                                                     │
