@@ -23,7 +23,9 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 | OAuth credentials     | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                   |
 | User passwords        | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                           |
 | Student source code   | PostgreSQL `Submission.sourceCode`                              | High — per-user access control, intellectual property |
-| Hidden testcases      | PostgreSQL `Testcase` (isHidden=true)                           | High — exposure undermines all grading                |
+| Graded testcases      | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                |
+| Hidden workspace files | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)      | High — test harness and library code kept out of student view |
+| Advanced judge tarballs | S3 bucket `problems/{problemId}/advanced-images/{uuid}.tar`   | Medium — teacher-only write, worker-only read at judge time   |
 | Problem images        | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write              |
 | Contest configuration | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity          |
 | Database credentials  | `DATABASE_URL` env var                                          | Critical — full data access                           |
@@ -271,7 +273,8 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **Unauthorized problem modification**: Student modifies a problem's testcases to make their submission pass. _Mitigation_: `canEditProblem()` requires admin or teacher. Problem edit page checks role in `+page.server.ts`.
-- **Hidden testcase leak**: Student accesses hidden testcase content. _Mitigation_: Testcases marked `isHidden: true` are never included in student-facing responses. The problem workspace only shows sample testcases.
+- **Graded testcase leak**: Student accesses graded testcase content. _Mitigation_: `TestcaseSet` / `Testcase` rows are never included in student-facing responses — only `Problem.samples` (a separate JSON column scoped to presentation) is rendered on the problem page. `ProblemDetail` in the domain layer deliberately excludes testcase set content before returning to the web layer.
+- **Hidden workspace file leak**: Student reads a `ProblemWorkspaceFile` whose `visibility = hidden` (e.g., internal test harness). _Mitigation_: `mapPersistedProblemDetail` in `packages/domain/src/problem/queries.ts` filters out `visibility === "hidden"` before the row leaves the domain layer. Hidden files are only merged into the sandbox workspace by the worker at judge time.
 - **Assessment manipulation**: Student modifies assessment deadlines or configuration. _Mitigation_: Assessment mutations require `canManageCourse(role)`. Deadline enforcement is server-side (`closesAt` checked before accepting submissions).
 - **Course join token brute force**: Attacker guesses join tokens to enroll in courses. _Mitigation_: Tokens are generated server-side with sufficient entropy. URL path `/courses/[slug]/join/[token]` requires the exact token. _Gap_: No explicit rate limit on join token attempts beyond the general form rate limiter (20/min per IP).
 - **Grade export data exposure**: Student accesses another course's grade export. _Mitigation_: `resolveCoursePermission(courseSlug, actor)` checks course membership and role before allowing export.
