@@ -39,6 +39,9 @@ importers:
       globals:
         specifier: ^17.4.0
         version: 17.4.0
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
