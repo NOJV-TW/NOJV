@@ -17,6 +17,64 @@ export const problemTemplateSchema = z.object({
   templateCode: z.string().min(1).max(100_000)
 });
 
+// ─── Phase 1 redesign: problem mode + samples + workspace files ────
+
+export const problemModeSchema = z.enum(["standard", "advanced"]);
+export type ProblemMode = z.infer<typeof problemModeSchema>;
+
+export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
+export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
+
+export const problemSampleSchema = z.object({
+  stdin: z.string().max(200_000),
+  expected: z.string().max(200_000)
+});
+
+export type ProblemSample = z.infer<typeof problemSampleSchema>;
+
+export const problemSamplesSchema = z.array(problemSampleSchema).max(5);
+
+export type ProblemSamples = z.infer<typeof problemSamplesSchema>;
+
+export const workspaceFileVisibilitySchema = z.enum([
+  "editable",
+  "readonly",
+  "hidden"
+]);
+
+export type WorkspaceFileVisibility = z.infer<
+  typeof workspaceFileVisibilitySchema
+>;
+
+/**
+ * An [startLine, endLine] inclusive tuple designating a line range the
+ * student is allowed to edit. Lines outside all declared ranges are
+ * rendered read-only in the browser editor.
+ */
+export const editableRegionSchema = z.tuple([
+  z.number().int().nonnegative(),
+  z.number().int().nonnegative()
+]);
+
+export type EditableRegion = z.infer<typeof editableRegionSchema>;
+
+export const problemWorkspaceFileSchema = z.object({
+  language: languageSchema,
+  path: z
+    .string()
+    .min(1)
+    .max(500)
+    .refine((p) => !p.startsWith("/") && !p.includes(".."), {
+      message: "path must be relative and must not contain .."
+    }),
+  content: z.string().max(200_000),
+  visibility: workspaceFileVisibilitySchema,
+  editableRegions: z.array(editableRegionSchema).max(50).nullable().optional(),
+  orderIndex: z.number().int().nonnegative().default(0)
+});
+
+export type ProblemWorkspaceFile = z.infer<typeof problemWorkspaceFileSchema>;
+
 export const problemCreateSchema = z.object({
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),
@@ -40,7 +98,12 @@ export const problemCreateSchema = z.object({
   title: z.string().trim().min(1, "validation_required").max(120, "validation_tooLong"),
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
-  status: problemStatusSchema.default("draft")
+  status: problemStatusSchema.default("draft"),
+  // Phase 1 redesign: standard vs advanced mode, samples, advanced image refs
+  mode: problemModeSchema.default("standard"),
+  samples: problemSamplesSchema.optional(),
+  advancedImageRef: z.string().max(500).optional(),
+  advancedImageSource: problemImageSourceSchema.optional()
 });
 
 export const problemUpdateSchema = problemCreateSchema.partial();
