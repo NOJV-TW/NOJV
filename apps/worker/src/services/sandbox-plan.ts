@@ -28,17 +28,13 @@ export function buildSandboxConfigJson(
     submissionType: request.submissionType,
     limits: request.limits,
     ...(request.entryFile ? { entryFile: request.entryFile } : {}),
-    ...(request.template ? { template: request.template } : {}),
     ...(request.judgeConfig.checkerLanguage
       ? { checkerLanguage: request.judgeConfig.checkerLanguage }
       : {}),
     ...(request.judgeConfig.interactorLanguage
       ? { interactorLanguage: request.judgeConfig.interactorLanguage }
       : {}),
-    ...(request.pipeline ? { pipeline: request.pipeline } : {}),
-    ...(request.staticAnalysis ? { staticAnalysis: request.staticAnalysis } : {}),
-    ...(request.scoring ? { scoring: request.scoring } : {}),
-    ...(request.artifactCollection ? { artifactCollection: request.artifactCollection } : {}),
+    ...(request.compare ? { compare: request.compare } : {}),
     ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
   };
 }

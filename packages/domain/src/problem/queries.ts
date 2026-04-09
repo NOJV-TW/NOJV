@@ -13,18 +13,14 @@ import {
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
+  type ProblemImageSource,
+  type ProblemMode,
   type ProblemStatus,
   type ProblemVisibility,
   type SubmissionType
 } from "@nojv/core";
 
 // ─── Types ──────────────────────────────────────────────────────────
-
-export interface TemplateInfo {
-  driverCode: string;
-  insertionMarker: string;
-  templateCode: string;
-}
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -35,19 +31,39 @@ export interface ProblemDetail {
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
+  mode: ProblemMode;
   outputFormat: string;
-  samples: { explanation: string; input: string; output: string }[];
+  samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;
   submissionType: SubmissionType;
   summary: string;
   tags: string[];
-  templates: Partial<Record<string, TemplateInfo>>;
   timeLimitMs: number;
   title: string;
   totalSubmissions: number;
   visibility: ProblemVisibility;
+  /**
+   * Visible workspace files for the student editor. `"hidden"` files are
+   * intentionally excluded — the domain layer filters them out before
+   * returning so they never reach the client.
+   */
+  workspaceFiles: {
+    language: string;
+    path: string;
+    content: string;
+    visibility: "editable" | "readonly";
+    editableRegions: [number, number][] | null;
+  }[];
+  // Phase 7: advanced-mode metadata
+  advancedImageRef: string | null;
+  advancedImageSource: ProblemImageSource | null;
+  advancedResourceLimits: {
+    totalTimeMs: number;
+    memoryMb: number;
+    networkEnabled: boolean;
+  } | null;
 }
 
 /**
@@ -102,68 +118,64 @@ import { pickProblemStatement } from "../shared/pick-problem-statement";
 // ─── Internal helpers ───────────────────────────────────────────────
 
 function buildProblemSamples(problem: {
-  testcaseSets?: {
-    isHidden: boolean;
-    testcases: {
-      expectedStdout: string | null;
-      stdin: string;
-    }[];
-  }[];
-}) {
-  const visibleSet =
-    problem.testcaseSets?.find((testcaseSet) => !testcaseSet.isHidden) ??
-    problem.testcaseSets?.[0];
-
-  if (!visibleSet || visibleSet.testcases.length === 0) {
-    return [];
-  }
-
-  return visibleSet.testcases.map((tc) => ({
-    explanation: "",
-    input: tc.stdin,
-    output: tc.expectedStdout ?? ""
-  }));
+  samples?: unknown;
+}): { stdin: string; expected: string }[] {
+  if (!Array.isArray(problem.samples)) return [];
+  return problem.samples
+    .filter(
+      (s): s is { stdin: string; expected: string } =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof (s as { stdin?: unknown }).stdin === "string" &&
+        typeof (s as { expected?: unknown }).expected === "string"
+    )
+    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
-function buildTemplatesMap(
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: string;
-    templateCode: string;
-  }[]
-): Partial<Record<string, TemplateInfo>> {
-  const map: Partial<Record<string, TemplateInfo>> = {};
-
-  for (const tpl of templates) {
-    map[tpl.language] = {
-      driverCode: tpl.driverCode,
-      insertionMarker: tpl.insertionMarker,
-      templateCode: tpl.templateCode
-    };
-  }
-
-  return map;
-}
-
+/**
+ * Build the starter-code map shown in the student editor.
+ *
+ * For each language in the hardcoded fallback table: if the problem has at
+ * least one `editable` workspace file for that language, use the content of
+ * the first one (already ordered by `orderIndex`, then `path` from the repo
+ * layer). Otherwise fall back to the hardcoded stub.
+ *
+ * The hardcoded map is retained as a fallback for problems that haven't been
+ * migrated to the workspace-file model.
+ */
 function buildStarterByLanguage(
-  submissionType: string,
-  templates: {
-    language: string;
-    templateCode: string;
-  }[]
+  workspaceFiles: { language: string; path: string; visibility: string; content: string }[] = []
 ): Record<string, string> {
-  if (submissionType === "function" && templates.length > 0) {
-    const starter: Record<string, string> = { ...starterByLanguage };
-
-    for (const tpl of templates) {
-      starter[tpl.language] = tpl.templateCode;
+  const result: Record<string, string> = { ...starterByLanguage };
+  for (const lang of Object.keys(result)) {
+    const first = workspaceFiles.find(
+      (f) => f.language === lang && f.visibility === "editable"
+    );
+    if (first) {
+      result[lang] = first.content;
     }
-
-    return starter;
   }
+  return result;
+}
 
-  return { ...starterByLanguage };
+/**
+ * Runtime-parse `ProblemWorkspaceFile.editableRegions`. The column is
+ * stored as `Json?` so we can't trust the structural type. Returns `null`
+ * (whole file editable) on any malformed input.
+ */
+function parseEditableRegions(raw: unknown): [number, number][] | null {
+  if (raw === null || raw === undefined) return null;
+  if (!Array.isArray(raw)) return null;
+  const result: [number, number][] = [];
+  for (const entry of raw) {
+    if (!Array.isArray(entry) || entry.length !== 2) return null;
+    const [start, end] = entry as [unknown, unknown];
+    if (typeof start !== "number" || typeof end !== "number") return null;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    if (start < 1 || end < start) return null;
+    result.push([start, end]);
+  }
+  return result;
 }
 
 function mapPersistedProblemDetail(
@@ -174,6 +186,7 @@ function mapPersistedProblemDetail(
     id: string;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
+    samples?: unknown;
     statements?: {
       bodyMarkdown: string;
       inputFormat?: string;
@@ -184,22 +197,21 @@ function mapPersistedProblemDetail(
     submissionType?: string;
     summary: string;
     tags?: string[];
-    templates?: {
-      driverCode: string;
-      insertionMarker: string;
-      language: string;
-      templateCode: string;
-    }[];
-    testcaseSets?: {
-      isHidden: boolean;
-      testcases: {
-        expectedStdout: string | null;
-        stdin: string;
-      }[];
-    }[];
     status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
+    mode?: ProblemMode | null;
+    advancedImageRef?: string | null;
+    advancedImageSource?: ProblemImageSource | null;
+    advancedResourceLimits?: unknown;
+    workspaceFiles?: {
+      language: string;
+      path: string;
+      content: string;
+      visibility: string;
+      editableRegions?: unknown;
+      orderIndex?: number;
+    }[];
   },
   locale: string,
   totalSubmissions: number,
@@ -213,11 +225,23 @@ function mapPersistedProblemDetail(
   );
 
   const submissionType = parseSubmissionType(problem.submissionType);
-  const problemTemplates = problem.templates ?? [];
 
   const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "standard"
   };
+
+  // SECURITY: drop any hidden workspace files before they leave the domain
+  // layer. Hidden files are merged into the sandbox at judging time from the
+  // DB directly — they must never be exposed to the client.
+  const visibleWorkspaceFiles = (problem.workspaceFiles ?? [])
+    .filter((f) => f.visibility === "editable" || f.visibility === "readonly")
+    .map((f) => ({
+      language: f.language,
+      path: f.path,
+      content: f.content,
+      visibility: f.visibility as "editable" | "readonly",
+      editableRegions: parseEditableRegions(f.editableRegions)
+    }));
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
@@ -228,20 +252,36 @@ function mapPersistedProblemDetail(
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
+    mode: problem.mode ?? "standard",
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
-    starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),
+    starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
     submissionType,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     tags: problem.tags ?? [],
-    templates: buildTemplatesMap(problemTemplates),
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
     totalSubmissions,
-    visibility: problem.visibility
+    visibility: problem.visibility,
+    workspaceFiles: visibleWorkspaceFiles,
+    advancedImageRef: problem.advancedImageRef ?? null,
+    advancedImageSource: problem.advancedImageSource ?? null,
+    advancedResourceLimits: parseAdvancedResourceLimits(problem.advancedResourceLimits)
   };
+}
+
+function parseAdvancedResourceLimits(
+  raw: unknown
+): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
+  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
+  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
+  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
+  return { totalTimeMs, memoryMb, networkEnabled };
 }
 
 // ─── Public query functions ─────────────────────────────────────────

@@ -8,14 +8,23 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
 
   let creating = $state(false);
+  let showCreateMenu = $state(false);
 
-  async function handleCreate() {
+  async function handleCreate(mode: "standard" | "advanced" = "standard") {
     creating = true;
+    showCreateMenu = false;
     try {
-      const res = await fetch("/api/problems/create", { method: "POST" });
+      const res = await fetch("/api/problems/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode })
+      });
       if (!res.ok) throw new Error("Failed to create problem");
-      const { id } = await res.json();
-      await goto(`/problems/${id}/edit`);
+      const body = (await res.json()) as { id: string; mode: "standard" | "advanced" };
+      const targetPath = body.mode === "advanced"
+        ? `/problems/${body.id}/edit-advanced`
+        : `/problems/${body.id}/edit`;
+      await goto(targetPath);
     } finally {
       creating = false;
     }
@@ -263,14 +272,44 @@
     >
       {m.problems_myProblems()}
     </button>
-    <button
-      class="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={creating}
-      onclick={handleCreate}
-      type="button"
-    >
-      + {creating ? m.common_saving() : m.problems_createNew()}
-    </button>
+    <div class="relative ml-auto">
+      <button
+        class="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={creating}
+        onclick={() => { showCreateMenu = !showCreateMenu; }}
+        type="button"
+      >
+        + {creating ? m.common_saving() : m.problems_createNew()}
+        <span class="text-xs opacity-70">▾</span>
+      </button>
+      {#if showCreateMenu}
+        <div
+          class="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-border bg-[color:var(--color-panel)] p-2 shadow-lg"
+          role="menu"
+        >
+          <button
+            class="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
+            onclick={() => void handleCreate("standard")}
+            type="button"
+          >
+            <span class="font-semibold">Standard problem</span>
+            <span class="text-xs text-muted-foreground">
+              stdin/stdout, compile/run/check, 80% of cases
+            </span>
+          </button>
+          <button
+            class="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
+            onclick={() => void handleCreate("advanced")}
+            type="button"
+          >
+            <span class="font-semibold">🔧 Advanced (custom image)</span>
+            <span class="text-xs text-muted-foreground">
+              TA provides a Docker image that handles grading
+            </span>
+          </button>
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
 

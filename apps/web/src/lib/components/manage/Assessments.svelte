@@ -10,8 +10,14 @@
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { onMount } from "svelte";
-  import { supportedLanguages, type AssessmentScoreboardMode, type Language } from "@nojv/core";
+  import {
+    supportedLanguages,
+    type AdjustmentRule,
+    type AssessmentScoreboardMode,
+    type Language
+  } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
+  import AdjustmentRulesEditor from "./AdjustmentRulesEditor.svelte";
 
   import type { courseDomain } from "@nojv/domain";
   type CourseAssessmentRecord = courseDomain.CourseAssessmentRecord;
@@ -37,6 +43,7 @@
       slug: string;
       summary: string;
       title: string;
+      adjustmentRules?: AdjustmentRule[] | undefined;
     }>;
     problemIds: string[];
   }
@@ -145,6 +152,7 @@
   const defaultWindow = createDefaultAssessmentWindow();
 
   const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
+    dataType: "json",
     invalidateAll: true
   });
 
@@ -154,6 +162,13 @@
   if (!$form.closesAt) $form.closesAt = defaultWindow.closesAt;
   if (!$form.problemIdsText) $form.problemIdsText = initialProblemSlugs.join(", ");
   if (!$form.allowedLanguages) $form.allowedLanguages = [];
+
+  // Adjustment rules — kept as a separate $state so AdjustmentRulesEditor
+  // can bind to it, then synced into the form on every change.
+  let adjustmentRules = $state<AdjustmentRule[]>($form.adjustmentRules ?? []);
+  $effect(() => {
+    $form.adjustmentRules = adjustmentRules;
+  });
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
@@ -477,6 +492,9 @@
           placeholder={t("noLimit")}
           bind:value={$form.maxAttempts}
         />
+      </div>
+      <div class="mt-2 rounded-xl border border-border p-3">
+        <AdjustmentRulesEditor bind:rules={adjustmentRules} />
       </div>
       <button
         class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"

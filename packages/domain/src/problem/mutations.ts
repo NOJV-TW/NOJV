@@ -1,18 +1,22 @@
 import {
+  advancedTestcaseRepo,
+  Prisma,
   problemRepo,
   problemStatementRepo,
-  problemTemplateRepo,
+  problemWorkspaceFileRepo,
   runTransaction,
   testcaseRepo,
   testcaseSetRepo,
-  type Prisma,
   type TransactionClient
 } from "@nojv/db";
 import type {
+  AdvancedResourceLimits,
   Language,
   PlatformRole,
   ProblemCreate,
   ProblemDifficulty,
+  ProblemImageSource,
+  ProblemMode,
   ProblemStatus,
   ProblemTestcaseSetCreate,
   ProblemUpdate,
@@ -23,7 +27,7 @@ import type {
 } from "@nojv/core";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
@@ -56,6 +60,11 @@ export interface CreateProblemDefinitionInput {
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
+  // Phase 1 redesign: mode + advanced image/resource fields
+  mode?: ProblemMode | undefined;
+  advancedImageRef?: string | undefined;
+  advancedImageSource?: ProblemImageSource | undefined;
+  advancedResourceLimits?: AdvancedResourceLimits | undefined;
 }
 
 // ─── Shared problem helpers ─────────────────────────────────────────
@@ -64,11 +73,14 @@ export async function createProblemDefinition(
   tx: TransactionClient,
   input: CreateProblemDefinitionInput
 ) {
+  const mode: ProblemMode = input.mode ?? "standard";
   const createData: Prisma.ProblemUncheckedCreateInput = {
     authorId: input.authorId ?? null,
     defaultTitle: input.title,
     difficulty: input.difficulty,
     memoryLimitMb: input.memoryLimitMb ?? 256,
+    mode,
+    samples: Prisma.JsonNull,
     status: input.status ?? "published",
     submissionType: input.submissionType ?? "full_source",
     summary: input.summary,
@@ -78,6 +90,17 @@ export async function createProblemDefinition(
   };
   if (input.judgeConfig !== undefined) {
     createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
+  }
+  if (mode === "advanced") {
+    createData.advancedImageRef = input.advancedImageRef ?? "";
+    createData.advancedImageSource = input.advancedImageSource ?? "registry";
+    createData.advancedResourceLimits = (input.advancedResourceLimits ?? {
+      totalTimeMs: 30_000,
+      memoryMb: 512,
+      networkEnabled: false
+    }) satisfies Prisma.InputJsonValue;
+  } else {
+    createData.advancedResourceLimits = Prisma.JsonNull;
   }
   const problem = await problemRepo.withTx(tx).create(createData);
 
@@ -120,34 +143,6 @@ export function assertCourseProblemAccess(
   }
 }
 
-export async function replaceTemplates(
-  tx: TransactionClient,
-  problemId: string,
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: Language;
-    templateCode: string;
-  }[]
-) {
-  // Lock the problem row to prevent concurrent template modifications
-  await problemRepo.withTx(tx).lockForUpdate(problemId);
-
-  await problemTemplateRepo.withTx(tx).deleteByProblemId(problemId);
-
-  if (templates.length > 0) {
-    await problemTemplateRepo.withTx(tx).createMany(
-      templates.map((tpl) => ({
-        driverCode: tpl.driverCode,
-        insertionMarker: tpl.insertionMarker,
-        language: tpl.language,
-        problemId,
-        templateCode: tpl.templateCode
-      }))
-    );
-  }
-}
-
 function assertProblemOwnership(
   problem: { authorId: string | null },
   actor: ProblemActorContext
@@ -155,26 +150,6 @@ function assertProblemOwnership(
   if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
     throw new ForbiddenError("Only the author or an admin can modify this problem.");
   }
-}
-
-export async function updateProblemTemplates(
-  actor: ProblemActorContext,
-  problemId: string,
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: Language;
-    templateCode: string;
-  }[]
-) {
-  return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
-
-    await replaceTemplates(tx, problem.id, templates);
-
-    return problemTemplateRepo.withTx(tx).findByProblemId(problem.id);
-  });
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
@@ -189,11 +164,15 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
     const author = await ensureUser(tx, actor.userId, actor);
 
     const problem = await createProblemDefinition(tx, {
+      advancedImageRef: payload.advancedImageRef,
+      advancedImageSource: payload.advancedImageSource,
+      advancedResourceLimits: payload.advancedResourceLimits,
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
       judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
+      mode: payload.mode,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
       status: payload.status,
@@ -204,10 +183,6 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       title: payload.title,
       visibility: payload.visibility
     });
-
-    if (payload.templates.length > 0) {
-      await replaceTemplates(tx, problem.id, payload.templates);
-    }
 
     return problem;
   });
@@ -236,6 +211,15 @@ export async function updateProblemRecord(
     if (payload.summary !== undefined) updateData.summary = payload.summary;
     if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
     if (payload.status !== undefined) updateData.status = payload.status;
+    if (payload.mode !== undefined) updateData.mode = payload.mode;
+    if (payload.samples !== undefined) updateData.samples = payload.samples;
+    if (payload.advancedImageRef !== undefined)
+      updateData.advancedImageRef = payload.advancedImageRef;
+    if (payload.advancedImageSource !== undefined)
+      updateData.advancedImageSource = payload.advancedImageSource;
+    if (payload.advancedResourceLimits !== undefined)
+      updateData.advancedResourceLimits =
+        payload.advancedResourceLimits as Prisma.InputJsonValue;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -267,12 +251,200 @@ export async function updateProblemRecord(
       );
     }
 
-    // Update templates if provided
-    if (payload.templates !== undefined) {
-      await replaceTemplates(tx, problem.id, payload.templates);
+    return { id: problem.id };
+  });
+}
+
+/**
+ * Convert a Standard Mode problem to Advanced Mode. The conversion is
+ * intentionally data-lossy: workspace files, testcase sets (and their
+ * testcases via cascade), `samples`, and `judgeConfig` are discarded and
+ * Advanced Mode defaults (empty image ref, registry source, default
+ * resource limits) are written. The UI shows an explicit warning before
+ * calling this.
+ *
+ * Throws `ConflictError` if the problem is already in advanced mode.
+ */
+export async function convertProblemToAdvancedMode(
+  actor: ProblemActorContext,
+  problemId: string
+): Promise<void> {
+  await runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+
+    if (problem.mode === "advanced") {
+      throw new ConflictError("Problem is already in advanced mode.");
     }
 
-    return { id: problem.id };
+    // Drop workspace files and testcase sets. Testcases cascade via the
+    // `onDelete: Cascade` relation on Testcase.testcaseSetId.
+    await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
+    await testcaseSetRepo.withTx(tx).deleteByProblemId(problem.id);
+
+    // Advanced Mode ignores judgeConfig, but the column is `Json?` and
+    // callers still read it; write a minimal valid value rather than
+    // leaving whatever standard-mode config was there.
+    const resetJudgeConfig = {
+      type: "standard",
+      runtime: {
+        timeLimitMs: 30_000,
+        memoryLimitMb: 512,
+        env: {}
+      }
+    } satisfies Prisma.InputJsonValue;
+
+    await problemRepo.withTx(tx).update(problem.id, {
+      mode: "advanced",
+      samples: Prisma.JsonNull,
+      judgeConfig: resetJudgeConfig,
+      advancedImageRef: "",
+      advancedImageSource: "registry",
+      advancedResourceLimits: {
+        totalTimeMs: 30_000,
+        memoryMb: 512,
+        networkEnabled: false
+      } satisfies Prisma.InputJsonValue
+    });
+  });
+}
+
+export interface UpdateWorkspacePayload {
+  runtime?: {
+    timeLimitMs: number;
+    memoryLimitMb: number;
+    env: Record<string, string>;
+  };
+  allowedLanguages?: Language[];
+  files: {
+    language: Language;
+    path: string;
+    content: string;
+    visibility: "editable" | "readonly" | "hidden";
+    editableRegions: [number, number][] | null;
+    orderIndex?: number;
+  }[];
+}
+
+/**
+ * Soft quota enforced on every workspace save: each `(problem, language)`
+ * pair is capped at 1 MB of total UTF-8 content across all files. The
+ * per-file 200 KB cap is enforced earlier via the zod schema in
+ * `@nojv/core`; this constant is the per-language aggregate.
+ */
+const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576; // 1 MB
+
+/**
+ * Replace the workspace files for a problem and (optionally) update the
+ * runtime config + allowed languages on the judge config.
+ *
+ * Replacement is wholesale: the existing ProblemWorkspaceFile rows are
+ * deleted and the new list is inserted. This keeps the API simple for
+ * callers and matches how the editor actually works (the whole payload
+ * is sent on save).
+ */
+export async function updateProblemWorkspace(
+  actor: ProblemActorContext,
+  problemId: string,
+  payload: UpdateWorkspacePayload
+) {
+  // Aggregate byte totals per language. Using Buffer.byteLength for an
+  // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
+  // which under-counts multi-byte characters.
+  const totalsByLanguage = new Map<string, number>();
+  for (const file of payload.files) {
+    const bytes = Buffer.byteLength(file.content, "utf8");
+    totalsByLanguage.set(file.language, (totalsByLanguage.get(file.language) ?? 0) + bytes);
+  }
+  for (const [language, total] of totalsByLanguage) {
+    if (total > MAX_WORKSPACE_BYTES_PER_LANGUAGE) {
+      throw new Error(
+        `Workspace files for language "${language}" exceed 1 MB limit (${String(total)} bytes).`
+      );
+    }
+  }
+
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+
+    // Replace workspace files.
+    await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
+    if (payload.files.length > 0) {
+      const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = payload.files.map(
+        (f, index) => {
+          const base: Prisma.ProblemWorkspaceFileCreateManyInput = {
+            content: f.content,
+            language: f.language,
+            orderIndex: f.orderIndex ?? index,
+            path: f.path,
+            problemId: problem.id,
+            visibility: f.visibility
+          };
+          if (f.editableRegions !== null) {
+            base.editableRegions = f.editableRegions as Prisma.InputJsonValue;
+          }
+          return base;
+        }
+      );
+      await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
+    }
+
+    // Merge runtime into judgeConfig.runtime. Keep other judgeConfig
+    // keys intact so the caller can save workspace without clobbering
+    // the judge settings.
+    if (payload.runtime) {
+      const currentConfig = (problem.judgeConfig as Record<string, unknown> | null) ?? {};
+      const nextConfig = {
+        ...currentConfig,
+        runtime: payload.runtime
+      };
+      await problemRepo.withTx(tx).update(problem.id, {
+        judgeConfig: nextConfig as Prisma.InputJsonValue,
+        memoryLimitMb: payload.runtime.memoryLimitMb,
+        timeLimitMs: payload.runtime.timeLimitMs
+      });
+    }
+
+    return { id: problem.id, fileCount: payload.files.length };
+  });
+}
+
+export interface AdvancedTestcasePayload {
+  stdin: string;
+  expected: string;
+  files: Record<string, string>;
+}
+
+/**
+ * Replace the Advanced Mode testcase bag for a problem. Wholesale
+ * replacement keeps the API simple for the UI (which ships the whole
+ * list on save).
+ */
+export async function replaceAdvancedTestcases(
+  actor: ProblemActorContext,
+  problemId: string,
+  cases: AdvancedTestcasePayload[]
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+
+    await advancedTestcaseRepo.withTx(tx).deleteByProblemId(problem.id);
+
+    if (cases.length > 0) {
+      await advancedTestcaseRepo.withTx(tx).createMany(
+        cases.map((c, index) => ({
+          expected: c.expected,
+          files: c.files as Prisma.InputJsonValue,
+          ordinal: index,
+          problemId: problem.id,
+          stdin: c.stdin
+        }))
+      );
+    }
+
+    return { id: problem.id, count: cases.length };
   });
 }
 
@@ -287,7 +459,6 @@ export async function createProblemTestcaseSetRecord(
     assertProblemOwnership(problem, actor);
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
-      isHidden: payload.isHidden,
       name: payload.name,
       problemId: problem.id,
       weight: payload.weight
@@ -305,7 +476,6 @@ export async function createProblemTestcaseSetRecord(
     return {
       caseCount: payload.cases.length,
       id: testcaseSet.id,
-      isHidden: testcaseSet.isHidden,
       name: testcaseSet.name
     };
   });

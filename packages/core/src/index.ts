@@ -5,6 +5,8 @@ export * from "./schemas/course";
 export * from "./schemas/contest";
 export * from "./schemas/submission";
 export * from "./schemas/judge-config";
+export * from "./schemas/assessment-adjustments";
+export * from "./schemas/advanced-mode";
 export * from "./queue";
 export * from "./sandbox";
 export * from "./pipeline";

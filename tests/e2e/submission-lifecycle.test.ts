@@ -274,7 +274,6 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     const body = await postFormAction(page, `/problems/${problemId}/edit?/createTestcaseSet`, {
       data: JSON.stringify({
         name: "Sample",
-        isHidden: false,
         weight: 1,
         cases: SAMPLE_CASES
       })
@@ -292,7 +291,6 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     const body = await postFormAction(page, `/problems/${problemId}/edit?/createTestcaseSet`, {
       data: JSON.stringify({
         name: "Hidden",
-        isHidden: true,
         weight: 2,
         cases: HIDDEN_CASES
       })

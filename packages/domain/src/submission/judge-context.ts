@@ -1,14 +1,19 @@
 import { submissionRepo } from "@nojv/db";
 import type { Prisma } from "@nojv/db";
 import type {
+  AdjustmentRules,
+  Compare,
   JudgeConfig,
   JudgeType,
-  NetworkAccessConfig,
-  PipelineConfig,
+  ProblemImageSource,
   ProblemJudgeTestcase,
+  ProblemMode,
+  ProblemSample,
+  Runtime,
   SubmissionDraft,
   SubmissionResult,
-  SubmissionType
+  SubmissionType,
+  WorkspaceFileVisibility
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -18,33 +23,67 @@ import { toJsonValue } from "../shared/to-json-value";
 
 export interface TestcaseSetGroup {
   id: string;
-  isHidden: boolean;
   name: string;
   testcases: ProblemJudgeTestcase[];
   weight: number;
 }
 
+export interface WorkspaceFileEntry {
+  content: string;
+  editableRegions: [number, number][] | null;
+  language: string;
+  orderIndex: number;
+  path: string;
+  visibility: WorkspaceFileVisibility;
+}
+
+export type SubtaskStrategyMap = Record<string, "all_or_nothing" | "proportional" | "minimum">;
+
+export interface AdjustmentContext {
+  assessmentAdjustmentRules: AdjustmentRules | null;
+  contestAdjustmentRules: AdjustmentRules | null;
+  dueAt: Date | null;
+  submittedAt: Date;
+}
+
+export interface AdvancedModeContext {
+  imageRef: string;
+  imageSource: ProblemImageSource;
+  resourceLimits: {
+    totalTimeMs: number;
+    memoryMb: number;
+    networkEnabled: boolean;
+  };
+  testcases: {
+    stdin: string;
+    expected: string;
+    files: Record<string, string>;
+  }[];
+}
+
 export interface SubmissionJudgeContext {
-  artifactPatterns: string[];
+  adjustment: AdjustmentContext;
   checkerScript: string | null;
+  compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
   memoryLimitMb: number;
-  networkAccessConfig: NetworkAccessConfig | null;
-  pipelineConfig: PipelineConfig | null;
   problemId: string;
-  scoringLanguage: string | null;
-  scoringScript: string | null;
+  runtime: Runtime;
+  samples: ProblemSample[];
   submissionType: SubmissionType;
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: string;
-    templateCode: string;
-  }[];
+  subtaskStrategies: SubtaskStrategyMap;
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
+  workspaceFiles: WorkspaceFileEntry[];
+  /**
+   * Phase 7: when the problem is in advanced mode, this carries the
+   * TA-provided judge image ref + resource limits. The downstream judge
+   * activity uses it to populate `SandboxRequest.advanced`.
+   */
+  mode: ProblemMode;
+  advanced: AdvancedModeContext | null;
 }
 
 export interface CompletedSubmission {
@@ -72,41 +111,118 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
     id: ts.id,
-    isHidden: ts.isHidden,
     name: ts.name,
     testcases: ts.testcases.map((testcase) => ({
       expectedStdout: testcase.expectedStdout ?? undefined,
       id: testcase.id,
       inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-      isHidden: ts.isHidden,
       stdin: testcase.stdin,
       weight: ts.weight
     })),
     weight: ts.weight
   }));
 
-  return {
-    artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
-    checkerScript: judgeConfig.checkerScript ?? null,
-    interactorScript: judgeConfig.interactorScript ?? null,
-    judgeType: judgeConfig.type,
+  // Samples come from Problem.samples JSON (Phase 1 column).
+  const samples = collectSamples(problem);
+
+  // Runtime: authoritative source is judgeConfig.runtime. Legacy problems
+  // fall back to Problem.timeLimitMs / memoryLimitMb.
+  const runtime: Runtime = judgeConfig.runtime ?? {
+    env: {},
     memoryLimitMb: problem.memoryLimitMb,
-    networkAccessConfig: judgeConfig.networkAccess ?? null,
-    pipelineConfig: (judgeConfig.pipeline as PipelineConfig | undefined) ?? null,
-    problemId: submission.problemId,
-    scoringLanguage: judgeConfig.scoring?.language ?? null,
-    scoringScript: judgeConfig.scoring?.script ?? null,
-    submissionType: problem.submissionType,
-    templates: problem.templates.map((t) => ({
-      driverCode: t.driverCode,
-      insertionMarker: t.insertionMarker,
-      language: t.language,
-      templateCode: t.templateCode
-    })),
-    testcaseSets,
-    testcases: testcaseSets.flatMap((ts) => ts.testcases),
     timeLimitMs: problem.timeLimitMs
   };
+
+  const subtaskStrategies: SubtaskStrategyMap =
+    (judgeConfig.scoring?.subtaskStrategies as SubtaskStrategyMap | undefined) ?? {};
+
+  const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
+    content: f.content,
+    editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+    language: f.language,
+    orderIndex: f.orderIndex,
+    path: f.path,
+    visibility: f.visibility as WorkspaceFileVisibility
+  }));
+
+  const assessment = submission.courseAssessment;
+  const contest = submission.contestParticipation?.contest ?? null;
+
+  const adjustment: AdjustmentContext = {
+    assessmentAdjustmentRules: (assessment?.adjustmentRules as AdjustmentRules | null) ?? null,
+    contestAdjustmentRules: (contest?.adjustmentRules as AdjustmentRules | null) ?? null,
+    dueAt: assessment?.dueAt ?? contest?.endsAt ?? null,
+    submittedAt: submission.createdAt
+  };
+
+  // Phase 7: surface advanced-mode container config when the problem is in
+  // advanced mode. Reads Problem.advancedResourceLimits if set, otherwise
+  // falls back to safe defaults.
+  const mode: ProblemMode = problem.mode;
+  const parsedLimits = parseAdvancedResourceLimits(problem.advancedResourceLimits);
+  const advancedTestcases = problem.advancedTestcases.map((c) => ({
+    stdin: c.stdin,
+    expected: c.expected,
+    files: (c.files as Record<string, string> | null) ?? {}
+  }));
+  const advanced: AdvancedModeContext | null =
+    mode === "advanced" && problem.advancedImageRef && problem.advancedImageSource
+      ? {
+          imageRef: problem.advancedImageRef,
+          imageSource: problem.advancedImageSource as ProblemImageSource,
+          resourceLimits: parsedLimits ?? {
+            totalTimeMs: 30_000,
+            memoryMb: 1_024,
+            networkEnabled: false
+          },
+          testcases: advancedTestcases
+        }
+      : null;
+
+  return {
+    adjustment,
+    checkerScript: judgeConfig.checkerScript ?? null,
+    compare: judgeConfig.compare ?? null,
+    interactorScript: judgeConfig.interactorScript ?? null,
+    judgeType: judgeConfig.type,
+    memoryLimitMb: runtime.memoryLimitMb,
+    problemId: submission.problemId,
+    runtime,
+    samples,
+    submissionType: problem.submissionType,
+    subtaskStrategies,
+    testcaseSets,
+    testcases: testcaseSets.flatMap((ts) => ts.testcases),
+    timeLimitMs: runtime.timeLimitMs,
+    workspaceFiles,
+    mode,
+    advanced
+  };
+}
+
+function collectSamples(problem: { samples: unknown }): ProblemSample[] {
+  if (!Array.isArray(problem.samples)) return [];
+  return problem.samples
+    .filter(
+      (s): s is { stdin: string; expected: string } =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof (s as { stdin?: unknown }).stdin === "string" &&
+        typeof (s as { expected?: unknown }).expected === "string"
+    )
+    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
+}
+
+function parseAdvancedResourceLimits(
+  raw: unknown
+): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const obj = raw as Record<string, unknown>;
+  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
+  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
+  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
+  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
+  return { totalTimeMs, memoryMb, networkEnabled };
 }
 
 export async function updateSubmissionStatus(
@@ -126,9 +242,7 @@ export async function completeJudge(
     score: result.score,
     status: result.verdict,
     verdictDetail: toJsonValue(result),
-    ...(result.subtaskResults ? { subtaskResults: toJsonValue(result.subtaskResults) } : {}),
-    ...(result.pipelineResult ? { pipelineResult: toJsonValue(result.pipelineResult) } : {}),
-    ...(result.artifactPaths ? { artifactPaths: result.artifactPaths } : {})
+    ...(result.subtaskResults ? { subtaskResults: toJsonValue(result.subtaskResults) } : {})
   });
 
   return {

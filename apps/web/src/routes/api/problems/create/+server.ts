@@ -13,21 +13,29 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(403, "Verify school email first");
   }
 
+  let mode: "standard" | "advanced" = "standard";
+  try {
+    const body = (await event.request.json().catch(() => null)) as { mode?: unknown } | null;
+    if (body?.mode === "advanced") mode = "advanced";
+  } catch {
+    // ignore — GET / no body is fine, defaults to standard
+  }
+
   const result = await createProblemRecord(actor, {
     difficulty: "medium",
     inputFormat: "",
     memoryLimitMb: 256,
+    mode,
     outputFormat: "",
     statement: "",
     status: "draft",
     submissionType: "full_source",
     summary: "",
     tags: [],
-    templates: [],
     timeLimitMs: 1000,
     title: "Untitled Problem",
     visibility: "private"
   });
 
-  return json({ id: result.id });
+  return json({ id: result.id, mode });
 });

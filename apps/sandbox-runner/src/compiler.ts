@@ -10,25 +10,13 @@ export type CompileResult =
   | { success: false; error: string };
 
 /**
- * For function-mode submissions, inject user source code into the driver
- * template at the insertion marker position.
+ * Phase 5: function-mode templates are gone. Student source is shipped
+ * in full via `sourceFiles` from the workspace model. This helper is
+ * kept as an identity function for any callers still on the legacy
+ * code path.
  */
-export function assembleSource(userSource: string, input: SandboxInput): string {
-  if (input.submissionType === "full_source") {
-    return userSource;
-  }
-
-  if (!input.template) {
-    throw new Error("Function-mode submission requires a template in config.json.");
-  }
-
-  if (!input.template.driverCode.includes(input.template.insertionMarker)) {
-    throw new Error(
-      `Driver code does not contain insertion marker "${input.template.insertionMarker}".`
-    );
-  }
-
-  return input.template.driverCode.replace(input.template.insertionMarker, userSource);
+export function assembleSource(userSource: string, _input: SandboxInput): string {
+  return userSource;
 }
 
 /** Returns the source file name for a given language. */
@@ -176,7 +164,10 @@ function compileWithCommand(
     const proc = spawn(cmd, args, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
-      timeout: 30_000
+      // 90s accommodates Go/Rust/Java cold-start compiles on GitHub Actions
+      // runners where toolchain cache priming can eat 30+ seconds. Local
+      // warm builds finish in <5s regardless.
+      timeout: 90_000
     });
 
     const stderrChunks: Buffer[] = [];

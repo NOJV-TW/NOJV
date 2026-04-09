@@ -1,6 +1,5 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { SupportedLanguage } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
@@ -17,7 +16,7 @@ export const problemRepo = {
     });
   },
 
-  /** Fetch full problem page data with statements, templates, testcase sets. */
+  /** Fetch full problem page data with statements, workspace files, testcase sets. */
   findDetailById(id: string) {
     return prisma.problem.findUnique({
       include: {
@@ -26,7 +25,9 @@ export const problemRepo = {
         },
         author: { select: { username: true } },
         statements: true,
-        templates: { orderBy: { language: "asc" } },
+        workspaceFiles: {
+          orderBy: [{ language: "asc" }, { orderIndex: "asc" }, { path: "asc" }]
+        },
         testcaseSets: {
           include: {
             _count: { select: { testcases: true } },
@@ -207,29 +208,47 @@ export const problemStatementRepo = {
   }
 };
 
-export const problemTemplateRepo = {
+export const problemWorkspaceFileRepo = {
+  findByProblemId(problemId: string) {
+    return prisma.problemWorkspaceFile.findMany({
+      where: { problemId },
+      orderBy: [
+        { language: "asc" as const },
+        { orderIndex: "asc" as const },
+        { path: "asc" as const }
+      ]
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
-      findByProblemAndLanguage(problemId: string, language: SupportedLanguage) {
-        return tx.problemTemplate.findFirst({
-          where: { problemId, language },
-          select: { id: true }
-        });
-      },
-
       deleteByProblemId(problemId: string) {
-        return tx.problemTemplate.deleteMany({ where: { problemId } });
+        return tx.problemWorkspaceFile.deleteMany({ where: { problemId } });
       },
 
-      createMany(data: Prisma.ProblemTemplateCreateManyInput[]) {
-        return tx.problemTemplate.createMany({ data });
+      createMany(data: Prisma.ProblemWorkspaceFileCreateManyInput[]) {
+        return tx.problemWorkspaceFile.createMany({ data });
+      }
+    };
+  }
+};
+
+export const advancedTestcaseRepo = {
+  findByProblemId(problemId: string) {
+    return prisma.advancedTestcase.findMany({
+      where: { problemId },
+      orderBy: { ordinal: "asc" as const }
+    });
+  },
+
+  withTx(tx: TxClient) {
+    return {
+      deleteByProblemId(problemId: string) {
+        return tx.advancedTestcase.deleteMany({ where: { problemId } });
       },
 
-      findByProblemId(problemId: string) {
-        return tx.problemTemplate.findMany({
-          orderBy: { language: "asc" },
-          where: { problemId }
-        });
+      createMany(data: Prisma.AdvancedTestcaseCreateManyInput[]) {
+        return tx.advancedTestcase.createMany({ data });
       }
     };
   }
@@ -263,6 +282,10 @@ export const testcaseSetRepo = {
     return {
       create(data: Prisma.TestcaseSetUncheckedCreateInput) {
         return tx.testcaseSet.create({ data });
+      },
+
+      deleteByProblemId(problemId: string) {
+        return tx.testcaseSet.deleteMany({ where: { problemId } });
       }
     };
   }
