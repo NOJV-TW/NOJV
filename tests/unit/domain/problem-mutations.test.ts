@@ -5,12 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   problemCreate,
   problemStatementCreate,
+  workspaceDeleteByProblemId,
+  workspaceCreateMany,
   problemFindById,
   problemUpdate,
   PRISMA_JSON_NULL
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
   problemStatementCreate: vi.fn(),
+  workspaceDeleteByProblemId: vi.fn(),
+  workspaceCreateMany: vi.fn(),
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
   // Sentinel for Prisma.JsonNull — we only need identity equality in assertions.
@@ -28,6 +32,10 @@ vi.mock("@nojv/db", () => {
     create: problemStatementCreate,
     upsert: vi.fn()
   };
+  const workspaceWithTx = {
+    deleteByProblemId: workspaceDeleteByProblemId,
+    createMany: workspaceCreateMany
+  };
   return {
     Prisma: {
       JsonNull: PRISMA_JSON_NULL
@@ -41,10 +49,7 @@ vi.mock("@nojv/db", () => {
       withTx: () => statementWithTx
     },
     problemWorkspaceFileRepo: {
-      withTx: () => ({
-        deleteByProblemId: vi.fn(),
-        createMany: vi.fn()
-      })
+      withTx: () => workspaceWithTx
     },
     testcaseSetRepo: { withTx: () => ({}) },
     testcaseRepo: { withTx: () => ({}) },
@@ -55,7 +60,7 @@ vi.mock("@nojv/db", () => {
 
 import { problemDomain } from "@nojv/domain";
 
-const { createProblemDefinition } = problemDomain;
+const { createProblemDefinition, updateProblemWorkspace } = problemDomain;
 
 const fakeTx = {} as never;
 
@@ -125,5 +130,119 @@ describe("createProblemDefinition", () => {
       memoryMb: 1024,
       networkEnabled: true
     });
+  });
+});
+
+describe("updateProblemWorkspace — 1 MB per-language quota", () => {
+  const actor = {
+    userId: "usr_author",
+    username: "author",
+    platformRole: "teacher" as const
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: "usr_author",
+      judgeConfig: null
+    });
+    workspaceDeleteByProblemId.mockResolvedValue(undefined);
+    workspaceCreateMany.mockResolvedValue(undefined);
+    problemUpdate.mockResolvedValue(undefined);
+  });
+
+  it("accepts under-budget content (well below 1 MB)", async () => {
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", {
+        files: [
+          {
+            language: "python",
+            path: "main.py",
+            content: "print('hello')\n",
+            visibility: "editable",
+            editableRegions: null
+          }
+        ]
+      })
+    ).resolves.toEqual({ id: "prob_1", fileCount: 1 });
+    expect(workspaceCreateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when a single language exceeds 1 MB across multiple files", async () => {
+    // Two python files, each ~600 KB → ~1.2 MB total for python.
+    const chunk = "a".repeat(600_000);
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", {
+        files: [
+          {
+            language: "python",
+            path: "a.py",
+            content: chunk,
+            visibility: "editable",
+            editableRegions: null
+          },
+          {
+            language: "python",
+            path: "b.py",
+            content: chunk,
+            visibility: "editable",
+            editableRegions: null
+          }
+        ]
+      })
+    ).rejects.toThrow(/python.*1 MB limit.*1200000 bytes/);
+    expect(workspaceDeleteByProblemId).not.toHaveBeenCalled();
+  });
+
+  it("allows a mix where one language fits and another is under-budget", async () => {
+    const pythonChunk = "p".repeat(900_000); // under 1 MB
+    const cppChunk = "c".repeat(500_000);
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", {
+        files: [
+          {
+            language: "python",
+            path: "a.py",
+            content: pythonChunk,
+            visibility: "editable",
+            editableRegions: null
+          },
+          {
+            language: "cpp",
+            path: "a.cpp",
+            content: cppChunk,
+            visibility: "editable",
+            editableRegions: null
+          }
+        ]
+      })
+    ).resolves.toEqual({ id: "prob_1", fileCount: 2 });
+  });
+
+  it("rejects only the offending language when another language fits", async () => {
+    // Python stays well under budget, cpp goes over.
+    const pythonChunk = "p".repeat(10);
+    const cppBig = "c".repeat(1_100_000);
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", {
+        files: [
+          {
+            language: "python",
+            path: "a.py",
+            content: pythonChunk,
+            visibility: "editable",
+            editableRegions: null
+          },
+          {
+            language: "cpp",
+            path: "a.cpp",
+            content: cppBig,
+            visibility: "editable",
+            editableRegions: null
+          }
+        ]
+      })
+    ).rejects.toThrow(/cpp.*1 MB limit.*1100000 bytes/);
   });
 });

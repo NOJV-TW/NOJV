@@ -327,6 +327,14 @@ export interface UpdateWorkspacePayload {
 }
 
 /**
+ * Soft quota enforced on every workspace save: each `(problem, language)`
+ * pair is capped at 1 MB of total UTF-8 content across all files. The
+ * per-file 200 KB cap is enforced earlier via the zod schema in
+ * `@nojv/core`; this constant is the per-language aggregate.
+ */
+const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576; // 1 MB
+
+/**
  * Replace the workspace files for a problem and (optionally) update the
  * runtime config + allowed languages on the judge config.
  *
@@ -340,6 +348,22 @@ export async function updateProblemWorkspace(
   problemId: string,
   payload: UpdateWorkspacePayload
 ) {
+  // Aggregate byte totals per language. Using Buffer.byteLength for an
+  // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
+  // which under-counts multi-byte characters.
+  const totalsByLanguage = new Map<string, number>();
+  for (const file of payload.files) {
+    const bytes = Buffer.byteLength(file.content, "utf8");
+    totalsByLanguage.set(file.language, (totalsByLanguage.get(file.language) ?? 0) + bytes);
+  }
+  for (const [language, total] of totalsByLanguage) {
+    if (total > MAX_WORKSPACE_BYTES_PER_LANGUAGE) {
+      throw new Error(
+        `Workspace files for language "${language}" exceed 1 MB limit (${total} bytes).`
+      );
+    }
+  }
+
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
