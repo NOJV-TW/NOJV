@@ -224,7 +224,9 @@ function emit(state: PipelineState, overrides: Partial<SandboxOutput>): void {
   const output: SandboxOutput = {
     testcaseResults: [],
     ...(state.staticAnalysisResult ? { staticAnalysis: state.staticAnalysisResult } : {}),
-    ...(state.customStageResults.length > 0 ? { customStageResults: state.customStageResults } : {}),
+    ...(state.customStageResults.length > 0
+      ? { customStageResults: state.customStageResults }
+      : {}),
     ...overrides
   };
   process.stdout.write(JSON.stringify(output));
@@ -264,7 +266,8 @@ async function main(): Promise<void> {
   const state: PipelineState = { customStageResults: [] };
 
   const defaultEntry = sourceFileName(config.language);
-  const entryFile = (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
+  const entryFile =
+    (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
   if (config.submissionType === "function") {
@@ -353,7 +356,9 @@ async function main(): Promise<void> {
   if (config.judgeType === "checker") {
     const checkerPath = await findScript("checker");
     if (!checkerPath) {
-      emit(state, { compilationError: "Checker judge requires a checker script in /submission/." });
+      emit(state, {
+        compilationError: "Checker judge requires a checker script in /submission/."
+      });
       return;
     }
 
