@@ -110,7 +110,7 @@ Run a real submission end-to-end through the web UI to confirm the judge pipelin
 
 ## Rollback
 
-Rollback only works if step 6 (volume drop) has not yet been performed *or* if you still have the dump file from step 2.
+Rollback only works if step 6 (volume drop) has not yet been performed _or_ if you still have the dump file from step 2.
 
 ```bash
 # Stop everything
