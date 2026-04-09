@@ -134,7 +134,8 @@ function runInteractive(
           feedback: `Interactor crashed (${interactorSignal}).`
         });
       }
-      if (solutionSignal === "SIGKILL") return resolve({ ...base, verdict: "MLE", stderr: solStderr });
+      if (solutionSignal === "SIGKILL")
+        return resolve({ ...base, verdict: "MLE", stderr: solStderr });
       if (solutionExitCode !== 0) return resolve({ ...base, verdict: "RE", stderr: solStderr });
 
       // Parse interactor's verdict — stderr line 1 = score, lines 2+ = feedback
