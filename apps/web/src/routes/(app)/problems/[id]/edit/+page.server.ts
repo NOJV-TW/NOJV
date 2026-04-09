@@ -13,7 +13,9 @@ import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
-import {
+import { problemDomain } from "@nojv/domain";
+
+const {
   getProblemPageData,
   getProblemTestcaseSets,
   updateProblemRecord,
@@ -24,7 +26,7 @@ import {
   updateTestcaseRecord,
   deleteTestcaseRecord,
   deleteProblemRecord
-} from "$lib/server/problem/queries";
+} = problemDomain;
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
