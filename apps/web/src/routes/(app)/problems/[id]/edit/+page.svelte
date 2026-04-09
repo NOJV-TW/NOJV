@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
@@ -31,26 +32,29 @@
   );
 
   // Build WorkspaceSection initial payload from loaded problem + files.
-  const runtime = (data.problem.judgeConfig?.runtime as
-    | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
-    | undefined) ?? {
-    timeLimitMs: data.problem.timeLimitMs,
-    memoryLimitMb: data.problem.memoryLimitMb,
-    env: {}
-  };
-
-  const workspaceInitial = {
-    runtime,
-    allowedLanguages: [] as Language[],
-    files: data.workspaceFiles.map((f) => ({
-      language: f.language as Language,
-      path: f.path,
-      content: f.content,
-      visibility: f.visibility as "editable" | "readonly" | "hidden",
-      editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
-      orderIndex: f.orderIndex
-    }))
-  };
+  // The workspace is a scratchpad the user edits before saving; capture the
+  // initial values once via untrack() so re-runs of `data` don't discard edits.
+  const workspaceInitial = untrack(() => {
+    const runtime = (data.problem.judgeConfig?.runtime as
+      | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
+      | undefined) ?? {
+      timeLimitMs: data.problem.timeLimitMs,
+      memoryLimitMb: data.problem.memoryLimitMb,
+      env: {}
+    };
+    return {
+      runtime,
+      allowedLanguages: [] as Language[],
+      files: data.workspaceFiles.map((f) => ({
+        language: f.language as Language,
+        path: f.path,
+        content: f.content,
+        visibility: f.visibility as "editable" | "readonly" | "hidden",
+        editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+        orderIndex: f.orderIndex
+      }))
+    };
+  });
 
   async function handleWorkspaceSave(payload: typeof workspaceInitial) {
     const fd = new FormData();

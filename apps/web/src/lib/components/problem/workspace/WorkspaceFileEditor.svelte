@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { Language } from "@nojv/core";
   import { inputClassName } from "$lib/utils";
   import MonacoEditableRegions from "./MonacoEditableRegions.svelte";
@@ -25,8 +26,10 @@
   }
 
   // Parse a region string like "10-15, 25-40" into tuples.
+  // regionsText is a scratchpad seeded from the initial `file` prop; subsequent
+  // external updates to `file.editableRegions` shouldn't clobber in-progress edits.
   let regionsText = $state(
-    (file.editableRegions ?? []).map(([a, b]) => `${a}-${b}`).join(", ")
+    untrack(() => (file.editableRegions ?? []).map(([a, b]) => `${a}-${b}`).join(", "))
   );
 
   function parseRegions(text: string): [number, number][] | null {

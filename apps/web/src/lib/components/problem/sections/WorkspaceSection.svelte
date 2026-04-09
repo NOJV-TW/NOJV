@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
   import WorkspaceFileList from "$lib/components/problem/workspace/WorkspaceFileList.svelte";
@@ -24,11 +25,15 @@
 
   let { initial, ondirtychange, onsave }: Props = $props();
 
+  // The component is a scratchpad seeded from `initial`; once the user starts
+  // editing, external changes to `initial` must not clobber in-progress state.
+  // Wrap every read of `initial` in untrack() to capture a one-shot snapshot.
+
   // ─── Runtime ──────────────────────────────────────────────────────
-  let timeLimitMs = $state(initial.runtime.timeLimitMs);
-  let memoryLimitMb = $state(initial.runtime.memoryLimitMb);
+  let timeLimitMs = $state(untrack(() => initial.runtime.timeLimitMs));
+  let memoryLimitMb = $state(untrack(() => initial.runtime.memoryLimitMb));
   let envRows = $state<{ key: string; value: string }[]>(
-    Object.entries(initial.runtime.env).map(([key, value]) => ({ key, value }))
+    untrack(() => Object.entries(initial.runtime.env).map(([key, value]) => ({ key, value })))
   );
 
   function addEnvRow() {
@@ -40,9 +45,11 @@
 
   // ─── Allowed languages ────────────────────────────────────────────
   let allowedLanguages = $state<Language[]>(
-    initial.allowedLanguages.length > 0
-      ? [...initial.allowedLanguages]
-      : [...supportedLanguages]
+    untrack(() =>
+      initial.allowedLanguages.length > 0
+        ? [...initial.allowedLanguages]
+        : [...supportedLanguages]
+    )
   );
 
   function toggleLanguage(lang: Language) {
@@ -53,10 +60,10 @@
 
   // ─── Files ────────────────────────────────────────────────────────
   let activeLang = $state<Language>(
-    allowedLanguages[0] ?? supportedLanguages[0] ?? "c"
+    untrack(() => allowedLanguages[0] ?? supportedLanguages[0] ?? "c")
   );
   let files = $state<(WorkspaceFile & { language: Language })[]>(
-    initial.files.map((f) => ({ ...f }))
+    untrack(() => initial.files.map((f) => ({ ...f })))
   );
   let selectedIndex = $state(0);
 
