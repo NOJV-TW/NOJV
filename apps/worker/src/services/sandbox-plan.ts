@@ -39,6 +39,7 @@ export function buildSandboxConfigJson(
     ...(request.staticAnalysis ? { staticAnalysis: request.staticAnalysis } : {}),
     ...(request.scoring ? { scoring: request.scoring } : {}),
     ...(request.artifactCollection ? { artifactCollection: request.artifactCollection } : {}),
+    ...(request.advanced ? { advanced: request.advanced } : {}),
     ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
   };
 }

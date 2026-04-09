@@ -13,6 +13,8 @@ import {
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
+  type ProblemImageSource,
+  type ProblemMode,
   type ProblemStatus,
   type ProblemVisibility,
   type SubmissionType
@@ -35,7 +37,7 @@ export interface ProblemDetail {
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
-  mode: "standard" | "advanced";
+  mode: ProblemMode;
   outputFormat: string;
   samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
@@ -49,6 +51,9 @@ export interface ProblemDetail {
   title: string;
   totalSubmissions: number;
   visibility: ProblemVisibility;
+  // Phase 7: advanced-mode metadata
+  advancedImageRef: string | null;
+  advancedImageSource: ProblemImageSource | null;
 }
 
 /**
@@ -192,7 +197,6 @@ function mapPersistedProblemDetail(
     id: string;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
-    mode?: "standard" | "advanced";
     samples?: unknown;
     statements?: {
       bodyMarkdown: string;
@@ -220,6 +224,9 @@ function mapPersistedProblemDetail(
     status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
+    mode?: ProblemMode | null;
+    advancedImageRef?: string | null;
+    advancedImageSource?: ProblemImageSource | null;
   },
   locale: string,
   totalSubmissions: number,
@@ -261,7 +268,9 @@ function mapPersistedProblemDetail(
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
     totalSubmissions,
-    visibility: problem.visibility
+    visibility: problem.visibility,
+    advancedImageRef: problem.advancedImageRef ?? null,
+    advancedImageSource: problem.advancedImageSource ?? null
   };
 }
 
