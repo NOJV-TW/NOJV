@@ -8,6 +8,7 @@
   import TagInput from "$lib/components/ui/TagInput.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   import ImageDropZone from "$lib/components/ui/ImageDropZone.svelte";
+  import SamplesEditor from "$lib/components/problem/statement/SamplesEditor.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
@@ -35,6 +36,12 @@
   let tags = $state<string[]>($form.tags ?? []);
   $effect(() => {
     $form.tags = tags;
+  });
+
+  // Samples - sync with superform store
+  let samples = $state<{ stdin: string; expected: string }[]>($form.samples ?? []);
+  $effect(() => {
+    $form.samples = samples;
   });
 
   let showAdvanced = $state(false);
@@ -156,6 +163,9 @@
       {#if attempted && $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
     </label>
   </div>
+
+  <!-- Samples -->
+  <SamplesEditor bind:samples />
 
   <!-- Advanced Options -->
   <button

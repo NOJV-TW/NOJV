@@ -110,11 +110,6 @@ export class K8sExecutor implements SandboxExecutor {
       data[`interactor.${ext}`] = request.judgeConfig.interactorScript;
     }
 
-    if (request.scoring?.script) {
-      const ext = sourceExtension(request.scoring.language);
-      data[`scoring.${ext}`] = request.scoring.script;
-    }
-
     // Testcase data as flat keys
     for (const tc of request.testcases) {
       data[`testcase-${String(tc.index)}-input.txt`] = tc.input;

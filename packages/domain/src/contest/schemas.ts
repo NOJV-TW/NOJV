@@ -1,4 +1,5 @@
 import {
+  adjustmentRulesSchema,
   assessmentScoreboardModeSchema,
   contestScoringModeSchema,
   ipLockFormFields,
@@ -8,6 +9,7 @@ import {
 import { z } from "zod";
 
 export const contestFormSchema = z.object({
+  adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseSlug: slugSchema.optional(),
   endsAt: z.string().min(1),

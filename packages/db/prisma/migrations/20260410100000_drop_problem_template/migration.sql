@@ -1,0 +1,35 @@
+-- Phase 5 cleanup: drop the legacy ProblemTemplate table.
+--
+-- If you are upgrading from pre-Phase-4 data where templates existed,
+-- run the following SQL FIRST to lift each template into an editable
+-- ProblemWorkspaceFile entry before applying this migration:
+--
+--     INSERT INTO "ProblemWorkspaceFile"
+--       ("id", "problemId", "language", "path", "content",
+--        "visibility", "orderIndex", "createdAt", "updatedAt")
+--     SELECT
+--       concat('wsfile_', pt.id),
+--       pt."problemId",
+--       pt."language",
+--       CASE pt."language"
+--         WHEN 'c' THEN 'main.c'
+--         WHEN 'cpp' THEN 'main.cpp'
+--         WHEN 'go' THEN 'main.go'
+--         WHEN 'java' THEN 'Main.java'
+--         WHEN 'javascript' THEN 'main.mjs'
+--         WHEN 'python' THEN 'main.py'
+--         WHEN 'rust' THEN 'main.rs'
+--         WHEN 'typescript' THEN 'main.ts'
+--       END,
+--       pt."templateCode",
+--       'editable',
+--       0,
+--       NOW(), NOW()
+--     FROM "ProblemTemplate" pt
+--     ON CONFLICT ("problemId", "language", "path") DO NOTHING;
+--
+-- Then apply this migration. After the drop there is no reader or
+-- writer of ProblemTemplate left in the codebase — starter code and
+-- teacher assets both flow through ProblemWorkspaceFile.
+
+DROP TABLE IF EXISTS "ProblemTemplate";
