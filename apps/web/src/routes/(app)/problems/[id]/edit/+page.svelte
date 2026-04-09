@@ -2,7 +2,7 @@
   import { invalidateAll } from "$app/navigation";
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import ProblemTabs from "$lib/components/problem/ProblemTabs.svelte";
+  import ProblemSections from "$lib/components/problem/ProblemSections.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
   import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";
@@ -11,7 +11,7 @@
 
   let { data } = $props();
 
-  let activeTab = $state("basic");
+  let activeSection = $state("basic");
   let publishing = $state(false);
   let dirty = $state(false);
   let showPublishConfirm = $state(false);
@@ -108,41 +108,40 @@
     {/if}
   </div>
 
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-    <ProblemTabs
-      bind:activeTab
-      showPublish={data.problem.status === "draft"}
-      {canPublish}
-      {publishing}
-      {basicInfoComplete}
-      bind:dirty
-      onpublish={handlePublishClick}
-    >
-      {#snippet basic()}
-        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
-      {/snippet}
+  <ProblemSections
+    bind:activeSection
+    showPublish={data.problem.status === "draft"}
+    {canPublish}
+    {publishing}
+    {basicInfoComplete}
+    testcaseCount={data.testcaseSets.length}
+    bind:dirty
+    onpublish={handlePublishClick}
+  >
+    {#snippet basic()}
+      <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
+    {/snippet}
 
-      {#snippet workspace()}
-        <WorkspaceSection
-          initial={workspaceInitial}
-          ondirtychange={(d) => dirty = d}
-          onsave={handleWorkspaceSave}
-        />
-      {/snippet}
+    {#snippet workspace()}
+      <WorkspaceSection
+        initial={workspaceInitial}
+        ondirtychange={(d) => dirty = d}
+        onsave={handleWorkspaceSave}
+      />
+    {/snippet}
 
-      {#snippet testcase()}
-        <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
-      {/snippet}
+    {#snippet testcase()}
+      <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
+    {/snippet}
 
-      {#snippet judge()}
-        <JudgeTab
-          problem={data.problem}
-          testcaseSets={data.testcaseSets.map((s) => ({ id: s.id, name: s.name, weight: s.weight }))}
-          ondirtychange={(d) => dirty = d}
-        />
-      {/snippet}
-    </ProblemTabs>
-  </section>
+    {#snippet judge()}
+      <JudgeTab
+        problem={data.problem}
+        testcaseSets={data.testcaseSets.map((s) => ({ id: s.id, name: s.name, weight: s.weight }))}
+        ondirtychange={(d) => dirty = d}
+      />
+    {/snippet}
+  </ProblemSections>
 
   <ConfirmDialog
     bind:open={showDeleteConfirm}
