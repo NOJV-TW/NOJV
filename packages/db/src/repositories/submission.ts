@@ -2,6 +2,7 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { SubmissionStatus } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
+import { problemMiniSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -231,7 +232,7 @@ export const submissionRepo = {
         status: true,
         language: true,
         createdAt: true,
-        problem: { select: { id: true, defaultTitle: true } }
+        problem: { select: problemMiniSelect }
       }
     });
   },
@@ -262,7 +263,7 @@ export const submissionRepo = {
         language: true,
         createdAt: true,
         user: { select: { username: true, name: true } },
-        problem: { select: { id: true, defaultTitle: true } }
+        problem: { select: problemMiniSelect }
       }
     });
   },

@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { problemMiniSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -78,7 +79,7 @@ export const contestRepo = {
         course: { select: { slug: true } },
         problems: {
           include: {
-            problem: { select: { id: true, defaultTitle: true } }
+            problem: { select: problemMiniSelect }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -99,7 +100,7 @@ export const contestRepo = {
         },
         problems: {
           include: {
-            problem: { select: { id: true, defaultTitle: true } }
+            problem: { select: problemMiniSelect }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -113,7 +114,7 @@ export const contestRepo = {
     return prisma.contest.findUnique({
       include: {
         problems: {
-          include: { problem: { select: { id: true, defaultTitle: true } } },
+          include: { problem: { select: problemMiniSelect } },
           orderBy: { ordinal: "asc" }
         },
         participations: {
