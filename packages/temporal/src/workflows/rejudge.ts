@@ -3,11 +3,9 @@ import type { RejudgeInput, RejudgeProgress } from "../types";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
 import { JUDGE_TASK_QUEUE } from "../task-queues";
+import { SHORT_ACTIVITY } from "./activity-options";
 
-const judge = proxyActivities<typeof judgeActivities>({
-  startToCloseTimeout: "30s",
-  retry: { maximumAttempts: 3 }
-});
+const judge = proxyActivities<typeof judgeActivities>(SHORT_ACTIVITY);
 
 export const getProgressQuery = defineQuery<RejudgeProgress>("getProgress");
 
