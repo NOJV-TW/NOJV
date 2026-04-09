@@ -5,7 +5,9 @@ import type {
   JudgeType,
   NetworkAccessConfig,
   PipelineConfig,
+  ProblemImageSource,
   ProblemJudgeTestcase,
+  ProblemMode,
   SubmissionDraft,
   SubmissionResult,
   SubmissionType
@@ -22,6 +24,16 @@ export interface TestcaseSetGroup {
   name: string;
   testcases: ProblemJudgeTestcase[];
   weight: number;
+}
+
+export interface AdvancedModeContext {
+  imageRef: string;
+  imageSource: ProblemImageSource;
+  resourceLimits: {
+    totalTimeMs: number;
+    memoryMb: number;
+    networkEnabled: boolean;
+  };
 }
 
 export interface SubmissionJudgeContext {
@@ -45,6 +57,13 @@ export interface SubmissionJudgeContext {
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
+  /**
+   * Phase 7: when the problem is in advanced mode, this carries the
+   * TA-provided judge image ref + resource limits. The downstream judge
+   * activity uses it to populate `SandboxRequest.advanced`.
+   */
+  mode: ProblemMode;
+  advanced: AdvancedModeContext | null;
 }
 
 export interface CompletedSubmission {
@@ -85,6 +104,22 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     weight: ts.weight
   }));
 
+  // Phase 7: surface advanced-mode container config when the problem is in
+  // advanced mode. We default to safe limits if the schema columns are unset.
+  const mode: ProblemMode = problem.mode ?? "standard";
+  const advanced: AdvancedModeContext | null =
+    mode === "advanced" && problem.advancedImageRef && problem.advancedImageSource
+      ? {
+          imageRef: problem.advancedImageRef,
+          imageSource: problem.advancedImageSource as ProblemImageSource,
+          resourceLimits: {
+            totalTimeMs: 30_000,
+            memoryMb: 1_024,
+            networkEnabled: false
+          }
+        }
+      : null;
+
   return {
     // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
     artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
@@ -108,7 +143,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     })),
     testcaseSets,
     testcases: testcaseSets.flatMap((ts) => ts.testcases),
-    timeLimitMs: problem.timeLimitMs
+    timeLimitMs: problem.timeLimitMs,
+    mode,
+    advanced
   };
 }
 

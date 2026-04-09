@@ -226,6 +226,23 @@ export async function executeSandbox(
       ? { patterns: artifactPatterns, maxTotalSizeBytes: 10_000_000 }
       : undefined;
 
+  // Phase 7: build the advanced-mode payload (when applicable). Standard
+  // mode submissions go through the existing pipeline unchanged.
+  const advancedPayload =
+    judgeContext.mode === "advanced" && judgeContext.advanced
+      ? {
+          imageRef: judgeContext.advanced.imageRef,
+          imageSource: judgeContext.advanced.imageSource,
+          totalTimeMs: judgeContext.advanced.resourceLimits.totalTimeMs,
+          memoryMb: judgeContext.advanced.resourceLimits.memoryMb,
+          networkEnabled: judgeContext.advanced.resourceLimits.networkEnabled
+          // TODO(phase-7-followup): once advanced-mode testcase auxiliary
+          // files are persisted (sample bag from D4), populate
+          // `testcaseFiles: { [index]: { path: content } }` here so the
+          // sandbox-runner can drop them into /workspace/testcases/N/.
+        }
+      : undefined;
+
   const request: SandboxRequest = {
     submissionId,
     sourceCode: draft.sourceCode,
@@ -267,7 +284,8 @@ export async function executeSandbox(
     ...(artifactConfig ? { artifactCollection: artifactConfig } : {}),
     ...(judgeContext.networkAccessConfig
       ? { networkAccess: judgeContext.networkAccessConfig }
-      : {})
+      : {}),
+    ...(advancedPayload ? { advanced: advancedPayload } : {})
   };
 
   const result = await executor.execute(request);
