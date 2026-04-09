@@ -10,10 +10,13 @@ import {
   type TransactionClient
 } from "@nojv/db";
 import type {
+  AdvancedResourceLimits,
   Language,
   PlatformRole,
   ProblemCreate,
   ProblemDifficulty,
+  ProblemImageSource,
+  ProblemMode,
   ProblemStatus,
   ProblemTestcaseSetCreate,
   ProblemUpdate,
@@ -57,6 +60,11 @@ export interface CreateProblemDefinitionInput {
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
+  // Phase 1 redesign: mode + advanced image/resource fields
+  mode?: ProblemMode | undefined;
+  advancedImageRef?: string | undefined;
+  advancedImageSource?: ProblemImageSource | undefined;
+  advancedResourceLimits?: AdvancedResourceLimits | undefined;
 }
 
 // ─── Shared problem helpers ─────────────────────────────────────────
@@ -65,11 +73,14 @@ export async function createProblemDefinition(
   tx: TransactionClient,
   input: CreateProblemDefinitionInput
 ) {
+  const mode: ProblemMode = input.mode ?? "standard";
   const createData: Prisma.ProblemUncheckedCreateInput = {
     authorId: input.authorId ?? null,
     defaultTitle: input.title,
     difficulty: input.difficulty,
     memoryLimitMb: input.memoryLimitMb ?? 256,
+    mode,
+    samples: Prisma.JsonNull,
     status: input.status ?? "published",
     submissionType: input.submissionType ?? "full_source",
     summary: input.summary,
@@ -79,6 +90,17 @@ export async function createProblemDefinition(
   };
   if (input.judgeConfig !== undefined) {
     createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
+  }
+  if (mode === "advanced") {
+    createData.advancedImageRef = input.advancedImageRef ?? "";
+    createData.advancedImageSource = input.advancedImageSource ?? "registry";
+    createData.advancedResourceLimits = (input.advancedResourceLimits ?? {
+      totalTimeMs: 30_000,
+      memoryMb: 512,
+      networkEnabled: false
+    }) satisfies Prisma.InputJsonValue;
+  } else {
+    createData.advancedResourceLimits = Prisma.JsonNull;
   }
   const problem = await problemRepo.withTx(tx).create(createData);
 
@@ -142,11 +164,15 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
     const author = await ensureUser(tx, actor.userId, actor);
 
     const problem = await createProblemDefinition(tx, {
+      advancedImageRef: payload.advancedImageRef,
+      advancedImageSource: payload.advancedImageSource,
+      advancedResourceLimits: payload.advancedResourceLimits,
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
       judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
+      mode: payload.mode,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
       status: payload.status,
