@@ -5,8 +5,7 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { dispatchSubmissionJob } from "$lib/server/queue";
-import { apiHandler } from "$lib/server/shared/api-handler";
-import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
+import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 
 /** Accept `problemSlug` as a legacy alias for `problemId` before validation. */
@@ -19,14 +18,8 @@ function normalizeProblemIdAlias(payload: unknown): unknown {
   return payload;
 }
 
-export const POST: RequestHandler = apiHandler(async (event) => {
+export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
-
-  try {
-    await writeApiRateLimiter.consume(event.getClientAddress());
-  } catch {
-    return json({ error: "Too many requests" }, { status: 429 });
-  }
 
   const raw = normalizeProblemIdAlias(await event.request.json());
   const payload = submissionDraftSchema.parse(raw);

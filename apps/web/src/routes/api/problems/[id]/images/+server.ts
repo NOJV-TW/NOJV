@@ -1,6 +1,7 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
+import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { canEditProblem } from "@nojv/domain";
 import { createStorageClient, uploadProblemImage } from "@nojv/storage";
 
@@ -40,7 +41,7 @@ function detectImageType(buffer: Buffer): string | null {
   return null;
 }
 
-export const POST: RequestHandler = async (event) => {
+export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   if (!canEditProblem(actor.platformRole)) {
@@ -73,4 +74,4 @@ export const POST: RequestHandler = async (event) => {
   const url = await uploadProblemImage(client, event.params.id, buffer, detectedType);
 
   return json({ url });
-};
+});

@@ -84,25 +84,11 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
   };
 }
 
-// ─── Public query functions ──────────────────────────────────────────
+// ─── Shared mapper ──────────────────────────────────────────────────
 
-export async function listPublicContests(): Promise<ContestListItem[]> {
-  const contests = await contestRepo.listPublished();
-  return contests.map(mapContestListItem);
-}
+type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailBySlug>>>;
 
-export async function listCourseContests(courseSlug: string): Promise<ContestListItem[]> {
-  const contests = await contestRepo.listByCourseSlug(courseSlug);
-  return contests.map(mapContestListItem);
-}
-
-export async function getContestDetail(contestSlug: string): Promise<ContestDetailData | null> {
-  const contest = await contestRepo.findDetailBySlug(contestSlug);
-
-  if (contest?.visibility !== "published") {
-    return null;
-  }
-
+function mapContestDetail(contest: ContestDetailRow): ContestDetailData {
   return {
     allowedLanguages: contest.allowedLanguages as Language[],
     courseSlug: contest.course?.slug ?? null,
@@ -132,30 +118,35 @@ export async function getContestDetail(contestSlug: string): Promise<ContestDeta
   };
 }
 
+// ─── Public query functions ──────────────────────────────────────────
+
+export async function listPublicContests(): Promise<ContestListItem[]> {
+  const contests = await contestRepo.listPublished();
+  return contests.map(mapContestListItem);
+}
+
+export async function listCourseContests(courseSlug: string): Promise<ContestListItem[]> {
+  const contests = await contestRepo.listByCourseSlug(courseSlug);
+  return contests.map(mapContestListItem);
+}
+
+export async function getContestDetail(contestSlug: string): Promise<ContestDetailData | null> {
+  const contest = await contestRepo.findDetailBySlug(contestSlug);
+  if (contest?.visibility !== "published") return null;
+  return mapContestDetail(contest);
+}
+
 export async function getContestWorkspaceData(
   contestSlug: string,
   userId: string
 ): Promise<ContestWorkspaceData | null> {
   const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
-
-  if (contest?.visibility !== "published") {
-    return null;
-  }
+  if (contest?.visibility !== "published") return null;
 
   const participation = contest.participations[0] ?? null;
 
   return {
-    allowedLanguages: contest.allowedLanguages as Language[],
-    courseSlug: contest.course?.slug ?? null,
-    endsAt: contest.endsAt.toISOString(),
-    frozenAt: contest.frozenAt?.toISOString() ?? null,
-    id: contest.id,
-    ipBindingEnabled: contest.ipBindingEnabled,
-    ipViolationMode: contest.ipViolationMode as "block" | "notify",
-    ipWhitelist: contest.ipWhitelist,
-    ipWhitelistEnabled: contest.ipWhitelistEnabled,
-    maxAttempts: contest.maxAttempts,
-    pageLockEnabled: contest.pageLockEnabled,
+    ...mapContestDetail(contest),
     participation: participation
       ? {
           penaltySeconds: participation.penaltySeconds,
@@ -163,21 +154,7 @@ export async function getContestWorkspaceData(
           startedAt: participation.startedAt?.toISOString() ?? null,
           status: participation.status
         }
-      : null,
-    participantCount: contest._count.participations,
-    problems: contest.problems.map((cp) => ({
-      id: cp.problem.id,
-      ordinal: cp.ordinal,
-      points: cp.points,
-      title: cp.problem.defaultTitle
-    })),
-    scoreboardMode: contest.scoreboardMode as AssessmentScoreboardMode,
-    scoringMode: contest.scoringMode,
-    slug: contest.slug,
-    startsAt: contest.startsAt.toISOString(),
-    submitCooldownSec: contest.submitCooldownSec,
-    summary: contest.summary,
-    title: contest.title
+      : null
   };
 }
 
