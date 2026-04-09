@@ -48,6 +48,9 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(403, "Not authorized to edit problems");
   }
 
+  const problemId = event.params.id;
+  if (!problemId) error(400, "Missing problem id");
+
   const formData = await event.request.formData();
   const file = formData.get("image");
 
@@ -71,7 +74,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "Invalid file type. File content does not match an allowed image format.");
   }
 
-  const url = await uploadProblemImage(client, event.params.id, buffer, detectedType);
+  const url = await uploadProblemImage(client, problemId, buffer, detectedType);
 
   return json({ url });
 });
