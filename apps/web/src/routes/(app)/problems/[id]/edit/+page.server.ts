@@ -28,7 +28,8 @@ const {
   deleteTestcaseSetRecord,
   updateTestcaseRecord,
   deleteTestcaseRecord,
-  deleteProblemRecord
+  deleteProblemRecord,
+  convertProblemToAdvancedMode
 } = problemDomain;
 
 const updateWorkspaceSchema = z.object({
@@ -216,5 +217,18 @@ export const actions: Actions = {
 
     await deleteProblemRecord(actor, problemId);
     redirect(302, "/problems?tab=mine");
+  }),
+
+  // Convert a Standard Mode problem to Advanced Mode. This is
+  // intentionally destructive — workspace files, testcase sets, samples,
+  // and judge config are discarded. Requires an explicit `confirm=yes`
+  // field on the POST body to guard against accidental submissions.
+  convertToAdvanced: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    if (formData.get("confirm") !== "yes") {
+      return fail(400, { message: "Conversion not confirmed" });
+    }
+    await convertProblemToAdvancedMode(actor, problemId);
+    redirect(303, `/problems/${problemId}/edit-advanced`);
   })
 };

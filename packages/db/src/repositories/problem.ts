@@ -286,6 +286,10 @@ export const testcaseSetRepo = {
     return {
       create(data: Prisma.TestcaseSetUncheckedCreateInput) {
         return tx.testcaseSet.create({ data });
+      },
+
+      deleteByProblemId(problemId: string) {
+        return tx.testcaseSet.deleteMany({ where: { problemId } });
       }
     };
   }

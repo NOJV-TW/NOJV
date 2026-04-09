@@ -1,12 +1,12 @@
 import {
   advancedTestcaseRepo,
+  Prisma,
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,
   runTransaction,
   testcaseRepo,
   testcaseSetRepo,
-  type Prisma,
   type TransactionClient
 } from "@nojv/db";
 import type {
@@ -24,7 +24,7 @@ import type {
 } from "@nojv/core";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
@@ -226,6 +226,60 @@ export async function updateProblemRecord(
     }
 
     return { id: problem.id };
+  });
+}
+
+/**
+ * Convert a Standard Mode problem to Advanced Mode. The conversion is
+ * intentionally data-lossy: workspace files, testcase sets (and their
+ * testcases via cascade), `samples`, and `judgeConfig` are discarded and
+ * Advanced Mode defaults (empty image ref, registry source, default
+ * resource limits) are written. The UI shows an explicit warning before
+ * calling this.
+ *
+ * Throws `ConflictError` if the problem is already in advanced mode.
+ */
+export async function convertProblemToAdvancedMode(
+  actor: ProblemActorContext,
+  problemId: string
+): Promise<void> {
+  await runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+
+    if (problem.mode === "advanced") {
+      throw new ConflictError("Problem is already in advanced mode.");
+    }
+
+    // Drop workspace files and testcase sets. Testcases cascade via the
+    // `onDelete: Cascade` relation on Testcase.testcaseSetId.
+    await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
+    await testcaseSetRepo.withTx(tx).deleteByProblemId(problem.id);
+
+    // Advanced Mode ignores judgeConfig, but the column is `Json?` and
+    // callers still read it; write a minimal valid value rather than
+    // leaving whatever standard-mode config was there.
+    const resetJudgeConfig = {
+      type: "standard",
+      runtime: {
+        timeLimitMs: 30_000,
+        memoryLimitMb: 512,
+        env: {}
+      }
+    } satisfies Prisma.InputJsonValue;
+
+    await problemRepo.withTx(tx).update(problem.id, {
+      mode: "advanced",
+      samples: Prisma.JsonNull,
+      judgeConfig: resetJudgeConfig,
+      advancedImageRef: "",
+      advancedImageSource: "registry",
+      advancedResourceLimits: {
+        totalTimeMs: 30_000,
+        memoryMb: 512,
+        networkEnabled: false
+      } satisfies Prisma.InputJsonValue
+    });
   });
 }
 

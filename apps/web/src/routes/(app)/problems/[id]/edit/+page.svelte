@@ -111,6 +111,7 @@
   <ProblemSections
     bind:activeSection
     showPublish={data.problem.status === "draft"}
+    showConvertToAdvanced={data.problem.mode === "standard"}
     {canPublish}
     {publishing}
     {basicInfoComplete}
