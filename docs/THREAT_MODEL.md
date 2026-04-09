@@ -17,23 +17,23 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 
 ### Sensitive Assets
 
-| Asset                 | Location                                                        | Sensitivity                                           |
-| --------------------- | --------------------------------------------------------------- | ----------------------------------------------------- |
-| Session tokens        | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access  |
-| OAuth credentials     | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                   |
-| User passwords        | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                           |
-| Student source code   | PostgreSQL `Submission.sourceCode`                              | High — per-user access control, intellectual property |
-| Graded testcases      | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                |
-| Hidden workspace files | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)      | High — test harness and library code kept out of student view |
-| Advanced judge tarballs | S3 bucket `problems/{problemId}/advanced-images/{uuid}.tar`   | Medium — teacher-only write, worker-only read at judge time   |
-| Problem images        | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write              |
-| Contest configuration | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity          |
-| Database credentials  | `DATABASE_URL` env var                                          | Critical — full data access                           |
-| S3 credentials        | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                             |
-| `BETTER_AUTH_SECRET`  | Environment variable                                            | Critical — session forgery if leaked                  |
-| OAuth client secrets  | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                            |
-| Plagiarism reports    | PostgreSQL `PlagiarismReport.results` JSON                      | Medium — academic integrity data                      |
-| Course join tokens    | PostgreSQL `CourseJoinToken`                                    | Medium — unauthorized enrollment                      |
+| Asset                   | Location                                                        | Sensitivity                                                   |
+| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
+| Session tokens          | PostgreSQL `Session` table, httpOnly cookies                    | Critical — session hijack grants full account access          |
+| OAuth credentials       | PostgreSQL `Account.accessToken`, encrypted by better-auth      | Critical — provider account linkage                           |
+| User passwords          | PostgreSQL `Account.password`, bcrypt-hashed                    | Critical — credential theft                                   |
+| Student source code     | PostgreSQL `Submission.sourceCode`                              | High — per-user access control, intellectual property         |
+| Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase` (all rows, graded only)   | High — exposure undermines all grading                        |
+| Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)       | High — test harness and library code kept out of student view |
+| Advanced judge tarballs | S3 bucket `problems/{problemId}/advanced-images/{uuid}.tar`     | Medium — teacher-only write, worker-only read at judge time   |
+| Problem images          | S3 bucket `problems/{problemId}/images/{uuid}.{ext}`            | Medium — public read, teacher-only write                      |
+| Contest configuration   | PostgreSQL `Contest` (freeze time, scoring weights, IP binding) | High — manipulation breaks contest integrity                  |
+| Database credentials    | `DATABASE_URL` env var                                          | Critical — full data access                                   |
+| S3 credentials          | `S3_ACCESS_KEY`, `S3_SECRET_KEY` env vars                       | High — storage read/write                                     |
+| `BETTER_AUTH_SECRET`    | Environment variable                                            | Critical — session forgery if leaked                          |
+| OAuth client secrets    | `GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_SECRET` env vars         | High — OAuth impersonation                                    |
+| Plagiarism reports      | PostgreSQL `PlagiarismReport.results` JSON                      | Medium — academic integrity data                              |
+| Course join tokens      | PostgreSQL `CourseJoinToken`                                    | Medium — unauthorized enrollment                              |
 
 ### Primary Trust Boundaries
 

@@ -4,18 +4,18 @@ Security requirements are first-class because this system handles authentication
 
 ## Sensitive Data
 
-| Data                 | Storage                               | Protection                             |
-| -------------------- | ------------------------------------- | -------------------------------------- |
-| Passwords            | PostgreSQL `Account.password`         | bcrypt hash                            |
-| OAuth tokens         | PostgreSQL `Account.accessToken`      | Encrypted by better-auth               |
-| Session tokens       | PostgreSQL `Session.token`            | httpOnly cookie                        |
-| Source code          | PostgreSQL `Submission.sourceCode`              | Per-user access control                |
-| Graded testcases     | PostgreSQL `TestcaseSet` / `Testcase`           | Never exposed to students; only `Problem.samples` is rendered on the problem page |
-| Hidden workspace files | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`) | Filtered out server-side before `ProblemDetail` leaves the domain layer |
-| Problem images       | S3-compatible storage                           | Public read for problem paths          |
-| Advanced judge tarballs | S3-compatible storage (`problems/*/advanced-images/*.tar`) | Private, streamed to worker via signed URL at judge time |
-| S3 credentials       | Environment variables                 | .env untracked, Secret Manager in prod |
-| Database credentials | Environment variables                 | .env untracked, Secret Manager in prod |
+| Data                    | Storage                                                    | Protection                                                                        |
+| ----------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Passwords               | PostgreSQL `Account.password`                              | bcrypt hash                                                                       |
+| OAuth tokens            | PostgreSQL `Account.accessToken`                           | Encrypted by better-auth                                                          |
+| Session tokens          | PostgreSQL `Session.token`                                 | httpOnly cookie                                                                   |
+| Source code             | PostgreSQL `Submission.sourceCode`                         | Per-user access control                                                           |
+| Graded testcases        | PostgreSQL `TestcaseSet` / `Testcase`                      | Never exposed to students; only `Problem.samples` is rendered on the problem page |
+| Hidden workspace files  | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`)  | Filtered out server-side before `ProblemDetail` leaves the domain layer           |
+| Problem images          | S3-compatible storage                                      | Public read for problem paths                                                     |
+| Advanced judge tarballs | S3-compatible storage (`problems/*/advanced-images/*.tar`) | Private, streamed to worker via signed URL at judge time                          |
+| S3 credentials          | Environment variables                                      | .env untracked, Secret Manager in prod                                            |
+| Database credentials    | Environment variables                                      | .env untracked, Secret Manager in prod                                            |
 
 ## Handling Rules
 

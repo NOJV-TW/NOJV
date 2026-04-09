@@ -49,18 +49,20 @@ Sample I/O pairs are **problem presentation**, not grading data. They render inl
 ### Workspace files unify templates and teacher assets
 
 Previous attempts treated these as separate concepts:
+
 - `ProblemTemplate` — function-mode driver code with hidden `driverCode` and insertion markers
 - Teacher assets — hidden files packed into the sandbox
 
 The new model is one table, `ProblemWorkspaceFile`, with a `visibility` enum:
 
-| Visibility | Shown to student | Student can edit | Present in sandbox |
-|---|---|---|---|
-| `editable` | ✓ | ✓ (optionally limited to regions) | ✓ |
-| `readonly` | ✓ (greyed out) | ✗ | ✓ |
-| `hidden` | ✗ | ✗ | ✓ |
+| Visibility | Shown to student | Student can edit                  | Present in sandbox |
+| ---------- | ---------------- | --------------------------------- | ------------------ |
+| `editable` | ✓                | ✓ (optionally limited to regions) | ✓                  |
+| `readonly` | ✓ (greyed out)   | ✗                                 | ✓                  |
+| `hidden`   | ✗                | ✗                                 | ✓                  |
 
 This single model expresses every case we need:
+
 - Single-file stdin/stdout problem: one `editable` `main.c`.
 - LeetCode-style fill-in-the-body: one `editable` file with `editableRegions: [[10, 15]]`, the rest locked.
 - Library problem (HW03.1 Riemann): `riemann.c` editable, `riemann.h` readonly, `main.c` and `Makefile` hidden.
@@ -89,6 +91,7 @@ Standard Mode and Advanced Mode share only the Statement section. They have inco
 **Purpose:** everything visible to the student on the problem page.
 
 **Fields:**
+
 - `title: string` (1–120)
 - `statement: markdown` (≤12k, i18n per locale)
 - `inputFormat: string` (≤4k)
@@ -110,15 +113,18 @@ Standard Mode and Advanced Mode share only the Statement section. They have inco
 **Subsections:**
 
 **2.1 Runtime**
+
 - `timeLimitMs: int` (100–30000)
 - `memoryLimitMb: int` (16–1024)
 - `env: Record<string, string>` (static key-value list, no parameterization)
 
 **2.2 Languages**
+
 - `allowedLanguages: SupportedLanguage[]` (multi-select)
 
 **2.3 Files per language**
 Each `ProblemWorkspaceFile` row has:
+
 - `language: SupportedLanguage`
 - `path: string` — may contain `/` for folders (flat UI list, TA types full path)
 - `content: string` (≤200k)
@@ -134,10 +140,12 @@ Each `ProblemWorkspaceFile` row has:
 **Purpose:** the graded testcase data used for final scoring.
 
 **Fields per `TestcaseSet`:**
+
 - `name: string`
 - `weight: int` (> 0; zero-weight sets are not allowed here — samples live in Statement)
 
 **Fields per `Testcase`:**
+
 - `ordinal: int`
 - `stdin: string` (≤200k, **text only**)
 - `expectedStdout: string | null` (≤200k, null allowed when judge type is `checker` or `interactive`)
@@ -174,6 +182,7 @@ Each `ProblemWorkspaceFile` row has:
 ### Removed from Standard Mode
 
 Explicitly not present:
+
 - Static analysis (banned functions, linters, AST rules)
 - Artifact collection
 - Network access configuration
@@ -283,6 +292,7 @@ model ProblemWorkspaceFile {
 ### Modified: `Problem`
 
 Add:
+
 - `samples: Json?` — `{ stdin: string, expected: string }[]`
 - `mode: enum(standard, advanced)` — defaults to `standard`
 - `advancedImageRef: String?` — registry tag or storage path for Advanced Mode
@@ -327,6 +337,7 @@ Drop the `isHidden` column. Every `TestcaseSet` is now a graded subtask; sample 
 ### Modified: `CourseAssessment` and `Contest`
 
 Add:
+
 - `adjustmentRules: Json?` — array of the 4 existing rule types (`late_penalty_fixed`, `late_penalty_decay`, `time_bonus`, `memory_penalty`)
 
 Assessment and contest workflows apply these rules when computing the final score, replacing the per-problem adjustment pipeline.
@@ -334,6 +345,7 @@ Assessment and contest workflows apply these rules when computing the final scor
 ### Removed fields from `judgeConfig`
 
 All of the following are removed from `Problem.judgeConfig` and their backing code deleted:
+
 - `staticAnalysis`
 - `artifacts`
 - `networkAccess`
@@ -411,12 +423,12 @@ Monaco supports read-only ranges via `model.onDidChangeContent` guarding and `ed
 
 ## Save action mapping
 
-| Section | Action | Writes to |
-|---|---|---|
-| Statement | `?/updateStatement` | `Problem` (metadata + samples), `ProblemStatementI18n` |
+| Section   | Action              | Writes to                                                                                                |
+| --------- | ------------------- | -------------------------------------------------------------------------------------------------------- |
+| Statement | `?/updateStatement` | `Problem` (metadata + samples), `ProblemStatementI18n`                                                   |
 | Workspace | `?/updateWorkspace` | `Problem.judgeConfig.runtime`, `Problem` allowed-languages cache, `ProblemWorkspaceFile` (upsert/delete) |
-| Testcases | inline | `TestcaseSet`, `Testcase` |
-| Judge | `?/updateJudge` | `Problem.judgeConfig.type` / `compare` / scripts / `scoring.subtaskStrategies` |
+| Testcases | inline              | `TestcaseSet`, `Testcase`                                                                                |
+| Judge     | `?/updateJudge`     | `Problem.judgeConfig.type` / `compare` / scripts / `scoring.subtaskStrategies`                           |
 
 ## Implementation phases
 

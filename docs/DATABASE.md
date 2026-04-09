@@ -142,22 +142,22 @@ Tracks MOSS plagiarism detection runs. Created by web endpoint, processed by Tem
 
 ## JSON Columns
 
-| Model.Field                          | Schema                                                       | Purpose                                                                            |
-| ------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| `Problem.judgeConfig`                | `JudgeConfig`                                                | type / compare / checker / interactor / runtime / subtaskStrategies                |
-| `Problem.samples`                    | `{ stdin, expected }[]`                                      | Sample I/O pairs rendered on the student problem page                              |
-| `Problem.advancedResourceLimits`     | `{ totalTimeMs, memoryMb, networkEnabled }`                  | Advanced Mode only — cgroup + network limits for the TA-provided judge container   |
-| `ProblemWorkspaceFile.editableRegions` | `[[startLine, endLine]][]`                                 | Monaco read-only decoration ranges                                                 |
-| `AdvancedTestcase.files`             | `Record<string, string>`                                     | Auxiliary files staged under `/workspace/testcases/N/files/`                       |
-| `CourseAssessment.adjustmentRules`   | `AdjustmentRule[]`                                           | Late penalty / time bonus / memory penalty rules (applied post-judge)              |
-| `Contest.adjustmentRules`            | `AdjustmentRule[]`                                           | Same as above, applied to contest submissions                                      |
-| `Submission.verdictDetail`           | Per-testcase verdict array                                   | Detailed judge results                                                             |
-| `Submission.subtaskResults`          | Per-subtask score array                                      | IOI-style partial scoring                                                          |
-| `ContestParticipation.subtaskScores` | Score breakdown                                              | Per-subtask contest scores                                                         |
-| `UserStats.languageDist`             | `Record<Language, number>`                                   | Submission count per language                                                      |
-| `UserStats.difficultyDist`           | `Record<Difficulty, number>`                                 | AC count per difficulty                                                            |
-| `UserStats.dailyActivity`            | Date-count array                                             | Submission heatmap data                                                            |
-| `PlagiarismReport.results`           | MOSS result array                                            | Similarity pairs and percentages                                                   |
+| Model.Field                            | Schema                                      | Purpose                                                                          |
+| -------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `Problem.judgeConfig`                  | `JudgeConfig`                               | type / compare / checker / interactor / runtime / subtaskStrategies              |
+| `Problem.samples`                      | `{ stdin, expected }[]`                     | Sample I/O pairs rendered on the student problem page                            |
+| `Problem.advancedResourceLimits`       | `{ totalTimeMs, memoryMb, networkEnabled }` | Advanced Mode only — cgroup + network limits for the TA-provided judge container |
+| `ProblemWorkspaceFile.editableRegions` | `[[startLine, endLine]][]`                  | Monaco read-only decoration ranges                                               |
+| `AdvancedTestcase.files`               | `Record<string, string>`                    | Auxiliary files staged under `/workspace/testcases/N/files/`                     |
+| `CourseAssessment.adjustmentRules`     | `AdjustmentRule[]`                          | Late penalty / time bonus / memory penalty rules (applied post-judge)            |
+| `Contest.adjustmentRules`              | `AdjustmentRule[]`                          | Same as above, applied to contest submissions                                    |
+| `Submission.verdictDetail`             | Per-testcase verdict array                  | Detailed judge results                                                           |
+| `Submission.subtaskResults`            | Per-subtask score array                     | IOI-style partial scoring                                                        |
+| `ContestParticipation.subtaskScores`   | Score breakdown                             | Per-subtask contest scores                                                       |
+| `UserStats.languageDist`               | `Record<Language, number>`                  | Submission count per language                                                    |
+| `UserStats.difficultyDist`             | `Record<Difficulty, number>`                | AC count per difficulty                                                          |
+| `UserStats.dailyActivity`              | Date-count array                            | Submission heatmap data                                                          |
+| `PlagiarismReport.results`             | MOSS result array                           | Similarity pairs and percentages                                                 |
 
 ## Seed Data
 
