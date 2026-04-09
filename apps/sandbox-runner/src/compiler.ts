@@ -164,7 +164,10 @@ function compileWithCommand(
     const proc = spawn(cmd, args, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
-      timeout: 30_000
+      // 90s accommodates Go/Rust/Java cold-start compiles on GitHub Actions
+      // runners where toolchain cache priming can eat 30+ seconds. Local
+      // warm builds finish in <5s regardless.
+      timeout: 90_000
     });
 
     const stderrChunks: Buffer[] = [];

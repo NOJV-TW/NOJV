@@ -116,7 +116,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
       expectedStdout: testcase.expectedStdout ?? undefined,
       id: testcase.id,
       inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-      isHidden: true,
       stdin: testcase.stdin,
       weight: ts.weight
     })),
