@@ -86,12 +86,15 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   }));
 
   return {
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
     artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
     checkerScript: judgeConfig.checkerScript ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
     networkAccessConfig: judgeConfig.networkAccess ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- phase-2 rewrite
     pipelineConfig: (judgeConfig.pipeline as PipelineConfig | undefined) ?? null,
     problemId: submission.problemId,
     scoringLanguage: judgeConfig.scoring?.language ?? null,

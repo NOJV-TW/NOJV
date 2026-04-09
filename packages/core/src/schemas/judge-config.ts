@@ -21,13 +21,7 @@ import {
 // Languages allowed for Phase 1 checker / interactor scripts. Distinct
 // from the legacy pipeline.ts `customScriptLanguageSchema` which stays
 // alive for the deprecated pipeline stage API.
-export const judgeScriptLanguageSchema = z.enum([
-  "bash",
-  "python",
-  "node",
-  "c",
-  "cpp"
-]);
+export const judgeScriptLanguageSchema = z.enum(["bash", "python", "node", "c", "cpp"]);
 
 export type JudgeScriptLanguage = z.infer<typeof judgeScriptLanguageSchema>;
 

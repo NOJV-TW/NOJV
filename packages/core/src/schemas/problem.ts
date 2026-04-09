@@ -36,15 +36,9 @@ export const problemSamplesSchema = z.array(problemSampleSchema).max(5);
 
 export type ProblemSamples = z.infer<typeof problemSamplesSchema>;
 
-export const workspaceFileVisibilitySchema = z.enum([
-  "editable",
-  "readonly",
-  "hidden"
-]);
+export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hidden"]);
 
-export type WorkspaceFileVisibility = z.infer<
-  typeof workspaceFileVisibilitySchema
->;
+export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySchema>;
 
 /**
  * An [startLine, endLine] inclusive tuple designating a line range the

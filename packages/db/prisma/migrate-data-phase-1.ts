@@ -100,10 +100,7 @@ const problemSelect = {
 
 type ProblemLite = Prisma.ProblemGetPayload<{ select: typeof problemSelect }>;
 
-async function migrateProblems(
-  prisma: PrismaClient,
-  summary: Summary
-): Promise<void> {
+async function migrateProblems(prisma: PrismaClient, summary: Summary): Promise<void> {
   const problems = await prisma.problem.findMany({ select: problemSelect });
 
   for (const problem of problems) {
@@ -117,7 +114,10 @@ async function migrateOneProblem(
   summary: Summary
 ): Promise<void> {
   // ─── 1. Extract sample testcase sets into Problem.samples ─────────
-  if (problem.samples == null || (Array.isArray(problem.samples) && problem.samples.length === 0)) {
+  if (
+    problem.samples == null ||
+    (Array.isArray(problem.samples) && problem.samples.length === 0)
+  ) {
     const sampleSets = problem.testcaseSets.filter((ts) => !ts.isHidden);
 
     if (sampleSets.length > 0) {
@@ -154,9 +154,7 @@ async function migrateOneProblem(
     where: { problemId: problem.id },
     select: { language: true, path: true }
   });
-  const existingPaths = new Set(
-    existingWorkspaceFiles.map((f) => `${f.language}::${f.path}`)
-  );
+  const existingPaths = new Set(existingWorkspaceFiles.map((f) => `${f.language}::${f.path}`));
 
   const seenLanguages = new Set<string>();
   for (const template of problem.templates) {
@@ -270,9 +268,7 @@ async function liftAdjustmentRules(
     select: { contestId: true }
   });
 
-  const assessmentIds = Array.from(
-    new Set(assessmentLinks.map((l) => l.assessmentId))
-  );
+  const assessmentIds = Array.from(new Set(assessmentLinks.map((l) => l.assessmentId)));
   const contestIds = Array.from(new Set(contestLinks.map((l) => l.contestId)));
 
   if (assessmentIds.length === 1) {
