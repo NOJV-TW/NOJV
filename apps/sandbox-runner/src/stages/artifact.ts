@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import picomatch from "picomatch";
 import type { ArtifactConfig, ArtifactEntry } from "@nojv/core";
 
 /**
@@ -63,35 +64,32 @@ export async function collectArtifacts(
 }
 
 /**
- * Simple glob matching: supports * and ** patterns.
+ * Match files under `baseDir` against a glob pattern. Supports the standard
+ * glob syntax via picomatch (`*`, `**`, `?`, `{a,b}`, `[abc]`, …).
  * Returns absolute paths of matching files.
  */
 async function globMatch(baseDir: string, pattern: string): Promise<string[]> {
-  // For simple file names (no wildcards), just check if the file exists
-  if (!pattern.includes("*") && !pattern.includes("?")) {
+  // Fast path: literal file name (no wildcards / brace-expansion / char class)
+  if (!/[*?{[]/.test(pattern)) {
     const fullPath = path.join(baseDir, pattern);
     try {
-      const stat = await fs.stat(fullPath);
-      return stat.isFile() ? [fullPath] : [];
+      return (await fs.stat(fullPath)).isFile() ? [fullPath] : [];
     } catch {
       return [];
     }
   }
 
-  // For wildcard patterns, walk the directory
+  const match = picomatch(pattern);
   const results: string[] = [];
-  const regex = globToRegex(pattern);
-
-  await walkDir(baseDir, baseDir, regex, results);
-
+  await walkDir(baseDir, baseDir, match, results);
   return results;
 }
 
-/** Recursively walk a directory and collect files matching the regex. */
+/** Recursively walk a directory and collect files matching the matcher. */
 async function walkDir(
   baseDir: string,
   currentDir: string,
-  pattern: RegExp,
+  match: (path: string) => boolean,
   results: string[]
 ): Promise<void> {
   let entries;
@@ -103,44 +101,10 @@ async function walkDir(
 
   for (const entry of entries) {
     const fullPath = path.join(currentDir, entry.name);
-    const relativePath = path.relative(baseDir, fullPath);
-
     if (entry.isDirectory()) {
-      await walkDir(baseDir, fullPath, pattern, results);
-    } else if (entry.isFile() && pattern.test(relativePath)) {
+      await walkDir(baseDir, fullPath, match, results);
+    } else if (entry.isFile() && match(path.relative(baseDir, fullPath))) {
       results.push(fullPath);
     }
   }
-}
-
-/** Convert a glob pattern to a RegExp. */
-function globToRegex(pattern: string): RegExp {
-  let regex = "";
-  let i = 0;
-
-  while (i < pattern.length) {
-    const char = pattern[i]!;
-
-    if (char === "*" && pattern[i + 1] === "*") {
-      // ** matches any path segment
-      regex += ".*";
-      i += 2;
-      if (pattern[i] === "/" || pattern[i] === "\\") i++;
-    } else if (char === "*") {
-      // * matches anything except path separator
-      regex += "[^/\\\\]*";
-      i++;
-    } else if (char === "?") {
-      regex += "[^/\\\\]";
-      i++;
-    } else if (".+^${}()|[]\\".includes(char)) {
-      regex += `\\${char}`;
-      i++;
-    } else {
-      regex += char;
-      i++;
-    }
-  }
-
-  return new RegExp(`^${regex}$`);
 }
