@@ -1,4 +1,5 @@
 import {
+  adjustmentRulesSchema,
   assessmentScoreboardModeSchema,
   contestCreateSchema,
   courseAssessmentCreateSchema,
@@ -20,6 +21,7 @@ const { createCourseAssessmentRecord } = courseDomain;
 const { createContestRecord, listCourseContests, contestFormSchema } = contestDomain;
 
 const assessmentFormSchema = z.object({
+  adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   closesAt: z.string().min(1),
   dueAt: z.string().min(1),

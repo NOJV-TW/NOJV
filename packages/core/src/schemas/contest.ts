@@ -8,6 +8,7 @@ import {
   languageSchema,
   slugSchema
 } from "../types";
+import { adjustmentRulesSchema } from "./assessment-adjustments";
 
 export const contestSessionSchema = z
   .object({
@@ -22,6 +23,7 @@ export const contestSessionSchema = z
   });
 
 const contestCreateBaseSchema = z.object({
+  adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseSlug: slugSchema.optional(),
   endsAt: isoDateTimeSchema,

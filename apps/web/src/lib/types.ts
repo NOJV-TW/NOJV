@@ -70,12 +70,6 @@ export const verdictColor: Record<string, string> = {
 
 // --- Problem types ---
 
-export interface TemplateInfo {
-  driverCode: string;
-  insertionMarker: string;
-  templateCode: string;
-}
-
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
   inputFormat: string;
@@ -83,10 +77,10 @@ export interface ProblemDetail extends ProblemOverview {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
+  mode: "standard" | "advanced";
   samples: {
-    explanation: string;
-    input: string;
-    output: string;
+    stdin: string;
+    expected: string;
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;
@@ -94,9 +88,19 @@ export interface ProblemDetail extends ProblemOverview {
   submissionType: SubmissionType;
   summary: string;
   tags: string[];
-  templates: Partial<Record<Language, TemplateInfo>>;
   timeLimitMs: number;
   visibility: ProblemVisibility;
+  /**
+   * Visible workspace files for the student editor. Hidden files are
+   * filtered out by the domain layer and never exposed to the client.
+   */
+  workspaceFiles: {
+    language: string;
+    path: string;
+    content: string;
+    visibility: "editable" | "readonly";
+    editableRegions: [number, number][] | null;
+  }[];
 }
 
 // --- Route helpers ---

@@ -16,7 +16,6 @@
     set: {
       id: string;
       name: string;
-      isHidden: boolean;
       weight: number;
       testcases: TestcaseData[];
     };
@@ -35,7 +34,6 @@
   // Edit state for set
   let editName = $state(untrack(() => set.name));
   let editWeight = $state(untrack(() => set.weight));
-  let editIsHidden = $state(untrack(() => set.isHidden));
 
   // Edit state for testcase
   let editStdin = $state("");
@@ -44,7 +42,6 @@
   function startEditSet() {
     editName = set.name;
     editWeight = set.weight;
-    editIsHidden = set.isHidden;
     editing = true;
   }
 
@@ -53,7 +50,7 @@
     try {
       await postProblemAction(problemId, "updateTestcaseSet", {
         setId: set.id,
-        data: JSON.stringify({ name: editName, weight: editWeight, isHidden: editIsHidden })
+        data: JSON.stringify({ name: editName, weight: editWeight })
       });
       editing = false;
       await invalidateAll();
@@ -136,18 +133,6 @@
       {set.weight} pts
     </span>
 
-    {#if set.isHidden}
-      <span class="flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-        <EyeOff class="h-3 w-3" />
-        {m.testcases_hidden()}
-      </span>
-    {:else}
-      <span class="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-        <Eye class="h-3 w-3" />
-        {m.testcases_visible()}
-      </span>
-    {/if}
-
     <div class="ml-auto flex items-center gap-2">
       <button
         class="rounded-full border border-border p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground"
@@ -186,14 +171,6 @@
           min="0"
           bind:value={editWeight}
         />
-      </label>
-      <label class="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          class="accent-primary"
-          bind:checked={editIsHidden}
-        />
-        {m.testcases_hidden()}
       </label>
       <div class="flex gap-2">
         <button

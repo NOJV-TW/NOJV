@@ -10,6 +10,7 @@ import {
   localeCodeSchema,
   slugSchema
 } from "../types";
+import { adjustmentRulesSchema } from "./assessment-adjustments";
 
 export const courseCreateSchema = z.object({
   description: z.string().trim().min(8).max(2_000),
@@ -49,6 +50,7 @@ export const assessmentContextSchema = z.object({
 
 export const courseAssessmentCreateSchema = z
   .object({
+    adjustmentRules: adjustmentRulesSchema.optional(),
     allowedLanguages: z.array(languageSchema).max(8).default([]),
     closesAt: isoDateTimeSchema,
     courseSlug: slugSchema,

@@ -16,8 +16,9 @@ User ──┬── Session
        └── IpViolationLog
 
 Problem ──┬── ProblemStatementI18n (locale-specific content)
-          ├── TestcaseSet ──→ Testcase
-          ├── ProblemTemplate (per-language boilerplate)
+          ├── TestcaseSet ──→ Testcase (standard mode: graded only)
+          ├── ProblemWorkspaceFile (per-language files with visibility + editable regions)
+          ├── AdvancedTestcase (advanced mode only)
           ├── ContestProblem ──→ Contest
           ├── CourseProblem ──→ Course
           ├── CourseAssessmentProblem ──→ CourseAssessment
@@ -125,7 +126,15 @@ Course-scoped assignment with:
 
 ### TestcaseSet / Testcase
 
-Testcases organized into named sets (e.g., "sample", "hidden") with weights for subtask scoring. Each testcase has stdin, expected stdout, optional input files, and an ordinal for ordering.
+Testcases organized into named sets with weights for subtask scoring. Every `TestcaseSet` row is a graded subtask — sample I/O pairs live on `Problem.samples` instead. Each testcase has stdin, expected stdout, and an ordinal for ordering.
+
+### ProblemWorkspaceFile
+
+Per-language files that make up a Standard Mode problem's workspace. Columns: `language`, `path`, `content`, `visibility` (`editable` / `readonly` / `hidden`), `editableRegions` (`[[startLine, endLine]]` JSON), `orderIndex`. Hidden files are never exposed to students but are merged into the sandbox at judge time. Editable regions enforce per-line read-only decorations in Monaco.
+
+### AdvancedTestcase
+
+Advanced Mode testcase data: `ordinal`, `stdin`, `expected`, and a `files` JSON blob holding arbitrary auxiliary file contents. The worker copies these under `/workspace/testcases/N/` when dispatching the TA-provided judge image.
 
 ### PlagiarismReport
 
@@ -133,19 +142,22 @@ Tracks MOSS plagiarism detection runs. Created by web endpoint, processed by Tem
 
 ## JSON Columns
 
-| Model.Field                          | Schema                       | Purpose                                   |
-| ------------------------------------ | ---------------------------- | ----------------------------------------- |
-| `Problem.pipelineConfig`             | `PipelineConfig`             | Custom judge pipeline stages              |
-| `Problem.networkAccessConfig`        | `NetworkAccessConfig`        | Firewall rules, sidecar services          |
-| `Submission.verdictDetail`           | Per-testcase verdict array   | Detailed judge results                    |
-| `Submission.subtaskResults`          | Per-subtask score array      | IOI-style partial scoring                 |
-| `Submission.pipelineResult`          | `PipelineResult`             | Static analysis, artifacts, custom scores |
-| `Testcase.inputFiles`                | File path mapping            | Additional input files for testcase       |
-| `ContestParticipation.subtaskScores` | Score breakdown              | Per-subtask contest scores                |
-| `UserStats.languageDist`             | `Record<Language, number>`   | Submission count per language             |
-| `UserStats.difficultyDist`           | `Record<Difficulty, number>` | AC count per difficulty                   |
-| `UserStats.dailyActivity`            | Date-count array             | Submission heatmap data                   |
-| `PlagiarismReport.results`           | MOSS result array            | Similarity pairs and percentages          |
+| Model.Field                            | Schema                                      | Purpose                                                                          |
+| -------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `Problem.judgeConfig`                  | `JudgeConfig`                               | type / compare / checker / interactor / runtime / subtaskStrategies              |
+| `Problem.samples`                      | `{ stdin, expected }[]`                     | Sample I/O pairs rendered on the student problem page                            |
+| `Problem.advancedResourceLimits`       | `{ totalTimeMs, memoryMb, networkEnabled }` | Advanced Mode only — cgroup + network limits for the TA-provided judge container |
+| `ProblemWorkspaceFile.editableRegions` | `[[startLine, endLine]][]`                  | Monaco read-only decoration ranges                                               |
+| `AdvancedTestcase.files`               | `Record<string, string>`                    | Auxiliary files staged under `/workspace/testcases/N/files/`                     |
+| `CourseAssessment.adjustmentRules`     | `AdjustmentRule[]`                          | Late penalty / time bonus / memory penalty rules (applied post-judge)            |
+| `Contest.adjustmentRules`              | `AdjustmentRule[]`                          | Same as above, applied to contest submissions                                    |
+| `Submission.verdictDetail`             | Per-testcase verdict array                  | Detailed judge results                                                           |
+| `Submission.subtaskResults`            | Per-subtask score array                     | IOI-style partial scoring                                                        |
+| `ContestParticipation.subtaskScores`   | Score breakdown                             | Per-subtask contest scores                                                       |
+| `UserStats.languageDist`               | `Record<Language, number>`                  | Submission count per language                                                    |
+| `UserStats.difficultyDist`             | `Record<Difficulty, number>`                | AC count per difficulty                                                          |
+| `UserStats.dailyActivity`              | Date-count array                            | Submission heatmap data                                                          |
+| `PlagiarismReport.results`             | MOSS result array                           | Similarity pairs and percentages                                                 |
 
 ## Seed Data
 

@@ -72,9 +72,7 @@ export const submissionResultSchema = z.object({
   runtimeMs: z.number().int().nonnegative(),
   score: z.number().int().min(0).max(100),
   subtaskResults: z.array(subtaskResultItemSchema).optional(),
-  verdict: submissionVerdictSchema,
-  pipelineResult: z.record(z.string(), z.unknown()).optional(),
-  artifactPaths: z.array(z.string()).optional()
+  verdict: submissionVerdictSchema
 });
 
 export const submissionDispatchResponseSchema = z.object({
