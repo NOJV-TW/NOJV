@@ -17,6 +17,7 @@
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import { registerCompletionProviders } from "./editor-completions";
   import MultiFileEditor from "./editors/MultiFileEditor.svelte";
+  import MonacoEditableRegions from "./workspace/MonacoEditableRegions.svelte";
 
   const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
@@ -102,7 +103,60 @@
     } catch {}
   });
 
-  let currentSource = $derived(drafts[language]);
+  // ── Workspace-file (Phase 4) state ──
+  // `problem.workspaceFiles` has already been filtered by the domain layer to
+  // exclude hidden files, so everything here is either `editable` or `readonly`.
+  type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
+
+  // Per-file drafts keyed by `${language}::${path}`. Editable files are
+  // mutable in-place; readonly files keep their original content.
+  function workspaceDraftKey(lang: string, path: string): string {
+    return `${lang}::${path}`;
+  }
+  let workspaceDrafts = $state<Record<string, string>>({});
+  // Seed drafts for every visible workspace file up-front so switches are
+  // instantaneous and no file is missing content on first render.
+  for (const f of initialProblem.workspaceFiles) {
+    workspaceDrafts[workspaceDraftKey(f.language, f.path)] = f.content;
+  }
+
+  let workspaceFilesForLanguage = $derived(
+    problem.workspaceFiles.filter((f) => f.language === language)
+  );
+  let isWorkspaceMode = $derived(
+    !isZipProject && workspaceFilesForLanguage.length > 0
+  );
+  let selectedWorkspaceIndex = $state(0);
+
+  // When the language changes (or the file list otherwise changes), reset
+  // selection to the first editable file in the new list (fall back to index 0).
+  $effect(() => {
+    void language;
+    const files = workspaceFilesForLanguage;
+    const firstEditable = files.findIndex((f) => f.visibility === "editable");
+    selectedWorkspaceIndex = firstEditable >= 0 ? firstEditable : 0;
+  });
+
+  let selectedWorkspaceFile = $derived<WorkspaceFile | undefined>(
+    workspaceFilesForLanguage[selectedWorkspaceIndex]
+  );
+  let selectedWorkspaceContent = $derived(
+    selectedWorkspaceFile
+      ? (workspaceDrafts[
+          workspaceDraftKey(selectedWorkspaceFile.language, selectedWorkspaceFile.path)
+        ] ?? selectedWorkspaceFile.content)
+      : ""
+  );
+
+  function handleWorkspaceFileChange(value: string) {
+    const file = selectedWorkspaceFile;
+    if (!file || file.visibility !== "editable") return;
+    workspaceDrafts[workspaceDraftKey(file.language, file.path)] = value;
+  }
+
+  let currentSource = $derived(
+    isWorkspaceMode ? selectedWorkspaceContent : drafts[language]
+  );
   let runVerdictLabel = $derived(
     runResult ? formatVerdictLabel(runResult.verdict) : undefined
   );
@@ -119,7 +173,10 @@
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
 
-    // Skip Monaco initialization for zip_project mode (MultiFileEditor manages its own editor)
+    // Skip Monaco initialization for zip_project mode (MultiFileEditor manages its own editor).
+    // Workspace-file mode uses <MonacoEditableRegions> which owns its own Monaco instance; the
+    // single-file editor is still mounted (just visually hidden) so switching to a language
+    // without workspace files works without re-initializing.
     if (!isZipProject) {
       void (async () => {
         monacoModule = await import("monaco-editor");
@@ -198,17 +255,43 @@
       sampleOnly: options?.sampleOnly ?? false,
     };
 
-    const body = isZipProject
-      ? {
-          ...commonFields,
-          sourceCode: zipFiles.find((f) => f.path === entryFile)?.content ?? "",
-          sourceFiles: zipFiles.map((f) => ({ path: f.path, content: f.content })),
-          entryFile,
-        }
-      : {
-          ...commonFields,
-          sourceCode: drafts[language],
-        };
+    let body: Record<string, unknown>;
+    if (isZipProject) {
+      body = {
+        ...commonFields,
+        sourceCode: zipFiles.find((f) => f.path === entryFile)?.content ?? "",
+        sourceFiles: zipFiles.map((f) => ({ path: f.path, content: f.content })),
+        entryFile,
+      };
+    } else if (isWorkspaceMode) {
+      // Workspace-file mode: send the current contents of every visible file
+      // (editable + readonly) so the server can merge them with hidden files
+      // when building the judge context. `sourceCode` is the first editable
+      // file's draft — used by legacy views that expect a single blob.
+      const files = workspaceFilesForLanguage;
+      const currentContents = files.map((f) => ({
+        path: f.path,
+        content:
+          f.visibility === "editable"
+            ? (workspaceDrafts[workspaceDraftKey(f.language, f.path)] ?? f.content)
+            : f.content,
+      }));
+      const firstEditable =
+        files.find((f) => f.visibility === "editable") ?? files[0];
+      const sourceCode = firstEditable
+        ? currentContents.find((c) => c.path === firstEditable.path)?.content ?? ""
+        : "";
+      body = {
+        ...commonFields,
+        sourceCode,
+        sourceFiles: currentContents,
+      };
+    } else {
+      body = {
+        ...commonFields,
+        sourceCode: drafts[language],
+      };
+    }
 
     const response = await fetch("/api/submissions", {
       body: JSON.stringify(body),
@@ -278,9 +361,26 @@
       const result = await executeSubmission();
 
       if (result) {
-        const sourceForCallback = isZipProject
-          ? zipFiles.map((f) => `// --- ${f.path} ---\n${f.content}`).join("\n\n")
-          : drafts[language];
+        let sourceForCallback: string;
+        if (isZipProject) {
+          sourceForCallback = zipFiles
+            .map((f) => `// --- ${f.path} ---\n${f.content}`)
+            .join("\n\n");
+        } else if (isWorkspaceMode) {
+          // Mirror the submission payload: concatenate every visible file with
+          // a path marker so the submissions pane has a useful preview.
+          sourceForCallback = workspaceFilesForLanguage
+            .map((f) => {
+              const content =
+                f.visibility === "editable"
+                  ? (workspaceDrafts[workspaceDraftKey(f.language, f.path)] ?? f.content)
+                  : f.content;
+              return `// --- ${f.path} ---\n${content}`;
+            })
+            .join("\n\n");
+        } else {
+          sourceForCallback = drafts[language];
+        }
         onSubmissionComplete?.(result, language, sourceForCallback);
       }
     } catch (err) {
@@ -341,8 +441,81 @@
       <MultiFileEditor bind:files={zipFiles} />
     </div>
   {:else}
-    <div class="min-h-0 flex-1">
-      <div bind:this={editorContainer} class="h-full w-full"></div>
+    <!--
+      The single-file Monaco container is always present so the underlying
+      editor survives switches in and out of workspace mode. When workspace
+      files exist for the current language, we overlay the workspace UI on
+      top and hide the single-file container via `hidden`.
+    -->
+    <div class="relative min-h-0 flex-1">
+      <div
+        bind:this={editorContainer}
+        class="h-full w-full"
+        class:hidden={isWorkspaceMode}
+      ></div>
+      {#if isWorkspaceMode}
+        <div class="absolute inset-0 flex">
+          <!-- Student-side file navigation. Read-only list — students can't
+               add or remove files, only the TA-side problem editor does that. -->
+          <aside class="w-56 shrink-0 overflow-y-auto border-r border-border bg-[color:var(--color-panel)] p-2">
+            <p class="mb-2 px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Files
+            </p>
+            <ul class="space-y-0.5">
+              {#each workspaceFilesForLanguage as file, index (`${file.language}::${file.path}`)}
+                <li>
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-accent {selectedWorkspaceIndex ===
+                    index
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground'}"
+                    onclick={() => (selectedWorkspaceIndex = index)}
+                  >
+                    <span class="truncate font-mono text-xs">{file.path}</span>
+                    <span
+                      class="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
+                      'editable'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                        : 'bg-muted text-muted-foreground'}"
+                    >
+                      {file.visibility === 'editable' ? 'edit' : 'read'}
+                    </span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          </aside>
+          <div class="flex min-w-0 flex-1 flex-col">
+            {#if selectedWorkspaceFile}
+              {@const file = selectedWorkspaceFile}
+              <div class="flex items-center gap-2 border-b border-border px-3 py-2">
+                <span class="font-mono text-xs text-foreground">{file.path}</span>
+                <span
+                  class="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
+                  'editable'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-muted text-muted-foreground'}"
+                >
+                  {file.visibility}
+                </span>
+              </div>
+              <div class="min-h-0 flex-1">
+                {#key `${file.language}::${file.path}`}
+                  <MonacoEditableRegions
+                    value={selectedWorkspaceContent}
+                    onchange={handleWorkspaceFileChange}
+                    language={file.language}
+                    readonly={file.visibility === "readonly"}
+                    editableRegions={file.visibility === "editable" ? file.editableRegions : null}
+                    height="100%"
+                  />
+                {/key}
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 

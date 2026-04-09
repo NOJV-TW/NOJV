@@ -44,6 +44,18 @@ export interface ProblemDetail {
   title: string;
   totalSubmissions: number;
   visibility: ProblemVisibility;
+  /**
+   * Visible workspace files for the student editor. `"hidden"` files are
+   * intentionally excluded — the domain layer filters them out before
+   * returning so they never reach the client.
+   */
+  workspaceFiles: {
+    language: string;
+    path: string;
+    content: string;
+    visibility: "editable" | "readonly";
+    editableRegions: [number, number][] | null;
+  }[];
   // Phase 7: advanced-mode metadata
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
@@ -120,8 +132,50 @@ function buildProblemSamples(problem: {
     .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
-function buildStarterByLanguage(): Record<string, string> {
-  return { ...starterByLanguage };
+/**
+ * Build the starter-code map shown in the student editor.
+ *
+ * For each language in the hardcoded fallback table: if the problem has at
+ * least one `editable` workspace file for that language, use the content of
+ * the first one (already ordered by `orderIndex`, then `path` from the repo
+ * layer). Otherwise fall back to the hardcoded stub.
+ *
+ * The hardcoded map is retained as a fallback for problems that haven't been
+ * migrated to the workspace-file model.
+ */
+function buildStarterByLanguage(
+  workspaceFiles: { language: string; path: string; visibility: string; content: string }[] = []
+): Record<string, string> {
+  const result: Record<string, string> = { ...starterByLanguage };
+  for (const lang of Object.keys(result)) {
+    const first = workspaceFiles.find(
+      (f) => f.language === lang && f.visibility === "editable"
+    );
+    if (first) {
+      result[lang] = first.content;
+    }
+  }
+  return result;
+}
+
+/**
+ * Runtime-parse `ProblemWorkspaceFile.editableRegions`. The column is
+ * stored as `Json?` so we can't trust the structural type. Returns `null`
+ * (whole file editable) on any malformed input.
+ */
+function parseEditableRegions(raw: unknown): [number, number][] | null {
+  if (raw === null || raw === undefined) return null;
+  if (!Array.isArray(raw)) return null;
+  const result: [number, number][] = [];
+  for (const entry of raw) {
+    if (!Array.isArray(entry) || entry.length !== 2) return null;
+    const [start, end] = entry;
+    if (typeof start !== "number" || typeof end !== "number") return null;
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    if (start < 1 || end < start) return null;
+    result.push([start, end]);
+  }
+  return result;
 }
 
 function mapPersistedProblemDetail(
@@ -150,6 +204,14 @@ function mapPersistedProblemDetail(
     advancedImageRef?: string | null;
     advancedImageSource?: ProblemImageSource | null;
     advancedResourceLimits?: unknown;
+    workspaceFiles?: {
+      language: string;
+      path: string;
+      content: string;
+      visibility: string;
+      editableRegions?: unknown;
+      orderIndex?: number;
+    }[];
   },
   locale: string,
   totalSubmissions: number,
@@ -168,6 +230,19 @@ function mapPersistedProblemDetail(
     type: "standard"
   };
 
+  // SECURITY: drop any hidden workspace files before they leave the domain
+  // layer. Hidden files are merged into the sandbox at judging time from the
+  // DB directly — they must never be exposed to the client.
+  const visibleWorkspaceFiles = (problem.workspaceFiles ?? [])
+    .filter((f) => f.visibility === "editable" || f.visibility === "readonly")
+    .map((f) => ({
+      language: f.language,
+      path: f.path,
+      content: f.content,
+      visibility: f.visibility as "editable" | "readonly",
+      editableRegions: parseEditableRegions(f.editableRegions)
+    }));
+
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
@@ -180,7 +255,7 @@ function mapPersistedProblemDetail(
     mode: problem.mode ?? "standard",
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
-    starterByLanguage: buildStarterByLanguage(),
+    starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
     submissionType,
@@ -190,6 +265,7 @@ function mapPersistedProblemDetail(
     title: localized.title,
     totalSubmissions,
     visibility: problem.visibility,
+    workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
     advancedImageSource: problem.advancedImageSource ?? null,
     advancedResourceLimits: parseAdvancedResourceLimits(problem.advancedResourceLimits)

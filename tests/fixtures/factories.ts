@@ -87,6 +87,27 @@ export async function createTestProblem(
   return problem;
 }
 
+// --- Problem workspace file ---
+// Allows a test to attach editable/readonly/hidden files to an existing
+// problem. No existing test needs this by default; callers opt in.
+export async function createTestProblemWorkspaceFile(
+  overrides: Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput> & {
+    problemId: string;
+  }
+) {
+  return testPrisma.problemWorkspaceFile.create({
+    data: {
+      language: overrides.language ?? "cpp",
+      path: overrides.path ?? "main.cpp",
+      content: overrides.content ?? "// starter\n",
+      visibility: overrides.visibility ?? "editable",
+      editableRegions: overrides.editableRegions ?? undefined,
+      orderIndex: overrides.orderIndex ?? 0,
+      problemId: overrides.problemId
+    }
+  });
+}
+
 // --- Contest ---
 export async function createTestContest(
   overrides: Partial<Prisma.ContestUncheckedCreateInput> = {}

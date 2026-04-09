@@ -90,6 +90,17 @@ export interface ProblemDetail extends ProblemOverview {
   tags: string[];
   timeLimitMs: number;
   visibility: ProblemVisibility;
+  /**
+   * Visible workspace files for the student editor. Hidden files are
+   * filtered out by the domain layer and never exposed to the client.
+   */
+  workspaceFiles: {
+    language: string;
+    path: string;
+    content: string;
+    visibility: "editable" | "readonly";
+    editableRegions: [number, number][] | null;
+  }[];
 }
 
 // --- Route helpers ---

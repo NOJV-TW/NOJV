@@ -245,6 +245,108 @@ describe("DB-backed read model", () => {
     expect(detail?.samples[0]?.expected).toBe("3\n");
     expect(detail?.starterByLanguage).toBeDefined();
     expect(detail?.starterByLanguage.python).toBeDefined();
+    // Without workspace files, the field is an empty array.
+    expect(detail?.workspaceFiles).toEqual([]);
+  });
+
+  it("filters hidden workspace files out of problem detail and uses editable ones for starter code", async () => {
+    findDetailById.mockResolvedValue({
+      _count: { submissions: 0 },
+      author: { username: "teacher" },
+      defaultTitle: "Fill in the Blanks",
+      difficulty: "easy",
+      id: "prob_blanks",
+      statements: [
+        {
+          bodyMarkdown: "Implement the missing function.",
+          inputFormat: "",
+          locale: "en",
+          outputFormat: "",
+          title: "Fill in the Blanks"
+        }
+      ],
+      summary: "Partial-source exercise.",
+      tags: [],
+      samples: [],
+      visibility: "public",
+      workspaceFiles: [
+        {
+          language: "cpp",
+          path: "solution.cpp",
+          content: "int solve() { return 42; }\n",
+          visibility: "editable",
+          editableRegions: [[1, 1]],
+          orderIndex: 0
+        },
+        {
+          language: "cpp",
+          path: "helpers.h",
+          content: "#pragma once\nint solve();\n",
+          visibility: "readonly",
+          editableRegions: null,
+          orderIndex: 1
+        },
+        {
+          language: "cpp",
+          path: "grader.cpp",
+          content: "// server-only test harness\n",
+          visibility: "hidden",
+          editableRegions: null,
+          orderIndex: 2
+        }
+      ]
+    });
+    countSubmissions.mockResolvedValue(0);
+
+    const detail = await getProblemPageData("prob_blanks", "en");
+
+    expect(detail).not.toBeNull();
+    // Hidden file must never escape the domain layer.
+    expect(detail?.workspaceFiles).toHaveLength(2);
+    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual([
+      "solution.cpp",
+      "helpers.h"
+    ]);
+    expect(detail?.workspaceFiles.every((f) => f.visibility !== ("hidden" as string))).toBe(
+      true
+    );
+    // Editable regions are parsed into tuples.
+    expect(detail?.workspaceFiles[0]?.editableRegions).toEqual([[1, 1]]);
+    expect(detail?.workspaceFiles[1]?.editableRegions).toBeNull();
+    // Starter code for cpp now reflects the editable workspace file.
+    expect(detail?.starterByLanguage.cpp).toBe("int solve() { return 42; }\n");
+    // Other languages still fall back to the hardcoded stub.
+    expect(detail?.starterByLanguage.python).toBeDefined();
+  });
+
+  it("treats malformed editableRegions as null instead of crashing", async () => {
+    findDetailById.mockResolvedValue({
+      _count: { submissions: 0 },
+      author: { username: "teacher" },
+      defaultTitle: "Malformed Regions",
+      difficulty: "easy",
+      id: "prob_malformed",
+      statements: [],
+      summary: "edge case",
+      tags: [],
+      samples: [],
+      visibility: "public",
+      workspaceFiles: [
+        {
+          language: "python",
+          path: "main.py",
+          content: "print('hello')\n",
+          visibility: "editable",
+          editableRegions: "not-an-array",
+          orderIndex: 0
+        }
+      ]
+    });
+    countSubmissions.mockResolvedValue(0);
+
+    const detail = await getProblemPageData("prob_malformed", "en");
+
+    expect(detail?.workspaceFiles[0]?.editableRegions).toBeNull();
   });
 
   it("computes acceptance rate from total and accepted submissions", async () => {

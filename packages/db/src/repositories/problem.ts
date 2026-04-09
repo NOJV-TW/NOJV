@@ -16,7 +16,7 @@ export const problemRepo = {
     });
   },
 
-  /** Fetch full problem page data with statements, templates, testcase sets. */
+  /** Fetch full problem page data with statements, workspace files, testcase sets. */
   findDetailById(id: string) {
     return prisma.problem.findUnique({
       include: {
@@ -25,7 +25,13 @@ export const problemRepo = {
         },
         author: { select: { username: true } },
         statements: true,
-        templates: { orderBy: { language: "asc" } },
+        workspaceFiles: {
+          orderBy: [
+            { language: "asc" },
+            { orderIndex: "asc" },
+            { path: "asc" }
+          ]
+        },
         testcaseSets: {
           include: {
             _count: { select: { testcases: true } },
