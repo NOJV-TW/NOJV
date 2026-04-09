@@ -227,7 +227,10 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary,
       title: payload.title,
-      visibility: "published"
+      visibility: "published",
+      ...(payload.adjustmentRules
+        ? { adjustmentRules: payload.adjustmentRules as Prisma.InputJsonValue }
+        : {})
     });
 
     await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);

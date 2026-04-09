@@ -11,7 +11,16 @@ export async function seedContests(prisma: PrismaClient) {
       startsAt: new Date("2026-03-15T14:00:00+08:00"),
       summary: "Qualifier contest with a frozen board in the final hour.",
       title: "Spring Qualifier 2026",
-      visibility: "published"
+      visibility: "published",
+      // Demo speed bonus: up to +15% for submissions faster than the
+      // 10-minute baseline.
+      adjustmentRules: [
+        {
+          type: "time_bonus",
+          maxBonusPercent: 15,
+          baselineMs: 10 * 60 * 1000
+        }
+      ]
     },
     update: {},
     where: { slug: "spring-qualifier-2026" }

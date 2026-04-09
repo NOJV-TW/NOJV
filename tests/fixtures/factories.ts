@@ -49,7 +49,12 @@ export async function createTestProblem(
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
       visibility: overrides.visibility ?? "public",
-      ...Object.fromEntries(Object.entries(overrides).filter(([k]) => k !== "slug")),
+      // Default sample pair matching the default testcase below, so tests
+      // that assert on detail.samples can rely on the factory output.
+      samples: overrides.samples ?? [{ stdin: "1 2", expected: "3" }],
+      ...Object.fromEntries(
+        Object.entries(overrides).filter(([k]) => k !== "slug" && k !== "samples")
+      ),
       authorId
     }
   });
@@ -71,7 +76,6 @@ export async function createTestProblem(
     data: {
       problemId: problem.id,
       name: "sample",
-      isHidden: false,
       weight: 1
     }
   });
@@ -86,6 +90,27 @@ export async function createTestProblem(
   });
 
   return problem;
+}
+
+// --- Problem workspace file ---
+// Allows a test to attach editable/readonly/hidden files to an existing
+// problem. No existing test needs this by default; callers opt in.
+export async function createTestProblemWorkspaceFile(
+  overrides: Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput> & {
+    problemId: string;
+  }
+) {
+  return testPrisma.problemWorkspaceFile.create({
+    data: {
+      language: overrides.language ?? "cpp",
+      path: overrides.path ?? "main.cpp",
+      content: overrides.content ?? "// starter\n",
+      visibility: overrides.visibility ?? "editable",
+      editableRegions: overrides.editableRegions ?? undefined,
+      orderIndex: overrides.orderIndex ?? 0,
+      problemId: overrides.problemId
+    }
+  });
 }
 
 // --- Contest ---

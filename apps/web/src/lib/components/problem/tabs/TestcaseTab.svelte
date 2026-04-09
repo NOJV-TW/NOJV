@@ -18,7 +18,6 @@
   interface TestcaseSetData {
     id: string;
     name: string;
-    isHidden: boolean;
     weight: number;
     testcases: TestcaseData[];
   }
@@ -43,7 +42,6 @@
   let showAddForm = $state(false);
   let newSetName = $state("");
   let newSetWeight = $state(0);
-  let newSetIsHidden = $state(true);
   let saving = $state(false);
   let error = $state<string | null>(null);
 
@@ -67,13 +65,11 @@
         data: JSON.stringify({
           name: newSetName.trim(),
           weight: newSetWeight,
-          isHidden: newSetIsHidden,
           cases: [{ stdin: "", expectedStdout: "" }]
         })
       });
       newSetName = "";
       newSetWeight = 0;
-      newSetIsHidden = true;
       showAddForm = false;
       await invalidateAll();
     } catch (e) {
@@ -153,7 +149,6 @@
                   stdin: parsedCases[idx]?.stdin ?? "",
                   expectedStdout: parsedCases[idx]?.expectedStdout ?? ""
                 })),
-                isHidden: true,
                 name: subtask.name,
                 weight: subtask.points
               })
@@ -239,14 +234,6 @@
               min="0"
               bind:value={newSetWeight}
             />
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              class="accent-primary"
-              bind:checked={newSetIsHidden}
-            />
-            {m.testcases_hidden()} <HelpTooltip text={m.admin_helpSetHidden()} />
           </label>
         </div>
         <div class="flex gap-2">

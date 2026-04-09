@@ -308,18 +308,12 @@
             <div class="mt-3 space-y-3 text-sm">
               <div>
                 <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_input()}</p>
-                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.input}</pre>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.stdin}</pre>
               </div>
               <div>
                 <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_output()}</p>
-                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.output}</pre>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.expected}</pre>
               </div>
-              {#if sample.explanation}
-                <div>
-                  <p class="font-semibold">{m.problemDetail_explanation()}:</p>
-                  <p class="mt-1 text-muted-foreground">{sample.explanation}</p>
-                </div>
-              {/if}
             </div>
           </div>
         {/each}

@@ -1,7 +1,7 @@
 import {
   assessmentParticipationRepo,
   courseMembershipRepo,
-  problemTemplateRepo,
+  problemWorkspaceFileRepo,
   runTransaction,
   submissionRepo
 } from "@nojv/db";
@@ -82,13 +82,15 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this assignment");
     }
 
-    // ── Language restriction: function-mode template availability ──
+    // ── Language restriction: verify starter workspace exists ──
+    // After the Phase 5 cleanup this check uses ProblemWorkspaceFile
+    // (the unified starter-code + teacher-asset model) instead of the
+    // old ProblemTemplate table.
     if (problem.submissionType === "function") {
-      const template = await problemTemplateRepo
-        .withTx(tx)
-        .findByProblemAndLanguage(problem.id, payload.language);
-      if (!template) {
-        throw new ForbiddenError("No template available for this language");
+      const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
+      const hasLanguageWorkspace = workspaceFiles.some((f) => f.language === payload.language);
+      if (!hasLanguageWorkspace) {
+        throw new ForbiddenError("No starter workspace available for this language");
       }
     }
 

@@ -1,8 +1,10 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
+  languageSchema,
   problemCreateSchema,
-  problemTemplateSchema,
   problemTestcaseSetCreateSchema,
+  problemWorkspaceFileSchema,
+  runtimeSchema,
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
   judgeConfigSchema
@@ -14,30 +16,37 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { problemDomain } from "@nojv/domain";
+import { problemWorkspaceFileRepo } from "@nojv/db";
 
 const {
   getProblemPageData,
   getProblemTestcaseSets,
   updateProblemRecord,
-  updateProblemTemplates,
+  updateProblemWorkspace,
   createProblemTestcaseSetRecord,
   updateTestcaseSetRecord,
   deleteTestcaseSetRecord,
   updateTestcaseRecord,
   deleteTestcaseRecord,
-  deleteProblemRecord
+  deleteProblemRecord,
+  convertProblemToAdvancedMode
 } = problemDomain;
 
-const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
+const updateWorkspaceSchema = z.object({
+  runtime: runtimeSchema.optional(),
+  allowedLanguages: z.array(languageSchema).optional(),
+  files: z.array(problemWorkspaceFileSchema).max(50)
+});
 
 export const load: PageServerLoad = async ({ params, locals }) => {
   if (!locals.user) {
     redirect(302, `/problems/${params.id}`);
   }
 
-  const [problem, testcaseSets] = await Promise.all([
+  const [problem, testcaseSets, workspaceFiles] = await Promise.all([
     getProblemPageData(params.id),
-    getProblemTestcaseSets(params.id)
+    getProblemTestcaseSets(params.id),
+    problemWorkspaceFileRepo.findByProblemId(params.id)
   ]);
 
   if (!problem) {
@@ -50,13 +59,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       inputFormat: problem.inputFormat,
       judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
+      mode: problem.mode,
       outputFormat: problem.outputFormat,
+      samples: problem.samples,
       statement: problem.statement,
       status: problem.status,
       submissionType: problem.submissionType,
       summary: problem.summary,
       tags: problem.tags,
-      templates: [],
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,
       visibility: problem.visibility
@@ -64,7 +74,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     zod4(problemCreateSchema)
   );
 
-  return { problem, form, testcaseSets };
+  return { problem, form, testcaseSets, workspaceFiles };
 };
 
 // ─── Form action helpers ─────────────────────────────────────────────
@@ -121,13 +131,6 @@ export const actions: Actions = {
     return { form, id: result.id, success: true };
   }),
 
-  updateTemplates: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), updateTemplatesSchema);
-    const result = await updateProblemTemplates(actor, problemId, data);
-    return { success: true, templates: result };
-  }),
-
   createTestcaseSet: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
     const data = parseJsonField(formData.get("data"), problemTestcaseSetCreateSchema);
@@ -182,6 +185,24 @@ export const actions: Actions = {
     return { success: true };
   }),
 
+  updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    const data = parseJsonField(formData.get("data"), updateWorkspaceSchema);
+    const result = await updateProblemWorkspace(actor, problemId, {
+      ...(data.runtime ? { runtime: data.runtime } : {}),
+      ...(data.allowedLanguages ? { allowedLanguages: data.allowedLanguages } : {}),
+      files: data.files.map((f) => ({
+        language: f.language,
+        path: f.path,
+        content: f.content,
+        visibility: f.visibility,
+        editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+        orderIndex: f.orderIndex
+      }))
+    });
+    return { success: true, fileCount: result.fileCount };
+  }),
+
   publish: problemEditAction(async ({ actor, problemId }) => {
     await updateProblemRecord(actor, problemId, { status: "published" });
     return { success: true };
@@ -196,5 +217,18 @@ export const actions: Actions = {
 
     await deleteProblemRecord(actor, problemId);
     redirect(302, "/problems?tab=mine");
+  }),
+
+  // Convert a Standard Mode problem to Advanced Mode. This is
+  // intentionally destructive — workspace files, testcase sets, samples,
+  // and judge config are discarded. Requires an explicit `confirm=yes`
+  // field on the POST body to guard against accidental submissions.
+  convertToAdvanced: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    if (formData.get("confirm") !== "yes") {
+      return fail(400, { message: "Conversion not confirmed" });
+    }
+    await convertProblemToAdvancedMode(actor, problemId);
+    redirect(303, `/problems/${problemId}/edit-advanced`);
   })
 };

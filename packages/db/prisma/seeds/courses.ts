@@ -137,7 +137,14 @@ export async function seedCourses(
       status: "published",
       summary:
         "Coursework-oriented assignment with a visible deadline and a private systems problem.",
-      title: "Homework 1: Process Trace"
+      title: "Homework 1: Process Trace",
+      // Demo late-penalty decay: score halves every 48 hours past due.
+      adjustmentRules: [
+        {
+          type: "late_penalty_decay",
+          halfLifeHours: 48
+        }
+      ]
     },
     update: {},
     where: {
