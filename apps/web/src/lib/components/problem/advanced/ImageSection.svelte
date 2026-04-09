@@ -32,45 +32,48 @@
     onsave,
   }: Props = $props();
 
-  let validating = $state(false);
-  let validateMessage = $state<string | null>(null);
   let saving = $state(false);
   let dragOver = $state(false);
   let uploadedFileName = $state<string | null>(null);
-
-  // TODO(phase-7-followup): wire up to a real registry probe endpoint that
-  // pulls the image manifest and verifies the contract entrypoint exists.
-  function validateRegistryRef() {
-    validating = true;
-    validateMessage = null;
-    setTimeout(() => {
-      validating = false;
-      validateMessage = imageRef.trim()
-        ? "Looks valid (stub — backend probe not implemented)"
-        : "Image ref is empty";
-    }, 400);
-  }
+  let uploading = $state(false);
+  let uploadError = $state<string | null>(null);
 
   async function handleTarball(file: File) {
-    // TODO(phase-7-followup): POST the tarball to a `/api/problems/:id/judge-image`
-    // endpoint that stages the file in object storage. For now we only show the
-    // file name and clear the registry ref so the user knows it switched mode.
-    uploadedFileName = file.name;
-    imageSource = "tarball";
-    imageRef = file.name;
+    uploading = true;
+    uploadError = null;
+    try {
+      const body = new FormData();
+      body.set("tarball", file);
+      const res = await fetch(`/api/problems/${problemId}/advanced-image`, {
+        method: "POST",
+        body,
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "Upload failed");
+        throw new Error(msg || `Upload failed (${String(res.status)})`);
+      }
+      const payload = (await res.json()) as { key: string };
+      uploadedFileName = file.name;
+      imageSource = "tarball";
+      imageRef = payload.key;
+    } catch (err) {
+      uploadError = err instanceof Error ? err.message : "Upload failed";
+    } finally {
+      uploading = false;
+    }
   }
 
   function onDrop(e: DragEvent) {
     e.preventDefault();
     dragOver = false;
     const file = e.dataTransfer?.files?.[0];
-    if (file) handleTarball(file);
+    if (file) void handleTarball(file);
   }
 
   function onPick(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
-    if (file) handleTarball(file);
+    if (file) void handleTarball(file);
   }
 
   function save() {
@@ -126,54 +129,59 @@
         placeholder="ghcr.io/your-org/your-judge:tag"
         spellcheck="false"
       />
-      <div class="mt-2 flex items-center gap-3">
-        <button
-          type="button"
-          class="rounded-full border border-border px-4 py-1.5 text-xs font-medium transition hover:bg-muted disabled:opacity-50"
-          disabled={validating || !imageRef.trim()}
-          onclick={validateRegistryRef}
-        >
-          {validating ? "Validating…" : "Validate"}
-        </button>
-        {#if validateMessage}
-          <span class="text-xs text-muted-foreground">{validateMessage}</span>
-        {/if}
-      </div>
+      <p class="mt-2 text-xs text-muted-foreground">
+        e.g. <code>ghcr.io/your-org/your-judge:tag</code> — the worker will
+        try to pull this image at judge time.
+      </p>
     </label>
   {:else}
-    <div
-      role="button"
-      tabindex="0"
-      class="cursor-pointer rounded-2xl border-2 border-dashed border-border p-6 text-center text-sm transition {dragOver
-        ? 'border-primary bg-primary/5'
-        : ''}"
-      ondrop={onDrop}
-      ondragover={(e) => {
-        e.preventDefault();
-        dragOver = true;
-      }}
-      ondragleave={() => (dragOver = false)}
-      onclick={() => document.getElementById(`tarball-${problemId}`)?.click()}
-      onkeydown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
+    <div>
+      <div
+        role="button"
+        tabindex="0"
+        aria-disabled={uploading}
+        class="rounded-2xl border-2 border-dashed border-border p-6 text-center text-sm transition {dragOver
+          ? 'border-primary bg-primary/5'
+          : ''} {uploading ? 'cursor-wait opacity-60' : 'cursor-pointer'}"
+        ondrop={onDrop}
+        ondragover={(e) => {
+          if (uploading) return;
           e.preventDefault();
+          dragOver = true;
+        }}
+        ondragleave={() => (dragOver = false)}
+        onclick={() => {
+          if (uploading) return;
           document.getElementById(`tarball-${problemId}`)?.click();
-        }
-      }}
-    >
-      <p class="font-medium">
-        {uploadedFileName ?? "Drop a docker tarball here, or click to browse"}
-      </p>
-      <p class="mt-1 text-xs text-muted-foreground">
-        Build with <code>docker save your-image:tag -o judge.tar</code>
-      </p>
-      <input
-        id={`tarball-${problemId}`}
-        type="file"
-        accept=".tar,.tar.gz"
-        class="hidden"
-        onchange={onPick}
-      />
+        }}
+        onkeydown={(e) => {
+          if (uploading) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            document.getElementById(`tarball-${problemId}`)?.click();
+          }
+        }}
+      >
+        <p class="font-medium">
+          {uploading
+            ? "Uploading…"
+            : (uploadedFileName ?? "Drop a docker tarball here, or click to browse")}
+        </p>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Build with <code>docker save your-image:tag -o judge.tar</code>
+        </p>
+        <input
+          id={`tarball-${problemId}`}
+          type="file"
+          accept=".tar,.tar.gz"
+          class="hidden"
+          disabled={uploading}
+          onchange={onPick}
+        />
+      </div>
+      {#if uploadError}
+        <p class="mt-2 text-xs text-destructive">{uploadError}</p>
+      {/if}
     </div>
   {/if}
 
