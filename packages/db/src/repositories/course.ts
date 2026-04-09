@@ -2,6 +2,7 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { CourseJoinMethod } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
+import { problemPreviewSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -201,7 +202,7 @@ export const courseProblemRepo = {
     return prisma.courseProblem.findMany({
       where: { courseId },
       select: {
-        problem: { select: { id: true, summary: true, statements: true } }
+        problem: { select: problemPreviewSelect }
       },
       orderBy: { createdAt: "asc" }
     });
