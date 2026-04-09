@@ -115,6 +115,22 @@ enum ProblemStatus {
   published
 }
 
+enum ProblemMode {
+  standard
+  advanced
+}
+
+enum ProblemImageSource {
+  registry
+  tarball
+}
+
+enum WorkspaceFileVisibility {
+  editable
+  readonly
+  hidden
+}
+
 enum CourseAssessmentStatus {
   draft
   published
@@ -172,11 +188,16 @@ model Problem {
   memoryLimitMb       Int
   submissionType      SubmissionType          @default(full_source)
   judgeConfig         Json?
+  mode                ProblemMode             @default(standard)
+  samples             Json?
+  advancedImageRef    String?
+  advancedImageSource ProblemImageSource?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
   statements          ProblemStatementI18n[]
   testcaseSets        TestcaseSet[]
   templates           ProblemTemplate[]
+  workspaceFiles      ProblemWorkspaceFile[]
   submissions         Submission[]
   contestLinks        ContestProblem[]
   courseLinks         CourseProblem[]
@@ -204,7 +225,6 @@ model TestcaseSet {
   id            String   @id @default(cuid())
   problemId     String
   name          String
-  isHidden      Boolean  @default(true)
   weight        Int      @default(1)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -242,6 +262,23 @@ model ProblemTemplate {
   @@unique([problemId, language])
 }
 
+model ProblemWorkspaceFile {
+  id              String                   @id @default(cuid())
+  problemId       String
+  language        SupportedLanguage
+  path            String
+  content         String                   @db.Text
+  visibility      WorkspaceFileVisibility
+  editableRegions Json?
+  orderIndex      Int                      @default(0)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  problem         Problem                  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, language, path])
+  @@index([problemId, language])
+}
+
 model Contest {
   id                String                        @id @default(cuid())
   slug              String                        @unique
@@ -263,6 +300,7 @@ model Contest {
   maxAttempts        Int?
   scoreboardMode     CourseAssessmentScoreboardMode @default(live)
   allowedLanguages   SupportedLanguage[]           @default([])
+  adjustmentRules    Json?
   inviteCode         String?                       @unique
   createdByUserId    String?
   createdAt          DateTime                      @default(now())
@@ -375,6 +413,7 @@ model CourseAssessment {
   ipViolationMode    String                        @default("block")
   maxAttempts        Int?
   allowedLanguages   SupportedLanguage[]           @default([])
+  adjustmentRules    Json?
   opensAt            DateTime
   dueAt              DateTime
   closesAt           DateTime
