@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { compile, compileChecker, assembleSource, sourceFileName } from "../src/compiler.js";
+import { compile, compileChecker, sourceFileName } from "../src/compiler.js";
 import { judgeStandard } from "../src/judges/standard.js";
 import { judgeChecker } from "../src/judges/checker.js";
 import { judgeInteractive } from "../src/judges/interactive.js";
@@ -849,100 +849,6 @@ print(a + b)`
 });
 
 // ─── Template Injection Additional Edge Cases ─────────────────────
-
-describe("template injection additional cases", () => {
-  it("template with special characters in marker", async () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `# INJECT_HERE #\nprint("done")`,
-        insertionMarker: "# INJECT_HERE #"
-      }
-    };
-
-    const assembled = assembleSource("def solve(): pass", input);
-    expect(assembled).toContain("def solve(): pass");
-    expect(assembled).toContain('print("done")');
-    expect(assembled).not.toContain("# INJECT_HERE #");
-  });
-
-  it("template with marker at beginning of file", async () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `__USER_CODE__\nif __name__ == "__main__":\n    main()`,
-        insertionMarker: "__USER_CODE__"
-      }
-    };
-
-    const assembled = assembleSource("def main(): print('hi')", input);
-    expect(assembled).toMatch(/^def main\(\): print\('hi'\)/);
-  });
-
-  it("template with marker at end of file", async () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `if __name__ == "__main__":\n    solve()\n__USER_CODE__`,
-        insertionMarker: "__USER_CODE__"
-      }
-    };
-
-    const assembled = assembleSource("def solve(): pass", input);
-    expect(assembled).toMatch(/def solve\(\): pass$/);
-  });
-
-  it("empty user code injection", async () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `# Start\n__USER_CODE__\n# End`,
-        insertionMarker: "__USER_CODE__"
-      }
-    };
-
-    const assembled = assembleSource("", input);
-    expect(assembled).toBe("# Start\n\n# End");
-  });
-
-  it("user code with the marker string inside", async () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `__USER_CODE__\nprint("done")`,
-        insertionMarker: "__USER_CODE__"
-      }
-    };
-
-    // User code contains the marker text
-    const userCode = `def solve():\n    # __USER_CODE__ is here\n    pass`;
-    const assembled = assembleSource(userCode, input);
-
-    // Only the first marker in driverCode should be replaced
-    expect(assembled).toContain("# __USER_CODE__ is here");
-    expect(assembled).toContain('print("done")');
-  });
-});
 
 // ─── Boundary and Performance ──────────────────────────────────────
 

@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  artifactEntrySchema,
-  customScriptStageResultSchema,
-  staticAnalysisResultSchema,
-  type SandboxResult
-} from "@nojv/core";
+import type { SandboxResult } from "@nojv/core";
 
 const sandboxTestcaseResultSchema = z.object({
   index: z.number(),
@@ -21,9 +16,6 @@ const rawSchema = z.object({
   compilationError: z.string().optional(),
   pipelineError: z.string().optional(),
   testcaseResults: z.array(sandboxTestcaseResultSchema),
-  staticAnalysis: staticAnalysisResultSchema.optional(),
-  artifacts: z.array(artifactEntrySchema).optional(),
-  customStageResults: z.array(customScriptStageResultSchema).optional(),
   customScore: z.number().optional(),
   scoringFeedback: z.string().optional()
 });

@@ -4,11 +4,17 @@
   import { onMount } from "svelte";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import { supportedLanguages, type AssessmentScoreboardMode, type ContestScoringMode } from "@nojv/core";
+  import {
+    supportedLanguages,
+    type AdjustmentRule,
+    type AssessmentScoreboardMode,
+    type ContestScoringMode
+  } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import type { contestDomain } from "@nojv/domain";
   type ContestListItem = contestDomain.ContestListItem;
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import AdjustmentRulesEditor from "./AdjustmentRulesEditor.svelte";
 
   interface Props {
     contests: ContestListItem[];
@@ -31,6 +37,7 @@
       submitCooldownSec: number;
       summary: string;
       title: string;
+      adjustmentRules?: AdjustmentRule[] | undefined;
     }>;
     problemIds: string[];
   }
@@ -134,13 +141,19 @@
 
   const { form, errors, submitting, message: formMessage, enhance } = superForm(
     untrack(() => formData),
-    { invalidateAll: true }
+    { dataType: "json", invalidateAll: true }
   );
 
   if (!$form.startsAt) $form.startsAt = defaultStart;
   if (!$form.endsAt) $form.endsAt = defaultEnd;
   if (!$form.problemIdsText) $form.problemIdsText = initialProblemSlugs.join(", ");
   if (!$form.scoringMode) $form.scoringMode = "icpc";
+
+  // Adjustment rules — synced to form via $effect below.
+  let adjustmentRules = $state<AdjustmentRule[]>($form.adjustmentRules ?? []);
+  $effect(() => {
+    $form.adjustmentRules = adjustmentRules;
+  });
 </script>
 
 <div class="space-y-6">
@@ -383,6 +396,9 @@
           <label class="text-xs text-muted-foreground" for="frozenAt">{t("freezeAt")}</label>
           <input class={inputClassName} name="frozenAt" bind:value={$form.frozenAt} type="datetime-local" />
         </div>
+      </div>
+      <div class="mt-2 rounded-xl border border-border p-3">
+        <AdjustmentRulesEditor bind:rules={adjustmentRules} />
       </div>
       <button
         class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"

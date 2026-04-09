@@ -1,17 +1,18 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
+  import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import ProblemTabs from "$lib/components/problem/ProblemTabs.svelte";
+  import ProblemSections from "$lib/components/problem/ProblemSections.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
-  import SubmissionTab from "$lib/components/problem/tabs/SubmissionTab.svelte";
   import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";
-  import ScoringTab from "$lib/components/problem/tabs/ScoringTab.svelte";
+  import WorkspaceSection from "$lib/components/problem/sections/WorkspaceSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
 
   let { data } = $props();
 
-  let activeTab = $state("basic");
+  let activeSection = $state("basic");
   let publishing = $state(false);
   let dirty = $state(false);
   let showPublishConfirm = $state(false);
@@ -29,6 +30,39 @@
     data.problem.inputFormat !== "" &&
     data.problem.outputFormat !== ""
   );
+
+  // Build WorkspaceSection initial payload from loaded problem + files.
+  // The workspace is a scratchpad the user edits before saving; capture the
+  // initial values once via untrack() so re-runs of `data` don't discard edits.
+  const workspaceInitial = untrack(() => {
+    const runtime = (data.problem.judgeConfig?.runtime as
+      | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
+      | undefined) ?? {
+      timeLimitMs: data.problem.timeLimitMs,
+      memoryLimitMb: data.problem.memoryLimitMb,
+      env: {}
+    };
+    return {
+      runtime,
+      allowedLanguages: [] as Language[],
+      files: data.workspaceFiles.map((f) => ({
+        language: f.language as Language,
+        path: f.path,
+        content: f.content,
+        visibility: f.visibility as "editable" | "readonly" | "hidden",
+        editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+        orderIndex: f.orderIndex
+      }))
+    };
+  });
+
+  async function handleWorkspaceSave(payload: typeof workspaceInitial) {
+    const fd = new FormData();
+    fd.set("data", JSON.stringify(payload));
+    const res = await fetch("?/updateWorkspace", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("workspace save failed");
+    await invalidateAll();
+  }
 
   function handlePublishClick() {
     showPublishConfirm = true;
@@ -78,37 +112,41 @@
     {/if}
   </div>
 
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-    <ProblemTabs
-      bind:activeTab
-      showPublish={data.problem.status === "draft"}
-      {canPublish}
-      {publishing}
-      {basicInfoComplete}
-      bind:dirty
-      onpublish={handlePublishClick}
-    >
-      {#snippet basic()}
-        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
-      {/snippet}
+  <ProblemSections
+    bind:activeSection
+    showPublish={data.problem.status === "draft"}
+    showConvertToAdvanced={data.problem.mode === "standard"}
+    {canPublish}
+    {publishing}
+    {basicInfoComplete}
+    testcaseCount={data.testcaseSets.length}
+    bind:dirty
+    onpublish={handlePublishClick}
+  >
+    {#snippet basic()}
+      <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
+    {/snippet}
 
-      {#snippet submission()}
-        <SubmissionTab problem={data.problem} formData={data.form} ondirtychange={(d) => dirty = d} />
-      {/snippet}
+    {#snippet workspace()}
+      <WorkspaceSection
+        initial={workspaceInitial}
+        ondirtychange={(d) => dirty = d}
+        onsave={handleWorkspaceSave}
+      />
+    {/snippet}
 
-      {#snippet testcase()}
-        <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
-      {/snippet}
+    {#snippet testcase()}
+      <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
+    {/snippet}
 
-      {#snippet judge()}
-        <JudgeTab problem={data.problem} ondirtychange={(d) => dirty = d} />
-      {/snippet}
-
-      {#snippet scoring()}
-        <ScoringTab problem={data.problem} ondirtychange={(d) => dirty = d} />
-      {/snippet}
-    </ProblemTabs>
-  </section>
+    {#snippet judge()}
+      <JudgeTab
+        problem={data.problem}
+        testcaseSets={data.testcaseSets.map((s) => ({ id: s.id, name: s.name, weight: s.weight }))}
+        ondirtychange={(d) => dirty = d}
+      />
+    {/snippet}
+  </ProblemSections>
 
   <ConfirmDialog
     bind:open={showDeleteConfirm}

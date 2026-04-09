@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
-  pipelineConfigSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   submissionDraftSchema
@@ -44,31 +43,6 @@ describe("submissionDraftSchema", () => {
   });
 });
 
-describe("pipelineConfigSchema", () => {
-  it("accepts custom-script stage configuration", () => {
-    const result = pipelineConfigSchema.parse({
-      stages: [
-        { type: "compile" },
-        {
-          type: "custom-script",
-          name: "project-policy",
-          continueOnFail: false,
-          config: {
-            runAt: "before-compile",
-            language: "python",
-            timeoutMs: 5000,
-            script: "print('ok')"
-          }
-        },
-        { type: "execute" },
-        { type: "check" }
-      ]
-    });
-
-    expect(result.stages[1]?.type).toBe("custom-script");
-  });
-});
-
 describe("contestSessionSchema", () => {
   it("requires a frozen scoreboard flag for contest sessions", () => {
     const result = contestSessionSchema.parse({
@@ -95,13 +69,11 @@ describe("problemTestcaseSetCreateSchema", () => {
           stdin: "100 200\n"
         }
       ],
-      isHidden: true,
       name: "Hidden Set",
       weight: 2
     });
 
     expect(result.cases).toHaveLength(2);
-    expect(result.isHidden).toBe(true);
     expect(result.weight).toBe(2);
   });
 });
@@ -111,7 +83,6 @@ describe("problemJudgeTestcaseSchema", () => {
     const result = problemJudgeTestcaseSchema.parse({
       expectedStdout: "3\n",
       id: "tc_01",
-      isHidden: true,
       stdin: "1 2\n",
       weight: 3
     });

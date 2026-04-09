@@ -8,8 +8,12 @@ export {
   updateSubmissionStatus,
   completeJudge,
   findForRejudge,
+  type AdjustmentContext,
   type CompletedSubmission,
   type SubmissionJudgeContext,
-  type TestcaseSetGroup
+  type SubtaskStrategyMap,
+  type TestcaseSetGroup,
+  type WorkspaceFileEntry
 } from "./judge-context";
+export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
 export { dispatchSubmissionJudge, querySubmissionStatus } from "@nojv/job-dispatch";

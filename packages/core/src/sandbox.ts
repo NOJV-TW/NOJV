@@ -1,14 +1,5 @@
+import type { Compare } from "./schemas/judge-config";
 import type { JudgeType, Language, SubmissionType } from "./types";
-import type {
-  ArtifactConfig,
-  ArtifactEntry,
-  CustomScriptStageResult,
-  NetworkAccessConfig,
-  PipelineConfig,
-  ScoringConfig,
-  StaticAnalysisConfig,
-  StaticAnalysisResult
-} from "./pipeline";
 
 // --- Sandbox request ---
 
@@ -23,6 +14,26 @@ export interface SandboxTestcase {
 export interface SandboxSourceFile {
   path: string;
   content: string;
+}
+
+/**
+ * Optional payload supplied when the submission is for an advanced-mode
+ * problem (TA-provided judge container). When set, the runner skips the
+ * standard pipeline and instead invokes the configured image with the
+ * advanced container contract.
+ */
+export interface SandboxAdvancedRequest {
+  imageRef: string;
+  imageSource: "registry" | "tarball";
+  totalTimeMs: number;
+  memoryMb: number;
+  networkEnabled: boolean;
+  /**
+   * Per-testcase auxiliary file map: index → { relative path → content }.
+   * These files are materialized inside `/workspace/testcases/{index}/`
+   * before the TA container starts.
+   */
+  testcaseFiles?: Record<number, Record<string, string>>;
 }
 
 export interface SandboxRequest {
@@ -40,19 +51,16 @@ export interface SandboxRequest {
     checkerLanguage?: string;
     interactorLanguage?: string;
   };
+  /**
+   * Standard-judge compare mode config. When absent, the runner falls
+   * back to trimmed exact comparison (the legacy behavior).
+   */
+  compare?: Compare;
   limits: {
     timeoutMs: number;
     memoryMb: number;
   };
-  template?: {
-    driverCode: string;
-    insertionMarker: string;
-  };
-  pipeline?: PipelineConfig;
-  staticAnalysis?: StaticAnalysisConfig;
-  scoring?: ScoringConfig;
-  artifactCollection?: ArtifactConfig;
-  networkAccess?: NetworkAccessConfig;
+  advanced?: SandboxAdvancedRequest;
 }
 
 // --- Sandbox result ---
@@ -75,9 +83,6 @@ export interface SandboxResult {
   compilationError?: string;
   pipelineError?: string;
   testcaseResults: SandboxTestcaseResult[];
-  staticAnalysis?: StaticAnalysisResult;
-  artifacts?: ArtifactEntry[];
-  customStageResults?: CustomScriptStageResult[];
   customScore?: number;
   scoringFeedback?: string;
 }

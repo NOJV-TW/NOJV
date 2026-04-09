@@ -19,6 +19,7 @@
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
     "@nojv/redis": "workspace:*",
+    "@nojv/storage": "workspace:*",
     "@nojv/temporal": "workspace:*",
     "@temporalio/worker": "^1.15.0",
     "ioredis": "^5.10.1",
