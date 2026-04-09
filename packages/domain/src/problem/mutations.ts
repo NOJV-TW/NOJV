@@ -2,7 +2,6 @@ import {
   advancedTestcaseRepo,
   problemRepo,
   problemStatementRepo,
-  problemTemplateRepo,
   problemWorkspaceFileRepo,
   runTransaction,
   testcaseRepo,
@@ -122,34 +121,6 @@ export function assertCourseProblemAccess(
   }
 }
 
-export async function replaceTemplates(
-  tx: TransactionClient,
-  problemId: string,
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: Language;
-    templateCode: string;
-  }[]
-) {
-  // Lock the problem row to prevent concurrent template modifications
-  await problemRepo.withTx(tx).lockForUpdate(problemId);
-
-  await problemTemplateRepo.withTx(tx).deleteByProblemId(problemId);
-
-  if (templates.length > 0) {
-    await problemTemplateRepo.withTx(tx).createMany(
-      templates.map((tpl) => ({
-        driverCode: tpl.driverCode,
-        insertionMarker: tpl.insertionMarker,
-        language: tpl.language,
-        problemId,
-        templateCode: tpl.templateCode
-      }))
-    );
-  }
-}
-
 function assertProblemOwnership(
   problem: { authorId: string | null },
   actor: ProblemActorContext
@@ -157,26 +128,6 @@ function assertProblemOwnership(
   if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
     throw new ForbiddenError("Only the author or an admin can modify this problem.");
   }
-}
-
-export async function updateProblemTemplates(
-  actor: ProblemActorContext,
-  problemId: string,
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: Language;
-    templateCode: string;
-  }[]
-) {
-  return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
-
-    await replaceTemplates(tx, problem.id, templates);
-
-    return problemTemplateRepo.withTx(tx).findByProblemId(problem.id);
-  });
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
@@ -206,10 +157,6 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       title: payload.title,
       visibility: payload.visibility
     });
-
-    if (payload.templates.length > 0) {
-      await replaceTemplates(tx, problem.id, payload.templates);
-    }
 
     return problem;
   });
@@ -276,11 +223,6 @@ export async function updateProblemRecord(
           ...(payload.title !== undefined ? { title: payload.title } : {})
         }
       );
-    }
-
-    // Update templates if provided
-    if (payload.templates !== undefined) {
-      await replaceTemplates(tx, problem.id, payload.templates);
     }
 
     return { id: problem.id };
@@ -413,7 +355,6 @@ export async function createProblemTestcaseSetRecord(
     assertProblemOwnership(problem, actor);
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
-      isHidden: payload.isHidden,
       name: payload.name,
       problemId: problem.id,
       weight: payload.weight
@@ -431,7 +372,6 @@ export async function createProblemTestcaseSetRecord(
     return {
       caseCount: payload.cases.length,
       id: testcaseSet.id,
-      isHidden: testcaseSet.isHidden,
       name: testcaseSet.name
     };
   });

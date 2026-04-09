@@ -857,11 +857,7 @@ describe("template injection additional cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `# INJECT_HERE #\nprint("done")`,
-        insertionMarker: "# INJECT_HERE #"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 
     const assembled = assembleSource("def solve(): pass", input);
@@ -876,11 +872,7 @@ describe("template injection additional cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `__USER_CODE__\nif __name__ == "__main__":\n    main()`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 
     const assembled = assembleSource("def main(): print('hi')", input);
@@ -893,11 +885,7 @@ describe("template injection additional cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `if __name__ == "__main__":\n    solve()\n__USER_CODE__`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 
     const assembled = assembleSource("def solve(): pass", input);
@@ -910,11 +898,7 @@ describe("template injection additional cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `# Start\n__USER_CODE__\n# End`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 
     const assembled = assembleSource("", input);
@@ -927,11 +911,7 @@ describe("template injection additional cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `__USER_CODE__\nprint("done")`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 
     // User code contains the marker text

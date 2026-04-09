@@ -15,7 +15,6 @@ type SeedTestcase = {
 };
 
 type SeedTestcaseSet = {
-  isHidden: boolean;
   cases: SeedTestcase[];
 };
 
@@ -42,18 +41,6 @@ type SeedProblemDef = {
   submissionType?: SeedSubmissionType;
   judgeConfig?: Record<string, unknown>;
   status?: "draft" | "published";
-};
-
-type SeedFunctionTemplate = {
-  driverCode: string;
-  insertionMarker: string;
-  language: "python" | "cpp";
-  templateCode: string;
-};
-
-type SeedFunctionTemplateDef = {
-  problemId: string;
-  templates: SeedFunctionTemplate[];
 };
 
 const hardenedIds = [
@@ -103,51 +90,6 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
   }
 }
 
-export function validateTemplateDefinitions(
-  problemDefs: SeedProblemDef[],
-  functionTemplateDefs: SeedFunctionTemplateDef[]
-): void {
-  const problemById = new Map(problemDefs.map((def) => [def.id, def]));
-  const templateIds = new Set<string>();
-
-  for (const bundle of functionTemplateDefs) {
-    if (templateIds.has(bundle.problemId)) {
-      throw new Error(`Duplicate template bundle for problem: ${bundle.problemId}`);
-    }
-    templateIds.add(bundle.problemId);
-
-    const problem = problemById.get(bundle.problemId);
-    if (!problem) {
-      throw new Error(`Template references unknown problem id: ${bundle.problemId}`);
-    }
-
-    if (bundle.templates.length === 0) {
-      throw new Error(
-        `Template bundle must include at least one template: ${bundle.problemId}`
-      );
-    }
-
-    for (const template of bundle.templates) {
-      if (!template.templateCode.trim()) {
-        throw new Error(`Template code cannot be empty: ${bundle.problemId}`);
-      }
-
-      const markerCount = template.driverCode.split(template.insertionMarker).length - 1;
-      if (markerCount !== 1) {
-        throw new Error(
-          `Template marker must appear exactly once for ${bundle.problemId} (${template.language})`
-        );
-      }
-    }
-  }
-
-  for (const problem of problemDefs) {
-    if (problem.submissionType === "function" && !templateIds.has(problem.id)) {
-      throw new Error(`Function-mode problem is missing templates: ${problem.id}`);
-    }
-  }
-}
-
 export async function seedProblems(prisma: PrismaClient, teacherId: string) {
   const problemDefs: SeedProblemDef[] = [
     {
@@ -178,7 +120,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "2 5", expectedStdout: "7" },
             { stdin: "0 0", expectedStdout: "0" },
@@ -186,7 +127,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "1000000 999999", expectedStdout: "1999999" },
             { stdin: "-100 -200", expectedStdout: "-300" },
@@ -222,14 +162,12 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "4\n3\n4\n1\n1\n", expectedStdout: "2" },
             { stdin: "2\n1\n2\n", expectedStdout: "0" }
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "6\n5\n6\n3\n3\n2\n1\n", expectedStdout: "3" },
             { stdin: "1\n1\n", expectedStdout: "0" }
@@ -266,14 +204,12 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "3 3\n...\n.#.\n...\n", expectedStdout: "4" },
             { stdin: "2 2\n..\n..\n", expectedStdout: "2" }
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "5 5\n.....\n.###.\n.#.#.\n.###.\n.....\n", expectedStdout: "8" },
             { stdin: "1 1\n.\n", expectedStdout: "0" }
@@ -311,7 +247,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             {
               stdin: "3\nfork 1 2\nexit 2\nwait 1\n",
@@ -320,7 +255,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             {
               stdin: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
@@ -361,14 +295,12 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "4\n1 2\n1 3\n3 4\n", expectedStdout: "7" },
             { stdin: "2\n1 2\n", expectedStdout: "3" }
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "5\n1 2\n1 3\n3 4\n3 5\n", expectedStdout: "11" },
             { stdin: "3\n1 2\n2 3\n", expectedStdout: "6" }
@@ -404,7 +336,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "1 2", expectedStdout: "3" },
             { stdin: "0 0", expectedStdout: "0" },
@@ -412,7 +343,6 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "1000000 999999", expectedStdout: "1999999" },
             { stdin: "-500 -700", expectedStdout: "-1200" },
@@ -471,14 +401,12 @@ if __name__ == "__main__":
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "1 3", expectedStdout: "0.333333" },
             { stdin: "1 7", expectedStdout: "0.142857" }
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "2 3", expectedStdout: "0.666667" },
             { stdin: "355 113", expectedStdout: "3.141593" }
@@ -550,14 +478,12 @@ if __name__ == "__main__":
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "42", expectedStdout: "" },
             { stdin: "500000", expectedStdout: "" }
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "1", expectedStdout: "" },
             { stdin: "1000000", expectedStdout: "" },
@@ -596,7 +522,6 @@ if __name__ == "__main__":
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             {
               stdin: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
@@ -605,7 +530,6 @@ if __name__ == "__main__":
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             {
               stdin: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
@@ -648,7 +572,6 @@ if __name__ == "__main__":
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             {
               stdin: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
@@ -661,7 +584,6 @@ if __name__ == "__main__":
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             {
               stdin:
@@ -739,14 +661,12 @@ if __name__ == "__main__":
       },
       testcases: {
         sample: {
-          isHidden: false,
           cases: [
             { stdin: "42", expectedStdout: "" },
             { stdin: "777777", expectedStdout: "" }
           ]
         },
         hidden: {
-          isHidden: true,
           cases: [
             { stdin: "1", expectedStdout: "" },
             { stdin: "1000000", expectedStdout: "" },
@@ -813,16 +733,14 @@ if __name__ == "__main__":
 
     // Upsert testcase sets
     for (const [setName, setDef] of Object.entries(def.testcases)) {
+      void setDef;
       const testcaseSet = await prisma.testcaseSet.upsert({
         create: {
-          isHidden: setDef.isHidden,
           name: setName,
           problemId: problem.id,
           weight: 1
         },
-        update: {
-          isHidden: setDef.isHidden
-        },
+        update: {},
         where: {
           problemId_name: {
             name: setName,
@@ -853,121 +771,6 @@ if __name__ == "__main__":
     );
   }
 
-  // --- Problem Templates (for function-mode problems) ---
-  const functionTemplateDefs: SeedFunctionTemplateDef[] = [
-    {
-      problemId: "problem_add-two-numbers",
-      templates: [
-        {
-          driverCode: "# __USER_CODE__\na, b = map(int, input().split())\nprint(add(a, b))\n",
-          insertionMarker: "# __USER_CODE__",
-          language: "python" as const,
-          templateCode: "def add(a, b):\n    # Write your solution here\n    pass\n"
-        },
-        {
-          driverCode:
-            "#include <iostream>\nusing namespace std;\n// __USER_CODE__\nint main() {\n    int a, b;\n    cin >> a >> b;\n    cout << add(a, b) << endl;\n    return 0;\n}\n",
-          insertionMarker: "// __USER_CODE__",
-          language: "cpp" as const,
-          templateCode:
-            "int add(int a, int b) {\n    // Write your solution here\n    return 0;\n}\n"
-        }
-      ]
-    },
-    {
-      problemId: "problem_stateful-dhcp-parser",
-      templates: [
-        {
-          driverCode: `# __USER_CODE__
-def main():
-    import sys
-
-    lines = sys.stdin.read().strip().splitlines()
-    if not lines:
-        return
-
-    q = int(lines[0])
-    out = []
-    for i in range(1, q + 1):
-        payload = lines[i].strip() if i < len(lines) else ""
-        result = parse_dhcp_options(payload)
-        out.append("|".join(result))
-
-    print("\\n".join(out))
-
-if __name__ == "__main__":
-    main()
-`,
-          insertionMarker: "# __USER_CODE__",
-          language: "python" as const,
-          templateCode: `def parse_dhcp_options(hex_payload: str) -> list[str]:
-    # Return canonical entries: CODE:LEN:VALUE
-    # Return ["ERROR"] on malformed payload.
-    return []
-`
-        }
-      ]
-    },
-    {
-      problemId: "problem_memory-leak-forensics",
-      templates: [
-        {
-          driverCode: `# __USER_CODE__
-def main():
-    import sys
-
-    lines = sys.stdin.read().strip().splitlines()
-    if not lines:
-        return
-
-    n = int(lines[0])
-    events = lines[1:1 + n]
-    peak, leaked, invalid = analyze_trace(events)
-    print(peak, leaked, invalid)
-
-if __name__ == "__main__":
-    main()
-`,
-          insertionMarker: "# __USER_CODE__",
-          language: "python" as const,
-          templateCode: `def analyze_trace(events: list[str]) -> tuple[int, int, int]:
-    # Return: (peak_bytes, leaked_blocks, invalid_free_count)
-    return (0, 0, 0)
-`
-        }
-      ]
-    }
-  ];
-
-  validateTemplateDefinitions(problemDefs, functionTemplateDefs);
-
-  for (const tplDef of functionTemplateDefs) {
-    const problem = await prisma.problem.findUnique({ where: { id: tplDef.problemId } });
-    if (!problem) continue;
-
-    for (const tpl of tplDef.templates) {
-      await prisma.problemTemplate.upsert({
-        create: {
-          driverCode: tpl.driverCode,
-          insertionMarker: tpl.insertionMarker,
-          language: tpl.language,
-          problemId: problem.id,
-          templateCode: tpl.templateCode
-        },
-        update: {
-          driverCode: tpl.driverCode,
-          insertionMarker: tpl.insertionMarker,
-          templateCode: tpl.templateCode
-        },
-        where: {
-          problemId_language: {
-            language: tpl.language,
-            problemId: problem.id
-          }
-        }
-      });
-    }
-
-    console.log(`  Templates: ${tplDef.templates.length} upserted for ${tplDef.problemId}`);
-  }
+  // Phase 5 cleanup: function-mode problem templates are gone. Any
+  // future "starter code" seeding should use ProblemWorkspaceFile.
 }

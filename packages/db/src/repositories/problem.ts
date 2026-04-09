@@ -1,6 +1,5 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { SupportedLanguage } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
@@ -201,34 +200,6 @@ export const problemStatementRepo = {
           create: createData,
           update: updateData,
           where: { problemId_locale: { locale, problemId } }
-        });
-      }
-    };
-  }
-};
-
-export const problemTemplateRepo = {
-  withTx(tx: TxClient) {
-    return {
-      findByProblemAndLanguage(problemId: string, language: SupportedLanguage) {
-        return tx.problemTemplate.findFirst({
-          where: { problemId, language },
-          select: { id: true }
-        });
-      },
-
-      deleteByProblemId(problemId: string) {
-        return tx.problemTemplate.deleteMany({ where: { problemId } });
-      },
-
-      createMany(data: Prisma.ProblemTemplateCreateManyInput[]) {
-        return tx.problemTemplate.createMany({ data });
-      },
-
-      findByProblemId(problemId: string) {
-        return tx.problemTemplate.findMany({
-          orderBy: { language: "asc" },
-          where: { problemId }
         });
       }
     };

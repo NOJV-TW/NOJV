@@ -29,9 +29,6 @@ function createMockPrisma() {
     testcase: {
       deleteMany: async () => ({ count: 0 }),
       create: async () => ({})
-    },
-    problemTemplate: {
-      upsert: async () => ({})
     }
   };
 }

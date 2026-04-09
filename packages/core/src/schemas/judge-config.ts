@@ -1,26 +1,13 @@
 import { z } from "zod";
 import { judgeTypeSchema } from "../types";
-import {
-  staticAnalysisConfigSchema,
-  scoringConfigSchema,
-  artifactConfigSchema,
-  networkAccessConfigSchema,
-  pipelineStageSchema,
-  customScriptConfigSchema,
-  subtaskScoringStrategySchema
-} from "../pipeline";
+import { subtaskScoringStrategySchema } from "../pipeline";
 
-// ─── Phase 1 redesign: new judge config shape ─────────────────────
+// ─── Phase 1 redesign: judge config shape ─────────────────────────
 //
-// The authoritative judge configuration after the Phase 1 redesign.
-// Legacy fields (staticAnalysis, artifacts, networkAccess, customScripts,
-// scoring.adjustmentRules, scoring.script, pipeline) remain on the schema
-// as optional for backward compatibility and are removed in Phase 5 once
-// the runner and UI stop referencing them.
+// Authoritative judge configuration. After the Phase 5 cleanup all
+// legacy fields (staticAnalysis, artifacts, networkAccess, pipeline,
+// customScripts) are removed.
 
-// Languages allowed for Phase 1 checker / interactor scripts. Distinct
-// from the legacy pipeline.ts `customScriptLanguageSchema` which stays
-// alive for the deprecated pipeline stage API.
 export const judgeScriptLanguageSchema = z.enum(["bash", "python", "node", "c", "cpp"]);
 
 export type JudgeScriptLanguage = z.infer<typeof judgeScriptLanguageSchema>;
@@ -61,7 +48,7 @@ export type JudgeScoring = z.infer<typeof judgeScoringSchema>;
 export const judgeConfigSchema = z.object({
   type: judgeTypeSchema.default("standard"),
 
-  // Standard judge: compare mode (Phase 1 new shape)
+  // Standard judge: compare mode
   compare: compareSchema.optional(),
 
   // Checker / interactive scripts
@@ -70,40 +57,12 @@ export const judgeConfigSchema = z.object({
   interactorScript: z.string().max(200_000).optional(),
   interactorLanguage: judgeScriptLanguageSchema.optional(),
 
-  // Runtime (Phase 1 new). Legacy problems without this fall back to
-  // Problem.timeLimitMs / memoryLimitMb at the runner level.
+  // Runtime: authoritative source for time/memory limits + env.
   runtime: runtimeSchema.optional(),
 
   // Scoring: only subtask strategies after Phase 1. Adjustment rules
   // moved to CourseAssessment / Contest.adjustmentRules.
-  scoring: scoringConfigSchema.optional(),
-
-  // ─── Legacy fields (deprecated, removed in Phase 5) ───────────────
-  //
-  // These keep the schema compatible with existing DB rows until the
-  // runner and UI migrate. New UI SHOULD NOT write to them.
-  /** @deprecated phase-5 — replaced by `runtime.env` and a future
-   *  static-check slot. */
-  staticAnalysis: staticAnalysisConfigSchema.optional(),
-  /** @deprecated phase-5 — moves to Advanced Mode result contract. */
-  artifacts: artifactConfigSchema.optional(),
-  /** @deprecated phase-5 — moves to Advanced Mode. */
-  networkAccess: networkAccessConfigSchema.optional(),
-  /** @deprecated phase-5 — replaced by runner-managed pipeline. */
-  pipeline: z
-    .object({
-      stages: z.array(pipelineStageSchema).min(1).max(20)
-    })
-    .optional(),
-  /** @deprecated phase-5 — moves to Advanced Mode. */
-  customScripts: z
-    .array(
-      customScriptConfigSchema.extend({
-        name: z.string().min(1).max(100)
-      })
-    )
-    .max(10)
-    .optional()
+  scoring: judgeScoringSchema.optional()
 });
 
 export type JudgeConfig = z.infer<typeof judgeConfigSchema>;

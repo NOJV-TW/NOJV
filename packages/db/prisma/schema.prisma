@@ -197,7 +197,6 @@ model Problem {
   updatedAt           DateTime                @updatedAt
   statements          ProblemStatementI18n[]
   testcaseSets        TestcaseSet[]
-  templates           ProblemTemplate[]
   workspaceFiles      ProblemWorkspaceFile[]
   advancedTestcases   AdvancedTestcase[]
   submissions         Submission[]
@@ -227,9 +226,6 @@ model TestcaseSet {
   id            String   @id @default(cuid())
   problemId     String
   name          String
-  /// Deprecated: will be removed in Phase 5 when sample handling moves to Problem.samples.
-  /// Still used by legacy code paths; Phase 1 migration script reads this to extract samples.
-  isHidden      Boolean  @default(true)
   weight        Int      @default(1)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -270,20 +266,6 @@ model AdvancedTestcase {
 
   @@unique([problemId, ordinal])
   @@index([problemId])
-}
-
-model ProblemTemplate {
-  id              String            @id @default(cuid())
-  problemId       String
-  language        SupportedLanguage
-  driverCode      String            @db.Text
-  templateCode    String            @db.Text
-  insertionMarker String            @default("// __USER_CODE__")
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  problem         Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
-
-  @@unique([problemId, language])
 }
 
 model ProblemWorkspaceFile {

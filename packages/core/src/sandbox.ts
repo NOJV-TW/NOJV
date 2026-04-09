@@ -1,14 +1,4 @@
 import type { JudgeType, Language, SubmissionType } from "./types";
-import type {
-  ArtifactConfig,
-  ArtifactEntry,
-  CustomScriptStageResult,
-  NetworkAccessConfig,
-  PipelineConfig,
-  ScoringConfig,
-  StaticAnalysisConfig,
-  StaticAnalysisResult
-} from "./pipeline";
 
 // --- Sandbox request ---
 
@@ -64,15 +54,6 @@ export interface SandboxRequest {
     timeoutMs: number;
     memoryMb: number;
   };
-  template?: {
-    driverCode: string;
-    insertionMarker: string;
-  };
-  pipeline?: PipelineConfig;
-  staticAnalysis?: StaticAnalysisConfig;
-  scoring?: ScoringConfig;
-  artifactCollection?: ArtifactConfig;
-  networkAccess?: NetworkAccessConfig;
   advanced?: SandboxAdvancedRequest;
 }
 
@@ -96,9 +77,6 @@ export interface SandboxResult {
   compilationError?: string;
   pipelineError?: string;
   testcaseResults: SandboxTestcaseResult[];
-  staticAnalysis?: StaticAnalysisResult;
-  artifacts?: ArtifactEntry[];
-  customStageResults?: CustomScriptStageResult[];
   customScore?: number;
   scoringFeedback?: string;
 }

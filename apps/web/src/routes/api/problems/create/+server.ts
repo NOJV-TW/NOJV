@@ -32,7 +32,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     submissionType: "full_source",
     summary: "",
     tags: [],
-    templates: [],
     timeLimitMs: 1000,
     title: "Untitled Problem",
     visibility: "private"

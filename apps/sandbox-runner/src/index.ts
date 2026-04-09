@@ -14,21 +14,9 @@ import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
 import { runAdvancedMode } from "./advanced-mode.js";
-import { runStaticAnalysis } from "./stages/static-analysis.js";
-import { runCustomScoring, type ScoringInput } from "./stages/score.js";
-import { collectArtifacts } from "./stages/artifact.js";
-import { runCustomScriptStage, type CustomScriptContext } from "./stages/custom-script.js";
-import {
-  normalizeRelativePath,
-  type StaticAnalysisResult,
-  type ArtifactEntry,
-  type CustomScriptRunAt,
-  type CustomScriptStage,
-  type CustomScriptStageResult
-} from "@nojv/core";
+import { normalizeRelativePath } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
-const ARTIFACT_DIR = "/workspace/artifacts";
 
 /** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
@@ -204,64 +192,23 @@ async function findScript(prefix: string): Promise<string | null> {
   return match ? path.join(SUBMISSION_DIR, match) : null;
 }
 
-function pipelineCustomStages(
-  config: SandboxInput,
-  runAt: CustomScriptRunAt
-): CustomScriptStage[] {
-  return (config.pipeline?.stages ?? []).filter(
-    (stage): stage is CustomScriptStage =>
-      stage.type === "custom-script" && stage.config.runAt === runAt
-  );
-}
-
-/** State carried through the main pipeline that feeds every emitted output. */
-interface PipelineState {
-  staticAnalysisResult?: StaticAnalysisResult;
-  customStageResults: CustomScriptStageResult[];
-}
-
-/** Write a SandboxOutput to stdout, merging the accumulated pipeline state. */
-function emit(state: PipelineState, overrides: Partial<SandboxOutput>): void {
+/** Write a SandboxOutput to stdout. */
+function emit(overrides: Partial<SandboxOutput>): void {
   const output: SandboxOutput = {
     testcaseResults: [],
-    ...(state.staticAnalysisResult ? { staticAnalysis: state.staticAnalysisResult } : {}),
-    ...(state.customStageResults.length > 0
-      ? { customStageResults: state.customStageResults }
-      : {}),
     ...overrides
   };
   process.stdout.write(JSON.stringify(output));
 }
 
-async function runCustomStagesAtHook(
-  config: SandboxInput,
-  runAt: CustomScriptRunAt,
-  context: CustomScriptContext,
-  results: CustomScriptStageResult[]
-): Promise<string | undefined> {
-  const stages = pipelineCustomStages(config, runAt);
-  for (const stage of stages) {
-    log(`Running custom stage '${stage.name}' (${runAt})...`);
-    const stageResult = await runCustomScriptStage(stage, runAt, context);
-    results.push(stageResult);
-    if (!stageResult.passed && !stage.continueOnFail) {
-      const reason = stageResult.feedback ?? `exitCode=${String(stageResult.exitCode)}`;
-      return `Pipeline stage '${stage.name}' failed: ${reason}`;
-    }
-  }
-
-  return undefined;
-}
-
 async function main(): Promise<void> {
-  // 1. Read config
   log("Reading config...");
   const config = await readConfig();
   log(
     `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
   );
 
-  // 1a. Phase 7: advanced mode (TA-provided judge container) — runs an
+  // Phase 7: advanced mode (TA-provided judge container) — runs an
   // entirely separate code path and bypasses the standard pipeline.
   if (config.advanced) {
     log("Dispatching to advanced-mode runner...");
@@ -270,10 +217,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  // 2. Prepare source files in a work directory
+  // Prepare source files in a work directory
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   await materializeConfiguredSources(config, workDir);
-  const state: PipelineState = { customStageResults: [] };
 
   const defaultEntry = sourceFileName(config.language);
   const entryFile =
@@ -295,7 +241,7 @@ async function main(): Promise<void> {
     try {
       assembledSource = assembleSource(rawSource, config);
     } catch (err) {
-      emit(state, {
+      emit({
         compilationError: err instanceof Error ? err.message : "Source assembly failed."
       });
       return;
@@ -309,64 +255,22 @@ async function main(): Promise<void> {
     await writeWorkFile(workDir, entryFile, rawSource);
   }
 
-  // ─── Pipeline Stage: Static Analysis ───────────────────────────
-  if (config.staticAnalysis) {
-    log("Running static analysis...");
-    state.staticAnalysisResult = await runStaticAnalysis(srcFile, config.staticAnalysis);
-    log(
-      `Static analysis: ${state.staticAnalysisResult.passed ? "PASSED" : "FAILED"} (${String(state.staticAnalysisResult.violations.length)} violations)`
-    );
-
-    if (!state.staticAnalysisResult.passed) {
-      const saStage = config.pipeline?.stages.find((s) => s.type === "static-analysis");
-      const continueOnFail = saStage ? saStage.continueOnFail : false;
-
-      if (!continueOnFail) {
-        const violationMessages = state.staticAnalysisResult.violations
-          .filter((v) => v.severity === "error")
-          .map((v) => `Line ${String(v.line ?? "?")}: ${v.message}`)
-          .join("\n");
-        emit(state, { compilationError: `Static analysis failed:\n${violationMessages}` });
-        return;
-      }
-    }
-  }
-
-  const beforeCompileError = await runCustomStagesAtHook(
-    config,
-    "before-compile",
-    {
-      submissionId: config.submissionId,
-      language: config.language,
-      judgeType: config.judgeType,
-      workDir,
-      sourcePath: srcFile
-    },
-    state.customStageResults
-  );
-
-  if (beforeCompileError) {
-    emit(state, { pipelineError: beforeCompileError });
-    return;
-  }
-
-  // ─── Pipeline Stage: Compile ───────────────────────────────────
   log("Compiling...");
   const compileResult = await compile(config, srcFile, workDir);
 
   if (!compileResult.success) {
-    emit(state, { compilationError: compileResult.error });
+    emit({ compilationError: compileResult.error });
     return;
   }
 
-  // 5. If checker/interactive: compile checker/interactor
+  // If checker/interactive: compile checker/interactor
   let checkerCommand: string[] | undefined;
   let interactorCommand: string[] | undefined;
 
   if (config.judgeType === "checker") {
     const checkerPath = await findScript("checker");
     if (!checkerPath) {
-      emit(state, {
+      emit({
         compilationError: "Checker judge requires a checker script in /submission/."
       });
       return;
@@ -375,7 +279,7 @@ async function main(): Promise<void> {
     const checkerLang = config.checkerLanguage ?? "python";
     const checkerResult = await compileChecker(checkerPath, checkerLang, workDir, "checker");
     if (!checkerResult.success) {
-      emit(state, {
+      emit({
         compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`
       });
       return;
@@ -386,7 +290,7 @@ async function main(): Promise<void> {
   if (config.judgeType === "interactive") {
     const interactorPath = await findScript("interactor");
     if (!interactorPath) {
-      emit(state, {
+      emit({
         compilationError: "Interactive judge requires an interactor script in /submission/."
       });
       return;
@@ -400,7 +304,7 @@ async function main(): Promise<void> {
       "interactor"
     );
     if (!interactorResult.success) {
-      emit(state, {
+      emit({
         compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`
       });
       return;
@@ -408,25 +312,6 @@ async function main(): Promise<void> {
     interactorCommand = interactorResult.runCommand;
   }
 
-  const afterCompileError = await runCustomStagesAtHook(
-    config,
-    "after-compile",
-    {
-      submissionId: config.submissionId,
-      language: config.language,
-      judgeType: config.judgeType,
-      workDir,
-      sourcePath: srcFile
-    },
-    state.customStageResults
-  );
-
-  if (afterCompileError) {
-    emit(state, { pipelineError: afterCompileError });
-    return;
-  }
-
-  // ─── Pipeline Stage: Execute + Check ───────────────────────────
   log("Loading testcases...");
   const testcases = await loadTestcases();
   log(`Found ${String(testcases.length)} testcase(s).`);
@@ -470,82 +355,7 @@ async function main(): Promise<void> {
     log(`Testcase ${String(testcase.index)}: ${result.verdict} (${String(result.timeMs)}ms)`);
   }
 
-  const afterCheckError = await runCustomStagesAtHook(
-    config,
-    "after-check",
-    {
-      submissionId: config.submissionId,
-      language: config.language,
-      judgeType: config.judgeType,
-      workDir,
-      sourcePath: srcFile,
-      rawScore: computeRawScore(results),
-      testcaseResults: results
-    },
-    state.customStageResults
-  );
-
-  if (afterCheckError) {
-    emit(state, { pipelineError: afterCheckError, testcaseResults: results });
-    return;
-  }
-
-  // ─── Pipeline Stage: Artifact Collection ───────────────────────
-  let artifacts: ArtifactEntry[] | undefined;
-
-  if (config.artifactCollection) {
-    log("Collecting artifacts...");
-    try {
-      artifacts = await collectArtifacts(workDir, ARTIFACT_DIR, config.artifactCollection);
-      log(`Collected ${String(artifacts.length)} artifact(s).`);
-    } catch (err) {
-      log(`Artifact collection failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  // ─── Pipeline Stage: Custom Scoring ────────────────────────────
-  let customScore: number | undefined;
-  let scoringFeedback: string | undefined;
-
-  if (config.scoring) {
-    log("Running custom scoring...");
-    const rawScore = computeRawScore(results);
-    const scoringInput: ScoringInput = {
-      submissionId: config.submissionId,
-      language: config.language,
-      rawScore,
-      testcaseResults: results,
-      submittedAt: new Date().toISOString()
-    };
-
-    try {
-      const scoringOutput = await runCustomScoring(config.scoring, scoringInput);
-      customScore = scoringOutput.finalScore;
-      scoringFeedback = scoringOutput.feedback;
-      log(`Custom scoring: ${String(customScore)} (raw: ${String(rawScore)})`);
-    } catch (err) {
-      log(`Custom scoring failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
-  emit(state, {
-    testcaseResults: results,
-    ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
-    ...(customScore !== undefined ? { customScore } : {}),
-    ...(scoringFeedback ? { scoringFeedback } : {})
-  });
-}
-
-/**
- * Compute an unweighted raw score from testcase results (percentage of AC).
- * NOTE: This is an approximation for use by custom scoring scripts. The
- * authoritative weighted score is computed by submission-runner.ts using
- * per-subtask weights. Do not use this value for final grading.
- */
-function computeRawScore(results: TestcaseResult[]): number {
-  if (results.length === 0) return 0;
-  const passed = results.filter((r) => r.verdict === "AC").length;
-  return Math.round((passed / results.length) * 100);
+  emit({ testcaseResults: results });
 }
 
 // Run and handle any unhandled errors as SE

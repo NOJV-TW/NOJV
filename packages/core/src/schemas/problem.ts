@@ -10,13 +10,6 @@ import {
 
 import { judgeConfigSchema } from "./judge-config";
 
-export const problemTemplateSchema = z.object({
-  driverCode: z.string().min(1).max(200_000),
-  insertionMarker: z.string().min(1).max(200).default("// __USER_CODE__"),
-  language: languageSchema,
-  templateCode: z.string().min(1).max(100_000)
-});
-
 // ─── Phase 1 redesign: problem mode + samples + workspace files ────
 
 export const problemModeSchema = z.enum(["standard", "advanced"]);
@@ -90,7 +83,6 @@ export const problemCreateSchema = z.object({
   submissionType: submissionTypeSchema.default("full_source"),
   summary: z.string().trim().max(2_000).default(""),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
-  templates: z.array(problemTemplateSchema).max(10).default([]),
   timeLimitMs: z.coerce
     .number()
     .int()
@@ -120,22 +112,19 @@ export const problemJudgeTestcaseSchema = z.object({
   expectedStdout: z.string().max(200_000).optional(),
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), z.string()).optional(),
-  isHidden: z.boolean(),
   stdin: z.string().max(200_000),
   weight: z.coerce.number().int().min(1).max(100)
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
-  isHidden: z.boolean(),
   name: z.string().trim().min(1).max(120),
   weight: z.coerce.number().int().min(1).max(100).default(1)
 });
 
 export const testcaseSetUpdateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
-  weight: z.coerce.number().int().min(0).max(100).optional(),
-  isHidden: z.boolean().optional()
+  weight: z.coerce.number().int().min(0).max(100).optional()
 });
 
 export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();

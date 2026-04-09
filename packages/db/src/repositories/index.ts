@@ -21,7 +21,6 @@ export { plagiarismReportRepo } from "./plagiarism";
 export {
   problemRepo,
   problemStatementRepo,
-  problemTemplateRepo,
   problemWorkspaceFileRepo,
   advancedTestcaseRepo,
   testcaseSetRepo,

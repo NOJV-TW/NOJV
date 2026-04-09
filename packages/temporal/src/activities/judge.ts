@@ -125,14 +125,10 @@ function mapResult(
   }));
 
   const pipelineResult: Record<string, unknown> = {};
-  if (result.staticAnalysis) pipelineResult.staticAnalysis = result.staticAnalysis;
-  if (result.artifacts) pipelineResult.artifacts = result.artifacts;
-  if (result.customStageResults) pipelineResult.customStageResults = result.customStageResults;
   if (result.customScore !== undefined) pipelineResult.customScore = result.customScore;
   if (result.scoringFeedback) pipelineResult.scoringFeedback = result.scoringFeedback;
 
   const hasPipelineResult = Object.keys(pipelineResult).length > 0;
-  const artifactPaths = result.artifacts?.map((a) => a.path);
 
   if (result.compilationError) {
     return {
@@ -142,8 +138,7 @@ function mapResult(
       runtimeMs: 0,
       score: 0,
       verdict: "compile_error",
-      ...(hasPipelineResult ? { pipelineResult } : {}),
-      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+      ...(hasPipelineResult ? { pipelineResult } : {})
     };
   }
 
@@ -155,8 +150,7 @@ function mapResult(
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
       score: 0,
       verdict: "compile_error",
-      ...(hasPipelineResult ? { pipelineResult } : {}),
-      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+      ...(hasPipelineResult ? { pipelineResult } : {})
     };
   }
 
@@ -206,8 +200,7 @@ function mapResult(
       score: result.customScore ?? score,
       subtaskResults,
       verdict: "accepted",
-      ...(hasPipelineResult || adjustmentRules ? { pipelineResult } : {}),
-      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+      ...(hasPipelineResult || adjustmentRules ? { pipelineResult } : {})
     };
   }
 
@@ -223,8 +216,7 @@ function mapResult(
       score,
       subtaskResults,
       verdict: "accepted",
-      ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {}),
-      ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+      ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {})
     };
   }
 
@@ -243,8 +235,7 @@ function mapResult(
         score,
         subtaskResults,
         verdict,
-        ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {}),
-        ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+        ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {})
       };
     }
   }
@@ -257,8 +248,7 @@ function mapResult(
     score,
     subtaskResults,
     verdict: "runtime_error" as const,
-    ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {}),
-    ...(artifactPaths && artifactPaths.length > 0 ? { artifactPaths } : {})
+    ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {})
   };
 }
 
@@ -351,8 +341,8 @@ export async function executeSandbox(
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
-  const template = judgeContext.templates.find((t) => t.language === draft.language);
-
+  // Phase 5: function-mode templates are gone. Starter code + teacher
+  // assets all flow through ProblemWorkspaceFile / mergeSandboxSources.
   // Sample path: ignore testcase sets, use Problem.samples directly.
   // Graded path: iterate testcase sets (Phase 2: all isHidden=true after
   // the data migration runs; getJudgeContext already filters them).
@@ -431,14 +421,6 @@ export async function executeSandbox(
       timeoutMs: judgeContext.runtime.timeLimitMs,
       memoryMb: judgeContext.runtime.memoryLimitMb
     },
-    ...(template
-      ? {
-          template: {
-            driverCode: template.driverCode,
-            insertionMarker: template.insertionMarker
-          }
-        }
-      : {}),
     ...(advancedPayload ? { advanced: advancedPayload } : {})
   };
 

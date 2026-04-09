@@ -22,12 +22,6 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────
 
-export interface TemplateInfo {
-  driverCode: string;
-  insertionMarker: string;
-  templateCode: string;
-}
-
 export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
@@ -46,7 +40,6 @@ export interface ProblemDetail {
   submissionType: SubmissionType;
   summary: string;
   tags: string[];
-  templates: Partial<Record<string, TemplateInfo>>;
   timeLimitMs: number;
   title: string;
   totalSubmissions: number;
@@ -114,83 +107,20 @@ import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 function buildProblemSamples(problem: {
   samples?: unknown;
-  testcaseSets?: {
-    isHidden: boolean;
-    testcases: {
-      expectedStdout: string | null;
-      stdin: string;
-    }[];
-  }[];
 }): { stdin: string; expected: string }[] {
-  // Phase 1+: Problem.samples JSON column is the authoritative source.
-  if (Array.isArray(problem.samples)) {
-    const parsed = problem.samples
-      .filter(
-        (s): s is { stdin: string; expected: string } =>
-          typeof s === "object" &&
-          s !== null &&
-          typeof (s as { stdin?: unknown }).stdin === "string" &&
-          typeof (s as { expected?: unknown }).expected === "string"
-      )
-      .map((s) => ({ stdin: s.stdin, expected: s.expected }));
-    if (parsed.length > 0) return parsed;
-  }
-
-  // Legacy fallback: problems whose data has not yet been migrated still
-  // have samples represented as an isHidden=false TestcaseSet. This path
-  // disappears after the Phase 1 data migration runs in production.
-  const visibleSet =
-    problem.testcaseSets?.find((testcaseSet) => !testcaseSet.isHidden) ??
-    problem.testcaseSets?.[0];
-
-  if (!visibleSet || visibleSet.testcases.length === 0) {
-    return [];
-  }
-
-  return visibleSet.testcases.map((tc) => ({
-    stdin: tc.stdin,
-    expected: tc.expectedStdout ?? ""
-  }));
+  if (!Array.isArray(problem.samples)) return [];
+  return problem.samples
+    .filter(
+      (s): s is { stdin: string; expected: string } =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof (s as { stdin?: unknown }).stdin === "string" &&
+        typeof (s as { expected?: unknown }).expected === "string"
+    )
+    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
-function buildTemplatesMap(
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: string;
-    templateCode: string;
-  }[]
-): Partial<Record<string, TemplateInfo>> {
-  const map: Partial<Record<string, TemplateInfo>> = {};
-
-  for (const tpl of templates) {
-    map[tpl.language] = {
-      driverCode: tpl.driverCode,
-      insertionMarker: tpl.insertionMarker,
-      templateCode: tpl.templateCode
-    };
-  }
-
-  return map;
-}
-
-function buildStarterByLanguage(
-  submissionType: string,
-  templates: {
-    language: string;
-    templateCode: string;
-  }[]
-): Record<string, string> {
-  if (submissionType === "function" && templates.length > 0) {
-    const starter: Record<string, string> = { ...starterByLanguage };
-
-    for (const tpl of templates) {
-      starter[tpl.language] = tpl.templateCode;
-    }
-
-    return starter;
-  }
-
+function buildStarterByLanguage(): Record<string, string> {
   return { ...starterByLanguage };
 }
 
@@ -213,19 +143,6 @@ function mapPersistedProblemDetail(
     submissionType?: string;
     summary: string;
     tags?: string[];
-    templates?: {
-      driverCode: string;
-      insertionMarker: string;
-      language: string;
-      templateCode: string;
-    }[];
-    testcaseSets?: {
-      isHidden: boolean;
-      testcases: {
-        expectedStdout: string | null;
-        stdin: string;
-      }[];
-    }[];
     status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
@@ -246,7 +163,6 @@ function mapPersistedProblemDetail(
   );
 
   const submissionType = parseSubmissionType(problem.submissionType);
-  const problemTemplates = problem.templates ?? [];
 
   const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "standard"
@@ -264,13 +180,12 @@ function mapPersistedProblemDetail(
     mode: problem.mode ?? "standard",
     outputFormat: localized.outputFormat,
     samples: buildProblemSamples(problem),
-    starterByLanguage: buildStarterByLanguage(submissionType, problemTemplates),
+    starterByLanguage: buildStarterByLanguage(),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
     submissionType,
     summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
     tags: problem.tags ?? [],
-    templates: buildTemplatesMap(problemTemplates),
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
     totalSubmissions,

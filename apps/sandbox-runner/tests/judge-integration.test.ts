@@ -657,11 +657,7 @@ describe("function mode (template injection)", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `# driver\n__USER_CODE__\nprint(add(3, 5))`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
     const assembled = assembleSource("def add(a, b):\n    return a + b", input);
     expect(assembled).toContain("def add(a, b):");
@@ -677,8 +673,7 @@ describe("function mode (template injection)", () => {
         language: data.language,
         judgeType: "standard",
         submissionType: "function",
-        limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 },
-        template: { driverCode: data.driverCode, insertionMarker: "__USER_CODE__" }
+        limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 }
       };
 
       const assembled = assembleSource(data.userCode, input);
@@ -1071,11 +1066,7 @@ describe("template injection edge cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `print("no marker here")`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
     expect(() => assembleSource("def solve(): pass", input)).toThrow(
       /does not contain insertion marker/
@@ -1099,11 +1090,7 @@ describe("template injection edge cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `__USER_CODE__\nprint("middle")\n__USER_CODE__`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
     const assembled = assembleSource("CODE", input);
     // String.replace replaces only the first occurrence
@@ -1116,11 +1103,7 @@ describe("template injection edge cases", () => {
       language: "python",
       judgeType: "standard",
       submissionType: "full_source",
-      limits: { timeoutMs: 5000, memoryMb: 256 },
-      template: {
-        driverCode: `__USER_CODE__\nprint("driver")`,
-        insertionMarker: "__USER_CODE__"
-      }
+      limits: { timeoutMs: 5000, memoryMb: 256 }
     };
     const assembled = assembleSource("print('raw')", input);
     expect(assembled).toBe("print('raw')");

@@ -53,7 +53,6 @@ export const submissionRepo = {
         },
         problem: {
           include: {
-            templates: true,
             testcaseSets: {
               include: {
                 testcases: { orderBy: { ordinal: "asc" as const } }

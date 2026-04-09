@@ -101,13 +101,6 @@ export class DockerExecutor implements SandboxExecutor {
       );
     }
 
-    if (request.scoring?.script) {
-      const ext = sourceExtension(request.scoring.language);
-      fileWrites.push(
-        writeFile(join(tempDir, `scoring.${ext}`), request.scoring.script, "utf8")
-      );
-    }
-
     await Promise.all(fileWrites);
 
     const testcasesDir = join(tempDir, "testcases");
@@ -137,9 +130,12 @@ export class DockerExecutor implements SandboxExecutor {
     const workDir = join(tempDir, "_workspace");
     await mkdir(workDir, { mode: 0o777, recursive: true });
 
-    // Determine network mode based on networkAccess config
-    const hasNetworkAccess = request.networkAccess?.enabled === true;
-    const networkArgs = hasNetworkAccess ? this.buildNetworkArgs() : ["--network", "none"];
+    // Phase 5: network access is no longer configured per-request.
+    // Standard mode always runs with --network none. Advanced mode is
+    // dispatched via a separate code path that decides networking
+    // based on request.advanced.networkEnabled.
+    const advancedNetwork = request.advanced?.networkEnabled === true;
+    const networkArgs = advancedNetwork ? this.buildNetworkArgs() : ["--network", "none"];
 
     const args = [
       "run",

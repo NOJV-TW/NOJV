@@ -58,10 +58,6 @@
     if (allowedLanguages && allowedLanguages.length > 0) {
       langs = langs.filter((l) => allowedLanguages!.includes(l));
     }
-    // Filter by template availability (function-mode problems)
-    if (problem.submissionType === "function") {
-      langs = langs.filter((l) => l in problem.templates);
-    }
     return langs;
   });
 

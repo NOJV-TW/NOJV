@@ -5,8 +5,6 @@ import type {
   Compare,
   JudgeConfig,
   JudgeType,
-  NetworkAccessConfig,
-  PipelineConfig,
   ProblemImageSource,
   ProblemJudgeTestcase,
   ProblemMode,
@@ -25,7 +23,6 @@ import { toJsonValue } from "../shared/to-json-value";
 
 export interface TestcaseSetGroup {
   id: string;
-  isHidden: boolean;
   name: string;
   testcases: ProblemJudgeTestcase[];
   weight: number;
@@ -66,28 +63,16 @@ export interface AdvancedModeContext {
 
 export interface SubmissionJudgeContext {
   adjustment: AdjustmentContext;
-  artifactPatterns: string[];
   checkerScript: string | null;
   compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
   memoryLimitMb: number;
-  networkAccessConfig: NetworkAccessConfig | null;
-  pipelineConfig: PipelineConfig | null;
   problemId: string;
-  problemMode: "standard" | "advanced";
   runtime: Runtime;
   samples: ProblemSample[];
-  scoringLanguage: string | null;
-  scoringScript: string | null;
   submissionType: SubmissionType;
   subtaskStrategies: SubtaskStrategyMap;
-  templates: {
-    driverCode: string;
-    insertionMarker: string;
-    language: string;
-    templateCode: string;
-  }[];
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
@@ -124,30 +109,21 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     type: "standard" as const
   };
 
-  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets
-    // Phase 2: only graded sets go into the testcase pipeline. Samples (if
-    // any legacy isHidden=false sets remain) are exposed via the `samples`
-    // field below and only run when draft.sampleOnly is true.
-    .filter((ts) => ts.isHidden)
-    .map((ts) => ({
-      id: ts.id,
-      isHidden: ts.isHidden,
-      name: ts.name,
-      testcases: ts.testcases.map((testcase) => ({
-        expectedStdout: testcase.expectedStdout ?? undefined,
-        id: testcase.id,
-        inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-        isHidden: ts.isHidden,
-        stdin: testcase.stdin,
-        weight: ts.weight
-      })),
+  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
+    id: ts.id,
+    name: ts.name,
+    testcases: ts.testcases.map((testcase) => ({
+      expectedStdout: testcase.expectedStdout ?? undefined,
+      id: testcase.id,
+      inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
+      isHidden: true,
+      stdin: testcase.stdin,
       weight: ts.weight
-    }));
+    })),
+    weight: ts.weight
+  }));
 
-  // Samples come from Problem.samples JSON (Phase 1 column). Legacy
-  // problems may still have unmigrated isHidden=false sets; collect those
-  // as a fallback so running the sample path keeps working until the
-  // data migration script runs in production.
+  // Samples come from Problem.samples JSON (Phase 1 column).
   const samples = collectSamples(problem);
 
   // Runtime: authoritative source is judgeConfig.runtime. Legacy problems
@@ -206,33 +182,16 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   return {
     adjustment,
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- removed in phase-5
-    artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
     checkerScript: judgeConfig.checkerScript ?? null,
     compare: judgeConfig.compare ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
     memoryLimitMb: runtime.memoryLimitMb,
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- removed in phase-5
-    networkAccessConfig: judgeConfig.networkAccess ?? null,
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- removed in phase-5
-    pipelineConfig: (judgeConfig.pipeline as PipelineConfig | undefined) ?? null,
     problemId: submission.problemId,
-    problemMode: problem.mode,
     runtime,
     samples,
-    // scoring script support is deprecated in Phase 2 — kept nullable for
-    // the narrow set of problems that still depend on it until Phase 5.
-    scoringLanguage: null,
-    scoringScript: null,
     submissionType: problem.submissionType,
     subtaskStrategies,
-    templates: problem.templates.map((t) => ({
-      driverCode: t.driverCode,
-      insertionMarker: t.insertionMarker,
-      language: t.language,
-      templateCode: t.templateCode
-    })),
     testcaseSets,
     testcases: testcaseSets.flatMap((ts) => ts.testcases),
     timeLimitMs: runtime.timeLimitMs,
@@ -242,37 +201,17 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 }
 
-function collectSamples(problem: {
-  samples: unknown;
-  testcaseSets: {
-    isHidden: boolean;
-    testcases: { expectedStdout: string | null; stdin: string }[];
-  }[];
-}): ProblemSample[] {
-  if (Array.isArray(problem.samples)) {
-    const parsed = problem.samples
-      .filter(
-        (s): s is { stdin: string; expected: string } =>
-          typeof s === "object" &&
-          s !== null &&
-          typeof (s as { stdin?: unknown }).stdin === "string" &&
-          typeof (s as { expected?: unknown }).expected === "string"
-      )
-      .map((s) => ({ stdin: s.stdin, expected: s.expected }));
-    if (parsed.length > 0) return parsed;
-  }
-
-  // Legacy fallback: treat isHidden=false testcases as samples.
-  const legacy: ProblemSample[] = [];
-  for (const set of problem.testcaseSets) {
-    if (set.isHidden) continue;
-    for (const tc of set.testcases) {
-      if (legacy.length >= 5) break;
-      legacy.push({ stdin: tc.stdin, expected: tc.expectedStdout ?? "" });
-    }
-    if (legacy.length >= 5) break;
-  }
-  return legacy;
+function collectSamples(problem: { samples: unknown }): ProblemSample[] {
+  if (!Array.isArray(problem.samples)) return [];
+  return problem.samples
+    .filter(
+      (s): s is { stdin: string; expected: string } =>
+        typeof s === "object" &&
+        s !== null &&
+        typeof (s as { stdin?: unknown }).stdin === "string" &&
+        typeof (s as { expected?: unknown }).expected === "string"
+    )
+    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
 function parseAdvancedResourceLimits(

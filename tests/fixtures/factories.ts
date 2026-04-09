@@ -71,7 +71,6 @@ export async function createTestProblem(
     data: {
       problemId: problem.id,
       name: "sample",
-      isHidden: false,
       weight: 1
     }
   });

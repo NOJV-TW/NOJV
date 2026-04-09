@@ -70,12 +70,6 @@ export const verdictColor: Record<string, string> = {
 
 // --- Problem types ---
 
-export interface TemplateInfo {
-  driverCode: string;
-  insertionMarker: string;
-  templateCode: string;
-}
-
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
   inputFormat: string;
@@ -94,7 +88,6 @@ export interface ProblemDetail extends ProblemOverview {
   submissionType: SubmissionType;
   summary: string;
   tags: string[];
-  templates: Partial<Record<Language, TemplateInfo>>;
   timeLimitMs: number;
   visibility: ProblemVisibility;
 }

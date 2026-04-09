@@ -227,17 +227,7 @@ describe("DB-backed read model", () => {
       ],
       summary: "Basic addition problem.",
       tags: ["math", "beginner"],
-      templates: [],
-      testcaseSets: [
-        {
-          isHidden: false,
-          testcases: [{ expectedStdout: "3\n", stdin: "1 2\n" }]
-        },
-        {
-          isHidden: true,
-          testcases: [{ expectedStdout: "200\n", stdin: "100 100\n" }]
-        }
-      ],
+      samples: [{ stdin: "1 2\n", expected: "3\n" }],
       visibility: "public"
     });
     countSubmissions.mockResolvedValue(5);

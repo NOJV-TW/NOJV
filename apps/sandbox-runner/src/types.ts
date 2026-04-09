@@ -1,13 +1,5 @@
 import { z } from "zod";
-import {
-  languageSchema,
-  judgeTypeSchema,
-  submissionTypeSchema,
-  staticAnalysisConfigSchema,
-  scoringConfigSchema,
-  artifactConfigSchema,
-  pipelineConfigSchema
-} from "@nojv/core";
+import { languageSchema, judgeTypeSchema, submissionTypeSchema } from "@nojv/core";
 
 export type {
   SandboxResult,
@@ -46,18 +38,8 @@ export const SandboxInputSchema = z.object({
     timeoutMs: z.number(),
     memoryMb: z.number()
   }),
-  template: z
-    .object({
-      driverCode: z.string(),
-      insertionMarker: z.string()
-    })
-    .optional(),
   checkerLanguage: z.string().optional(),
   interactorLanguage: z.string().optional(),
-  pipeline: pipelineConfigSchema.optional(),
-  staticAnalysis: staticAnalysisConfigSchema.optional(),
-  scoring: scoringConfigSchema.optional(),
-  artifactCollection: artifactConfigSchema.optional(),
   // Phase 7: advanced-mode payload — when present, the runner skips the
   // standard pipeline and instead runs the TA-provided judge container.
   advanced: z

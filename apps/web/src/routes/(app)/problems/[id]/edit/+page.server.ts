@@ -2,7 +2,6 @@ import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
   languageSchema,
   problemCreateSchema,
-  problemTemplateSchema,
   problemTestcaseSetCreateSchema,
   problemWorkspaceFileSchema,
   runtimeSchema,
@@ -23,7 +22,6 @@ const {
   getProblemPageData,
   getProblemTestcaseSets,
   updateProblemRecord,
-  updateProblemTemplates,
   updateProblemWorkspace,
   createProblemTestcaseSetRecord,
   updateTestcaseSetRecord,
@@ -32,8 +30,6 @@ const {
   deleteTestcaseRecord,
   deleteProblemRecord
 } = problemDomain;
-
-const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
 const updateWorkspaceSchema = z.object({
   runtime: runtimeSchema.optional(),
@@ -70,7 +66,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       submissionType: problem.submissionType,
       summary: problem.summary,
       tags: problem.tags,
-      templates: [],
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,
       visibility: problem.visibility
@@ -133,13 +128,6 @@ export const actions: Actions = {
     if (!form.valid) return fail(400, { form });
     const result = await updateProblemRecord(actor, problemId, form.data);
     return { form, id: result.id, success: true };
-  }),
-
-  updateTemplates: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const data = parseJsonField(formData.get("data"), updateTemplatesSchema);
-    const result = await updateProblemTemplates(actor, problemId, data);
-    return { success: true, templates: result };
   }),
 
   createTestcaseSet: problemEditAction(async ({ actor, problemId, event }) => {
