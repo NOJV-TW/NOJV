@@ -72,7 +72,8 @@
       path: `main.${extensionFor(activeLang)}`,
       content: "",
       visibility: "editable",
-      editableRegions: null
+      editableRegions: null,
+      orderIndex: files.length
     };
     files = [...files, newFile];
     selectedIndex = files.length - 1;

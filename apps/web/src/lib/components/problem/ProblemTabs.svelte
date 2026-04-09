@@ -13,10 +13,9 @@
     dirty?: boolean;
     onpublish?: () => void;
     basic?: Snippet;
-    submission?: Snippet;
+    workspace?: Snippet;
     testcase?: Snippet;
     judge?: Snippet;
-    scoring?: Snippet;
   }
 
   let {
@@ -28,10 +27,9 @@
     dirty = $bindable(false),
     onpublish,
     basic,
-    submission,
+    workspace,
     testcase,
     judge,
-    scoring,
   }: Props = $props();
 
   let showUnsavedModal = $state(false);
@@ -63,10 +61,9 @@
 
   const tabs = [
     { id: "basic", label: m.admin_tabBasicInfo() },
-    { id: "submission", label: m.admin_tabSubmission() },
+    { id: "workspace", label: "Workspace" },
     { id: "testcase", label: m.admin_tabTestcase() },
     { id: "judge", label: m.admin_tabJudge() },
-    { id: "scoring", label: m.admin_tabScoring() },
   ];
 </script>
 
@@ -148,14 +145,12 @@
 
   {#if activeTab === "basic" && basic}
     {@render basic()}
-  {:else if activeTab === "submission" && submission}
-    {@render submission()}
+  {:else if activeTab === "workspace" && workspace}
+    {@render workspace()}
   {:else if activeTab === "testcase" && testcase}
     {@render testcase()}
   {:else if activeTab === "judge" && judge}
     {@render judge()}
-  {:else if activeTab === "scoring" && scoring}
-    {@render scoring()}
   {/if}
 
   <ConfirmDialog

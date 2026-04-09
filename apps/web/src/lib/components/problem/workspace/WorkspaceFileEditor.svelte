@@ -8,6 +8,7 @@
     content: string;
     visibility: "editable" | "readonly" | "hidden";
     editableRegions: [number, number][] | null;
+    orderIndex: number;
   }
 
   interface Props {

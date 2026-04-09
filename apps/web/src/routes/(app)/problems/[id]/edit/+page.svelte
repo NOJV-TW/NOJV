@@ -1,12 +1,12 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
+  import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import ProblemTabs from "$lib/components/problem/ProblemTabs.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
-  import SubmissionTab from "$lib/components/problem/tabs/SubmissionTab.svelte";
   import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";
-  import ScoringTab from "$lib/components/problem/tabs/ScoringTab.svelte";
+  import WorkspaceSection from "$lib/components/problem/sections/WorkspaceSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
 
   let { data } = $props();
@@ -29,6 +29,36 @@
     data.problem.inputFormat !== "" &&
     data.problem.outputFormat !== ""
   );
+
+  // Build WorkspaceSection initial payload from loaded problem + files.
+  const runtime = (data.problem.judgeConfig?.runtime as
+    | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
+    | undefined) ?? {
+    timeLimitMs: data.problem.timeLimitMs,
+    memoryLimitMb: data.problem.memoryLimitMb,
+    env: {}
+  };
+
+  const workspaceInitial = {
+    runtime,
+    allowedLanguages: [] as Language[],
+    files: data.workspaceFiles.map((f) => ({
+      language: f.language as Language,
+      path: f.path,
+      content: f.content,
+      visibility: f.visibility as "editable" | "readonly" | "hidden",
+      editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+      orderIndex: f.orderIndex
+    }))
+  };
+
+  async function handleWorkspaceSave(payload: typeof workspaceInitial) {
+    const fd = new FormData();
+    fd.set("data", JSON.stringify(payload));
+    const res = await fetch("?/updateWorkspace", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("workspace save failed");
+    await invalidateAll();
+  }
 
   function handlePublishClick() {
     showPublishConfirm = true;
@@ -92,8 +122,12 @@
         <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
       {/snippet}
 
-      {#snippet submission()}
-        <SubmissionTab problem={data.problem} formData={data.form} ondirtychange={(d) => dirty = d} />
+      {#snippet workspace()}
+        <WorkspaceSection
+          initial={workspaceInitial}
+          ondirtychange={(d) => dirty = d}
+          onsave={handleWorkspaceSave}
+        />
       {/snippet}
 
       {#snippet testcase()}
@@ -101,11 +135,11 @@
       {/snippet}
 
       {#snippet judge()}
-        <JudgeTab problem={data.problem} ondirtychange={(d) => dirty = d} />
-      {/snippet}
-
-      {#snippet scoring()}
-        <ScoringTab problem={data.problem} ondirtychange={(d) => dirty = d} />
+        <JudgeTab
+          problem={data.problem}
+          testcaseSets={data.testcaseSets.map((s) => ({ id: s.id, name: s.name, weight: s.weight }))}
+          ondirtychange={(d) => dirty = d}
+        />
       {/snippet}
     </ProblemTabs>
   </section>
