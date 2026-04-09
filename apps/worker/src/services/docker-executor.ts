@@ -93,7 +93,11 @@ export class DockerExecutor implements SandboxExecutor {
     if (request.judgeConfig.interactorScript) {
       const ext = sourceExtension(request.judgeConfig.interactorLanguage);
       fileWrites.push(
-        writeFile(join(tempDir, `interactor.${ext}`), request.judgeConfig.interactorScript, "utf8")
+        writeFile(
+          join(tempDir, `interactor.${ext}`),
+          request.judgeConfig.interactorScript,
+          "utf8"
+        )
       );
     }
 
@@ -216,7 +220,9 @@ export class DockerExecutor implements SandboxExecutor {
 
         if (exitCode !== 0) {
           settle(
-            sandboxSystemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim())
+            sandboxSystemError(
+              `Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim()
+            )
           );
           return;
         }

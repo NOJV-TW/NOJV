@@ -1,6 +1,6 @@
 # Database Schema
 
-PostgreSQL 17 with Prisma 7. Schema at `packages/db/prisma/schema.prisma` (584 lines, 20+ models).
+PostgreSQL 18 with Prisma 7. Schema at `packages/db/prisma/schema.prisma` (584 lines, 20+ models).
 
 ## Domain Model Overview
 
