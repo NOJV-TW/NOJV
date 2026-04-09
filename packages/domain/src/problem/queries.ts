@@ -13,6 +13,8 @@ import {
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
+  type ProblemImageSource,
+  type ProblemMode,
   type ProblemStatus,
   type ProblemVisibility,
   type SubmissionType
@@ -48,6 +50,10 @@ export interface ProblemDetail {
   title: string;
   totalSubmissions: number;
   visibility: ProblemVisibility;
+  // Phase 7: advanced-mode metadata (Phase 1 schema columns)
+  mode: ProblemMode;
+  advancedImageRef: string | null;
+  advancedImageSource: ProblemImageSource | null;
 }
 
 /**
@@ -200,6 +206,10 @@ function mapPersistedProblemDetail(
     status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
+    // Phase 7: advanced-mode columns
+    mode?: ProblemMode | null;
+    advancedImageRef?: string | null;
+    advancedImageSource?: ProblemImageSource | null;
   },
   locale: string,
   totalSubmissions: number,
@@ -240,7 +250,10 @@ function mapPersistedProblemDetail(
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
     totalSubmissions,
-    visibility: problem.visibility
+    visibility: problem.visibility,
+    mode: problem.mode ?? "standard",
+    advancedImageRef: problem.advancedImageRef ?? null,
+    advancedImageSource: problem.advancedImageSource ?? null
   };
 }
 

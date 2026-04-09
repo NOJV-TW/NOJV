@@ -236,6 +236,13 @@ export async function updateProblemRecord(
     if (payload.summary !== undefined) updateData.summary = payload.summary;
     if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
     if (payload.status !== undefined) updateData.status = payload.status;
+    // Phase 7: advanced-mode columns
+    if (payload.mode !== undefined) updateData.mode = payload.mode;
+    if (payload.advancedImageRef !== undefined)
+      updateData.advancedImageRef = payload.advancedImageRef;
+    if (payload.advancedImageSource !== undefined)
+      updateData.advancedImageSource = payload.advancedImageSource;
+    if (payload.samples !== undefined) updateData.samples = payload.samples;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);

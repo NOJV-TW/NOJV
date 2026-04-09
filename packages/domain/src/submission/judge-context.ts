@@ -106,7 +106,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   // Phase 7: surface advanced-mode container config when the problem is in
   // advanced mode. We default to safe limits if the schema columns are unset.
-  const mode: ProblemMode = problem.mode ?? "standard";
+  const mode: ProblemMode = problem.mode;
   const advanced: AdvancedModeContext | null =
     mode === "advanced" && problem.advancedImageRef && problem.advancedImageSource
       ? {
