@@ -29,6 +29,14 @@ function createMockPrisma() {
     testcase: {
       deleteMany: async () => ({ count: 0 }),
       create: async () => ({})
+    },
+    problemWorkspaceFile: {
+      deleteMany: async () => ({ count: 0 }),
+      createMany: async () => ({ count: 0 })
+    },
+    advancedTestcase: {
+      deleteMany: async () => ({ count: 0 }),
+      createMany: async () => ({ count: 0 })
     }
   };
 }
