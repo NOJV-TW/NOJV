@@ -2,6 +2,7 @@ import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { readString } from "$lib/server/shared/form-utils";
 import { userDomain } from "@nojv/domain";
 
 const { listUsersPaginated, updateUserRole, toggleUserDisabled } = userDomain;
@@ -11,11 +12,6 @@ type PlatformRole = (typeof PLATFORM_ROLES)[number];
 
 function isPlatformRole(value: string): value is PlatformRole {
   return (PLATFORM_ROLES as readonly string[]).includes(value);
-}
-
-function readString(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
 }
 
 export const load: PageServerLoad = async ({ url }) => {

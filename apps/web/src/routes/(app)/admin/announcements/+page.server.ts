@@ -1,6 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { announcementDomain } from "@nojv/domain";
 
 const {
@@ -15,16 +16,6 @@ const {
 export const load: PageServerLoad = async () => ({
   announcements: await listAllAnnouncements()
 });
-
-/** Read a trimmed string field from FormData; returns "" for missing or non-string values. */
-function readString(formData: FormData, key: string): string {
-  const value = formData.get(key);
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function readCheckbox(formData: FormData, key: string): boolean {
-  return formData.get(key) === "on";
-}
 
 export const actions = {
   create: async (event) => {
