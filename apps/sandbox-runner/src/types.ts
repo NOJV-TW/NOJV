@@ -57,7 +57,21 @@ export const SandboxInputSchema = z.object({
   pipeline: pipelineConfigSchema.optional(),
   staticAnalysis: staticAnalysisConfigSchema.optional(),
   scoring: scoringConfigSchema.optional(),
-  artifactCollection: artifactConfigSchema.optional()
+  artifactCollection: artifactConfigSchema.optional(),
+  // Phase 7: advanced-mode payload — when present, the runner skips the
+  // standard pipeline and instead runs the TA-provided judge container.
+  advanced: z
+    .object({
+      imageRef: z.string().min(1).max(500),
+      imageSource: z.enum(["registry", "tarball"]),
+      totalTimeMs: z.number().int().min(1_000).max(300_000),
+      memoryMb: z.number().int().min(16).max(4096),
+      networkEnabled: z.boolean(),
+      testcaseFiles: z
+        .record(z.string(), z.record(z.string(), z.string()))
+        .optional()
+    })
+    .optional()
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;

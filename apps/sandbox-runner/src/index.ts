@@ -13,6 +13,7 @@ import { pathExists } from "./utils.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
+import { runAdvancedMode } from "./advanced-mode.js";
 import { runStaticAnalysis } from "./stages/static-analysis.js";
 import { runCustomScoring, type ScoringInput } from "./stages/score.js";
 import { collectArtifacts } from "./stages/artifact.js";
@@ -259,6 +260,15 @@ async function main(): Promise<void> {
   log(
     `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
   );
+
+  // 1a. Phase 7: advanced mode (TA-provided judge container) — runs an
+  // entirely separate code path and bypasses the standard pipeline.
+  if (config.advanced) {
+    log("Dispatching to advanced-mode runner...");
+    const advancedResult = await runAdvancedMode(config);
+    process.stdout.write(JSON.stringify(advancedResult));
+    return;
+  }
 
   // 2. Prepare source files in a work directory
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
