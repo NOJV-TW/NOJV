@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { compile, assembleSource, sourceFileName } from "../src/compiler.js";
+import { compile, sourceFileName } from "../src/compiler.js";
 import { judgeStandard } from "../src/judges/standard.js";
 import { judgeChecker } from "../src/judges/checker.js";
 import { judgeInteractive } from "../src/judges/interactive.js";
@@ -414,105 +414,6 @@ rl.on("line", () => { while(true) {} });`
   }
 };
 
-/** Function mode templates for all languages */
-const functionModeData: Record<
-  string,
-  { language: SandboxInput["language"]; driverCode: string; userCode: string }
-> = {
-  c: {
-    language: "c",
-    driverCode: `#include <stdio.h>
-__USER_CODE__
-int main() {
-    int a, b;
-    scanf("%d %d", &a, &b);
-    printf("%d\\n", solve(a, b));
-    return 0;
-}`,
-    userCode: `int solve(int a, int b) { return a + b; }`
-  },
-  cpp: {
-    language: "cpp",
-    driverCode: `#include <iostream>
-using namespace std;
-__USER_CODE__
-int main() {
-    int a, b;
-    cin >> a >> b;
-    cout << solve(a, b) << endl;
-    return 0;
-}`,
-    userCode: `int solve(int a, int b) { return a + b; }`
-  },
-  go: {
-    language: "go",
-    driverCode: `package main
-import "fmt"
-__USER_CODE__
-func main() {
-	var a, b int
-	fmt.Scan(&a, &b)
-	fmt.Println(solve(a, b))
-}`,
-    userCode: `func solve(a, b int) int { return a + b }`
-  },
-  java: {
-    language: "java",
-    driverCode: `import java.util.Scanner;
-public class Main {
-    __USER_CODE__
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        System.out.println(solve(sc.nextInt(), sc.nextInt()));
-    }
-}`,
-    userCode: `public static int solve(int a, int b) { return a + b; }`
-  },
-  javascript: {
-    language: "javascript",
-    driverCode: `import * as readline from "node:readline";
-__USER_CODE__
-const rl = readline.createInterface({ input: process.stdin });
-rl.on("line", (line) => {
-    const [a, b] = line.trim().split(" ").map(Number);
-    console.log(solve(a, b));
-    rl.close();
-});`,
-    userCode: `function solve(a, b) { return a + b; }`
-  },
-  python: {
-    language: "python",
-    driverCode: `__USER_CODE__
-a, b = map(int, input().split())
-print(solve(a, b))`,
-    userCode: `def solve(a, b):\n    return a + b`
-  },
-  rust: {
-    language: "rust",
-    driverCode: `use std::io;
-__USER_CODE__
-fn main() {
-    let mut s = String::new();
-    io::stdin().read_line(&mut s).unwrap();
-    let v: Vec<i32> = s.trim().split_whitespace().map(|x| x.parse().unwrap()).collect();
-    println!("{}", solve(v[0], v[1]));
-}`,
-    userCode: `fn solve(a: i32, b: i32) -> i32 { a + b }`
-  },
-  typescript: {
-    language: "typescript",
-    driverCode: `import * as readline from "node:readline";
-__USER_CODE__
-const rl: readline.Interface = readline.createInterface({ input: process.stdin });
-rl.on("line", (line: string) => {
-    const [a, b]: number[] = line.trim().split(" ").map(Number);
-    console.log(solve(a, b));
-    rl.close();
-});`,
-    userCode: `function solve(a: number, b: number): number { return a + b; }`
-  }
-};
-
 // ─── Helpers ────────────────────────────────────────────────────────
 
 let workDir: string;
@@ -646,49 +547,6 @@ describe("standard judge", () => {
     const verdict = await judgeStandard(["/nonexistent/binary"], makeTestcase(), TIMEOUT_MS);
     expect(verdict.verdict).toBe("SE");
   });
-});
-
-// ─── Function mode ──────────────────────────────────────────────────
-
-describe("function mode (template injection)", () => {
-  it("template injection works correctly", () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
-    };
-    const assembled = assembleSource("def add(a, b):\n    return a + b", input);
-    expect(assembled).toContain("def add(a, b):");
-    expect(assembled).toContain("print(add(3, 5))");
-    expect(assembled).not.toContain("__USER_CODE__");
-  });
-
-  for (const [name, data] of Object.entries(functionModeData)) {
-    it(`${name}: function mode end-to-end`, async () => {
-      if (await skipIfMissing(name)) return;
-      const input: SandboxInput = {
-        submissionId: "test",
-        language: data.language,
-        judgeType: "standard",
-        submissionType: "function",
-        limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 }
-      };
-
-      const assembled = assembleSource(data.userCode, input);
-      expect(assembled).not.toContain("__USER_CODE__");
-
-      const srcFile = join(workDir, sourceFileName(data.language));
-      await writeFile(srcFile, assembled);
-      const result = await compile(input, srcFile, workDir);
-      expect(result.success).toBe(true);
-      if (!result.success) return;
-
-      const verdict = await judgeStandard(result.runCommand, makeTestcase(), TIMEOUT_MS);
-      expect(verdict.verdict).toBe("AC");
-    }, 30_000);
-  }
 });
 
 // ─── Checker judge ──────────────────────────────────────────────────
@@ -1057,57 +915,6 @@ sys.exit(0)
     expect(verdict.verdict).toBe("AC");
     expect(verdict.score).toBe(50);
   }, 30_000);
-});
-
-describe("template injection edge cases", () => {
-  it("missing marker in driverCode throws clear error", () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
-    };
-    expect(() => assembleSource("def solve(): pass", input)).toThrow(
-      /does not contain insertion marker/
-    );
-  });
-
-  it("missing template in function mode throws clear error", () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
-    };
-    expect(() => assembleSource("def solve(): pass", input)).toThrow(/requires a template/);
-  });
-
-  it("multiple markers — only first is replaced", () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "function",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
-    };
-    const assembled = assembleSource("CODE", input);
-    // String.replace replaces only the first occurrence
-    expect(assembled).toBe(`CODE\nprint("middle")\n__USER_CODE__`);
-  });
-
-  it("full_source mode ignores template entirely", () => {
-    const input: SandboxInput = {
-      submissionId: "test",
-      language: "python",
-      judgeType: "standard",
-      submissionType: "full_source",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
-    };
-    const assembled = assembleSource("print('raw')", input);
-    expect(assembled).toBe("print('raw')");
-  });
 });
 
 describe("standard judge edge cases", () => {
