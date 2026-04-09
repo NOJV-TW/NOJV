@@ -49,7 +49,12 @@ export async function createTestProblem(
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
       visibility: overrides.visibility ?? "public",
-      ...Object.fromEntries(Object.entries(overrides).filter(([k]) => k !== "slug")),
+      // Default sample pair matching the default testcase below, so tests
+      // that assert on detail.samples can rely on the factory output.
+      samples: overrides.samples ?? [{ stdin: "1 2", expected: "3" }],
+      ...Object.fromEntries(
+        Object.entries(overrides).filter(([k]) => k !== "slug" && k !== "samples")
+      ),
       authorId
     }
   });

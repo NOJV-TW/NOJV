@@ -132,18 +132,20 @@ describe("read model (real DB)", () => {
       expect(detail!.visibility).toBe("public");
     });
 
-    it("includes sample testcases from non-hidden testcase set", async () => {
+    it("surfaces Problem.samples on the read model", async () => {
       await createTestProblem({
         id: "samples-problem",
         visibility: "public"
       });
 
-      // The factory already creates a sample testcase set with one testcase
+      // The factory writes a default `samples` pair on `Problem` matching
+      // the default testcase — samples live on `Problem.samples` directly
+      // since Phase 1, not on a specially-flagged testcase set.
       const detail = await getProblemPageData("samples-problem", "en");
       expect(detail).not.toBeNull();
       expect(detail!.samples.length).toBeGreaterThanOrEqual(1);
-      expect(detail!.samples[0]!.input).toBe("1 2");
-      expect(detail!.samples[0]!.output).toBe("3");
+      expect(detail!.samples[0]!.stdin).toBe("1 2");
+      expect(detail!.samples[0]!.expected).toBe("3");
     });
 
     it("includes input/output format from statement", async () => {
