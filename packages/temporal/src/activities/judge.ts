@@ -124,12 +124,6 @@ function mapResult(
     timeMs: t.timeMs
   }));
 
-  const pipelineResult: Record<string, unknown> = {};
-  if (result.customScore !== undefined) pipelineResult.customScore = result.customScore;
-  if (result.scoringFeedback) pipelineResult.scoringFeedback = result.scoringFeedback;
-
-  const hasPipelineResult = Object.keys(pipelineResult).length > 0;
-
   if (result.compilationError) {
     return {
       accepted: false,
@@ -137,8 +131,7 @@ function mapResult(
       feedback: result.compilationError,
       runtimeMs: 0,
       score: 0,
-      verdict: "compile_error",
-      ...(hasPipelineResult ? { pipelineResult } : {})
+      verdict: "compile_error"
     };
   }
 
@@ -149,8 +142,7 @@ function mapResult(
       feedback: `[Pipeline Error] ${result.pipelineError}`,
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
       score: 0,
-      verdict: "compile_error",
-      ...(hasPipelineResult ? { pipelineResult } : {})
+      verdict: "compile_error"
     };
   }
 
@@ -184,9 +176,6 @@ function mapResult(
       submittedAt: judgeContext.adjustment.submittedAt
     });
     score = adjusted.score;
-    if (adjusted.adjustments.length > 0) {
-      pipelineResult.adjustments = adjusted.adjustments;
-    }
   }
 
   const allAc = result.testcaseResults.every((t) => t.verdict === "AC");
@@ -199,8 +188,7 @@ function mapResult(
       runtimeMs,
       score: result.customScore ?? score,
       subtaskResults,
-      verdict: "accepted",
-      ...(hasPipelineResult || adjustmentRules ? { pipelineResult } : {})
+      verdict: "accepted"
     };
   }
 
@@ -215,8 +203,7 @@ function mapResult(
       runtimeMs,
       score,
       subtaskResults,
-      verdict: "accepted",
-      ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {})
+      verdict: "accepted"
     };
   }
 
@@ -234,8 +221,7 @@ function mapResult(
         runtimeMs,
         score,
         subtaskResults,
-        verdict,
-        ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {})
+        verdict
       };
     }
   }
@@ -247,8 +233,7 @@ function mapResult(
     runtimeMs,
     score,
     subtaskResults,
-    verdict: "runtime_error" as const,
-    ...(Object.keys(pipelineResult).length > 0 ? { pipelineResult } : {})
+    verdict: "runtime_error" as const
   };
 }
 

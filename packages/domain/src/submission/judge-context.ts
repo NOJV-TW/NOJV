@@ -243,9 +243,7 @@ export async function completeJudge(
     score: result.score,
     status: result.verdict,
     verdictDetail: toJsonValue(result),
-    ...(result.subtaskResults ? { subtaskResults: toJsonValue(result.subtaskResults) } : {}),
-    ...(result.pipelineResult ? { pipelineResult: toJsonValue(result.pipelineResult) } : {}),
-    ...(result.artifactPaths ? { artifactPaths: result.artifactPaths } : {})
+    ...(result.subtaskResults ? { subtaskResults: toJsonValue(result.subtaskResults) } : {})
   });
 
   return {
