@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { superForm } from "sveltekit-superforms";
+  import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import type { ProblemCreate, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import * as Select from "$lib/components/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils";
@@ -11,7 +12,7 @@
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
   interface Props {
-    formData: unknown;
+    formData: SuperValidated<ProblemCreate>;
     problemId: string;
     ondirtychange?: (dirty: boolean) => void;
   }
@@ -46,7 +47,8 @@
 
   function tr(err: string[] | undefined): string {
     if (!err?.length) return "";
-    return validationMessages[err[0]]?.() ?? err[0];
+    const first = err[0] ?? "";
+    return validationMessages[first]?.() ?? first;
   }
 
   // Difficulty/visibility display maps
@@ -83,7 +85,7 @@
         type="single"
         name="difficulty"
         value={$form.difficulty}
-        onValueChange={(v) => { $form.difficulty = v; }}
+        onValueChange={(v) => { $form.difficulty = v as ProblemDifficulty; }}
       >
         <Select.Trigger class="w-full">
           {difficultyLabels[$form.difficulty]?.() ?? $form.difficulty}
@@ -102,7 +104,7 @@
         type="single"
         name="visibility"
         value={$form.visibility}
-        onValueChange={(v) => { $form.visibility = v; }}
+        onValueChange={(v) => { $form.visibility = v as ProblemVisibility; }}
       >
         <Select.Trigger class="w-full">
           {visibilityLabels[$form.visibility]?.() ?? $form.visibility}

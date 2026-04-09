@@ -1,6 +1,6 @@
 import { error, fail, redirect } from "@sveltejs/kit";
 import {
-  problemUpdateSchema,
+  problemCreateSchema,
   problemTemplateSchema,
   problemTestcaseSetCreateSchema,
   testcaseSetUpdateSchema,
@@ -59,7 +59,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       title: problem.title,
       visibility: problem.visibility
     },
-    zod4(problemUpdateSchema)
+    zod4(problemCreateSchema)
   );
 
   return { problem, form, testcaseSets };
@@ -72,7 +72,7 @@ export const actions: Actions = {
 
     const actor = requireAuth(event);
     const problemId = event.params.id;
-    const form = await superValidate(event, zod4(problemUpdateSchema));
+    const form = await superValidate(event, zod4(problemCreateSchema));
     if (!form.valid) return fail(400, { form });
     const result = await updateProblemRecord(actor, problemId, form.data);
 

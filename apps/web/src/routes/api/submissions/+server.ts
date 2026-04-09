@@ -9,6 +9,16 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { writeApiRateLimiter } from "$lib/server/shared/rate-limiter";
 import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 
+/** Accept `problemSlug` as a legacy alias for `problemId` before validation. */
+function normalizeProblemIdAlias(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object") return payload;
+  const draft = payload as Record<string, unknown>;
+  if (!draft.problemId && typeof draft.problemSlug === "string") {
+    return { ...draft, problemId: draft.problemSlug };
+  }
+  return payload;
+}
+
 export const POST: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
@@ -18,48 +28,11 @@ export const POST: RequestHandler = apiHandler(async (event) => {
     return json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const rawPayload: unknown = await event.request.json();
-
-  if (rawPayload && typeof rawPayload === "object") {
-    const draft = rawPayload as Record<string, unknown>;
-    const problemId = typeof draft.problemId === "string" ? draft.problemId : undefined;
-    const problemSlug = typeof draft.problemSlug === "string" ? draft.problemSlug : undefined;
-
-    if (!problemId && problemSlug) {
-      draft.problemId = problemSlug;
-    }
-
-    if (!problemSlug && problemId) {
-      draft.problemSlug = problemId;
-    }
-  }
-
-  const parsedPayload = submissionDraftSchema.parse(rawPayload);
-  const draftWithAliases = parsedPayload as Record<string, unknown>;
-  const parsedProblemId =
-    typeof draftWithAliases.problemId === "string" ? draftWithAliases.problemId : undefined;
-  const parsedProblemSlug =
-    typeof draftWithAliases.problemSlug === "string" ? draftWithAliases.problemSlug : undefined;
-  const normalizedProblemId = parsedProblemId ?? parsedProblemSlug;
-
-  if (!normalizedProblemId) {
-    return json(
-      { message: "Invalid submission payload: missing problem identifier." },
-      { status: 400 }
-    );
-  }
-
-  const payload = {
-    ...parsedPayload,
-    problemId: normalizedProblemId,
-    problemSlug: normalizedProblemId
-  };
+  const raw = normalizeProblemIdAlias(await event.request.json());
+  const payload = submissionDraftSchema.parse(raw);
 
   const submission = await createQueuedSubmissionRecord(payload, actor, event.request);
-  await dispatchSubmissionJob({
-    draft: payload,
-    submissionId: submission.id
-  });
+  await dispatchSubmissionJob({ draft: payload, submissionId: submission.id });
 
   return json(
     {

@@ -1,4 +1,11 @@
-import type { DailyActivity, DifficultyDist, LanguageDist } from "@nojv/core";
+import {
+  dailyActivityArraySchema,
+  difficultyDistSchema,
+  languageDistSchema,
+  type DailyActivity,
+  type DifficultyDist,
+  type LanguageDist
+} from "@nojv/core";
 import {
   problemRepo,
   runTransaction,
@@ -7,13 +14,22 @@ import {
   type Prisma
 } from "@nojv/db";
 
-function toDailyActivityArray(value: unknown): DailyActivity[] {
-  if (!Array.isArray(value)) return [];
-  return value as DailyActivity[];
+/** Parse a JSON-column value with a Zod schema, returning `fallback` on failure. */
+function parseOr<T>(
+  schema: { safeParse: (v: unknown) => { data?: T } },
+  value: unknown,
+  fallback: T
+): T {
+  return schema.safeParse(value).data ?? fallback;
 }
 
-function toJsonValue(value: DailyActivity[]): Prisma.InputJsonValue {
-  return value as unknown as Prisma.InputJsonValue;
+/**
+ * Cast a plain JSON-compatible value to `Prisma.InputJsonValue`. Prisma's
+ * recursive `InputJsonValue` type doesn't unify cleanly with Zod-inferred
+ * strict types, but structurally our data is always valid JSON.
+ */
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
 }
 
 export async function updateUserStats(submission: {
@@ -68,19 +84,27 @@ export async function updateUserStats(submission: {
         totalAttempts: 1,
         languageDist: langDist,
         difficultyDist: diffDist,
-        dailyActivity: toJsonValue(daily),
+        dailyActivity: asJson(daily),
         lastSubmittedAt: new Date()
       });
     } else {
-      const langDist = (existing.languageDist ?? {}) as LanguageDist;
+      const langDist = parseOr<LanguageDist>(languageDistSchema, existing.languageDist, {});
       langDist[submission.language] = (langDist[submission.language] ?? 0) + 1;
 
-      const diffDist = (existing.difficultyDist ?? {}) as DifficultyDist;
+      const diffDist = parseOr<DifficultyDist>(
+        difficultyDistSchema,
+        existing.difficultyDist,
+        {}
+      );
       if (isFirstAc && difficulty) {
         diffDist[difficulty] = (diffDist[difficulty] ?? 0) + 1;
       }
 
-      const daily = toDailyActivityArray(existing.dailyActivity);
+      const daily = parseOr<DailyActivity[]>(
+        dailyActivityArraySchema,
+        existing.dailyActivity,
+        []
+      );
       if (isAc) {
         const todayEntry = daily.find((d) => d.date === today);
         if (todayEntry) {
@@ -96,7 +120,7 @@ export async function updateUserStats(submission: {
         totalAttempts: { increment: 1 },
         languageDist: langDist,
         difficultyDist: diffDist,
-        dailyActivity: toJsonValue(daily),
+        dailyActivity: asJson(daily),
         lastSubmittedAt: new Date()
       });
     }
