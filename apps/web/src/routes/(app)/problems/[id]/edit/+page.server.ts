@@ -1,8 +1,11 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
+  languageSchema,
   problemCreateSchema,
   problemTemplateSchema,
   problemTestcaseSetCreateSchema,
+  problemWorkspaceFileSchema,
+  runtimeSchema,
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
   judgeConfigSchema
@@ -14,12 +17,14 @@ import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { problemDomain } from "@nojv/domain";
+import { problemWorkspaceFileRepo } from "@nojv/db";
 
 const {
   getProblemPageData,
   getProblemTestcaseSets,
   updateProblemRecord,
   updateProblemTemplates,
+  updateProblemWorkspace,
   createProblemTestcaseSetRecord,
   updateTestcaseSetRecord,
   deleteTestcaseSetRecord,
@@ -30,14 +35,21 @@ const {
 
 const updateTemplatesSchema = z.array(problemTemplateSchema).max(10);
 
+const updateWorkspaceSchema = z.object({
+  runtime: runtimeSchema.optional(),
+  allowedLanguages: z.array(languageSchema).optional(),
+  files: z.array(problemWorkspaceFileSchema).max(50)
+});
+
 export const load: PageServerLoad = async ({ params, locals }) => {
   if (!locals.user) {
     redirect(302, `/problems/${params.id}`);
   }
 
-  const [problem, testcaseSets] = await Promise.all([
+  const [problem, testcaseSets, workspaceFiles] = await Promise.all([
     getProblemPageData(params.id),
-    getProblemTestcaseSets(params.id)
+    getProblemTestcaseSets(params.id),
+    problemWorkspaceFileRepo.findByProblemId(params.id)
   ]);
 
   if (!problem) {
@@ -66,7 +78,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     zod4(problemCreateSchema)
   );
 
-  return { problem, form, testcaseSets };
+  return { problem, form, testcaseSets, workspaceFiles };
 };
 
 // ─── Form action helpers ─────────────────────────────────────────────
@@ -182,6 +194,24 @@ export const actions: Actions = {
     const judgeConfig = parseJsonField(formData.get("data"), judgeConfigSchema);
     await updateProblemRecord(actor, problemId, { judgeConfig });
     return { success: true };
+  }),
+
+  updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    const data = parseJsonField(formData.get("data"), updateWorkspaceSchema);
+    const result = await updateProblemWorkspace(actor, problemId, {
+      ...(data.runtime ? { runtime: data.runtime } : {}),
+      ...(data.allowedLanguages ? { allowedLanguages: data.allowedLanguages } : {}),
+      files: data.files.map((f) => ({
+        language: f.language,
+        path: f.path,
+        content: f.content,
+        visibility: f.visibility,
+        editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+        orderIndex: f.orderIndex
+      }))
+    });
+    return { success: true, fileCount: result.fileCount };
   }),
 
   publish: problemEditAction(async ({ actor, problemId }) => {

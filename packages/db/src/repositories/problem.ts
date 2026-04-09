@@ -235,6 +235,31 @@ export const problemTemplateRepo = {
   }
 };
 
+export const problemWorkspaceFileRepo = {
+  findByProblemId(problemId: string) {
+    return prisma.problemWorkspaceFile.findMany({
+      where: { problemId },
+      orderBy: [
+        { language: "asc" as const },
+        { orderIndex: "asc" as const },
+        { path: "asc" as const }
+      ]
+    });
+  },
+
+  withTx(tx: TxClient) {
+    return {
+      deleteByProblemId(problemId: string) {
+        return tx.problemWorkspaceFile.deleteMany({ where: { problemId } });
+      },
+
+      createMany(data: Prisma.ProblemWorkspaceFileCreateManyInput[]) {
+        return tx.problemWorkspaceFile.createMany({ data });
+      }
+    };
+  }
+};
+
 export const testcaseSetRepo = {
   findByProblemId(problemId: string) {
     return prisma.testcaseSet.findMany({

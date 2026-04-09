@@ -2,6 +2,7 @@ import {
   problemRepo,
   problemStatementRepo,
   problemTemplateRepo,
+  problemWorkspaceFileRepo,
   runTransaction,
   testcaseRepo,
   testcaseSetRepo,
@@ -279,6 +280,83 @@ export async function updateProblemRecord(
     }
 
     return { id: problem.id };
+  });
+}
+
+export interface UpdateWorkspacePayload {
+  runtime?: {
+    timeLimitMs: number;
+    memoryLimitMb: number;
+    env: Record<string, string>;
+  };
+  allowedLanguages?: Language[];
+  files: {
+    language: Language;
+    path: string;
+    content: string;
+    visibility: "editable" | "readonly" | "hidden";
+    editableRegions: [number, number][] | null;
+    orderIndex?: number;
+  }[];
+}
+
+/**
+ * Replace the workspace files for a problem and (optionally) update the
+ * runtime config + allowed languages on the judge config.
+ *
+ * Replacement is wholesale: the existing ProblemWorkspaceFile rows are
+ * deleted and the new list is inserted. This keeps the API simple for
+ * callers and matches how the editor actually works (the whole payload
+ * is sent on save).
+ */
+export async function updateProblemWorkspace(
+  actor: ProblemActorContext,
+  problemId: string,
+  payload: UpdateWorkspacePayload
+) {
+  return runTransaction(async (tx) => {
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+
+    // Replace workspace files.
+    await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
+    if (payload.files.length > 0) {
+      const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = payload.files.map(
+        (f, index) => {
+          const base: Prisma.ProblemWorkspaceFileCreateManyInput = {
+            content: f.content,
+            language: f.language,
+            orderIndex: f.orderIndex ?? index,
+            path: f.path,
+            problemId: problem.id,
+            visibility: f.visibility
+          };
+          if (f.editableRegions !== null) {
+            base.editableRegions = f.editableRegions as Prisma.InputJsonValue;
+          }
+          return base;
+        }
+      );
+      await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
+    }
+
+    // Merge runtime into judgeConfig.runtime. Keep other judgeConfig
+    // keys intact so the caller can save workspace without clobbering
+    // the judge settings.
+    if (payload.runtime) {
+      const currentConfig = (problem.judgeConfig as Record<string, unknown> | null) ?? {};
+      const nextConfig = {
+        ...currentConfig,
+        runtime: payload.runtime
+      };
+      await problemRepo.withTx(tx).update(problem.id, {
+        judgeConfig: nextConfig as Prisma.InputJsonValue,
+        memoryLimitMb: payload.runtime.memoryLimitMb,
+        timeLimitMs: payload.runtime.timeLimitMs
+      });
+    }
+
+    return { id: problem.id, fileCount: payload.files.length };
   });
 }
 
