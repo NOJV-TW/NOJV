@@ -359,7 +359,7 @@ export async function updateProblemWorkspace(
   for (const [language, total] of totalsByLanguage) {
     if (total > MAX_WORKSPACE_BYTES_PER_LANGUAGE) {
       throw new Error(
-        `Workspace files for language "${language}" exceed 1 MB limit (${total} bytes).`
+        `Workspace files for language "${language}" exceed 1 MB limit (${String(total)} bytes).`
       );
     }
   }
