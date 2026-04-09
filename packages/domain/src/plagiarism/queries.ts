@@ -5,8 +5,8 @@ import {
   assessmentProblemRepo,
   submissionRepo
 } from "@nojv/db";
-import type { Prisma } from "@nojv/db";
 
+import { toJsonValue } from "../shared/to-json-value";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
 export interface PlagiarismSubmission {
@@ -38,7 +38,7 @@ export async function saveResults(
 ): Promise<void> {
   await plagiarismReportRepo.complete(reportId, {
     mossReportUrl,
-    results: JSON.parse(JSON.stringify(results)) as Prisma.InputJsonValue,
+    results: toJsonValue(results),
     status: "completed"
   });
 }

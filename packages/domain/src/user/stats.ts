@@ -6,13 +6,9 @@ import {
   type DifficultyDist,
   type LanguageDist
 } from "@nojv/core";
-import {
-  problemRepo,
-  runTransaction,
-  submissionRepo,
-  userStatsRepo,
-  type Prisma
-} from "@nojv/db";
+import { problemRepo, runTransaction, submissionRepo, userStatsRepo } from "@nojv/db";
+
+import { toJsonValue } from "../shared/to-json-value";
 
 /** Parse a JSON-column value with a Zod schema, returning `fallback` on failure. */
 function parseOr<T>(
@@ -21,15 +17,6 @@ function parseOr<T>(
   fallback: T
 ): T {
   return schema.safeParse(value).data ?? fallback;
-}
-
-/**
- * Cast a plain JSON-compatible value to `Prisma.InputJsonValue`. Prisma's
- * recursive `InputJsonValue` type doesn't unify cleanly with Zod-inferred
- * strict types, but structurally our data is always valid JSON.
- */
-function asJson(value: unknown): Prisma.InputJsonValue {
-  return value as Prisma.InputJsonValue;
 }
 
 export async function updateUserStats(submission: {
@@ -84,7 +71,7 @@ export async function updateUserStats(submission: {
         totalAttempts: 1,
         languageDist: langDist,
         difficultyDist: diffDist,
-        dailyActivity: asJson(daily),
+        dailyActivity: toJsonValue(daily),
         lastSubmittedAt: new Date()
       });
     } else {
@@ -120,7 +107,7 @@ export async function updateUserStats(submission: {
         totalAttempts: { increment: 1 },
         languageDist: langDist,
         difficultyDist: diffDist,
-        dailyActivity: asJson(daily),
+        dailyActivity: toJsonValue(daily),
         lastSubmittedAt: new Date()
       });
     }
