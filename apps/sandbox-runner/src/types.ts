@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { languageSchema, judgeTypeSchema, submissionTypeSchema } from "@nojv/core";
+import {
+  compareSchema,
+  judgeTypeSchema,
+  languageSchema,
+  submissionTypeSchema
+} from "@nojv/core";
 
 export type {
   SandboxResult,
@@ -39,7 +44,8 @@ export const SandboxInputSchema = z.object({
     memoryMb: z.number()
   }),
   checkerLanguage: z.string().optional(),
-  interactorLanguage: z.string().optional()
+  interactorLanguage: z.string().optional(),
+  compare: compareSchema.optional()
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;

@@ -318,7 +318,8 @@ async function main(): Promise<void> {
         result = await judgeStandard(
           compileResult.runCommand,
           testcase,
-          config.limits.timeoutMs
+          config.limits.timeoutMs,
+          config.compare
         );
         break;
 

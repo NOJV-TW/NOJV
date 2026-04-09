@@ -402,6 +402,7 @@ export async function executeSandbox(
         ? { interactorScript: judgeContext.interactorScript }
         : {})
     },
+    ...(judgeContext.compare ? { compare: judgeContext.compare } : {}),
     limits: {
       timeoutMs: judgeContext.runtime.timeLimitMs,
       memoryMb: judgeContext.runtime.memoryLimitMb
