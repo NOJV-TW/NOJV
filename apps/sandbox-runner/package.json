@@ -17,10 +17,12 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
+    "picomatch": "^4.0.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
+    "@types/picomatch": "^4.0.3",
     "esbuild": "^0.28.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.3"

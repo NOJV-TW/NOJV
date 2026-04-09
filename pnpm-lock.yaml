@@ -69,6 +69,9 @@ importers:
       '@nojv/core':
         specifier: workspace:*
         version: link:../../packages/core
+      picomatch:
+        specifier: ^4.0.4
+        version: 4.0.4
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -76,6 +79,9 @@ importers:
       '@types/node':
         specifier: ^25.5.2
         version: 25.5.2
+      '@types/picomatch':
+        specifier: ^4.0.3
+        version: 4.0.3
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
@@ -2732,6 +2738,9 @@ packages:
 
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
+
+  '@types/picomatch@4.0.3':
+    resolution: {integrity: sha512-iG0T6+nYJ9FAPmx9SsUlnwcq1ZVRuCXcVEvWnntoPlrOpwtSTKNDC9uVAxTsC3PUvJ+99n4RpAcNgBbHX3JSnQ==}
 
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
@@ -7813,6 +7822,8 @@ snapshots:
       '@types/node': 25.5.2
       pg-protocol: 1.13.0
       pg-types: 2.2.0
+
+  '@types/picomatch@4.0.3': {}
 
   '@types/qrcode@1.5.6':
     dependencies:
