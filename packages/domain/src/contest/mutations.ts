@@ -13,12 +13,13 @@ import {
   type Prisma,
   type TransactionClient
 } from "@nojv/db";
-import type { ContestCreate, ContestUpdate } from "@nojv/core";
+import type { ContestCreate, ContestUpdate, Language } from "@nojv/core";
 
 import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/mutations";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
@@ -56,7 +57,8 @@ async function requireUser(tx: TransactionClient, userId: string) {
 async function resolveAndAttachContestProblems(
   tx: TransactionClient,
   contestId: string,
-  problemIds: string[]
+  problemIds: string[],
+  allowedLanguages: Language[]
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
     id: { in: problemIds }
@@ -66,6 +68,15 @@ async function resolveAndAttachContestProblems(
   for (const id of problemIds) {
     if (!problemById.has(id)) {
       throw new NotFoundError(`Problem not found: ${id}`);
+    }
+  }
+
+  // Workspace invariant: every listed allowedLanguage must have an
+  // editable main.<ext> on every problem in the contest. Empty list =
+  // unrestricted, no check.
+  if (allowedLanguages.length > 0) {
+    for (const id of problemIds) {
+      await assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages);
     }
   }
 
@@ -131,21 +142,12 @@ export async function ensureContestParticipation(
     }
   );
 
-  // Enforce per-problem attempt limit (non-sampleOnly submissions only)
-  if (attemptContext && !attemptContext.sampleOnly && contest.maxAttempts != null) {
-    const attemptCount = await submissionRepo.withTx(tx).count({
-      contestId: contest.id,
-      problemId: attemptContext.problemId,
-      sampleOnly: false,
-      userId
-    });
-
-    if (attemptCount >= contest.maxAttempts) {
-      throw new ForbiddenError(
-        `Attempt limit reached (${String(contest.maxAttempts)}/${String(contest.maxAttempts)}).`
-      );
-    }
-  }
+  // The Phase 1 redesign moved per-problem attempt limits onto
+  // CourseAssessment only — Contest no longer carries `maxAttempts`.
+  // The `attemptContext` parameter is preserved so the caller signature
+  // doesn't change, but it's currently unused for contests. Keep the
+  // unused-binding eslint exception via void to make intent clear.
+  void attemptContext;
 
   return { contest, participation };
 }
@@ -218,7 +220,6 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       ipViolationMode: payload.ipViolationMode,
       ipWhitelist: payload.ipWhitelist,
       ipWhitelistEnabled: payload.ipWhitelistEnabled,
-      maxAttempts: payload.maxAttempts ?? null,
       pageLockEnabled: payload.pageLockEnabled,
       scoreboardMode: payload.scoreboardMode,
       scoringMode: payload.scoringMode,
@@ -227,13 +228,15 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary,
       title: payload.title,
-      visibility: "published",
-      ...(payload.adjustmentRules
-        ? { adjustmentRules: payload.adjustmentRules as Prisma.InputJsonValue }
-        : {})
+      visibility: "published"
     });
 
-    await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);
+    await resolveAndAttachContestProblems(
+      tx,
+      contest.id,
+      payload.problemIds,
+      payload.allowedLanguages
+    );
 
     return contest;
   });
@@ -249,7 +252,6 @@ export async function updateContestRecord(
   return runTransaction(async (tx) => {
     const contest = await requireContest(tx, contestSlug);
 
-    // Fields that pass through unchanged.
     const updateData: Prisma.ContestUncheckedUpdateInput = stripUndefined({
       title: payload.title,
       summary: payload.summary,
@@ -270,7 +272,6 @@ export async function updateContestRecord(
     if (payload.frozenAt !== undefined) {
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     }
-    if (payload.maxAttempts !== undefined) updateData.maxAttempts = payload.maxAttempts ?? null;
     if (payload.courseSlug !== undefined) {
       updateData.courseId = payload.courseSlug
         ? (await requireCourse(tx, payload.courseSlug)).id
@@ -281,11 +282,20 @@ export async function updateContestRecord(
       await contestRepo.withTx(tx).update(contest.id, updateData);
     }
 
-    // Replace problems if provided
+    // Replace problems if provided. Re-check the workspace invariant
+    // against either the new allowedLanguages (if set) or the contest's
+    // current value.
     if (payload.problemIds !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
-      await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);
+      const enforcedLanguages =
+        payload.allowedLanguages ?? (contest.allowedLanguages as Language[]);
+      await resolveAndAttachContestProblems(
+        tx,
+        contest.id,
+        payload.problemIds,
+        enforcedLanguages
+      );
     }
 
     return { id: contest.id };

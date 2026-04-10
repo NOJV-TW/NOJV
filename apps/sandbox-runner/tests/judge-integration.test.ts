@@ -431,7 +431,7 @@ function makeInput(lang: SandboxInput["language"]): SandboxInput {
     submissionId: "test",
     language: lang,
     judgeType: "standard",
-    submissionType: "full_source",
+    problemType: "full_source",
     limits: { timeoutMs: TIMEOUT_MS, memoryMb: 256 }
   };
 }

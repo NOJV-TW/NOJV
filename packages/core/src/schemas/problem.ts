@@ -4,54 +4,27 @@ import {
   languageSchema,
   problemDifficultySchema,
   problemStatusSchema,
+  problemTypeSchema,
   problemVisibilitySchema,
-  submissionTypeSchema,
-  type Language,
-  type SubmissionType
+  type Language
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
 
-// ─── Phase 1 redesign: problem mode + samples + workspace files ────
-
-export const problemModeSchema = z.enum(["standard", "advanced"]);
-export type ProblemMode = z.infer<typeof problemModeSchema>;
-
-/**
- * A UI-facing categorisation of the problem shape the student sees. It is
- * *derived* from `ProblemMode`, `SubmissionType`, and whether the problem
- * ships multiple workspace files — there is no corresponding DB column.
- *
- * - `full_source`   — single-file, student writes everything including main()
- * - `function`      — student implements the named function, judge provides the driver
- * - `multi_file`    — teacher ships multiple files; student edits the designated ones in-browser
- * - `special_env`   — advanced mode; student uploads a tarball that runs inside a TA-provided image.
- *                     Evaluation details are owned by the TA image, so no judge-method badge is
- *                     displayed for this category.
- */
-export type ProblemType = "full_source" | "function" | "multi_file" | "special_env";
-
-export function deriveProblemType(input: {
-  mode: ProblemMode;
-  submissionType: SubmissionType;
-  workspaceFileCount: number;
-}): ProblemType {
-  if (input.mode === "advanced") return "special_env";
-  if (input.workspaceFileCount > 1) return "multi_file";
-  if (input.submissionType === "function") return "function";
-  return "full_source";
-}
+// ─── Phase 1 redesign: problem type + samples + workspace files ────
+//
+// `ProblemType` is now the single source of truth for "what shape is
+// this problem". It replaces the legacy (ProblemMode × SubmissionType)
+// matrix, and is persisted directly on the Problem table.
+//
+// - `full_source`   — single-file, student writes everything including main()
+// - `function`      — student implements the named function, judge provides the driver
+// - `multi_file`    — teacher ships multiple files; student edits the designated ones in-browser
+// - `special_env`   — TA-provided Docker image owns the entire judging loop; student
+//                     uploads a tarball. No judge-method badge is displayed for this category.
 
 export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
 export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
-
-export const advancedResourceLimitsSchema = z.object({
-  totalTimeMs: z.number().int().min(1_000).max(600_000),
-  memoryMb: z.number().int().min(16).max(8_192),
-  networkEnabled: z.boolean()
-});
-
-export type AdvancedResourceLimits = z.infer<typeof advancedResourceLimitsSchema>;
 
 export const problemSampleSchema = z.object({
   stdin: z.string().max(200_000),
@@ -139,8 +112,7 @@ export const problemCreateSchema = z.object({
     .min(1, "validation_required")
     .max(4_000, "validation_tooLong"),
   statement: z.string().trim().min(1, "validation_required").max(12_000, "validation_tooLong"),
-  submissionType: submissionTypeSchema.default("full_source"),
-  summary: z.string().trim().max(2_000).default(""),
+  type: problemTypeSchema.default("full_source"),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
   timeLimitMs: z.coerce
     .number()
@@ -152,12 +124,12 @@ export const problemCreateSchema = z.object({
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
   status: problemStatusSchema.default("draft"),
-  // Phase 1 redesign: standard vs advanced mode, samples, advanced image refs
-  mode: problemModeSchema.default("standard"),
+  // Sample IO + special_env image config
   samples: problemSamplesSchema.optional(),
   advancedImageRef: z.string().max(500).optional(),
   advancedImageSource: problemImageSourceSchema.optional(),
-  advancedResourceLimits: advancedResourceLimitsSchema.optional()
+  /// Only meaningful when type = special_env; ignored otherwise.
+  networkEnabled: z.boolean().default(false)
 });
 
 export const problemUpdateSchema = problemCreateSchema.partial();
@@ -177,11 +149,13 @@ export const problemJudgeTestcaseSchema = z.object({
 
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
+  description: z.string().max(5_000).default(""),
   name: z.string().trim().min(1).max(120),
   weight: z.coerce.number().int().min(1).max(100).default(1)
 });
 
 export const testcaseSetUpdateSchema = z.object({
+  description: z.string().max(5_000).optional(),
   name: z.string().trim().min(1).max(120).optional(),
   weight: z.coerce.number().int().min(0).max(100).optional()
 });

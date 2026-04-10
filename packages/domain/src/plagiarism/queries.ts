@@ -27,7 +27,12 @@ export async function fetchSubmissionsForCheck(
   });
 }
 
-export async function updateReportStatus(reportId: string, status: string): Promise<void> {
+type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
+
+export async function updateReportStatus(
+  reportId: string,
+  status: PlagiarismReportStatus
+): Promise<void> {
   await plagiarismReportRepo.updateStatus(reportId, status);
 }
 
@@ -94,6 +99,13 @@ export async function resolvePlagiarismTarget(
   };
 }
 
+/**
+ * Upsert the single plagiarism report for a target. PlagiarismReport is
+ * 1:1 with its parent now: re-running MOSS overwrites the existing row,
+ * there is no history. The repo `create` is upsert-flavored — the
+ * unique-FK constraint on (contestId | courseAssessmentId) is what
+ * makes the 1:1 invariant hold.
+ */
 export async function createPlagiarismReport(target: PlagiarismTarget, triggeredById: string) {
   return plagiarismReportRepo.create({
     ...(target.type === "courseAssessment"
@@ -104,8 +116,15 @@ export async function createPlagiarismReport(target: PlagiarismTarget, triggered
   });
 }
 
-export async function listPlagiarismReports(target: PlagiarismTarget) {
-  return plagiarismReportRepo.listByTarget(plagiarismTargetFilter(target));
+/**
+ * Look up the single existing plagiarism report for a target, if any.
+ * Returns `null` when MOSS has never been run.
+ */
+export async function findPlagiarismReport(target: PlagiarismTarget) {
+  if (target.type === "courseAssessment") {
+    return plagiarismReportRepo.findByAssessmentId(target.id);
+  }
+  return plagiarismReportRepo.findByContestId(target.id);
 }
 
 export async function getPlagiarismSourceCode(
@@ -127,10 +146,12 @@ export async function getPlagiarismSourceCode(
 }
 
 /**
- * List plagiarism reports for a course assessment (plagiarism manage page).
+ * Get the single plagiarism report for a course assessment (plagiarism
+ * manage page). Wrapper kept for backwards-compat with the route layer.
  */
 export async function listAssessmentPlagiarismReports(assessmentId: string) {
-  return plagiarismReportRepo.listByAssessmentId(assessmentId);
+  const report = await plagiarismReportRepo.findByAssessmentId(assessmentId);
+  return report ? [report] : [];
 }
 
 /**
@@ -141,7 +162,7 @@ export async function getAssessmentProblemMap(assessmentId: string) {
   return Object.fromEntries(
     assessmentProblems.map((ap) => [
       ap.problemId,
-      { id: ap.problem.id, title: ap.problem.defaultTitle }
+      { id: ap.problem.id, title: ap.problem.title }
     ])
   );
 }

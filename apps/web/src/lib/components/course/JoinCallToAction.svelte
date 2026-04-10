@@ -3,18 +3,18 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
-  import { actionErrorSchema } from "@nojv/core";
+  import { actionErrorSchema, type CourseJoinTokenKind } from "@nojv/core";
   import { superForm } from "sveltekit-superforms";
 
   interface Props {
     courseSlug: string;
     courseTitle: string;
     form: any;
-    joinMethod: "join_code" | "manual_invite" | "qr_code" | null;
+    joinTokenKind: CourseJoinTokenKind | null;
     joinToken: string | null;
   }
 
-  let { courseSlug, courseTitle, form, joinMethod, joinToken }: Props = $props();
+  let { courseSlug, courseTitle, form, joinTokenKind, joinToken }: Props = $props();
 
   let error = $state<string | null>(null);
 
@@ -38,7 +38,7 @@
   });
 
   function handlePreCheck() {
-    if (!joinMethod || !joinToken || joinMethod === "manual_invite") {
+    if (!joinTokenKind || !joinToken) {
       error = m.courseJoin_incompleteLink();
       return false;
     }
@@ -61,7 +61,7 @@
     <span
       class="rounded-full border border-border px-3 py-1 text-xs font-medium"
     >
-      {joinMethod ? joinMethod.replaceAll("_", " ") : "missing join method"}
+      {joinTokenKind ?? "missing join kind"}
     </span>
     <span
       class="rounded-full border border-border px-3 py-1 text-xs font-medium"
@@ -77,7 +77,7 @@
       if (!handlePreCheck()) e.preventDefault();
     }}
   >
-    <input type="hidden" name="joinMethod" value={joinMethod ?? ""} />
+    <input type="hidden" name="joinTokenKind" value={joinTokenKind ?? ""} />
     <input type="hidden" name="joinToken" value={joinToken ?? ""} />
     <div class="mt-6 flex flex-wrap gap-3">
       <button

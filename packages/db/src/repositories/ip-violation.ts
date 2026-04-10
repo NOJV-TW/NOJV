@@ -9,13 +9,12 @@ export const ipViolationLogRepo = {
     return prisma.ipViolationLog.create({ data });
   },
 
-  /** List violation logs for a contest or assessment (admin/teacher view). */
-  listByTarget(opts: { contestId?: string; assessmentId?: string; take: number }) {
+  /** List violation logs for a contest (admin/teacher view).
+   * Homework assessments no longer have IP lock, so there is no
+   * `assessmentId` branch — only contests generate violations. */
+  listByContest(opts: { contestId: string; take: number }) {
     return prisma.ipViolationLog.findMany({
-      where: {
-        ...(opts.contestId ? { contestId: opts.contestId } : {}),
-        ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {})
-      },
+      where: { contestId: opts.contestId },
       include: {
         user: { select: { displayUsername: true, email: true, name: true } }
       },
@@ -37,7 +36,7 @@ export const contestParticipationIpRepo = {
   updateBoundIp(id: string, ip: string) {
     return prisma.contestParticipation.update({
       where: { id },
-      data: { boundIp: ip, boundAt: new Date() }
+      data: { boundIp: ip }
     });
   },
 
@@ -46,20 +45,7 @@ export const contestParticipationIpRepo = {
       updateBoundIp(id: string, ip: string) {
         return tx.contestParticipation.update({
           where: { id },
-          data: { boundIp: ip, boundAt: new Date() }
-        });
-      }
-    };
-  }
-};
-
-export const assessmentParticipationIpRepo = {
-  withTx(tx: TxClient) {
-    return {
-      updateBoundIp(id: string, ip: string) {
-        return tx.assessmentParticipation.update({
-          where: { id },
-          data: { boundIp: ip, boundAt: new Date() }
+          data: { boundIp: ip }
         });
       }
     };

@@ -1,24 +1,11 @@
-import {
-  dailyActivityArraySchema,
-  difficultyDistSchema,
-  languageDistSchema,
-  type DailyActivity,
-  type DifficultyDist,
-  type LanguageDist
-} from "@nojv/core";
-import { problemRepo, runTransaction, submissionRepo, userStatsRepo } from "@nojv/db";
+import { runTransaction, submissionRepo, userDailyActivityRepo, userStatsRepo } from "@nojv/db";
 
-import { toJsonValue } from "../shared/to-json-value";
-
-/** Parse a JSON-column value with a Zod schema, returning `fallback` on failure. */
-function parseOr<T>(
-  schema: { safeParse: (v: unknown) => { data?: T } },
-  value: unknown,
-  fallback: T
-): T {
-  return schema.safeParse(value).data ?? fallback;
-}
-
+/**
+ * Update the hot-path UserStats denorm row + the daily activity row for
+ * the user. Per-language and per-difficulty histograms are NOT cached
+ * here any more — they're computed on demand from the Submission /
+ * Problem tables when the dashboard asks for them.
+ */
 export async function updateUserStats(submission: {
   id: string;
   language: string;
@@ -42,74 +29,35 @@ export async function updateUserStats(submission: {
     isFirstAc = acCount === 1;
   }
 
-  let difficulty: string | null = null;
-  if (isFirstAc) {
-    const problem = await problemRepo.findDifficultyById(submission.problemId);
-    difficulty = problem?.difficulty ?? null;
-  }
-
-  const today = new Date().toISOString().slice(0, 10);
+  // Daily activity uses date-only midnight UTC. The repo's upsert
+  // primary key is (userId, date) so callers must pre-truncate.
+  const now = new Date();
+  const dateOnly = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
 
   await runTransaction(async (tx) => {
     const existing = await userStatsRepo.withTx(tx).findByUserId(submission.userId);
 
     if (!existing) {
-      const langDist: LanguageDist = { [submission.language]: 1 };
-      const diffDist: DifficultyDist = {};
-      const daily: DailyActivity[] = [];
-
-      if (isFirstAc && difficulty) {
-        diffDist[difficulty] = 1;
-      }
-      if (isAc) {
-        daily.push({ date: today, acCount: 1 });
-      }
-
       await userStatsRepo.withTx(tx).create({
         userId: submission.userId,
         totalAc: isFirstAc ? 1 : 0,
         totalAttempts: 1,
-        languageDist: langDist,
-        difficultyDist: diffDist,
-        dailyActivity: toJsonValue(daily),
-        lastSubmittedAt: new Date()
+        lastSubmittedAt: now
       });
     } else {
-      const langDist = parseOr<LanguageDist>(languageDistSchema, existing.languageDist, {});
-      langDist[submission.language] = (langDist[submission.language] ?? 0) + 1;
-
-      const diffDist = parseOr<DifficultyDist>(
-        difficultyDistSchema,
-        existing.difficultyDist,
-        {}
-      );
-      if (isFirstAc && difficulty) {
-        diffDist[difficulty] = (diffDist[difficulty] ?? 0) + 1;
-      }
-
-      const daily = parseOr<DailyActivity[]>(
-        dailyActivityArraySchema,
-        existing.dailyActivity,
-        []
-      );
-      if (isAc) {
-        const todayEntry = daily.find((d) => d.date === today);
-        if (todayEntry) {
-          todayEntry.acCount += 1;
-        } else {
-          daily.push({ date: today, acCount: 1 });
-        }
-        if (daily.length > 90) daily.shift();
-      }
-
       await userStatsRepo.withTx(tx).update(submission.userId, {
         ...(isFirstAc ? { totalAc: { increment: 1 } } : {}),
         totalAttempts: { increment: 1 },
-        languageDist: langDist,
-        difficultyDist: diffDist,
-        dailyActivity: toJsonValue(daily),
-        lastSubmittedAt: new Date()
+        lastSubmittedAt: now
       });
     }
+
+    await userDailyActivityRepo.withTx(tx).increment({
+      userId: submission.userId,
+      date: dateOnly,
+      isAc
+    });
   });
 }

@@ -1,6 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { CourseJoinMethod } from "../../generated/prisma/enums";
+import type { CourseJoinTokenKind } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
 import { problemPreviewSelect } from "./selects";
 
@@ -176,9 +176,9 @@ export const courseMembershipRepo = {
 export const courseJoinTokenRepo = {
   withTx(tx: TxClient) {
     return {
-      findByToken(courseId: string, method: CourseJoinMethod, token: string) {
+      findByToken(courseId: string, kind: CourseJoinTokenKind, token: string) {
         return tx.courseJoinToken.findFirst({
-          where: { courseId, method, token }
+          where: { courseId, kind, token }
         });
       },
 

@@ -9,6 +9,7 @@ import {
   testcaseUpdateSchema,
   judgeConfigSchema
 } from "@nojv/core";
+import type { ProblemType } from "@nojv/core";
 import { superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
@@ -60,18 +61,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       inputFormat: problem.inputFormat,
       judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
-      // Form schema still stores raw DB mode — derive it from problemType.
-      mode: problem.problemType === "special_env" ? "advanced" : "standard",
       outputFormat: problem.outputFormat,
       samples: problem.samples,
       statement: problem.statement,
       status: problem.status,
-      submissionType: problem.submissionType,
-      summary: problem.summary,
       tags: problem.tags,
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,
-      visibility: problem.visibility
+      type: problem.type satisfies ProblemType,
+      visibility: problem.visibility,
+      networkEnabled: problem.networkEnabled
     },
     zod4(problemCreateSchema)
   );

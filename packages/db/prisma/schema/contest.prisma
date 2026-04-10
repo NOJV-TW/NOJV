@@ -1,0 +1,138 @@
+// ═══════════════════════════════════════════════════════════════
+// Contest domain (timed, gated, scored — includes course-embedded exams)
+// ═══════════════════════════════════════════════════════════════
+
+enum ContestVisibility {
+  draft
+  published
+  archived
+}
+
+enum ContestScoringMode {
+  icpc
+  ioi
+}
+
+enum ContestParticipationStatus {
+  registered
+  active
+  submitted
+  disqualified
+}
+
+/// Shared by Contest only; homework assessments no longer have a
+/// scoreboard (that was an exam-only concept).
+enum ScoreboardMode {
+  hidden
+  live
+  frozen
+}
+
+enum IpViolationMode {
+  block
+  notify
+}
+
+enum IpViolationType {
+  whitelist
+  binding
+}
+
+model Contest {
+  id       String   @id @default(cuid())
+  slug     String   @unique
+  title    String
+  summary  String   @db.Text
+  /// Non-null = course-embedded exam. Null = standalone competition.
+  courseId String?
+  startsAt DateTime
+  endsAt   DateTime
+
+  visibility        ContestVisibility  @default(draft)
+  scoringMode       ContestScoringMode @default(icpc)
+  scoreboardMode    ScoreboardMode     @default(live)
+  frozenBoard       Boolean            @default(true)
+  frozenAt          DateTime?
+  submitCooldownSec Int                @default(0)
+
+  /// Empty array = all supported languages allowed. Adding a problem
+  /// to this contest is application-gated: the problem must ship an
+  /// editable main.<ext> workspace file for every language listed here.
+  allowedLanguages SupportedLanguage[] @default([])
+
+  // Exam-mode gates (always available; disabled by default)
+  pageLockEnabled    Boolean         @default(false)
+  ipWhitelistEnabled Boolean         @default(false)
+  ipBindingEnabled   Boolean         @default(false)
+  ipWhitelist        String[]        @default([])
+  ipViolationMode    IpViolationMode @default(block)
+
+  inviteCode      String?  @unique
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course           Course?                @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdBy        User?                  @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  problems         ContestProblem[]
+  participations   ContestParticipation[]
+  submissions      Submission[]
+  ipViolationLogs  IpViolationLog[]
+  /// 1:1 — latest plagiarism report; null until teacher runs a scan.
+  /// FK lives on PlagiarismReport.contestId with @unique.
+  plagiarismReport PlagiarismReport?
+}
+
+model ContestProblem {
+  id        String   @id @default(cuid())
+  contestId String
+  problemId String
+  ordinal   Int
+  points    Int      @default(100)
+  createdAt DateTime @default(now())
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, problemId])
+  @@unique([contestId, ordinal])
+}
+
+model ContestParticipation {
+  id               String                     @id @default(cuid())
+  contestId        String
+  userId           String
+  status           ContestParticipationStatus @default(registered)
+  startedAt        DateTime?
+  submittedAt      DateTime?
+  score            Int                        @default(0)
+  penaltySeconds   Int                        @default(0)
+  subtaskScores    Json?
+  boundIp          String?
+  /// Teacher unbind audit trail — set when a teacher clears boundIp
+  /// so the student can re-enter from a new machine.
+  boundIpClearedAt DateTime?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+  contest          Contest                    @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions      Submission[]
+
+  @@unique([contestId, userId])
+}
+
+/// Audit log for IP whitelist / IP binding violations. Only contests
+/// log violations — homework assessments no longer have IP lock.
+model IpViolationLog {
+  id            String          @id @default(cuid())
+  userId        String
+  contestId     String
+  expectedIp    String?
+  actualIp      String
+  violationType IpViolationType
+  createdAt     DateTime        @default(now())
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest       Contest         @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@index([contestId, createdAt])
+  @@index([userId, createdAt])
+}

@@ -18,8 +18,8 @@ describe("read model (real DB)", () => {
 
   describe("listProblemCards", () => {
     it("returns public problems only", async () => {
-      await createTestProblem({ visibility: "public", defaultTitle: "Public P" });
-      await createTestProblem({ visibility: "private", defaultTitle: "Private P" });
+      await createTestProblem({ visibility: "public", title: "Public P" });
+      await createTestProblem({ visibility: "private", title: "Private P" });
 
       const result = await listProblemCards();
       expect(result.problems).toHaveLength(1);
@@ -101,7 +101,9 @@ describe("read model (real DB)", () => {
       expect(result.problems).toHaveLength(1);
       expect(result.problems[0]!.id).toBe("two-sum");
       expect(result.problems[0]!.difficulty).toBe("hard");
-      expect(result.problems[0]!.tags).toEqual(["array", "hash-table"]);
+      // Difficulty tag ("hard") is merged into tags by the factory; the
+      // domain query exposes both the derived `difficulty` + the full tag list.
+      expect(result.problems[0]!.tags).toEqual(["hard", "array", "hash-table"]);
     });
   });
 
@@ -120,7 +122,7 @@ describe("read model (real DB)", () => {
         authorId: author.id,
         difficulty: "medium",
         visibility: "public",
-        defaultTitle: "Detail Problem"
+        title: "Detail Problem"
       });
 
       const detail = await getProblemPageData("detail-problem", "en");
@@ -214,7 +216,7 @@ describe("read model (real DB)", () => {
           role: "teacher",
           status: "active",
           joinedAt: new Date(),
-          joinedVia: "manual_invite"
+          joinedTokenId: null
         }
       });
 
@@ -238,8 +240,7 @@ describe("read model (real DB)", () => {
           opensAt: new Date("2026-01-01"),
           dueAt: new Date("2026-06-01"),
           closesAt: new Date("2026-06-01"),
-          status: "published",
-          scoreboardMode: "hidden"
+          status: "published"
         }
       });
 

@@ -8,7 +8,8 @@
   interface AssessmentItem {
     courseSlug: string;
     courseTitle: string;
-    dueAt: string;
+    /** Soft deadline; null = no late penalty configured. */
+    dueAt: string | null;
     opensAt: string;
     slug: string;
     title: string;
@@ -64,7 +65,9 @@
           </div>
           <div>
             <p class="text-sm text-muted-foreground">{labels.due}</p>
-            <p class="mt-1 text-sm">{new Date(a.dueAt).toLocaleDateString(currentLocale)}</p>
+            <p class="mt-1 text-sm">
+              {a.dueAt ? new Date(a.dueAt).toLocaleDateString(currentLocale) : "—"}
+            </p>
           </div>
           <div class="sm:text-right">
             <span

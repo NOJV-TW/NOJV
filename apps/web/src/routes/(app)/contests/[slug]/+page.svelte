@@ -115,11 +115,6 @@
         Cooldown: {contest.submitCooldownSec}s
       </span>
     {/if}
-    {#if contest.maxAttempts != null}
-      <span class="rounded-full bg-muted px-3 py-1">
-        Max attempts: {contest.maxAttempts}
-      </span>
-    {/if}
     {#if contest.pageLockEnabled}
       <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">Page lock</span>
     {/if}

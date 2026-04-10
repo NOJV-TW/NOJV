@@ -14,16 +14,17 @@ const joinFormSchema = courseJoinRequestSchema.omit({ courseSlug: true });
 
 export const load: PageServerLoad = async ({ params, parent, url }) => {
   const { slug, token } = params;
-  const method = url.searchParams.get("method");
+  const kindParam = url.searchParams.get("kind");
   const { courseData } = await parent();
 
-  const joinMethod: "join_code" | "qr_code" | "manual_invite" | null =
-    method === "join_code" || method === "qr_code" || method === "manual_invite"
-      ? method
-      : null;
+  // Join links now carry the new token-kind taxonomy: `link` (any
+  // shareable URL / QR code) or `code` (a short typed code). Anything
+  // else is treated as a manual / unknown channel.
+  const joinTokenKind: "link" | "code" | null =
+    kindParam === "link" || kindParam === "code" ? kindParam : null;
 
   const form = await superValidate(
-    joinMethod ? { joinMethod, joinToken: token } : { joinToken: token },
+    joinTokenKind ? { joinTokenKind, joinToken: token } : { joinToken: token },
     zod4(joinFormSchema)
   );
 
@@ -31,7 +32,7 @@ export const load: PageServerLoad = async ({ params, parent, url }) => {
     courseSlug: slug,
     courseTitle: courseData.course.title,
     form,
-    joinMethod,
+    joinTokenKind,
     joinToken: token
   };
 };

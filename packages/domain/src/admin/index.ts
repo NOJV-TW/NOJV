@@ -109,10 +109,7 @@ export async function getAdminDashboard() {
   const problemIds = failureGroups.map((row) => row.problemId);
   const failureProblems = problemIds.length > 0 ? await problemRepo.findByIds(problemIds) : [];
   const problemMap = new Map(
-    failureProblems.map((problem) => [
-      problem.id,
-      { id: problem.id, title: problem.defaultTitle }
-    ])
+    failureProblems.map((problem) => [problem.id, { id: problem.id, title: problem.title }])
   );
 
   const topFailingProblems = failureGroups.map((row) => {

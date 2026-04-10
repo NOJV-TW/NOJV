@@ -4,15 +4,13 @@
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import {
     supportedLanguages,
-    type AdjustmentRule,
-    type AssessmentScoreboardMode,
-    type ContestScoringMode
+    type ContestScoringMode,
+    type ScoreboardMode
   } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import type { contestDomain } from "@nojv/domain";
   type ContestListItem = contestDomain.ContestListItem;
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import AdjustmentRulesEditor from "./AdjustmentRulesEditor.svelte";
   import SystemTextToggle, { type UiLang } from "./SystemTextToggle.svelte";
 
   interface Props {
@@ -26,17 +24,15 @@
       ipViolationMode: string;
       ipWhitelistEnabled: boolean;
       ipWhitelistText: string;
-      maxAttempts?: number | null | undefined;
       pageLockEnabled: boolean;
       problemIdsText: string;
-      scoreboardMode: AssessmentScoreboardMode;
+      scoreboardMode: ScoreboardMode;
       scoringMode: ContestScoringMode;
       slug: string;
       startsAt: string;
       submitCooldownSec: number;
       summary: string;
       title: string;
-      adjustmentRules?: AdjustmentRule[] | undefined;
     }>;
     problemIds: string[];
   }
@@ -59,7 +55,6 @@
       creating: "Creating...",
       endsAt: "Ends at",
       freezeAt: "Freeze at (optional)",
-      maxAttempts: "Max attempts (optional)",
       noContestDesc: "Create your first contest below.",
       noContestTitle: "No contests yet",
       notifyOnly: "Notify only",
@@ -69,7 +64,6 @@
       scoreboardMode: "Scoreboard mode",
       startsAt: "Starts at",
       systemText: "System Text",
-      unlimited: "Unlimited",
       whenIpViolation: "When IP violation occurs:",
       whitelist: "IP Whitelist",
       ipBinding: "IP First-Binding (lock to first IP used)"
@@ -86,7 +80,6 @@
       creating: "建立中...",
       endsAt: "結束時間",
       freezeAt: "凍結時間（可選）",
-      maxAttempts: "最大嘗試次數（可選）",
       noContestDesc: "在下方建立第一個競賽。",
       noContestTitle: "尚未建立競賽",
       notifyOnly: "僅通知",
@@ -96,7 +89,6 @@
       scoreboardMode: "記分板模式",
       startsAt: "開始時間",
       systemText: "系統文字",
-      unlimited: "不限制",
       whenIpViolation: "發生 IP 違規時：",
       whitelist: "IP 白名單",
       ipBinding: "IP 首次綁定（鎖定首次使用 IP）"
@@ -127,12 +119,6 @@
   if (!$form.endsAt) $form.endsAt = defaultEnd;
   if (!$form.problemIdsText) $form.problemIdsText = initialProblemSlugs.join(", ");
   if (!$form.scoringMode) $form.scoringMode = "icpc";
-
-  // Adjustment rules — synced to form via $effect below.
-  let adjustmentRules = $state<AdjustmentRule[]>($form.adjustmentRules ?? []);
-  $effect(() => {
-    $form.adjustmentRules = adjustmentRules;
-  });
 </script>
 
 <div class="space-y-6">
@@ -176,7 +162,6 @@
             {#if contest.pageLockEnabled}<span class="rounded-full border border-border px-2 py-0.5">page-lock</span>{/if}
             {#if contest.ipWhitelistEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-whitelist</span>{/if}
             {#if contest.ipBindingEnabled}<span class="rounded-full border border-border px-2 py-0.5">ip-binding</span>{/if}
-            {#if contest.maxAttempts != null}<span class="rounded-full border border-border px-2 py-0.5">max {contest.maxAttempts} attempts</span>{/if}
             <span class="rounded-full border border-border px-2 py-0.5">{contest.scoreboardMode} scoreboard</span>
             {#if contest.allowedLanguages.length > 0}
               <span class="rounded-full border border-border px-2 py-0.5">{contest.allowedLanguages.join(", ")}</span>
@@ -241,29 +226,13 @@
           />
         </div>
       </div>
-      <div class="grid gap-3 md:grid-cols-2">
-        <div>
-          <label class="inline-flex items-center gap-1 text-xs text-muted-foreground" for="scoreboardMode"><CalendarRange class="h-3.5 w-3.5" /> {t("scoreboardMode")}</label>
-          <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
-            <option value="live">Live</option>
-            <option value="frozen">Frozen</option>
-            <option value="hidden">Hidden</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-muted-foreground" for="maxAttempts">{t("maxAttempts")}</label>
-          <input
-            class={inputClassName}
-            id="maxAttempts"
-            name="maxAttempts"
-            type="number"
-            min="1"
-            max="999"
-            placeholder={t("unlimited")}
-            bind:value={$form.maxAttempts}
-          />
-          {#if $errors.maxAttempts}<span class="text-sm text-red-700 dark:text-red-400">{$errors.maxAttempts}</span>{/if}
-        </div>
+      <div>
+        <label class="inline-flex items-center gap-1 text-xs text-muted-foreground" for="scoreboardMode"><CalendarRange class="h-3.5 w-3.5" /> {t("scoreboardMode")}</label>
+        <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
+          <option value="live">Live</option>
+          <option value="frozen">Frozen</option>
+          <option value="hidden">Hidden</option>
+        </select>
       </div>
       <div class="grid gap-3 md:grid-cols-2">
         <label class="flex items-center gap-2 text-sm">
@@ -357,9 +326,6 @@
           <label class="text-xs text-muted-foreground" for="frozenAt">{t("freezeAt")}</label>
           <input class={inputClassName} name="frozenAt" bind:value={$form.frozenAt} type="datetime-local" />
         </div>
-      </div>
-      <div class="mt-2 rounded-xl border border-border p-3">
-        <AdjustmentRulesEditor bind:rules={adjustmentRules} />
       </div>
       <button
         class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"

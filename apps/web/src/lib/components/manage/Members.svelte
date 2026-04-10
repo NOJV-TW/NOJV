@@ -55,7 +55,7 @@
               {member.courseRole}
             </p>
             <p class="mt-1 text-sm text-muted-foreground">
-              via {member.joinedVia.replaceAll("_", " ")}
+              {member.joinedTokenId ? m.courseManage_joinedViaToken() : m.courseManage_joinedManually()}
             </p>
           </div>
         </article>

@@ -4,7 +4,7 @@ import { contestDomain, courseDomain, problemDomain, submissionDomain } from "@n
 
 const { getAssessmentContext } = courseDomain;
 const { getContestAllowedLanguages } = contestDomain;
-const { getProblemPageData } = problemDomain;
+const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { listProblemSubmissions } = submissionDomain;
 import { assessmentPath } from "$lib/types";
 
@@ -20,6 +20,20 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   if (!problem) {
     error(404, "Problem not found");
   }
+
+  // Load testcase sets so the student description tab can display each
+  // set's name + description ("hidden", "subtask1", etc.) so students
+  // understand the subset's scope. We project away the actual testcase
+  // payloads — students must never see hidden stdin/expected output.
+  const fullTestcaseSets = await getProblemTestcaseSets(id);
+  const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
+    id: set.id,
+    name: set.name,
+    description: set.description,
+    weight: set.weight,
+    ordinal: set.ordinal,
+    caseCount: set.testcases.length
+  }));
 
   // ── Parallel: assessment context + contest languages (independent) ──
   const [assessmentContext, contestAllowedLanguages] = await Promise.all([
@@ -60,6 +74,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     backLink,
     contestSlug: contest ?? undefined,
     problem,
-    submissions
+    submissions,
+    testcaseSets: testcaseSetSummaries
   };
 };

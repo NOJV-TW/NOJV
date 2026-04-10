@@ -1,14 +1,13 @@
 import { z } from "zod";
 
 import {
-  assessmentScoreboardModeSchema,
   contestScoringModeSchema,
   ipLockFields,
   isoDateTimeSchema,
   languageSchema,
+  scoreboardModeSchema,
   slugSchema
 } from "../types";
-import { adjustmentRulesSchema } from "./assessment-adjustments";
 
 export const contestSessionSchema = z
   .object({
@@ -22,18 +21,19 @@ export const contestSessionSchema = z
     path: ["endsAt"]
   });
 
+// Contest schema — `maxAttempts` and `adjustmentRules` were removed from
+// the Contest table in the Phase 1 redesign (they belong to course
+// homework assessments only). The contest form no longer collects them.
 const contestCreateBaseSchema = z.object({
-  adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseSlug: slugSchema.optional(),
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
   inviteCode: z.string().trim().max(32).optional(),
   ...ipLockFields,
-  maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),
   problemIds: z.array(slugSchema).min(1).max(32),
-  scoreboardMode: assessmentScoreboardModeSchema.default("live"),
+  scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("icpc"),
   slug: slugSchema,
   startsAt: isoDateTimeSchema,

@@ -53,7 +53,7 @@ describe("course queries (real DB)", () => {
           role: "student",
           status: "active",
           joinedAt: new Date(),
-          joinedVia: "join_code"
+          joinedTokenId: null
         }
       });
 
@@ -73,7 +73,7 @@ describe("course queries (real DB)", () => {
           role: "student",
           status: "removed",
           joinedAt: new Date(),
-          joinedVia: "join_code"
+          joinedTokenId: null
         }
       });
 
@@ -93,7 +93,7 @@ describe("course queries (real DB)", () => {
           role: "teacher",
           status: "active",
           joinedAt: new Date(),
-          joinedVia: "manual_invite"
+          joinedTokenId: null
         }
       });
 
@@ -108,8 +108,7 @@ describe("course queries (real DB)", () => {
           opensAt: new Date(),
           dueAt: new Date(Date.now() + 86400000),
           closesAt: new Date(Date.now() + 86400000),
-          status: "published",
-          scoreboardMode: "hidden"
+          status: "published"
         }
       });
 
@@ -144,7 +143,7 @@ describe("course queries (real DB)", () => {
           role: "teacher",
           status: "active",
           joinedAt: new Date(),
-          joinedVia: "manual_invite"
+          joinedTokenId: null
         }
       });
 
@@ -180,7 +179,7 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           createdByUserId: teacher.id,
           label: "Code",
-          method: "join_code",
+          kind: "code",
           token: "ABC123"
         }
       });
@@ -189,7 +188,7 @@ describe("course queries (real DB)", () => {
       expect(data).not.toBeNull();
       expect(data!.course.joinChannels).toHaveLength(1);
       expect(data!.course.joinChannels[0]!.token).toBe("ABC123");
-      expect(data!.course.joinChannels[0]!.method).toBe("join_code");
+      expect(data!.course.joinChannels[0]!.kind).toBe("code");
     });
   });
 
@@ -230,7 +229,7 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           createdByUserId: teacher.id,
           label: "Code",
-          method: "join_code",
+          kind: "code",
           token: "JOINME"
         }
       });
@@ -238,7 +237,7 @@ describe("course queries (real DB)", () => {
       const actor = makeActor(student);
       const membership = await joinCourseRecord(actor, {
         courseSlug: "join-course",
-        joinMethod: "join_code",
+        joinTokenKind: "code",
         joinToken: "JOINME"
       });
 
@@ -257,7 +256,7 @@ describe("course queries (real DB)", () => {
       await expect(
         joinCourseRecord(actor, {
           courseSlug: "reject-join",
-          joinMethod: "join_code",
+          joinTokenKind: "code",
           joinToken: "WRONG"
         })
       ).rejects.toThrow(ForbiddenError);
@@ -276,7 +275,7 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           createdByUserId: teacher.id,
           label: "Expired",
-          method: "join_code",
+          kind: "code",
           token: "EXPIRED",
           expiresAt: new Date("2020-01-01")
         }
@@ -286,7 +285,7 @@ describe("course queries (real DB)", () => {
       await expect(
         joinCourseRecord(actor, {
           courseSlug: "expired-join",
-          joinMethod: "join_code",
+          joinTokenKind: "code",
           joinToken: "EXPIRED"
         })
       ).rejects.toThrow(ForbiddenError);
@@ -305,7 +304,7 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           createdByUserId: teacher.id,
           label: "Code",
-          method: "join_code",
+          kind: "code",
           token: "DOUBLE"
         }
       });
@@ -318,14 +317,14 @@ describe("course queries (real DB)", () => {
           role: "student",
           status: "active",
           joinedAt: new Date(),
-          joinedVia: "join_code"
+          joinedTokenId: null
         }
       });
 
       const actor = makeActor(student);
       const membership = await joinCourseRecord(actor, {
         courseSlug: "already-member",
-        joinMethod: "join_code",
+        joinTokenKind: "code",
         joinToken: "DOUBLE"
       });
 
@@ -351,7 +350,7 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           createdByUserId: teacher.id,
           label: "Code",
-          method: "join_code",
+          kind: "code",
           token: "COUNT"
         }
       });
@@ -361,7 +360,7 @@ describe("course queries (real DB)", () => {
       const actor = makeActor(student);
       await joinCourseRecord(actor, {
         courseSlug: "usage-count",
-        joinMethod: "join_code",
+        joinTokenKind: "code",
         joinToken: "COUNT"
       });
 

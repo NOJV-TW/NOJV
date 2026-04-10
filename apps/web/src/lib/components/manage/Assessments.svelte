@@ -1,8 +1,6 @@
 <script lang="ts">
   import {
     BookOpenCheck,
-    CalendarRange,
-    Shield,
     Sparkles
   } from "@lucide/svelte";
   import { untrack } from "svelte";
@@ -10,7 +8,6 @@
   import {
     supportedLanguages,
     type AdjustmentRule,
-    type AssessmentScoreboardMode,
     type Language
   } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
@@ -22,6 +19,10 @@
 
   type PlagiarismStatus = "idle" | "triggering" | "pending" | "running" | "completed" | "failed";
 
+  // Homework assessment form: no scoreboard, no IP lock, no page lock —
+  // those were exam-only concerns and now live on Contest. The only
+  // assessment-specific controls still rendered are `maxAttempts` and
+  // `adjustmentRules` (late-penalty rules), which remain on the DB row.
   interface Props {
     assessments: CourseAssessmentRecord[];
     courseSlug: string;
@@ -29,15 +30,9 @@
       allowedLanguages?: Language[] | undefined;
       closesAt: string;
       dueAt: string;
-      ipBindingEnabled: boolean;
-      ipViolationMode: string;
-      ipWhitelistEnabled: boolean;
-      ipWhitelistText: string;
       maxAttempts?: number | null | undefined;
       opensAt: string;
-      pageLockEnabled: boolean;
       problemIdsText: string;
-      scoreboardMode?: AssessmentScoreboardMode | undefined;
       slug: string;
       summary: string;
       title: string;
@@ -58,12 +53,9 @@
       assessmentSummary: "Assessment summary",
       assessmentTitle: "Assessment title",
       assessments: "Assessments",
-      block: "Block",
       createAssessment: "Create assessment",
       maxAttempts: "Max attempts (optional)",
       noLimit: "Unlimited",
-      notifyOnly: "Notify only",
-      pageLock: "Page lock (prevent tab switching)",
       plagiarismCheck: "Run Plagiarism Check",
       plagiarismCompleted: "Completed",
       plagiarismFailed: "Failed",
@@ -73,12 +65,8 @@
       problems: "problems",
       publishAssessment: "Publish assessment",
       publishing: "Publishing...",
-      scoreboardMode: "Scoreboard mode",
       systemText: "System Text",
-      viewResults: "View results",
-      whenIpViolation: "When IP violation occurs:",
-      whitelist: "IP Whitelist",
-      ipBinding: "IP First-Binding (lock to first IP used)"
+      viewResults: "View results"
     },
     zh: {
       all: "全部",
@@ -86,12 +74,9 @@
       assessmentSummary: "測驗摘要",
       assessmentTitle: "測驗標題",
       assessments: "測驗列表",
-      block: "封鎖",
       createAssessment: "建立測驗",
       maxAttempts: "最大嘗試次數（可選）",
       noLimit: "不限制",
-      notifyOnly: "僅通知",
-      pageLock: "分頁鎖定（避免切換分頁）",
       plagiarismCheck: "執行抄襲檢查",
       plagiarismCompleted: "完成",
       plagiarismFailed: "失敗",
@@ -101,12 +86,8 @@
       problems: "題",
       publishAssessment: "發布測驗",
       publishing: "發布中...",
-      scoreboardMode: "記分板模式",
       systemText: "系統文字",
-      viewResults: "查看結果",
-      whenIpViolation: "發生 IP 違規時：",
-      whitelist: "IP 白名單",
-      ipBinding: "IP 首次綁定（鎖定首次使用 IP）"
+      viewResults: "查看結果"
     }
   } as const;
 
@@ -342,14 +323,6 @@
         </div>
       </div>
       <div>
-        <label class="mb-1 inline-flex items-center gap-1 text-xs text-muted-foreground" for="scoreboardMode"><CalendarRange class="h-3.5 w-3.5" /> {t("scoreboardMode")}</label>
-        <select class={inputClassName} name="scoreboardMode" bind:value={$form.scoreboardMode}>
-          <option value="hidden">hidden</option>
-          <option value="live">live</option>
-          <option value="frozen">frozen</option>
-        </select>
-      </div>
-      <div>
         <p class="mb-1 text-xs text-muted-foreground">{t("allowedLanguages")}</p>
         <div class="flex flex-wrap gap-3">
           {#each supportedLanguages as lang (lang)}
@@ -400,46 +373,6 @@
           {#if $errors.closesAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.closesAt}</span>{/if}
         </div>
       </div>
-      <div class="grid gap-3 md:grid-cols-2">
-        <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
-          {t("pageLock")}
-        </label>
-        <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="ipWhitelistEnabled" bind:checked={$form.ipWhitelistEnabled} />
-          {t("whitelist")}
-        </label>
-      </div>
-      {#if $form.ipWhitelistEnabled}
-        <div>
-          <textarea
-            class={textareaClassName}
-            name="ipWhitelistText"
-            bind:value={$form.ipWhitelistText}
-            placeholder="CIDR ranges, one per line&#10;e.g. 140.112.0.0/16"
-            rows="3"
-          ></textarea>
-        </div>
-      {/if}
-      <div class="grid gap-3 md:grid-cols-2">
-        <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="ipBindingEnabled" bind:checked={$form.ipBindingEnabled} />
-          {t("ipBinding")}
-        </label>
-      </div>
-      {#if $form.ipWhitelistEnabled || $form.ipBindingEnabled}
-        <div class="flex items-center gap-4 text-sm">
-          <span class="inline-flex items-center gap-1 text-muted-foreground"><Shield class="h-3.5 w-3.5" /> {t("whenIpViolation")}</span>
-          <label class="flex items-center gap-1.5">
-            <input type="radio" name="ipViolationMode" value="block" bind:group={$form.ipViolationMode} />
-            {t("block")}
-          </label>
-          <label class="flex items-center gap-1.5">
-            <input type="radio" name="ipViolationMode" value="notify" bind:group={$form.ipViolationMode} />
-            {t("notifyOnly")}
-          </label>
-        </div>
-      {/if}
       <div>
         <label class="text-xs text-muted-foreground" for="maxAttempts">{t("maxAttempts")}</label>
         <input

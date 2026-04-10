@@ -363,7 +363,7 @@
                 <tr class="border-b border-border last:border-b-0">
                   <td class="px-3 py-2 text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</td>
                   <td class="px-3 py-2">
-                    <a class="hover:underline" href="/problems/{row.problem.id}">{row.problem.defaultTitle}</a>
+                    <a class="hover:underline" href="/problems/{row.problem.id}">{row.problem.title}</a>
                   </td>
                   <td class="px-3 py-2 text-xs">{row.user.username ?? row.user.name}</td>
                   <td class="px-3 py-2 text-xs">

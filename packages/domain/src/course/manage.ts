@@ -131,7 +131,7 @@ export async function getCourseManageAnalytics(
       slug: assessment.slug,
       title: assessment.title,
       opensAt: assessment.opensAt,
-      dueAt: assessment.dueAt,
+      dueAt: assessment.dueAt ?? null,
       closesAt: assessment.closesAt,
       problemCount: assessment._count.problems,
       participantCount: participants,

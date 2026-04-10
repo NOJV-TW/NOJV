@@ -1,5 +1,4 @@
 import {
-  assessmentParticipationIpRepo,
   contestParticipationIpRepo,
   ipViolationLogRepo,
   type TransactionClient
@@ -84,7 +83,12 @@ export interface IpCheckResult {
 }
 
 /**
- * Run IP lock checks. Returns whether access is allowed. Logs violations in notify mode.
+ * Run IP lock checks for a contest. Returns whether access is allowed.
+ * Logs violations in notify mode.
+ *
+ * Homework assessments no longer have IP lock (that was an exam-only
+ * concern that now lives on Contest). If you need to gate assessment
+ * access, use the contest-backed exam path instead.
  *
  * Accepts a transaction client so the caller controls the transaction boundary.
  */
@@ -93,9 +97,7 @@ export async function checkIpLock(
   config: IpLockConfig,
   clientIp: string,
   participation: { boundIp: string | null; id: string } | null,
-  context: { userId: string; contestId?: string; assessmentId?: string },
-  /** Model name for updating participation boundIp */
-  participationModel: "contestParticipation" | "assessmentParticipation"
+  context: { userId: string; contestId: string }
 ): Promise<IpCheckResult> {
   // Whitelist check — when enabled, an empty list denies all (fail-closed).
   if (config.ipWhitelistEnabled) {
@@ -106,8 +108,7 @@ export async function checkIpLock(
       // notify mode: log violation, allow access
       await ipViolationLogRepo.withTx(tx).create({
         actualIp: clientIp,
-        assessmentId: context.assessmentId ?? null,
-        contestId: context.contestId ?? null,
+        contestId: context.contestId,
         expectedIp: config.ipWhitelist.join(", "),
         userId: context.userId,
         violationType: "whitelist"
@@ -119,13 +120,7 @@ export async function checkIpLock(
   if (config.ipBindingEnabled && participation) {
     if (!participation.boundIp) {
       // First visit: bind IP
-      if (participationModel === "contestParticipation") {
-        await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
-      } else {
-        await assessmentParticipationIpRepo
-          .withTx(tx)
-          .updateBoundIp(participation.id, clientIp);
-      }
+      await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
     } else if (participation.boundIp !== clientIp) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "binding" };
@@ -133,8 +128,7 @@ export async function checkIpLock(
       // notify mode: log violation, allow access
       await ipViolationLogRepo.withTx(tx).create({
         actualIp: clientIp,
-        assessmentId: context.assessmentId ?? null,
-        contestId: context.contestId ?? null,
+        contestId: context.contestId,
         expectedIp: participation.boundIp,
         userId: context.userId,
         violationType: "binding"

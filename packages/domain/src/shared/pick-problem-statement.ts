@@ -26,13 +26,14 @@ export function pickProblemStatement(
 }
 
 /**
- * Convenience wrapper: given a problem with an `id`, `summary`, and
- * `statements`, return the localized view using the problem's own id/summary
- * as fallback values.
+ * Convenience wrapper: given a problem with an `id`, `title`, and
+ * `statements`, return the localized view using the problem's own id/title
+ * as fallback values. `title` is now the canonical default on the Problem
+ * table (there is no separate `defaultTitle`/`summary` column).
  */
 export function localizeProblem(
-  problem: { id: string; summary: string; statements?: ProblemStatement[] },
+  problem: { id: string; title: string; statements?: ProblemStatement[] },
   locale: string = DEFAULT_LOCALE
 ) {
-  return pickProblemStatement(problem.statements, locale, problem.id, problem.summary);
+  return pickProblemStatement(problem.statements, locale, problem.title, problem.title);
 }

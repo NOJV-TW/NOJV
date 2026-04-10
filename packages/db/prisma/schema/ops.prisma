@@ -1,0 +1,74 @@
+// ═══════════════════════════════════════════════════════════════
+// Platform operations (announcements, plagiarism reports)
+// ═══════════════════════════════════════════════════════════════
+
+enum AnnouncementStatus {
+  draft
+  published
+  archived
+}
+
+enum AnnouncementAudience {
+  all
+  students
+  teachers
+}
+
+enum PlagiarismReportStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model Announcement {
+  id              String                    @id @default(cuid())
+  pinned          Boolean                   @default(false)
+  status          AnnouncementStatus        @default(draft)
+  audience        AnnouncementAudience      @default(all)
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  createdBy       User?                     @relation("AnnouncementCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  translations    AnnouncementTranslation[]
+
+  @@index([status, pinned, publishedAt])
+}
+
+model AnnouncementTranslation {
+  id             String       @id @default(cuid())
+  announcementId String
+  locale         String
+  title          String
+  content        String       @db.Text
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, locale])
+}
+
+/// 1:1 with its parent — each Contest / CourseAssessment has at most
+/// one PlagiarismReport. Re-running MOSS updates the existing row in
+/// place; no history is kept.
+///
+/// Exactly one of `contestId` / `courseAssessmentId` must be non-null,
+/// enforced by a CHECK constraint in the initial migration:
+///   CHECK ((contestId IS NULL) != (courseAssessmentId IS NULL))
+///
+/// FK cascade: deleting the parent automatically cleans up this row.
+model PlagiarismReport {
+  id                 String                 @id @default(cuid())
+  contestId          String?                @unique
+  courseAssessmentId String?                @unique
+  triggeredById      String
+  status             PlagiarismReportStatus @default(pending)
+  results            Json?
+  mossReportUrl      String?
+  createdAt          DateTime               @default(now())
+  completedAt        DateTime?
+
+  triggeredBy      User              @relation("PlagiarismReportTriggeredBy", fields: [triggeredById], references: [id], onDelete: Cascade)
+  contest          Contest?          @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  courseAssessment CourseAssessment? @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
+}

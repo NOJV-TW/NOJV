@@ -151,21 +151,6 @@
       />
     </div>
 
-    <div>
-      <label class="text-sm font-medium" for="maxAttempts">{m.contestCreate_maxAttempts()}</label>
-      <input
-        class={inputClassName}
-        id="maxAttempts"
-        name="maxAttempts"
-        type="number"
-        min="1"
-        max="999"
-        placeholder={m.contestCreate_maxAttemptsPlaceholder()}
-        bind:value={$form.maxAttempts}
-      />
-      {#if $errors.maxAttempts}<p class="mt-1 text-xs text-red-600">{$errors.maxAttempts}</p>{/if}
-    </div>
-
     <!-- Security -->
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
       <ShieldIcon class="h-4 w-4" />

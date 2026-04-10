@@ -10,7 +10,7 @@
     courseSlug={data.courseSlug}
     courseTitle={data.courseTitle}
     form={data.form}
-    joinMethod={data.joinMethod}
+    joinTokenKind={data.joinTokenKind}
     joinToken={data.joinToken}
   />
   <section

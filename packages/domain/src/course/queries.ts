@@ -1,14 +1,6 @@
-import {
-  announcementRepo,
-  assessmentParticipationRepo,
-  assessmentRepo,
-  courseRepo,
-  problemRepo,
-  runTransaction
-} from "@nojv/db";
+import { announcementRepo, assessmentRepo, courseRepo, problemRepo } from "@nojv/db";
 import type {
-  AssessmentScoreboardMode,
-  CourseJoinMethod,
+  CourseJoinTokenKind,
   CourseRole,
   Language,
   LocaleCode,
@@ -17,7 +9,6 @@ import type {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { checkIpLock } from "../shared/ip-utils";
 import { localizeProblem } from "../shared/pick-problem-statement";
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -27,7 +18,8 @@ export interface CourseMemberRecord {
   displayName: string;
   email: string;
   username: string | null;
-  joinedVia: CourseJoinMethod;
+  /** Null = teacher manually added this user without a join token. */
+  joinedTokenId: string | null;
   platformRole: PlatformRole;
   userId: string;
 }
@@ -35,16 +27,11 @@ export interface CourseMemberRecord {
 export interface CourseAssessmentRecord {
   allowedLanguages: Language[];
   closesAt: string;
-  dueAt: string;
+  /** Nullable: assessments without a soft due date have no late penalty. */
+  dueAt: string | null;
   id: string;
-  ipBindingEnabled: boolean;
-  ipViolationMode: "block" | "notify";
-  ipWhitelist: string[];
-  ipWhitelistEnabled: boolean;
   opensAt: string;
-  pageLockEnabled: boolean;
   problemIds: string[];
-  scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
   title: string;
@@ -53,6 +40,7 @@ export interface CourseAssessmentRecord {
 export interface CourseProblemCatalogEntry {
   authorUsername: string;
   id: string;
+  /** Mirror of the localized title; the standalone column is gone. */
   summary: string;
   title: string;
   visibility: ProblemVisibility;
@@ -62,8 +50,8 @@ export interface CoursePageData {
   assessments: CourseAssessmentRecord[];
   description: string;
   joinChannels: {
+    kind: CourseJoinTokenKind;
     label: string;
-    method: CourseJoinMethod;
     token: string;
   }[];
   locale: LocaleCode;
@@ -90,7 +78,7 @@ function mapProblemShelfEntry(problem: {
     outputFormat?: string;
     title: string;
   }[];
-  summary: string;
+  title: string;
   visibility: ProblemVisibility;
 }) {
   const localized = localizeProblem(problem);
@@ -98,7 +86,7 @@ function mapProblemShelfEntry(problem: {
   return {
     authorUsername: problem.author?.username ?? "course_staff",
     id: problem.id,
-    summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
+    summary: localized.title,
     title: localized.title,
     visibility: problem.visibility
   } satisfies CourseProblemCatalogEntry;
@@ -107,16 +95,10 @@ function mapProblemShelfEntry(problem: {
 function mapAssessmentRecord(assessment: {
   allowedLanguages: Language[];
   closesAt: Date;
-  dueAt: Date;
+  dueAt: Date | null;
   id: string;
-  ipBindingEnabled: boolean;
-  ipViolationMode: string;
-  ipWhitelist: string[];
-  ipWhitelistEnabled: boolean;
   opensAt: Date;
-  pageLockEnabled: boolean;
   problems: { ordinal: number; problem: { id: string } }[];
-  scoreboardMode: AssessmentScoreboardMode;
   slug: string;
   summary: string;
   title: string;
@@ -126,18 +108,12 @@ function mapAssessmentRecord(assessment: {
   return {
     allowedLanguages: assessment.allowedLanguages,
     closesAt: assessment.closesAt.toISOString(),
-    dueAt: assessment.dueAt.toISOString(),
+    dueAt: assessment.dueAt?.toISOString() ?? null,
     id: assessment.id,
-    ipBindingEnabled: assessment.ipBindingEnabled,
-    ipViolationMode: assessment.ipViolationMode as "block" | "notify",
-    ipWhitelist: assessment.ipWhitelist,
-    ipWhitelistEnabled: assessment.ipWhitelistEnabled,
     opensAt: assessment.opensAt.toISOString(),
-    pageLockEnabled: assessment.pageLockEnabled,
     problemIds: [...linkedProblems]
       .sort((left, right) => left.ordinal - right.ordinal)
       .map((link) => link.problem.id),
-    scoreboardMode: assessment.scoreboardMode,
     slug: assessment.slug,
     summary: assessment.summary,
     title: assessment.title
@@ -145,7 +121,7 @@ function mapAssessmentRecord(assessment: {
 }
 
 function mapCourseMember(member: {
-  joinedVia: "join_code" | "manual_invite" | "qr_code" | null;
+  joinedTokenId: string | null;
   role: "student" | "ta" | "teacher";
   user: {
     name: string;
@@ -160,7 +136,7 @@ function mapCourseMember(member: {
     displayName: member.user.name,
     email: member.user.email,
     username: member.user.username,
-    joinedVia: member.joinedVia ?? "manual_invite",
+    joinedTokenId: member.joinedTokenId,
     platformRole: member.user.platformRole,
     userId: member.userId
   } satisfies CourseMemberRecord;
@@ -170,29 +146,23 @@ function mapPersistedCourse(course: {
   assessments: {
     allowedLanguages: Language[];
     closesAt: Date;
-    dueAt: Date;
+    dueAt: Date | null;
     id: string;
-    ipBindingEnabled: boolean;
-    ipViolationMode: string;
-    ipWhitelist: string[];
-    ipWhitelistEnabled: boolean;
     opensAt: Date;
-    pageLockEnabled: boolean;
     problems: { ordinal: number; problem: { id: string } }[];
-    scoreboardMode: AssessmentScoreboardMode;
     slug: string;
     summary: string;
     title: string;
   }[];
   description: string;
   joinTokens: {
+    kind: "link" | "code";
     label: string;
-    method: "join_code" | "manual_invite" | "qr_code";
     token: string;
   }[];
   locale: string;
   memberships: {
-    joinedVia: "join_code" | "manual_invite" | "qr_code" | null;
+    joinedTokenId: string | null;
     role: "student" | "ta" | "teacher";
     user: {
       name: string;
@@ -213,7 +183,7 @@ function mapPersistedCourse(course: {
         outputFormat?: string;
         title: string;
       }[];
-      summary: string;
+      title: string;
       visibility: ProblemVisibility;
     };
   }[];
@@ -229,8 +199,8 @@ function mapPersistedCourse(course: {
       assessments,
       description: course.description,
       joinChannels: course.joinTokens.map((token) => ({
+        kind: token.kind,
         label: token.label,
-        method: token.method,
         token: token.token
       })),
       locale: course.locale as "en" | "zh-TW",
@@ -279,10 +249,9 @@ export async function listUserAssessments(userId: string) {
     closesAt: a.closesAt.toISOString(),
     courseSlug: a.course.slug,
     courseTitle: a.course.title,
-    dueAt: a.dueAt.toISOString(),
+    dueAt: a.dueAt?.toISOString() ?? null,
     opensAt: a.opensAt.toISOString(),
     problemCount: a._count.problems,
-    scoreboardMode: a.scoreboardMode,
     slug: a.slug,
     summary: a.summary,
     title: a.title
@@ -309,7 +278,7 @@ export async function listUpcomingAssessments(userId: string) {
     closesAt: a.closesAt.toISOString(),
     courseSlug: a.course.slug,
     courseTitle: a.course.title,
-    dueAt: a.dueAt.toISOString(),
+    dueAt: a.dueAt?.toISOString() ?? null,
     opensAt: a.opensAt.toISOString(),
     slug: a.slug,
     title: a.title
@@ -323,8 +292,6 @@ export interface AssessmentDetailInput {
   courseData: CoursePageDetailData;
   /** The authenticated user's ID, or null if anonymous */
   userId: string | null;
-  /** Client IP address for IP lock checking */
-  clientIp: string;
 }
 
 export interface AssessmentDetailResult {
@@ -334,16 +301,16 @@ export interface AssessmentDetailResult {
 }
 
 /**
- * Load assessment detail data, including IP lock enforcement.
- *
- * This is the pure data-fetching logic extracted from the SvelteKit loader.
- * The web layer should call this from its loader and add any presentation
- * concerns (assessmentPresentation, windowState, windowStateColorClass).
+ * Load assessment detail data. Homework assessments no longer have IP
+ * lock or page lock — those moved to Contest exclusively. The function
+ * is now a pure projection over course data, but kept Promise-shaped so
+ * callers don't need to change.
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function loadAssessmentDetail(
   input: AssessmentDetailInput
 ): Promise<AssessmentDetailResult> {
-  const { assessmentSlug, courseData, userId, clientIp } = input;
+  const { assessmentSlug, courseData } = input;
   const course = courseData.course;
   const assessment = course.assessments.find((entry) => entry.slug === assessmentSlug);
 
@@ -357,57 +324,11 @@ export async function loadAssessmentDetail(
     .map((pid) => problemsById.get(pid))
     .filter((p): p is NonNullable<typeof p> => p != null);
 
-  // ── IP lock check ──
-  const now = new Date();
-  const opensAt = new Date(assessment.opensAt);
-  const closesAt = new Date(assessment.closesAt);
-
-  // IP lock applies during open or grace window
-  const windowIsActive = now >= opensAt && now <= closesAt;
-
-  if (
-    userId &&
-    windowIsActive &&
-    (assessment.ipWhitelistEnabled || assessment.ipBindingEnabled)
-  ) {
-    await runTransaction(async (tx) => {
-      const participation = await assessmentParticipationRepo
-        .withTx(tx)
-        .upsert(userId, assessment.id);
-
-      const ipResult = await checkIpLock(
-        tx,
-        assessment,
-        clientIp,
-        participation,
-        { userId, assessmentId: assessment.id },
-        "assessmentParticipation"
-      );
-
-      if (!ipResult.allowed && assessment.ipViolationMode === "block") {
-        throw new ForbiddenIpError(
-          ipResult.violationType === "whitelist"
-            ? "Your IP address is not in the allowed range for this assessment."
-            : "Your IP address does not match the one bound to your session."
-        );
-      }
-    });
-  }
-
   return {
     assessment,
     course,
     problems
   };
-}
-
-/** Thrown when IP lock check fails with block mode. Status 403. */
-export class ForbiddenIpError extends Error {
-  public readonly status = 403;
-  constructor(message: string) {
-    super(message);
-    this.name = "ForbiddenIpError";
-  }
 }
 
 // ─── Assessment context ─────────────────────────────────────────────

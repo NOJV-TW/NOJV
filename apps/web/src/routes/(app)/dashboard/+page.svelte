@@ -1,33 +1,22 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import EChart from "$lib/components/charts/EChart.svelte";
-  import { difficultyColor, verdictColor, formatVerdictLabel } from "$lib/types";
-  import {
-    dailyActivityArraySchema,
-    difficultyDistSchema,
-    languageDistSchema
-  } from "@nojv/core";
+  import { verdictColor, formatVerdictLabel } from "$lib/types";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
 
   const stats = $derived(data.stats);
 
-  // Validate JSON-column data at the boundary so downstream code can rely on
-  // real types. safeParse falls back to an empty value on malformed data.
-  const dailyActivity = $derived(
-    dailyActivityArraySchema.safeParse(stats.dailyActivity ?? []).data ?? []
-  );
-  const languageDist = $derived(
-    languageDistSchema.safeParse(stats.languageDist ?? {}).data ?? {}
-  );
-  const difficultyDist = $derived(
-    difficultyDistSchema.safeParse(stats.difficultyDist ?? {}).data ?? {}
-  );
-
+  // The Phase 1 redesign moved daily activity into its own table
+  // (`UserDailyActivity`) and dropped the JSON `languageDist` /
+  // `difficultyDist` blobs from `UserStats`. The activity chart still
+  // works because the server-side load now reads from the new table.
+  // The language + difficulty pies are TODO: a follow-up should add a
+  // domain helper to compute these histograms on demand from the
+  // `Submission` and `Problem` tables.
+  const dailyActivity = $derived(data.dailyActivity);
   const hasActivity = $derived(dailyActivity.length > 0);
-  const hasLanguageData = $derived(Object.keys(languageDist).length > 0);
-  const hasDifficultyData = $derived(Object.keys(difficultyDist).length > 0);
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -55,54 +44,6 @@
       }
     ],
     tooltip: { trigger: "axis" }
-  });
-
-  // -- Language pie chart --
-  const languageOption: EChartsOption = $derived({
-    tooltip: { trigger: "item" },
-    series: [
-      {
-        type: "pie",
-        radius: ["35%", "65%"],
-        data: Object.entries(languageDist).map(([name, value]) => ({ name, value })),
-        label: { fontSize: 12 },
-        emphasis: {
-          itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: "rgba(0,0,0,0.2)" }
-        }
-      }
-    ]
-  });
-
-  // -- Difficulty bar chart --
-  const DIFFICULTY_COLORS: Record<string, string> = {
-    easy: "#10b981",
-    medium: "#f59e0b",
-    hard: "#ef4444"
-  };
-  const DIFFICULTY_CATEGORIES = ["easy", "medium", "hard"] as const;
-
-  const difficultyOption: EChartsOption = $derived({
-    grid: { left: 60, right: 16, top: 16, bottom: 24 },
-    xAxis: { type: "value", minInterval: 1, axisLabel: { fontSize: 11 } },
-    yAxis: {
-      type: "category",
-      data: [...DIFFICULTY_CATEGORIES],
-      axisLabel: {
-        fontSize: 12,
-        formatter: (v: string) => v.charAt(0).toUpperCase() + v.slice(1)
-      }
-    },
-    series: [
-      {
-        type: "bar",
-        barWidth: 20,
-        data: DIFFICULTY_CATEGORIES.map((c) => ({
-          value: difficultyDist[c] ?? 0,
-          itemStyle: { color: DIFFICULTY_COLORS[c]! }
-        }))
-      }
-    ],
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
   });
 
   function timeAgo(date: Date | string): string {
@@ -161,33 +102,14 @@
     {/if}
   </div>
 
-  <!-- Language & Difficulty charts -->
-  <div class="grid gap-4 md:grid-cols-2">
-    <div
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-5 backdrop-blur-sm"
-    >
-      <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-        {m.dashboard_languageDist()}
-      </p>
-      {#if hasLanguageData}
-        <EChart option={languageOption} class="mt-4 h-56 w-full" />
-      {:else}
-        <p class="mt-4 text-sm text-muted-foreground">{m.dashboard_noActivity()}</p>
-      {/if}
-    </div>
-    <div
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-5 backdrop-blur-sm"
-    >
-      <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-        {m.dashboard_difficultyDist()}
-      </p>
-      {#if hasDifficultyData}
-        <EChart option={difficultyOption} class="mt-4 h-56 w-full" />
-      {:else}
-        <p class="mt-4 text-sm text-muted-foreground">{m.dashboard_noActivity()}</p>
-      {/if}
-    </div>
-  </div>
+  <!--
+    TODO(phase-5-followup): the language + difficulty pies were removed
+    when `UserStats.languageDist` / `difficultyDist` JSON blobs were
+    dropped in the Phase 1 redesign. They can be re-added once the
+    domain layer exposes histogram queries that compute them on demand
+    from the Submission + Problem tables.
+  -->
+
 
   <!-- Recent activity -->
   <div
@@ -208,7 +130,7 @@
               href="/problems/{sub.problem.id}"
               class="truncate hover:underline"
             >
-              {sub.problem.defaultTitle}
+              {sub.problem.title}
             </a>
             <span class="shrink-0 text-xs text-muted-foreground">({sub.language})</span>
           </li>
@@ -230,13 +152,8 @@
       <ul class="mt-4 space-y-3">
         {#each data.recommendations as rec (rec.id)}
           <li class="flex flex-wrap items-center gap-2 text-sm">
-            <span
-              class="rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {difficultyColor[rec.difficulty] ?? 'bg-muted text-muted-foreground'}"
-            >
-              {rec.difficulty}
-            </span>
             <a href="/problems/{rec.id}" class="font-medium hover:underline">
-              {rec.defaultTitle}
+              {rec.title}
             </a>
             {#each rec.tags as tag (tag)}
               <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">

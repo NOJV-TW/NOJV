@@ -127,8 +127,8 @@ describe("contest queries (real DB)", () => {
         slug: "ordered-problems",
         visibility: "published"
       });
-      const p1 = await createTestProblem({ defaultTitle: "Problem B" });
-      const p2 = await createTestProblem({ defaultTitle: "Problem A" });
+      const p1 = await createTestProblem({ title: "Problem B" });
+      const p2 = await createTestProblem({ title: "Problem A" });
 
       await testPrisma.contestProblem.create({
         data: { contestId: contest.id, problemId: p1.id, ordinal: 2, points: 100 }

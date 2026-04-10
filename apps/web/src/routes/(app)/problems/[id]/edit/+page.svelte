@@ -116,7 +116,7 @@
   <ProblemSections
     bind:activeSection
     showPublish={data.problem.status === "draft"}
-    showConvertToAdvanced={data.problem.problemType !== "special_env"}
+    showConvertToAdvanced={data.problem.type !== "special_env"}
     {canPublish}
     {publishing}
     {basicInfoComplete}

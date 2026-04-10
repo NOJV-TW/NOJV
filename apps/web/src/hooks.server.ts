@@ -99,30 +99,12 @@ function setSecurityHeaders(response: Response): void {
 function isContestAllowed(
   pathname: string,
   searchParams: URLSearchParams,
-  ctx: PageLockedContext & { type: "contest" }
+  ctx: PageLockedContext
 ): boolean {
   // Contest main page, problems, scoreboard
   if (pathname.startsWith(`/contests/${ctx.contestSlug}`)) return true;
   // Problem pages with ?contest=slug
   if (pathname.startsWith("/problems/") && searchParams.get("contest") === ctx.contestSlug)
-    return true;
-  return false;
-}
-
-function isAssessmentAllowed(
-  pathname: string,
-  searchParams: URLSearchParams,
-  ctx: PageLockedContext & { type: "assessment" }
-): boolean {
-  // Assessment workspace page
-  if (pathname.startsWith(`/courses/${ctx.courseSlug}/assignments/${ctx.assessmentSlug}`))
-    return true;
-  // Problem pages with ?course=slug&assessment=slug
-  if (
-    pathname.startsWith("/problems/") &&
-    searchParams.get("course") === ctx.courseSlug &&
-    searchParams.get("assessment") === ctx.assessmentSlug
-  )
     return true;
   return false;
 }
@@ -195,22 +177,13 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   // --- Guard: page lock enforcement ---
+  // Only contests can page-lock now — homework assessments dropped that
+  // exam-only setting in the Phase 1 redesign.
   if (event.locals.sessionUser) {
     if (!isPageLockExempt(cleanPath)) {
       const lockCtx = await getCachedPageLockContext(event.locals.sessionUser.id);
-      if (lockCtx) {
-        if (lockCtx.type === "contest") {
-          if (!isContestAllowed(cleanPath, event.url.searchParams, lockCtx)) {
-            redirect(302, `/contests/${lockCtx.contestSlug}`);
-          }
-        } else {
-          if (!isAssessmentAllowed(cleanPath, event.url.searchParams, lockCtx)) {
-            redirect(
-              302,
-              `/courses/${lockCtx.courseSlug}/assignments/${lockCtx.assessmentSlug}`
-            );
-          }
-        }
+      if (lockCtx && !isContestAllowed(cleanPath, event.url.searchParams, lockCtx)) {
+        redirect(302, `/contests/${lockCtx.contestSlug}`);
       }
     }
   }

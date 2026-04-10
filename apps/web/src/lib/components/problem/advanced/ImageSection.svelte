@@ -2,21 +2,20 @@
   import { inputClassName } from "$lib/utils";
   import type { ProblemImageSource } from "@nojv/core";
 
-  interface ResourceLimits {
-    totalTimeMs: number;
-    memoryMb: number;
-    networkEnabled: boolean;
-  }
-
   interface Props {
     problemId: string;
     imageRef: string;
     imageSource: ProblemImageSource;
-    resourceLimits: ResourceLimits;
+    // Resource-limit columns now live directly on the problem row.
+    timeLimitMs: number;
+    memoryLimitMb: number;
+    networkEnabled: boolean;
     onsave?: (payload: {
       imageRef: string;
       imageSource: ProblemImageSource;
-      resourceLimits: ResourceLimits;
+      timeLimitMs: number;
+      memoryLimitMb: number;
+      networkEnabled: boolean;
     }) => void | Promise<void>;
   }
 
@@ -24,11 +23,9 @@
     problemId,
     imageRef = $bindable(""),
     imageSource = $bindable<ProblemImageSource>("registry"),
-    resourceLimits = $bindable<ResourceLimits>({
-      totalTimeMs: 30_000,
-      memoryMb: 1_024,
-      networkEnabled: false,
-    }),
+    timeLimitMs = $bindable(30_000),
+    memoryLimitMb = $bindable(1_024),
+    networkEnabled = $bindable(false),
     onsave,
   }: Props = $props();
 
@@ -79,7 +76,13 @@
   async function save() {
     saving = true;
     try {
-      await onsave?.({ imageRef, imageSource, resourceLimits });
+      await onsave?.({
+        imageRef,
+        imageSource,
+        timeLimitMs,
+        memoryLimitMb,
+        networkEnabled,
+      });
     } finally {
       saving = false;
     }
@@ -186,7 +189,7 @@
     </div>
   {/if}
 
-  <!-- Resource limits -->
+  <!-- Resource limits (now direct Problem columns) -->
   <div class="grid gap-4 md:grid-cols-3">
     <label class="text-sm">
       <span class="text-sm font-medium">Total time (ms)</span>
@@ -195,7 +198,7 @@
         class={inputClassName}
         min="1000"
         max="300000"
-        bind:value={resourceLimits.totalTimeMs}
+        bind:value={timeLimitMs}
       />
     </label>
     <label class="text-sm">
@@ -205,14 +208,14 @@
         class={inputClassName}
         min="16"
         max="4096"
-        bind:value={resourceLimits.memoryMb}
+        bind:value={memoryLimitMb}
       />
     </label>
     <label class="flex items-end gap-3 text-sm">
       <input
         type="checkbox"
         class="size-4"
-        bind:checked={resourceLimits.networkEnabled}
+        bind:checked={networkEnabled}
       />
       <span>Allow network</span>
     </label>

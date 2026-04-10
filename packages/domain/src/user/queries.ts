@@ -55,6 +55,12 @@ export async function toggleUserDisabled(userId: string) {
 
 // ─── Dashboard ─────────────────────────────────────────────────────
 
+export interface DashboardStats {
+  totalAc: number;
+  totalAttempts: number;
+  lastSubmittedAt: Date | null;
+}
+
 export async function getUserDashboard(userId: string) {
   const [stats, recentSubmissions, acProblemIds] = await Promise.all([
     userStatsRepo.findByUserId(userId),
@@ -75,14 +81,16 @@ export async function getUserDashboard(userId: string) {
   const shuffled = recommendations.sort(() => Math.random() - 0.5);
   const picked = shuffled.slice(0, 3);
 
+  const dashboardStats: DashboardStats = stats
+    ? {
+        totalAc: stats.totalAc,
+        totalAttempts: stats.totalAttempts,
+        lastSubmittedAt: stats.lastSubmittedAt
+      }
+    : { totalAc: 0, totalAttempts: 0, lastSubmittedAt: null };
+
   return {
-    stats: stats ?? {
-      totalAc: 0,
-      totalAttempts: 0,
-      languageDist: {},
-      difficultyDist: {},
-      dailyActivity: []
-    },
+    stats: dashboardStats,
     recentSubmissions,
     recommendations: picked
   };

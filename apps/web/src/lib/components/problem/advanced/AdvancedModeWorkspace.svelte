@@ -36,6 +36,15 @@
     user: { username: string | null; name: string };
   }
 
+  interface TestcaseSetSummary {
+    id: string;
+    name: string;
+    description: string;
+    weight: number;
+    ordinal: number;
+    caseCount: number;
+  }
+
   interface Props {
     // `allowedLanguages` is irrelevant for advanced mode (TA image owns
     // execution) but accepted for prop-shape parity with ProblemWorkspace.
@@ -48,6 +57,7 @@
     contestSlug?: string | undefined;
     initialSubmissions?: SubmissionEntry[];
     problem: ProblemDetail;
+    testcaseSets?: TestcaseSetSummary[];
   }
 
   let {
@@ -55,7 +65,8 @@
     backLink,
     contestSlug,
     initialSubmissions,
-    problem
+    problem,
+    testcaseSets = []
   }: Props = $props();
 
   let leftTab = $state<"description" | "editorials" | "submissions">("description");
@@ -487,7 +498,7 @@
         </div>
 
         <SpecialLabels
-          problemType={problem.problemType}
+          problemType={problem.type}
           judgeType={problem.judgeType}
         />
 
@@ -530,6 +541,29 @@
             </div>
           </div>
         {/each}
+
+        {#if testcaseSets.length > 0}
+          <div class="mt-6 border-t border-border pt-6">
+            <p class="text-base font-semibold">{m.problemDetail_testcaseSets()}</p>
+            <ul class="mt-3 space-y-3">
+              {#each testcaseSets as set (set.id)}
+                <li class="rounded-lg border border-border px-4 py-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="text-sm font-semibold">{set.name}</p>
+                    <span class="text-xs text-muted-foreground">
+                      {set.caseCount} {m.problemDetail_cases()} &middot; ×{set.weight}
+                    </span>
+                  </div>
+                  {#if set.description}
+                    <p class="mt-1 text-xs leading-6 text-muted-foreground">
+                      {set.description}
+                    </p>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
       </div>
     {:else if leftTab === "submissions"}
       <div class="p-5">

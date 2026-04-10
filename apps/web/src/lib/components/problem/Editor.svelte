@@ -50,7 +50,7 @@
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
-  let isFunctionMode = $derived(problem.submissionType === "function");
+  let isFunctionMode = $derived(problem.type === "function");
 
   let availableLanguages = $derived.by(() => {
     let langs = [...supportedLanguages];

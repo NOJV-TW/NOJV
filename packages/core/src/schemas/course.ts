@@ -1,10 +1,8 @@
 import { z } from "zod";
 
 import {
-  assessmentScoreboardModeSchema,
-  courseJoinMethodSchema,
+  courseJoinTokenKindSchema,
   courseRoleSchema,
-  ipLockFields,
   isoDateTimeSchema,
   languageSchema,
   localeCodeSchema,
@@ -21,7 +19,7 @@ export const courseCreateSchema = z.object({
 
 export const courseJoinRequestSchema = z.object({
   courseSlug: slugSchema,
-  joinMethod: courseJoinMethodSchema,
+  joinTokenKind: courseJoinTokenKindSchema,
   joinToken: z.string().trim().min(4).max(128)
 });
 
@@ -48,42 +46,50 @@ export const assessmentContextSchema = z.object({
   courseSlug: slugSchema
 });
 
+// Homework assessment: no scoreboard, no IP lock, no page lock
+// (those were exam-only concerns and now live on Contest).
 export const courseAssessmentCreateSchema = z
   .object({
     adjustmentRules: adjustmentRulesSchema.optional(),
     allowedLanguages: z.array(languageSchema).max(8).default([]),
     closesAt: isoDateTimeSchema,
     courseSlug: slugSchema,
-    dueAt: isoDateTimeSchema,
-    ...ipLockFields,
+    dueAt: isoDateTimeSchema.optional(),
     maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
-    pageLockEnabled: z.boolean().default(false),
     problemIds: z.array(slugSchema).min(1).max(32),
-    scoreboardMode: assessmentScoreboardModeSchema.optional(),
     slug: slugSchema,
     summary: z.string().trim().min(8).max(2_000),
     title: z.string().trim().min(3).max(120)
   })
   .superRefine((value, ctx) => {
     const opensAt = new Date(value.opensAt);
-    const dueAt = new Date(value.dueAt);
     const closesAt = new Date(value.closesAt);
 
-    if (!(opensAt < dueAt)) {
+    if (!(opensAt < closesAt)) {
       ctx.addIssue({
         code: "custom",
-        message: "dueAt must be later than opensAt",
-        path: ["dueAt"]
+        message: "closesAt must be later than opensAt",
+        path: ["closesAt"]
       });
     }
 
-    if (!(dueAt <= closesAt)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "closesAt must be later than or equal to dueAt",
-        path: ["closesAt"]
-      });
+    if (value.dueAt !== undefined) {
+      const dueAt = new Date(value.dueAt);
+      if (!(opensAt < dueAt)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "dueAt must be later than opensAt",
+          path: ["dueAt"]
+        });
+      }
+      if (!(dueAt <= closesAt)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "closesAt must be later than or equal to dueAt",
+          path: ["closesAt"]
+        });
+      }
     }
   });
 

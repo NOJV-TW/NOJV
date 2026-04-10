@@ -6,15 +6,17 @@ import type { Prisma } from "../../generated/prisma/client";
  */
 export const problemMiniSelect = {
   id: true,
-  defaultTitle: true
+  title: true
 } satisfies Prisma.ProblemSelect;
 
 /**
  * Problem content preview for assessment / course detail pages — adds
- * `summary` and localized `statements` on top of the mini select.
+ * localized `statements` on top of the mini select. (`summary` was
+ * removed from Problem in the 2026-04 schema redesign; localized
+ * titles and body live in `ProblemStatementI18n`.)
  */
 export const problemPreviewSelect = {
   id: true,
-  summary: true,
+  title: true,
   statements: true
 } satisfies Prisma.ProblemSelect;

@@ -208,7 +208,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
-  if (config.submissionType === "function") {
+  if (config.problemType === "function") {
     // Function mode always assembles user code into the entry file using the template.
     log("Reading source code...");
 
@@ -345,7 +345,7 @@ async function main(): Promise<void> {
   log("Reading config...");
   const config = await readConfig();
   log(
-    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
+    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`
   );
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));

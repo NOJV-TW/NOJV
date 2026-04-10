@@ -162,11 +162,10 @@ function mapResult(
     score = result.customScore;
   }
 
-  // Apply assessment/contest adjustment rules to raw score.
-  const adjustmentRules =
-    judgeContext.adjustment.assessmentAdjustmentRules ??
-    judgeContext.adjustment.contestAdjustmentRules ??
-    null;
+  // Apply assessment adjustment rules to raw score. The Phase 1 redesign
+  // dropped adjustmentRules from Contest — only assessments carry late
+  // penalty / bonus rules now.
+  const adjustmentRules = judgeContext.adjustment.assessmentAdjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
     const adjusted = submissionDomain.applyAdjustmentRules({
@@ -360,13 +359,12 @@ export async function executeSandbox(
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
-  // Phase 5: function-mode templates are gone. Starter code + teacher
-  // assets all flow through ProblemWorkspaceFile / mergeSandboxSources.
-  // Sample path: ignore testcase sets, use Problem.samples directly.
-  // Graded path: iterate testcase sets (Phase 2: all isHidden=true after
-  // the data migration runs; getJudgeContext already filters them).
+  // Starter code + teacher assets flow through ProblemWorkspaceFile /
+  // mergeSandboxSources. Sample path: ignore testcase sets, use
+  // Problem.samples directly. Graded path: iterate testcase sets.
   const useSamples = draft.sampleOnly;
-  const useAdvanced = judgeContext.mode === "advanced" && judgeContext.advanced !== null;
+  const useAdvanced =
+    judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
 
   const testcasesForSandbox = useSamples
     ? judgeContext.samples.map((s, i) => ({
@@ -398,10 +396,10 @@ export async function executeSandbox(
 
   const sources = mergeSandboxSources(draft, judgeContext);
 
-  // Phase 7: build the advanced-mode payload (when applicable). Standard
-  // mode submissions go through the existing pipeline unchanged.
+  // Build the advanced-mode payload when applicable. Standard-shape
+  // submissions go through the existing pipeline unchanged.
   let advancedPayload: SandboxRequest["advanced"] | undefined;
-  if (judgeContext.mode === "advanced" && judgeContext.advanced) {
+  if (judgeContext.problemType === "special_env" && judgeContext.advanced) {
     const ctx = judgeContext.advanced;
     const testcaseFiles: Record<number, Record<string, string>> = {};
     for (const [idx, c] of ctx.testcases.entries()) {
@@ -425,7 +423,7 @@ export async function executeSandbox(
     ...(sources.sourceFiles ? { sourceFiles: sources.sourceFiles } : {}),
     ...(sources.entryFile ? { entryFile: sources.entryFile } : {}),
     language: draft.language,
-    submissionType: judgeContext.submissionType,
+    problemType: judgeContext.problemType,
     testcases: testcasesForSandbox,
     judgeType: judgeContext.judgeType,
     judgeConfig: {

@@ -1,5 +1,5 @@
 import { contestRepo, submissionRepo } from "@nojv/db";
-import type { AssessmentScoreboardMode, ContestScoringMode } from "@nojv/core";
+import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 
@@ -36,7 +36,7 @@ export interface ScoreboardData {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];
   scoringMode: ContestScoringMode;
-  scoreboardMode: AssessmentScoreboardMode;
+  scoreboardMode: ScoreboardMode;
   frozenAt: string | null;
   isFrozen: boolean;
 }
@@ -63,7 +63,7 @@ interface ContestRow {
     problemId: string;
     ordinal: number;
     points: number;
-    problem: { id: string; defaultTitle: string };
+    problem: { id: string; title: string };
   }[];
 }
 
@@ -131,7 +131,7 @@ export async function getScoreboard(
   }
 
   const now = new Date();
-  const scoreboardMode = contest.scoreboardMode as AssessmentScoreboardMode;
+  const scoreboardMode = contest.scoreboardMode as ScoreboardMode;
   const showFrozen =
     !options?.unfrozen &&
     (scoreboardMode === "frozen" ||
@@ -141,7 +141,7 @@ export async function getScoreboard(
     id: cp.problemId,
     ordinal: cp.ordinal,
     points: cp.points,
-    title: cp.problem.defaultTitle
+    title: cp.problem.title
   }));
 
   const scoringMode = contest.scoringMode as ContestScoringMode;

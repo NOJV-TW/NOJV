@@ -21,7 +21,11 @@ import type {
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
-import { requireProblem, assertCourseProblemAccess } from "../problem/mutations";
+import {
+  assertCourseProblemAccess,
+  assertProblemHasWorkspaceForLanguages,
+  requireProblem
+} from "../problem/mutations";
 
 // ─── Course helpers ─────────────────────────────────────────────────
 
@@ -73,33 +77,33 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
       visibility: "invite_only"
     });
 
+    // Owner is added as a teacher with no join token (manual add).
     await courseMembershipRepo.withTx(tx).create({
       addedByUserId: owner.id,
       courseId: course.id,
       joinedAt: new Date(),
-      joinedVia: "manual_invite",
       role: "teacher",
       status: "active",
       userId: owner.id
     });
 
-    const joinCode = payload.slug.replaceAll(/-/g, "").toUpperCase().slice(0, 10);
-    const qrToken = `${payload.slug}-qr`;
+    const linkToken = `${payload.slug}-link`;
+    const codeToken = payload.slug.replaceAll(/-/g, "").toUpperCase().slice(0, 10);
 
     const joinTokens = await Promise.all([
       courseJoinTokenRepo.withTx(tx).create({
         courseId: course.id,
         createdByUserId: owner.id,
-        label: "Course code",
-        method: "join_code",
-        token: joinCode
+        kind: "link",
+        label: "Course link",
+        token: linkToken
       }),
       courseJoinTokenRepo.withTx(tx).create({
         courseId: course.id,
         createdByUserId: owner.id,
-        label: "Course QR",
-        method: "qr_code",
-        token: qrToken
+        kind: "code",
+        label: "Course code",
+        token: codeToken
       })
     ]);
 
@@ -143,7 +147,7 @@ export async function joinCourseRecord(actor: ActorContext, payload: CourseJoinR
       courseMembershipRepo.withTx(tx).findByComposite(course.id, user.id),
       courseJoinTokenRepo
         .withTx(tx)
-        .findByToken(course.id, payload.joinMethod, payload.joinToken)
+        .findByToken(course.id, payload.joinTokenKind, payload.joinToken)
     ]);
 
     if (!joinToken) {
@@ -172,14 +176,14 @@ export async function joinCourseRecord(actor: ActorContext, payload: CourseJoinR
       {
         courseId: course.id,
         joinedAt: new Date(),
-        joinedVia: payload.joinMethod,
+        joinedTokenId: joinToken.id,
         role: "student",
         status: "active",
         userId: user.id
       },
       {
         joinedAt: new Date(),
-        joinedVia: payload.joinMethod,
+        joinedTokenId: joinToken.id,
         role: "student",
         status: "active"
       }
@@ -200,7 +204,6 @@ export async function manuallyEnrollCourseMember(
       displayName: payload.displayName,
       email: payload.email,
       username: payload.username,
-      locale: "zh-TW",
       platformRole: payload.role === "teacher" ? "teacher" : "student"
     });
 
@@ -211,7 +214,8 @@ export async function manuallyEnrollCourseMember(
         addedByUserId: manager.id,
         courseId: course.id,
         joinedAt: new Date(),
-        joinedVia: "manual_invite",
+        // Manual add → no join token
+        joinedTokenId: null,
         role: payload.role,
         status: "active",
         userId: user.id
@@ -219,7 +223,7 @@ export async function manuallyEnrollCourseMember(
       {
         addedByUserId: manager.id,
         joinedAt: new Date(),
-        joinedVia: "manual_invite",
+        joinedTokenId: null,
         role: payload.role,
         status: "active"
       }
@@ -240,19 +244,22 @@ export async function createCourseAssessmentRecord(
       throw new ConflictError(`Assessment slug already exists in course: ${payload.slug}`);
     }
 
+    // Workspace invariant: every problem must ship editable main.<ext>
+    // for every language listed on the assessment. Empty list = unrestricted.
+    if (payload.allowedLanguages.length > 0) {
+      for (const id of payload.problemIds) {
+        await assertProblemHasWorkspaceForLanguages(tx, id, payload.allowedLanguages);
+      }
+    }
+
     const assessment = await assessmentRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
       closesAt: new Date(payload.closesAt),
       courseId: course.id,
       createdByUserId: creator.id,
-      dueAt: new Date(payload.dueAt),
-      ipBindingEnabled: payload.ipBindingEnabled,
-      ipViolationMode: payload.ipViolationMode,
-      ipWhitelist: payload.ipWhitelist,
-      ipWhitelistEnabled: payload.ipWhitelistEnabled,
+      // dueAt is now optional on the schema. The form may omit it.
+      ...(payload.dueAt ? { dueAt: new Date(payload.dueAt) } : {}),
       opensAt: new Date(payload.opensAt),
-      pageLockEnabled: payload.pageLockEnabled,
-      scoreboardMode: payload.scoreboardMode ?? "hidden",
       slug: payload.slug,
       status: "published",
       summary: payload.summary,

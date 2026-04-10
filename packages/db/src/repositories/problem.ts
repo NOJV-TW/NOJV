@@ -9,13 +9,6 @@ export const problemRepo = {
     return prisma.problem.findUnique({ where: { id } });
   },
 
-  findDifficultyById(id: string) {
-    return prisma.problem.findUnique({
-      select: { difficulty: true },
-      where: { id }
-    });
-  },
-
   /** Fetch full problem page data with statements, workspace files, testcase sets. */
   findDetailById(id: string) {
     return prisma.problem.findUnique({
@@ -36,7 +29,7 @@ export const problemRepo = {
               take: 10
             }
           },
-          orderBy: { createdAt: "asc" }
+          orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }]
         }
       },
       where: { id }
@@ -119,8 +112,7 @@ export const problemRepo = {
       },
       select: {
         id: true,
-        defaultTitle: true,
-        difficulty: true,
+        title: true,
         tags: true
       },
       take: opts.take
@@ -131,7 +123,7 @@ export const problemRepo = {
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
-      select: { id: true, defaultTitle: true }
+      select: { id: true, title: true }
     });
   },
 
@@ -262,7 +254,7 @@ export const testcaseSetRepo = {
     return prisma.testcaseSet.findMany({
       where: { problemId },
       include: { testcases: { orderBy: { ordinal: "asc" } } },
-      orderBy: { createdAt: "asc" }
+      orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }]
     });
   },
 

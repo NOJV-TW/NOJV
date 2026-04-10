@@ -1,15 +1,8 @@
-import { z } from "zod";
-
-export const dailyActivitySchema = z.object({
-  date: z.string(),
-  acCount: z.number().int().nonnegative()
-});
-
-export const dailyActivityArraySchema = z.array(dailyActivitySchema);
-
-export const languageDistSchema = z.record(z.string(), z.number().int().nonnegative());
-export const difficultyDistSchema = z.record(z.string(), z.number().int().nonnegative());
-
-export type DailyActivity = z.infer<typeof dailyActivitySchema>;
-export type LanguageDist = z.infer<typeof languageDistSchema>;
-export type DifficultyDist = z.infer<typeof difficultyDistSchema>;
+// UserStats is a small hot-path denorm (totalAc, totalAttempts,
+// lastSubmittedAt) — see packages/db/prisma/schema/submission.prisma.
+// The legacy JSON blobs (languageDist, difficultyDist, dailyActivity)
+// that used to live here have moved to first-class SQL: per-language
+// and per-difficulty breakdowns are computed on-demand from the
+// Submission table, and daily activity lives in its own
+// UserDailyActivity table (one row per user per calendar day).
+export {};

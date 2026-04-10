@@ -1,0 +1,119 @@
+// ═══════════════════════════════════════════════════════════════
+// Submission + Editorial + user activity stats
+//
+// UserStats is a small hot-path denorm for dashboard headers;
+// UserDailyActivity is one row per user per calendar day so
+// streaks / heatmaps / range queries are first-class SQL.
+// ═══════════════════════════════════════════════════════════════
+
+enum SupportedLanguage {
+  c
+  cpp
+  go
+  java
+  javascript
+  python
+  rust
+  typescript
+}
+
+enum SubmissionMode {
+  practice
+  contest
+  assignment
+}
+
+enum SubmissionStatus {
+  queued
+  compiling
+  running
+  accepted
+  wrong_answer
+  time_limit_exceeded
+  memory_limit_exceeded
+  runtime_error
+  compile_error
+}
+
+model Submission {
+  id                     String            @id @default(cuid())
+  userId                 String
+  problemId              String
+  contestParticipationId String?
+  contestId              String?
+  courseId               String?
+  courseAssessmentId     String?
+  mode                   SubmissionMode
+  sampleOnly             Boolean           @default(false)
+  language               SupportedLanguage
+  /// Single file for standard/function types. Multi-file is stored
+  /// as JSON.stringify({ [path]: content }) — the judge pipeline
+  /// parses on the other side.
+  sourceCode             String            @db.Text
+  status                 SubmissionStatus  @default(queued)
+  score                  Int               @default(0)
+  runtimeMs              Int?
+  memoryKb               Int?
+  /// Full verdict blob: { verdict, feedback, caseResults, subtaskResults, compilerOutput }.
+  /// All judging detail lives here; there are no separate columns for
+  /// per-case results or compiler output.
+  verdictDetail          Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem              Problem               @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  contestParticipation ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
+  contest              Contest?              @relation(fields: [contestId], references: [id], onDelete: SetNull)
+  course               Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseAssessment     CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
+
+  @@index([problemId, createdAt])
+  @@index([userId, createdAt])
+  @@index([courseId, courseAssessmentId, createdAt])
+  @@index([contestParticipationId, problemId, createdAt])
+  @@index([contestId, problemId, createdAt])
+}
+
+model Editorial {
+  id        String            @id @default(cuid())
+  userId    String
+  problemId String
+  content   String            @db.Text
+  language  SupportedLanguage
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  /// A user can post multiple editorials for the same problem as
+  /// long as they're in different languages.
+  @@unique([userId, problemId, language])
+  @@index([problemId, createdAt])
+}
+
+/// Hot-path denorm for the user's profile/dashboard header.
+/// Everything else (per-language histograms, difficulty breakdown)
+/// is computed on-demand from the Submission table via grouped queries.
+model UserStats {
+  userId          String    @id
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalAc         Int       @default(0)
+  totalAttempts   Int       @default(0)
+  lastSubmittedAt DateTime?
+  updatedAt       DateTime  @updatedAt
+}
+
+/// One row per user per calendar day (UTC). Powers streak counters,
+/// heatmaps, and range queries without touching the Submission table.
+model UserDailyActivity {
+  userId          String
+  date            DateTime @db.Date
+  submissionCount Int      @default(0)
+  acCount         Int      @default(0)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, date])
+  @@index([userId, date(sort: Desc)])
+}

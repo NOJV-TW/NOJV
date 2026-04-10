@@ -9,7 +9,7 @@ export async function seedCourses(
   const osLabCourse = await prisma.course.upsert({
     create: {
       description:
-        "A course-managed OJ space for systems programming. Teachers own the course, TAs manage operations, and students join by QR code, join code, or manual enrollment.",
+        "A course-managed OJ space for systems programming. Teachers own the course, TAs manage operations, and students join by shareable link or short code.",
       id: "course_os-lab-spring-2026",
       locale: "zh-TW",
       ownerId: teacher.id,
@@ -21,25 +21,54 @@ export async function seedCourses(
     where: { slug: "os-lab-spring-2026" }
   });
 
-  // Course memberships
+  // Course join tokens (created first so memberships can reference them)
+  const joinTokens = [
+    {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      label: "Course QR",
+      kind: "link" as const,
+      token: "oslab-qr-2026"
+    },
+    {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      label: "Course code",
+      kind: "code" as const,
+      token: "OSLAB2026"
+    }
+  ];
+
+  const tokenRecords: Record<string, { id: string }> = {};
+  for (const jt of joinTokens) {
+    const record = await prisma.courseJoinToken.upsert({
+      create: jt,
+      update: {},
+      where: { token: jt.token }
+    });
+    tokenRecords[jt.token] = record;
+  }
+
+  // Course memberships. Teacher + TA were manually added (joinedTokenId
+  // null), student joined via the OSLAB2026 short code.
   const osLabMemberships = [
     {
       courseId: osLabCourse.id,
       userId: teacher.id,
       role: "teacher" as const,
-      joinedVia: "manual_invite" as const
+      joinedTokenId: null as string | null
     },
     {
       courseId: osLabCourse.id,
       userId: taStudent.id,
       role: "ta" as const,
-      joinedVia: "manual_invite" as const
+      joinedTokenId: null as string | null
     },
     {
       courseId: osLabCourse.id,
       userId: student.id,
       role: "student" as const,
-      joinedVia: "join_code" as const
+      joinedTokenId: tokenRecords["OSLAB2026"]?.id ?? null
     }
   ];
 
@@ -49,7 +78,7 @@ export async function seedCourses(
         addedByUserId: mem.role === "teacher" ? mem.userId : teacher.id,
         courseId: mem.courseId,
         joinedAt: new Date(),
-        joinedVia: mem.joinedVia,
+        joinedTokenId: mem.joinedTokenId,
         role: mem.role,
         status: "active",
         userId: mem.userId
@@ -61,39 +90,6 @@ export async function seedCourses(
           userId: mem.userId
         }
       }
-    });
-  }
-
-  // Course join tokens
-  const joinTokens = [
-    {
-      courseId: osLabCourse.id,
-      createdByUserId: teacher.id,
-      label: "Course QR",
-      method: "qr_code" as const,
-      token: "oslab-qr-2026"
-    },
-    {
-      courseId: osLabCourse.id,
-      createdByUserId: teacher.id,
-      label: "Course code",
-      method: "join_code" as const,
-      token: "OSLAB2026"
-    },
-    {
-      courseId: osLabCourse.id,
-      createdByUserId: teacher.id,
-      label: "Manual roster sync",
-      method: "manual_invite" as const,
-      token: "teacher-managed-oslab"
-    }
-  ];
-
-  for (const jt of joinTokens) {
-    await prisma.courseJoinToken.upsert({
-      create: jt,
-      update: {},
-      where: { token: jt.token }
     });
   }
 
@@ -123,7 +119,8 @@ export async function seedCourses(
     });
   }
 
-  // Course assessments
+  // Course assessments. Homework no longer has IP lock, page lock, or
+  // a scoreboard — those are exam concerns and live on Contest now.
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],
@@ -132,7 +129,6 @@ export async function seedCourses(
       createdByUserId: teacher.id,
       dueAt: new Date("2026-03-23T15:00:00.000Z"),
       opensAt: new Date("2026-03-17T09:00:00.000Z"),
-      scoreboardMode: "hidden",
       slug: "hw1-process-trace",
       status: "published",
       summary:

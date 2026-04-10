@@ -43,7 +43,7 @@
     difficulty: ProblemDifficulty;
     id: string;
     judgeType: string;
-    problemType: import("@nojv/core").ProblemType;
+    type: import("@nojv/core").ProblemType;
     status: string;
     tags: string[];
     title: string;
@@ -436,7 +436,7 @@
         </div>
         <div class="sm:text-center">
           <SpecialLabels
-            problemType={problem.problemType}
+            problemType={problem.type}
             judgeType={problem.judgeType}
             compact
             which="problem-type"
@@ -444,7 +444,7 @@
         </div>
         <div class="sm:text-center">
           <SpecialLabels
-            problemType={problem.problemType}
+            problemType={problem.type}
             judgeType={problem.judgeType}
             compact
             which="judge-method"
@@ -619,7 +619,7 @@
         </div>
         <div class="sm:text-center">
           <SpecialLabels
-            problemType={problem.problemType}
+            problemType={problem.type}
             judgeType={problem.judgeType}
             compact
             which="problem-type"
@@ -627,7 +627,7 @@
         </div>
         <div class="sm:text-center">
           <SpecialLabels
-            problemType={problem.problemType}
+            problemType={problem.type}
             judgeType={problem.judgeType}
             compact
             which="judge-method"

@@ -1,4 +1,3 @@
-import { DEFAULT_LOCALE } from "@nojv/core";
 import { userRepo, type TransactionClient } from "@nojv/db";
 
 // --- Shared helpers ---
@@ -7,7 +6,6 @@ export interface EnsureUserInput {
   displayName?: string;
   email?: string;
   username?: string;
-  locale?: string;
   platformRole?: "admin" | "student" | "teacher";
 }
 
@@ -46,7 +44,6 @@ export async function ensureUser(
     if (input.displayName) updates.name = input.displayName;
     if (input.email) updates.email = input.email;
     if (input.username) updates.username = input.username;
-    if (input.locale) updates.locale = input.locale;
     if (input.platformRole) updates.platformRole = input.platformRole;
 
     if (Object.keys(updates).length === 0) return existing;
@@ -59,7 +56,6 @@ export async function ensureUser(
     name: input.displayName ?? createLocalDisplayName(userId),
     email: input.email ?? createLocalEmail(userId),
     username: input.username ?? createLocalUsername(userId),
-    locale: input.locale ?? DEFAULT_LOCALE,
     platformRole: input.platformRole ?? "student"
   });
 }

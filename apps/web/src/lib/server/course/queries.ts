@@ -1,9 +1,9 @@
 // Re-export from domain — original logic has been moved to @nojv/domain
 // SvelteKit-specific loaders remain here as thin wrappers around domain functions.
 import { error } from "@sveltejs/kit";
-import { courseDomain, getClientIp, NotFoundError } from "@nojv/domain";
+import { courseDomain, NotFoundError } from "@nojv/domain";
 
-const { loadAssessmentDetail, listUserAssessments, ForbiddenIpError } = courseDomain;
+const { loadAssessmentDetail, listUserAssessments } = courseDomain;
 type CoursePageDetailData = courseDomain.CoursePageDetailData;
 
 import {
@@ -18,8 +18,7 @@ export function createAssessmentDetailLoader() {
   return async ({
     params,
     parent,
-    locals,
-    request
+    locals
   }: {
     locals: App.Locals;
     params: { assessmentSlug: string; slug: string };
@@ -29,14 +28,15 @@ export function createAssessmentDetailLoader() {
     const { assessmentSlug } = params;
     const { courseData } = await parent();
     const userId = locals.user?.id ?? null;
-    const clientIp = getClientIp(request);
 
     try {
+      // Homework assessments no longer carry IP lock or page lock —
+      // those moved to Contest in the Phase 1 redesign — so the loader
+      // is now a pure projection over the parent course data.
       const { assessment, course, problems } = await loadAssessmentDetail({
         assessmentSlug,
         courseData,
-        userId,
-        clientIp
+        userId
       });
 
       const presentation = assessmentPresentation;
@@ -54,7 +54,6 @@ export function createAssessmentDetailLoader() {
         windowState
       };
     } catch (err) {
-      if (err instanceof ForbiddenIpError) error(403, err.message);
       if (err instanceof NotFoundError) error(404, err.message);
       throw err;
     }

@@ -1,0 +1,163 @@
+// ═══════════════════════════════════════════════════════════════
+// Course + homework assessment domain
+//
+// CourseAssessment is strictly for homework now (no IP lock, no
+// page lock, no scoreboard). Exams are Contests with courseId set.
+// ═══════════════════════════════════════════════════════════════
+
+enum CourseVisibility {
+  invite_only
+  listed
+  archived
+}
+
+enum CourseRole {
+  teacher
+  ta
+  student
+}
+
+enum CourseMembershipStatus {
+  active
+  removed // Soft-delete preserving audit trail
+}
+
+enum CourseJoinTokenKind {
+  link // A shareable URL; QR codes are just a rendering of this
+  code // Short human-readable code typed by the student
+}
+
+enum CourseAssessmentStatus {
+  draft
+  published
+  archived
+}
+
+model Course {
+  id          String             @id @default(cuid())
+  slug        String             @unique
+  title       String
+  description String             @db.Text
+  locale      String             @default("zh-TW")
+  visibility  CourseVisibility   @default(invite_only)
+  ownerId     String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  memberships CourseMembership[]
+  joinTokens  CourseJoinToken[]
+  problems    CourseProblem[]
+  assessments CourseAssessment[]
+  contests    Contest[]
+  submissions Submission[]
+}
+
+model CourseMembership {
+  id            String                 @id @default(cuid())
+  courseId      String
+  userId        String
+  role          CourseRole
+  status        CourseMembershipStatus @default(active)
+  /// Null = teacher manually added this student without a token.
+  joinedTokenId String?
+  addedByUserId String?
+  joinedAt      DateTime               @default(now())
+  removedAt     DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  course        Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user          User                   @relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  joinedToken   CourseJoinToken?       @relation(fields: [joinedTokenId], references: [id], onDelete: SetNull)
+  addedBy       User?                  @relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([courseId, userId])
+  @@index([courseId, role, status])
+  @@index([userId, status])
+}
+
+model CourseJoinToken {
+  id              String              @id @default(cuid())
+  courseId        String
+  kind            CourseJoinTokenKind
+  token           String              @unique
+  label           String
+  createdByUserId String
+  expiresAt       DateTime?
+  maxUses         Int?
+  usageCount      Int                 @default(0)
+  revokedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  course          Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy       User                @relation("CourseJoinTokenCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  memberships     CourseMembership[]
+
+  @@index([courseId, kind])
+}
+
+model CourseProblem {
+  id            String   @id @default(cuid())
+  courseId      String
+  problemId     String
+  addedByUserId String
+  createdAt     DateTime @default(now())
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  problem       Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  addedBy       User     @relation("CourseProblemAttacher", fields: [addedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([courseId, problemId])
+}
+
+model CourseAssessment {
+  id       String                 @id @default(cuid())
+  courseId String
+  slug     String
+  title    String
+  summary  String                 @db.Text
+  status   CourseAssessmentStatus @default(draft)
+
+  // Homework window
+  opensAt  DateTime
+  /// Soft deadline — only consumed by adjustmentRules (late penalty).
+  /// Null = no late penalty configured.
+  dueAt    DateTime?
+  /// Hard close — no submissions accepted after this timestamp.
+  closesAt DateTime
+
+  /// Per-problem attempt limit. Null = unlimited.
+  maxAttempts      Int?
+  /// Empty array = all languages allowed. Adding a problem is
+  /// application-gated: every listed language must have an editable
+  /// main.<ext> workspace file on the problem.
+  allowedLanguages SupportedLanguage[] @default([])
+  /// Late-submission penalty rules etc.
+  adjustmentRules  Json?
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course           Course                    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy        User                      @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  problems         CourseAssessmentProblem[]
+  submissions      Submission[]
+  /// 1:1 latest plagiarism report. FK lives on PlagiarismReport.courseAssessmentId.
+  plagiarismReport PlagiarismReport?
+
+  @@unique([courseId, slug])
+  @@index([courseId, status])
+}
+
+model CourseAssessmentProblem {
+  id           String           @id @default(cuid())
+  assessmentId String
+  problemId    String
+  ordinal      Int
+  points       Int              @default(100)
+  createdAt    DateTime         @default(now())
+  assessment   CourseAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  problem      Problem          @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, problemId])
+  @@unique([assessmentId, ordinal])
+}

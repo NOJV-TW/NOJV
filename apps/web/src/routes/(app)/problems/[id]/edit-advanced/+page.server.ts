@@ -1,6 +1,6 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
-import { advancedImageConfigSchema, advancedResourceLimitsSchema } from "@nojv/core";
+import { problemImageSourceSchema } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
@@ -18,9 +18,15 @@ const advancedCaseSchema = z.object({
 
 const advancedTestcasesPayloadSchema = z.array(advancedCaseSchema).max(256);
 
-// Extended image config: optional resource limits on the save payload.
-const advancedImageSavePayloadSchema = advancedImageConfigSchema.extend({
-  resourceLimits: advancedResourceLimitsSchema.optional()
+// Save payload: the image ref + source plus the three columns that used
+// to live inside `advancedResourceLimits` on the problem row and are now
+// direct Problem columns.
+const advancedImageSavePayloadSchema = z.object({
+  source: problemImageSourceSchema,
+  ref: z.string().min(1).max(500),
+  timeLimitMs: z.coerce.number().int().min(1_000).max(300_000).optional(),
+  memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional(),
+  networkEnabled: z.boolean().optional()
 });
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -33,7 +39,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     error(404, "Problem not found");
   }
 
-  if (problem.problemType !== "special_env") {
+  if (problem.type !== "special_env") {
     redirect(302, `/problems/${params.id}/edit`);
   }
 
@@ -44,11 +50,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     imageConfig: {
       source: problem.advancedImageSource ?? "registry",
       ref: problem.advancedImageRef ?? "",
-      resourceLimits: problem.advancedResourceLimits ?? {
-        totalTimeMs: 30_000,
-        memoryMb: 1_024,
-        networkEnabled: false
-      }
+      // Resource limits live directly on Problem now: `timeLimitMs` is
+      // the total-per-invocation for the TA image, `memoryLimitMb` is
+      // its memory ceiling, and `networkEnabled` is the single switch.
+      timeLimitMs: problem.timeLimitMs,
+      memoryLimitMb: problem.memoryLimitMb,
+      networkEnabled: problem.networkEnabled
     },
     advancedCases: existingCases.map((c) => ({
       stdin: c.stdin,
@@ -83,10 +90,12 @@ export const actions: Actions = {
     const data = parseJsonField(formData.get("data"), advancedImageSavePayloadSchema);
     try {
       await updateProblemRecord(actor, problemId, {
-        mode: "advanced",
+        type: "special_env",
         advancedImageRef: data.ref,
         advancedImageSource: data.source,
-        ...(data.resourceLimits ? { advancedResourceLimits: data.resourceLimits } : {})
+        ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
+        ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {}),
+        ...(data.networkEnabled !== undefined ? { networkEnabled: data.networkEnabled } : {})
       });
     } catch (err) {
       return fail(400, { message: err instanceof Error ? err.message : "Update failed" });

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import type { CourseJoinTokenKind } from "@nojv/core";
 
   interface JoinChannel {
     label: string;
-    method: "join_code" | "manual_invite" | "qr_code";
+    kind: CourseJoinTokenKind;
     token: string;
   }
 
@@ -32,12 +33,12 @@
     </span>
   </div>
   <div class="mt-5 grid gap-4 md:grid-cols-2">
-    {#each joinChannels as channel (`${channel.method}:${channel.token}`)}
+    {#each joinChannels as channel (`${channel.kind}:${channel.token}`)}
       <article
         class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
       >
         <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-          {channel.method.replaceAll("_", " ")}
+          {channel.kind}
         </p>
         <p class="mt-2 text-lg font-semibold">{channel.label}</p>
         <p

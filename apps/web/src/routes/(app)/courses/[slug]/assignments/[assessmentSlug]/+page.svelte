@@ -69,7 +69,7 @@
         </p>
         <div class="mt-4 space-y-3 text-sm leading-7 text-muted-foreground">
           <p>{m.assessment_opens()}: {data.assessment.opensAt}</p>
-          <p>{m.assessment_due()}: {data.assessment.dueAt}</p>
+          <p>{m.assessment_due()}: {data.assessment.dueAt ?? "—"}</p>
           <p>{m.assessment_closes()}: {data.assessment.closesAt}</p>
         </div>
       </section>

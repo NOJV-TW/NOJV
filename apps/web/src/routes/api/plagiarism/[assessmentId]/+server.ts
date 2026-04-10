@@ -9,7 +9,7 @@ import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 const {
   resolvePlagiarismTarget,
   createPlagiarismReport,
-  listPlagiarismReports,
+  findPlagiarismReport,
   getPlagiarismSourceCode,
   dispatchPlagiarismCheck
 } = plagiarismDomain;
@@ -67,7 +67,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     return json({ sourceCode });
   }
 
-  const reports = await listPlagiarismReports(target);
+  // PlagiarismReport is 1:1 with its parent now — at most one row per
+  // contest / assessment. We still return an array in the response so
+  // existing clients (which poll `reports[0]`) keep working.
+  const report = await findPlagiarismReport(target);
 
-  return json({ reports });
+  return json({ reports: report ? [report] : [] });
 });

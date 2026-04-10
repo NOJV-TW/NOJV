@@ -28,9 +28,7 @@ export const submissionRepo = {
         courseAssessmentId: true,
         courseId: true,
         mode: true,
-        verdictDetail: true,
-        subtaskResults: true,
-        compilerOutput: true
+        verdictDetail: true
       },
       where: { id }
     });
@@ -44,7 +42,7 @@ export const submissionRepo = {
           select: {
             contestId: true,
             contest: {
-              select: { adjustmentRules: true, endsAt: true, startsAt: true }
+              select: { endsAt: true, startsAt: true }
             }
           }
         },
@@ -57,7 +55,7 @@ export const submissionRepo = {
               include: {
                 testcases: { orderBy: { ordinal: "asc" as const } }
               },
-              orderBy: { createdAt: "asc" as const }
+              orderBy: [{ ordinal: "asc" as const }, { createdAt: "asc" as const }]
             },
             workspaceFiles: {
               orderBy: [
@@ -98,7 +96,6 @@ export const submissionRepo = {
         score: true,
         status: true,
         runtimeMs: true,
-        subtaskResults: true,
         verdictDetail: true
       },
       take: opts.take ?? 50

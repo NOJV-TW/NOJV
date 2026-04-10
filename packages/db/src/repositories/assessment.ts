@@ -97,27 +97,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** Find active page-locked assessment for a user. */
-  findPageLockedForUser(userId: string, now: Date) {
-    return prisma.courseAssessment.findFirst({
-      where: {
-        pageLockEnabled: true,
-        status: "published",
-        opensAt: { lte: now },
-        closesAt: { gte: now },
-        course: {
-          memberships: {
-            some: { userId, status: "active" }
-          }
-        }
-      },
-      select: {
-        slug: true,
-        course: { select: { slug: true } }
-      }
-    });
-  },
-
   /** Fetch assessment info for temporal activities. */
   findInfoById(id: string) {
     return prisma.courseAssessment.findUniqueOrThrow({
@@ -208,41 +187,6 @@ export const assessmentProblemRepo = {
     return {
       create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {
         return tx.courseAssessmentProblem.create({ data });
-      }
-    };
-  }
-};
-
-export const assessmentParticipationRepo = {
-  upsert(userId: string, assessmentId: string) {
-    return prisma.assessmentParticipation.upsert({
-      where: {
-        userId_assessmentId: { userId, assessmentId }
-      },
-      create: { userId, assessmentId },
-      update: {},
-      select: { id: true, boundIp: true }
-    });
-  },
-
-  updateBoundIp(id: string, ip: string) {
-    return prisma.assessmentParticipation.update({
-      where: { id },
-      data: { boundIp: ip, boundAt: new Date() }
-    });
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      upsert(userId: string, assessmentId: string) {
-        return tx.assessmentParticipation.upsert({
-          where: {
-            userId_assessmentId: { userId, assessmentId }
-          },
-          create: { userId, assessmentId },
-          update: {},
-          select: { id: true, boundIp: true }
-        });
       }
     };
   }

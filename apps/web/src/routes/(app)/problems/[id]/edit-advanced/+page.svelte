@@ -14,12 +14,12 @@
   let imageSource = $state<ProblemImageSource>(
     untrack(() => data.imageConfig.source),
   );
-  let resourceLimits = $state(
-    untrack(() => ({
-      totalTimeMs: data.imageConfig.resourceLimits.totalTimeMs,
-      memoryMb: data.imageConfig.resourceLimits.memoryMb,
-      networkEnabled: data.imageConfig.resourceLimits.networkEnabled,
-    })),
+  let timeLimitMs = $state<number>(untrack(() => data.imageConfig.timeLimitMs));
+  let memoryLimitMb = $state<number>(
+    untrack(() => data.imageConfig.memoryLimitMb),
+  );
+  let networkEnabled = $state<boolean>(
+    untrack(() => data.imageConfig.networkEnabled),
   );
 
   let cases = $state<AdvancedCase[]>([]);
@@ -38,12 +38,16 @@
   async function saveImage(payload: {
     imageRef: string;
     imageSource: ProblemImageSource;
-    resourceLimits: typeof resourceLimits;
+    timeLimitMs: number;
+    memoryLimitMb: number;
+    networkEnabled: boolean;
   }) {
     const ok = await postAction("updateImage", {
       ref: payload.imageRef,
       source: payload.imageSource,
-      resourceLimits: payload.resourceLimits,
+      timeLimitMs: payload.timeLimitMs,
+      memoryLimitMb: payload.memoryLimitMb,
+      networkEnabled: payload.networkEnabled,
     });
     toasts.add({
       message: ok ? "Image config saved" : "Failed to save image config",
@@ -96,7 +100,9 @@
       problemId={data.problem.id}
       bind:imageRef
       bind:imageSource
-      bind:resourceLimits
+      bind:timeLimitMs
+      bind:memoryLimitMb
+      bind:networkEnabled
       onsave={saveImage}
     />
   </section>

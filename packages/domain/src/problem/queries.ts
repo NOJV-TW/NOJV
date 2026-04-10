@@ -7,20 +7,18 @@ import {
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
-  deriveProblemType,
   judgeConfigSchema,
   problemDifficultySchema,
-  submissionTypeSchema,
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
   type ProblemImageSource,
-  type ProblemMode,
   type ProblemStatus,
   type ProblemType,
-  type ProblemVisibility,
-  type SubmissionType
+  type ProblemVisibility
 } from "@nojv/core";
+
+import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -34,20 +32,12 @@ export interface ProblemDetail {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  /**
-   * Derived, UI-facing category for the problem shape. Replaces the
-   * legacy `mode` + `submissionType` pair on the client — `special_env`
-   * is equivalent to the DB's `mode === "advanced"`, and the other
-   * three categories carry all the distinctions that used to live in
-   * `submissionType` plus the multi-file signal.
-   */
-  problemType: ProblemType;
+  /** Direct column on Problem; the single source of truth for shape. */
+  type: ProblemType;
   samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;
-  submissionType: SubmissionType;
-  summary: string;
   tags: string[];
   timeLimitMs: number;
   title: string;
@@ -67,14 +57,10 @@ export interface ProblemDetail {
     editableRegions: [number, number][] | null;
     description: string;
   }[];
-  // Phase 7: advanced-mode metadata
+  // special_env metadata (Phase 7+ Phase-1 redesign)
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
-  advancedResourceLimits: {
-    totalTimeMs: number;
-    memoryMb: number;
-    networkEnabled: boolean;
-  } | null;
+  networkEnabled: boolean;
 }
 
 /**
@@ -121,10 +107,17 @@ fn main() {
 
 // ─── Schema parse helpers ───────────────────────────────────────────
 
-const parseDifficulty = (v: unknown) => problemDifficultySchema.catch("medium").parse(v);
-const parseSubmissionType = (v: unknown) => submissionTypeSchema.catch("full_source").parse(v);
-
-import { pickProblemStatement } from "../shared/pick-problem-statement";
+/**
+ * Difficulty now lives inside `Problem.tags` ("easy" / "medium" / "hard").
+ * We pull it back out so the UI can keep its three-color badge logic.
+ */
+function pickDifficultyFromTags(tags: string[]): ProblemDifficulty {
+  for (const tag of tags) {
+    const parsed = problemDifficultySchema.safeParse(tag);
+    if (parsed.success) return parsed.data;
+  }
+  return "medium";
+}
 
 // ─── Internal helpers ───────────────────────────────────────────────
 
@@ -151,8 +144,8 @@ function buildProblemSamples(problem: {
  * the first one (already ordered by `orderIndex`, then `path` from the repo
  * layer). Otherwise fall back to the hardcoded stub.
  *
- * The hardcoded map is retained as a fallback for problems that haven't been
- * migrated to the workspace-file model.
+ * The hardcoded map is retained as a fallback for full_source problems
+ * that don't ship any workspace files.
  */
 function buildStarterByLanguage(
   workspaceFiles: { language: string; path: string; visibility: string; content: string }[] = []
@@ -192,8 +185,7 @@ function parseEditableRegions(raw: unknown): [number, number][] | null {
 function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
-    defaultTitle: string;
-    difficulty: string;
+    title: string;
     id: string;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
@@ -205,16 +197,14 @@ function mapPersistedProblemDetail(
       outputFormat?: string;
       title: string;
     }[];
-    submissionType?: string;
-    summary: string;
     tags?: string[];
     status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
-    mode?: ProblemMode | null;
+    type?: ProblemType;
+    networkEnabled?: boolean;
     advancedImageRef?: string | null;
     advancedImageSource?: ProblemImageSource | null;
-    advancedResourceLimits?: unknown;
     workspaceFiles?: {
       language: string;
       path: string;
@@ -229,14 +219,8 @@ function mapPersistedProblemDetail(
   totalSubmissions: number,
   acceptedCount: number
 ): ProblemDetail {
-  const localized = pickProblemStatement(
-    problem.statements,
-    locale,
-    problem.defaultTitle,
-    problem.summary
-  );
-
-  const submissionType = parseSubmissionType(problem.submissionType);
+  const tags = problem.tags ?? [];
+  const localized = pickProblemStatement(problem.statements, locale, problem.title, "");
 
   const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "standard"
@@ -258,30 +242,22 @@ function mapPersistedProblemDetail(
     };
   });
 
-  const problemType = deriveProblemType({
-    mode: problem.mode ?? "standard",
-    submissionType,
-    workspaceFileCount: (problem.workspaceFiles ?? []).length
-  });
-
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
-    difficulty: parseDifficulty(problem.difficulty),
+    difficulty: pickDifficultyFromTags(tags),
     id: problem.id,
     inputFormat: localized.inputFormat,
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
-    problemType,
+    type: problem.type ?? "full_source",
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
-    submissionType,
-    summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
-    tags: problem.tags ?? [],
+    tags,
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
     totalSubmissions,
@@ -289,20 +265,8 @@ function mapPersistedProblemDetail(
     workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
     advancedImageSource: problem.advancedImageSource ?? null,
-    advancedResourceLimits: parseAdvancedResourceLimits(problem.advancedResourceLimits)
+    networkEnabled: problem.networkEnabled ?? false
   };
-}
-
-function parseAdvancedResourceLimits(
-  raw: unknown
-): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const obj = raw as Record<string, unknown>;
-  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
-  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
-  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
-  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
-  return { totalTimeMs, memoryMb, networkEnabled };
 }
 
 // ─── Public query functions ─────────────────────────────────────────
@@ -323,7 +287,7 @@ export interface ProblemCardWithStatus {
   difficulty: string;
   id: string;
   judgeType: JudgeType;
-  problemType: ProblemType;
+  type: ProblemType;
   status: ProblemUserStatus;
   tags: string[];
   title: string;
@@ -360,12 +324,12 @@ export async function listProblemCards(
     where.id = { in: [...allIds] };
   }
 
-  // Difficulty filter
+  // Difficulty filter — difficulty is now stored as a tag.
   if (params.difficulty && params.difficulty !== "all") {
-    where.difficulty = params.difficulty;
+    where.tags = { has: params.difficulty };
   }
 
-  // Tag filter
+  // Tag filter (intersected with difficulty if both are provided).
   if (params.tags && params.tags.length > 0) {
     where.tags = { hasEvery: params.tags };
   }
@@ -408,21 +372,15 @@ export async function listProblemCards(
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const
     };
-    const submissionType = parseSubmissionType(problem.submissionType);
-    const problemType = deriveProblemType({
-      mode: problem.mode,
-      submissionType,
-      workspaceFileCount: problem._count.workspaceFiles
-    });
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
-      difficulty: parseDifficulty(problem.difficulty),
+      difficulty: pickDifficultyFromTags(problem.tags),
       id: problem.id,
       judgeType: judgeConfig.type,
-      problemType,
+      type: problem.type,
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
-      title: problem.defaultTitle,
+      title: problem.title,
       totalSubmissions: total
     };
   });
@@ -437,20 +395,14 @@ export async function listEditableProblems(userId: string) {
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const
     };
-    const submissionType = parseSubmissionType(problem.submissionType);
-    const problemType = deriveProblemType({
-      mode: problem.mode,
-      submissionType,
-      workspaceFileCount: problem._count.workspaceFiles
-    });
     return {
-      difficulty: parseDifficulty(problem.difficulty),
+      difficulty: pickDifficultyFromTags(problem.tags),
       id: problem.id,
       judgeType: judgeConfig.type,
-      problemType,
+      type: problem.type,
       status: problem.status,
       tags: problem.tags,
-      title: problem.defaultTitle,
+      title: problem.title,
       visibility: problem.visibility
     };
   });

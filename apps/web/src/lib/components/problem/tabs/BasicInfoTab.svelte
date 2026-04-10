@@ -177,14 +177,6 @@
   </button>
   {#if showAdvanced}
     <div class="grid gap-4">
-      <label class="text-sm text-muted-foreground">
-        <span>{m.admin_summaryLabel()} <HelpTooltip text={m.admin_summaryTooltip()} /></span>
-        <textarea
-          class="{inputClassName} min-h-20 resize-y"
-          name="summary"
-          bind:value={$form.summary}
-        ></textarea>
-      </label>
       <div class="text-sm text-muted-foreground">
         <span>{m.admin_tags()}</span>
         <div class="mt-2">

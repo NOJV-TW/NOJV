@@ -1,47 +1,58 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
+import type { PlagiarismReportStatus } from "../../generated/prisma/enums";
 
+const reportSummarySelect = {
+  id: true,
+  contestId: true,
+  courseAssessmentId: true,
+  triggeredById: true,
+  status: true,
+  results: true,
+  mossReportUrl: true,
+  createdAt: true,
+  completedAt: true
+} satisfies Prisma.PlagiarismReportSelect;
+
+/**
+ * PlagiarismReport is 1:1 with its parent (Contest or CourseAssessment)
+ * via @unique foreign keys. Re-running MOSS updates the single row in
+ * place; there is no history. Exactly one of `contestId` /
+ * `courseAssessmentId` is non-null, enforced by a CHECK constraint.
+ */
 export const plagiarismReportRepo = {
-  /** List reports for an assessment. */
-  listByAssessmentId(assessmentId: string) {
-    return prisma.plagiarismReport.findMany({
-      where: { courseAssessmentId: assessmentId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        completedAt: true,
-        createdAt: true,
-        id: true,
-        mossReportUrl: true,
-        results: true,
-        status: true
-      }
+  /** Look up the single report for a course assessment, if any. */
+  findByAssessmentId(courseAssessmentId: string) {
+    return prisma.plagiarismReport.findUnique({
+      where: { courseAssessmentId },
+      select: reportSummarySelect
     });
   },
 
-  /** List reports matching a plagiarism target filter. */
-  listByTarget(where: Prisma.PlagiarismReportWhereInput) {
-    return prisma.plagiarismReport.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      select: {
-        completedAt: true,
-        createdAt: true,
-        id: true,
-        mossReportUrl: true,
-        results: true,
-        status: true
-      }
+  /** Look up the single report for a contest, if any. */
+  findByContestId(contestId: string) {
+    return prisma.plagiarismReport.findUnique({
+      where: { contestId },
+      select: reportSummarySelect
     });
   },
 
-  /** Create a new plagiarism report. */
+  findById(id: string) {
+    return prisma.plagiarismReport.findUnique({
+      where: { id },
+      select: reportSummarySelect
+    });
+  },
+
+  /** Create a new plagiarism report. Caller must set exactly one of
+   * contestId / courseAssessmentId (XOR enforced by CHECK constraint). */
   create(data: Prisma.PlagiarismReportUncheckedCreateInput) {
     return prisma.plagiarismReport.create({ data });
   },
 
-  updateStatus(id: string, status: string) {
+  updateStatus(id: string, status: PlagiarismReportStatus) {
     return prisma.plagiarismReport.update({
-      data: { status } as Prisma.PlagiarismReportUncheckedUpdateInput,
+      data: { status },
       where: { id }
     });
   },
@@ -52,7 +63,7 @@ export const plagiarismReportRepo = {
     data: {
       mossReportUrl: string | null;
       results: Prisma.InputJsonValue;
-      status: string;
+      status: PlagiarismReportStatus;
     }
   ) {
     return prisma.plagiarismReport.update({
@@ -61,7 +72,7 @@ export const plagiarismReportRepo = {
         mossReportUrl: data.mossReportUrl,
         results: data.results,
         status: data.status
-      } as Prisma.PlagiarismReportUncheckedUpdateInput,
+      },
       where: { id }
     });
   },
