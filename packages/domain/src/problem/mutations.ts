@@ -152,6 +152,20 @@ function assertProblemOwnership(
   }
 }
 
+/**
+ * Public helper: verify `actor` may edit `problemId`. Intended for callers
+ * (e.g. image upload endpoints) that need the ownership check without
+ * performing a DB mutation. Throws `NotFoundError` or `ForbiddenError`.
+ */
+export async function assertProblemEditAccess(
+  actor: ProblemActorContext,
+  problemId: string
+): Promise<void> {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  assertProblemOwnership(problem, actor);
+}
+
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
@@ -358,7 +372,7 @@ export async function updateProblemWorkspace(
   }
   for (const [language, total] of totalsByLanguage) {
     if (total > MAX_WORKSPACE_BYTES_PER_LANGUAGE) {
-      throw new Error(
+      throw new ConflictError(
         `Workspace files for language "${language}" exceed 1 MB limit (${String(total)} bytes).`
       );
     }

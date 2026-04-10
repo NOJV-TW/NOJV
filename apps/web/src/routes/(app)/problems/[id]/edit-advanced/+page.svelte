@@ -4,6 +4,7 @@
   import AdvancedTestcasesSection, {
     type AdvancedCase,
   } from "$lib/components/problem/advanced/AdvancedTestcasesSection.svelte";
+  import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
   import type { ProblemImageSource } from "@nojv/core";
 
   let { data } = $props();
@@ -73,7 +74,7 @@
       </a>. Phase 6 will fold this section into the advanced page.
     </p>
     <article class="prose mt-4 max-w-none text-sm dark:prose-invert">
-      {@html data.problem.statement}
+      <MarkdownRenderer content={data.problem.statement ?? ""} />
     </article>
   </section>
 
