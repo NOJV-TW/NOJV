@@ -25,9 +25,14 @@ import type {
   TestcaseSetUpdate,
   TestcaseUpdate
 } from "@nojv/core";
-import { DEFAULT_LOCALE } from "@nojv/core";
+import { DEFAULT_LOCALE, entryFileNameFor } from "@nojv/core";
 
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError
+} from "../shared/errors";
 import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
@@ -150,6 +155,20 @@ function assertProblemOwnership(
   if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
     throw new ForbiddenError("Only the author or an admin can modify this problem.");
   }
+}
+
+/**
+ * Public helper: verify `actor` may edit `problemId`. Intended for callers
+ * (e.g. image upload endpoints) that need the ownership check without
+ * performing a DB mutation. Throws `NotFoundError` or `ForbiddenError`.
+ */
+export async function assertProblemEditAccess(
+  actor: ProblemActorContext,
+  problemId: string
+): Promise<void> {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  assertProblemOwnership(problem, actor);
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
@@ -348,6 +367,35 @@ export async function updateProblemWorkspace(
   problemId: string,
   payload: UpdateWorkspacePayload
 ) {
+  // Workspace-mode invariant: every language present in the payload
+  // must ship EXACTLY ONE editable file named `main.<ext>`. The judge
+  // and submission validator both rely on this — violating it means
+  // students in that language cannot submit anything.
+  if (payload.files.length > 0) {
+    const filesByLanguage = new Map<Language, UpdateWorkspacePayload["files"]>();
+    for (const file of payload.files) {
+      const bucket = filesByLanguage.get(file.language);
+      if (bucket) bucket.push(file);
+      else filesByLanguage.set(file.language, [file]);
+    }
+
+    const brokenLanguages: string[] = [];
+    for (const [language, files] of filesByLanguage) {
+      const entryPath = entryFileNameFor(language);
+      const editableEntryCount = files.filter(
+        (f) => f.path === entryPath && f.visibility === "editable"
+      ).length;
+      if (editableEntryCount !== 1) {
+        brokenLanguages.push(
+          `Language '${language}' must have exactly one editable file named '${entryPath}'`
+        );
+      }
+    }
+    if (brokenLanguages.length > 0) {
+      throw new ValidationError(`Workspace invariant violated: ${brokenLanguages.join("; ")}.`);
+    }
+  }
+
   // Aggregate byte totals per language. Using Buffer.byteLength for an
   // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
   // which under-counts multi-byte characters.
@@ -358,7 +406,7 @@ export async function updateProblemWorkspace(
   }
   for (const [language, total] of totalsByLanguage) {
     if (total > MAX_WORKSPACE_BYTES_PER_LANGUAGE) {
-      throw new Error(
+      throw new ConflictError(
         `Workspace files for language "${language}" exceed 1 MB limit (${String(total)} bytes).`
       );
     }

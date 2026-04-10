@@ -2,7 +2,7 @@ import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { canEditProblem } from "@nojv/domain";
+import { canEditProblem, problemDomain } from "@nojv/domain";
 import { createStorageClient, uploadProblemImage } from "@nojv/storage";
 
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -50,6 +50,13 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
+
+  // Per-problem ownership check: role alone is insufficient — a teacher must
+  // own the problem (or be an admin) to upload images for it.
+  await problemDomain.assertProblemEditAccess(
+    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
+    problemId
+  );
 
   const formData = await event.request.formData();
   const file = formData.get("image");

@@ -25,3 +25,9 @@ export class ForbiddenError extends HttpError {
     super(message, 403);
   }
 }
+
+export class ValidationError extends HttpError {
+  constructor(message = "Validation failed.") {
+    super(message, 400);
+  }
+}

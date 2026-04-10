@@ -183,10 +183,10 @@
     {#if showConvertToAdvanced}
       <div class="mt-6 border-t border-border pt-4">
         <p class="mb-2 text-[11px] leading-relaxed text-muted-foreground">
-          需要自訂評分環境或更複雜的流程？你可以將這題轉換為 Advanced Mode。
+          {m.admin_convertToAdvancedHint()}
         </p>
         <p class="mb-3 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
-          ⚠️ 這會<strong>刪除</strong>所有工作區檔案、測資、評分設定，且不可復原。
+          {m.admin_convertToAdvancedInlineWarning()}
         </p>
         <button
           class="w-full rounded-full border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition hover:border-amber-500 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-amber-400 dark:hover:text-amber-400"
@@ -194,7 +194,7 @@
           type="button"
           onclick={openConvertModal}
         >
-          {converting ? "轉換中…" : "轉換為 Advanced Mode"}
+          {converting ? m.admin_convertToAdvancedConverting() : m.admin_convertToAdvanced()}
         </button>
       </div>
     {/if}
@@ -227,22 +227,24 @@
     <Dialog.Root bind:open={showConvertModal}>
       <Dialog.Content showCloseButton>
         <Dialog.Header>
-          <Dialog.Title>轉換為 Advanced Mode</Dialog.Title>
+          <Dialog.Title>{m.admin_convertToAdvanced()}</Dialog.Title>
         </Dialog.Header>
         <div class="space-y-3 text-sm">
           <p class="text-muted-foreground">
-            Advanced Mode 讓你完全控制評分容器、測資流程與評分腳本，適合自訂評分需求。
+            {m.admin_convertToAdvancedDesc()}
           </p>
           <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
-            <p class="font-semibold">⚠️ 警告：此操作無法復原</p>
+            <p class="font-semibold">{m.admin_convertToAdvancedWarningHeader()}</p>
             <ul class="mt-2 list-disc space-y-1 pl-4">
-              <li>所有工作區檔案（Workspace Files）將被刪除</li>
-              <li>所有測資集與測資（Testcase Sets）將被刪除</li>
-              <li>評分設定（Judge Config / Scoring）將被重設</li>
+              <li>{m.admin_convertToAdvancedWarningItem1()}</li>
+              <li>{m.admin_convertToAdvancedWarningItem2()}</li>
+              <li>{m.admin_convertToAdvancedWarningItem3()}</li>
             </ul>
           </div>
           <p class="text-xs text-muted-foreground">
-            請在下方輸入 <code class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">CONVERT</code> 以確認轉換。
+            {m.admin_convertToAdvancedConfirmHintPrefix()}
+            <code class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">CONVERT</code>
+            {m.admin_convertToAdvancedConfirmHintSuffix()}
           </p>
           <input
             type="text"
@@ -260,7 +262,7 @@
             disabled={converting}
             onclick={cancelConvert}
           >
-            取消
+            {m.common_cancel()}
           </button>
           <button
             class="inline-flex items-center justify-center rounded-full bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -268,7 +270,7 @@
             disabled={converting || convertConfirmText !== "CONVERT"}
             onclick={submitConvert}
           >
-            {converting ? "轉換中…" : "我了解，繼續轉換"}
+            {converting ? m.admin_convertToAdvancedConverting() : m.admin_convertToAdvancedConfirm()}
           </button>
         </Dialog.Footer>
       </Dialog.Content>

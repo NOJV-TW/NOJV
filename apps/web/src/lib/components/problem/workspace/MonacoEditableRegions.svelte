@@ -170,7 +170,7 @@
 
 <div
   bind:this={editorContainer}
-  class="w-full overflow-hidden rounded-xl border border-border"
+  class="h-full w-full overflow-hidden"
   style:height
 ></div>
 

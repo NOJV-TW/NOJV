@@ -15,6 +15,7 @@ import { z } from "zod";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
 import { problemWorkspaceFileRepo } from "@nojv/db";
 
@@ -59,7 +60,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       inputFormat: problem.inputFormat,
       judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
-      mode: problem.mode,
+      // Form schema still stores raw DB mode — derive it from problemType.
+      mode: problem.problemType === "special_env" ? "advanced" : "standard",
       outputFormat: problem.outputFormat,
       samples: problem.samples,
       statement: problem.statement,
@@ -101,24 +103,6 @@ function problemEditAction<T>(
 
     return handler({ actor, problemId, event });
   };
-}
-
-/** Read a JSON-encoded form field and validate it with a Zod schema. */
-function parseJsonField<T>(
-  raw: FormDataEntryValue | null,
-  schema: z.ZodType<T>,
-  fieldName = "data"
-): T {
-  if (typeof raw !== "string") error(400, `Missing ${fieldName} field`);
-  const parsed = schema.safeParse(JSON.parse(raw));
-  if (!parsed.success) error(400, `Invalid ${fieldName}`);
-  return parsed.data;
-}
-
-/** Read a required string form field (e.g. an ID). */
-function readStringField(raw: FormDataEntryValue | null, fieldName: string): string {
-  if (typeof raw !== "string") error(400, `Missing ${fieldName}`);
-  return raw;
 }
 
 // ─── Form actions ────────────────────────────────────────────────────

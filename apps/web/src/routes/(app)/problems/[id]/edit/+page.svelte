@@ -49,6 +49,7 @@
         language: f.language as Language,
         path: f.path,
         content: f.content,
+        description: f.description,
         visibility: f.visibility as "editable" | "readonly" | "hidden",
         editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
         orderIndex: f.orderIndex
@@ -115,7 +116,7 @@
   <ProblemSections
     bind:activeSection
     showPublish={data.problem.status === "draft"}
-    showConvertToAdvanced={data.problem.mode === "standard"}
+    showConvertToAdvanced={data.problem.problemType !== "special_env"}
     {canPublish}
     {publishing}
     {basicInfoComplete}

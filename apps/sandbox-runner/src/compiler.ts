@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { sourceFileNames } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
-import { pathExists } from "./utils.js";
+import { createBoundedBuffer, pathExists } from "./utils.js";
 
 export type CompileResult =
   | { success: true; runCommand: string[] }
@@ -170,14 +170,16 @@ function compileWithCommand(
       timeout: 90_000
     });
 
-    const stderrChunks: Buffer[] = [];
-    proc.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+    const stderrBuf = createBoundedBuffer();
+    proc.stderr.on("data", (chunk: Buffer) => {
+      stderrBuf.push(chunk);
+    });
 
     proc.on("close", (code) => {
       if (code === 0) {
         resolve({ success: true, runCommand });
       } else {
-        const stderr = Buffer.concat(stderrChunks).toString("utf-8").trim();
+        const stderr = stderrBuf.toString().trim();
         resolve({
           success: false,
           error: stderr || `Compiler exited with code ${String(code ?? "unknown")}.`
