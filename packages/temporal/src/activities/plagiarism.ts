@@ -1,5 +1,7 @@
 import * as net from "node:net";
 
+import { log } from "@temporalio/activity";
+
 import { plagiarismDomain } from "@nojv/domain";
 
 // --- Types ---
@@ -192,7 +194,13 @@ export async function runPlagiarismCheck(
           const result = await submitToMoss(mossUserId, group.mossLang, files);
           resultUrl = result.url;
           mossReportUrl ??= resultUrl;
-        } catch {
+        } catch (err) {
+          log.warn("MOSS submit failed, skipping group", {
+            problemId: group.problemId,
+            mossLang: group.mossLang,
+            submissions: group.subs.length,
+            err: err instanceof Error ? err.message : String(err)
+          });
           continue;
         }
       } else {
@@ -222,7 +230,14 @@ export async function runPlagiarismCheck(
 
     await plagiarismDomain.saveResults(target, { pairs: allPairs }, mossReportUrl);
   } catch (err) {
-    await plagiarismDomain.markReportFailed(target).catch(() => {});
+    await plagiarismDomain.markReportFailed(target).catch((markErr) => {
+      log.error("markReportFailed also failed; report may be stuck in 'running'", {
+        targetType: target.type,
+        targetId: target.id,
+        originalErr: err instanceof Error ? err.message : String(err),
+        markErr: markErr instanceof Error ? markErr.message : String(markErr)
+      });
+    });
 
     throw err;
   }
