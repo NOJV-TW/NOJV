@@ -2,7 +2,6 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 
 export const editorialRepo = {
-  /** List editorials for a problem with author info. */
   listByProblemId(problemId: string) {
     return prisma.editorial.findMany({
       where: { problemId },
@@ -11,9 +10,6 @@ export const editorialRepo = {
     });
   },
 
-  /** Upsert an editorial for a (user, problem, language) triple. A
-   * user may post multiple editorials for the same problem as long as
-   * they are in different languages. */
   upsert(
     userId: string,
     problemId: string,

@@ -13,7 +13,6 @@ export const userRepo = {
     return prisma.user.findUnique({ where: { username } });
   },
 
-  /** List users with filtering and pagination (admin panel). */
   listPaginated(opts: { where: Prisma.UserWhereInput; skip: number; take: number }) {
     return prisma.user.findMany({
       where: opts.where,
@@ -40,7 +39,6 @@ export const userRepo = {
     return prisma.user.count();
   },
 
-  /** Group users by platform role (admin stats). */
   groupByRole() {
     return prisma.user.groupBy({
       by: ["platformRole"],
@@ -61,8 +59,6 @@ export const userRepo = {
       select: { disabled: true }
     });
   },
-
-  // ── Transaction variants ──
 
   withTx(tx: TxClient) {
     return {

@@ -3,19 +3,12 @@ import { submissionJudgeJobSchema } from "@nojv/core";
 
 import { getClient } from "./client";
 
-// ---------------------------------------------------------------------------
-// Task queues — must match packages/temporal/src/task-queues.ts
-// ---------------------------------------------------------------------------
-
+// Task queue names must match packages/temporal/src/task-queues.ts.
 const JUDGE_TASK_QUEUE = "judge" as const;
 const PLATFORM_TASK_QUEUE = "platform" as const;
 
-// ---------------------------------------------------------------------------
-// Workflow input types — mirrors packages/temporal/src/types.ts
-// We duplicate rather than importing from @nojv/temporal so this package
-// stays decoupled from the worker-side dependency graph.
-// ---------------------------------------------------------------------------
-
+// Workflow input types mirror packages/temporal/src/types.ts; the duplication
+// keeps this package decoupled from the worker-side dependency graph.
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionDraft;
@@ -41,10 +34,6 @@ export interface PlagiarismCheckInput {
   triggeredById: string;
 }
 
-// ---------------------------------------------------------------------------
-// Query / status types
-// ---------------------------------------------------------------------------
-
 export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";
 
 export type PlagiarismCheckStatus = "pending" | "running" | "completed" | "failed";
@@ -53,10 +42,6 @@ export interface RejudgeProgress {
   completed: number;
   total: number;
 }
-
-// ---------------------------------------------------------------------------
-// Dispatch functions
-// ---------------------------------------------------------------------------
 
 export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
   const validated = submissionJudgeJobSchema.parse(payload);
@@ -123,10 +108,6 @@ function plagiarismWorkflowId(
 ): string {
   return `plagiarism-${targetType}-${targetId}`;
 }
-
-// ---------------------------------------------------------------------------
-// Query functions
-// ---------------------------------------------------------------------------
 
 export async function querySubmissionStatus(
   submissionId: string

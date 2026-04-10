@@ -4,12 +4,6 @@ import {
   type TransactionClient
 } from "@nojv/db";
 
-// ─── IP extraction ───────────────────────────────────────────────────
-
-/**
- * Extract the client IP address from a Request.
- * Checks x-forwarded-for, x-real-ip, and (dev only) x-dev-ip.
- */
 export function getClientIp(request: Request): string {
   if (process.env.NODE_ENV === "development") {
     const devIp = request.headers.get("x-dev-ip");
@@ -28,10 +22,7 @@ export function getClientIp(request: Request): string {
   return "127.0.0.1";
 }
 
-// ─── CIDR matching ───────────────────────────────────────────────────
-
 function ipToNumber(ip: string): number | null {
-  // Handle IPv4-mapped IPv6 (::ffff:1.2.3.4)
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
   if (mapped?.[1]) ip = mapped[1];
 
@@ -68,8 +59,6 @@ export function isIpInWhitelist(ip: string, whitelist: string[]): boolean {
   return whitelist.some((cidr) => isIpInCidr(ip, cidr));
 }
 
-// ─── IP Lock check ──────────────────────────────────────────────────
-
 export interface IpLockConfig {
   ipWhitelistEnabled: boolean;
   ipBindingEnabled: boolean;
@@ -82,16 +71,6 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
-/**
- * Run IP lock checks for a contest. Returns whether access is allowed.
- * Logs violations in notify mode.
- *
- * Homework assessments no longer have IP lock (that was an exam-only
- * concern that now lives on Contest). If you need to gate assessment
- * access, use the contest-backed exam path instead.
- *
- * Accepts a transaction client so the caller controls the transaction boundary.
- */
 export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,

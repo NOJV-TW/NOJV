@@ -1,7 +1,5 @@
 import { problemRepo, submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
-// ─── Admin: User management ────────────────────────────────────────
-
 export interface UserSearchParams {
   search?: string;
   roleFilter?: string;
@@ -52,8 +50,6 @@ export async function toggleUserDisabled(userId: string) {
   if (!user) return null;
   return userRepo.update(userId, { disabled: !user.disabled });
 }
-
-// ─── Dashboard ─────────────────────────────────────────────────────
 
 export interface DashboardStats {
   totalAc: number;

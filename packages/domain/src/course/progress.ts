@@ -2,8 +2,6 @@ import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from
 
 import { localizeProblem } from "../shared/pick-problem-statement";
 
-// ─── Types ───────────────────────────────────────────────────────────
-
 export interface StudentProblemScore {
   bestScore: number;
   bestVerdict: string;
@@ -29,8 +27,6 @@ export interface ProgressMatrix {
   /** Key: problemId */
   problemStats: Record<string, { acCount: number; totalStudents: number }>;
 }
-
-// ─── Query ───────────────────────────────────────────────────────────
 
 export async function getStudentProgressMatrix(
   courseSlug: string,

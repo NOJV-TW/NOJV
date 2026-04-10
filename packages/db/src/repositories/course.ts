@@ -17,7 +17,6 @@ export const courseRepo = {
     });
   },
 
-  /** List course cards with assessment/member counts. */
   listCards(userId?: string) {
     return prisma.course.findMany({
       include: {
@@ -41,7 +40,6 @@ export const courseRepo = {
     });
   },
 
-  /** Fetch full course page data with assessments (incl. their problems) and members. */
   findDetailBySlug(slug: string) {
     return prisma.course.findUnique({
       include: {
@@ -65,7 +63,6 @@ export const courseRepo = {
     });
   },
 
-  /** Find course by slug with a specific user's membership (for permission resolution). */
   findBySlugWithUserMembership(slug: string, userId: string) {
     return prisma.course.findUnique({
       where: { slug },
@@ -82,8 +79,6 @@ export const courseRepo = {
     return prisma.course.count();
   },
 
-  // ── Transaction variants ──
-
   withTx(tx: TxClient) {
     return {
       findBySlug(slug: string) {
@@ -98,7 +93,6 @@ export const courseRepo = {
 };
 
 export const courseMembershipRepo = {
-  /** Count active students across multiple courses (teacher overview). */
   countStudents(courseSlugs: string[]) {
     return prisma.courseMembership.count({
       where: {
@@ -109,7 +103,6 @@ export const courseMembershipRepo = {
     });
   },
 
-  /** Count active assessments across multiple courses (teacher overview). */
   countActiveAssessments(courseSlugs: string[], now: Date) {
     return prisma.courseAssessment.count({
       where: {
@@ -121,7 +114,6 @@ export const courseMembershipRepo = {
     });
   },
 
-  /** Find active student memberships for a course. */
   findStudents(courseId: string) {
     return prisma.courseMembership.findMany({
       where: { courseId, role: "student", status: "active" },

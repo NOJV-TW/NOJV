@@ -3,8 +3,6 @@ import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
 
-// ─── Types ───────────────────────────────────────────────────────────
-
 export interface ContestListItem {
   allowedLanguages: Language[];
   endsAt: string;
@@ -57,8 +55,6 @@ export interface ContestWorkspaceData extends ContestDetailData {
   } | null;
 }
 
-// ─── Internal helpers ────────────────────────────────────────────────
-
 type ContestWithCounts = NonNullable<
   Awaited<ReturnType<typeof contestRepo.listPublished>>
 >[number];
@@ -80,8 +76,6 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
     title: c.title
   };
 }
-
-// ─── Shared mapper ──────────────────────────────────────────────────
 
 type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailBySlug>>>;
 
@@ -113,8 +107,6 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailData {
     title: contest.title
   };
 }
-
-// ─── Public query functions ──────────────────────────────────────────
 
 export async function listPublicContests(): Promise<ContestListItem[]> {
   const contests = await contestRepo.listPublished();

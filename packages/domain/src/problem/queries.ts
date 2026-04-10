@@ -20,8 +20,6 @@ import {
 
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
-// ─── Types ──────────────────────────────────────────────────────────
-
 export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
@@ -105,11 +103,9 @@ fn main() {
   python: ``
 };
 
-// ─── Schema parse helpers ───────────────────────────────────────────
-
 /**
- * Difficulty now lives inside `Problem.tags` ("easy" / "medium" / "hard").
- * We pull it back out so the UI can keep its three-color badge logic.
+ * Difficulty lives inside `Problem.tags` ("easy" / "medium" / "hard");
+ * pull it back out so the UI keeps its three-color badge logic.
  */
 function pickDifficultyFromTags(tags: string[]): ProblemDifficulty {
   for (const tag of tags) {
@@ -118,8 +114,6 @@ function pickDifficultyFromTags(tags: string[]): ProblemDifficulty {
   }
   return "medium";
 }
-
-// ─── Internal helpers ───────────────────────────────────────────────
 
 function buildProblemSamples(problem: {
   samples?: unknown;
@@ -268,8 +262,6 @@ function mapPersistedProblemDetail(
     networkEnabled: problem.networkEnabled ?? false
   };
 }
-
-// ─── Public query functions ─────────────────────────────────────────
 
 export interface ProblemListParams {
   difficulty?: string | undefined;

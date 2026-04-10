@@ -9,7 +9,6 @@ import type { PlagiarismReportStatus } from "../../generated/prisma/enums";
  * `plagiarismStatus` is NULL is considered to have no report.
  */
 
-/** Shape of the plagiarism payload returned by `findBy*` methods. */
 export interface PlagiarismReportSummary {
   status: PlagiarismReportStatus;
   results: Prisma.JsonValue | null;
@@ -19,7 +18,6 @@ export interface PlagiarismReportSummary {
   triggeredById: string | null;
 }
 
-/** Shape accepted by `upsertFor*` — every field optional; null clears. */
 export interface PlagiarismUpsertInput {
   status?: PlagiarismReportStatus | null;
   results?: Prisma.InputJsonValue | null;
@@ -97,7 +95,6 @@ const clearInput: PlagiarismUpsertInput = {
 };
 
 export const plagiarismRepo = {
-  /** Look up the plagiarism payload for a contest, or null if none. */
   async findByContestId(contestId: string): Promise<PlagiarismReportSummary | null> {
     const row = await prisma.contest.findUnique({
       where: { id: contestId },
@@ -106,7 +103,6 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
-  /** Look up the plagiarism payload for a course assessment, or null if none. */
   async findByAssessmentId(
     courseAssessmentId: string
   ): Promise<PlagiarismReportSummary | null> {
@@ -117,7 +113,6 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
-  /** Write plagiarism fields onto a contest. Pass only the fields you want to change. */
   upsertForContest(contestId: string, input: PlagiarismUpsertInput) {
     return prisma.contest.update({
       where: { id: contestId },
@@ -126,7 +121,6 @@ export const plagiarismRepo = {
     });
   },
 
-  /** Write plagiarism fields onto a course assessment. Pass only the fields you want to change. */
   upsertForAssessment(courseAssessmentId: string, input: PlagiarismUpsertInput) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
@@ -135,7 +129,6 @@ export const plagiarismRepo = {
     });
   },
 
-  /** Reset all plagiarism fields on a contest back to null (cancels a scan). */
   clearForContest(contestId: string) {
     return prisma.contest.update({
       where: { id: contestId },
@@ -143,7 +136,6 @@ export const plagiarismRepo = {
     });
   },
 
-  /** Reset all plagiarism fields on a course assessment back to null (cancels a scan). */
   clearForAssessment(courseAssessmentId: string) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },

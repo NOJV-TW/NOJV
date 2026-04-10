@@ -1,5 +1,3 @@
-// Re-export from domain — original logic has been moved to @nojv/domain
-// SvelteKit-specific loaders remain here as thin wrappers around domain functions.
 import { error } from "@sveltejs/kit";
 import { courseDomain, NotFoundError } from "@nojv/domain";
 
@@ -11,8 +9,6 @@ import {
   deriveAssessmentWindowState,
   windowStateColorClass
 } from "$lib/types";
-
-// ─── Assessment detail loader ────────────────────────────────────────
 
 export function createAssessmentDetailLoader() {
   return async ({
@@ -30,9 +26,6 @@ export function createAssessmentDetailLoader() {
     const userId = locals.user?.id ?? null;
 
     try {
-      // Homework assessments no longer carry IP lock or page lock —
-      // those moved to Contest in the Phase 1 redesign — so the loader
-      // is now a pure projection over the parent course data.
       const { assessment, course, problems } = await loadAssessmentDetail({
         assessmentSlug,
         courseData,
@@ -59,8 +52,6 @@ export function createAssessmentDetailLoader() {
     }
   };
 }
-
-// ─── Assessment list loader ──────────────────────────────────────────
 
 export function createAssessmentListLoader() {
   return async ({ locals }: { locals: App.Locals }) => {

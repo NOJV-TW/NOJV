@@ -2,20 +2,13 @@ import { randomBytes } from "node:crypto";
 
 import { schoolVerificationTokenRepo, userRepo } from "@nojv/db";
 
-// ─── Initiate school verification ──────────────────────────────────
-
 export type InitiateVerificationResult =
   | { status: "error"; detail: string; httpStatus: 400 | 409 }
   | { status: "success"; token: string; expiresAt: Date };
 
 /**
- * Create a school verification token after validating username uniqueness.
- * The caller is responsible for parsing the school email and sending the
- * verification email — those are infrastructure concerns outside the domain.
- *
- * Tokens live in `SchoolVerificationToken` (our own table), separate from
- * better-auth's `Verification` table so neither side's cleanup sweeps
- * interfere with the other.
+ * Tokens live in their own table, separate from better-auth's `Verification`
+ * table, so neither side's cleanup sweeps interfere with the other.
  */
 export async function initiateSchoolVerification(
   userId: string,
@@ -39,16 +32,10 @@ export async function initiateSchoolVerification(
   return { status: "success", token, expiresAt };
 }
 
-// ─── Process school verification token ─────────────────────────────
-
 export type VerifySchoolResult =
   | { status: "error"; detail: string }
   | { status: "success"; username: string };
 
-/**
- * Process a school verification token: claim it, mark the user's username,
- * and delete the token. Returns the result of the verification attempt.
- */
 export async function processSchoolVerification(token: string): Promise<VerifySchoolResult> {
   const record = await schoolVerificationTokenRepo.findById(token);
 

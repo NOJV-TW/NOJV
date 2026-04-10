@@ -24,8 +24,6 @@ import {
   assertProblemHasWorkspaceForLanguages
 } from "../problem/mutations";
 
-// ─── Course helpers ─────────────────────────────────────────────────
-
 export async function requireCourse(tx: TransactionClient, courseSlug: string) {
   const course = await courseRepo.withTx(tx).findBySlug(courseSlug);
 
@@ -53,8 +51,6 @@ export async function requireCourseAssessment(
     course
   };
 }
-
-// ─── Course mutations ───────────────────────────────────────────────
 
 export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
   return runTransaction(async (tx) => {

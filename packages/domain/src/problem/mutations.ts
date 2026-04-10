@@ -33,25 +33,16 @@ import {
 import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
-// ─── Actor context (domain-level, no SvelteKit dependency) ──────────
-
-/**
- * Minimal actor context required by problem mutations.
- * Mirrors the CompletedActorContext from apps/web but without SvelteKit coupling.
- */
 export interface ProblemActorContext {
   userId: string;
   username: string;
   platformRole: PlatformRole;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
-
 /**
- * The Phase 1 redesign moved difficulty out of its own column and into
- * the free-form tag list. Callers still send a `difficulty` form field
- * (so the UI keeps a dropdown) — we splice it back into `tags` here so
- * the persisted row always has exactly one of {easy, medium, hard}.
+ * Callers still send a `difficulty` form field (dropdown UX), but it's
+ * persisted as a tag — splice it back into the tag list so the row always
+ * has exactly one of {easy, medium, hard}.
  */
 function mergeDifficultyTag(
   baseTags: string[] | undefined,
@@ -65,8 +56,6 @@ function mergeDifficultyTag(
   }
   return stripped;
 }
-
-// ─── Input types ────────────────────────────────────────────────────
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
@@ -89,8 +78,6 @@ export interface CreateProblemDefinitionInput {
   advancedImageRef?: string | undefined;
   advancedImageSource?: ProblemImageSource | undefined;
 }
-
-// ─── Shared problem helpers ─────────────────────────────────────────
 
 export async function createProblemDefinition(
   tx: TransactionClient,

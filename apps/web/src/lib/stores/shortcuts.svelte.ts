@@ -33,15 +33,19 @@ function comboMatches(keys: string[], event: KeyboardEvent): boolean {
 }
 
 class ShortcutRegistry {
-  shortcuts = $state<Shortcut[]>([]);
+  // $state.raw so only whole-array reassignment triggers reactivity;
+  // individual item reads are not tracked. Combined with the untrack
+  // wrappers below, this makes register/unregister side-effect-free from
+  // the caller effect's tracking perspective.
+  shortcuts = $state.raw<Shortcut[]>([]);
   isOverlayOpen = $state(false);
-  #pendingFirstKey = $state<string | null>(null);
+  #pendingFirstKey: string | null = null;
   #sequenceTimer: ReturnType<typeof setTimeout> | null = null;
 
   register(shortcut: Shortcut): () => void {
-    // Read via untrack so callers running inside an $effect don't track
-    // `this.shortcuts` as a dep, which would cause register()'s write to
-    // retrigger the calling effect → infinite loop.
+    // Read + write via untrack so callers running inside an $effect don't
+    // track `this.shortcuts` as a dep, which would cause register()'s
+    // write to retrigger the calling effect → infinite loop.
     untrack(() => {
       this.shortcuts = [...this.shortcuts, shortcut];
     });

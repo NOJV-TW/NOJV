@@ -2,10 +2,6 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 
 export const announcementRepo = {
-  /** List published, unexpired announcements (pinned first, then newest).
-   *
-   * Status and expiry are enforced here — the previous implementation
-   * returned drafts because it only sorted, never filtered. */
   listPublished(take: number) {
     const now = new Date();
     return prisma.announcement.findMany({
@@ -19,7 +15,6 @@ export const announcementRepo = {
     });
   },
 
-  /** List all announcements for admin management. */
   listAll() {
     return prisma.announcement.findMany({
       orderBy: { createdAt: "desc" },

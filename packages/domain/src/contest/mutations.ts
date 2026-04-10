@@ -24,8 +24,6 @@ import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
 
-// ─── Internal helpers ────────────────────────────────────────────────
-
 async function requireContest(tx: TransactionClient, contestSlug: string) {
   const contest = await contestRepo.withTx(tx).findBySlug(contestSlug);
 
@@ -94,8 +92,6 @@ async function resolveAndAttachContestProblems(
   );
 }
 
-// ─── Contest participation ───────────────────────────────────────────
-
 export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
@@ -152,8 +148,6 @@ export async function ensureContestParticipation(
   return { contest, participation };
 }
 
-// ─── Submit cooldown check ──────────────────────────────────────────
-
 export async function checkSubmitCooldown(
   tx: TransactionClient,
   contestId: string,
@@ -183,8 +177,6 @@ export async function checkSubmitCooldown(
     );
   }
 }
-
-// ─── Contest creation ───────────────────────────────────────────────
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
   return runTransaction(async (tx) => {
@@ -241,8 +233,6 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
     return contest;
   });
 }
-
-// ─── Contest update ─────────────────────────────────────────────────
 
 export async function updateContestRecord(
   actor: ActorContext,
@@ -301,8 +291,6 @@ export async function updateContestRecord(
     return { id: contest.id };
   });
 }
-
-// ─── Lifecycle (called by temporal activities) ──────────────────────
 
 export interface ContestLifecycleInfo {
   endsAt: string;

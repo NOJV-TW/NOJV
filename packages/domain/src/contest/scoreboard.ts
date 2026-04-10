@@ -3,8 +3,6 @@ import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 
-// ─── Types ───────────────────────────────────────────────────────────
-
 export interface ProblemScore {
   problemId: string;
   score: number;
@@ -48,8 +46,6 @@ export interface ChartData {
     points: { time: number; score: number }[];
   }[];
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────
 
 interface ContestRow {
   id: string;
@@ -117,8 +113,6 @@ function assignRanks(
     entry.rank = prev && isTied(prev, entry) ? prev.rank : i + 1;
   }
 }
-
-// ─── Scoreboard ──────────────────────────────────────────────────────
 
 export async function getScoreboard(
   contestSlug: string,
@@ -197,8 +191,6 @@ export async function getScoreboard(
     scoringMode
   };
 }
-
-// ─── ICPC Scoreboard ─────────────────────────────────────────────────
 
 function buildIcpcScoreboard(
   contest: ContestRow,
@@ -289,8 +281,6 @@ function buildIcpcScoreboard(
 
   return entries;
 }
-
-// ─── IOI Scoreboard ──────────────────────────────────────────────────
 
 function buildIoiScoreboard(
   contest: ContestRow,
@@ -383,8 +373,6 @@ function buildIoiScoreboard(
 
   return entries;
 }
-
-// ─── Chart ───────────────────────────────────────────────────────────
 
 export async function getScoreboardChart(
   contestSlug: string,

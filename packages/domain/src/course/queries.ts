@@ -11,8 +11,6 @@ import type {
 import { NotFoundError } from "../shared/errors";
 import { localizeProblem } from "../shared/pick-problem-statement";
 
-// ─── Types ───────────────────────────────────────────────────────────
-
 export interface CourseMemberRecord {
   courseRole: CourseRole;
   displayName: string;
@@ -65,8 +63,6 @@ export interface CoursePageDetailData {
   course: CoursePageData;
   problems: CourseProblemCatalogEntry[];
 }
-
-// ─── Internal helper functions ───────────────────────────────────────
 
 function mapProblemShelfEntry(problem: {
   author?: { username: string | null } | null;
@@ -228,13 +224,9 @@ function mapPersistedCourse(course: {
   } satisfies CoursePageDetailData;
 }
 
-// ─── Course permission queries ──────────────────────────────────────
-
 export async function findCourseWithMembership(courseSlug: string, userId: string) {
   return courseRepo.findBySlugWithUserMembership(courseSlug, userId);
 }
-
-// ─── Public query functions ──────────────────────────────────────────
 
 export async function listCourseCards(userId?: string) {
   const persistedCourses = await courseRepo.listCards(userId);
@@ -300,8 +292,6 @@ export async function listUpcomingAssessments(userId: string) {
   }));
 }
 
-// ─── Assessment detail (data-fetching core) ─────────────────────────
-
 export interface AssessmentDetailInput {
   assessmentSlug: string;
   courseData: CoursePageDetailData;
@@ -345,8 +335,6 @@ export async function loadAssessmentDetail(
     problems
   };
 }
-
-// ─── Assessment context ─────────────────────────────────────────────
 
 export async function getAssessmentContext(courseSlug: string, assessmentSlug: string) {
   const assessment = await assessmentRepo.findPublishedContext(courseSlug, assessmentSlug);

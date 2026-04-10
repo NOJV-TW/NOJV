@@ -24,19 +24,10 @@ function createRateLimiter(points: number, duration: number) {
   }
 }
 
-// General API rate limiter: 60 requests per minute per IP
 export const apiRateLimiter = createRateLimiter(60, 60);
-
-// Stricter limiter for write API endpoints (POST): 10 requests per minute per IP
 export const writeApiRateLimiter = createRateLimiter(10, 60);
-
-// Form action rate limiter: 20 requests per minute per IP
 const formActionRateLimiter = createRateLimiter(20, 60);
 
-/**
- * Consume a form action rate limit token. Returns a SvelteKit fail(429) if exceeded.
- * Usage: `const limited = await consumeFormRateLimit(event); if (limited) return limited;`
- */
 export async function consumeFormRateLimit(event: {
   getClientAddress: () => string;
 }): Promise<ReturnType<typeof fail<{ error: string }>> | null> {

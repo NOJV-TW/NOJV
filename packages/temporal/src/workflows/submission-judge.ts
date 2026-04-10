@@ -23,23 +23,18 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   let status: SubmissionJudgeStatus = "queued";
   setHandler(getStatusQuery, () => status);
 
-  // 1. Fetch judge context
   status = "compiling";
   const judgeContext = await judge.fetchJudgeContext(input.submissionId);
 
-  // 2. Execute sandbox
   status = "running";
   const result = await judge.executeSandbox(input.submissionId, input.draft, judgeContext);
 
-  // 3. Complete submission (write verdict to DB)
   const submission = await judge.completeSubmission(input.submissionId, result);
 
-  // 4. Update contest scores if applicable
   if (submission.contestParticipationId) {
     await contest.updateContestScores(submission.contestParticipationId);
   }
 
-  // 5. Update user stats + publish verdict in parallel
   status = "completed";
   await Promise.all([
     stats.updateUserStats(submission),

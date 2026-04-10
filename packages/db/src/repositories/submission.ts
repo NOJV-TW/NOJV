@@ -33,7 +33,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Fetch submission with full problem data for judging (templates, testcases). */
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {
@@ -71,7 +70,6 @@ export const submissionRepo = {
     });
   },
 
-  /** List user submissions for a problem, filtered by verdict statuses. */
   listByUserAndProblem(opts: {
     problemId: string;
     userId: string;
@@ -101,12 +99,10 @@ export const submissionRepo = {
     });
   },
 
-  /** Count submissions matching a filter (used for attempt limits, AC checks). */
   count(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.count({ where });
   },
 
-  /** Find the most recent submission matching criteria. */
   findMostRecent(where: Prisma.SubmissionWhereInput, select?: Prisma.SubmissionSelect) {
     return prisma.submission.findFirst({
       where,
@@ -115,12 +111,10 @@ export const submissionRepo = {
     });
   },
 
-  /** Find many submissions with custom where/select/orderBy. */
   findMany(args: Prisma.SubmissionFindManyArgs) {
     return prisma.submission.findMany(args);
   },
 
-  /** Group submissions by user and problem (progress matrix). */
   groupByUserAndProblem(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.groupBy({
       by: ["userId", "problemId"],
@@ -130,7 +124,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Group accepted submissions by problemId. */
   groupAcceptedByProblem(problemIds: string[]) {
     return prisma.submission.groupBy({
       by: ["problemId"],
@@ -139,7 +132,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Group submissions by problemId and status for a user. */
   groupByProblemAndStatus(userId: string, problemIds: string[]) {
     return prisma.submission.groupBy({
       by: ["problemId", "status"],
@@ -152,7 +144,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for contest scoreboard. */
   findForContestScoreboard(participationIds: string[]) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
@@ -170,7 +161,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for contest chart data. */
   findForContestChart(participationIds: string[]) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
@@ -188,7 +178,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for a contest participation (scoring). */
   findForParticipationScoring(participationId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
@@ -205,7 +194,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for rejudge. */
   findForRejudge(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.findMany({
       select: {
@@ -219,7 +207,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for plagiarism check. */
   findForPlagiarism(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.findMany({
       where,
@@ -235,7 +222,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Recent submissions for dashboard. */
   findRecentByUser(userId: string, take: number) {
     return prisma.submission.findMany({
       take,
@@ -251,7 +237,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find distinct AC'd problems for a user (dashboard recommendations). */
   findDistinctAcByUser(userId: string) {
     return prisma.submission.findMany({
       where: { userId, status: "accepted", sampleOnly: false },
@@ -260,7 +245,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find recent error submissions (admin panel). */
   findRecentErrors(take: number) {
     return prisma.submission.findMany({
       where: {
@@ -282,7 +266,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions in a date range (admin stats). */
   findInDateRange(from: Date) {
     return prisma.submission.findMany({
       where: { sampleOnly: false, createdAt: { gte: from } },
@@ -290,7 +273,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Group submissions by status in a date range (admin stats). */
   groupByStatus(from: Date) {
     return prisma.submission.groupBy({
       by: ["status"],
@@ -299,7 +281,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for a course in specific assessments (manage analytics). */
   findByCourseAndAssessments(courseSlug: string, assessmentIds: string[]) {
     return prisma.submission.findMany({
       where: {
@@ -318,7 +299,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Find submissions for a course with assessment details (teacher overview). */
   findByCourseSlugsWith7dStats(courseSlugs: string[], from: Date) {
     return prisma.submission.findMany({
       where: {
@@ -341,7 +321,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Group best scores by user/problem (export CSV). */
   groupBestScores(opts: { assessmentId: string; studentIds: string[]; problemIds: string[] }) {
     if (opts.studentIds.length === 0 || opts.problemIds.length === 0)
       return Promise.resolve([]);
@@ -357,7 +336,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Group failing submissions by problem (admin stats). */
   groupFailuresByProblem(from: Date, take: number) {
     return prisma.submission.groupBy({
       by: ["problemId"],
@@ -381,7 +359,6 @@ export const submissionRepo = {
     });
   },
 
-  /** Complete a submission with full verdict data. */
   complete(id: string, data: Prisma.SubmissionUpdateInput) {
     return prisma.submission.update({
       data,
@@ -392,8 +369,6 @@ export const submissionRepo = {
   create(data: Prisma.SubmissionCreateInput) {
     return prisma.submission.create({ data });
   },
-
-  // ── Transaction variants ──
 
   withTx(tx: TxClient) {
     return {

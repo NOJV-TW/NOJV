@@ -10,7 +10,6 @@ import { getWebEnv } from "$lib/server/env";
 // Validate environment variables eagerly on startup.
 getWebEnv();
 
-// --- Process-level error handlers ---
 const processLogger = createLogger("process");
 
 process.on("unhandledRejection", (reason) => {
@@ -101,9 +100,7 @@ function isContestAllowed(
   searchParams: URLSearchParams,
   ctx: PageLockedContext
 ): boolean {
-  // Contest main page, problems, scoreboard
   if (pathname.startsWith(`/contests/${ctx.contestSlug}`)) return true;
-  // Problem pages with ?contest=slug
   if (pathname.startsWith("/problems/") && searchParams.get("contest") === ctx.contestSlug)
     return true;
   return false;
@@ -117,7 +114,6 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
   const context = await getPageLockedContext(userId);
   pageLockCache.set(userId, { context, expiresAt: now + PAGE_LOCK_CACHE_TTL });
 
-  // Evict stale entries when cache grows too large
   if (pageLockCache.size > PAGE_LOCK_CACHE_MAX) {
     for (const [key, entry] of pageLockCache) {
       if (entry.expiresAt <= now) pageLockCache.delete(key);

@@ -78,13 +78,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   return { problem, form, testcaseSets, workspaceFiles };
 };
 
-// ─── Form action helpers ─────────────────────────────────────────────
-
-/**
- * Wrap a problem-edit form action with the standard pre-action flow:
- * rate-limit → auth → extract problemId. The handler receives a context
- * with `actor`, `problemId`, and `event` already prepared.
- */
 function problemEditAction<T>(
   handler: (ctx: {
     actor: CompletedActorContext;
@@ -103,8 +96,6 @@ function problemEditAction<T>(
     return handler({ actor, problemId, event });
   };
 }
-
-// ─── Form actions ────────────────────────────────────────────────────
 
 export const actions: Actions = {
   update: problemEditAction(async ({ actor, problemId, event }) => {

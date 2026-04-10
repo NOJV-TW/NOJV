@@ -75,8 +75,6 @@ export async function markReportFailed(target: PlagiarismTarget): Promise<void> 
   });
 }
 
-// ─── Route-level plagiarism functions ──────────────────────────────
-
 export interface ResolvedPlagiarismTarget {
   target: PlagiarismTarget;
   courseSlug: string;

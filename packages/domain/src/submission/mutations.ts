@@ -16,8 +16,6 @@ import { requireCourseAssessment } from "../course/mutations";
 
 export type { ActorContext };
 
-// ─── Submission creation ────────────────────────────────────────────
-
 /**
  * Validate constraints and create a queued submission record inside a transaction.
  *

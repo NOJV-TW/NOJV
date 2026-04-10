@@ -31,8 +31,6 @@ export const verdictColor: Record<string, string> = {
   wrong_answer: "text-red-600 dark:text-red-400"
 };
 
-// --- Problem types ---
-
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
   inputFormat: string;
@@ -77,13 +75,9 @@ export interface ProblemDetail extends ProblemOverview {
   }[];
 }
 
-// --- Route helpers ---
-
 export function assessmentPath(courseSlug: string, assessmentSlug: string): string {
   return `/courses/${courseSlug}/assignments/${assessmentSlug}`;
 }
-
-// --- Assessment helpers ---
 
 export type AssessmentWindowState = "upcoming" | "open" | "grace" | "closed";
 

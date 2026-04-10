@@ -9,9 +9,6 @@ export const ipViolationLogRepo = {
     return prisma.ipViolationLog.create({ data });
   },
 
-  /** List violation logs for a contest (admin/teacher view).
-   * Homework assessments no longer have IP lock, so there is no
-   * `assessmentId` branch — only contests generate violations. */
   listByContest(opts: { contestId: string; take: number }) {
     return prisma.ipViolationLog.findMany({
       where: { contestId: opts.contestId },

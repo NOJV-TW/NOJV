@@ -1,7 +1,5 @@
 import { userRepo, type TransactionClient } from "@nojv/db";
 
-// --- Shared helpers ---
-
 export interface EnsureUserInput {
   displayName?: string;
   email?: string;

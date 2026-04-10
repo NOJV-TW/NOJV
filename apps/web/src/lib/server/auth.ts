@@ -13,11 +13,7 @@ import {
   ForbiddenError
 } from "@nojv/domain";
 
-// --- Error classes (re-exported from @nojv/domain) ---
-
 export { HttpError, NotFoundError, ConflictError, ForbiddenError };
-
-// --- Actor context ---
 
 export interface ActorContext {
   displayName: string;
@@ -47,15 +43,11 @@ export function getActorContext(event: RequestEvent): ActorContext | null {
   };
 }
 
-// --- Onboarding helpers ---
-
 export function hasActorUsername<T extends { username: string | null }>(
   actor: T
 ): actor is T & { username: string } {
   return typeof actor.username === "string" && actor.username.length > 0;
 }
-
-// --- Guards ---
 
 /**
  * Require authentication for an API route handler.
@@ -95,8 +87,6 @@ export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[
   }
 }
 
-// --- Course role resolution ---
-
 export function resolveCoursePermissionRole(input: {
   courseRole?: CourseRole | null;
   platformRole: PlatformRole;
@@ -126,8 +116,6 @@ export async function getCoursePermissionRole(courseSlug: string, actor: ActorCo
   const { role } = await resolveCoursePermission(courseSlug, actor);
   return role;
 }
-
-// --- Permission checks ---
 
 export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);

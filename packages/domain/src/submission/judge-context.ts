@@ -18,8 +18,6 @@ import type {
 import { NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
 
-// --- Types ---
-
 export interface TestcaseSetGroup {
   id: string;
   name: string;
@@ -93,8 +91,6 @@ export interface CompletedSubmission {
   status: string;
   userId: string;
 }
-
-// --- Domain functions ---
 
 export async function getJudgeContext(submissionId: string): Promise<SubmissionJudgeContext> {
   const submission = await submissionRepo.findByIdWithJudgeContext(submissionId);
