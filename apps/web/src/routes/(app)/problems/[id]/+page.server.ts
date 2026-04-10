@@ -15,17 +15,21 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const assessment = url.searchParams.get("assessment");
   const contest = url.searchParams.get("contest");
 
-  const problem = await getProblemPageData(id);
+  // All four inputs come from params/url only — fire them in parallel.
+  const [problem, fullTestcaseSets, assessmentContext, contestAllowedLanguages] =
+    await Promise.all([
+      getProblemPageData(id),
+      getProblemTestcaseSets(id),
+      course && assessment ? getAssessmentContext(course, assessment) : null,
+      contest ? getContestAllowedLanguages(contest) : null
+    ]);
 
   if (!problem) {
     error(404, "Problem not found");
   }
 
-  // Load testcase sets so the student description tab can display each
-  // set's name + description ("hidden", "subtask1", etc.) so students
-  // understand the subset's scope. We project away the actual testcase
-  // payloads — students must never see hidden stdin/expected output.
-  const fullTestcaseSets = await getProblemTestcaseSets(id);
+  // Testcase set summaries strip the actual stdin/expected payloads —
+  // students must never see hidden testcase contents.
   const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
     id: set.id,
     name: set.name,
@@ -34,12 +38,6 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     ordinal: set.ordinal,
     caseCount: set.testcases.length
   }));
-
-  // ── Parallel: assessment context + contest languages (independent) ──
-  const [assessmentContext, contestAllowedLanguages] = await Promise.all([
-    course && assessment ? getAssessmentContext(course, assessment) : null,
-    contest ? getContestAllowedLanguages(contest) : null
-  ]);
 
   const backLink = assessmentContext
     ? {
