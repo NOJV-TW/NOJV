@@ -2,8 +2,6 @@ import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from
 
 import { localizeProblem } from "../shared/pick-problem-statement";
 
-// ─── Course manage analytics ────────────────────────────────────────
-
 export async function getCourseManageAnalytics(
   courseSlug: string,
   members: {
@@ -131,7 +129,7 @@ export async function getCourseManageAnalytics(
       slug: assessment.slug,
       title: assessment.title,
       opensAt: assessment.opensAt,
-      dueAt: assessment.dueAt,
+      dueAt: assessment.dueAt ?? null,
       closesAt: assessment.closesAt,
       problemCount: assessment._count.problems,
       participantCount: participants,
@@ -232,8 +230,6 @@ export async function getCourseManageAnalytics(
   };
 }
 
-// ─── Teacher overview ───────────────────────────────────────────────
-
 export async function getTeacherOverview(courseSlugs: string[]) {
   const now = new Date();
   const from7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -301,8 +297,6 @@ export async function getTeacherOverview(courseSlugs: string[]) {
       }))
   };
 }
-
-// ─── Export CSV ─────────────────────────────────────────────────────
 
 export async function getExportData(courseSlug: string, assessmentSlug: string) {
   const course = await courseRepo.findIdBySlug(courseSlug);

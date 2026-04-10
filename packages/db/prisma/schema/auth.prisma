@@ -1,0 +1,110 @@
+// ═══════════════════════════════════════════════════════════════
+// Auth & identity
+//
+// Session / Account / Verification shapes are dictated by the
+// better-auth library — do not modify their fields. User's
+// `platformRole` / `disabled` are our `additionalFields`
+// (configured in apps/web/src/lib/auth.ts) and can evolve.
+//
+// SchoolVerificationToken is our own table for school-email
+// verification; it intentionally does NOT reuse better-auth's
+// Verification table so neither side interferes with the other's
+// cleanup sweeps.
+// ═══════════════════════════════════════════════════════════════
+
+enum PlatformRole {
+  admin
+  teacher
+  student
+}
+
+model User {
+  // Core (better-auth)
+  id              String  @id @default(cuid())
+  email           String  @unique
+  username        String? @unique
+  displayUsername String?
+  name            String
+  emailVerified   Boolean @default(false)
+  image           String?
+
+  // additionalFields (ours)
+  platformRole PlatformRole @default(student)
+  disabled     Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sessions                     Session[]
+  accounts                     Account[]
+  schoolVerifications          SchoolVerificationToken[]
+  submissions                  Submission[]
+  contestParticipations        ContestParticipation[]
+  authoredProblems             Problem[]                 @relation("ProblemAuthor")
+  ownedCourses                 Course[]                  @relation("CourseOwner")
+  courseMemberships            CourseMembership[]        @relation("CourseMembershipUser")
+  createdMemberships           CourseMembership[]        @relation("CourseMembershipCreator")
+  createdJoinTokens            CourseJoinToken[]         @relation("CourseJoinTokenCreator")
+  createdCourseAssessments     CourseAssessment[]        @relation("CourseAssessmentCreator")
+  createdContests              Contest[]                 @relation("ContestCreator")
+  createdAnnouncements         Announcement[]            @relation("AnnouncementCreator")
+  triggeredContestPlagiarisms  Contest[]                 @relation("ContestPlagiarismTriggerer")
+  triggeredAssessmentPlagiarisms CourseAssessment[]      @relation("AssessmentPlagiarismTriggerer")
+  editorials                   Editorial[]
+  ipViolationLogs              IpViolationLog[]
+  dailyActivity                UserDailyActivity[]
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+}
+
+/// Dedicated store for school-email verification tokens.
+/// Decoupled from better-auth's Verification table so neither side
+/// interferes with the other's cleanup sweeps.
+model SchoolVerificationToken {
+  token     String   @id
+  userId    String
+  username  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}

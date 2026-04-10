@@ -1,5 +1,8 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import { Card } from "$lib/components/ui/card";
+  import { Button } from "$lib/components/ui/button";
+  import { CheckCircle2, XCircle } from "@lucide/svelte";
 
   let { data } = $props();
 
@@ -21,20 +24,32 @@
   <title>NOJV</title>
 </svelte:head>
 
-<div
-  class="flex min-h-screen items-center justify-center bg-gradient-to-br from-stone-50 to-orange-50/40 px-4"
->
-  <div
-    class="w-full max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 text-center shadow-sm backdrop-blur-sm"
-  >
+<div class="flex min-h-screen items-center justify-center px-4">
+  <Card variant="elevated" size="hero" class="w-full max-w-sm text-center">
     {#if data.status === "success"}
-      <h1 class="text-xl font-bold text-green-600">{m.verifySchool_success()}</h1>
-      <p class="mt-2 text-sm">
-        {m.verifySchool_successMessage({ username: data.username })}
-      </p>
+      <div class="flex flex-col items-center gap-4">
+        <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-success/15">
+          <CheckCircle2 class="h-8 w-8 text-success" aria-hidden="true" />
+        </div>
+        <h1 class="font-display text-title-lg font-semibold text-success">
+          {m.verifySchool_success()}
+        </h1>
+        <p class="text-body-sm text-muted-foreground">
+          {m.verifySchool_successMessage({ username: data.username })}
+        </p>
+        <Button href="/" variant="default">{m.common_back()}</Button>
+      </div>
     {:else}
-      <h1 class="text-xl font-bold text-red-600">{m.verifySchool_failed()}</h1>
-      <p class="mt-2 text-sm">{data.detail}</p>
+      <div class="flex flex-col items-center gap-4">
+        <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
+          <XCircle class="h-8 w-8 text-destructive" aria-hidden="true" />
+        </div>
+        <h1 class="font-display text-title-lg font-semibold text-destructive">
+          {m.verifySchool_failed()}
+        </h1>
+        <p class="text-body-sm text-muted-foreground">{data.detail}</p>
+        <Button href="/" variant="outline">{m.common_back()}</Button>
+      </div>
     {/if}
-  </div>
+  </Card>
 </div>

@@ -105,7 +105,7 @@
 
 <div class="flex gap-6">
   <!-- Left nav -->
-  <nav class="w-52 shrink-0 rounded-2xl border border-border bg-[color:var(--color-panel)] p-2">
+  <nav class="w-52 shrink-0 rounded-2xl border border-border bg-[color:var(--color-panel)] p-2 shadow-rest">
     <ul class="space-y-1">
       {#each sections as section (section.id)}
         {@const locked = isLocked(section.id)}
@@ -113,7 +113,7 @@
           <Tooltip.Provider delayDuration={200}>
             <Tooltip.Root>
               <Tooltip.Trigger
-                class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition
+                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft
                   {locked
                     ? 'cursor-not-allowed text-muted-foreground/40'
                     : activeSection === section.id
@@ -123,14 +123,14 @@
                 type="button"
                 disabled={locked}
               >
-                <span class="text-base">{section.icon}</span>
+                <span class="text-body">{section.icon}</span>
                 <span class="flex-1 text-left">{section.label}</span>
-                <span class="text-xs text-muted-foreground">{statusBadge(section.id)}</span>
+                <span class="text-caption text-muted-foreground">{statusBadge(section.id)}</span>
               </Tooltip.Trigger>
               {#if locked}
                 <Tooltip.Portal>
                   <Tooltip.Content
-                    class="z-50 max-w-xs rounded-xl border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
+                    class="z-50 max-w-xs rounded-lg border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
                     sideOffset={4}
                   >
                     {m.admin_tabLocked()}
@@ -145,10 +145,10 @@
     </ul>
 
     {#if showPublish}
-      <div class="mt-4 border-t border-border pt-4">
+      <div class="mt-4 border-t border-border-subtle pt-4">
         {#if canPublish}
           <button
-            class="w-full rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-70"
+            class="w-full rounded-full bg-success px-4 py-2 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
             disabled={publishing}
             type="button"
             onclick={() => onpublish?.()}
@@ -159,7 +159,7 @@
           <Tooltip.Provider delayDuration={200}>
             <Tooltip.Root>
               <Tooltip.Trigger
-                class="w-full cursor-not-allowed rounded-full bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground/50"
+                class="w-full cursor-not-allowed rounded-full bg-muted px-4 py-2 text-caption font-semibold text-muted-foreground/50"
                 type="button"
                 onclick={(e: MouseEvent) => e.preventDefault()}
               >
@@ -167,7 +167,7 @@
               </Tooltip.Trigger>
               <Tooltip.Portal>
                 <Tooltip.Content
-                  class="z-50 max-w-xs rounded-xl border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
+                  class="z-50 max-w-xs rounded-lg border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
                   sideOffset={4}
                 >
                   {m.admin_publishTooltip()}
@@ -181,15 +181,15 @@
     {/if}
 
     {#if showConvertToAdvanced}
-      <div class="mt-6 border-t border-border pt-4">
-        <p class="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+      <div class="mt-6 border-t border-border-subtle pt-4">
+        <p class="mb-2 text-micro leading-relaxed text-muted-foreground">
           {m.admin_convertToAdvancedHint()}
         </p>
-        <p class="mb-3 text-[11px] leading-relaxed text-amber-600 dark:text-amber-400">
+        <p class="mb-3 text-micro leading-relaxed text-warning">
           {m.admin_convertToAdvancedInlineWarning()}
         </p>
         <button
-          class="w-full rounded-full border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition hover:border-amber-500 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:border-amber-400 dark:hover:text-amber-400"
+          class="w-full rounded-full border border-border px-4 py-2 text-caption font-medium text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:border-warning hover:text-warning disabled:cursor-not-allowed disabled:opacity-60"
           disabled={converting}
           type="button"
           onclick={openConvertModal}
@@ -229,11 +229,11 @@
         <Dialog.Header>
           <Dialog.Title>{m.admin_convertToAdvanced()}</Dialog.Title>
         </Dialog.Header>
-        <div class="space-y-3 text-sm">
+        <div class="space-y-3 text-body-sm">
           <p class="text-muted-foreground">
             {m.admin_convertToAdvancedDesc()}
           </p>
-          <div class="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+          <div class="rounded-lg border border-warning/40 bg-warning/10 p-3 text-caption text-warning">
             <p class="font-semibold">{m.admin_convertToAdvancedWarningHeader()}</p>
             <ul class="mt-2 list-disc space-y-1 pl-4">
               <li>{m.admin_convertToAdvancedWarningItem1()}</li>
@@ -241,14 +241,14 @@
               <li>{m.admin_convertToAdvancedWarningItem3()}</li>
             </ul>
           </div>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-caption text-muted-foreground">
             {m.admin_convertToAdvancedConfirmHintPrefix()}
-            <code class="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">CONVERT</code>
+            <code class="rounded bg-muted px-1 py-0.5 font-mono text-micro">CONVERT</code>
             {m.admin_convertToAdvancedConfirmHintSuffix()}
           </p>
           <input
             type="text"
-            class="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-primary"
+            class="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-body-sm outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft focus:border-primary"
             placeholder="CONVERT"
             bind:value={convertConfirmText}
             disabled={converting}
@@ -257,7 +257,7 @@
         </div>
         <Dialog.Footer>
           <button
-            class="inline-flex items-center justify-center rounded-full border border-border px-5 py-2.5 text-sm font-medium transition hover:bg-muted"
+            class="inline-flex items-center justify-center rounded-full border border-border px-5 py-2.5 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-muted"
             type="button"
             disabled={converting}
             onclick={cancelConvert}
@@ -265,7 +265,7 @@
             {m.common_cancel()}
           </button>
           <button
-            class="inline-flex items-center justify-center rounded-full bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            class="inline-flex items-center justify-center rounded-full bg-warning px-5 py-2.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-warning/90 disabled:cursor-not-allowed disabled:opacity-50"
             type="button"
             disabled={converting || convertConfirmText !== "CONVERT"}
             onclick={submitConvert}

@@ -17,14 +17,14 @@
   }
 </script>
 
-<div class="flex h-full flex-col gap-1 rounded-xl border border-border bg-[color:var(--color-panel)] p-2">
+<div class="flex h-full flex-col gap-1 rounded-lg border border-border-subtle bg-[color:var(--color-panel)] p-2">
   <div class="mb-1 flex items-center justify-between px-2 pt-1">
-    <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
       Files
     </span>
     <button
       type="button"
-      class="rounded text-xs text-muted-foreground hover:text-foreground"
+      class="rounded text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
       onclick={onadd}
       aria-label="Add file"
     >
@@ -33,7 +33,7 @@
   </div>
 
   {#if files.length === 0}
-    <div class="px-2 py-3 text-center text-xs text-muted-foreground">
+    <div class="px-2 py-3 text-center text-caption text-muted-foreground">
       No files yet.
     </div>
   {:else}
@@ -42,14 +42,14 @@
         <li>
           <button
             type="button"
-            class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-accent {selectedIndex ===
+            class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-body-sm transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent {selectedIndex ===
             index
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground'}"
             onclick={() => onselect(index)}
           >
-            <span class="truncate font-mono text-xs">{file.path || "(unnamed)"}</span>
-            <span class="ml-2 text-xs" aria-label={file.visibility} title={file.visibility}>
+            <span class="truncate font-mono text-caption">{file.path || "(unnamed)"}</span>
+            <span class="ml-2 text-caption" aria-label={file.visibility} title={file.visibility}>
               {iconFor(file.visibility)}
             </span>
           </button>

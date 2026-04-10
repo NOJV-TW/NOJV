@@ -1,26 +1,26 @@
 import {
-  adjustmentRulesSchema,
-  assessmentScoreboardModeSchema,
   contestScoringModeSchema,
   ipLockFormFields,
   languageSchema,
+  scoreboardModeSchema,
   slugSchema
 } from "@nojv/core";
 import { z } from "zod";
 
+// Contest form schema — `maxAttempts` and `adjustmentRules` were removed
+// from the Contest model in the Phase 1 redesign and live only on course
+// homework assessments. The form no longer collects them.
 export const contestFormSchema = z.object({
-  adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseSlug: slugSchema.optional(),
   endsAt: z.string().min(1),
   frozenAt: z.string().optional(),
   inviteCode: z.string().max(32).optional(),
   ...ipLockFormFields,
-  maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   pageLockEnabled: z.boolean().default(false),
   problemIdsText: z.string().min(1),
-  scoreboardMode: assessmentScoreboardModeSchema.default("live"),
-  scoringMode: contestScoringModeSchema.default("icpc"),
+  scoreboardMode: scoreboardModeSchema.default("live"),
+  scoringMode: contestScoringModeSchema.default("problem_count"),
   slug: slugSchema,
   startsAt: z.string().min(1),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),

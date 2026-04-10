@@ -1,8 +1,23 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { Badge } from "$lib/components/ui/badge";
-  import { Megaphone, Plus } from "@lucide/svelte";
+  import { Button, IconButton } from "$lib/components/ui/button";
+  import { Card } from "$lib/components/ui/card";
+  import Section from "$lib/components/ui/Section.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import FormField from "$lib/components/ui/FormField.svelte";
+  import { Input } from "$lib/components/ui/input";
+  import { m } from "$lib/paraglide/messages.js";
+  import {
+    Megaphone,
+    Pencil,
+    Pin,
+    PinOff,
+    Plus,
+    Send,
+    SendHorizonal,
+    Trash2
+  } from "@lucide/svelte";
 
   let { data } = $props();
 
@@ -10,84 +25,95 @@
   let showCreateForm = $state(false);
 </script>
 
-<div class="space-y-6">
-  <div class="flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <h3 class="text-lg font-semibold">Announcements</h3>
-      <span class="rounded-full border border-border px-3 py-1 text-xs font-medium">
-        {data.announcements.length}
-      </span>
-    </div>
-    <button
-      class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
+<Section class="space-y-6">
+  {#snippet header()}
+    <h2 class="inline-flex items-center gap-3">
+      {m.admin_announcementsTitle()}
+      <Badge variant="muted" size="sm">{data.announcements.length}</Badge>
+    </h2>
+    <p>{m.admin_announcementsSubtitle()}</p>
+  {/snippet}
+  {#snippet actions()}
+    <Button
+      variant="default"
+      size="default"
       type="button"
       onclick={() => (showCreateForm = !showCreateForm)}
     >
       <Plus class="h-4 w-4" />
-      New Announcement
-    </button>
-  </div>
+      {m.admin_announcementsNew()}
+    </Button>
+  {/snippet}
 
-  <!-- Create Form -->
   {#if showCreateForm}
-    <div
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
-    >
-      <h3 class="text-lg font-semibold">New Announcement</h3>
-      <form class="mt-4 space-y-3" method="POST" action="?/create" use:enhance>
-        <input
-          class="w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
-          name="title"
-          placeholder="Title"
+    <Card variant="flat" size="md">
+      <h3 class="font-display text-title-sm font-semibold">{m.admin_announcementsNew()}</h3>
+      <form class="space-y-4" method="POST" action="?/create" use:enhance>
+        <FormField label={m.admin_announcementsFieldTitle()} for="create-title" required>
+          <Input
+            id="create-title"
+            name="title"
+            placeholder={m.admin_announcementsFieldTitle()}
+            required
+          />
+        </FormField>
+        <FormField
+          label={m.admin_announcementsFieldContent()}
+          hint={m.admin_announcementsMarkdownHint()}
+          for="create-content"
           required
-        />
-        <textarea
-          class="w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
-          name="content"
-          placeholder="Content (Markdown supported)"
-          required
-          rows="4"
-        ></textarea>
+        >
+          <textarea
+            id="create-content"
+            class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            name="content"
+            placeholder={m.admin_announcementsFieldContent()}
+            required
+            rows="4"
+          ></textarea>
+        </FormField>
         <div class="flex flex-wrap items-center gap-4">
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="pinned" />
-            Pinned
+          <label class="flex items-center gap-2 text-body-sm">
+            <input type="checkbox" name="pinned" class="size-4" />
+            {m.admin_announcementsPinned()}
           </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="published" />
-            Published
+          <label class="flex items-center gap-2 text-body-sm">
+            <input type="checkbox" name="published" class="size-4" />
+            {m.admin_announcementsPublished()}
           </label>
         </div>
-        <button
-          class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-          type="submit"
-        >
-          Create Announcement
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button type="submit" variant="default">
+            {m.admin_announcementsCreate()}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onclick={() => (showCreateForm = false)}
+          >
+            {m.common_cancel()}
+          </Button>
+        </div>
       </form>
-    </div>
+    </Card>
   {/if}
 
-  <!-- Announcements List -->
-  <div
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
-  >
+  <Card variant="surface" size="lg">
     {#if data.announcements.length === 0}
       <EmptyState
+        variant="onboarding"
         icon={Megaphone}
-        title="No announcements yet"
-        description="Create your first announcement to keep users informed."
+        title={m.admin_announcementsEmpty()}
+        description={m.admin_announcementsEmptyHint()}
       />
     {:else}
-      <div class="mt-4 space-y-3">
+      <div class="space-y-3">
         {#each data.announcements as ann (ann.id)}
-          <article
-            class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-5 py-4"
-          >
+          <article class="rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4">
             {#if editingId === ann.id}
               <!-- Edit mode -->
               <form
-                class="space-y-3"
+                class="space-y-4"
                 method="POST"
                 action="?/update"
                 use:enhance={() => {
@@ -98,109 +124,141 @@
                 }}
               >
                 <input type="hidden" name="id" value={ann.id} />
-                <input
-                  class="w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
-                  name="title"
-                  value={ann.title}
+                <FormField label={m.admin_announcementsFieldTitle()} for="edit-title-{ann.id}" required>
+                  <Input
+                    id="edit-title-{ann.id}"
+                    name="title"
+                    value={ann.title}
+                    required
+                  />
+                </FormField>
+                <FormField
+                  label={m.admin_announcementsFieldContent()}
+                  hint={m.admin_announcementsMarkdownHint()}
+                  for="edit-content-{ann.id}"
                   required
-                />
-                <textarea
-                  class="w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
-                  name="content"
-                  rows="4"
-                  required
-                >{ann.content}</textarea>
+                >
+                  <textarea
+                    id="edit-content-{ann.id}"
+                    class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    name="content"
+                    rows="4"
+                    required
+                  >{ann.content}</textarea>
+                </FormField>
                 <div class="flex flex-wrap items-center gap-4">
-                  <label class="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="pinned" checked={ann.pinned} />
-                    Pinned
+                  <label class="flex items-center gap-2 text-body-sm">
+                    <input type="checkbox" name="pinned" checked={ann.pinned} class="size-4" />
+                    {m.admin_announcementsPinned()}
                   </label>
-                  <label class="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="published" checked={ann.published} />
-                    Published
+                  <label class="flex items-center gap-2 text-body-sm">
+                    <input
+                      type="checkbox"
+                      name="published"
+                      checked={ann.published}
+                      class="size-4"
+                    />
+                    {m.admin_announcementsPublished()}
                   </label>
                 </div>
-                <div class="flex gap-2">
-                  <button
-                    class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-                    type="submit"
-                  >
-                    Save
-                  </button>
-                  <button
-                    class="rounded-full border border-border px-4 py-2 text-sm transition hover:-translate-y-0.5"
+                <div class="flex flex-wrap items-center gap-2">
+                  <Button type="submit" variant="default">{m.common_save()}</Button>
+                  <Button
                     type="button"
+                    variant="ghost"
                     onclick={() => (editingId = null)}
                   >
-                    Cancel
-                  </button>
+                    {m.common_cancel()}
+                  </Button>
                 </div>
               </form>
             {:else}
               <!-- View mode -->
               <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <h4 class="text-base font-semibold">{ann.title}</h4>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h4 class="text-body-lg font-semibold">{ann.title}</h4>
                     {#if ann.pinned}
-                      <Badge variant="default">Pinned</Badge>
+                      <Badge variant="warning" size="xs" dot>
+                        {m.admin_announcementsPinned()}
+                      </Badge>
                     {/if}
                     {#if ann.published}
-                      <Badge variant="secondary">Published</Badge>
+                      <Badge variant="success" size="xs">{m.admin_announcementsPublished()}</Badge>
                     {:else}
-                      <Badge variant="outline">Draft</Badge>
+                      <Badge variant="outline" size="xs">{m.admin_announcementsDraft()}</Badge>
                     {/if}
                   </div>
-                  <p class="mt-2 text-sm whitespace-pre-wrap text-muted-foreground">
+                  <p class="mt-2 text-body-sm whitespace-pre-wrap text-muted-foreground">
                     {ann.content.length > 200 ? ann.content.slice(0, 200) + "..." : ann.content}
                   </p>
-                  <p class="mt-2 text-xs text-muted-foreground">
-                    Created: {new Date(ann.createdAt).toLocaleString()} &middot;
-                    Updated: {new Date(ann.updatedAt).toLocaleString()}
+                  <p class="mt-2 text-caption text-muted-foreground">
+                    {m.admin_announcementsCreated()}: {new Date(ann.createdAt).toLocaleString()} &middot;
+                    {m.admin_announcementsUpdated()}: {new Date(ann.updatedAt).toLocaleString()}
                   </p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
-                  <button
-                    class="rounded-full border border-border px-3 py-1 text-xs transition hover:-translate-y-0.5 hover:bg-accent"
-                    type="button"
+                  <IconButton
+                    label={m.common_edit()}
+                    variant="ghost"
+                    size="sm"
                     onclick={() => (editingId = ann.id)}
                   >
-                    Edit
-                  </button>
+                    <Pencil class="h-4 w-4" />
+                  </IconButton>
                   <form method="POST" action="?/togglePin" use:enhance>
                     <input type="hidden" name="id" value={ann.id} />
-                    <button
-                      class="rounded-full border border-border px-3 py-1 text-xs transition hover:-translate-y-0.5 hover:bg-accent"
+                    <IconButton
                       type="submit"
+                      variant="ghost"
+                      size="sm"
+                      label={ann.pinned
+                        ? m.admin_announcementsUnpin()
+                        : m.admin_announcementsPin()}
                     >
-                      {ann.pinned ? "Unpin" : "Pin"}
-                    </button>
+                      {#if ann.pinned}
+                        <PinOff class="h-4 w-4" />
+                      {:else}
+                        <Pin class="h-4 w-4" />
+                      {/if}
+                    </IconButton>
                   </form>
                   <form method="POST" action="?/togglePublish" use:enhance>
                     <input type="hidden" name="id" value={ann.id} />
-                    <button
-                      class="rounded-full border border-border px-3 py-1 text-xs transition hover:-translate-y-0.5 hover:bg-accent"
+                    <IconButton
                       type="submit"
+                      variant="ghost"
+                      size="sm"
+                      label={ann.published
+                        ? m.admin_announcementsUnpublish()
+                        : m.admin_announcementsPublish()}
                     >
-                      {ann.published ? "Unpublish" : "Publish"}
-                    </button>
+                      {#if ann.published}
+                        <Send class="h-4 w-4" />
+                      {:else}
+                        <SendHorizonal class="h-4 w-4" />
+                      {/if}
+                    </IconButton>
                   </form>
                   <form
                     method="POST"
                     action="?/delete"
                     use:enhance={({ cancel }) => {
-                      if (!confirm("Delete this announcement?")) {
+                      if (!confirm(m.admin_announcementsDeleteConfirm())) {
                         cancel();
                       }
                     }}
                   >
                     <input type="hidden" name="id" value={ann.id} />
-                    <button
-                      class="rounded-full border border-border px-3 py-1 text-xs text-red-600 dark:text-red-400 transition hover:-translate-y-0.5 hover:bg-destructive/10"
+                    <IconButton
                       type="submit"
+                      variant="ghost"
+                      size="sm"
+                      label={m.common_delete()}
+                      class="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     >
-                      Delete
-                    </button>
+                      <Trash2 class="h-4 w-4" />
+                    </IconButton>
                   </form>
                 </div>
               </div>
@@ -209,5 +267,5 @@
         {/each}
       </div>
     {/if}
-  </div>
-</div>
+  </Card>
+</Section>

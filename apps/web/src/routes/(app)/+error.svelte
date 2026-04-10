@@ -2,22 +2,19 @@
   import { page } from "$app/state";
   import { AlertTriangle } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+
+  const description = $derived(
+    page.error?.message ? `${page.status} — ${page.error.message}` : `${page.status}`
+  );
 </script>
 
-<div
-  class="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center gap-6 text-center"
->
-  <div class="rounded-full bg-destructive/10 p-4">
-    <AlertTriangle class="h-10 w-10 text-destructive" />
-  </div>
-  <div class="space-y-2">
-    <p class="font-mono text-sm text-muted-foreground">{page.status}</p>
-    <h1 class="text-2xl font-semibold">{page.error?.message ?? m.error_unexpected()}</h1>
-  </div>
-  <a
-    href="/"
-    class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-  >
-    {m.error_backHome()}
-  </a>
+<div class="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
+  <EmptyState
+    icon={AlertTriangle}
+    variant="onboarding"
+    title={m.error_unexpected()}
+    {description}
+    actions={[{ href: "/", label: m.error_backHome(), variant: "default" }]}
+  />
 </div>

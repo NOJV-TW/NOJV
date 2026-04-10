@@ -10,22 +10,19 @@ import {
   type TransactionClient
 } from "@nojv/db";
 import type {
-  AdvancedResourceLimits,
   Language,
   PlatformRole,
   ProblemCreate,
-  ProblemDifficulty,
   ProblemImageSource,
-  ProblemMode,
   ProblemStatus,
   ProblemTestcaseSetCreate,
+  ProblemType,
   ProblemUpdate,
   ProblemVisibility,
-  SubmissionType,
   TestcaseSetUpdate,
   TestcaseUpdate
 } from "@nojv/core";
-import { DEFAULT_LOCALE, entryFileNameFor } from "@nojv/core";
+import { DEFAULT_LOCALE, entryFileNameFor, problemDifficulties } from "@nojv/core";
 
 import {
   ConflictError,
@@ -36,76 +33,77 @@ import {
 import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
-// ─── Actor context (domain-level, no SvelteKit dependency) ──────────
-
-/**
- * Minimal actor context required by problem mutations.
- * Mirrors the CompletedActorContext from apps/web but without SvelteKit coupling.
- */
 export interface ProblemActorContext {
   userId: string;
   username: string;
   platformRole: PlatformRole;
 }
 
-// ─── Input types ────────────────────────────────────────────────────
+/**
+ * Callers still send a `difficulty` form field (dropdown UX), but it's
+ * persisted as a tag — splice it back into the tag list so the row always
+ * has exactly one of {easy, medium, hard}.
+ */
+function mergeDifficultyTag(
+  baseTags: string[] | undefined,
+  difficulty: string | undefined
+): string[] {
+  const stripped = (baseTags ?? []).filter(
+    (tag) => !(problemDifficulties as readonly string[]).includes(tag)
+  );
+  if (difficulty && (problemDifficulties as readonly string[]).includes(difficulty)) {
+    return [difficulty, ...stripped];
+  }
+  return stripped;
+}
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
-  difficulty: ProblemDifficulty;
+  /** Stored as a tag entry; not its own column. */
+  difficulty?: string | undefined;
   inputFormat?: string | undefined;
   judgeConfig?: unknown;
   memoryLimitMb?: number | undefined;
   outputFormat?: string | undefined;
   statement?: string | undefined;
   status?: ProblemStatus | undefined;
-  submissionType?: SubmissionType | undefined;
-  summary: string;
   tags?: string[] | undefined;
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
-  // Phase 1 redesign: mode + advanced image/resource fields
-  mode?: ProblemMode | undefined;
+  // Phase 1 redesign: ProblemType is the single source of truth.
+  type?: ProblemType | undefined;
+  /** Only meaningful when type = special_env. Otherwise ignored. */
+  networkEnabled?: boolean | undefined;
   advancedImageRef?: string | undefined;
   advancedImageSource?: ProblemImageSource | undefined;
-  advancedResourceLimits?: AdvancedResourceLimits | undefined;
 }
-
-// ─── Shared problem helpers ─────────────────────────────────────────
 
 export async function createProblemDefinition(
   tx: TransactionClient,
   input: CreateProblemDefinitionInput
 ) {
-  const mode: ProblemMode = input.mode ?? "standard";
+  const type: ProblemType = input.type ?? "full_source";
+  const tags = mergeDifficultyTag(input.tags, input.difficulty);
+
   const createData: Prisma.ProblemUncheckedCreateInput = {
     authorId: input.authorId ?? null,
-    defaultTitle: input.title,
-    difficulty: input.difficulty,
+    title: input.title,
     memoryLimitMb: input.memoryLimitMb ?? 256,
-    mode,
+    networkEnabled: type === "special_env" ? (input.networkEnabled ?? false) : false,
     samples: Prisma.JsonNull,
     status: input.status ?? "published",
-    submissionType: input.submissionType ?? "full_source",
-    summary: input.summary,
-    tags: input.tags ?? [],
+    tags,
     timeLimitMs: input.timeLimitMs ?? 1_000,
+    type,
     visibility: input.visibility ?? "public"
   };
   if (input.judgeConfig !== undefined) {
     createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
   }
-  if (mode === "advanced") {
+  if (type === "special_env") {
     createData.advancedImageRef = input.advancedImageRef ?? "";
     createData.advancedImageSource = input.advancedImageSource ?? "registry";
-    createData.advancedResourceLimits = (input.advancedResourceLimits ?? {
-      totalTimeMs: 30_000,
-      memoryMb: 512,
-      networkEnabled: false
-    }) satisfies Prisma.InputJsonValue;
-  } else {
-    createData.advancedResourceLimits = Prisma.JsonNull;
   }
   const problem = await problemRepo.withTx(tx).create(createData);
 
@@ -157,11 +155,6 @@ function assertProblemOwnership(
   }
 }
 
-/**
- * Public helper: verify `actor` may edit `problemId`. Intended for callers
- * (e.g. image upload endpoints) that need the ownership check without
- * performing a DB mutation. Throws `NotFoundError` or `ForbiddenError`.
- */
 export async function assertProblemEditAccess(
   actor: ProblemActorContext,
   problemId: string
@@ -169,6 +162,33 @@ export async function assertProblemEditAccess(
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   assertProblemOwnership(problem, actor);
+}
+
+// Every listed language must have an editable main.<ext> workspace file,
+// otherwise students in that language have no entry file to submit.
+export async function assertProblemHasWorkspaceForLanguages(
+  tx: TransactionClient,
+  problemId: string,
+  allowedLanguages: Language[]
+): Promise<void> {
+  if (allowedLanguages.length === 0) return;
+
+  const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problemId);
+
+  const missing: Language[] = [];
+  for (const language of allowedLanguages) {
+    const entryPath = entryFileNameFor(language);
+    const hasEntry = workspaceFiles.some(
+      (f) => f.language === language && f.path === entryPath && f.visibility === "editable"
+    );
+    if (!hasEntry) missing.push(language);
+  }
+
+  if (missing.length > 0) {
+    throw new ValidationError(
+      `Problem ${problemId} is missing editable main.<ext> files for: ${missing.join(", ")}.`
+    );
+  }
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
@@ -185,21 +205,19 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
     const problem = await createProblemDefinition(tx, {
       advancedImageRef: payload.advancedImageRef,
       advancedImageSource: payload.advancedImageSource,
-      advancedResourceLimits: payload.advancedResourceLimits,
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
       judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
-      mode: payload.mode,
+      networkEnabled: payload.networkEnabled,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
       status: payload.status,
-      submissionType: payload.submissionType,
-      summary: payload.summary,
       tags: payload.tags,
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
+      type: payload.type,
       visibility: payload.visibility
     });
 
@@ -219,26 +237,47 @@ export async function updateProblemRecord(
 
     // Build the problem update data — only include fields that were provided
     const updateData: Record<string, unknown> = {};
-    if (payload.title !== undefined) updateData.defaultTitle = payload.title;
-    if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
+    if (payload.title !== undefined) updateData.title = payload.title;
     if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
-    if (payload.tags !== undefined) updateData.tags = payload.tags;
-    if (payload.submissionType !== undefined)
-      updateData.submissionType = payload.submissionType;
     if (payload.timeLimitMs !== undefined) updateData.timeLimitMs = payload.timeLimitMs;
     if (payload.memoryLimitMb !== undefined) updateData.memoryLimitMb = payload.memoryLimitMb;
-    if (payload.summary !== undefined) updateData.summary = payload.summary;
     if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
     if (payload.status !== undefined) updateData.status = payload.status;
-    if (payload.mode !== undefined) updateData.mode = payload.mode;
+    if (payload.type !== undefined) updateData.type = payload.type;
+    if (payload.networkEnabled !== undefined) {
+      updateData.networkEnabled = payload.networkEnabled;
+    }
     if (payload.samples !== undefined) updateData.samples = payload.samples;
     if (payload.advancedImageRef !== undefined)
       updateData.advancedImageRef = payload.advancedImageRef;
     if (payload.advancedImageSource !== undefined)
       updateData.advancedImageSource = payload.advancedImageSource;
-    if (payload.advancedResourceLimits !== undefined)
-      updateData.advancedResourceLimits =
-        payload.advancedResourceLimits as Prisma.InputJsonValue;
+
+    // Special-env invariant: the create path's zod `superRefine` enforces
+    // `type === "special_env"` ⟺ (advancedImageRef && advancedImageSource),
+    // but `problemUpdateSchema.partial()` strips the refine (ZodEffects
+    // can't be partialed). Re-derive the merged row and check manually.
+    const mergedType = (payload.type ?? problem.type) as ProblemType;
+    const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
+    const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
+    const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);
+    if (mergedType === "special_env" && !hasImage) {
+      throw new ValidationError(
+        "special_env problems require both advancedImageRef and advancedImageSource."
+      );
+    }
+    if (mergedType !== "special_env" && hasImage) {
+      throw new ValidationError(
+        "advancedImageRef / advancedImageSource are only allowed on special_env problems."
+      );
+    }
+
+    // Tags + difficulty: rebuild whenever either field is provided so
+    // the difficulty tag stays consistent with the rest of the list.
+    if (payload.tags !== undefined || payload.difficulty !== undefined) {
+      const baseTags = payload.tags ?? problem.tags;
+      updateData.tags = mergeDifficultyTag(baseTags, payload.difficulty);
+    }
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -259,7 +298,7 @@ export async function updateProblemRecord(
           locale: DEFAULT_LOCALE,
           outputFormat: payload.outputFormat ?? "",
           problemId: problem.id,
-          title: payload.title ?? problem.defaultTitle
+          title: payload.title ?? problem.title
         },
         {
           ...(payload.statement !== undefined ? { bodyMarkdown: payload.statement } : {}),
@@ -274,16 +313,8 @@ export async function updateProblemRecord(
   });
 }
 
-/**
- * Convert a Standard Mode problem to Advanced Mode. The conversion is
- * intentionally data-lossy: workspace files, testcase sets (and their
- * testcases via cascade), `samples`, and `judgeConfig` are discarded and
- * Advanced Mode defaults (empty image ref, registry source, default
- * resource limits) are written. The UI shows an explicit warning before
- * calling this.
- *
- * Throws `ConflictError` if the problem is already in advanced mode.
- */
+// Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
+// discarded. The UI shows an explicit warning before calling this.
 export async function convertProblemToAdvancedMode(
   actor: ProblemActorContext,
   problemId: string
@@ -292,8 +323,8 @@ export async function convertProblemToAdvancedMode(
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    if (problem.mode === "advanced") {
-      throw new ConflictError("Problem is already in advanced mode.");
+    if (problem.type === "special_env") {
+      throw new ConflictError("Problem is already a special_env problem.");
     }
 
     // Drop workspace files and testcase sets. Testcases cascade via the
@@ -301,29 +332,20 @@ export async function convertProblemToAdvancedMode(
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     await testcaseSetRepo.withTx(tx).deleteByProblemId(problem.id);
 
-    // Advanced Mode ignores judgeConfig, but the column is `Json?` and
-    // callers still read it; write a minimal valid value rather than
-    // leaving whatever standard-mode config was there.
+    // special_env mode ignores judgeConfig in the runner, but the column
+    // is `Json?` and other call sites still read it; write a minimal
+    // valid value rather than leaving the previous standard-mode config.
     const resetJudgeConfig = {
-      type: "standard",
-      runtime: {
-        timeLimitMs: 30_000,
-        memoryLimitMb: 512,
-        env: {}
-      }
+      type: "standard"
     } satisfies Prisma.InputJsonValue;
 
     await problemRepo.withTx(tx).update(problem.id, {
-      mode: "advanced",
+      type: "special_env",
+      networkEnabled: false,
       samples: Prisma.JsonNull,
       judgeConfig: resetJudgeConfig,
       advancedImageRef: "",
-      advancedImageSource: "registry",
-      advancedResourceLimits: {
-        totalTimeMs: 30_000,
-        memoryMb: 512,
-        networkEnabled: false
-      } satisfies Prisma.InputJsonValue
+      advancedImageSource: "registry"
     });
   });
 }
@@ -345,23 +367,10 @@ export interface UpdateWorkspacePayload {
   }[];
 }
 
-/**
- * Soft quota enforced on every workspace save: each `(problem, language)`
- * pair is capped at 1 MB of total UTF-8 content across all files. The
- * per-file 200 KB cap is enforced earlier via the zod schema in
- * `@nojv/core`; this constant is the per-language aggregate.
- */
-const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576; // 1 MB
+// 1 MB aggregate cap per (problem, language); the per-file 200 KB cap is
+// enforced earlier via the zod schema in `@nojv/core`.
+const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 
-/**
- * Replace the workspace files for a problem and (optionally) update the
- * runtime config + allowed languages on the judge config.
- *
- * Replacement is wholesale: the existing ProblemWorkspaceFile rows are
- * deleted and the new list is inserted. This keeps the API simple for
- * callers and matches how the editor actually works (the whole payload
- * is sent on save).
- */
 export async function updateProblemWorkspace(
   actor: ProblemActorContext,
   problemId: string,
@@ -464,11 +473,6 @@ export interface AdvancedTestcasePayload {
   files: Record<string, string>;
 }
 
-/**
- * Replace the Advanced Mode testcase bag for a problem. Wholesale
- * replacement keeps the API simple for the UI (which ships the whole
- * list on save).
- */
 export async function replaceAdvancedTestcases(
   actor: ProblemActorContext,
   problemId: string,
@@ -506,10 +510,20 @@ export async function createProblemTestcaseSetRecord(
 
     assertProblemOwnership(problem, actor);
 
+    // TestcaseSet has @@unique([problemId, ordinal]) + ordinal defaults to 0,
+    // so every call without an explicit ordinal would collide. Compute the
+    // next slot by reading the current max within the transaction.
+    const { _max } = await tx.testcaseSet.aggregate({
+      where: { problemId: problem.id },
+      _max: { ordinal: true }
+    });
+    const nextOrdinal = (_max.ordinal ?? -1) + 1;
+
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
       name: payload.name,
       problemId: problem.id,
-      weight: payload.weight
+      weight: payload.weight,
+      ordinal: nextOrdinal
     });
 
     await testcaseRepo.withTx(tx).createMany(

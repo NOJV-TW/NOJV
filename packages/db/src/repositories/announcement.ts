@@ -2,23 +2,31 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 
 export const announcementRepo = {
-  /** List published announcements (pinned first, then newest). */
   listPublished(take: number) {
+    const now = new Date();
     return prisma.announcement.findMany({
-      orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      where: {
+        status: "published",
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+      },
+      orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+      include: { translations: true },
       take
     });
   },
 
-  /** List all announcements for admin management. */
   listAll() {
     return prisma.announcement.findMany({
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      include: { translations: true }
     });
   },
 
   findById(id: string) {
-    return prisma.announcement.findUnique({ where: { id } });
+    return prisma.announcement.findUnique({
+      where: { id },
+      include: { translations: true }
+    });
   },
 
   findPinnedStatus(id: string) {
@@ -28,10 +36,10 @@ export const announcementRepo = {
     });
   },
 
-  findPublishedStatus(id: string) {
+  findStatus(id: string) {
     return prisma.announcement.findUnique({
       where: { id },
-      select: { published: true }
+      select: { status: true }
     });
   },
 

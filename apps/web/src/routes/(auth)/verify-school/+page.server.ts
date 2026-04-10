@@ -1,11 +1,8 @@
-import { z } from "zod";
 import { verificationDomain } from "@nojv/domain";
 
 import type { PageServerLoad } from "./$types";
 
 const { processSchoolVerification } = verificationDomain;
-
-const verificationDataSchema = z.object({ username: z.string().min(1) });
 
 export const load: PageServerLoad = async ({ url }) => {
   const token = url.searchParams.get("token");
@@ -14,8 +11,9 @@ export const load: PageServerLoad = async ({ url }) => {
     return { status: "error" as const, detail: "缺少驗證 token" };
   }
 
-  return processSchoolVerification(token, (value: string) => {
-    const parsed = verificationDataSchema.safeParse(JSON.parse(value));
-    return parsed.success ? parsed.data : null;
-  });
+  // The token itself now carries the username — no parseData callback
+  // is needed because SchoolVerificationToken rows store username
+  // directly instead of encoding it into the opaque better-auth
+  // verification record.
+  return processSchoolVerification(token);
 };

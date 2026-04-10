@@ -1,15 +1,10 @@
-import { z } from "zod";
-
-export const dailyActivitySchema = z.object({
-  date: z.string(),
-  acCount: z.number().int().nonnegative()
-});
-
-export const dailyActivityArraySchema = z.array(dailyActivitySchema);
-
-export const languageDistSchema = z.record(z.string(), z.number().int().nonnegative());
-export const difficultyDistSchema = z.record(z.string(), z.number().int().nonnegative());
-
-export type DailyActivity = z.infer<typeof dailyActivitySchema>;
-export type LanguageDist = z.infer<typeof languageDistSchema>;
-export type DifficultyDist = z.infer<typeof difficultyDistSchema>;
+// The former `UserStats` denorm table (totalAc / totalAttempts /
+// lastSubmittedAt) was deleted in the Phase 2 data-model cleanup —
+// those three aggregates are now computed on-demand from the
+// Submission table. Per-language and per-difficulty breakdowns are
+// likewise computed on-demand, and daily activity lives in its own
+// `UserDailyActivity` table (one row per user per calendar day).
+//
+// This file is kept as an empty module so the `@nojv/core` re-export
+// barrel does not need to change in lockstep with downstream cleanup.
+export {};

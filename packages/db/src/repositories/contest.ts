@@ -18,7 +18,6 @@ export const contestRepo = {
     return prisma.contest.findUnique({ where: { slug } });
   },
 
-  /** Find contest by ID with course slug (plagiarism). */
   findByIdWithCourseSlug(id: string) {
     return prisma.contest.findUnique({
       where: { id },
@@ -47,7 +46,6 @@ export const contestRepo = {
     });
   },
 
-  /** List public contests with counts. */
   listPublished() {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -59,7 +57,6 @@ export const contestRepo = {
     });
   },
 
-  /** List contests for a course. */
   listByCourseSlug(courseSlug: string) {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -71,7 +68,6 @@ export const contestRepo = {
     });
   },
 
-  /** Fetch contest detail with problems and participant count. */
   findDetailBySlug(slug: string) {
     return prisma.contest.findUnique({
       include: {
@@ -88,7 +84,6 @@ export const contestRepo = {
     });
   },
 
-  /** Fetch contest workspace data including user participation. */
   findWorkspaceBySlug(slug: string, userId: string) {
     return prisma.contest.findUnique({
       include: {
@@ -109,7 +104,6 @@ export const contestRepo = {
     });
   },
 
-  /** Fetch contest with scoreboard data (problems + active participants). */
   findForScoreboard(slug: string) {
     return prisma.contest.findUnique({
       include: {
@@ -128,7 +122,6 @@ export const contestRepo = {
     });
   },
 
-  /** Fetch contest with participations for chart data. */
   findForChart(slug: string, userIds: string[]) {
     return prisma.contest.findUnique({
       select: {
@@ -142,7 +135,6 @@ export const contestRepo = {
     });
   },
 
-  /** Fetch contest info for temporal activities. */
   findInfoById(id: string) {
     return prisma.contest.findUniqueOrThrow({
       select: {
@@ -155,7 +147,6 @@ export const contestRepo = {
     });
   },
 
-  /** Find active page-locked contest for a user. */
   findPageLockedForUser(userId: string, now: Date) {
     return prisma.contest.findFirst({
       where: {
@@ -174,7 +165,6 @@ export const contestRepo = {
     });
   },
 
-  /** Find a participation record for IP lock checks. */
   findParticipation(contestId: string, userId: string) {
     return prisma.contestParticipation.findUnique({
       select: { id: true, boundIp: true },
@@ -195,12 +185,9 @@ export const contestRepo = {
     });
   },
 
-  /** Run raw query for DB health check. */
   healthCheck() {
     return prisma.$queryRaw`SELECT 1`;
   },
-
-  // ── Transaction variants ──
 
   withTx(tx: TxClient) {
     return {

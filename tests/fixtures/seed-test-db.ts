@@ -6,13 +6,11 @@ import { testPrisma } from "./factories";
  * TRUNCATE ... CASCADE handles foreign key dependencies.
  */
 const TABLES = [
-  "PlagiarismReport",
   "Submission",
   "ContestParticipation",
   "ContestProblem",
   "CourseAssessmentProblem",
   "CourseAssessment",
-  "CourseProblem",
   "CourseJoinToken",
   "CourseMembership",
   "Course",

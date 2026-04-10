@@ -1,5 +1,5 @@
 import type { Compare } from "./schemas/judge-config";
-import type { JudgeType, Language, SubmissionType } from "./types";
+import type { JudgeType, Language, ProblemType } from "./types";
 
 // --- Sandbox request ---
 
@@ -42,7 +42,7 @@ export interface SandboxRequest {
   sourceFiles?: SandboxSourceFile[];
   entryFile?: string;
   language: Language;
-  submissionType: SubmissionType;
+  problemType: ProblemType;
   testcases: SandboxTestcase[];
   judgeType: JudgeType;
   judgeConfig: {

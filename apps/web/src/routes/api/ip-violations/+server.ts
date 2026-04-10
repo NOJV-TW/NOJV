@@ -4,16 +4,17 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { listIpViolations } from "@nojv/domain";
+import { listContestIpViolations } from "@nojv/domain";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const contestId = event.url.searchParams.get("contestId");
-  const assessmentId = event.url.searchParams.get("assessmentId");
 
-  if (!contestId && !assessmentId) {
-    return json({ error: "contestId or assessmentId required" }, { status: 400 });
+  // Homework assessments no longer have IP lock — only contests log
+  // violations now. Reject any caller still passing `assessmentId`.
+  if (!contestId) {
+    return json({ error: "contestId required" }, { status: 400 });
   }
 
   // Only admins/teachers can view violation logs
@@ -21,10 +22,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     return json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const violations = await listIpViolations({
-    ...(contestId ? { contestId } : {}),
-    ...(assessmentId ? { assessmentId } : {})
-  });
+  const violations = await listContestIpViolations({ contestId });
 
   return json({ violations });
 });

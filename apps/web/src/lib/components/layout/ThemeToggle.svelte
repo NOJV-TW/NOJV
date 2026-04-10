@@ -1,6 +1,8 @@
 <script lang="ts">
   import SunIcon from "@lucide/svelte/icons/sun";
   import MoonIcon from "@lucide/svelte/icons/moon";
+  import { IconButton } from "$lib/components/ui/button/index.js";
+  import { m } from "$lib/paraglide/messages.js";
 
   let isDark = $state(false);
 
@@ -20,16 +22,16 @@
   });
 </script>
 
-<button
-  class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border transition hover:-translate-y-0.5 hover:bg-accent"
+<IconButton
+  variant="ghost"
+  size="lg"
+  label={isDark ? m.theme_switchToLight() : m.theme_switchToDark()}
+  title={isDark ? m.theme_switchToLight() : m.theme_switchToDark()}
   onclick={toggle}
-  title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-  type="button"
-  aria-label="Toggle theme"
 >
   {#if isDark}
-    <SunIcon size={16} />
+    <SunIcon class="size-4" />
   {:else}
-    <MoonIcon size={16} />
+    <MoonIcon class="size-4" />
   {/if}
-</button>
+</IconButton>

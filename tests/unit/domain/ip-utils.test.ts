@@ -12,16 +12,13 @@ vi.mock("@nojv/db", () => ({
   },
   contestParticipationIpRepo: {
     withTx: () => ({ updateBoundIp: vi.fn() })
-  },
-  assessmentParticipationIpRepo: {
-    withTx: () => ({ updateBoundIp: vi.fn() })
   }
 }));
 
 import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
 
 const fakeTx = {} as never;
-const fakeContext = { userId: "usr_test" };
+const fakeContext = { userId: "usr_test", contestId: "con_test" };
 
 describe("isIpInCidr", () => {
   it("matches an IP inside a /24 range", () => {
@@ -72,8 +69,7 @@ describe("checkIpLock — whitelist", () => {
       },
       "1.2.3.4",
       null,
-      fakeContext,
-      "contestParticipation"
+      fakeContext
     );
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).not.toHaveBeenCalled();
@@ -91,8 +87,7 @@ describe("checkIpLock — whitelist", () => {
       },
       "1.2.3.4",
       null,
-      fakeContext,
-      "contestParticipation"
+      fakeContext
     );
     expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).toHaveBeenCalledTimes(1);
@@ -110,8 +105,7 @@ describe("checkIpLock — whitelist", () => {
       },
       "10.1.2.3",
       null,
-      fakeContext,
-      "contestParticipation"
+      fakeContext
     );
     expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).not.toHaveBeenCalled();
@@ -129,8 +123,7 @@ describe("checkIpLock — whitelist", () => {
       },
       "1.2.3.4",
       null,
-      fakeContext,
-      "contestParticipation"
+      fakeContext
     );
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).not.toHaveBeenCalled();
@@ -148,8 +141,7 @@ describe("checkIpLock — whitelist", () => {
       },
       "1.2.3.4",
       null,
-      fakeContext,
-      "contestParticipation"
+      fakeContext
     );
     expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).not.toHaveBeenCalled();

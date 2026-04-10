@@ -2,7 +2,11 @@
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth-client";
-
+  import { Badge } from "$lib/components/ui/badge";
+  import { Button } from "$lib/components/ui/button";
+  import { Card } from "$lib/components/ui/card";
+  import { Input } from "$lib/components/ui/input";
+  import FormField from "$lib/components/ui/FormField.svelte";
 
   let error = $state("");
   let loading = $state(false);
@@ -48,50 +52,58 @@
 </script>
 
 <div class="flex min-h-[60vh] items-center justify-center">
-  <div
-    class="w-full max-w-sm rounded-4xl border border-border bg-(--color-panel) p-8 backdrop-blur-sm"
-  >
-    <h1 class="mb-2 text-center text-2xl font-semibold">{m.auth_adminSignIn()}</h1>
-    <p class="mb-6 text-center text-xs text-muted-foreground">
-      {m.auth_adminDescription()}
-    </p>
+  <Card variant="elevated" size="hero" class="w-full max-w-sm">
+    <div class="text-center">
+      <div class="inline-flex items-center justify-center gap-3">
+        <h1 class="font-display text-title-lg font-semibold">
+          {m.auth_adminSignIn()}
+        </h1>
+        <Badge variant="outline" size="sm">{m.auth_adminBadge()}</Badge>
+      </div>
+      <p class="mt-2 text-body-sm text-muted-foreground">
+        {m.auth_adminDescription()}
+      </p>
+    </div>
+
+    {#if error}
+      <div
+        class="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-body-sm text-destructive"
+        role="alert"
+      >
+        {error}
+      </div>
+    {/if}
 
     <form class="flex flex-col gap-4" onsubmit={handleSubmit}>
-      <label class="flex flex-col gap-1 text-sm">
-        {m.auth_usernameOrEmail()}
-        <input
+      <FormField label={m.auth_usernameOrEmail()} for="admin-signin-identity" required>
+        <Input
+          id="admin-signin-identity"
           autocomplete="username"
-          class="rounded-2xl border border-border bg-(--color-panel) px-3 py-3"
           name="identity"
           required
           type="text"
         />
-      </label>
-      <label class="flex flex-col gap-1 text-sm">
-        {m.auth_password()}
-        <input
+      </FormField>
+      <FormField label={m.auth_password()} for="admin-signin-password" required>
+        <Input
+          id="admin-signin-password"
           autocomplete="current-password"
-          class="rounded-2xl border border-border bg-(--color-panel) px-3 py-3"
           name="password"
           required
           type="password"
         />
-      </label>
-      {#if error}
-        <p class="text-sm text-red-600">{error}</p>
-      {/if}
-      <button
-        class="rounded-full bg-primary py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
-        disabled={loading}
-        type="submit"
-      >
+      </FormField>
+      <Button type="submit" variant="default" size="lg" class="w-full" {loading} disabled={loading}>
         {loading ? m.auth_signingIn() : m.auth_signIn()}
-      </button>
+      </Button>
     </form>
-    <div class="mt-4 text-center">
-      <a class="text-xs text-muted-foreground underline" href="/signin">
+    <div class="text-center">
+      <a
+        class="text-body-sm text-muted-foreground underline-offset-4 transition-colors duration-fast ease-out-soft hover:text-foreground hover:underline"
+        href="/signin"
+      >
         {m.auth_signIn()}
       </a>
     </div>
-  </div>
+  </Card>
 </div>

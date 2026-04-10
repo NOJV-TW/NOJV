@@ -11,7 +11,7 @@ export {
   markReportFailed,
   resolvePlagiarismTarget,
   createPlagiarismReport,
-  listPlagiarismReports,
+  findPlagiarismReport,
   getPlagiarismSourceCode,
   listAssessmentPlagiarismReports,
   getAssessmentProblemMap,

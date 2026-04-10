@@ -148,7 +148,7 @@ func main() { fmt.Println("checker") }`;
       submissionId: "test",
       language: "python",
       judgeType: "standard",
-      submissionType: "full_source",
+      problemType: "full_source",
       limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 
@@ -176,7 +176,7 @@ func main() { fmt.Println("checker") }`;
       submissionId: "test",
       language: "typescript",
       judgeType: "standard",
-      submissionType: "full_source",
+      problemType: "full_source",
       limits: { timeoutMs: 5000, memoryMb: 256 }
     };
 

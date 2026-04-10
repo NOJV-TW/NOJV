@@ -9,28 +9,14 @@ export type CompileResult =
   | { success: true; runCommand: string[] }
   | { success: false; error: string };
 
-/**
- * Phase 5: function-mode templates are gone. Student source is shipped
- * in full via `sourceFiles` from the workspace model. This helper is
- * kept as an identity function for any callers still on the legacy
- * code path.
- */
 export function assembleSource(userSource: string, _input: SandboxInput): string {
   return userSource;
 }
 
-/** Returns the source file name for a given language. */
 export function sourceFileName(language: SandboxInput["language"]): string {
   return sourceFileNames[language];
 }
 
-/**
- * Compile (if needed) and return the command to run the program.
- *
- * @param input      - Sandbox input config
- * @param sourcePath - Absolute path to the source file on disk
- * @param workDir    - Working directory for compilation output
- */
 export async function compile(
   input: SandboxInput,
   sourcePath: string,
@@ -100,14 +86,6 @@ export async function compile(
   }
 }
 
-/**
- * Compile a checker or interactor script.
- *
- * @param scriptPath - Path to the script source file
- * @param language   - Language of the script (python, c, cpp, go, rust)
- * @param workDir    - Working directory for compilation output
- * @param outputName - Base name for the compiled binary (e.g. "checker" or "interactor")
- */
 export async function compileChecker(
   scriptPath: string,
   language: string,
@@ -148,7 +126,6 @@ export async function compileChecker(
   return { success: true, runCommand: ["python3", scriptPath] };
 }
 
-/** Spawn a compiler process and capture stderr on failure. */
 function compileWithCommand(
   compileArgs: string[],
   runCommand: string[],
@@ -164,9 +141,7 @@ function compileWithCommand(
     const proc = spawn(cmd, args, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
-      // 90s accommodates Go/Rust/Java cold-start compiles on GitHub Actions
-      // runners where toolchain cache priming can eat 30+ seconds. Local
-      // warm builds finish in <5s regardless.
+      // 90s covers Go/Rust/Java cold compiles on CI where toolchain priming can eat 30s+.
       timeout: 90_000
     });
 

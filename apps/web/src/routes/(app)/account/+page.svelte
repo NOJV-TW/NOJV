@@ -1,48 +1,67 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import SchoolVerificationSection from "$lib/components/auth/SchoolVerification.svelte";
+  import Section from "$lib/components/ui/Section.svelte";
+  import { Card } from "$lib/components/ui/card";
+  import { Badge } from "$lib/components/ui/badge";
 
   let { data } = $props();
 </script>
 
-<div class="space-y-6">
-  <h2 class="font-[family-name:var(--font-display)] text-3xl">{m.navigation_account()}</h2>
-  <section
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
-  >
-    <dl class="grid gap-4 sm:grid-cols-2">
-      <div>
-        <dt class="text-sm text-muted-foreground">{m.account_name()}</dt>
-        <dd class="mt-1 font-medium">{data.name}</dd>
-      </div>
-      <div>
-        <dt class="text-sm text-muted-foreground">{m.account_email()}</dt>
-        <dd class="mt-1 font-medium">{data.email}</dd>
-      </div>
-      <div>
-        <dt class="text-sm text-muted-foreground">{m.account_userAccount()}</dt>
-        <dd class="mt-1 flex items-center gap-1.5 font-medium">
-          {data.username}
-          {#if data.isSchoolVerified}
-            <svg
-              class="size-4 text-green-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-label="School verified"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          {/if}
-        </dd>
-      </div>
-      <div>
-        <dt class="text-sm text-muted-foreground">{m.account_role()}</dt>
-        <dd class="mt-1 font-medium">{data.platformRole}</dd>
-      </div>
-    </dl>
-  </section>
-  <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+<div class="mx-auto w-full max-w-2xl">
+  <Section>
+    {#snippet header()}
+      <h1 class="font-display text-title-lg">{m.navigation_account()}</h1>
+      <p>{m.account_profileDescription()}</p>
+    {/snippet}
+
+    <div class="flex flex-col gap-6">
+      <Card variant="surface" size="md">
+        <div class="flex flex-col gap-1">
+          <h2 class="font-display text-title-sm">{m.account_profile()}</h2>
+          <p class="text-body-sm text-muted-foreground">
+            {m.account_profileHint()}
+          </p>
+        </div>
+
+        <dl class="grid gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-1">
+            <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_name()}
+            </dt>
+            <dd class="text-body font-medium">{data.name}</dd>
+          </div>
+          <div class="flex flex-col gap-1">
+            <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_email()}
+            </dt>
+            <dd class="text-body font-medium break-all">{data.email}</dd>
+          </div>
+          <div class="flex flex-col gap-1">
+            <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_userAccount()}
+            </dt>
+            <dd class="flex items-center gap-2 text-body font-medium">
+              <span>{data.username}</span>
+              {#if data.isSchoolVerified}
+                <Badge variant="success" size="sm" dot>
+                  {m.account_verifiedBadge()}
+                </Badge>
+              {/if}
+            </dd>
+          </div>
+          <div class="flex flex-col gap-1">
+            <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.account_role()}
+            </dt>
+            <dd>
+              <Badge variant="muted" size="sm">{data.platformRole}</Badge>
+            </dd>
+          </div>
+        </dl>
+      </Card>
+
+      <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
+    </div>
+  </Section>
 </div>

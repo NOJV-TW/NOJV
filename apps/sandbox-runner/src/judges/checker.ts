@@ -4,13 +4,10 @@ import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { runProcess, classifySolutionVerdict, parseJudgeOutput } from "./run-process.js";
 
-/** Checker timeout: generous since checkers should be fast. */
 const CHECKER_TIMEOUT_MS = 30_000;
 
 /**
- * Checker judge: run the solution, then run the checker script to evaluate.
- *
- * The checker is invoked with three file arguments:
+ * The checker script is invoked with three file arguments:
  *   checker <input_file> <expected_file> <user_output_file>
  */
 export async function judgeChecker(
@@ -19,13 +16,11 @@ export async function judgeChecker(
   checkerCommand: string[],
   timeoutMs: number
 ): Promise<TestcaseResult> {
-  // Step 1: Run the solution
   const solution = await runProcess(runCommand, { stdin: testcase.input, timeoutMs });
 
   const errorVerdict = classifySolutionVerdict(solution, testcase.index);
   if (errorVerdict) return errorVerdict;
 
-  // Step 2: Write temp files for checker
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "checker-"));
   const inputFile = path.join(tmpDir, "stdin.txt");
   const expectedFile = path.join(tmpDir, "expected.txt");
@@ -38,7 +33,6 @@ export async function judgeChecker(
       fs.writeFile(userOutputFile, solution.stdout)
     ]);
 
-    // Step 3: Run checker
     const checkerResult = await runProcess(
       [...checkerCommand, inputFile, expectedFile, userOutputFile],
       { timeoutMs: CHECKER_TIMEOUT_MS }

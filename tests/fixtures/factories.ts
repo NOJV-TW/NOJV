@@ -24,37 +24,61 @@ export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> 
       name: overrides.name ?? `Test User ${id}`,
       username: overrides.username ?? id,
       platformRole: overrides.platformRole ?? "student",
-      locale: "en",
       ...overrides
     }
   });
 }
 
 // --- Problem ---
-export async function createTestProblem(
-  overrides: Partial<Prisma.ProblemUncheckedCreateInput> = {}
-) {
+type TestProblemOverrides = Partial<Prisma.ProblemUncheckedCreateInput> & {
+  /** Legacy alias accepted by tests that still pass `defaultTitle`. */
+  defaultTitle?: string;
+  /** Legacy alias: merged into `tags` as a difficulty tag. */
+  difficulty?: string;
+};
+
+export async function createTestProblem(overrides: TestProblemOverrides = {}) {
   const id = uid();
   let authorId = overrides.authorId;
   if (!authorId) {
     const author = await createTestUser({ platformRole: "teacher" });
     authorId = author.id;
   }
+
+  const title = overrides.title ?? overrides.defaultTitle ?? `Test Problem ${id}`;
+  const difficultyTag = overrides.difficulty ?? "easy";
+  const extraTags = Array.isArray(overrides.tags) ? overrides.tags : [];
+  const tags = Array.from(new Set([difficultyTag, ...extraTags]));
+
+  const {
+    defaultTitle: _defaultTitle,
+    difficulty: _difficulty,
+    title: _title,
+    tags: _tags,
+    slug: _slug,
+    samples: _samples,
+    ...rest
+  } = overrides;
+  void _defaultTitle;
+  void _difficulty;
+  void _title;
+  void _tags;
+  void _slug;
+
   const problem = await testPrisma.problem.create({
     data: {
       id,
-      defaultTitle: overrides.defaultTitle ?? `Test Problem ${id}`,
-      difficulty: overrides.difficulty ?? "easy",
-      summary: overrides.summary ?? "A test problem",
+      title,
+      tags,
+      type: overrides.type ?? "full_source",
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
       visibility: overrides.visibility ?? "public",
-      // Default sample pair matching the default testcase below, so tests
-      // that assert on detail.samples can rely on the factory output.
+      // Default to published so tests that assert list-visibility Just Work.
+      // Production-facing create flows override this with a draft default.
+      status: overrides.status ?? "published",
       samples: overrides.samples ?? [{ stdin: "1 2", expected: "3" }],
-      ...Object.fromEntries(
-        Object.entries(overrides).filter(([k]) => k !== "slug" && k !== "samples")
-      ),
+      ...rest,
       authorId
     }
   });
@@ -64,7 +88,7 @@ export async function createTestProblem(
     data: {
       problemId: problem.id,
       locale: "en",
-      title: problem.defaultTitle,
+      title: problem.title,
       bodyMarkdown: "Test problem body",
       inputFormat: "Test input format",
       outputFormat: "Test output format"
@@ -179,7 +203,6 @@ export async function createTestSubmission(
       language: overrides.language ?? "python",
       sourceCode: overrides.sourceCode ?? 'print("hello")',
       status: overrides.status ?? "accepted",
-      mode: overrides.mode ?? "practice",
       ...overrides,
       userId,
       problemId
