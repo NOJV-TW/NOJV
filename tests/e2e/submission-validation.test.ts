@@ -77,12 +77,8 @@ test.describe("Submission Validation", () => {
     // Editor should be visible (with code area and run/submit buttons).
     // Anchored regex to avoid matching HelpTooltip aria-labels that contain
     // "runs" or "submit a complete program" as substrings.
-    await expect(
-      page.getByRole("button", { name: /^(run|執行)$/i })
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /^(submit|繳交)$/i })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(run|執行)$/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(submit|繳交)$/i })).toBeVisible();
     await context.close();
   });
 });
