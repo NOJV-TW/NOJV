@@ -41,11 +41,21 @@ export const submissionDraftSchema = z.object({
   sourceFiles: z.array(sourceFileSchema).max(200).optional()
 });
 
+// Output caps are defense-in-depth against a compromised or modified
+// sandbox-runner. The runner's `createBoundedBuffer` already caps the
+// raw child-process stream at 16 MB, so a well-behaved runner never gets
+// close to these limits. Per-field caps stop a bad runner from
+// overflowing downstream storage/rendering.
+const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
+const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
+const MAX_SUBTASK_LABEL_LEN = 200;
+const MAX_FEEDBACK_LEN = 10_000;
+
 export const testcaseResultItemSchema = z.object({
   index: z.number().int().nonnegative(),
   passed: z.boolean(),
-  stderr: z.string().optional(),
-  stdout: z.string(),
+  stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
+  stdout: z.string().max(MAX_CASE_STDOUT_BYTES),
   timeMs: z.number().int().nonnegative()
 });
 
@@ -54,12 +64,16 @@ export const subtaskCaseResultSchema = z.object({
   ordinal: z.number().int(),
   runtimeMs: z.number().int().nonnegative(),
   testcaseId: z.string(),
-  verdict: z.string()
+  // Sandbox-layer verdicts ("AC" / "WA" / "TLE" / ...) not the DB enum
+  // — the conversion to `submissionVerdictSchema` happens in the judge
+  // activity's verdictMap. Capped at 16 chars to prevent a malicious
+  // runner from sending arbitrary-length labels.
+  verdict: z.string().max(16)
 });
 
 export const subtaskResultItemSchema = z.object({
-  cases: z.array(subtaskCaseResultSchema),
-  label: z.string(),
+  cases: z.array(subtaskCaseResultSchema).max(10_000),
+  label: z.string().max(MAX_SUBTASK_LABEL_LEN),
   passed: z.boolean(),
   testcaseSetId: z.string(),
   weight: z.number().int().min(1)
@@ -67,11 +81,11 @@ export const subtaskResultItemSchema = z.object({
 
 export const submissionResultSchema = z.object({
   accepted: z.boolean(),
-  caseResults: z.array(testcaseResultItemSchema).optional(),
-  feedback: z.string().min(1),
+  caseResults: z.array(testcaseResultItemSchema).max(10_000).optional(),
+  feedback: z.string().min(1).max(MAX_FEEDBACK_LEN),
   runtimeMs: z.number().int().nonnegative(),
   score: z.number().int().min(0).max(100),
-  subtaskResults: z.array(subtaskResultItemSchema).optional(),
+  subtaskResults: z.array(subtaskResultItemSchema).max(1_000).optional(),
   verdict: submissionVerdictSchema
 });
 
