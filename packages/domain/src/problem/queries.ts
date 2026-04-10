@@ -45,16 +45,18 @@ export interface ProblemDetail {
   totalSubmissions: number;
   visibility: ProblemVisibility;
   /**
-   * Visible workspace files for the student editor. `"hidden"` files are
-   * intentionally excluded — the domain layer filters them out before
-   * returning so they never reach the client.
+   * Workspace files for the student editor. `"hidden"` files are included
+   * (so the UI can show their metadata, e.g. description) but their `content`
+   * is always `""` — raw hidden content must never leave the server. The
+   * judge pipeline reads hidden content directly from the DB.
    */
   workspaceFiles: {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly";
+    visibility: "editable" | "readonly" | "hidden";
     editableRegions: [number, number][] | null;
+    description: string;
   }[];
   // Phase 7: advanced-mode metadata
   advancedImageRef: string | null;
@@ -211,6 +213,7 @@ function mapPersistedProblemDetail(
       visibility: string;
       editableRegions?: unknown;
       orderIndex?: number;
+      description?: string;
     }[];
   },
   locale: string,
@@ -230,18 +233,21 @@ function mapPersistedProblemDetail(
     type: "standard"
   };
 
-  // SECURITY: drop any hidden workspace files before they leave the domain
-  // layer. Hidden files are merged into the sandbox at judging time from the
-  // DB directly — they must never be exposed to the client.
-  const visibleWorkspaceFiles = (problem.workspaceFiles ?? [])
-    .filter((f) => f.visibility === "editable" || f.visibility === "readonly")
-    .map((f) => ({
+  // SECURITY: hidden workspace files are kept in the list so the client can
+  // render their metadata (path, language, description) but their `content`
+  // is blanked out. Raw hidden content must never leave the server — the
+  // judge pipeline reads it from the DB directly at judging time.
+  const visibleWorkspaceFiles = (problem.workspaceFiles ?? []).map((f) => {
+    const visibility = f.visibility as "editable" | "readonly" | "hidden";
+    return {
       language: f.language,
       path: f.path,
-      content: f.content,
-      visibility: f.visibility as "editable" | "readonly",
-      editableRegions: parseEditableRegions(f.editableRegions)
-    }));
+      content: visibility === "hidden" ? "" : f.content,
+      visibility,
+      editableRegions: parseEditableRegions(f.editableRegions),
+      description: f.description ?? ""
+    };
+  });
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,

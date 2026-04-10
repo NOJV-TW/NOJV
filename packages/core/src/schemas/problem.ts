@@ -5,7 +5,8 @@ import {
   problemDifficultySchema,
   problemStatusSchema,
   problemVisibilitySchema,
-  submissionTypeSchema
+  submissionTypeSchema,
+  type Language
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
@@ -65,10 +66,42 @@ export const problemWorkspaceFileSchema = z.object({
   content: z.string().max(200_000),
   visibility: workspaceFileVisibilitySchema,
   editableRegions: z.array(editableRegionSchema).max(50).nullable().optional(),
+  description: z.string().max(5_000).default(""),
   orderIndex: z.number().int().nonnegative().default(0)
 });
 
 export type ProblemWorkspaceFile = z.infer<typeof problemWorkspaceFileSchema>;
+
+/**
+ * Canonical file extension for each supported language — shared between
+ * the workspace editor, the judge, and the submission validator so they
+ * always agree on paths like `main.py` or `main.cpp`.
+ */
+export function languageExtension(language: Language): string {
+  const map: Record<Language, string> = {
+    c: "c",
+    cpp: "cpp",
+    go: "go",
+    java: "java",
+    javascript: "js",
+    python: "py",
+    rust: "rs",
+    typescript: "ts"
+  };
+  return map[language];
+}
+
+/**
+ * Workspace-mode convention: every enabled language must provide an
+ * editable entry file named `main.<ext>`. Hard-coding the basename keeps
+ * the judge, the submission validator, and the UI in agreement about
+ * "where does the student start editing".
+ */
+export const ENTRY_FILE_BASENAME = "main";
+
+export function entryFileNameFor(language: Language): string {
+  return `${ENTRY_FILE_BASENAME}.${languageExtension(language)}`;
+}
 
 export const problemCreateSchema = z.object({
   difficulty: problemDifficultySchema,

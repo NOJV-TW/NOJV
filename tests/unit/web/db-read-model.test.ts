@@ -249,7 +249,7 @@ describe("DB-backed read model", () => {
     expect(detail?.workspaceFiles).toEqual([]);
   });
 
-  it("filters hidden workspace files out of problem detail and uses editable ones for starter code", async () => {
+  it("exposes hidden workspace files as metadata-only (blank content) and uses editable ones for starter code", async () => {
     findDetailById.mockResolvedValue({
       _count: { submissions: 0 },
       author: { username: "teacher" },
@@ -274,6 +274,7 @@ describe("DB-backed read model", () => {
           language: "cpp",
           path: "solution.cpp",
           content: "int solve() { return 42; }\n",
+          description: "Your solution goes here.",
           visibility: "editable",
           editableRegions: [[1, 1]],
           orderIndex: 0
@@ -282,6 +283,7 @@ describe("DB-backed read model", () => {
           language: "cpp",
           path: "helpers.h",
           content: "#pragma once\nint solve();\n",
+          description: "",
           visibility: "readonly",
           editableRegions: null,
           orderIndex: 1
@@ -290,6 +292,7 @@ describe("DB-backed read model", () => {
           language: "cpp",
           path: "grader.cpp",
           content: "// server-only test harness\n",
+          description: "Hidden server-side grader.",
           visibility: "hidden",
           editableRegions: null,
           orderIndex: 2
@@ -301,15 +304,25 @@ describe("DB-backed read model", () => {
     const detail = await getProblemPageData("prob_blanks", "en");
 
     expect(detail).not.toBeNull();
-    // Hidden file must never escape the domain layer.
-    expect(detail?.workspaceFiles).toHaveLength(2);
-    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual(["solution.cpp", "helpers.h"]);
-    expect(detail?.workspaceFiles.every((f) => f.visibility !== ("hidden" as string))).toBe(
-      true
-    );
+    // All three files are exposed — hidden ones keep their metadata so the
+    // UI can render them, but their raw content is blanked.
+    expect(detail?.workspaceFiles).toHaveLength(3);
+    expect(detail?.workspaceFiles.map((f) => f.path)).toEqual([
+      "solution.cpp",
+      "helpers.h",
+      "grader.cpp"
+    ]);
     // Editable regions are parsed into tuples.
     expect(detail?.workspaceFiles[0]?.editableRegions).toEqual([[1, 1]]);
     expect(detail?.workspaceFiles[1]?.editableRegions).toBeNull();
+    // Hidden file's raw content must never leave the server.
+    const hidden = detail?.workspaceFiles.find((f) => f.visibility === "hidden");
+    expect(hidden?.content).toBe("");
+    expect(hidden?.description).toBe("Hidden server-side grader.");
+    // Non-hidden files keep their content and descriptions.
+    expect(detail?.workspaceFiles[0]?.content).toBe("int solve() { return 42; }\n");
+    expect(detail?.workspaceFiles[0]?.description).toBe("Your solution goes here.");
+    expect(detail?.workspaceFiles[1]?.description).toBe("");
     // Starter code for cpp now reflects the editable workspace file.
     expect(detail?.starterByLanguage.cpp).toBe("int solve() { return 42; }\n");
     // Other languages still fall back to the hardcoded stub.

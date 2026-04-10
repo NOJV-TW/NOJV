@@ -5,6 +5,7 @@
   import { getLocale } from "$lib/paraglide/runtime.js";
   import {
     apiErrorSchema,
+    entryFileNameFor,
     languageSchema,
     submissionDispatchResponseSchema,
     submissionOperationSchema,
@@ -59,6 +60,19 @@
     if (allowedLanguages && allowedLanguages.length > 0) {
       langs = langs.filter((l) => allowedLanguages!.includes(l));
     }
+    // Workspace-file mode: hide languages without an editable `main.<ext>`
+    // entry file for this problem, so students can't select a language they
+    // can't actually submit in.
+    const hasAnyWorkspace = problem.workspaceFiles.length > 0;
+    if (hasAnyWorkspace) {
+      langs = langs.filter((l) => {
+        const entry = entryFileNameFor(l);
+        return problem.workspaceFiles.some(
+          (f) =>
+            f.language === l && f.path === entry && f.visibility === "editable"
+        );
+      });
+    }
     return langs;
   });
 
@@ -104,8 +118,10 @@
   });
 
   // ── Workspace-file (Phase 4) state ──
-  // `problem.workspaceFiles` has already been filtered by the domain layer to
-  // exclude hidden files, so everything here is either `editable` or `readonly`.
+  // `problem.workspaceFiles` includes `editable`, `readonly`, and `hidden`
+  // files. Hidden files arrive with `content: ""` from the domain layer — raw
+  // content never leaves the server — but their metadata (path, description)
+  // is shown to the student.
   type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 
   // Per-file drafts keyed by `${language}::${path}`. Editable files are
@@ -129,10 +145,19 @@
   let selectedWorkspaceIndex = $state(0);
 
   // When the language changes (or the file list otherwise changes), reset
-  // selection to the first editable file in the new list (fall back to index 0).
+  // selection. Prefer `main.<ext>` if the problem has it as an editable file;
+  // otherwise fall back to the first editable file, then to index 0.
   $effect(() => {
     void language;
     const files = workspaceFilesForLanguage;
+    const entry = entryFileNameFor(language);
+    const entryIndex = files.findIndex(
+      (f) => f.path === entry && f.visibility === "editable"
+    );
+    if (entryIndex >= 0) {
+      selectedWorkspaceIndex = entryIndex;
+      return;
+    }
     const firstEditable = files.findIndex((f) => f.visibility === "editable");
     selectedWorkspaceIndex = firstEditable >= 0 ? firstEditable : 0;
   });
@@ -266,9 +291,13 @@
     } else if (isWorkspaceMode) {
       // Workspace-file mode: send the current contents of every visible file
       // (editable + readonly) so the server can merge them with hidden files
-      // when building the judge context. `sourceCode` is the first editable
-      // file's draft — used by legacy views that expect a single blob.
-      const files = workspaceFilesForLanguage;
+      // when building the judge context. Hidden files are excluded — their
+      // `content` is `""` on the client and the server reads the real content
+      // from the DB. `sourceCode` is the first editable file's draft — used
+      // by legacy views that expect a single blob.
+      const files = workspaceFilesForLanguage.filter(
+        (f) => f.visibility !== "hidden"
+      );
       const currentContents = files.map((f) => ({
         path: f.path,
         content:
@@ -368,8 +397,10 @@
             .join("\n\n");
         } else if (isWorkspaceMode) {
           // Mirror the submission payload: concatenate every visible file with
-          // a path marker so the submissions pane has a useful preview.
+          // a path marker so the submissions pane has a useful preview. Hidden
+          // files are skipped — their `content` is `""` on the client.
           sourceForCallback = workspaceFilesForLanguage
+            .filter((f) => f.visibility !== "hidden")
             .map((f) => {
               const content =
                 f.visibility === "editable"
@@ -472,14 +503,22 @@
                       : 'text-muted-foreground'}"
                     onclick={() => (selectedWorkspaceIndex = index)}
                   >
-                    <span class="truncate font-mono text-xs">{file.path}</span>
+                    <span class="truncate font-mono text-xs">
+                      {#if file.visibility === 'hidden'}🔒 {/if}{file.path}
+                    </span>
                     <span
                       class="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
                       'editable'
                         ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-muted text-muted-foreground'}"
+                        : file.visibility === 'hidden'
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                          : 'bg-muted text-muted-foreground'}"
                     >
-                      {file.visibility === 'editable' ? 'edit' : 'read'}
+                      {file.visibility === 'editable'
+                        ? 'edit'
+                        : file.visibility === 'hidden'
+                          ? 'hidden'
+                          : 'read'}
                     </span>
                   </button>
                 </li>
@@ -490,27 +529,53 @@
             {#if selectedWorkspaceFile}
               {@const file = selectedWorkspaceFile}
               <div class="flex items-center gap-2 border-b border-border px-3 py-2">
-                <span class="font-mono text-xs text-foreground">{file.path}</span>
+                <span class="font-mono text-xs text-foreground">
+                  {#if file.visibility === 'hidden'}🔒 {/if}{file.path}
+                </span>
                 <span
                   class="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
                   'editable'
                     ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-muted text-muted-foreground'}"
+                    : file.visibility === 'hidden'
+                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                      : 'bg-muted text-muted-foreground'}"
                 >
                   {file.visibility}
                 </span>
               </div>
+              {#if file.visibility !== 'hidden' && file.description !== ''}
+                <p class="border-b border-border px-3 py-2 text-xs text-muted-foreground">
+                  {file.description}
+                </p>
+              {/if}
               <div class="min-h-0 flex-1">
-                {#key `${file.language}::${file.path}`}
-                  <MonacoEditableRegions
-                    value={selectedWorkspaceContent}
-                    onchange={handleWorkspaceFileChange}
-                    language={file.language}
-                    readonly={file.visibility === "readonly"}
-                    editableRegions={file.visibility === "editable" ? file.editableRegions : null}
-                    height="100%"
-                  />
-                {/key}
+                {#if file.visibility === 'hidden'}
+                  <div class="flex h-full flex-col gap-3 overflow-y-auto px-6 py-6">
+                    <h3 class="text-sm font-semibold text-foreground">
+                      {m.workspace_fileHidden()}
+                    </h3>
+                    {#if file.description !== ''}
+                      <div class="max-w-prose whitespace-pre-wrap rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                        {file.description}
+                      </div>
+                    {:else}
+                      <p class="text-sm text-muted-foreground/70 italic">
+                        {m.workspace_fileHiddenNoDescription()}
+                      </p>
+                    {/if}
+                  </div>
+                {:else}
+                  {#key `${file.language}::${file.path}`}
+                    <MonacoEditableRegions
+                      value={selectedWorkspaceContent}
+                      onchange={handleWorkspaceFileChange}
+                      language={file.language}
+                      readonly={file.visibility === "readonly"}
+                      editableRegions={file.visibility === "editable" ? file.editableRegions : null}
+                      height="100%"
+                    />
+                  {/key}
+                {/if}
               </div>
             {/if}
           </div>

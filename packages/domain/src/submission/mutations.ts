@@ -5,7 +5,7 @@ import {
   runTransaction,
   submissionRepo
 } from "@nojv/db";
-import type { SubmissionDraft } from "@nojv/core";
+import { entryFileNameFor, type SubmissionDraft } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError } from "../shared/errors";
@@ -86,12 +86,26 @@ export async function createQueuedSubmissionRecord(
     // After the Phase 5 cleanup this check uses ProblemWorkspaceFile
     // (the unified starter-code + teacher-asset model) instead of the
     // old ProblemTemplate table.
-    if (problem.submissionType === "function") {
-      const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
-      const hasLanguageWorkspace = workspaceFiles.some((f) => f.language === payload.language);
-      if (!hasLanguageWorkspace) {
-        throw new ForbiddenError("No starter workspace available for this language");
+    //
+    // Workspace-mode check: if the problem has ANY workspace files, the
+    // submitted language MUST have an editable `main.<ext>` file. Applies
+    // regardless of submissionType — full_source problems with workspace
+    // files are the student-facing "multi-file" mode.
+    const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
+    if (workspaceFiles.length > 0) {
+      const entryPath = entryFileNameFor(payload.language);
+      const hasEntry = workspaceFiles.some(
+        (f) =>
+          f.language === payload.language && f.path === entryPath && f.visibility === "editable"
+      );
+      if (!hasEntry) {
+        throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
       }
+    } else if (problem.submissionType === "function") {
+      // Legacy function-mode defence in depth: function problems should
+      // always have workspace files, but if they don't, there is nothing
+      // to submit against.
+      throw new ForbiddenError("No starter workspace available for this language");
     }
 
     // ── IP lock recheck ──

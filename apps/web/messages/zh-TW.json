@@ -406,6 +406,7 @@
   "editor_expectedOutput": "預期輸出",
   "editor_functionModeHint": "完成以下函式",
   "editor_input": "輸入",
+  "editor_languageNoTemplate": "此語言尚未提供題目範本",
   "editor_output": "輸出",
   "editor_practiceMode": "練習",
   "editor_run": "執行",
@@ -560,5 +561,12 @@
   "testcases_confirm": "確認",
   "verifySchool_failed": "驗證失敗",
   "verifySchool_success": "驗證成功",
-  "verifySchool_successMessage": "你的 NOJV 帳號已設定為 {username}，你可以關閉此頁面。"
+  "verifySchool_successMessage": "你的 NOJV 帳號已設定為 {username}，你可以關閉此頁面。",
+  "workspace_description": "說明",
+  "workspace_descriptionPlaceholder": "說明這個檔案的用途…",
+  "workspace_entryBadge": "入口",
+  "workspace_fileHidden": "此檔案已隱藏",
+  "workspace_fileHiddenNoDescription": "（未提供說明）",
+  "workspace_hiddenBadge": "隱藏",
+  "workspace_mustHaveMainFile": "每個啟用的語言必須有一個名為 {filename} 的可編輯檔案"
 }

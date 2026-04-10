@@ -25,9 +25,14 @@ import type {
   TestcaseSetUpdate,
   TestcaseUpdate
 } from "@nojv/core";
-import { DEFAULT_LOCALE } from "@nojv/core";
+import { DEFAULT_LOCALE, entryFileNameFor } from "@nojv/core";
 
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError
+} from "../shared/errors";
 import { stripUndefined } from "../shared/strip-undefined";
 import { ensureUser } from "../user/mutations";
 
@@ -362,6 +367,35 @@ export async function updateProblemWorkspace(
   problemId: string,
   payload: UpdateWorkspacePayload
 ) {
+  // Workspace-mode invariant: every language present in the payload
+  // must ship EXACTLY ONE editable file named `main.<ext>`. The judge
+  // and submission validator both rely on this — violating it means
+  // students in that language cannot submit anything.
+  if (payload.files.length > 0) {
+    const filesByLanguage = new Map<Language, UpdateWorkspacePayload["files"]>();
+    for (const file of payload.files) {
+      const bucket = filesByLanguage.get(file.language);
+      if (bucket) bucket.push(file);
+      else filesByLanguage.set(file.language, [file]);
+    }
+
+    const brokenLanguages: string[] = [];
+    for (const [language, files] of filesByLanguage) {
+      const entryPath = entryFileNameFor(language);
+      const editableEntryCount = files.filter(
+        (f) => f.path === entryPath && f.visibility === "editable"
+      ).length;
+      if (editableEntryCount !== 1) {
+        brokenLanguages.push(
+          `Language '${language}' must have exactly one editable file named '${entryPath}'`
+        );
+      }
+    }
+    if (brokenLanguages.length > 0) {
+      throw new ValidationError(`Workspace invariant violated: ${brokenLanguages.join("; ")}.`);
+    }
+  }
+
   // Aggregate byte totals per language. Using Buffer.byteLength for an
   // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
   // which under-counts multi-byte characters.

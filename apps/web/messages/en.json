@@ -406,6 +406,7 @@
   "editor_expectedOutput": "Expected Output",
   "editor_functionModeHint": "Complete the function below",
   "editor_input": "Input",
+  "editor_languageNoTemplate": "No template available for this language",
   "editor_output": "Output",
   "editor_practiceMode": "practice",
   "editor_run": "Run",
@@ -560,5 +561,12 @@
   "testcases_confirm": "Confirm",
   "verifySchool_failed": "Verification failed",
   "verifySchool_success": "Verification successful",
-  "verifySchool_successMessage": "Your NOJV account has been set to {username}. You can close this page."
+  "verifySchool_successMessage": "Your NOJV account has been set to {username}. You can close this page.",
+  "workspace_description": "Description",
+  "workspace_descriptionPlaceholder": "Describe what this file is for\u2026",
+  "workspace_entryBadge": "entry",
+  "workspace_fileHidden": "This file is hidden",
+  "workspace_fileHiddenNoDescription": "(no description provided)",
+  "workspace_hiddenBadge": "hidden",
+  "workspace_mustHaveMainFile": "Each enabled language must have an editable file named {filename}"
 }

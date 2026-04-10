@@ -91,15 +91,18 @@ export interface ProblemDetail extends ProblemOverview {
   timeLimitMs: number;
   visibility: ProblemVisibility;
   /**
-   * Visible workspace files for the student editor. Hidden files are
-   * filtered out by the domain layer and never exposed to the client.
+   * Workspace files for the student editor. Hidden files are included so
+   * the UI can render their metadata (path, language, description), but
+   * their `content` is always `""` — the domain layer blanks it before it
+   * leaves the server.
    */
   workspaceFiles: {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly";
+    visibility: "editable" | "readonly" | "hidden";
     editableRegions: [number, number][] | null;
+    description: string;
   }[];
 }
 
