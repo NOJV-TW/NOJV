@@ -17,9 +17,15 @@
   });
 </script>
 
-<div class="flex min-h-[60vh] items-center justify-center">
+<svelte:head>
+  <title>NOJV</title>
+</svelte:head>
+
+<div
+  class="flex min-h-screen items-center justify-center bg-gradient-to-br from-stone-50 to-orange-50/40 px-4"
+>
   <div
-    class="max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 text-center shadow-sm backdrop-blur-sm"
+    class="w-full max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 text-center shadow-sm backdrop-blur-sm"
   >
     {#if data.status === "success"}
       <h1 class="text-xl font-bold text-green-600">{m.verifySchool_success()}</h1>
