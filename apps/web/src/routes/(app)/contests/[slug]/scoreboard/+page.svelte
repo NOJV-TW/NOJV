@@ -2,6 +2,13 @@
   import { onMount } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
+  import { Trophy } from "@lucide/svelte";
+  import { m } from "$lib/paraglide/messages.js";
+  import Section from "$lib/components/ui/Section.svelte";
+  import { Card } from "$lib/components/ui/card/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   let { data } = $props();
   let scoreboard = $derived(data.scoreboard);
@@ -9,13 +16,20 @@
   let slug = $derived($page.params.slug);
 
   let unfreezing = $state(false);
+  let lastRefreshed = $state(Date.now());
+  let justRefreshed = $state(false);
 
   // Auto-refresh scoreboard every 30 seconds
   const AUTO_REFRESH_MS = 30_000;
 
   onMount(() => {
-    const interval = setInterval(() => {
-      void invalidateAll();
+    const interval = setInterval(async () => {
+      await invalidateAll();
+      lastRefreshed = Date.now();
+      justRefreshed = true;
+      setTimeout(() => {
+        justRefreshed = false;
+      }, 1200);
     }, AUTO_REFRESH_MS);
     return () => clearInterval(interval);
   });
@@ -36,9 +50,18 @@
 
   // ─── Chart helpers ───────────────────────────────────────────────
 
+  // Use warm-palette chart tokens from app.css
   const chartColors = [
-    "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
-    "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#6366f1"
+    "var(--chart-1)",
+    "var(--chart-2)",
+    "var(--chart-3)",
+    "var(--chart-4)",
+    "var(--chart-5)",
+    "var(--chart-1)",
+    "var(--chart-2)",
+    "var(--chart-3)",
+    "var(--chart-4)",
+    "var(--chart-5)"
   ];
 
   function buildChartPaths(
@@ -95,60 +118,80 @@
   }
 
   function icpcCellClass(ps: { score: number; firstAcTime: number | null; isPending: boolean }) {
-    if (ps.isPending) return "text-blue-500";
-    if (ps.firstAcTime != null) return "text-emerald-600 font-semibold";
-    if (ps.score === 0 && ps.firstAcTime == null) return "text-red-500";
-    return "";
+    if (ps.isPending) return "bg-info/10 text-info";
+    if (ps.firstAcTime != null) return "bg-success/10 text-success font-semibold";
+    if (ps.score === 0 && ps.firstAcTime == null) return "bg-destructive/10 text-destructive";
+    return "text-muted-foreground";
   }
 
   // ─── IOI display helpers ─────────────────────────────────────────
 
-  function ioiScoreColor(score: number, maxPoints: number) {
-    if (maxPoints === 0) return "bg-neutral-100 dark:bg-neutral-800";
+  function ioiScoreClass(score: number, maxPoints: number) {
+    if (maxPoints === 0) return "bg-muted text-muted-foreground";
     const ratio = score / maxPoints;
-    if (ratio >= 1) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300";
-    if (ratio > 0) return "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
-    return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
+    if (ratio >= 1) return "bg-success/15 text-success";
+    if (ratio > 0) return "bg-warning/15 text-warning";
+    return "bg-destructive/15 text-destructive";
   }
 </script>
 
 <div class="space-y-6">
-  <div class="flex items-center justify-between">
-    <div>
-      <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-        Contest / {slug}
+  <Section>
+    {#snippet header()}
+      <p class="text-caption uppercase tracking-wide text-muted-foreground">
+        {m.contestDetail_contestZone()} / {slug}
       </p>
-      <h2 class="mt-1 font-[family-name:var(--font-display)] text-3xl">
-        Scoreboard
-      </h2>
-    </div>
-    <div class="flex items-center gap-3">
+      <h1 class="font-display text-title-lg">{m.contestDetail_scoreboard()}</h1>
+    {/snippet}
+    {#snippet actions()}
+      <span
+        class="text-caption text-muted-foreground tabular-nums transition-opacity duration-normal ease-out-soft {justRefreshed
+          ? 'opacity-100'
+          : 'opacity-60'}"
+        aria-live="polite"
+      >
+        {m.scoreboard_updated()}
+      </span>
       {#if scoreboard.isFrozen}
-        <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
-          Frozen
-        </span>
+        <Badge variant="info">{m.contestDetail_frozen()}</Badge>
       {/if}
       {#if data.canUnfreeze && scoreboard.frozenAt}
-        <button
-          class="rounded-lg border border-border bg-[color:var(--color-panel)] px-4 py-2 text-sm font-medium transition hover:bg-[color:var(--color-panel-strong)] disabled:opacity-50"
+        <Button
+          variant="outline"
           disabled={unfreezing}
+          loading={unfreezing}
           onclick={handleUnfreeze}
         >
-          {unfreezing ? "Unfreezing..." : "Unfreeze Board"}
-        </button>
+          {m.scoreboard_unfreeze()}
+        </Button>
       {/if}
-    </div>
-  </div>
+    {/snippet}
+  </Section>
 
   <!-- Score Chart -->
   {#if chart.series.length > 0}
-    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-4">
-      <h3 class="mb-3 text-sm font-medium text-muted-foreground">Score Progress (Top {chart.series.length})</h3>
-      <div class="overflow-x-auto">
+    <Card variant="surface" size="lg">
+      <h3 class="text-body-sm font-medium text-muted-foreground">
+        {m.scoreboard_scoreProgress()} ({m.scoreboard_top()} {chart.series.length})
+      </h3>
+      <div class="overflow-x-auto rounded-sm bg-[color:var(--color-panel-strong)] p-3">
         <svg viewBox="0 0 800 300" class="h-auto w-full min-w-[600px]">
-          <!-- Grid lines -->
-          <line x1="40" y1="260" x2="760" y2="260" stroke="currentColor" stroke-opacity="0.15" />
-          <line x1="40" y1="40" x2="40" y2="260" stroke="currentColor" stroke-opacity="0.15" />
+          <line
+            x1="40"
+            y1="260"
+            x2="760"
+            y2="260"
+            stroke="currentColor"
+            stroke-opacity="0.15"
+          />
+          <line
+            x1="40"
+            y1="40"
+            x2="40"
+            y2="260"
+            stroke="currentColor"
+            stroke-opacity="0.15"
+          />
 
           {#each chartPaths as path (path.username)}
             <polyline
@@ -160,121 +203,171 @@
             />
           {/each}
         </svg>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-4">
+        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-2">
           {#each chartPaths as path (path.username)}
-            <div class="flex items-center gap-1.5 text-xs">
+            <div class="flex items-center gap-1.5 text-caption">
               <span
                 class="inline-block h-2.5 w-2.5 rounded-full"
                 style="background:{path.color}"
               ></span>
-              <span>{path.username}</span>
+              <span class="tabular-nums">{path.username}</span>
             </div>
           {/each}
         </div>
       </div>
-    </section>
+    </Card>
   {/if}
 
   <!-- Scoreboard Table -->
   {#if scoreboard.entries.length === 0}
-    <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-12 text-center">
-      <p class="text-muted-foreground">No participants yet.</p>
-    </div>
+    <EmptyState
+      variant="minimal"
+      icon={Trophy}
+      title={m.scoreboard_empty()}
+      description={m.scoreboard_emptyHint()}
+    />
   {:else if scoreboard.scoringMode === "problem_count"}
     <!-- Problem-count (ICPC-style) Table -->
-    <div class="overflow-x-auto rounded-2xl border border-border">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-border bg-[color:var(--color-panel-strong)]">
-            <th class="px-3 py-2.5 text-left font-medium">#</th>
-            <th class="px-3 py-2.5 text-left font-medium">User</th>
-            <th class="px-3 py-2.5 text-right font-medium">Solved</th>
-            <th class="px-3 py-2.5 text-right font-medium">Penalty</th>
-            {#each scoreboard.problems as prob}
-              <th class="px-3 py-2.5 text-center font-medium">
-                <a href="/problems/{prob.id}" class="hover:underline">
-                  {String.fromCharCode(65 + prob.ordinal)}
-                </a>
-              </th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each scoreboard.entries as entry, idx (entry.username)}
-            <tr class="border-b border-border last:border-b-0 {idx % 2 === 0 ? 'bg-[color:var(--color-panel)]' : 'bg-[color:var(--color-panel-strong)]/30'}">
-              <td class="px-3 py-2 font-medium">{entry.rank}</td>
-              <td class="px-3 py-2">
-                <span class="font-medium">{entry.username}</span>
-                {#if entry.isFirstBlood.some(Boolean)}
-                  <span class="ml-1" title="First Blood">&#9733;</span>
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right font-semibold">{entry.totalScore}</td>
-              <td class="px-3 py-2 text-right text-muted-foreground">{entry.totalPenalty}</td>
-              {#each entry.problems as ps, pi}
-                <td class="px-3 py-2 text-center {icpcCellClass(ps)}">
-                  <span>
-                    {formatIcpcCell(ps)}
-                    {#if entry.isFirstBlood[pi]}
-                      <span class="ml-0.5 text-amber-500" title="First Blood">&#9733;</span>
-                    {/if}
-                  </span>
-                </td>
+    <Card variant="surface" size="lg">
+      <div class="overflow-x-auto rounded-sm border border-border-subtle">
+        <table class="w-full text-body-sm">
+          <thead>
+            <tr class="border-b border-border-subtle bg-[color:var(--color-panel-strong)]">
+              <th
+                class="px-3 py-2.5 text-left text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >#</th
+              >
+              <th
+                class="px-3 py-2.5 text-left text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >{m.scoreboard_user()}</th
+              >
+              <th
+                class="px-3 py-2.5 text-right text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >{m.scoreboard_solved()}</th
+              >
+              <th
+                class="px-3 py-2.5 text-right text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >{m.scoreboard_penalty()}</th
+              >
+              {#each scoreboard.problems as prob (prob.id)}
+                <th
+                  class="px-3 py-2.5 text-center text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >
+                  <a href="/problems/{prob.id}" class="hover:underline hover:text-foreground transition-colors duration-fast ease-out-soft">
+                    {String.fromCharCode(65 + prob.ordinal)}
+                  </a>
+                </th>
               {/each}
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  {:else}
-    <!-- IOI Table -->
-    <div class="overflow-x-auto rounded-2xl border border-border">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-border bg-[color:var(--color-panel-strong)]">
-            <th class="px-3 py-2.5 text-left font-medium">#</th>
-            <th class="px-3 py-2.5 text-left font-medium">User</th>
-            <th class="px-3 py-2.5 text-right font-medium">Total</th>
-            {#each scoreboard.problems as prob}
-              <th class="px-3 py-2.5 text-center font-medium">
-                <a href="/problems/{prob.id}" class="hover:underline">
-                  {String.fromCharCode(65 + prob.ordinal)}
-                </a>
-                <span class="block text-xs font-normal text-muted-foreground">{prob.points}</span>
-              </th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each scoreboard.entries as entry, idx (entry.username)}
-            <tr class="border-b border-border last:border-b-0 {idx % 2 === 0 ? 'bg-[color:var(--color-panel)]' : 'bg-[color:var(--color-panel-strong)]/30'}">
-              <td class="px-3 py-2 font-medium">{entry.rank}</td>
-              <td class="px-3 py-2">
-                <span class="font-medium">{entry.username}</span>
-                {#if entry.isFirstBlood.some(Boolean)}
-                  <span class="ml-1 text-amber-500" title="First Blood">&#9733;</span>
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right font-semibold">{entry.totalScore}</td>
-              {#each entry.problems as ps, pi}
-                {@const prob = scoreboard.problems[pi]}
-                <td class="px-3 py-2 text-center">
-                  {#if ps.isPending}
-                    <span class="inline-block rounded px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">?</span>
-                  {:else}
-                    <span class="inline-block rounded px-2 py-0.5 text-xs font-medium {ioiScoreColor(ps.score, prob?.points ?? 100)}">
-                      {ps.score}
-                      {#if entry.isFirstBlood[pi]}
-                        <span class="text-amber-500" title="First Blood">&#9733;</span>
-                      {/if}
-                    </span>
+          </thead>
+          <tbody>
+            {#each scoreboard.entries as entry (entry.username)}
+              <tr
+                class="border-b border-border-subtle last:border-b-0 transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+              >
+                <td class="px-3 py-2 font-display text-title-sm font-semibold tabular-nums">
+                  {entry.rank}
+                </td>
+                <td class="px-3 py-2">
+                  <span class="font-medium">{entry.username}</span>
+                  {#if entry.isFirstBlood.some(Boolean)}
+                    <span class="ml-1 text-warning" title="First Blood">&#9733;</span>
                   {/if}
                 </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums font-semibold">
+                  {entry.totalScore}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">
+                  {entry.totalPenalty}
+                </td>
+                {#each entry.problems as ps, pi (pi)}
+                  <td class="px-3 py-2 text-center font-mono tabular-nums {icpcCellClass(ps)}">
+                    <span>
+                      {formatIcpcCell(ps)}
+                      {#if entry.isFirstBlood[pi]}
+                        <span class="ml-0.5 text-warning" title="First Blood">&#9733;</span>
+                      {/if}
+                    </span>
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  {:else}
+    <!-- IOI Table -->
+    <Card variant="surface" size="lg">
+      <div class="overflow-x-auto rounded-sm border border-border-subtle">
+        <table class="w-full text-body-sm">
+          <thead>
+            <tr class="border-b border-border-subtle bg-[color:var(--color-panel-strong)]">
+              <th
+                class="px-3 py-2.5 text-left text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >#</th
+              >
+              <th
+                class="px-3 py-2.5 text-left text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >{m.scoreboard_user()}</th
+              >
+              <th
+                class="px-3 py-2.5 text-right text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >{m.scoreboard_total()}</th
+              >
+              {#each scoreboard.problems as prob (prob.id)}
+                <th
+                  class="px-3 py-2.5 text-center text-caption uppercase tracking-wide text-muted-foreground font-medium"
+                >
+                  <a href="/problems/{prob.id}" class="hover:underline hover:text-foreground transition-colors duration-fast ease-out-soft">
+                    {String.fromCharCode(65 + prob.ordinal)}
+                  </a>
+                  <span class="block text-caption font-normal text-muted-foreground tabular-nums">
+                    {prob.points}
+                  </span>
+                </th>
               {/each}
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#each scoreboard.entries as entry (entry.username)}
+              <tr
+                class="border-b border-border-subtle last:border-b-0 transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+              >
+                <td class="px-3 py-2 font-display text-title-sm font-semibold tabular-nums">
+                  {entry.rank}
+                </td>
+                <td class="px-3 py-2">
+                  <span class="font-medium">{entry.username}</span>
+                  {#if entry.isFirstBlood.some(Boolean)}
+                    <span class="ml-1 text-warning" title="First Blood">&#9733;</span>
+                  {/if}
+                </td>
+                <td class="px-3 py-2 text-right font-mono tabular-nums font-semibold">
+                  {entry.totalScore}
+                </td>
+                {#each entry.problems as ps, pi (pi)}
+                  {@const prob = scoreboard.problems[pi]}
+                  <td class="px-3 py-2 text-center">
+                    {#if ps.isPending}
+                      <span class="inline-block rounded-xs px-2 py-0.5 text-caption font-medium bg-info/15 text-info">
+                        ?
+                      </span>
+                    {:else}
+                      <span class="inline-block rounded-xs px-2 py-0.5 text-caption font-mono font-medium tabular-nums {ioiScoreClass(ps.score, prob?.points ?? 100)}">
+                        {ps.score}
+                        {#if entry.isFirstBlood[pi]}
+                          <span class="text-warning" title="First Blood">&#9733;</span>
+                        {/if}
+                      </span>
+                    {/if}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   {/if}
 </div>

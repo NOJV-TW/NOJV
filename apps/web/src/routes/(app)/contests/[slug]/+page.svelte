@@ -1,5 +1,8 @@
 <script lang="ts">
   import { toasts } from "$lib/stores/toast";
+  import { m } from "$lib/paraglide/messages.js";
+  import { Card } from "$lib/components/ui/card/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
 
   let { data } = $props();
 
@@ -49,121 +52,123 @@
     if (ms <= 0) return "00:00:00";
     const totalSec = Math.floor(ms / 1000);
     const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
+    const mm = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   }
 </script>
 
 <div class="space-y-8">
-  <!-- Header -->
-  <div>
-    <div class="flex items-center gap-3">
-      <span class="rounded-full bg-muted px-3 py-1 text-xs font-medium uppercase text-muted-foreground">
-        {contest.scoringMode}
-      </span>
+  <!-- Hero -->
+  <Card variant="elevated" size="hero">
+    <div class="flex items-center gap-2 flex-wrap">
+      <Badge variant="muted">{contest.scoringMode}</Badge>
       {#if isActive}
-        <span class="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-600">
-          Active
-        </span>
+        <Badge variant="success">{m.contests_statusActive()}</Badge>
       {:else if !hasStarted}
-        <span class="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-medium text-blue-600">
-          Upcoming
-        </span>
+        <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
       {:else}
-        <span class="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          Ended
-        </span>
+        <Badge variant="muted">{m.contests_statusEnded()}</Badge>
       {/if}
     </div>
-    <h1 class="mt-3 font-[family-name:var(--font-display)] text-3xl">{contest.title}</h1>
-    <p class="mt-2 text-sm text-muted-foreground">{contest.summary}</p>
-  </div>
+    <h1 class="font-display text-title-lg font-semibold [text-wrap:balance]">
+      {contest.title}
+    </h1>
+    {#if contest.summary}
+      <p class="text-body text-muted-foreground [text-wrap:pretty]">{contest.summary}</p>
+    {/if}
 
-  <!-- Timer -->
-  {#if !hasEnded}
-    <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-5">
-      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {!hasStarted ? "Starts in" : "Time remaining"}
-      </p>
-      <p class="mt-1 font-mono text-3xl tabular-nums font-semibold">
-        {formatDuration(remainingMs)}
-      </p>
-    </div>
-  {/if}
+    {#if !hasEnded}
+      <div class="rounded-sm bg-[color:var(--color-panel-strong)] px-5 py-4 mt-2">
+        <p class="text-caption font-medium uppercase tracking-wide text-muted-foreground">
+          {!hasStarted ? m.contests_startsIn() : m.contests_timeRemaining()}
+        </p>
+        <p class="mt-1 font-mono text-headline tabular-nums font-semibold">
+          {formatDuration(remainingMs)}
+        </p>
+      </div>
+    {/if}
+  </Card>
 
-  <!-- Contest info -->
+  <!-- Contest info grid -->
   <div class="grid gap-4 sm:grid-cols-3">
-    <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4">
-      <p class="text-xs text-muted-foreground">Starts</p>
-      <p class="mt-1 text-sm font-medium">{startsAt.toLocaleString()}</p>
-    </div>
-    <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4">
-      <p class="text-xs text-muted-foreground">Ends</p>
-      <p class="mt-1 text-sm font-medium">{endsAt.toLocaleString()}</p>
-    </div>
-    <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4">
-      <p class="text-xs text-muted-foreground">Participants</p>
-      <p class="mt-1 text-sm font-medium">{contest.participantCount}</p>
-    </div>
+    <Card variant="surface" size="md">
+      <p class="text-caption uppercase tracking-wide text-muted-foreground">
+        {m.contests_starts()}
+      </p>
+      <p class="mt-1 text-body-sm font-medium tabular-nums">{startsAt.toLocaleString()}</p>
+    </Card>
+    <Card variant="surface" size="md">
+      <p class="text-caption uppercase tracking-wide text-muted-foreground">
+        {m.contests_ends()}
+      </p>
+      <p class="mt-1 text-body-sm font-medium tabular-nums">{endsAt.toLocaleString()}</p>
+    </Card>
+    <Card variant="surface" size="md">
+      <p class="text-caption uppercase tracking-wide text-muted-foreground">
+        {m.contests_participants()}
+      </p>
+      <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+        {contest.participantCount}
+      </p>
+    </Card>
   </div>
 
   <!-- Contest settings -->
-  <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
+  <div class="flex flex-wrap gap-2">
     {#if contest.submitCooldownSec > 0}
-      <span class="rounded-full bg-muted px-3 py-1">
-        Cooldown: {contest.submitCooldownSec}s
-      </span>
+      <Badge variant="muted">{m.contests_cooldownLabel()}: {contest.submitCooldownSec}s</Badge>
     {/if}
     {#if contest.pageLockEnabled}
-      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">Page lock</span>
+      <Badge variant="warning">{m.contests_pageLock()}</Badge>
     {/if}
     {#if contest.ipWhitelistEnabled}
-      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">IP whitelist</span>
+      <Badge variant="warning">{m.contests_ipWhitelist()}</Badge>
     {/if}
     {#if contest.ipBindingEnabled}
-      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-amber-600">IP binding</span>
+      <Badge variant="warning">{m.contests_ipBinding()}</Badge>
     {/if}
-    <span class="rounded-full bg-muted px-3 py-1">
-      Scoreboard: {contest.scoreboardMode}
-    </span>
+    <Badge variant="muted">{m.contestDetail_scoreboard()}: {contest.scoreboardMode}</Badge>
     {#if contest.allowedLanguages.length > 0}
-      <span class="rounded-full bg-muted px-3 py-1">
-        Languages: {contest.allowedLanguages.join(", ")}
-      </span>
+      <Badge variant="muted">
+        {m.contestCreate_allowedLanguages()}: {contest.allowedLanguages.join(", ")}
+      </Badge>
     {/if}
   </div>
 
   <!-- Problems -->
   <div class="space-y-4">
-    <h2 class="text-xl font-semibold">Problems</h2>
+    <h2 class="font-display text-title font-semibold">{m.contestDetail_contestProblems()}</h2>
 
     <div class="grid gap-3">
       {#each contest.problems as p (p.id)}
         {@const href = isActive ? `/contests/${contest.slug}/problems/${p.id}` : null}
         {#if href}
-          <a
-            class="flex items-center justify-between rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4 transition hover:-translate-y-0.5 hover:border-border"
-            {href}
-          >
-            <div class="flex items-center gap-3">
-              <span class="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                {String.fromCharCode(64 + p.ordinal)}
+          <a class="block" {href}>
+            <Card variant="surface" size="md" interactive class="flex-row items-center justify-between">
+              <div class="flex items-center gap-3">
+                <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
+                  {String.fromCharCode(64 + p.ordinal)}
+                </span>
+                <span class="font-medium text-body">{p.title}</span>
+              </div>
+              <span class="text-caption text-muted-foreground tabular-nums">
+                {p.points} {m.contestDetail_pts()}
               </span>
-              <span class="font-medium">{p.title}</span>
-            </div>
-            <span class="text-xs text-muted-foreground">{p.points} pts</span>
+            </Card>
           </a>
         {:else}
-          <div class="flex items-center justify-between rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4 opacity-60">
+          <Card variant="flat" size="md" class="flex-row items-center justify-between opacity-60">
             <div class="flex items-center gap-3">
-              <span class="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+              <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
                 {String.fromCharCode(64 + p.ordinal)}
               </span>
-              <span class="font-medium">{p.title}</span>
+              <span class="font-medium text-body">{p.title}</span>
             </div>
-            <span class="text-xs text-muted-foreground">{p.points} pts</span>
-          </div>
+            <span class="text-caption text-muted-foreground tabular-nums">
+              {p.points} {m.contestDetail_pts()}
+            </span>
+          </Card>
         {/if}
       {/each}
     </div>

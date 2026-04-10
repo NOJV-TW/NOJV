@@ -6,7 +6,7 @@
 </script>
 
 <div
-  class="flex h-[calc(100vh-7rem)] overflow-hidden rounded-[2rem] border border-border"
+  class="flex h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-border shadow-rest"
 >
   {#if data.problem.type === "special_env"}
     <AdvancedModeWorkspace

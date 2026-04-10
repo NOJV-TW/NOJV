@@ -4,6 +4,11 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Trophy, Plus } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Section from "$lib/components/ui/Section.svelte";
+  import { Card } from "$lib/components/ui/card/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Input } from "$lib/components/ui/input/index.js";
 
   let { data, form: actionData } = $props();
 
@@ -31,37 +36,34 @@
 </script>
 
 <div class="space-y-6">
-  <div class="flex items-center justify-between">
-    <h2 class="font-[family-name:var(--font-display)] text-3xl">{m.navigation_contests()}</h2>
-    {#if data.loggedIn}
-      <a
-        class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-        href="/contests/create"
-      >
-        <Plus class="h-4 w-4" />
-        Create Contest
-      </a>
-    {/if}
-  </div>
+  <Section>
+    {#snippet header()}
+      <h1 class="font-display text-title-lg">{m.navigation_contests()}</h1>
+    {/snippet}
+    {#snippet actions()}
+      {#if data.loggedIn}
+        <Button href="/contests/create" size="default">
+          <Plus class="h-4 w-4" />
+          {m.contests_create()}
+        </Button>
+      {/if}
+    {/snippet}
+  </Section>
 
   <div class="flex gap-3">
-    <input
-      class="min-w-0 flex-1 rounded-full border border-border bg-[color:var(--color-panel)] px-4 py-2.5 text-sm"
+    <Input
+      class="min-w-0 flex-1"
       placeholder={m.contestDetail_searchPlaceholder()}
       type="search"
       bind:value={search}
     />
-    <button
-      class="shrink-0 rounded-full border border-border bg-[color:var(--color-panel)] px-5 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-accent"
-      type="button"
-      onclick={() => (joinDialogOpen = true)}
-    >
+    <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
       {m.contestDetail_enterCode()}
-    </button>
+    </Button>
   </div>
 
   {#if actionData?.codeError}
-    <p class="text-sm text-red-700 dark:text-red-400">{actionData.codeError}</p>
+    <p class="text-body-sm text-destructive">{actionData.codeError}</p>
   {/if}
 
   <Dialog.Root bind:open={joinDialogOpen}>
@@ -76,19 +78,15 @@
         use:enhance
       >
         <!-- svelte-ignore a11y_autofocus -->
-        <input
-          class="w-full rounded-full border border-border px-4 py-2.5 text-sm"
+        <Input
           name="code"
           placeholder="spring-2026-final"
           autofocus
         />
         <div class="flex justify-end">
-          <button
-            class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-            type="submit"
-          >
+          <Button type="submit">
             {m.contestDetail_go()}
-          </button>
+          </Button>
         </div>
       </form>
     </Dialog.Content>
@@ -96,62 +94,73 @@
 
   {#if data.contests.length === 0}
     <EmptyState
+      variant="minimal"
       icon={Trophy}
-      title={m.contestDetail_empty()}
+      title={m.contests_empty()}
+      description={m.contests_emptyHint()}
     />
   {:else if filtered.length === 0}
     <EmptyState
+      variant="minimal"
       icon={Trophy}
-      title={m.contestDetail_empty()}
+      title={m.contests_noMatches()}
+      description={m.contests_noMatchesHint()}
     />
   {:else}
     <section class="grid gap-4 lg:grid-cols-2">
       {#each filtered as contest (contest.slug)}
         {@const status = statusOf(contest)}
-        <a
-          class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm transition hover:-translate-y-0.5"
-          href="/contests/{contest.slug}"
-        >
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <div class="flex items-center gap-2">
-                <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-                  {contest.scoringMode}
-                </p>
-                {#if status === "active"}
-                  <span class="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600">
-                    {m.contestDetail_live()}
-                  </span>
-                {:else if status === "upcoming"}
-                  <span class="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-600">
-                    Upcoming
-                  </span>
-                {:else}
-                  <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    Ended
-                  </span>
+        <a class="block" href="/contests/{contest.slug}">
+          <Card variant="surface" size="lg" interactive>
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="text-caption uppercase tracking-wide text-muted-foreground">
+                    {contest.scoringMode}
+                  </p>
+                  {#if status === "active"}
+                    <Badge variant="success">{m.contestDetail_live()}</Badge>
+                  {:else if status === "upcoming"}
+                    <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
+                  {:else}
+                    <Badge variant="muted">{m.contests_statusEnded()}</Badge>
+                  {/if}
+                </div>
+                <h3 class="mt-2 font-display text-title font-semibold [text-wrap:balance]">
+                  {contest.title}
+                </h3>
+                {#if contest.summary}
+                  <p class="mt-1 text-body-sm text-muted-foreground [text-wrap:pretty]">
+                    {contest.summary}
+                  </p>
                 {/if}
               </div>
-              <h3 class="mt-2 text-2xl font-semibold">{contest.title}</h3>
-              {#if contest.summary}
-                <p class="mt-1 text-sm text-muted-foreground">{contest.summary}</p>
-              {/if}
             </div>
-          </div>
-          <dl class="mt-5 grid gap-4 sm:grid-cols-3">
-            <div>
-              <dt class="text-sm text-muted-foreground">{m.contestDetail_problems()}</dt>
-              <dd class="mt-1 text-lg font-semibold">{contest.problemCount}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-muted-foreground">Participants</dt>
-              <dd class="mt-1 text-lg font-semibold">{contest.participantCount}</dd>
-            </div>
-            <div>
-              <dt class="text-sm text-muted-foreground">{m.contestDetail_scoreboard()}</dt>
-              <dd class="mt-1 text-lg font-semibold">{contest.scoreboardMode}</dd>
-            </div>
-          </dl>
+            <dl class="mt-5 grid gap-4 sm:grid-cols-3 rounded-sm bg-[color:var(--color-panel-strong)] p-4">
+              <div>
+                <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+                  {m.contestDetail_problems()}
+                </dt>
+                <dd class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+                  {contest.problemCount}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+                  {m.contests_participants()}
+                </dt>
+                <dd class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+                  {contest.participantCount}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+                  {m.contestDetail_scoreboard()}
+                </dt>
+                <dd class="mt-1 text-body-sm font-medium">{contest.scoreboardMode}</dd>
+              </div>
+            </dl>
+          </Card>
         </a>
       {/each}
     </section>
