@@ -97,6 +97,18 @@ function problemEditAction<T>(
   };
 }
 
+// Shared judgeConfig save handler. The edit UI has two tabs (Judge
+// and Scoring) that each POST to a distinct action name, but the
+// server-side work is identical — parse judgeConfigSchema and write
+// it back. Aliasing both action names to one handler removes the
+// copy that previously had to be kept in sync by hand.
+const saveJudgeConfig = problemEditAction(async ({ actor, problemId, event }) => {
+  const formData = await event.request.formData();
+  const judgeConfig = parseJsonField(formData.get("data"), judgeConfigSchema);
+  await updateProblemRecord(actor, problemId, { judgeConfig });
+  return { success: true };
+});
+
 export const actions: Actions = {
   update: problemEditAction(async ({ actor, problemId, event }) => {
     const form = await superValidate(event, zod4(problemCreateSchema));
@@ -142,22 +154,8 @@ export const actions: Actions = {
     return { success: true };
   }),
 
-  // NOTE: updateJudgeConfig and updateScoring are identical — both parse
-  // judgeConfigSchema and call updateProblemRecord with `{ judgeConfig }`.
-  // They remain separate because distinct UI tabs POST to each name.
-  updateJudgeConfig: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const judgeConfig = parseJsonField(formData.get("data"), judgeConfigSchema);
-    await updateProblemRecord(actor, problemId, { judgeConfig });
-    return { success: true };
-  }),
-
-  updateScoring: problemEditAction(async ({ actor, problemId, event }) => {
-    const formData = await event.request.formData();
-    const judgeConfig = parseJsonField(formData.get("data"), judgeConfigSchema);
-    await updateProblemRecord(actor, problemId, { judgeConfig });
-    return { success: true };
-  }),
+  updateJudgeConfig: saveJudgeConfig,
+  updateScoring: saveJudgeConfig,
 
   updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
