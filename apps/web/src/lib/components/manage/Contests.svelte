@@ -1,7 +1,5 @@
 <script lang="ts">
-  import { browser } from "$app/environment";
-  import { CalendarRange, Languages, Shield, Sparkles, Trophy } from "@lucide/svelte";
-  import { onMount } from "svelte";
+  import { CalendarRange, Shield, Sparkles, Trophy } from "@lucide/svelte";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import {
@@ -15,6 +13,7 @@
   type ContestListItem = contestDomain.ContestListItem;
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import AdjustmentRulesEditor from "./AdjustmentRulesEditor.svelte";
+  import SystemTextToggle, { type UiLang } from "./SystemTextToggle.svelte";
 
   interface Props {
     contests: ContestListItem[];
@@ -45,7 +44,6 @@
   let { contests, courseSlug, form: formData, problemIds }: Props = $props();
   const initialProblemSlugs = untrack(() => problemIds);
 
-  type UiLang = "zh" | "en";
   let uiLang = $state<UiLang>("zh");
 
   const text = {
@@ -60,7 +58,6 @@
       createContest: "Create Contest",
       creating: "Creating...",
       endsAt: "Ends at",
-      english: "English",
       freezeAt: "Freeze at (optional)",
       maxAttempts: "Max attempts (optional)",
       noContestDesc: "Create your first contest below.",
@@ -75,8 +72,7 @@
       unlimited: "Unlimited",
       whenIpViolation: "When IP violation occurs:",
       whitelist: "IP Whitelist",
-      ipBinding: "IP First-Binding (lock to first IP used)",
-      zh: "中文"
+      ipBinding: "IP First-Binding (lock to first IP used)"
     },
     zh: {
       allLanguages: "全部語言",
@@ -89,7 +85,6 @@
       createContest: "建立競賽",
       creating: "建立中...",
       endsAt: "結束時間",
-      english: "English",
       freezeAt: "凍結時間（可選）",
       maxAttempts: "最大嘗試次數（可選）",
       noContestDesc: "在下方建立第一個競賽。",
@@ -104,28 +99,12 @@
       unlimited: "不限制",
       whenIpViolation: "發生 IP 違規時：",
       whitelist: "IP 白名單",
-      ipBinding: "IP 首次綁定（鎖定首次使用 IP）",
-      zh: "中文"
+      ipBinding: "IP 首次綁定（鎖定首次使用 IP）"
     }
   } as const;
 
   function t<K extends keyof (typeof text)["en"]>(key: K): string {
     return text[uiLang][key];
-  }
-
-  onMount(() => {
-    if (!browser) return;
-    const saved = localStorage.getItem("nojv-system-text-lang");
-    if (saved === "zh" || saved === "en") {
-      uiLang = saved;
-    }
-  });
-
-  function setUiLang(next: UiLang): void {
-    uiLang = next;
-    if (browser) {
-      localStorage.setItem("nojv-system-text-lang", next);
-    }
   }
 
   function toggleLanguage(lang: string) {
@@ -158,25 +137,7 @@
 
 <div class="space-y-6">
   <div class="flex justify-end">
-    <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
-      <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
-        <Languages class="h-3.5 w-3.5" /> {t("systemText")}
-      </span>
-      <button
-        type="button"
-        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
-        onclick={() => setUiLang("zh")}
-      >
-        {t("zh")}
-      </button>
-      <button
-        type="button"
-        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
-        onclick={() => setUiLang("en")}
-      >
-        {t("english")}
-      </button>
-    </div>
+    <SystemTextToggle bind:value={uiLang} label={t("systemText")} />
   </div>
 
   <!-- Existing contests -->
