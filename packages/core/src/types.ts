@@ -23,7 +23,7 @@ export const contestScoringModes = ["icpc", "ioi"] as const;
 export const courseMembershipStatuses = ["active", "invited", "pending", "removed"] as const;
 export const submissionModes = ["practice", "contest", "assignment"] as const;
 export const judgeTypes = ["standard", "checker", "interactive"] as const;
-export const submissionTypes = ["function", "full_source", "zip_project"] as const;
+export const submissionTypes = ["function", "full_source"] as const;
 export const submissionVerdicts = [
   "accepted",
   "wrong_answer",
