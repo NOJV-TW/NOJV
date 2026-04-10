@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { parseJudgeOutput } from "./run-process.js";
+import { createBoundedBuffer } from "../utils.js";
 
 /**
  * Interactive judge: bidirectional pipe between the solution and an interactor.
@@ -77,14 +78,20 @@ function runInteractive(
     solution.stdin.on("error", () => {});
     interactor.stdin.on("error", () => {});
 
-    const solutionStderr: Buffer[] = [];
-    const interactorStderr: Buffer[] = [];
-    const solutionStdout: Buffer[] = [];
+    const solutionStderr = createBoundedBuffer();
+    const interactorStderr = createBoundedBuffer();
+    const solutionStdout = createBoundedBuffer();
 
-    solution.stderr.on("data", (chunk: Buffer) => solutionStderr.push(chunk));
-    interactor.stderr.on("data", (chunk: Buffer) => interactorStderr.push(chunk));
+    solution.stderr.on("data", (chunk: Buffer) => {
+      solutionStderr.push(chunk);
+    });
+    interactor.stderr.on("data", (chunk: Buffer) => {
+      interactorStderr.push(chunk);
+    });
     // Also capture solution stdout for the result (even though it's piped)
-    solution.stdout.on("data", (chunk: Buffer) => solutionStdout.push(chunk));
+    solution.stdout.on("data", (chunk: Buffer) => {
+      solutionStdout.push(chunk);
+    });
 
     let solutionDone = false;
     let interactorDone = false;
@@ -106,9 +113,9 @@ function runInteractive(
       if (!solutionDone || !interactorDone) return;
       clearTimeout(timer);
 
-      const solStdout = Buffer.concat(solutionStdout).toString("utf-8");
-      const solStderr = Buffer.concat(solutionStderr).toString("utf-8");
-      const intStderr = Buffer.concat(interactorStderr).toString("utf-8");
+      const solStdout = solutionStdout.toString();
+      const solStderr = solutionStderr.toString();
+      const intStderr = interactorStderr.toString();
       const base = {
         index: testcase.index,
         stdout: solStdout,
