@@ -487,9 +487,8 @@
         </div>
 
         <SpecialLabels
+          problemType={problem.problemType}
           judgeType={problem.judgeType}
-          submissionType={problem.submissionType}
-          mode={problem.mode}
         />
 
         <div class="mt-5 text-sm leading-7 text-foreground">

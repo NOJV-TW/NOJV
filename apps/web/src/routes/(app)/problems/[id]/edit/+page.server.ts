@@ -60,7 +60,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       inputFormat: problem.inputFormat,
       judgeConfig: problem.judgeConfig,
       memoryLimitMb: problem.memoryLimitMb,
-      mode: problem.mode,
+      // Form schema still stores raw DB mode — derive it from problemType.
+      mode: problem.problemType === "special_env" ? "advanced" : "standard",
       outputFormat: problem.outputFormat,
       samples: problem.samples,
       statement: problem.statement,

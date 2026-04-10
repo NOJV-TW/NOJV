@@ -589,6 +589,7 @@
             </ul>
           </aside>
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
           <div
             class="group relative w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
             role="separator"
@@ -677,6 +678,7 @@
   </div>
 
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <!-- Vertical resize handle between editor area and bottom panel -->
   <div
     class="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"

@@ -43,9 +43,8 @@
     difficulty: ProblemDifficulty;
     id: string;
     judgeType: string;
-    mode: string;
+    problemType: import("@nojv/core").ProblemType;
     status: string;
-    submissionType: string;
     tags: string[];
     title: string;
     visibility: ProblemVisibility;
@@ -427,9 +426,8 @@
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
           <div class="mt-1">
             <SpecialLabels
+              problemType={problem.problemType}
               judgeType={problem.judgeType}
-              submissionType={problem.submissionType}
-              mode={problem.mode}
               compact
             />
           </div>
@@ -602,9 +600,8 @@
           </a>
           <div class="mt-1">
             <SpecialLabels
+              problemType={problem.problemType}
               judgeType={problem.judgeType}
-              submissionType={problem.submissionType}
-              mode={problem.mode}
               compact
             />
           </div>

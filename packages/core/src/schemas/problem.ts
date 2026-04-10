@@ -6,7 +6,8 @@ import {
   problemStatusSchema,
   problemVisibilitySchema,
   submissionTypeSchema,
-  type Language
+  type Language,
+  type SubmissionType
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
@@ -15,6 +16,31 @@ import { judgeConfigSchema } from "./judge-config";
 
 export const problemModeSchema = z.enum(["standard", "advanced"]);
 export type ProblemMode = z.infer<typeof problemModeSchema>;
+
+/**
+ * A UI-facing categorisation of the problem shape the student sees. It is
+ * *derived* from `ProblemMode`, `SubmissionType`, and whether the problem
+ * ships multiple workspace files — there is no corresponding DB column.
+ *
+ * - `full_source`   — single-file, student writes everything including main()
+ * - `function`      — student implements the named function, judge provides the driver
+ * - `multi_file`    — teacher ships multiple files; student edits the designated ones in-browser
+ * - `special_env`   — advanced mode; student uploads a tarball that runs inside a TA-provided image.
+ *                     Evaluation details are owned by the TA image, so no judge-method badge is
+ *                     displayed for this category.
+ */
+export type ProblemType = "full_source" | "function" | "multi_file" | "special_env";
+
+export function deriveProblemType(input: {
+  mode: ProblemMode;
+  submissionType: SubmissionType;
+  workspaceFileCount: number;
+}): ProblemType {
+  if (input.mode === "advanced") return "special_env";
+  if (input.workspaceFileCount > 1) return "multi_file";
+  if (input.submissionType === "function") return "function";
+  return "full_source";
+}
 
 export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
 export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;

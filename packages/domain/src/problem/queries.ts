@@ -7,6 +7,7 @@ import {
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
+  deriveProblemType,
   judgeConfigSchema,
   problemDifficultySchema,
   submissionTypeSchema,
@@ -16,6 +17,7 @@ import {
   type ProblemImageSource,
   type ProblemMode,
   type ProblemStatus,
+  type ProblemType,
   type ProblemVisibility,
   type SubmissionType
 } from "@nojv/core";
@@ -31,8 +33,15 @@ export interface ProblemDetail {
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
-  mode: ProblemMode;
   outputFormat: string;
+  /**
+   * Derived, UI-facing category for the problem shape. Replaces the
+   * legacy `mode` + `submissionType` pair on the client — `special_env`
+   * is equivalent to the DB's `mode === "advanced"`, and the other
+   * three categories carry all the distinctions that used to live in
+   * `submissionType` plus the multi-file signal.
+   */
+  problemType: ProblemType;
   samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
@@ -249,6 +258,12 @@ function mapPersistedProblemDetail(
     };
   });
 
+  const problemType = deriveProblemType({
+    mode: problem.mode ?? "standard",
+    submissionType,
+    workspaceFileCount: (problem.workspaceFiles ?? []).length
+  });
+
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
@@ -258,8 +273,8 @@ function mapPersistedProblemDetail(
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
-    mode: problem.mode ?? "standard",
     outputFormat: localized.outputFormat,
+    problemType,
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
     statement: localized.statement,
@@ -308,9 +323,8 @@ export interface ProblemCardWithStatus {
   difficulty: string;
   id: string;
   judgeType: JudgeType;
-  mode: ProblemMode;
+  problemType: ProblemType;
   status: ProblemUserStatus;
-  submissionType: SubmissionType;
   tags: string[];
   title: string;
   totalSubmissions: number;
@@ -394,14 +408,19 @@ export async function listProblemCards(
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const
     };
+    const submissionType = parseSubmissionType(problem.submissionType);
+    const problemType = deriveProblemType({
+      mode: problem.mode,
+      submissionType,
+      workspaceFileCount: problem._count.workspaceFiles
+    });
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
       difficulty: parseDifficulty(problem.difficulty),
       id: problem.id,
       judgeType: judgeConfig.type,
-      mode: problem.mode,
+      problemType,
       status: statusByProblemId.get(problem.id) ?? null,
-      submissionType: parseSubmissionType(problem.submissionType),
       tags: problem.tags,
       title: problem.defaultTitle,
       totalSubmissions: total
@@ -418,13 +437,18 @@ export async function listEditableProblems(userId: string) {
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const
     };
+    const submissionType = parseSubmissionType(problem.submissionType);
+    const problemType = deriveProblemType({
+      mode: problem.mode,
+      submissionType,
+      workspaceFileCount: problem._count.workspaceFiles
+    });
     return {
       difficulty: parseDifficulty(problem.difficulty),
       id: problem.id,
       judgeType: judgeConfig.type,
-      mode: problem.mode,
+      problemType,
       status: problem.status,
-      submissionType: parseSubmissionType(problem.submissionType),
       tags: problem.tags,
       title: problem.defaultTitle,
       visibility: problem.visibility

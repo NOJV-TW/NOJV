@@ -1,16 +1,39 @@
 <script lang="ts">
+  import type { ProblemType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
 
   interface Props {
+    /** Derived problem type — see @nojv/core's ProblemType. */
+    problemType: ProblemType;
+    /** Judge method. Ignored for `problemType === "special_env"`. */
     judgeType: string;
-    submissionType: string;
-    mode: string;
-    /** Compact variant (no wrapper, no help tooltips) used in list cards. */
+    /** Compact variant (no titles, no tooltips) used in list cards. */
     compact?: boolean;
   }
 
-  let { judgeType, submissionType, mode, compact = false }: Props = $props();
+  let { problemType, judgeType, compact = false }: Props = $props();
+
+  const problemTypeLabel: Record<ProblemType, () => string> = {
+    full_source: () => m.problemDetail_fullSourceBadge(),
+    function: () => m.problemDetail_functionBadge(),
+    multi_file: () => m.problemDetail_multiFileBadge(),
+    special_env: () => m.problemDetail_specialEnvBadge()
+  };
+
+  const problemTypeHelp: Record<ProblemType, () => string> = {
+    full_source: () => m.problemDetail_fullSourceHelp(),
+    function: () => m.problemDetail_functionHelp(),
+    multi_file: () => m.problemDetail_multiFileHelp(),
+    special_env: () => m.problemDetail_specialEnvHelp()
+  };
+
+  const problemTypeColor: Record<ProblemType, string> = {
+    full_source: "bg-muted text-muted-foreground",
+    function: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+    multi_file: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
+    special_env: "bg-violet-500/15 text-violet-700 dark:text-violet-400"
+  };
 
   const judgeTypeLabel: Record<string, () => string> = {
     standard: () => m.problemDetail_standardBadge(),
@@ -26,21 +49,13 @@
 
   const judgeTypeColor: Record<string, string> = {
     standard: "bg-muted text-muted-foreground",
-    checker: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
+    checker: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
     interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400"
   };
 
-  const submissionTypeLabel: Record<string, () => string> = {
-    full_source: () => m.problemDetail_fullSourceBadge(),
-    function: () => m.problemDetail_functionBadge(),
-    zip_project: () => m.problemDetail_multiFileBadge()
-  };
-
-  const submissionTypeHelp: Record<string, () => string> = {
-    full_source: () => m.problemDetail_fullSourceHelp(),
-    function: () => m.problemDetail_functionHelp(),
-    zip_project: () => m.problemDetail_multiFileHelp()
-  };
+  let problemLabel = $derived(problemTypeLabel[problemType]());
+  let problemHelp = $derived(problemTypeHelp[problemType]());
+  let problemColor = $derived(problemTypeColor[problemType]);
 
   let judgeLabel = $derived(
     (judgeTypeLabel[judgeType] ?? judgeTypeLabel["standard"]!)()
@@ -51,54 +66,46 @@
   let judgeColor = $derived(
     judgeTypeColor[judgeType] ?? judgeTypeColor["standard"]!
   );
-  let submissionLabel = $derived(
-    (submissionTypeLabel[submissionType] ?? submissionTypeLabel["full_source"]!)()
-  );
-  let submissionHelp = $derived(
-    (submissionTypeHelp[submissionType] ?? submissionTypeHelp["full_source"]!)()
-  );
+
+  // Special environment problems do not expose a judging method — the TA's
+  // Docker image owns the entire evaluation loop.
+  let showJudgeMethod = $derived(problemType !== "special_env");
 </script>
 
 {#if compact}
   <span class="inline-flex flex-wrap items-center gap-1">
-    <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {judgeColor}">
-      {judgeLabel}
+    <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {problemColor}">
+      {problemLabel}
     </span>
-    <span class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-      {submissionLabel}
-    </span>
-    {#if mode === "advanced"}
-      <span class="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
-        {m.problemDetail_advancedModeBadge()}
+    {#if showJudgeMethod}
+      <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {judgeColor}">
+        {judgeLabel}
       </span>
     {/if}
   </span>
 {:else}
   <div
-    class="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2"
+    class="mt-3 grid gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 sm:grid-cols-2 sm:gap-4"
   >
-    <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      {m.problemDetail_specialLabelsTitle()}
-    </span>
-    <span class="inline-flex items-center gap-1">
-      <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {judgeColor}">
-        {judgeLabel}
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {m.problemDetail_problemTypeTitle()}
       </span>
-      <HelpTooltip text={judgeHelp} />
-    </span>
-    <span class="inline-flex items-center gap-1">
-      <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-        {submissionLabel}
+      <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {problemColor}">
+        {problemLabel}
       </span>
-      <HelpTooltip text={submissionHelp} />
-    </span>
-    {#if mode === "advanced"}
-      <span class="inline-flex items-center gap-1">
-        <span class="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-400">
-          {m.problemDetail_advancedModeBadge()}
+      <HelpTooltip text={problemHelp} />
+    </div>
+    {#if showJudgeMethod}
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {m.problemDetail_judgeMethodTitle()}
         </span>
-        <HelpTooltip text={m.problemDetail_advancedModeHelp()} />
-      </span>
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {judgeColor}">
+          {judgeLabel}
+        </span>
+        <HelpTooltip text={judgeHelp} />
+      </div>
     {/if}
   </div>
 {/if}

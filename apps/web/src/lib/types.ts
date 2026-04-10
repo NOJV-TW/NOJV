@@ -4,6 +4,7 @@ import type {
   Language,
   ProblemOverview,
   ProblemStatus,
+  ProblemType,
   ProblemVisibility,
   SubmissionType
 } from "@nojv/core";
@@ -77,7 +78,11 @@ export interface ProblemDetail extends ProblemOverview {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  mode: "standard" | "advanced";
+  /**
+   * Derived UI category — replaces the legacy `mode` + `submissionType`
+   * pair on the client. `special_env` is the old `mode === "advanced"`.
+   */
+  problemType: ProblemType;
   samples: {
     stdin: string;
     expected: string;

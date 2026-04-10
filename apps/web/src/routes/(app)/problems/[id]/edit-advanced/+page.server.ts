@@ -33,7 +33,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     error(404, "Problem not found");
   }
 
-  if (problem.mode !== "advanced") {
+  if (problem.problemType !== "special_env") {
     redirect(302, `/problems/${params.id}/edit`);
   }
 
