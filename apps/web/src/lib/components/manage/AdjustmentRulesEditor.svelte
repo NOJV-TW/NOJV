@@ -37,8 +37,8 @@
 <div class="space-y-3">
   <div class="flex items-center justify-between">
     <div>
-      <h3 class="text-sm font-semibold">Score adjustments</h3>
-      <p class="mt-0.5 text-xs text-muted-foreground">
+      <h3 class="text-body-sm font-semibold">Score adjustments</h3>
+      <p class="mt-0.5 text-caption text-muted-foreground">
         Rules applied to the raw score of every submission under this
         assessment / contest. Rules apply in order; final score is
         clamped to [0, 100].
@@ -46,7 +46,7 @@
     </div>
     <button
       type="button"
-      class="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+      class="rounded-md border border-border-subtle px-3 py-1.5 text-caption font-medium transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
       onclick={addRule}
     >
       + Add rule
@@ -54,13 +54,13 @@
   </div>
 
   {#if rules.length === 0}
-    <p class="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+    <p class="rounded-lg border border-dashed border-border-subtle p-3 text-center text-caption text-muted-foreground">
       No adjustments configured. Raw submission scores are used as-is.
     </p>
   {:else}
     <div class="space-y-2">
       {#each rules as rule, index (`rule-${index}`)}
-        <div class="space-y-2 rounded-xl border border-border p-3">
+        <div class="space-y-2 rounded-lg border border-border-subtle p-3">
           <div class="flex items-center gap-2">
             <select
               class="{inputClassName} mt-0 flex-1"
@@ -75,7 +75,7 @@
             </select>
             <button
               type="button"
-              class="text-muted-foreground hover:text-red-500"
+              class="text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-destructive"
               onclick={() => removeRule(index)}
               aria-label="Remove rule"
             >
@@ -84,7 +84,7 @@
           </div>
 
           {#if rule.type === "late_penalty_fixed"}
-            <div class="flex flex-wrap items-center gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-3 text-caption">
               <label class="text-muted-foreground">
                 Per
                 <select
@@ -131,7 +131,7 @@
               </label>
             </div>
           {:else if rule.type === "late_penalty_decay"}
-            <label class="text-xs text-muted-foreground">
+            <label class="text-caption text-muted-foreground">
               Half-life (hours)
               <input
                 class="{inputClassName} mt-0 inline-block w-24"
@@ -146,7 +146,7 @@
               />
             </label>
           {:else if rule.type === "time_bonus"}
-            <div class="flex flex-wrap items-center gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-3 text-caption">
               <label class="text-muted-foreground">
                 Max bonus
                 <input
@@ -178,7 +178,7 @@
               </label>
             </div>
           {:else}
-            <div class="flex flex-wrap items-center gap-3 text-xs">
+            <div class="flex flex-wrap items-center gap-3 text-caption">
               <label class="text-muted-foreground">
                 Memory threshold
                 <input

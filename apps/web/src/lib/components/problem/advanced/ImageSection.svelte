@@ -91,17 +91,17 @@
 
 <section class="space-y-6">
   <header class="space-y-1">
-    <h3 class="text-lg font-semibold">Judge image</h3>
-    <p class="text-sm text-muted-foreground">
+    <h3 class="text-body-lg font-semibold">Judge image</h3>
+    <p class="text-body-sm text-muted-foreground">
       Provide a Docker image that implements the advanced container contract.
     </p>
   </header>
 
   <!-- Source picker -->
   <div class="space-y-3">
-    <span class="text-sm font-medium">Source</span>
+    <span class="text-body-sm font-medium">Source</span>
     <div class="flex gap-3">
-      <label class="flex items-center gap-2 text-sm">
+      <label class="flex items-center gap-2 text-body-sm">
         <input
           type="radio"
           name={`image-source-${problemId}`}
@@ -111,7 +111,7 @@
         />
         Registry
       </label>
-      <label class="flex items-center gap-2 text-sm">
+      <label class="flex items-center gap-2 text-body-sm">
         <input
           type="radio"
           name={`image-source-${problemId}`}
@@ -125,15 +125,15 @@
   </div>
 
   {#if imageSource === "registry"}
-    <label class="block text-sm">
-      <span class="text-sm font-medium">Image reference</span>
+    <label class="block text-body-sm">
+      <span class="text-body-sm font-medium">Image reference</span>
       <input
         class={inputClassName}
         bind:value={imageRef}
         placeholder="ghcr.io/your-org/your-judge:tag"
         spellcheck="false"
       />
-      <p class="mt-2 text-xs text-muted-foreground">
+      <p class="mt-2 text-caption text-muted-foreground">
         e.g. <code>ghcr.io/your-org/your-judge:tag</code> — the worker will
         try to pull this image at judge time.
       </p>
@@ -144,7 +144,7 @@
         role="button"
         tabindex="0"
         aria-disabled={uploading}
-        class="rounded-2xl border-2 border-dashed border-border p-6 text-center text-sm transition {dragOver
+        class="rounded-xl border-2 border-dashed border-border p-6 text-center text-body-sm transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
           ? 'border-primary bg-primary/5'
           : ''} {uploading ? 'cursor-wait opacity-60' : 'cursor-pointer'}"
         ondrop={onDrop}
@@ -171,7 +171,7 @@
             ? "Uploading…"
             : (uploadedFileName ?? "Drop a docker tarball here, or click to browse")}
         </p>
-        <p class="mt-1 text-xs text-muted-foreground">
+        <p class="mt-1 text-caption text-muted-foreground">
           Build with <code>docker save your-image:tag -o judge.tar</code>
         </p>
         <input
@@ -184,15 +184,15 @@
         />
       </div>
       {#if uploadError}
-        <p class="mt-2 text-xs text-destructive">{uploadError}</p>
+        <p class="mt-2 text-caption text-destructive">{uploadError}</p>
       {/if}
     </div>
   {/if}
 
   <!-- Resource limits (now direct Problem columns) -->
   <div class="grid gap-4 md:grid-cols-3">
-    <label class="text-sm">
-      <span class="text-sm font-medium">Total time (ms)</span>
+    <label class="text-body-sm">
+      <span class="text-body-sm font-medium">Total time (ms)</span>
       <input
         type="number"
         class={inputClassName}
@@ -201,8 +201,8 @@
         bind:value={timeLimitMs}
       />
     </label>
-    <label class="text-sm">
-      <span class="text-sm font-medium">Memory (MB)</span>
+    <label class="text-body-sm">
+      <span class="text-body-sm font-medium">Memory (MB)</span>
       <input
         type="number"
         class={inputClassName}
@@ -211,7 +211,7 @@
         bind:value={memoryLimitMb}
       />
     </label>
-    <label class="flex items-end gap-3 text-sm">
+    <label class="flex items-end gap-3 text-body-sm">
       <input
         type="checkbox"
         class="size-4"
@@ -222,7 +222,7 @@
   </div>
 
   <!-- Contract docs -->
-  <details class="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm">
+  <details class="rounded-xl border border-border-subtle bg-muted/40 px-4 py-3 text-body-sm">
     <summary class="cursor-pointer font-medium">Container contract</summary>
     <div class="mt-3 space-y-2 text-muted-foreground">
       <p>The judge container is launched with the following workspace:</p>
@@ -245,14 +245,14 @@
         optional <code>testcases</code>/<code>subtasks</code> arrays.
       </p>
       <a
-        class="inline-block rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-background"
+        class="inline-block rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-background"
         href="/advanced-mode/starter.Dockerfile"
         download
       >
         Download starter Dockerfile
       </a>
       <a
-        class="ml-2 inline-block rounded-full border border-border px-3 py-1 text-xs font-medium hover:bg-background"
+        class="ml-2 inline-block rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-background"
         href="/advanced-mode/judge.py"
         download
       >
@@ -264,7 +264,7 @@
   <div class="flex justify-end">
     <button
       type="button"
-      class="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:opacity-50"
+      class="rounded-full bg-primary px-5 py-2 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90 disabled:opacity-50"
       disabled={saving}
       onclick={save}
     >

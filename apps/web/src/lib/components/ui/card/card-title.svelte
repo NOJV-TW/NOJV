@@ -14,7 +14,7 @@
 	bind:this={ref}
 	data-slot="card-title"
 	class={cn(
-		"font-[family-name:var(--font-display)] text-[length:var(--text-title)] leading-tight font-semibold [text-wrap:balance]",
+		"font-display text-title leading-tight font-semibold [text-wrap:balance]",
 		className
 	)}
 	{...restProps}

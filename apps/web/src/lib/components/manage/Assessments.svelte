@@ -13,6 +13,8 @@
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import AdjustmentRulesEditor from "./AdjustmentRulesEditor.svelte";
   import SystemTextToggle, { type UiLang } from "./SystemTextToggle.svelte";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Button } from "$lib/components/ui/button";
 
   import type { courseDomain } from "@nojv/domain";
   type CourseAssessmentRecord = courseDomain.CourseAssessmentRecord;
@@ -229,58 +231,57 @@
   </div>
 
   <section
-    class="rounded-4xl border border-border bg-(--color-panel) px-5 py-5 backdrop-blur-sm"
+    class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm"
   >
     <div class="flex items-center justify-between gap-4">
-      <h3 class="inline-flex items-center gap-2 text-2xl font-semibold"><BookOpenCheck class="h-5 w-5 text-muted-foreground" /> {t("assessments")}</h3>
-      <span
-        class="rounded-full border border-border px-3 py-1 text-xs font-medium"
-      >
+      <h3 class="inline-flex items-center gap-2 font-display text-title font-semibold"><BookOpenCheck class="h-5 w-5 text-muted-foreground" /> {t("assessments")}</h3>
+      <Badge variant="muted" size="md" class="tabular-nums">
         {assessments.length}
-      </span>
+      </Badge>
     </div>
     <div class="mt-5 grid gap-3">
       {#each assessments as assessment (assessment.slug)}
         <article
-          class="rounded-3xl border border-border bg-(--color-panel) px-4 py-4"
+          class="rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4"
         >
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="mt-2 text-lg font-semibold">{assessment.title}</p>
-              <p class="mt-2 text-sm text-muted-foreground">
+              <p class="mt-2 text-body-lg font-semibold">{assessment.title}</p>
+              <p class="mt-2 text-body-sm text-muted-foreground">
                 {assessment.summary}
               </p>
             </div>
-            <span
-              class="rounded-full border border-border px-3 py-1 text-xs font-medium"
-            >
+            <Badge variant="muted" size="md" class="tabular-nums">
               {assessment.problemIds.length} {t("problems")}
-            </span>
+            </Badge>
           </div>
           {#if assessment.allowedLanguages.length > 0}
-            <p class="mt-1 text-xs text-muted-foreground">
+            <p class="mt-1 text-caption text-muted-foreground">
               {t("allowedLanguages")}: {assessment.allowedLanguages.join(", ")}
             </p>
           {/if}
           <div class="mt-3 flex items-center justify-between gap-4">
-            <p class="text-sm text-muted-foreground">
+            <p class="text-body-sm text-muted-foreground tabular-nums">
               {assessment.opensAt.slice(0, 10)} &rarr; {assessment.closesAt.slice(0, 10)}
             </p>
             <div class="flex items-center gap-2">
-              <button
-                class="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5 hover:bg-(--color-panel) disabled:cursor-not-allowed disabled:opacity-70"
+              <Button
+                variant="outline"
+                size="sm"
+                class="rounded-full"
                 disabled={isCheckInProgress(assessment.id)}
                 onclick={() => triggerPlagiarismCheck(assessment.id)}
               >
                 {plagiarismLabel(plagiarismStates[assessment.id] ?? "idle")}
-              </button>
+              </Button>
               {#if plagiarismStates[assessment.id] === "completed"}
-                <a
+                <Button
                   href="/courses/{courseSlug}/manage/plagiarism/{assessment.slug}"
-                  class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white transition hover:-translate-y-0.5"
+                  size="sm"
+                  class="rounded-full"
                 >
                   {t("viewResults")}
-                </a>
+                </Button>
               {/if}
             </div>
           </div>
@@ -290,9 +291,9 @@
   </section>
 
   <section
-    class="rounded-4xl border border-border bg-(--color-panel) px-5 py-5 backdrop-blur-sm"
+    class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm"
   >
-    <h3 class="inline-flex items-center gap-2 text-2xl font-semibold"><Sparkles class="h-5 w-5 text-muted-foreground" /> {t("createAssessment")}</h3>
+    <h3 class="inline-flex items-center gap-2 font-display text-title font-semibold"><Sparkles class="h-5 w-5 text-muted-foreground" /> {t("createAssessment")}</h3>
     <form
       class="mt-4 grid gap-3"
       method="POST"
@@ -308,7 +309,7 @@
             placeholder={t("assessmentTitle")}
             required
           />
-          {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
+          {#if $errors.title}<span class="text-body-sm text-destructive">{$errors.title}</span>{/if}
         </div>
         <div>
           <input
@@ -319,14 +320,14 @@
             placeholder="assessment-slug"
             required
           />
-          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.slug}</span>{/if}
+          {#if $errors.slug}<span class="text-body-sm text-destructive">{$errors.slug}</span>{/if}
         </div>
       </div>
       <div>
-        <p class="mb-1 text-xs text-muted-foreground">{t("allowedLanguages")}</p>
+        <p class="mb-1 text-caption text-muted-foreground">{t("allowedLanguages")}</p>
         <div class="flex flex-wrap gap-3">
           {#each supportedLanguages as lang (lang)}
-            <label class="inline-flex items-center gap-1.5 text-sm">
+            <label class="inline-flex items-center gap-1.5 text-body-sm">
               <input
                 type="checkbox"
                 name="allowedLanguages"
@@ -347,7 +348,7 @@
           placeholder={t("assessmentSummary")}
           required
         ></textarea>
-        {#if $errors.summary}<span class="text-sm text-red-700 dark:text-red-400">{$errors.summary}</span>{/if}
+        {#if $errors.summary}<span class="text-body-sm text-destructive">{$errors.summary}</span>{/if}
       </div>
       <div>
         <textarea
@@ -357,24 +358,24 @@
           placeholder="problem-one, problem-two"
           required
         ></textarea>
-        {#if $errors.problemIdsText}<span class="text-sm text-red-700 dark:text-red-400">{$errors.problemIdsText}</span>{/if}
+        {#if $errors.problemIdsText}<span class="text-body-sm text-destructive">{$errors.problemIdsText}</span>{/if}
       </div>
       <div class="grid gap-3 md:grid-cols-3">
         <div>
           <input class={inputClassName} name="opensAt" bind:value={$form.opensAt} required type="datetime-local" />
-          {#if $errors.opensAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.opensAt}</span>{/if}
+          {#if $errors.opensAt}<span class="text-body-sm text-destructive">{$errors.opensAt}</span>{/if}
         </div>
         <div>
           <input class={inputClassName} name="dueAt" bind:value={$form.dueAt} required type="datetime-local" />
-          {#if $errors.dueAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.dueAt}</span>{/if}
+          {#if $errors.dueAt}<span class="text-body-sm text-destructive">{$errors.dueAt}</span>{/if}
         </div>
         <div>
           <input class={inputClassName} name="closesAt" bind:value={$form.closesAt} required type="datetime-local" />
-          {#if $errors.closesAt}<span class="text-sm text-red-700 dark:text-red-400">{$errors.closesAt}</span>{/if}
+          {#if $errors.closesAt}<span class="text-body-sm text-destructive">{$errors.closesAt}</span>{/if}
         </div>
       </div>
       <div>
-        <label class="text-xs text-muted-foreground" for="maxAttempts">{t("maxAttempts")}</label>
+        <label class="text-caption text-muted-foreground" for="maxAttempts">{t("maxAttempts")}</label>
         <input
           class={inputClassName}
           id="maxAttempts"
@@ -386,19 +387,15 @@
           bind:value={$form.maxAttempts}
         />
       </div>
-      <div class="mt-2 rounded-xl border border-border p-3">
+      <div class="mt-2 rounded-lg border border-border-subtle p-3">
         <AdjustmentRulesEditor bind:rules={adjustmentRules} />
       </div>
-      <button
-        class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={$submitting}
-        type="submit"
-      >
+      <Button type="submit" loading={$submitting} disabled={$submitting} class="w-fit rounded-full px-5">
         {$submitting ? t("publishing") : t("publishAssessment")}
-      </button>
+      </Button>
     </form>
     {#if $formMessage}
-      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
+      <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
     {/if}
   </section>
 </div>

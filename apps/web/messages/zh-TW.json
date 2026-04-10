@@ -692,5 +692,17 @@
   "admin_announcementsCreated": "建立於",
   "admin_announcementsUpdated": "更新於",
   "admin_announcementsDeleteConfirm": "確定要刪除此公告嗎？",
-  "auth_adminBadge": "管理員"
+  "auth_adminBadge": "管理員",
+  "problems_createStandardTitle": "標準題目",
+  "problems_createStandardDescription": "stdin/stdout，編譯/執行/檢查，80% 的題目",
+  "problems_createAdvancedTitle": "進階模式（自訂映像）",
+  "problems_createAdvancedDescription": "助教提供 Docker 映像處理評分",
+  "problems_statusDraft": "草稿",
+  "advancedMode_badge": "進階模式",
+  "advancedMode_uploadInstructions": "此題為進階模式（Advanced Mode）。請上傳 ZIP 壓縮檔或單一原始碼檔案。評分由助教提供的容器環境執行。",
+  "auth_continueWithGithub": "使用 GitHub 登入",
+  "auth_continueWithGoogle": "使用 Google 登入",
+  "auth_connectingGithub": "正在連接 GitHub...",
+  "auth_connectingGoogle": "正在連接 Google...",
+  "account_sendVerificationFailed": "寄送驗證郵件失敗"
 }

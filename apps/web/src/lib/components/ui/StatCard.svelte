@@ -35,7 +35,7 @@
 <Card bind:ref variant="surface" size="md" data-slot="stat-card" class={cn(className)} {...restProps}>
 	<div class="flex items-start justify-between gap-3">
 		<span
-			class="text-[length:var(--text-caption)] font-medium tracking-wide uppercase text-muted-foreground"
+			class="text-caption font-medium tracking-wide uppercase text-muted-foreground"
 		>
 			{label}
 		</span>
@@ -45,14 +45,14 @@
 	</div>
 	<div class="flex items-end justify-between gap-3">
 		<span
-			class="font-[family-name:var(--font-display)] text-[length:var(--text-headline)] leading-tight font-semibold tabular-nums"
+			class="font-display text-headline leading-tight font-semibold tabular-nums"
 		>
 			{value}
 		</span>
 		{#if trendInfo}
 			<span
 				class={cn(
-					"inline-flex items-center rounded-full px-2 py-0.5 text-[length:var(--text-caption)] font-semibold tabular-nums",
+					"inline-flex items-center rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums",
 					trendInfo.tone === "up" && "bg-[color:color-mix(in_oklch,var(--success)_18%,transparent)] text-[color:var(--success)]",
 					trendInfo.tone === "down" && "bg-[color:color-mix(in_oklch,var(--destructive)_18%,transparent)] text-[color:var(--destructive)]",
 					trendInfo.tone === "flat" && "bg-muted text-muted-foreground"

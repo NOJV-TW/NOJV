@@ -30,9 +30,9 @@
   let { testcaseSets, problemId }: Props = $props();
 
   const pillButton =
-    "inline-flex rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-accent";
+    "inline-flex rounded-full border border-border px-4 py-2 text-body-sm font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent";
   const smallInputClassName =
-    "w-full rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-xs font-mono";
+    "w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
 
   // Derived sets
   let sampleSets = $derived(testcaseSets.filter((s) => s.weight === 0));
@@ -169,16 +169,16 @@
 
 <div class="space-y-6">
   <!-- Sample sets (weight=0) -->
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <div class="mb-4">
-      <p class="text-sm font-bold">{m.testcases_sampleCases()}</p>
-      <p class="mt-1 text-xs text-muted-foreground">
+      <p class="text-body-sm font-bold">{m.testcases_sampleCases()}</p>
+      <p class="mt-1 text-caption text-muted-foreground">
         {m.testcases_sampleCasesHint()}
       </p>
     </div>
 
     {#if sampleSets.length === 0}
-      <p class="text-sm text-muted-foreground">{m.testcases_noSampleSets()}</p>
+      <p class="text-body-sm text-muted-foreground">{m.testcases_noSampleSets()}</p>
     {:else}
       <div class="space-y-3">
         {#each sampleSets as set (set.id)}
@@ -189,16 +189,16 @@
   </section>
 
   <!-- Subtask sets (weight>0) -->
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <div class="mb-4">
-      <p class="text-sm font-bold">{m.testcases_hiddenCases()}</p>
-      <p class="mt-1 text-xs text-muted-foreground">
+      <p class="text-body-sm font-bold">{m.testcases_hiddenCases()}</p>
+      <p class="mt-1 text-caption text-muted-foreground">
         {m.testcases_hiddenCasesHint()}
       </p>
     </div>
 
     {#if subtaskSets.length === 0}
-      <p class="text-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
+      <p class="text-body-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
     {:else}
       <div class="space-y-3">
         {#each subtaskSets as set (set.id)}
@@ -209,9 +209,9 @@
   </section>
 
   <!-- Add new set -->
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-    <p class="text-sm font-bold">{m.testcases_authorTestcases()}</p>
-    <p class="mt-1 text-xs text-muted-foreground">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+    <p class="text-body-sm font-bold">{m.testcases_authorTestcases()}</p>
+    <p class="mt-1 text-caption text-muted-foreground">
       {m.testcases_authorTestcasesSubtitle()}
     </p>
 
@@ -219,17 +219,17 @@
       <div class="mt-4 space-y-3">
         <div class="flex flex-wrap items-end gap-3">
           <label class="grid gap-1">
-            <span class="text-xs font-medium text-muted-foreground">{m.testcases_setName()}</span>
+            <span class="text-caption font-medium text-muted-foreground">{m.testcases_setName()}</span>
             <input
-              class="rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
+              class="rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
               bind:value={newSetName}
               placeholder="e.g. Examples, Subtask 1"
             />
           </label>
           <label class="grid gap-1">
-            <span class="text-xs font-medium text-muted-foreground">{m.testcases_weight()} <HelpTooltip text={m.admin_helpSetWeight()} /></span>
+            <span class="text-caption font-medium text-muted-foreground">{m.testcases_weight()} <HelpTooltip text={m.admin_helpSetWeight()} /></span>
             <input
-              class="w-20 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm"
+              class="w-20 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
               type="number"
               min="0"
               bind:value={newSetWeight}
@@ -238,7 +238,7 @@
         </div>
         <div class="flex gap-2">
           <button
-            class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-70"
+            class="rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
             onclick={addNewSet}
             disabled={saving || !newSetName.trim()}
             type="button"
@@ -246,7 +246,7 @@
             {saving ? m.testcases_saving() : m.testcases_createButton()}
           </button>
           <button
-            class="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5"
+            class="rounded-full border border-border px-5 py-2.5 text-body-sm font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5"
             onclick={() => (showAddForm = false)}
             type="button"
           >
@@ -267,18 +267,18 @@
   </section>
 
   <!-- ZIP upload section -->
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm">
-    <p class="text-sm font-bold">{m.testcases_uploadZip()}</p>
-    <p class="mt-1 text-xs text-muted-foreground">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+    <p class="text-body-sm font-bold">{m.testcases_uploadZip()}</p>
+    <p class="mt-1 text-caption text-muted-foreground">
       {m.testcases_uploadZipHint()}
     </p>
 
     <div
-      class="mt-3 rounded-[1.5rem] border border-dashed border-border bg-[color:var(--color-panel)] px-4 py-3"
+      class="mt-3 rounded-xl border border-dashed border-border-subtle bg-[color:var(--color-panel)] px-4 py-3"
     >
       <div class="flex flex-wrap items-end gap-3">
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">
+          <span class="text-caption text-muted-foreground">
             {m.testcases_regex()} <HelpTooltip text={m.testcases_zipStructureHint()} />
           </span>
           <input
@@ -289,7 +289,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">{m.testcases_inputExtension()}</span>
+          <span class="text-caption text-muted-foreground">{m.testcases_inputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (inExt = (e.target as HTMLInputElement).value)}
@@ -297,7 +297,7 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">{m.testcases_outputExtension()}</span>
+          <span class="text-caption text-muted-foreground">{m.testcases_outputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
             oninput={(e) => (outExt = (e.target as HTMLInputElement).value)}
@@ -305,12 +305,12 @@
           />
         </div>
         <div class="grid gap-1">
-          <span class="text-xs text-muted-foreground">
+          <span class="text-caption text-muted-foreground">
             {m.testcases_uploadZip()}
           </span>
           <input
             accept=".zip"
-            class="text-xs file:mr-2 file:rounded-full file:border file:border-border file:bg-[color:var(--color-panel)] file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-accent"
+            class="text-caption file:mr-2 file:rounded-full file:border file:border-border file:bg-[color:var(--color-panel)] file:px-3 file:py-1.5 file:text-caption file:font-semibold hover:file:bg-accent"
             onchange={(e) => {
               const file = (e.target as HTMLInputElement).files?.[0];
               if (file) void handleZipUpload(file);
@@ -325,27 +325,27 @@
       <div class="mt-4 space-y-4">
         <div class="flex flex-wrap items-center gap-3">
           <span
-            class="rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400"
+            class="rounded-full bg-success/15 px-3 py-1.5 text-caption font-medium text-success"
           >
             {m.testcases_casesUploaded({ fileName: zipFileName ?? "", count: parsedCases.length })}
           </span>
-          <span class="text-xs text-muted-foreground">
+          <span class="text-caption text-muted-foreground">
             {m.testcases_subtasksDetected({ count: subtasks.length })}
           </span>
           <span
-            class="text-xs font-medium {totalPoints === 100
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-amber-600 dark:text-amber-400'}"
+            class="text-caption font-medium tabular-nums {totalPoints === 100
+              ? 'text-success'
+              : 'text-warning'}"
           >
             {totalPoints}/100 pts
           </span>
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-xs text-muted-foreground">{m.testcases_autoSplitInto()}</span>
+          <span class="text-caption text-muted-foreground">{m.testcases_autoSplitInto()}</span>
           {#each [1, 2, 3, 4, 5] as n (n)}
             <button
-              class="rounded-full border px-3 py-1 text-xs font-medium transition {subtasks.length ===
+              class="rounded-full border px-3 py-1 text-caption font-medium tabular-nums transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {subtasks.length ===
               n
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border hover:bg-accent'}"
@@ -358,35 +358,35 @@
         </div>
 
         <div class="grid gap-4">
-          <div class="flex items-center justify-end gap-2 text-sm">
+          <div class="flex items-center justify-end gap-2 text-body-sm">
             <span class="text-muted-foreground">{m.testcases_totalWeight()}:</span>
             <span
               class="font-bold tabular-nums {totalPoints === 100
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-amber-600 dark:text-amber-400'}"
+                ? 'text-success'
+                : 'text-warning'}"
             >
               {totalPoints}/100
             </span>
           </div>
           {#each subtasks as subtask, si (`subtask-${si}`)}
             <div
-              class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-4"
+              class="rounded-xl border border-border bg-[color:var(--color-panel)] px-5 py-4 shadow-rest"
             >
               <div class="flex flex-wrap items-center gap-3">
                 <label class="grid gap-1">
-                  <span class="text-xs font-medium text-muted-foreground">{m.testcases_subtaskLabel()}</span>
+                  <span class="text-caption font-medium text-muted-foreground">{m.testcases_subtaskLabel()}</span>
                   <input
-                    class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-3 py-2 text-sm font-semibold"
+                    class="rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm font-semibold"
                     oninput={(e) =>
                       updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
                     value={subtask.name}
                   />
                 </label>
                 <label class="grid gap-1">
-                  <span class="text-xs font-medium text-muted-foreground">{m.testcases_subtaskWeight()}</span>
+                  <span class="text-caption font-medium text-muted-foreground">{m.testcases_subtaskWeight()}</span>
                   <div class="flex items-center gap-1">
                     <input
-                      class="w-20 rounded-[1.5rem] border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-sm font-bold text-primary"
+                      class="w-20 rounded-xl border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-body-sm font-bold text-primary tabular-nums"
                       min="0"
                       oninput={(e) =>
                         updateSubtask(si, {
@@ -395,17 +395,17 @@
                       type="number"
                       value={subtask.points}
                     />
-                    <span class="text-xs text-muted-foreground">pts</span>
+                    <span class="text-caption text-muted-foreground">pts</span>
                   </div>
                 </label>
                 <span
-                  class="mt-auto rounded-full bg-blue-500/15 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-400"
+                  class="mt-auto rounded-full bg-info/15 px-2.5 py-1 text-caption font-medium text-info tabular-nums"
                 >
                   {m.testcases_casesCount({ count: subtask.caseIndices.length })}
                 </span>
                 {#if subtasks.length > 1}
                   <button
-                    class="ml-auto mt-auto text-sm text-red-700 dark:text-red-400 hover:text-red-900"
+                    class="ml-auto mt-auto text-body-sm text-destructive transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
                     onclick={() => (subtasks = subtasks.filter((_, i) => i !== si))}
                     type="button"
                   >
@@ -418,7 +418,7 @@
         </div>
 
         <button
-          class="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-70"
+          class="rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
           onclick={uploadSubtasks}
           disabled={uploadSaving || subtasks.length === 0}
           type="button"
@@ -431,7 +431,7 @@
 
   {#if error}
     <div
-      class="rounded-2xl border border-red-300 dark:border-red-700 bg-red-500/15 px-4 py-3 text-sm text-red-700 dark:text-red-400"
+      class="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
     >
       {error}
     </div>

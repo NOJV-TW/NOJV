@@ -692,5 +692,17 @@
   "admin_announcementsCreated": "Created",
   "admin_announcementsUpdated": "Updated",
   "admin_announcementsDeleteConfirm": "Delete this announcement?",
-  "auth_adminBadge": "Admin"
+  "auth_adminBadge": "Admin",
+  "problems_createStandardTitle": "Standard problem",
+  "problems_createStandardDescription": "stdin/stdout, compile/run/check, 80% of cases",
+  "problems_createAdvancedTitle": "Advanced (custom image)",
+  "problems_createAdvancedDescription": "TA provides a Docker image that handles grading",
+  "problems_statusDraft": "Draft",
+  "advancedMode_badge": "Advanced Mode",
+  "advancedMode_uploadInstructions": "This problem uses Advanced Mode. Upload a ZIP archive or a single source file. Grading runs in a container provided by the TA.",
+  "auth_continueWithGithub": "Continue with GitHub",
+  "auth_continueWithGoogle": "Continue with Google",
+  "auth_connectingGithub": "Connecting to GitHub...",
+  "auth_connectingGoogle": "Connecting to Google...",
+  "account_sendVerificationFailed": "Failed to send verification email"
 }

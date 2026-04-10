@@ -74,9 +74,9 @@
 </script>
 
 <header
-  class="sticky top-0 z-[var(--z-sticky)] -mx-4 border-b border-border-subtle bg-[color:var(--color-panel)]/80 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+  class="sticky top-6 z-[var(--z-sticky)] rounded-2xl border border-border bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
 >
-  <div class="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3">
+  <div class="flex flex-wrap items-center gap-3">
     <a
       class="font-display text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"

@@ -205,17 +205,17 @@
   style="width: {leftPanelWidth}%"
 >
   <!-- Tab bar -->
-  <div class="flex h-11 items-center border-b border-border px-2">
+  <div class="flex h-11 items-center border-b border-border-subtle px-2">
     {#if backLink}
       <a
-        class="px-3 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
+        class="px-3 py-2.5 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
         href={backLink.href}
       >
         &larr; {backLink.type === 'contest' ? m.problemDetail_backToContest() : m.problemDetail_backToAssignment()}
       </a>
     {/if}
     <button
-      class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'description'
+      class="px-3 py-2.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'description'
         ? 'border-b-2 border-primary text-foreground'
         : 'text-muted-foreground hover:text-foreground'}"
       onclick={() => (leftTab = "description")}
@@ -224,7 +224,7 @@
       {m.problemDetail_description()}
     </button>
     <button
-      class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'submissions'
+      class="px-3 py-2.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'submissions'
         ? 'border-b-2 border-primary text-foreground'
         : 'text-muted-foreground hover:text-foreground'}"
       onclick={() => (leftTab = "submissions")}
@@ -233,14 +233,14 @@
       {m.problemDetail_submissions()}
       {#if submissions.length > 0}
         <span
-          class="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums"
+          class="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-micro tabular-nums"
         >
           {submissions.length}
         </span>
       {/if}
     </button>
     <button
-      class="px-3 py-2.5 text-xs font-medium transition {leftTab === 'editorials'
+      class="px-3 py-2.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'editorials'
         ? 'border-b-2 border-primary text-foreground'
         : 'text-muted-foreground hover:text-foreground'}"
       onclick={() => { leftTab = "editorials"; if (hasAc && !editorialsLoaded) loadEditorials(); }}
@@ -254,18 +254,18 @@
   <div class="flex-1 overflow-y-auto">
     {#if leftTab === "description"}
       <div class="p-5">
-        <h1 class="text-lg font-semibold leading-snug">{problem.title}</h1>
+        <h1 class="text-body-lg font-semibold leading-snug">{problem.title}</h1>
 
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <span
-            class="rounded-full px-2.5 py-0.5 text-xs font-medium capitalize {difficultyColor[
+            class="rounded-full px-2.5 py-0.5 text-caption font-medium capitalize {difficultyColor[
               problem.difficulty
             ] ?? 'bg-muted text-muted-foreground'}"
           >
             {problem.difficulty}
           </span>
           {#each problem.tags as tag (tag)}
-            <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
+            <span class="rounded-full bg-muted px-2.5 py-0.5 text-caption text-muted-foreground">
               {tag}
             </span>
           {/each}
@@ -276,14 +276,14 @@
           judgeType={problem.judgeType}
         />
 
-        <div class="mt-5 text-sm leading-7 text-foreground">
+        <div class="mt-5 text-body-sm leading-7 text-foreground">
           <MarkdownRenderer content={problem.statement} />
         </div>
 
         {#if problem.inputFormat}
           <div class="mt-5">
-            <p class="text-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
-            <div class="mt-1 text-sm leading-7 text-muted-foreground">
+            <p class="text-body-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
+            <div class="mt-1 text-body-sm leading-7 text-muted-foreground">
               <MarkdownRenderer content={problem.inputFormat} />
             </div>
           </div>
@@ -291,45 +291,45 @@
 
         {#if problem.outputFormat}
           <div class="mt-4">
-            <p class="text-sm font-semibold">{m.problemDetail_outputFormat()}:</p>
-            <div class="mt-1 text-sm leading-7 text-muted-foreground">
+            <p class="text-body-sm font-semibold">{m.problemDetail_outputFormat()}:</p>
+            <div class="mt-1 text-body-sm leading-7 text-muted-foreground">
               <MarkdownRenderer content={problem.outputFormat} />
             </div>
           </div>
         {/if}
 
         {#each problem.samples as sample, index (`sample-${index}`)}
-          <div class="mt-6 {index > 0 ? 'border-t border-border pt-6' : ''}">
-            <p class="text-base font-semibold">
+          <div class="mt-6 {index > 0 ? 'border-t border-border-subtle pt-6' : ''}">
+            <p class="text-body font-semibold">
               {m.problemDetail_sample()} {index + 1}
             </p>
-            <div class="mt-3 space-y-3 text-sm">
+            <div class="mt-3 space-y-3 text-body-sm">
               <div>
-                <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_input()}</p>
-                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.stdin}</pre>
+                <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_input()}</p>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.stdin}</pre>
               </div>
               <div>
-                <p class="text-xs font-medium text-muted-foreground">{m.problemDetail_output()}</p>
-                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-sm leading-6 text-foreground">{sample.expected}</pre>
+                <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_output()}</p>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.expected}</pre>
               </div>
             </div>
           </div>
         {/each}
 
         {#if testcaseSets.length > 0}
-          <div class="mt-6 border-t border-border pt-6">
-            <p class="text-base font-semibold">{m.problemDetail_testcaseSets()}</p>
+          <div class="mt-6 border-t border-border-subtle pt-6">
+            <p class="text-body font-semibold">{m.problemDetail_testcaseSets()}</p>
             <ul class="mt-3 space-y-3">
               {#each testcaseSets as set (set.id)}
-                <li class="rounded-lg border border-border px-4 py-3">
+                <li class="rounded-lg border border-border-subtle px-4 py-3">
                   <div class="flex items-center justify-between gap-3">
-                    <p class="text-sm font-semibold">{set.name}</p>
-                    <span class="text-xs text-muted-foreground">
+                    <p class="text-body-sm font-semibold">{set.name}</p>
+                    <span class="text-caption text-muted-foreground tabular-nums">
                       {set.caseCount} {m.problemDetail_cases()} &middot; ×{set.weight}
                     </span>
                   </div>
                   {#if set.description}
-                    <p class="mt-1 text-xs leading-6 text-muted-foreground">
+                    <p class="mt-1 text-caption leading-6 text-muted-foreground">
                       {set.description}
                     </p>
                   {/if}
@@ -342,7 +342,7 @@
     {:else if leftTab === "submissions"}
       <div class="p-5">
         {#if submissions.length === 0}
-          <p class="py-8 text-center text-sm text-muted-foreground">
+          <p class="py-8 text-center text-body-sm text-muted-foreground">
             {m.problemDetail_noSubmissions()}
           </p>
         {:else if viewingIndex !== null && submissions[viewingIndex]}
@@ -350,7 +350,7 @@
           {@const label = formatVerdictLabel(entry.result.verdict)}
           <div>
             <button
-              class="mb-4 text-xs text-muted-foreground transition hover:text-foreground"
+              class="mb-4 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
               onclick={() => (viewingIndex = null)}
               type="button"
             >
@@ -359,22 +359,22 @@
 
             <div class="flex items-baseline gap-3">
               <span
-                class="text-lg font-semibold {verdictColor[entry.result.verdict] ??
+                class="text-body-lg font-semibold {verdictColor[entry.result.verdict] ??
                   'text-foreground'}"
               >
                 {label}
               </span>
               {#if entry.result.runtimeMs > 0}
-                <span class="text-xs text-muted-foreground">
+                <span class="text-caption text-muted-foreground tabular-nums">
                   Runtime: {String(entry.result.runtimeMs)} ms
                 </span>
               {/if}
             </div>
 
-            <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+            <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
               <span>{entry.language}</span>
-              <span>{String(entry.result.score)}/100</span>
-              <span>{new Date(entry.submittedAt).toLocaleTimeString()}</span>
+              <span class="tabular-nums">{String(entry.result.score)}/100</span>
+              <span class="tabular-nums">{new Date(entry.submittedAt).toLocaleTimeString()}</span>
             </div>
 
             {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
@@ -387,16 +387,16 @@
               <div class="mt-4 flex flex-wrap items-center gap-1">
                 {#each entry.result.caseResults as cr, i (`cr-${i}`)}
                   <span
-                    class="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium {cr.passed
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-red-500/15 text-red-600 dark:text-red-400'}"
+                    class="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-caption font-medium {cr.passed
+                      ? 'bg-success/15 text-success'
+                      : 'bg-destructive/15 text-destructive'}"
                   >
                     {cr.passed ? "\u2714" : "\u2718"} Case {i + 1}
                   </span>
                 {/each}
               </div>
             {:else if entry.result.feedback}
-              <p class="mt-3 text-sm leading-6 text-muted-foreground">
+              <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
                 {entry.result.feedback}
               </p>
             {/if}
@@ -405,9 +405,9 @@
               {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
                 <div class="flex items-center gap-2 rounded-lg bg-muted px-4 py-3">
                   <div
-                    class="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground"
+                    class="size-4 animate-spin rounded-full border-2 border-border border-t-foreground"
                   ></div>
-                  <span class="text-xs text-muted-foreground">{m.problemDetail_loadingSource()}</span>
+                  <span class="text-caption text-muted-foreground">{m.problemDetail_loadingSource()}</span>
                 </div>
               {:else}
                 <CodeBlock code={entry.sourceCode ?? ""} language={entry.language} />
@@ -419,27 +419,27 @@
             {#each submissions as entry, index (`sub-${index}`)}
               {@const label = formatVerdictLabel(entry.result.verdict)}
               <button
-                class="rounded-lg border border-border px-4 py-3 text-left transition hover:border-primary/30 hover:bg-accent"
+                class="rounded-lg border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
                 onclick={() => (viewingIndex = index)}
                 type="button"
               >
                 <div class="flex items-baseline justify-between gap-3">
                   <span
-                    class="text-sm font-semibold {verdictColor[entry.result.verdict] ??
+                    class="text-body-sm font-semibold {verdictColor[entry.result.verdict] ??
                       'text-foreground'}"
                   >
                     {label}
                   </span>
-                  <span class="text-xs text-muted-foreground">
+                  <span class="text-caption text-muted-foreground tabular-nums">
                     {new Date(entry.submittedAt).toLocaleTimeString()}
                   </span>
                 </div>
-                <div class="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
                   <span>{entry.language}</span>
                   {#if entry.result.runtimeMs > 0}
-                    <span>{String(entry.result.runtimeMs)} ms</span>
+                    <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>
                   {/if}
-                  <span>{String(entry.result.score)}/100</span>
+                  <span class="tabular-nums">{String(entry.result.score)}/100</span>
                 </div>
               </button>
             {/each}
@@ -449,20 +449,20 @@
     {:else if leftTab === "editorials"}
       <div class="p-5">
         {#if !hasAc}
-          <p class="py-8 text-center text-sm text-muted-foreground">
+          <p class="py-8 text-center text-body-sm text-muted-foreground">
             {m.editorials_solveFirst()}
           </p>
         {:else if editorialsLoading && !editorialsLoaded}
           <div class="flex items-center justify-center py-8">
             <div
-              class="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-foreground"
+              class="size-5 animate-spin rounded-full border-2 border-border border-t-foreground"
             ></div>
           </div>
         {:else}
           <div class="mb-4 flex items-center justify-between">
-            <h2 class="text-sm font-semibold">{m.editorials_title()}</h2>
+            <h2 class="text-body-sm font-semibold">{m.editorials_title()}</h2>
             <button
-              class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90"
+              class="rounded-md bg-primary px-3 py-1.5 text-caption font-medium text-primary-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90"
               onclick={() => (showEditorialForm = !showEditorialForm)}
               type="button"
             >
@@ -471,14 +471,14 @@
           </div>
 
           {#if showEditorialForm}
-            <div class="mb-6 rounded-lg border border-border p-4">
+            <div class="mb-6 rounded-lg border border-border-subtle p-4">
               <div class="mb-3">
-                <label class="mb-1 block text-xs font-medium text-muted-foreground" for="editorial-language">
+                <label class="mb-1 block text-caption font-medium text-muted-foreground" for="editorial-language">
                   {m.editorials_language()}
                 </label>
                 <select
                   id="editorial-language"
-                  class="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                  class="w-full rounded-md border border-border bg-background px-3 py-1.5 text-body-sm"
                   bind:value={editorialLanguage}
                 >
                   {#each supportedLanguages as lang (lang)}
@@ -488,14 +488,14 @@
               </div>
               <div class="mb-3">
                 <textarea
-                  class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm leading-6"
+                  class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
                   rows="10"
                   placeholder="Write your editorial in Markdown..."
                   bind:value={editorialContent}
                 ></textarea>
               </div>
               <button
-                class="rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
+                class="rounded-md bg-primary px-4 py-1.5 text-caption font-medium text-primary-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90 disabled:opacity-50"
                 disabled={editorialSubmitting || editorialContent.length < 10}
                 onclick={submitEditorial}
                 type="button"
@@ -506,21 +506,21 @@
           {/if}
 
           {#if editorials.length === 0}
-            <p class="py-8 text-center text-sm text-muted-foreground">
+            <p class="py-8 text-center text-body-sm text-muted-foreground">
               {m.editorials_empty()}
             </p>
           {:else}
             <div class="grid gap-4">
               {#each editorials as editorial (editorial.id)}
-                <div class="rounded-lg border border-border p-4">
-                  <div class="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <div class="rounded-lg border border-border-subtle p-4">
+                  <div class="mb-3 flex items-center gap-2 text-caption text-muted-foreground">
                     <span>{m.editorials_by()} {editorial.user.name ?? editorial.user.username}</span>
                     <span class="rounded-full bg-muted px-2 py-0.5 font-medium">
                       {editorial.language}
                     </span>
-                    <span>{new Date(editorial.createdAt).toLocaleDateString()}</span>
+                    <span class="tabular-nums">{new Date(editorial.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <div class="text-sm leading-7">
+                  <div class="text-body-sm leading-7">
                     <MarkdownRenderer content={editorial.content} />
                   </div>
                 </div>
