@@ -10,9 +10,25 @@
     judgeType: string;
     /** Compact variant (no titles, no tooltips) used in list cards. */
     compact?: boolean;
+    /**
+     * Which section(s) to render. Defaults to both. In list layouts the
+     * parent may want to render each as its own grid column, which is what
+     * `"problem-type"` / `"judge-method"` are for.
+     */
+    which?: "both" | "problem-type" | "judge-method";
   }
 
-  let { problemType, judgeType, compact = false }: Props = $props();
+  let {
+    problemType,
+    judgeType,
+    compact = false,
+    which = "both"
+  }: Props = $props();
+
+  let showProblemType = $derived(which === "both" || which === "problem-type");
+  let showJudgeMethodRequested = $derived(
+    which === "both" || which === "judge-method"
+  );
 
   const problemTypeLabel: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceBadge(),
@@ -68,15 +84,21 @@
   );
 
   // Special environment problems do not expose a judging method — the TA's
-  // Docker image owns the entire evaluation loop.
-  let showJudgeMethod = $derived(problemType !== "special_env");
+  // Docker image owns the entire evaluation loop. The request + eligibility
+  // are ANDed so the parent can't force a judge badge onto a special-env
+  // problem.
+  let showJudgeMethod = $derived(
+    showJudgeMethodRequested && problemType !== "special_env"
+  );
 </script>
 
 {#if compact}
   <span class="inline-flex flex-wrap items-center gap-1">
-    <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {problemColor}">
-      {problemLabel}
-    </span>
+    {#if showProblemType}
+      <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {problemColor}">
+        {problemLabel}
+      </span>
+    {/if}
     {#if showJudgeMethod}
       <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {judgeColor}">
         {judgeLabel}
@@ -87,15 +109,17 @@
   <div
     class="mt-3 grid gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 sm:grid-cols-2 sm:gap-4"
   >
-    <div class="flex items-center gap-2">
-      <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {m.problemDetail_problemTypeTitle()}
-      </span>
-      <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {problemColor}">
-        {problemLabel}
-      </span>
-      <HelpTooltip text={problemHelp} />
-    </div>
+    {#if showProblemType}
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {m.problemDetail_problemTypeTitle()}
+        </span>
+        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {problemColor}">
+          {problemLabel}
+        </span>
+        <HelpTooltip text={problemHelp} />
+      </div>
+    {/if}
     {#if showJudgeMethod}
       <div class="flex items-center gap-2">
         <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

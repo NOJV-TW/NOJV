@@ -17,7 +17,6 @@
   import type { ProblemDetail } from "$lib/types";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
   import { registerCompletionProviders } from "./editor-completions";
-  import MultiFileEditor from "./editors/MultiFileEditor.svelte";
   import MonacoEditableRegions from "./workspace/MonacoEditableRegions.svelte";
 
   const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
@@ -52,7 +51,6 @@
 
   let currentLocale = $derived(getLocale());
   let isFunctionMode = $derived(problem.submissionType === "function");
-  let isZipProject = $derived(problem.submissionType === "zip_project");
 
   let availableLanguages = $derived.by(() => {
     let langs = [...supportedLanguages];
@@ -87,10 +85,6 @@
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
-
-  // Multi-file state for zip_project mode
-  let zipFiles = $state<{path: string; content: string}[]>([{ path: "main.c", content: "" }]);
-  let entryFile = $state("main.c");
 
   // Bottom panel state
   let bottomTab = $state<"testcase" | "result">("testcase");
@@ -139,9 +133,7 @@
   let workspaceFilesForLanguage = $derived(
     problem.workspaceFiles.filter((f) => f.language === language)
   );
-  let isWorkspaceMode = $derived(
-    !isZipProject && workspaceFilesForLanguage.length > 0
-  );
+  let isWorkspaceMode = $derived(workspaceFilesForLanguage.length > 0);
   let selectedWorkspaceIndex = $state(0);
 
   // When the language changes (or the file list otherwise changes), reset
@@ -255,39 +247,36 @@
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
 
-    // Skip Monaco initialization for zip_project mode (MultiFileEditor manages its own editor).
-    // Workspace-file mode uses <MonacoEditableRegions> which owns its own Monaco instance; the
-    // single-file editor is still mounted (just visually hidden) so switching to a language
-    // without workspace files works without re-initializing.
-    if (!isZipProject) {
-      void (async () => {
-        monacoModule = await import("monaco-editor");
-        registerCompletionProviders(monacoModule);
+    // Workspace-file mode uses <MonacoEditableRegions> which owns its own Monaco instance;
+    // the single-file editor is still mounted (just visually hidden) so switching to a
+    // language without workspace files works without re-initializing.
+    void (async () => {
+      monacoModule = await import("monaco-editor");
+      registerCompletionProviders(monacoModule);
 
-        const isDark = document.documentElement.classList.contains("dark");
-        monacoEditor = monacoModule.editor.create(editorContainer, {
-          ...editorOptions,
-          language: "cpp",
-          theme: isDark ? "vs-dark" : "vs-light",
-          value: drafts[language]
-        });
+      const isDark = document.documentElement.classList.contains("dark");
+      monacoEditor = monacoModule.editor.create(editorContainer, {
+        ...editorOptions,
+        language: "cpp",
+        theme: isDark ? "vs-dark" : "vs-light",
+        value: drafts[language]
+      });
 
-        const editor = monacoEditor;
-        editor.onDidChangeModelContent(() => {
-          drafts[language] = editor.getValue();
-        });
+      const editor = monacoEditor;
+      editor.onDidChangeModelContent(() => {
+        drafts[language] = editor.getValue();
+      });
 
-        // Watch for dark mode toggling on <html>
-        themeObserver = new MutationObserver(() => {
-          const dark = document.documentElement.classList.contains("dark");
-          monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
-        });
-        themeObserver.observe(document.documentElement, {
-          attributes: true,
-          attributeFilter: ["class"]
-        });
-      })();
-    }
+      // Watch for dark mode toggling on <html>
+      themeObserver = new MutationObserver(() => {
+        const dark = document.documentElement.classList.contains("dark");
+        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+    })();
 
     return () => {
       destroyed = true;
@@ -338,14 +327,7 @@
     };
 
     let body: Record<string, unknown>;
-    if (isZipProject) {
-      body = {
-        ...commonFields,
-        sourceCode: zipFiles.find((f) => f.path === entryFile)?.content ?? "",
-        sourceFiles: zipFiles.map((f) => ({ path: f.path, content: f.content })),
-        entryFile,
-      };
-    } else if (isWorkspaceMode) {
+    if (isWorkspaceMode) {
       // Workspace-file mode: send the current contents of every visible file
       // (editable + readonly) so the server can merge them with hidden files
       // when building the judge context. Hidden files are excluded — their
@@ -448,11 +430,7 @@
 
       if (result) {
         let sourceForCallback: string;
-        if (isZipProject) {
-          sourceForCallback = zipFiles
-            .map((f) => `// --- ${f.path} ---\n${f.content}`)
-            .join("\n\n");
-        } else if (isWorkspaceMode) {
+        if (isWorkspaceMode) {
           // Mirror the submission payload: concatenate every visible file with
           // a path marker so the submissions pane has a useful preview. Hidden
           // files are skipped — their `content` is `""` on the client.
@@ -490,28 +468,21 @@
   >
     <div class="flex items-center gap-3">
       <span class="text-xs font-semibold text-foreground/70">&lt;/&gt;</span>
-      {#if !isZipProject}
-        <select
-          class="border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-xs font-medium text-foreground outline-none transition focus:border-primary"
-          onchange={(e) => {
-            const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
-            if (parsed.success) language = parsed.data;
-          }}
-          value={language}
-        >
-          {#each availableLanguages as entry (entry)}
-            <option value={entry}>{entry}</option>
-          {/each}
-        </select>
-      {/if}
+      <select
+        class="border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-xs font-medium text-foreground outline-none transition focus:border-primary"
+        onchange={(e) => {
+          const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
+          if (parsed.success) language = parsed.data;
+        }}
+        value={language}
+      >
+        {#each availableLanguages as entry (entry)}
+          <option value={entry}>{entry}</option>
+        {/each}
+      </select>
       {#if isFunctionMode}
         <span class="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
           {m.editor_functionModeHint()}
-        </span>
-      {/if}
-      {#if isZipProject}
-        <span class="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
-          Multi-file Project
         </span>
       {/if}
     </div>
@@ -527,17 +498,12 @@
   </div>
 
   <!-- Editor area -->
-  {#if isZipProject}
-    <div class="min-h-0 flex-1">
-      <MultiFileEditor bind:files={zipFiles} />
-    </div>
-  {:else}
-    <!--
-      The single-file Monaco container is always present so the underlying
-      editor survives switches in and out of workspace mode. When workspace
-      files exist for the current language, we overlay the workspace UI on
-      top and hide the single-file container via `hidden`.
-    -->
+  <!--
+    The single-file Monaco container is always present so the underlying
+    editor survives switches in and out of workspace mode. When workspace
+    files exist for the current language, we overlay the workspace UI on
+    top and hide the single-file container via `hidden`.
+  -->
     <div class="relative min-h-0 flex-1">
       <div
         bind:this={editorContainer}
@@ -644,23 +610,18 @@
         </div>
       {/if}
     </div>
-  {/if}
 
   <!-- Action bar -->
   <div
     class="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5"
   >
     <span class="text-xs font-medium text-muted-foreground">
-      {#if isZipProject}
-        {zipFiles.length} file{zipFiles.length !== 1 ? "s" : ""}
-      {:else}
-        {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
-      {/if}
+      {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
     </span>
     <div class="flex items-center gap-2">
       <button
         class="rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground transition hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isRunning || (!isZipProject && availableLanguages.length === 0)}
+        disabled={isRunning || availableLanguages.length === 0}
         onclick={() => void handleRun()}
         type="button"
       >
@@ -668,7 +629,7 @@
       </button>
       <button
         class="rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isSubmitting || (!isZipProject && availableLanguages.length === 0)}
+        disabled={isSubmitting || availableLanguages.length === 0}
         onclick={() => void handleSubmit()}
         type="button"
       >

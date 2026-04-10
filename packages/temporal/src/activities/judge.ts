@@ -250,8 +250,8 @@ export async function fetchJudgeContext(
  * Merge student-submitted files with teacher workspace files into the
  * source-file payload sent to the sandbox.
  *
- * - Student's `draft.sourceCode` populates the main editable file
- *   (identified by language or by `draft.entryFile`).
+ * - Student's `draft.sourceCode` populates the entry file `main.<ext>`
+ *   derived from the submission language.
  * - Student's `draft.sourceFiles` (if provided) overrides any editable
  *   workspace file whose path matches.
  * - Teacher workspace files (readonly + hidden) are always added. If a
@@ -269,11 +269,10 @@ function mergeSandboxSources(
   const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
 
   if (langFiles.length === 0) {
-    // No workspace files configured — legacy path, just pass the draft through.
+    // No workspace files configured — legacy single-file path.
     return {
       sourceCode: draft.sourceCode,
-      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
-      ...(draft.entryFile ? { entryFile: draft.entryFile } : {})
+      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {})
     };
   }
 

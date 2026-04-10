@@ -408,7 +408,7 @@
     {/if}
     {#each publicResult.problems as problem (problem.id)}
       <a
-        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[auto_1.4fr_0.8fr_0.8fr] sm:items-center transition hover:-translate-y-0.5"
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[auto_1.4fr_auto_auto_auto_auto] sm:items-center transition hover:-translate-y-0.5"
         href="/problems/{problem.id}"
       >
         <div class="flex items-center justify-center w-6">
@@ -424,31 +424,40 @@
         </div>
         <div>
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
-          <div class="mt-1">
-            <SpecialLabels
-              problemType={problem.problemType}
-              judgeType={problem.judgeType}
-              compact
-            />
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <span
-            class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
-              problem.difficulty
-            ] ?? 'bg-muted text-muted-foreground'}"
-            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
-          >
-            {problem.difficulty}
-          </span>
           {#if showPublicCardTags && problem.tags.length > 0}
-            {#each problem.tags as tag (tag)}
-              <span class="inline-flex rounded-full border border-border bg-muted/40 px-3 py-1 text-sm font-semibold text-muted-foreground">
-                {tag}
-              </span>
-            {/each}
+            <div class="mt-1 flex flex-wrap items-center gap-1.5">
+              {#each problem.tags as tag (tag)}
+                <span class="inline-flex rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                  {tag}
+                </span>
+              {/each}
+            </div>
           {/if}
         </div>
+        <div class="sm:text-center">
+          <SpecialLabels
+            problemType={problem.problemType}
+            judgeType={problem.judgeType}
+            compact
+            which="problem-type"
+          />
+        </div>
+        <div class="sm:text-center">
+          <SpecialLabels
+            problemType={problem.problemType}
+            judgeType={problem.judgeType}
+            compact
+            which="judge-method"
+          />
+        </div>
+        <span
+          class="inline-flex self-center rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
+            problem.difficulty
+          ] ?? 'bg-muted text-muted-foreground'}"
+          aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
+        >
+          {problem.difficulty}
+        </span>
         <div class="sm:text-right">
           <p class="text-sm text-muted-foreground">{m.common_acceptance()}</p>
           <p class="mt-1 text-lg font-semibold">
@@ -592,37 +601,46 @@
     {/if}
     {#each mineFiltered as problem (problem.id)}
       <div
-        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_auto] sm:items-center"
+        class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_auto_auto_auto_auto_auto] sm:items-center"
       >
         <div>
           <a href="/problems/{problem.id}" class="transition hover:opacity-80">
             <h3 class="text-2xl font-semibold">{problem.title}</h3>
           </a>
-          <div class="mt-1">
-            <SpecialLabels
-              problemType={problem.problemType}
-              judgeType={problem.judgeType}
-              compact
-            />
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <span
-            class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
-              problem.difficulty
-            ] ?? 'bg-muted text-muted-foreground'}"
-            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
-          >
-            {problem.difficulty}
-          </span>
           {#if showMineCardTags && problem.tags.length > 0}
-            {#each problem.tags as tag (tag)}
-              <span class="inline-flex rounded-full border border-border bg-muted/40 px-3 py-1 text-sm font-semibold text-muted-foreground">
-                {tag}
-              </span>
-            {/each}
+            <div class="mt-1 flex flex-wrap items-center gap-1.5">
+              {#each problem.tags as tag (tag)}
+                <span class="inline-flex rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+                  {tag}
+                </span>
+              {/each}
+            </div>
           {/if}
         </div>
+        <div class="sm:text-center">
+          <SpecialLabels
+            problemType={problem.problemType}
+            judgeType={problem.judgeType}
+            compact
+            which="problem-type"
+          />
+        </div>
+        <div class="sm:text-center">
+          <SpecialLabels
+            problemType={problem.problemType}
+            judgeType={problem.judgeType}
+            compact
+            which="judge-method"
+          />
+        </div>
+        <span
+          class="inline-flex self-center rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[
+            problem.difficulty
+          ] ?? 'bg-muted text-muted-foreground'}"
+          aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
+        >
+          {problem.difficulty}
+        </span>
         <div class="flex flex-wrap gap-1.5 sm:justify-end">
           {#if problem.status === "draft"}
             <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">

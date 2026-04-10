@@ -32,7 +32,6 @@ const problemIdentifierSchema = z
 export const submissionDraftSchema = z.object({
   assessment: assessmentContextSchema.optional(),
   contestSlug: slugSchema.optional(),
-  entryFile: z.string().trim().min(1).max(300).optional(),
   language: languageSchema,
   mode: submissionModeSchema.optional(),
   problemId: problemIdentifierSchema,
