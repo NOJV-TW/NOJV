@@ -34,7 +34,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     redirect(302, `/problems/${params.id}`);
   }
 
-  const problem = await getProblemPageData(params.id);
+  // Both queries only depend on params.id — fire in parallel.
+  const [problem, existingCases] = await Promise.all([
+    getProblemPageData(params.id),
+    advancedTestcaseRepo.findByProblemId(params.id)
+  ]);
+
   if (!problem) {
     error(404, "Problem not found");
   }
@@ -42,8 +47,6 @@ export const load: PageServerLoad = async ({ params, locals }) => {
   if (problem.type !== "special_env") {
     redirect(302, `/problems/${params.id}/edit`);
   }
-
-  const existingCases = await advancedTestcaseRepo.findByProblemId(params.id);
 
   return {
     problem,
