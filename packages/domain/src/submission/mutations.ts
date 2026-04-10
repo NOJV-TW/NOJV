@@ -8,7 +8,7 @@ import {
 import type { SubmissionDraft } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError } from "../shared/errors";
+import { ConflictError, ForbiddenError } from "../shared/errors";
 import { checkIpLock } from "../shared/ip-utils";
 import { ensureUser } from "../user/mutations";
 import { requireProblem } from "../problem/mutations";
@@ -157,7 +157,7 @@ export async function createQueuedSubmissionRecord(
         });
 
         if (attemptCount >= maxAttempts) {
-          throw new Error(
+          throw new ConflictError(
             `Attempt limit reached (${String(maxAttempts)}/${String(maxAttempts)}).`
           );
         }
