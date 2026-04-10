@@ -143,6 +143,11 @@ enum CourseAssessmentScoreboardMode {
   frozen
 }
 
+enum IpViolationMode {
+  block
+  notify
+}
+
 model User {
   id                   String                 @id @default(cuid())
   email                String                 @unique
@@ -302,7 +307,7 @@ model Contest {
   ipWhitelistEnabled Boolean                       @default(false)
   ipBindingEnabled   Boolean                       @default(false)
   ipWhitelist        String[]                      @default([])
-  ipViolationMode    String                        @default("block")
+  ipViolationMode    IpViolationMode               @default(block)
   maxAttempts        Int?
   scoreboardMode     CourseAssessmentScoreboardMode @default(live)
   allowedLanguages   SupportedLanguage[]           @default([])
@@ -416,7 +421,7 @@ model CourseAssessment {
   ipWhitelistEnabled Boolean                       @default(false)
   ipBindingEnabled   Boolean                       @default(false)
   ipWhitelist        String[]                      @default([])
-  ipViolationMode    String                        @default("block")
+  ipViolationMode    IpViolationMode               @default(block)
   maxAttempts        Int?
   allowedLanguages   SupportedLanguage[]           @default([])
   adjustmentRules    Json?
@@ -624,4 +629,7 @@ model IpViolationLog {
   actualIp      String
   violationType String
   createdAt     DateTime         @default(now())
+
+  @@index([contestId, createdAt])
+  @@index([assessmentId, createdAt])
 }
