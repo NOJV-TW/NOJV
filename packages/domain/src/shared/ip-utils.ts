@@ -97,8 +97,8 @@ export async function checkIpLock(
   /** Model name for updating participation boundIp */
   participationModel: "contestParticipation" | "assessmentParticipation"
 ): Promise<IpCheckResult> {
-  // Whitelist check
-  if (config.ipWhitelistEnabled && config.ipWhitelist.length > 0) {
+  // Whitelist check — when enabled, an empty list denies all (fail-closed).
+  if (config.ipWhitelistEnabled) {
     if (!isIpInWhitelist(clientIp, config.ipWhitelist)) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "whitelist" };

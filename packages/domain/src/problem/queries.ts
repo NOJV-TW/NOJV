@@ -7,6 +7,7 @@ import {
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
+  deriveProblemType,
   judgeConfigSchema,
   problemDifficultySchema,
   submissionTypeSchema,
@@ -16,6 +17,7 @@ import {
   type ProblemImageSource,
   type ProblemMode,
   type ProblemStatus,
+  type ProblemType,
   type ProblemVisibility,
   type SubmissionType
 } from "@nojv/core";
@@ -31,8 +33,15 @@ export interface ProblemDetail {
   judgeConfig: JudgeConfig;
   judgeType: JudgeType;
   memoryLimitMb: number;
-  mode: ProblemMode;
   outputFormat: string;
+  /**
+   * Derived, UI-facing category for the problem shape. Replaces the
+   * legacy `mode` + `submissionType` pair on the client — `special_env`
+   * is equivalent to the DB's `mode === "advanced"`, and the other
+   * three categories carry all the distinctions that used to live in
+   * `submissionType` plus the multi-file signal.
+   */
+  problemType: ProblemType;
   samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
@@ -45,16 +54,18 @@ export interface ProblemDetail {
   totalSubmissions: number;
   visibility: ProblemVisibility;
   /**
-   * Visible workspace files for the student editor. `"hidden"` files are
-   * intentionally excluded — the domain layer filters them out before
-   * returning so they never reach the client.
+   * Workspace files for the student editor. `"hidden"` files are included
+   * (so the UI can show their metadata, e.g. description) but their `content`
+   * is always `""` — raw hidden content must never leave the server. The
+   * judge pipeline reads hidden content directly from the DB.
    */
   workspaceFiles: {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly";
+    visibility: "editable" | "readonly" | "hidden";
     editableRegions: [number, number][] | null;
+    description: string;
   }[];
   // Phase 7: advanced-mode metadata
   advancedImageRef: string | null;
@@ -211,6 +222,7 @@ function mapPersistedProblemDetail(
       visibility: string;
       editableRegions?: unknown;
       orderIndex?: number;
+      description?: string;
     }[];
   },
   locale: string,
@@ -230,18 +242,27 @@ function mapPersistedProblemDetail(
     type: "standard"
   };
 
-  // SECURITY: drop any hidden workspace files before they leave the domain
-  // layer. Hidden files are merged into the sandbox at judging time from the
-  // DB directly — they must never be exposed to the client.
-  const visibleWorkspaceFiles = (problem.workspaceFiles ?? [])
-    .filter((f) => f.visibility === "editable" || f.visibility === "readonly")
-    .map((f) => ({
+  // SECURITY: hidden workspace files are kept in the list so the client can
+  // render their metadata (path, language, description) but their `content`
+  // is blanked out. Raw hidden content must never leave the server — the
+  // judge pipeline reads it from the DB directly at judging time.
+  const visibleWorkspaceFiles = (problem.workspaceFiles ?? []).map((f) => {
+    const visibility = f.visibility as "editable" | "readonly" | "hidden";
+    return {
       language: f.language,
       path: f.path,
-      content: f.content,
-      visibility: f.visibility as "editable" | "readonly",
-      editableRegions: parseEditableRegions(f.editableRegions)
-    }));
+      content: visibility === "hidden" ? "" : f.content,
+      visibility,
+      editableRegions: parseEditableRegions(f.editableRegions),
+      description: f.description ?? ""
+    };
+  });
+
+  const problemType = deriveProblemType({
+    mode: problem.mode ?? "standard",
+    submissionType,
+    workspaceFileCount: (problem.workspaceFiles ?? []).length
+  });
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
@@ -252,8 +273,8 @@ function mapPersistedProblemDetail(
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
-    mode: problem.mode ?? "standard",
     outputFormat: localized.outputFormat,
+    problemType,
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
     statement: localized.statement,
@@ -301,6 +322,8 @@ export interface ProblemCardWithStatus {
   acceptanceRate: number;
   difficulty: string;
   id: string;
+  judgeType: JudgeType;
+  problemType: ProblemType;
   status: ProblemUserStatus;
   tags: string[];
   title: string;
@@ -382,10 +405,21 @@ export async function listProblemCards(
   const problems: ProblemCardWithStatus[] = persistedProblems.map((problem) => {
     const total = problem._count.submissions;
     const accepted = acceptedByProblemId.get(problem.id) ?? 0;
+    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+      type: "standard" as const
+    };
+    const submissionType = parseSubmissionType(problem.submissionType);
+    const problemType = deriveProblemType({
+      mode: problem.mode,
+      submissionType,
+      workspaceFileCount: problem._count.workspaceFiles
+    });
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
       difficulty: parseDifficulty(problem.difficulty),
       id: problem.id,
+      judgeType: judgeConfig.type,
+      problemType,
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
       title: problem.defaultTitle,
@@ -399,14 +433,27 @@ export async function listProblemCards(
 export async function listEditableProblems(userId: string) {
   const problems = await problemRepo.listEditable(userId);
 
-  return problems.map((problem) => ({
-    difficulty: parseDifficulty(problem.difficulty),
-    id: problem.id,
-    status: problem.status,
-    tags: problem.tags,
-    title: problem.defaultTitle,
-    visibility: problem.visibility
-  }));
+  return problems.map((problem) => {
+    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+      type: "standard" as const
+    };
+    const submissionType = parseSubmissionType(problem.submissionType);
+    const problemType = deriveProblemType({
+      mode: problem.mode,
+      submissionType,
+      workspaceFileCount: problem._count.workspaceFiles
+    });
+    return {
+      difficulty: parseDifficulty(problem.difficulty),
+      id: problem.id,
+      judgeType: judgeConfig.type,
+      problemType,
+      status: problem.status,
+      tags: problem.tags,
+      title: problem.defaultTitle,
+      visibility: problem.visibility
+    };
+  });
 }
 
 export async function getProblemPageData(id: string, locale: string = DEFAULT_LOCALE) {

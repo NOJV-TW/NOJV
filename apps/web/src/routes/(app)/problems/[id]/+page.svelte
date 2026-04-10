@@ -8,7 +8,7 @@
 <div
   class="flex h-[calc(100vh-7rem)] overflow-hidden rounded-[2rem] border border-border"
 >
-  {#if data.problem.mode === "advanced"}
+  {#if data.problem.problemType === "special_env"}
     <AdvancedModeWorkspace
       allowedLanguages={data.allowedLanguages}
       assessment={data.assessmentProp}

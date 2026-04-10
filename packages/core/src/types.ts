@@ -94,11 +94,21 @@ export const ipViolationModes = ["block", "notify"] as const;
 export const ipViolationModeSchema = z.enum(ipViolationModes);
 export type IpViolationMode = z.infer<typeof ipViolationModeSchema>;
 
+// CIDR strings cap at 50 chars (~39 for IPv6 /128 + margin), 1000 entries
+// per list is more than any reasonable deployment. 50 KB text cap covers
+// the same count even with generous formatting.
+const MAX_CIDR_LEN = 50;
+const MAX_WHITELIST_ENTRIES = 1000;
+const MAX_WHITELIST_TEXT_LEN = 50_000;
+
 /** Shared Zod fields for IP lock configuration. Use with z.object({ ...ipLockFields, ... }) */
 export const ipLockFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
-  ipWhitelist: z.array(z.string().trim().min(1)).default([]),
+  ipWhitelist: z
+    .array(z.string().trim().min(1).max(MAX_CIDR_LEN))
+    .max(MAX_WHITELIST_ENTRIES)
+    .default([]),
   ipWhitelistEnabled: z.boolean().default(false)
 } as const;
 
@@ -107,7 +117,7 @@ export const ipLockFormFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
   ipWhitelistEnabled: z.boolean().default(false),
-  ipWhitelistText: z.string().default("")
+  ipWhitelistText: z.string().max(MAX_WHITELIST_TEXT_LEN).default("")
 } as const;
 
 export const sessionUserSchema = z.object({

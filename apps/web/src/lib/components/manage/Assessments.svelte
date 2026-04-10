@@ -1,15 +1,12 @@
 <script lang="ts">
-  import { browser } from "$app/environment";
   import {
     BookOpenCheck,
     CalendarRange,
-    Languages,
     Shield,
     Sparkles
   } from "@lucide/svelte";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import { onMount } from "svelte";
   import {
     supportedLanguages,
     type AdjustmentRule,
@@ -18,6 +15,7 @@
   } from "@nojv/core";
   import { inputClassName, toDateTimeLocalValue, toggleArrayItem } from "$lib/utils";
   import AdjustmentRulesEditor from "./AdjustmentRulesEditor.svelte";
+  import SystemTextToggle, { type UiLang } from "./SystemTextToggle.svelte";
 
   import type { courseDomain } from "@nojv/domain";
   type CourseAssessmentRecord = courseDomain.CourseAssessmentRecord;
@@ -51,7 +49,6 @@
   let { assessments, courseSlug, form: formData, problemIds }: Props = $props();
   const initialProblemSlugs = untrack(() => problemIds);
 
-  type UiLang = "zh" | "en";
   let uiLang = $state<UiLang>("zh");
 
   const text = {
@@ -63,7 +60,6 @@
       assessments: "Assessments",
       block: "Block",
       createAssessment: "Create assessment",
-      english: "English",
       maxAttempts: "Max attempts (optional)",
       noLimit: "Unlimited",
       notifyOnly: "Notify only",
@@ -82,8 +78,7 @@
       viewResults: "View results",
       whenIpViolation: "When IP violation occurs:",
       whitelist: "IP Whitelist",
-      ipBinding: "IP First-Binding (lock to first IP used)",
-      zh: "中文"
+      ipBinding: "IP First-Binding (lock to first IP used)"
     },
     zh: {
       all: "全部",
@@ -93,7 +88,6 @@
       assessments: "測驗列表",
       block: "封鎖",
       createAssessment: "建立測驗",
-      english: "English",
       maxAttempts: "最大嘗試次數（可選）",
       noLimit: "不限制",
       notifyOnly: "僅通知",
@@ -112,28 +106,12 @@
       viewResults: "查看結果",
       whenIpViolation: "發生 IP 違規時：",
       whitelist: "IP 白名單",
-      ipBinding: "IP 首次綁定（鎖定首次使用 IP）",
-      zh: "中文"
+      ipBinding: "IP 首次綁定（鎖定首次使用 IP）"
     }
   } as const;
 
   function t<K extends keyof (typeof text)["en"]>(key: K): string {
     return text[uiLang][key];
-  }
-
-  onMount(() => {
-    if (!browser) return;
-    const saved = localStorage.getItem("nojv-system-text-lang");
-    if (saved === "zh" || saved === "en") {
-      uiLang = saved;
-    }
-  });
-
-  function setUiLang(next: UiLang): void {
-    uiLang = next;
-    if (browser) {
-      localStorage.setItem("nojv-system-text-lang", next);
-    }
   }
 
   function createDefaultAssessmentWindow() {
@@ -266,25 +244,7 @@
 
 <div class="space-y-6">
   <div class="flex justify-end">
-    <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
-      <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
-        <Languages class="h-3.5 w-3.5" /> {t("systemText")}
-      </span>
-      <button
-        type="button"
-        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
-        onclick={() => setUiLang("zh")}
-      >
-        {t("zh")}
-      </button>
-      <button
-        type="button"
-        class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
-        onclick={() => setUiLang("en")}
-      >
-        {t("english")}
-      </button>
-    </div>
+    <SystemTextToggle bind:value={uiLang} label={t("systemText")} />
   </div>
 
   <section

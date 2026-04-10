@@ -31,14 +31,14 @@ shadcn-svelte-style components in `$lib/components/ui/`:
 
 Custom components in `$lib/components/ui/`:
 
-| Component      | Purpose                                                              |
-| -------------- | -------------------------------------------------------------------- |
-| EmptyState     | Icon + title + description + optional CTA for zero-data states       |
-| ToastContainer | Fixed bottom-right toast stack with success/error/info type styling  |
-| TagInput       | Pill-based tag entry with space/enter to add, backspace to remove    |
-| ToggleSwitch   | Accessible toggle switch (`role="switch"`, `aria-checked`)           |
-| HelpTooltip    | `CircleHelp` icon with Bits UI Tooltip for inline help text          |
-| ImageDropZone  | Textarea with drag-and-drop + paste image upload, markdown insertion |
+| Component        | Purpose                                                              |
+| ---------------- | -------------------------------------------------------------------- |
+| EmptyState       | Icon + title + description + optional CTA for zero-data states       |
+| ToastContainer   | Fixed bottom-right toast stack with success/error/info type styling  |
+| TagInput         | Pill-based tag entry with space/enter to add, backspace to remove    |
+| HelpTooltip      | `CircleHelp` icon with Bits UI Tooltip for inline help text          |
+| ImageDropZone    | Textarea with drag-and-drop + paste image upload, markdown insertion |
+| SystemTextToggle | Admin-side zh/en toggle with localStorage persistence                |
 
 ### Typography
 
@@ -197,7 +197,7 @@ Difficulty badges: easy = emerald, medium = amber, hard = red. All use the `bg-{
 
 8. **Prefer Tailwind utilities over custom CSS.** The only custom CSS is in `app.css` (tokens, keyframes, base layer). Component styles are Tailwind classes applied inline.
 
-9. **Accessibility baselines.** Interactive elements must have `type="button"` (to prevent form submission), `role` and `aria-*` attributes where appropriate (see `ToggleSwitch` for `role="switch"`, resize handle for `role="separator"`). Focus styles use the `ring` token.
+9. **Accessibility baselines.** Interactive elements must have `type="button"` (to prevent form submission), `role` and `aria-*` attributes where appropriate (resize handle uses `role="separator"`, dialogs use Bits UI's accessible primitives). Focus styles use the `ring` token.
 
 10. **Animation is subtle.** Entrance animations are 700ms ease-out max. Hover effects are `transition` with `-translate-y-0.5` lift. No gratuitous animation.
 

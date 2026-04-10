@@ -9,7 +9,12 @@
   };
 </script>
 
-<div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+<div
+  class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+  role="status"
+  aria-live="polite"
+  aria-atomic="false"
+>
   {#each $toasts as toast (toast.id)}
     <div
       class="flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg transition-all {typeStyles[toast.type] ?? typeStyles.info}"
@@ -19,8 +24,9 @@
         class="shrink-0 opacity-60 transition hover:opacity-100"
         onclick={() => toasts.remove(toast.id)}
         type="button"
+        aria-label="Dismiss notification"
       >
-        <X class="h-4 w-4" />
+        <X class="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   {/each}

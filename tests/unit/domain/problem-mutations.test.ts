@@ -58,7 +58,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { problemDomain } from "@nojv/domain";
+import { ConflictError, problemDomain } from "@nojv/domain";
 
 const { createProblemDefinition, updateProblemWorkspace } = problemDomain;
 
@@ -170,28 +170,38 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   });
 
   it("rejects when a single language exceeds 1 MB across multiple files", async () => {
-    // Two python files, each ~600 KB → ~1.2 MB total for python.
+    // main.py (required) + two big python files → > 1 MB total for python.
     const chunk = "a".repeat(600_000);
+    // Round 4 regression: this threw plain `new Error(...)` which became
+    // HTTP 500 instead of 409. Assert the error class explicitly so a
+    // future change back to `Error` fails loudly.
     await expect(
       updateProblemWorkspace(actor, "prob_1", {
         files: [
           {
             language: "python",
-            path: "a.py",
+            path: "main.py",
+            content: "print('hi')\n",
+            visibility: "editable",
+            editableRegions: null
+          },
+          {
+            language: "python",
+            path: "big_a.py",
             content: chunk,
             visibility: "editable",
             editableRegions: null
           },
           {
             language: "python",
-            path: "b.py",
+            path: "big_b.py",
             content: chunk,
             visibility: "editable",
             editableRegions: null
           }
         ]
       })
-    ).rejects.toThrow(/python.*1 MB limit.*1200000 bytes/);
+    ).rejects.toBeInstanceOf(ConflictError);
     expect(workspaceDeleteByProblemId).not.toHaveBeenCalled();
   });
 
@@ -203,14 +213,14 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
         files: [
           {
             language: "python",
-            path: "a.py",
+            path: "main.py",
             content: pythonChunk,
             visibility: "editable",
             editableRegions: null
           },
           {
             language: "cpp",
-            path: "a.cpp",
+            path: "main.cpp",
             content: cppChunk,
             visibility: "editable",
             editableRegions: null
@@ -229,20 +239,37 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
         files: [
           {
             language: "python",
-            path: "a.py",
+            path: "main.py",
             content: pythonChunk,
             visibility: "editable",
             editableRegions: null
           },
           {
             language: "cpp",
-            path: "a.cpp",
+            path: "main.cpp",
             content: cppBig,
             visibility: "editable",
             editableRegions: null
           }
         ]
       })
-    ).rejects.toThrow(/cpp.*1 MB limit.*1100000 bytes/);
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("over-budget error carries the per-language byte count in its message", async () => {
+    const chunk = "a".repeat(1_100_000);
+    await expect(
+      updateProblemWorkspace(actor, "prob_1", {
+        files: [
+          {
+            language: "python",
+            path: "main.py",
+            content: chunk,
+            visibility: "editable",
+            editableRegions: null
+          }
+        ]
+      })
+    ).rejects.toThrow(/python.*1 MB limit.*1100000 bytes/);
   });
 });

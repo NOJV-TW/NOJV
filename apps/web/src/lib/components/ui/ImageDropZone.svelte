@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
+
   let {
     problemId,
     name,
@@ -82,7 +84,7 @@
     <div
       class="absolute inset-0 flex items-center justify-center rounded-md bg-background/60 pointer-events-none"
     >
-      <span class="text-sm text-muted-foreground">上傳中...</span>
+      <span class="text-sm text-muted-foreground">{m.common_uploading()}</span>
     </div>
   {/if}
 
@@ -90,7 +92,7 @@
     <div
       class="absolute inset-0 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/5 pointer-events-none"
     >
-      <span class="text-sm text-primary">放開以上傳圖片</span>
+      <span class="text-sm text-primary">{m.common_dropToUpload()}</span>
     </div>
   {/if}
 </div>

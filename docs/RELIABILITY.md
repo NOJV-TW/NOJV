@@ -67,7 +67,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 1. `contestLifecycleWorkflow` manages the full contest timeline with durable timers.
 2. Admin override signals (early end, extend) are processed atomically within the workflow.
-3. Scoreboard freeze creates a Redis snapshot (`RENAME`). The live key continues updating.
+3. Scoreboard freeze creates a Redis snapshot in a separate frozen key (copy via `ZRANGE`+`ZADD`). The live key keeps updating so admins see real-time scores; `getScoreboard` prefers the frozen key when it exists, so public viewers see the snapshot until `unfreezeScoreboard` deletes it.
 4. Final scores are always computed from PostgreSQL, not Redis.
 
 ### Assessment Lifecycle

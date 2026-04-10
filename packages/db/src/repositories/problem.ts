@@ -65,7 +65,7 @@ export const problemRepo = {
   listWithCounts(opts: { where: Prisma.ProblemWhereInput; skip: number; take: number }) {
     return prisma.problem.findMany({
       include: {
-        _count: { select: { submissions: true } }
+        _count: { select: { submissions: true, workspaceFiles: true } }
       },
       orderBy: { createdAt: "desc" },
       skip: opts.skip,
@@ -77,6 +77,9 @@ export const problemRepo = {
   /** List problems editable by a user (authored or via course TA/teacher). */
   listEditable(userId: string) {
     return prisma.problem.findMany({
+      include: {
+        _count: { select: { workspaceFiles: true } }
+      },
       orderBy: { createdAt: "desc" },
       where: {
         OR: [

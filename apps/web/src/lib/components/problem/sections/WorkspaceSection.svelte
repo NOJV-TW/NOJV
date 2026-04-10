@@ -1,6 +1,12 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { supportedLanguages, type Language } from "@nojv/core";
+  import {
+    entryFileNameFor,
+    languageExtension,
+    supportedLanguages,
+    type Language
+  } from "@nojv/core";
+  import { m } from "$lib/paraglide/messages.js";
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
   import WorkspaceFileList from "$lib/components/problem/workspace/WorkspaceFileList.svelte";
   import WorkspaceFileEditor, {
@@ -74,10 +80,19 @@
   );
 
   function addFile() {
+    const entryName = entryFileNameFor(activeLang);
+    const hasEntry = files.some(
+      (f) => f.language === activeLang && f.path === entryName
+    );
+    const activeLangCount = files.filter((f) => f.language === activeLang).length;
+    const defaultPath = hasEntry
+      ? `file${activeLangCount + 1}.${languageExtension(activeLang)}`
+      : entryName;
     const newFile: WorkspaceFile & { language: Language } = {
       language: activeLang,
-      path: `main.${extensionFor(activeLang)}`,
+      path: defaultPath,
       content: "",
+      description: "",
       visibility: "editable",
       editableRegions: null,
       orderIndex: files.length
@@ -95,20 +110,6 @@
     files = files.map((f, i) =>
       i === globalIndex ? { ...updated, language: f.language } : f
     );
-  }
-
-  function extensionFor(lang: Language): string {
-    const map: Record<Language, string> = {
-      c: "c",
-      cpp: "cpp",
-      go: "go",
-      java: "java",
-      javascript: "mjs",
-      python: "py",
-      rust: "rs",
-      typescript: "ts"
-    };
-    return map[lang];
   }
 
   // ─── Save ─────────────────────────────────────────────────────────
@@ -135,7 +136,25 @@
     ondirtychange?.(current !== initialSnapshot);
   });
 
+  function validateEntryFiles(): string | null {
+    for (const lang of allowedLanguages) {
+      const entryName = entryFileNameFor(lang);
+      const matches = files.filter(
+        (f) => f.language === lang && f.path === entryName && f.visibility === "editable"
+      );
+      if (matches.length !== 1) {
+        return m.workspace_mustHaveMainFile({ filename: entryName });
+      }
+    }
+    return null;
+  }
+
   async function handleSave() {
+    const validationError = validateEntryFiles();
+    if (validationError !== null) {
+      saveMessage = validationError;
+      return;
+    }
     saving = true;
     saveMessage = "";
     try {
@@ -304,6 +323,8 @@
       <span class="text-sm text-emerald-600 dark:text-emerald-400">Saved</span>
     {:else if saveMessage === "error"}
       <span class="text-sm text-red-600 dark:text-red-400">Save failed</span>
+    {:else if saveMessage !== ""}
+      <span class="text-sm text-red-600 dark:text-red-400">{saveMessage}</span>
     {/if}
   </div>
 </div>
