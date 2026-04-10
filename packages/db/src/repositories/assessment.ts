@@ -6,7 +6,6 @@ import { problemMiniSelect, problemPreviewSelect } from "./selects";
 type TxClient = TransactionClient;
 
 export const assessmentRepo = {
-  /** Find assessment by ID with course slug (plagiarism). */
   findByIdWithCourseSlug(id: string) {
     return prisma.courseAssessment.findUnique({
       where: { id },
@@ -14,7 +13,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** Find assessment by course slug + assessment slug (used in submission filtering). */
   findByCourseAndSlug(courseSlug: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       where: {
@@ -25,7 +23,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** Find published assessment context for workspace. */
   findPublishedContext(courseSlug: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       select: {
@@ -41,7 +38,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** List user's assessments from enrolled courses. */
   listByUser(userId: string) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -60,7 +56,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** List upcoming assessments for a user. */
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -80,7 +75,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** Find assessment with problems for progress matrix. */
   findWithProblems(courseId: string, slug: string) {
     return prisma.courseAssessment.findFirst({
       where: { courseId, slug, status: "published" },
@@ -97,28 +91,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** Find active page-locked assessment for a user. */
-  findPageLockedForUser(userId: string, now: Date) {
-    return prisma.courseAssessment.findFirst({
-      where: {
-        pageLockEnabled: true,
-        status: "published",
-        opensAt: { lte: now },
-        closesAt: { gte: now },
-        course: {
-          memberships: {
-            some: { userId, status: "active" }
-          }
-        }
-      },
-      select: {
-        slug: true,
-        course: { select: { slug: true } }
-      }
-    });
-  },
-
-  /** Fetch assessment info for temporal activities. */
   findInfoById(id: string) {
     return prisma.courseAssessment.findUniqueOrThrow({
       select: {
@@ -130,7 +102,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** List published assessments for a course with problem counts (manage page). */
   listByCourseSlug(courseSlug: string) {
     return prisma.courseAssessment.findMany({
       where: {
@@ -150,7 +121,6 @@ export const assessmentRepo = {
     });
   },
 
-  /** Find assessment with problems and problem details (export/plagiarism). */
   findWithProblemDetails(courseId: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       where: { courseId, slug: assessmentSlug, status: "published" },
@@ -178,8 +148,6 @@ export const assessmentRepo = {
     });
   },
 
-  // ── Transaction variants ──
-
   withTx(tx: TxClient) {
     return {
       findByComposite(courseId: string, slug: string) {
@@ -196,7 +164,6 @@ export const assessmentRepo = {
 };
 
 export const assessmentProblemRepo = {
-  /** Find assessment problems with problem details (plagiarism page). */
   findByAssessmentId(assessmentId: string) {
     return prisma.courseAssessmentProblem.findMany({
       where: { assessmentId },
@@ -208,41 +175,6 @@ export const assessmentProblemRepo = {
     return {
       create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {
         return tx.courseAssessmentProblem.create({ data });
-      }
-    };
-  }
-};
-
-export const assessmentParticipationRepo = {
-  upsert(userId: string, assessmentId: string) {
-    return prisma.assessmentParticipation.upsert({
-      where: {
-        userId_assessmentId: { userId, assessmentId }
-      },
-      create: { userId, assessmentId },
-      update: {},
-      select: { id: true, boundIp: true }
-    });
-  },
-
-  updateBoundIp(id: string, ip: string) {
-    return prisma.assessmentParticipation.update({
-      where: { id },
-      data: { boundIp: ip, boundAt: new Date() }
-    });
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      upsert(userId: string, assessmentId: string) {
-        return tx.assessmentParticipation.upsert({
-          where: {
-            userId_assessmentId: { userId, assessmentId }
-          },
-          create: { userId, assessmentId },
-          update: {},
-          select: { id: true, boundIp: true }
-        });
       }
     };
   }

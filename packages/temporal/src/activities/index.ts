@@ -1,5 +1,3 @@
-// --- Judge activities (require sandbox/Docker/K8s access) ---
-
 export {
   fetchJudgeContext,
   executeSandbox,
@@ -10,8 +8,6 @@ export {
 export type { CompletedSubmission, SubmissionJudgeContext, TestcaseSetGroup } from "./judge";
 
 export { updateUserStats } from "./stats";
-
-// --- Platform activities (DB + Redis + network only) ---
 
 export {
   getContestInfo,
@@ -26,8 +22,6 @@ export { getAssessmentInfo, activateAssessment, closeAssessment } from "./assess
 export type { AssessmentInfo } from "./assessment";
 
 export { runPlagiarismCheck } from "./plagiarism";
-
-// --- Shared activities (used by both judge and platform) ---
 
 export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
 

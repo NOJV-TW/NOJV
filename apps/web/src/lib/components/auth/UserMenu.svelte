@@ -47,10 +47,12 @@
   <div class="relative">
     <button
       bind:this={btnEl}
-      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-primary text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:opacity-90"
+      class="flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
       onclick={() => (open = !open)}
       title={user.name}
       type="button"
+      aria-haspopup="menu"
+      aria-expanded={open}
     >
       {initial}
     </button>
@@ -58,20 +60,22 @@
     {#if open}
       <div
         bind:this={dropdownEl}
-        class="absolute right-0 top-full z-50 mt-2 min-w-[10rem] overflow-hidden rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] py-1 shadow-lg backdrop-blur-sm"
+        class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
+        role="menu"
       >
-        <div class="border-b border-border px-4 py-2.5">
-          <p class="truncate text-sm font-medium">{user.name}</p>
-          <p class="truncate text-xs text-muted-foreground">
+        <div class="border-b border-border-subtle px-4 py-2.5">
+          <p class="truncate text-body-sm font-medium">{user.name}</p>
+          <p class="truncate text-caption text-muted-foreground">
             {user.email}
           </p>
         </div>
 
         {#if hasUsername}
           <a
-            class="flex items-center gap-2 px-4 py-2 text-sm transition hover:bg-primary/10"
+            class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             href="/account"
             onclick={() => (open = false)}
+            role="menuitem"
           >
             <UserIcon size={16} />
             {m.navigation_account()}
@@ -79,9 +83,10 @@
         {/if}
 
         <button
-          class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-destructive transition hover:bg-destructive/10"
+          class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
           onclick={handleSignOut}
           type="button"
+          role="menuitem"
         >
           <LogOutIcon size={16} />
           {m.auth_signOut()}

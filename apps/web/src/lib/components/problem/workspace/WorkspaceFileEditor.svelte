@@ -58,7 +58,7 @@
 
 <div class="space-y-3">
   <div class="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-    <label class="text-xs text-muted-foreground">
+    <label class="text-caption text-muted-foreground">
       <span>Path</span>
       <input
         class={inputClassName}
@@ -68,7 +68,7 @@
         oninput={(e) => update({ path: (e.target as HTMLInputElement).value })}
       />
     </label>
-    <label class="text-xs text-muted-foreground">
+    <label class="text-caption text-muted-foreground">
       <span>Visibility</span>
       <select
         class="{inputClassName} mt-0"
@@ -85,14 +85,14 @@
     </label>
     <button
       type="button"
-      class="self-end rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-red-400 hover:text-red-500"
+      class="self-end rounded-lg border border-border px-3 py-1.5 text-caption text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
       onclick={() => ondelete?.()}
     >
       Delete
     </button>
   </div>
 
-  <label class="block text-xs text-muted-foreground">
+  <label class="block text-caption text-muted-foreground">
     <span>{m.workspace_description()}</span>
     <textarea
       class={inputClassName}
@@ -105,7 +105,7 @@
   </label>
 
   {#if file.visibility === "editable"}
-    <label class="text-xs text-muted-foreground">
+    <label class="text-caption text-muted-foreground">
       <span>
         Editable regions (optional, e.g. "10-15, 25-40")
         — leave blank to allow editing the whole file

@@ -27,10 +27,8 @@ export async function uploadProblemImage(
 }
 
 export async function deleteProblemImage(client: S3Client, imageUrl: string): Promise<void> {
-  // Extract key from URL: {baseUrl}/{bucket}/{key}
   const url = new URL(imageUrl);
   const pathParts = url.pathname.split("/").filter(Boolean);
-  // First part is bucket name, rest is key
   const key = pathParts.slice(1).join("/");
 
   await client.send(
@@ -42,10 +40,8 @@ export async function deleteProblemImage(client: S3Client, imageUrl: string): Pr
 }
 
 /**
- * Phase 7 Advanced Mode: upload a TA-provided judge image as a
- * Docker tarball. Callers receive an opaque S3 key that can be
- * stored on Problem.advancedImageRef and later resolved back into a
- * signed URL or pulled to disk by the worker before `docker load`.
+ * Returns the opaque S3 key (not a URL) — callers persist it on
+ * `Problem.advancedImageRef` and resolve it later for `docker load`.
  */
 export async function uploadAdvancedImageTarball(
   client: S3Client,
@@ -75,11 +71,6 @@ export async function deleteAdvancedImageTarball(client: S3Client, key: string):
   );
 }
 
-/**
- * Stream an advanced-image tarball out of object storage. Returns the
- * raw bytes — callers are responsible for piping them into `docker
- * load` or writing to disk first.
- */
 export async function downloadAdvancedImageTarball(
   client: S3Client,
   key: string
@@ -94,7 +85,6 @@ export async function downloadAdvancedImageTarball(
   if (!body) {
     throw new Error(`No body returned for advanced image tarball ${key}`);
   }
-  // AWS SDK returns a readable stream; collect into a buffer.
   const chunks: Uint8Array[] = [];
   for await (const chunk of body as AsyncIterable<Uint8Array>) {
     chunks.push(chunk);

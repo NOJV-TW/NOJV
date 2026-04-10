@@ -9,14 +9,6 @@ export const problemRepo = {
     return prisma.problem.findUnique({ where: { id } });
   },
 
-  findDifficultyById(id: string) {
-    return prisma.problem.findUnique({
-      select: { difficulty: true },
-      where: { id }
-    });
-  },
-
-  /** Fetch full problem page data with statements, workspace files, testcase sets. */
   findDetailById(id: string) {
     return prisma.problem.findUnique({
       include: {
@@ -36,19 +28,17 @@ export const problemRepo = {
               take: 10
             }
           },
-          orderBy: { createdAt: "asc" }
+          orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }]
         }
       },
       where: { id }
     });
   },
 
-  /** Delete a problem by ID (cascades to all related records). */
   delete(id: string) {
     return prisma.problem.delete({ where: { id } });
   },
 
-  /** Count public published problems. */
   countPublic() {
     return prisma.problem.count({ where: { visibility: "public", status: "published" } });
   },
@@ -61,7 +51,6 @@ export const problemRepo = {
     return prisma.problem.count();
   },
 
-  /** List problems with submission counts (for problem list page). */
   listWithCounts(opts: { where: Prisma.ProblemWhereInput; skip: number; take: number }) {
     return prisma.problem.findMany({
       include: {
@@ -74,7 +63,6 @@ export const problemRepo = {
     });
   },
 
-  /** List problems editable by a user (authored or via course TA/teacher). */
   listEditable(userId: string) {
     return prisma.problem.findMany({
       include: {
@@ -106,7 +94,6 @@ export const problemRepo = {
     });
   },
 
-  /** Find recommended problems for dashboard. */
   findRecommendations(opts: { excludeIds?: string[]; tags?: string[]; take: number }) {
     return prisma.problem.findMany({
       where: {
@@ -119,23 +106,19 @@ export const problemRepo = {
       },
       select: {
         id: true,
-        defaultTitle: true,
-        difficulty: true,
+        title: true,
         tags: true
       },
       take: opts.take
     });
   },
 
-  /** Find problems by IDs (admin stats). */
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
-      select: { id: true, defaultTitle: true }
+      select: { id: true, title: true }
     });
   },
-
-  // ── Transaction variants ──
 
   withTx(tx: TxClient) {
     return {
@@ -158,7 +141,6 @@ export const problemRepo = {
         });
       },
 
-      /** Lock problem row for update. */
       lockForUpdate(problemId: string) {
         return tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problemId} FOR UPDATE`;
       }
@@ -167,7 +149,6 @@ export const problemRepo = {
 };
 
 export const problemStatementRepo = {
-  /** Full-text search for problem IDs via raw SQL. */
   fullTextSearch(query: string) {
     return prisma.$queryRaw<{ problemId: string }[]>`
       SELECT DISTINCT "problemId" FROM "ProblemStatementI18n"
@@ -176,7 +157,6 @@ export const problemStatementRepo = {
     `;
   },
 
-  /** LIKE-based search for problem IDs. */
   likeSearch(query: string) {
     return prisma.problemStatementI18n.findMany({
       select: { problemId: true },
@@ -262,7 +242,7 @@ export const testcaseSetRepo = {
     return prisma.testcaseSet.findMany({
       where: { problemId },
       include: { testcases: { orderBy: { ordinal: "asc" } } },
-      orderBy: { createdAt: "asc" }
+      orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }]
     });
   },
 

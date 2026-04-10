@@ -28,17 +28,14 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     }
   });
 
-  // 1. Wait until contest starts
   const msUntilStart = new Date(contestInfo.startsAt).getTime() - Date.now();
   if (msUntilStart > 0) {
     await sleep(msUntilStart);
   }
 
-  // 2. Activate contest
   await contest.activateContest(input.contestId);
   await notification.publishContestEvent(input.contestId, "starting");
 
-  // 3. Wait for freeze time (if set)
   if (contestInfo.freezeTime) {
     const msUntilFreeze = new Date(contestInfo.freezeTime).getTime() - Date.now();
     if (msUntilFreeze > 0) {
@@ -49,7 +46,6 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     }
   }
 
-  // 4. Wait until contest ends (or early end signal)
   if (!earlyEnd) {
     const msUntilEnd = endsAt - Date.now();
     if (msUntilEnd > 0) {
@@ -57,7 +53,6 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     }
   }
 
-  // 5. Finalize
   await contest.finalizeContest(input.contestId);
   await notification.publishContestEvent(input.contestId, "ending");
 }

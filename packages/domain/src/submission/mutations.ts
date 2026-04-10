@@ -1,5 +1,4 @@
 import {
-  assessmentParticipationRepo,
   courseMembershipRepo,
   problemWorkspaceFileRepo,
   runTransaction,
@@ -17,15 +16,6 @@ import { requireCourseAssessment } from "../course/mutations";
 
 export type { ActorContext };
 
-// ─── Submission creation ────────────────────────────────────────────
-
-/**
- * Validate constraints and create a queued submission record inside a transaction.
- *
- * @param payload  - The submission draft from the client.
- * @param actor    - The authenticated user context (no SvelteKit dependency).
- * @param clientIp - The pre-extracted client IP address (caller is responsible for extraction).
- */
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: ActorContext,
@@ -52,9 +42,7 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // ── Derive mode from server context, ignore client-provided mode ──
-    const mode = payload.contestSlug ? "contest" : courseContext ? "assignment" : "practice";
-
+    // Mode is derived on read via `deriveSubmissionMode` — the column is gone.
     const user = await ensureUser(tx, actor.userId, actor);
     const contestResult = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug, {
@@ -73,7 +61,6 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this contest");
     }
 
-    // ── Language restriction: assignment ──
     if (
       courseContext?.assessment &&
       courseContext.assessment.allowedLanguages.length > 0 &&
@@ -82,33 +69,25 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this assignment");
     }
 
-    // ── Language restriction: verify starter workspace exists ──
-    // After the Phase 5 cleanup this check uses ProblemWorkspaceFile
-    // (the unified starter-code + teacher-asset model) instead of the
-    // old ProblemTemplate table.
-    //
-    // Workspace-mode check: if the problem has ANY workspace files, the
-    // submitted language MUST have an editable `main.<ext>` file. Applies
-    // regardless of submissionType — full_source problems with workspace
-    // files are the student-facing "multi-file" mode.
-    const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
-    if (workspaceFiles.length > 0) {
-      const entryPath = entryFileNameFor(payload.language);
-      const hasEntry = workspaceFiles.some(
-        (f) =>
-          f.language === payload.language && f.path === entryPath && f.visibility === "editable"
-      );
-      if (!hasEntry) {
-        throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
+    // special_env problems ship no workspace; other types must have an editable main.<ext>.
+    if (problem.type !== "special_env") {
+      const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
+      // full_source problems with no workspace files submit a single source file directly.
+      if (workspaceFiles.length > 0 || problem.type !== "full_source") {
+        const entryPath = entryFileNameFor(payload.language);
+        const hasEntry = workspaceFiles.some(
+          (f) =>
+            f.language === payload.language &&
+            f.path === entryPath &&
+            f.visibility === "editable"
+        );
+        if (!hasEntry) {
+          throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
+        }
       }
-    } else if (problem.submissionType === "function") {
-      // Legacy function-mode defence in depth: function problems should
-      // always have workspace files, but if they don't, there is nothing
-      // to submit against.
-      throw new ForbiddenError("No starter workspace available for this language");
     }
 
-    // ── IP lock recheck ──
+    // ── IP lock recheck (contests only — assessments no longer have IP lock) ──
     if (contestResult && contestParticipation) {
       const { contest } = contestResult;
       if (contest.ipWhitelistEnabled || contest.ipBindingEnabled) {
@@ -117,32 +96,10 @@ export async function createQueuedSubmissionRecord(
           contest,
           clientIp,
           { id: contestParticipation.id, boundIp: contestParticipation.boundIp },
-          { userId: user.id, contestId: contest.id },
-          "contestParticipation"
+          { userId: user.id, contestId: contest.id }
         );
         if (!ipResult.allowed) {
           throw new ForbiddenError("IP address not allowed for this contest");
-        }
-      }
-    }
-
-    if (courseContext?.assessment) {
-      const { assessment } = courseContext;
-      if (assessment.ipWhitelistEnabled || assessment.ipBindingEnabled) {
-        const participation = await assessmentParticipationRepo
-          .withTx(tx)
-          .upsert(user.id, assessment.id);
-
-        const ipResult = await checkIpLock(
-          tx,
-          assessment,
-          clientIp,
-          participation,
-          { userId: user.id, assessmentId: assessment.id },
-          "assessmentParticipation"
-        );
-        if (!ipResult.allowed) {
-          throw new ForbiddenError("IP address not allowed for this assessment");
         }
       }
     }
@@ -184,7 +141,6 @@ export async function createQueuedSubmissionRecord(
       courseAssessmentId: courseContext?.assessment.id ?? null,
       courseId: courseContext?.course.id ?? null,
       language: payload.language,
-      mode,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
       sourceCode: payload.sourceCode,

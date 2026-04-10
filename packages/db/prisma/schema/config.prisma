@@ -1,0 +1,13 @@
+// ═══════════════════════════════════════════════════════════════
+// Generator + datasource (exactly one file in schema/ owns these)
+// ═══════════════════════════════════════════════════════════════
+
+generator client {
+  provider   = "prisma-client"
+  output     = "../../generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}

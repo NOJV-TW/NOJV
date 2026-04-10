@@ -1,22 +1,61 @@
-<script lang="ts">
-	import type { HTMLAttributes } from "svelte/elements";
+<script lang="ts" module>
 	import { cn, type WithElementRef } from "$lib/utils.js";
+	import type { HTMLAttributes } from "svelte/elements";
+	import { type VariantProps, tv } from "tailwind-variants";
 
+	export const cardVariants = tv({
+		base: "text-card-foreground flex flex-col backdrop-blur-sm border transition-[transform,box-shadow] duration-normal ease-out-soft",
+		variants: {
+			variant: {
+				surface: "bg-[color:var(--color-panel)] border-border shadow-rest",
+				strong: "bg-[color:var(--color-panel-strong)] border-border shadow-rest",
+				flat: "bg-[color:var(--color-panel)] border-border-subtle",
+				elevated: "bg-[color:var(--color-panel-strong)] border-border shadow-hover",
+				outline: "bg-transparent border-border-strong",
+			},
+			size: {
+				sm: "rounded-lg p-4 gap-3",
+				md: "rounded-xl p-6 gap-4",
+				lg: "rounded-2xl p-6 gap-5",
+				hero: "rounded-3xl p-8 gap-6",
+			},
+			interactive: {
+				true: "cursor-pointer hover:-translate-y-px hover:shadow-hover motion-safe:will-change-transform",
+			},
+		},
+		defaultVariants: {
+			variant: "surface",
+			size: "md",
+		},
+	});
+
+	export type CardVariant = VariantProps<typeof cardVariants>["variant"];
+	export type CardSize = VariantProps<typeof cardVariants>["size"];
+	export type CardInteractive = VariantProps<typeof cardVariants>["interactive"];
+
+	export type CardProps = WithElementRef<HTMLAttributes<HTMLDivElement>> & {
+		variant?: CardVariant;
+		size?: CardSize;
+		interactive?: CardInteractive;
+	};
+</script>
+
+<script lang="ts">
 	let {
 		ref = $bindable(null),
 		class: className,
+		variant = "surface",
+		size = "md",
+		interactive,
 		children,
 		...restProps
-	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
+	}: CardProps = $props();
 </script>
 
 <div
 	bind:this={ref}
 	data-slot="card"
-	class={cn(
-		"bg-[color:var(--color-panel)] text-card-foreground flex flex-col gap-6 rounded-[2rem] border border-border py-6 shadow-sm backdrop-blur-sm",
-		className
-	)}
+	class={cn(cardVariants({ variant, size, interactive }), className)}
 	{...restProps}
 >
 	{@render children?.()}

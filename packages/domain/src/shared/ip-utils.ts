@@ -1,16 +1,9 @@
 import {
-  assessmentParticipationIpRepo,
   contestParticipationIpRepo,
   ipViolationLogRepo,
   type TransactionClient
 } from "@nojv/db";
 
-// ─── IP extraction ───────────────────────────────────────────────────
-
-/**
- * Extract the client IP address from a Request.
- * Checks x-forwarded-for, x-real-ip, and (dev only) x-dev-ip.
- */
 export function getClientIp(request: Request): string {
   if (process.env.NODE_ENV === "development") {
     const devIp = request.headers.get("x-dev-ip");
@@ -29,10 +22,7 @@ export function getClientIp(request: Request): string {
   return "127.0.0.1";
 }
 
-// ─── CIDR matching ───────────────────────────────────────────────────
-
 function ipToNumber(ip: string): number | null {
-  // Handle IPv4-mapped IPv6 (::ffff:1.2.3.4)
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
   if (mapped?.[1]) ip = mapped[1];
 
@@ -69,8 +59,6 @@ export function isIpInWhitelist(ip: string, whitelist: string[]): boolean {
   return whitelist.some((cidr) => isIpInCidr(ip, cidr));
 }
 
-// ─── IP Lock check ──────────────────────────────────────────────────
-
 export interface IpLockConfig {
   ipWhitelistEnabled: boolean;
   ipBindingEnabled: boolean;
@@ -83,19 +71,12 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
-/**
- * Run IP lock checks. Returns whether access is allowed. Logs violations in notify mode.
- *
- * Accepts a transaction client so the caller controls the transaction boundary.
- */
 export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,
   clientIp: string,
   participation: { boundIp: string | null; id: string } | null,
-  context: { userId: string; contestId?: string; assessmentId?: string },
-  /** Model name for updating participation boundIp */
-  participationModel: "contestParticipation" | "assessmentParticipation"
+  context: { userId: string; contestId: string }
 ): Promise<IpCheckResult> {
   // Whitelist check — when enabled, an empty list denies all (fail-closed).
   if (config.ipWhitelistEnabled) {
@@ -106,8 +87,7 @@ export async function checkIpLock(
       // notify mode: log violation, allow access
       await ipViolationLogRepo.withTx(tx).create({
         actualIp: clientIp,
-        assessmentId: context.assessmentId ?? null,
-        contestId: context.contestId ?? null,
+        contestId: context.contestId,
         expectedIp: config.ipWhitelist.join(", "),
         userId: context.userId,
         violationType: "whitelist"
@@ -119,13 +99,7 @@ export async function checkIpLock(
   if (config.ipBindingEnabled && participation) {
     if (!participation.boundIp) {
       // First visit: bind IP
-      if (participationModel === "contestParticipation") {
-        await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
-      } else {
-        await assessmentParticipationIpRepo
-          .withTx(tx)
-          .updateBoundIp(participation.id, clientIp);
-      }
+      await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
     } else if (participation.boundIp !== clientIp) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "binding" };
@@ -133,8 +107,7 @@ export async function checkIpLock(
       // notify mode: log violation, allow access
       await ipViolationLogRepo.withTx(tx).create({
         actualIp: clientIp,
-        assessmentId: context.assessmentId ?? null,
-        contestId: context.contestId ?? null,
+        contestId: context.contestId,
         expectedIp: participation.boundIp,
         userId: context.userId,
         violationType: "binding"

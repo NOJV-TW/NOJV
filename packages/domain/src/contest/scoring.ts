@@ -13,7 +13,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
 
   const contestProblems = new Map(contest.problems.map((p) => [p.problemId, p]));
 
-  if (contest.scoringMode === "icpc") {
+  if (contest.scoringMode === "problem_count") {
     let solvedCount = 0;
     let totalPenalty = 0;
 

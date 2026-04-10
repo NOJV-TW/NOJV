@@ -5,9 +5,7 @@ interface SchoolEmailResult {
   studentId: string;
 }
 
-// NTNU: 8 digits + 1 letter
 const NTNU_ID_RE = /^\d{8}[a-z]$/;
-// NTU/NTUST: 1 letter + 8 digits
 const NTU_NTUST_ID_RE = /^[a-z]\d{8}$/;
 
 const SCHOOL_DOMAINS: Record<string, School> = {
@@ -44,17 +42,13 @@ export function extractStudentId(school: School, studentId: string): string {
   return `${school}_${studentId}`;
 }
 
-/** Returns true if the value looks like a student ID (any school) */
 function isStudentIdFormat(value: string): boolean {
   return NTNU_ID_RE.test(value) || NTU_NTUST_ID_RE.test(value);
 }
 
-/** Returns true if the username is reserved for school verification */
 export function isReservedUsername(username: string): boolean {
-  // Direct student ID format
   if (isStudentIdFormat(username)) return true;
 
-  // Prefixed format: ntu_<id>, ntust_<id>, ntnu_<id>
   for (const prefix of ["ntu_", "ntust_", "ntnu_"]) {
     if (username.startsWith(prefix)) {
       const rest = username.slice(prefix.length);

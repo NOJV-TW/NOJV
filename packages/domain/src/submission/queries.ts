@@ -2,12 +2,10 @@ import { assessmentRepo, problemRepo, submissionRepo } from "@nojv/db";
 import {
   languageSchema,
   submissionResultSchema,
-  subtaskResultItemSchema,
   submissionVerdicts,
   submissionVerdictSchema,
   type SubmissionResult
 } from "@nojv/core";
-import { z } from "zod";
 
 import { NotFoundError } from "../shared/errors";
 
@@ -61,6 +59,9 @@ export async function listProblemSubmissions(
     const verdictParsed = submissionVerdictSchema.safeParse(s.status);
     const verdict = verdictParsed.success ? verdictParsed.data : ("wrong_answer" as const);
 
+    // verdictDetail is the sole source of truth for case results,
+    // subtask results, compiler output, etc. There are no fallback
+    // columns to merge any more.
     const detailParsed = submissionResultSchema.safeParse(s.verdictDetail);
     const result: SubmissionResult = detailParsed.success
       ? detailParsed.data
@@ -72,14 +73,6 @@ export async function listProblemSubmissions(
           score: s.score,
           verdict
         };
-
-    // Merge subtaskResults from the separate DB column if not already in verdictDetail
-    if (!result.subtaskResults && s.subtaskResults) {
-      const parsed = z.array(subtaskResultItemSchema).safeParse(s.subtaskResults);
-      if (parsed.success) {
-        result.subtaskResults = parsed.data;
-      }
-    }
 
     const langParsed = languageSchema.safeParse(s.language);
 

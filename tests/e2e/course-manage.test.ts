@@ -32,13 +32,8 @@ test.describe("Course Management", () => {
     await context.close();
   });
 
-  test("teacher can access problems management page", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: teacherAuth });
-    const page = await context.newPage();
-    await page.goto("/courses/os-lab-spring-2026/manage/problems");
-    await expect(page.getByRole("main")).toBeVisible();
-    await context.close();
-  });
+  // NOTE: `/courses/[slug]/manage/problems` was removed in commit b21759a
+  // (schema redesign — problems are managed via /problems instead).
 
   test("teacher can access progress page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });

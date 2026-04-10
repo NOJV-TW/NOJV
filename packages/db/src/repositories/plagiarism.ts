@@ -1,76 +1,145 @@
 import { prisma } from "../client";
-import type { Prisma } from "../../generated/prisma/client";
+import { Prisma } from "../../generated/prisma/client";
+import type { PlagiarismReportStatus } from "../../generated/prisma/enums";
 
-export const plagiarismReportRepo = {
-  /** List reports for an assessment. */
-  listByAssessmentId(assessmentId: string) {
-    return prisma.plagiarismReport.findMany({
-      where: { courseAssessmentId: assessmentId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        completedAt: true,
-        createdAt: true,
-        id: true,
-        mossReportUrl: true,
-        results: true,
-        status: true
-      }
+/**
+ * Plagiarism state is inlined on `Contest` and `CourseAssessment` as six
+ * `plagiarism*` columns. There is no `PlagiarismReport` table any more —
+ * re-running MOSS updates the same row in place. A parent whose
+ * `plagiarismStatus` is NULL is considered to have no report.
+ */
+
+export interface PlagiarismReportSummary {
+  status: PlagiarismReportStatus;
+  results: Prisma.JsonValue | null;
+  mossReportUrl: string | null;
+  triggeredAt: Date | null;
+  completedAt: Date | null;
+  triggeredById: string | null;
+}
+
+export interface PlagiarismUpsertInput {
+  status?: PlagiarismReportStatus | null;
+  results?: Prisma.InputJsonValue | null;
+  mossReportUrl?: string | null;
+  triggeredAt?: Date | null;
+  completedAt?: Date | null;
+  triggeredById?: string | null;
+}
+
+const plagiarismSelect = {
+  plagiarismStatus: true,
+  plagiarismResults: true,
+  plagiarismMossReportUrl: true,
+  plagiarismTriggeredAt: true,
+  plagiarismCompletedAt: true,
+  plagiarismTriggeredById: true
+} as const;
+
+interface PlagiarismRow {
+  plagiarismStatus: PlagiarismReportStatus | null;
+  plagiarismResults: Prisma.JsonValue | null;
+  plagiarismMossReportUrl: string | null;
+  plagiarismTriggeredAt: Date | null;
+  plagiarismCompletedAt: Date | null;
+  plagiarismTriggeredById: string | null;
+}
+
+function toSummary(row: PlagiarismRow | null): PlagiarismReportSummary | null {
+  if (row?.plagiarismStatus == null) return null;
+  return {
+    status: row.plagiarismStatus,
+    results: row.plagiarismResults,
+    mossReportUrl: row.plagiarismMossReportUrl,
+    triggeredAt: row.plagiarismTriggeredAt,
+    completedAt: row.plagiarismCompletedAt,
+    triggeredById: row.plagiarismTriggeredById
+  };
+}
+
+function toContestUpdate(input: PlagiarismUpsertInput): Prisma.ContestUncheckedUpdateInput {
+  const data: Prisma.ContestUncheckedUpdateInput = {};
+  if (input.status !== undefined) data.plagiarismStatus = input.status;
+  if (input.results !== undefined) {
+    data.plagiarismResults = input.results ?? Prisma.JsonNull;
+  }
+  if (input.mossReportUrl !== undefined) data.plagiarismMossReportUrl = input.mossReportUrl;
+  if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
+  if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
+  if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
+  return data;
+}
+
+function toAssessmentUpdate(
+  input: PlagiarismUpsertInput
+): Prisma.CourseAssessmentUncheckedUpdateInput {
+  const data: Prisma.CourseAssessmentUncheckedUpdateInput = {};
+  if (input.status !== undefined) data.plagiarismStatus = input.status;
+  if (input.results !== undefined) {
+    data.plagiarismResults = input.results ?? Prisma.JsonNull;
+  }
+  if (input.mossReportUrl !== undefined) data.plagiarismMossReportUrl = input.mossReportUrl;
+  if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
+  if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
+  if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
+  return data;
+}
+
+const clearInput: PlagiarismUpsertInput = {
+  status: null,
+  results: null,
+  mossReportUrl: null,
+  triggeredAt: null,
+  completedAt: null,
+  triggeredById: null
+};
+
+export const plagiarismRepo = {
+  async findByContestId(contestId: string): Promise<PlagiarismReportSummary | null> {
+    const row = await prisma.contest.findUnique({
+      where: { id: contestId },
+      select: plagiarismSelect
+    });
+    return toSummary(row);
+  },
+
+  async findByAssessmentId(
+    courseAssessmentId: string
+  ): Promise<PlagiarismReportSummary | null> {
+    const row = await prisma.courseAssessment.findUnique({
+      where: { id: courseAssessmentId },
+      select: plagiarismSelect
+    });
+    return toSummary(row);
+  },
+
+  upsertForContest(contestId: string, input: PlagiarismUpsertInput) {
+    return prisma.contest.update({
+      where: { id: contestId },
+      data: toContestUpdate(input),
+      select: plagiarismSelect
     });
   },
 
-  /** List reports matching a plagiarism target filter. */
-  listByTarget(where: Prisma.PlagiarismReportWhereInput) {
-    return prisma.plagiarismReport.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      select: {
-        completedAt: true,
-        createdAt: true,
-        id: true,
-        mossReportUrl: true,
-        results: true,
-        status: true
-      }
+  upsertForAssessment(courseAssessmentId: string, input: PlagiarismUpsertInput) {
+    return prisma.courseAssessment.update({
+      where: { id: courseAssessmentId },
+      data: toAssessmentUpdate(input),
+      select: plagiarismSelect
     });
   },
 
-  /** Create a new plagiarism report. */
-  create(data: Prisma.PlagiarismReportUncheckedCreateInput) {
-    return prisma.plagiarismReport.create({ data });
-  },
-
-  updateStatus(id: string, status: string) {
-    return prisma.plagiarismReport.update({
-      data: { status } as Prisma.PlagiarismReportUncheckedUpdateInput,
-      where: { id }
+  clearForContest(contestId: string) {
+    return prisma.contest.update({
+      where: { id: contestId },
+      data: toContestUpdate(clearInput)
     });
   },
 
-  /** Complete a plagiarism report with results. */
-  complete(
-    id: string,
-    data: {
-      mossReportUrl: string | null;
-      results: Prisma.InputJsonValue;
-      status: string;
-    }
-  ) {
-    return prisma.plagiarismReport.update({
-      data: {
-        completedAt: new Date(),
-        mossReportUrl: data.mossReportUrl,
-        results: data.results,
-        status: data.status
-      } as Prisma.PlagiarismReportUncheckedUpdateInput,
-      where: { id }
-    });
-  },
-
-  /** Mark a plagiarism report as failed. */
-  markFailed(id: string) {
-    return prisma.plagiarismReport.update({
-      data: { completedAt: new Date(), status: "failed" },
-      where: { id }
+  clearForAssessment(courseAssessmentId: string) {
+    return prisma.courseAssessment.update({
+      where: { id: courseAssessmentId },
+      data: toAssessmentUpdate(clearInput)
     });
   }
 };

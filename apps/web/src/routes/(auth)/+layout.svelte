@@ -8,11 +8,11 @@
   <title>NOJV</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-stone-50 to-orange-50/40 px-4">
-  <div class="mx-auto max-w-7xl pt-4">
+<div class="flex min-h-dvh flex-col px-4 sm:px-6 lg:px-8">
+  <div class="mx-auto w-full max-w-7xl pt-4">
     <Header />
   </div>
-  <div class="flex min-h-[calc(100vh-6rem)] items-center justify-center">
-    {@render children()}
+  <div class="flex flex-1 items-center justify-center py-10">
+    {@render children?.()}
   </div>
 </div>

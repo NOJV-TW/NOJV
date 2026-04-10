@@ -1,4 +1,5 @@
 import { fail } from "@sveltejs/kit";
+import { DEFAULT_LOCALE } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
@@ -13,9 +14,38 @@ const {
   toggleAnnouncementPublish
 } = announcementDomain;
 
-export const load: PageServerLoad = async () => ({
-  announcements: await listAllAnnouncements()
-});
+interface AnnouncementTranslationRow {
+  locale: string;
+  title: string;
+  content: string;
+}
+
+/** Pick the default-locale translation, falling back to the first one. */
+function pickTranslation(translations: AnnouncementTranslationRow[] | undefined) {
+  if (!translations || translations.length === 0) {
+    return { title: "", content: "" };
+  }
+  const localized = translations.find((t) => t.locale === DEFAULT_LOCALE) ?? translations[0];
+  return localized ?? { title: "", content: "" };
+}
+
+export const load: PageServerLoad = async () => {
+  const announcements = await listAllAnnouncements();
+  return {
+    announcements: announcements.map((a) => {
+      const localized = pickTranslation(a.translations);
+      return {
+        id: a.id,
+        title: localized.title,
+        content: localized.content,
+        pinned: a.pinned,
+        published: a.status === "published",
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt
+      };
+    })
+  };
+};
 
 export const actions = {
   create: async (event) => {

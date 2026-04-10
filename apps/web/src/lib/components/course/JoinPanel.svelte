@@ -1,9 +1,11 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import type { CourseJoinTokenKind } from "@nojv/core";
+  import { Badge } from "$lib/components/ui/badge";
 
   interface JoinChannel {
     label: string;
-    method: "join_code" | "manual_invite" | "qr_code";
+    kind: CourseJoinTokenKind;
     token: string;
   }
 
@@ -16,36 +18,34 @@
 </script>
 
 <section
-  class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
+  class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm shadow-rest"
 >
   <div class="flex items-center justify-between gap-4">
     <div>
-      <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+      <p class="text-caption uppercase tracking-[0.18em] text-muted-foreground">
         {m.courseDetail_joinFlows()}
       </p>
-      <h3 class="mt-1 text-2xl font-semibold">{m.courseDetail_joinFlowsSubtitle()}</h3>
+      <h3 class="mt-1 text-title font-semibold">{m.courseDetail_joinFlowsSubtitle()}</h3>
     </div>
-    <span
-      class="rounded-full border border-border px-3 py-1 text-xs font-medium"
-    >
+    <Badge variant="muted">
       {m.courseDetail_teacherManaged()}
-    </span>
+    </Badge>
   </div>
   <div class="mt-5 grid gap-4 md:grid-cols-2">
-    {#each joinChannels as channel (`${channel.method}:${channel.token}`)}
+    {#each joinChannels as channel (`${channel.kind}:${channel.token}`)}
       <article
-        class="rounded-[1.5rem] border border-border bg-[color:var(--color-panel)] px-4 py-4"
+        class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4"
       >
-        <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-          {channel.method.replaceAll("_", " ")}
+        <p class="text-caption uppercase tracking-[0.18em] text-muted-foreground">
+          {channel.kind}
         </p>
-        <p class="mt-2 text-lg font-semibold">{channel.label}</p>
+        <p class="mt-2 text-body-lg font-semibold">{channel.label}</p>
         <p
-          class="mt-3 rounded-2xl bg-stone-950 px-4 py-3 font-mono text-sm text-stone-100"
+          class="mt-3 rounded-sm bg-stone-950 px-4 py-3 font-mono text-body-sm tabular-nums text-stone-100"
         >
           {channel.token}
         </p>
-        <p class="mt-4 text-sm leading-7 text-muted-foreground">
+        <p class="mt-4 text-body-sm leading-relaxed text-muted-foreground">
           {m.courseDetail_manualInviteHint()}
         </p>
       </article>

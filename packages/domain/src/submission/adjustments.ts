@@ -9,16 +9,7 @@ export interface AdjustmentInputs {
   rawScore: number;
 }
 
-/**
- * Apply a chain of assessment / contest adjustment rules to a raw score.
- *
- * Rules are applied in array order. Each rule may add or subtract; the
- * running score is clamped to [0, 100] at every step.
- *
- * This function lives at the domain layer so it can be called from
- * either the judge activity (per-submission adjustment right after the
- * sandbox result) or from assessment/contest score recomputation.
- */
+// Rules run in array order; the running score is clamped to [0, 100] at each step.
 export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   score: number;
   adjustments: { rule: AdjustmentRule["type"]; delta: number }[];

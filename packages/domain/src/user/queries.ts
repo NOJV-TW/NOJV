@@ -1,6 +1,4 @@
-import { problemRepo, submissionRepo, userRepo, userStatsRepo, type Prisma } from "@nojv/db";
-
-// ─── Admin: User management ────────────────────────────────────────
+import { problemRepo, submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
 export interface UserSearchParams {
   search?: string;
@@ -53,13 +51,21 @@ export async function toggleUserDisabled(userId: string) {
   return userRepo.update(userId, { disabled: !user.disabled });
 }
 
-// ─── Dashboard ─────────────────────────────────────────────────────
+export interface DashboardStats {
+  totalAc: number;
+  totalAttempts: number;
+  lastSubmittedAt: Date | null;
+}
 
 export async function getUserDashboard(userId: string) {
-  const [stats, recentSubmissions, acProblemIds] = await Promise.all([
-    userStatsRepo.findByUserId(userId),
+  // The `UserStats` denorm row was removed in the second-pass refactor —
+  // the dashboard aggregates stats on-demand from `Submission`. All four
+  // reads are independent so they run in parallel.
+  const [recentSubmissions, acProblemIds, totalAttempts, mostRecent] = await Promise.all([
     submissionRepo.findRecentByUser(userId, 10),
-    submissionRepo.findDistinctAcByUser(userId)
+    submissionRepo.findDistinctAcByUser(userId),
+    submissionRepo.count({ userId, sampleOnly: false }),
+    submissionRepo.findMostRecent({ userId, sampleOnly: false })
   ]);
 
   const acIds = acProblemIds.map((s) => s.problemId);
@@ -75,14 +81,14 @@ export async function getUserDashboard(userId: string) {
   const shuffled = recommendations.sort(() => Math.random() - 0.5);
   const picked = shuffled.slice(0, 3);
 
+  const dashboardStats: DashboardStats = {
+    totalAc: acIds.length,
+    totalAttempts,
+    lastSubmittedAt: mostRecent?.createdAt ?? null
+  };
+
   return {
-    stats: stats ?? {
-      totalAc: 0,
-      totalAttempts: 0,
-      languageDist: {},
-      difficultyDist: {},
-      dailyActivity: []
-    },
+    stats: dashboardStats,
     recentSubmissions,
     recommendations: picked
   };

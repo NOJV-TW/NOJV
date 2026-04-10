@@ -1,0 +1,55 @@
+// ═══════════════════════════════════════════════════════════════
+// Platform operations (announcements, plagiarism reports)
+// ═══════════════════════════════════════════════════════════════
+
+enum AnnouncementStatus {
+  draft
+  published
+  archived
+}
+
+enum AnnouncementAudience {
+  all
+  students
+  teachers
+}
+
+enum PlagiarismReportStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+model Announcement {
+  id              String                    @id @default(cuid())
+  pinned          Boolean                   @default(false)
+  status          AnnouncementStatus        @default(draft)
+  audience        AnnouncementAudience      @default(all)
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  createdByUserId String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  createdBy       User?                     @relation("AnnouncementCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  translations    AnnouncementTranslation[]
+
+  @@index([status, pinned, publishedAt])
+}
+
+model AnnouncementTranslation {
+  id             String       @id @default(cuid())
+  announcementId String
+  locale         String
+  title          String
+  content        String       @db.Text
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, locale])
+}
+
+// Plagiarism reports are now inlined on Contest and CourseAssessment
+// (see `plagiarism*` columns on those models). Re-running MOSS upserts
+// the inline fields in place; there is no PlagiarismReport table.
+// The `PlagiarismReportStatus` enum above stays, because those inline
+// columns still reference it.

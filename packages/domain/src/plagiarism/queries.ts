@@ -1,9 +1,10 @@
 import {
   assessmentRepo,
   contestRepo,
-  plagiarismReportRepo,
+  plagiarismRepo,
   assessmentProblemRepo,
-  submissionRepo
+  submissionRepo,
+  type PlagiarismReportSummary
 } from "@nojv/db";
 
 import { toJsonValue } from "../shared/to-json-value";
@@ -27,27 +28,47 @@ export async function fetchSubmissionsForCheck(
   });
 }
 
-export async function updateReportStatus(reportId: string, status: string): Promise<void> {
-  await plagiarismReportRepo.updateStatus(reportId, status);
+type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
+
+// Plagiarism state is inlined on `Contest` / `CourseAssessment` as six
+// `plagiarism*` columns — the parent id IS the report identity.
+async function writePlagiarismFields(
+  target: PlagiarismTarget,
+  input: Parameters<typeof plagiarismRepo.upsertForContest>[1]
+): Promise<void> {
+  if (target.type === "contest") {
+    await plagiarismRepo.upsertForContest(target.id, input);
+  } else {
+    await plagiarismRepo.upsertForAssessment(target.id, input);
+  }
+}
+
+export async function updateReportStatus(
+  target: PlagiarismTarget,
+  status: PlagiarismReportStatus
+): Promise<void> {
+  await writePlagiarismFields(target, { status });
 }
 
 export async function saveResults(
-  reportId: string,
+  target: PlagiarismTarget,
   results: PlagiarismResults,
   mossReportUrl: string | null
 ): Promise<void> {
-  await plagiarismReportRepo.complete(reportId, {
-    mossReportUrl,
+  await writePlagiarismFields(target, {
+    status: "completed",
     results: toJsonValue(results),
-    status: "completed"
+    mossReportUrl,
+    completedAt: new Date()
   });
 }
 
-export async function markReportFailed(reportId: string): Promise<void> {
-  await plagiarismReportRepo.markFailed(reportId);
+export async function markReportFailed(target: PlagiarismTarget): Promise<void> {
+  await writePlagiarismFields(target, {
+    status: "failed",
+    completedAt: new Date()
+  });
 }
-
-// ─── Route-level plagiarism functions ──────────────────────────────
 
 export interface ResolvedPlagiarismTarget {
   target: PlagiarismTarget;
@@ -94,18 +115,40 @@ export async function resolvePlagiarismTarget(
   };
 }
 
-export async function createPlagiarismReport(target: PlagiarismTarget, triggeredById: string) {
-  return plagiarismReportRepo.create({
-    ...(target.type === "courseAssessment"
-      ? { courseAssessmentId: target.id }
-      : { contestId: target.id }),
+export async function createPlagiarismReport(
+  target: PlagiarismTarget,
+  triggeredById: string
+): Promise<PlagiarismReportSummary> {
+  await writePlagiarismFields(target, {
     status: "pending",
-    triggeredById
+    triggeredById,
+    triggeredAt: new Date(),
+    results: null,
+    mossReportUrl: null,
+    completedAt: null
   });
+  // The upsert helper returns the parent row's six columns but the shape
+  // differs from `PlagiarismReportSummary`, so re-read through the typed
+  // `findBy*` to get the canonical summary (and to satisfy the non-null
+  // contract — we just wrote a non-null status).
+  const summary = await findPlagiarismReport(target);
+  if (!summary) {
+    throw new Error("Failed to persist plagiarism report state.");
+  }
+  return summary;
 }
 
-export async function listPlagiarismReports(target: PlagiarismTarget) {
-  return plagiarismReportRepo.listByTarget(plagiarismTargetFilter(target));
+/**
+ * Look up the single existing plagiarism report for a target, if any.
+ * Returns `null` when MOSS has never been run.
+ */
+export async function findPlagiarismReport(
+  target: PlagiarismTarget
+): Promise<PlagiarismReportSummary | null> {
+  if (target.type === "courseAssessment") {
+    return plagiarismRepo.findByAssessmentId(target.id);
+  }
+  return plagiarismRepo.findByContestId(target.id);
 }
 
 export async function getPlagiarismSourceCode(
@@ -126,11 +169,13 @@ export async function getPlagiarismSourceCode(
   return submission[0]?.sourceCode ?? null;
 }
 
-/**
- * List plagiarism reports for a course assessment (plagiarism manage page).
- */
-export async function listAssessmentPlagiarismReports(assessmentId: string) {
-  return plagiarismReportRepo.listByAssessmentId(assessmentId);
+// Returns 0 or 1 reports as an array so the route layer can keep its existing
+// list-style UI loop without a special empty-state branch.
+export async function listAssessmentPlagiarismReports(
+  assessmentId: string
+): Promise<PlagiarismReportSummary[]> {
+  const report = await plagiarismRepo.findByAssessmentId(assessmentId);
+  return report ? [report] : [];
 }
 
 /**
@@ -141,7 +186,7 @@ export async function getAssessmentProblemMap(assessmentId: string) {
   return Object.fromEntries(
     assessmentProblems.map((ap) => [
       ap.problemId,
-      { id: ap.problem.id, title: ap.problem.defaultTitle }
+      { id: ap.problem.id, title: ap.problem.title }
     ])
   );
 }
