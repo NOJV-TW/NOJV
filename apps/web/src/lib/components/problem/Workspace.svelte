@@ -9,19 +9,8 @@
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
   import ProblemEditor from "./Editor.svelte";
+  import SpecialLabels from "./SpecialLabels.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
-
-  const judgeTypeBadge: Record<string, () => string> = {
-    checker: () => m.problemDetail_checkerBadge(),
-    interactive: () => m.problemDetail_interactiveBadge(),
-    standard: () => m.problemDetail_standardBadge()
-  };
-
-  const judgeTypeBadgeColor: Record<string, string> = {
-    checker: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
-    interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-    standard: "bg-muted text-muted-foreground"
-  };
 
   interface SubmissionEntry {
     id?: string;
@@ -198,7 +187,7 @@
   style="width: {leftPanelWidth}%"
 >
   <!-- Tab bar -->
-  <div class="flex h-10 items-center border-b border-border px-2">
+  <div class="flex h-11 items-center border-b border-border px-2">
     {#if backLink}
       <a
         class="px-3 py-2.5 text-xs text-muted-foreground transition hover:text-foreground"
@@ -257,26 +246,18 @@
           >
             {problem.difficulty}
           </span>
-          <span
-            class="rounded-full px-2.5 py-0.5 text-xs font-medium {judgeTypeBadgeColor[
-              problem.judgeType
-            ] ?? 'bg-muted text-muted-foreground'}"
-          >
-            {(judgeTypeBadge[problem.judgeType] ?? judgeTypeBadge["standard"]!)()}
-          </span>
-          <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            {problem.submissionType === "function"
-              ? m.problemDetail_functionBadge()
-              : problem.submissionType === "zip_project"
-                ? "Multi-file"
-                : m.problemDetail_fullSourceBadge()}
-          </span>
           {#each problem.tags as tag (tag)}
             <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
               {tag}
             </span>
           {/each}
         </div>
+
+        <SpecialLabels
+          judgeType={problem.judgeType}
+          submissionType={problem.submissionType}
+          mode={problem.mode}
+        />
 
         <div class="mt-5 text-sm leading-7 text-foreground">
           <MarkdownRenderer content={problem.statement} />

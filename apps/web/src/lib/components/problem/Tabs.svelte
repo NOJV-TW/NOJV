@@ -6,6 +6,7 @@
   import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import { FileCode, Pencil, Search, Tags, Trash2 } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import SpecialLabels from "$lib/components/problem/SpecialLabels.svelte";
 
   let creating = $state(false);
   let showCreateMenu = $state(false);
@@ -41,7 +42,10 @@
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
     id: string;
+    judgeType: string;
+    mode: string;
     status: string;
+    submissionType: string;
     tags: string[];
     title: string;
     visibility: ProblemVisibility;
@@ -421,6 +425,14 @@
         </div>
         <div>
           <h3 class="text-2xl font-semibold">{problem.title}</h3>
+          <div class="mt-1">
+            <SpecialLabels
+              judgeType={problem.judgeType}
+              submissionType={problem.submissionType}
+              mode={problem.mode}
+              compact
+            />
+          </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <span
@@ -584,9 +596,19 @@
       <div
         class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_auto] sm:items-center"
       >
-        <a href="/problems/{problem.id}" class="transition hover:opacity-80">
-          <h3 class="text-2xl font-semibold">{problem.title}</h3>
-        </a>
+        <div>
+          <a href="/problems/{problem.id}" class="transition hover:opacity-80">
+            <h3 class="text-2xl font-semibold">{problem.title}</h3>
+          </a>
+          <div class="mt-1">
+            <SpecialLabels
+              judgeType={problem.judgeType}
+              submissionType={problem.submissionType}
+              mode={problem.mode}
+              compact
+            />
+          </div>
+        </div>
         <div class="flex flex-wrap items-center gap-2">
           <span
             class="inline-flex rounded-full px-3 py-1 text-sm font-semibold capitalize {difficultyColor[

@@ -195,6 +195,63 @@
   let destroyed = false;
   let pollAbortController: AbortController | null = null;
 
+  // ── Resizable workspace layout ──
+  // `filesWidth` controls the horizontal split between the FILES sidebar
+  // and the code editor in workspace mode. `bottomPanelHeight` controls
+  // the vertical split between the editor area (toolbar + code + action
+  // bar) and the bottom panel (testcase/result) — which also effectively
+  // resizes the FILES sidebar's height.
+  let filesWidth = $state(220);
+  let bottomPanelHeight = $state(260);
+  let outerContainer: HTMLDivElement = $state(null!);
+  let workspaceLayoutContainer: HTMLDivElement | null = $state(null);
+
+  function startFilesResize(e: MouseEvent) {
+    e.preventDefault();
+    const container = workspaceLayoutContainer;
+    if (!container) return;
+
+    const onMove = (ev: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const next = ev.clientX - rect.left;
+      filesWidth = Math.max(120, Math.min(rect.width * 0.7, next));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  function startBottomResize(e: MouseEvent) {
+    e.preventDefault();
+    const container = outerContainer;
+    if (!container) return;
+
+    const onMove = (ev: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const next = rect.bottom - ev.clientY;
+      bottomPanelHeight = Math.max(120, Math.min(rect.height * 0.8, next));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
 
@@ -423,7 +480,10 @@
   }
 </script>
 
-<div class="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]">
+<div
+  bind:this={outerContainer}
+  class="flex h-full flex-col overflow-hidden border border-border bg-[color:var(--color-panel)]"
+>
   <!-- Top toolbar -->
   <div
     class="flex h-11 items-center justify-between border-b border-border bg-muted/40 px-3"
@@ -432,7 +492,7 @@
       <span class="text-xs font-semibold text-foreground/70">&lt;/&gt;</span>
       {#if !isZipProject}
         <select
-          class="rounded-lg border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-xs font-medium text-foreground outline-none transition focus:border-primary"
+          class="border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-xs font-medium text-foreground outline-none transition focus:border-primary"
           onchange={(e) => {
             const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
             if (parsed.success) language = parsed.data;
@@ -485,10 +545,13 @@
         class:hidden={isWorkspaceMode}
       ></div>
       {#if isWorkspaceMode}
-        <div class="absolute inset-0 flex">
+        <div bind:this={workspaceLayoutContainer} class="absolute inset-0 flex">
           <!-- Student-side file navigation. Read-only list — students can't
                add or remove files, only the TA-side problem editor does that. -->
-          <aside class="w-56 shrink-0 overflow-y-auto border-r border-border bg-[color:var(--color-panel)] p-2">
+          <aside
+            class="shrink-0 overflow-y-auto bg-[color:var(--color-panel)] p-2"
+            style="width: {filesWidth}px"
+          >
             <p class="mb-2 px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Files
             </p>
@@ -497,7 +560,7 @@
                 <li>
                   <button
                     type="button"
-                    class="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-accent {selectedWorkspaceIndex ===
+                    class="flex w-full items-center justify-between px-2 py-1.5 text-left text-sm transition hover:bg-accent {selectedWorkspaceIndex ===
                     index
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground'}"
@@ -507,7 +570,7 @@
                       {#if file.visibility === 'hidden'}🔒 {/if}{file.path}
                     </span>
                     <span
-                      class="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
+                      class="ml-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
                       'editable'
                         ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
                         : file.visibility === 'hidden'
@@ -525,24 +588,22 @@
               {/each}
             </ul>
           </aside>
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+          <div
+            class="group relative w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize files panel"
+            tabindex="0"
+            onmousedown={startFilesResize}
+            onkeydown={(e) => {
+              if (e.key === "ArrowLeft") filesWidth = Math.max(120, filesWidth - 16);
+              if (e.key === "ArrowRight") filesWidth = Math.min(600, filesWidth + 16);
+            }}
+          ></div>
           <div class="flex min-w-0 flex-1 flex-col">
             {#if selectedWorkspaceFile}
               {@const file = selectedWorkspaceFile}
-              <div class="flex items-center gap-2 border-b border-border px-3 py-2">
-                <span class="font-mono text-xs text-foreground">
-                  {#if file.visibility === 'hidden'}🔒 {/if}{file.path}
-                </span>
-                <span
-                  class="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
-                  'editable'
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                    : file.visibility === 'hidden'
-                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                      : 'bg-muted text-muted-foreground'}"
-                >
-                  {file.visibility}
-                </span>
-              </div>
               {#if file.visibility !== 'hidden' && file.description !== ''}
                 <p class="border-b border-border px-3 py-2 text-xs text-muted-foreground">
                   {file.description}
@@ -555,7 +616,7 @@
                       {m.workspace_fileHidden()}
                     </h3>
                     {#if file.description !== ''}
-                      <div class="max-w-prose whitespace-pre-wrap rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                      <div class="max-w-prose whitespace-pre-wrap border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                         {file.description}
                       </div>
                     {:else}
@@ -615,9 +676,24 @@
     </div>
   </div>
 
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <!-- Vertical resize handle between editor area and bottom panel -->
+  <div
+    class="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
+    role="separator"
+    aria-orientation="horizontal"
+    aria-label="Resize bottom panel"
+    tabindex="0"
+    onmousedown={startBottomResize}
+    onkeydown={(e) => {
+      if (e.key === "ArrowUp") bottomPanelHeight = Math.min(800, bottomPanelHeight + 16);
+      if (e.key === "ArrowDown") bottomPanelHeight = Math.max(120, bottomPanelHeight - 16);
+    }}
+  ></div>
   <!-- Bottom panel -->
   <div
-    class="flex h-[35%] min-h-[180px] flex-col border-t border-border"
+    class="flex shrink-0 flex-col"
+    style="height: {bottomPanelHeight}px"
   >
     <!-- Bottom tabs -->
     <div class="flex items-center border-b border-border px-2">

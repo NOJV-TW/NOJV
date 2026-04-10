@@ -307,7 +307,10 @@ export interface ProblemCardWithStatus {
   acceptanceRate: number;
   difficulty: string;
   id: string;
+  judgeType: JudgeType;
+  mode: ProblemMode;
   status: ProblemUserStatus;
+  submissionType: SubmissionType;
   tags: string[];
   title: string;
   totalSubmissions: number;
@@ -388,11 +391,17 @@ export async function listProblemCards(
   const problems: ProblemCardWithStatus[] = persistedProblems.map((problem) => {
     const total = problem._count.submissions;
     const accepted = acceptedByProblemId.get(problem.id) ?? 0;
+    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+      type: "standard" as const
+    };
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
       difficulty: parseDifficulty(problem.difficulty),
       id: problem.id,
+      judgeType: judgeConfig.type,
+      mode: problem.mode,
       status: statusByProblemId.get(problem.id) ?? null,
+      submissionType: parseSubmissionType(problem.submissionType),
       tags: problem.tags,
       title: problem.defaultTitle,
       totalSubmissions: total
@@ -405,14 +414,22 @@ export async function listProblemCards(
 export async function listEditableProblems(userId: string) {
   const problems = await problemRepo.listEditable(userId);
 
-  return problems.map((problem) => ({
-    difficulty: parseDifficulty(problem.difficulty),
-    id: problem.id,
-    status: problem.status,
-    tags: problem.tags,
-    title: problem.defaultTitle,
-    visibility: problem.visibility
-  }));
+  return problems.map((problem) => {
+    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+      type: "standard" as const
+    };
+    return {
+      difficulty: parseDifficulty(problem.difficulty),
+      id: problem.id,
+      judgeType: judgeConfig.type,
+      mode: problem.mode,
+      status: problem.status,
+      submissionType: parseSubmissionType(problem.submissionType),
+      tags: problem.tags,
+      title: problem.defaultTitle,
+      visibility: problem.visibility
+    };
+  });
 }
 
 export async function getProblemPageData(id: string, locale: string = DEFAULT_LOCALE) {
