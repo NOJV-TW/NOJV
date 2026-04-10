@@ -208,11 +208,11 @@ describe("contest queries (real DB)", () => {
       expect(sb.problems).toHaveLength(1);
     });
 
-    it("returns scoreboard with correct ICPC scoring", async () => {
+    it("returns scoreboard with correct problem_count scoring", async () => {
       const contest = await createTestContest({
-        slug: "icpc-sb",
+        slug: "problem-count-sb",
         visibility: "published",
-        scoringMode: "icpc",
+        scoringMode: "problem_count",
         startsAt: new Date("2026-01-01T00:00:00Z"),
         endsAt: new Date("2026-12-31T23:59:59Z")
       });
@@ -248,11 +248,11 @@ describe("contest queries (real DB)", () => {
         }
       });
 
-      const sb = await getScoreboard("icpc-sb");
+      const sb = await getScoreboard("problem-count-sb");
       expect(sb.entries).toHaveLength(1);
       expect(sb.entries[0]!.totalScore).toBe(100);
       expect(sb.entries[0]!.rank).toBe(1);
-      expect(sb.scoringMode).toBe("icpc");
+      expect(sb.scoringMode).toBe("problem_count");
     });
 
     it("returns hidden scoreboard with no entries for non-privileged users", async () => {

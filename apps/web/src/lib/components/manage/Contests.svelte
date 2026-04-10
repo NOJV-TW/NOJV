@@ -118,7 +118,7 @@
   if (!$form.startsAt) $form.startsAt = defaultStart;
   if (!$form.endsAt) $form.endsAt = defaultEnd;
   if (!$form.problemIdsText) $form.problemIdsText = initialProblemSlugs.join(", ");
-  if (!$form.scoringMode) $form.scoringMode = "icpc";
+  if (!$form.scoringMode) $form.scoringMode = "problem_count";
 </script>
 
 <div class="space-y-6">
@@ -211,8 +211,8 @@
       </div>
       <div class="grid gap-3 md:grid-cols-2">
         <select class={inputClassName} name="scoringMode" bind:value={$form.scoringMode}>
-          <option value="icpc">ICPC (AC + penalty)</option>
-          <option value="ioi">IOI (best score)</option>
+          <option value="problem_count">Problem count (ICPC-style, penalty tiebreaker)</option>
+          <option value="point_sum">Point sum (IOI-style, partial credit)</option>
         </select>
         <div>
           <input

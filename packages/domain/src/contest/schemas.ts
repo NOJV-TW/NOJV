@@ -20,7 +20,7 @@ export const contestFormSchema = z.object({
   pageLockEnabled: z.boolean().default(false),
   problemIdsText: z.string().min(1),
   scoreboardMode: scoreboardModeSchema.default("live"),
-  scoringMode: contestScoringModeSchema.default("icpc"),
+  scoringMode: contestScoringModeSchema.default("problem_count"),
   slug: slugSchema,
   startsAt: z.string().min(1),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),

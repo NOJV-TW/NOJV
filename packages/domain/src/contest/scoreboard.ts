@@ -184,7 +184,7 @@ export async function getScoreboard(
   const participants: ParticipantRow[] = contest.participations;
 
   const entries =
-    scoringMode === "icpc"
+    scoringMode === "problem_count"
       ? buildIcpcScoreboard(contest, participants, submissions, problems, showFrozen)
       : buildIoiScoreboard(contest, participants, submissions, problems, showFrozen);
 
@@ -423,7 +423,7 @@ export async function getScoreboardChart(
 
     const points: { time: number; score: number }[] = [{ time: 0, score: 0 }];
 
-    if (scoringMode === "icpc") {
+    if (scoringMode === "problem_count") {
       // Track cumulative solved * points
       const solved = new Set<string>();
       let cumScore = 0;

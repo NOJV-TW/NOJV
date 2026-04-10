@@ -34,7 +34,7 @@ const contestCreateBaseSchema = z.object({
   pageLockEnabled: z.boolean().default(false),
   problemIds: z.array(slugSchema).min(1).max(32),
   scoreboardMode: scoreboardModeSchema.default("live"),
-  scoringMode: contestScoringModeSchema.default("icpc"),
+  scoringMode: contestScoringModeSchema.default("problem_count"),
   slug: slugSchema,
   startsAt: isoDateTimeSchema,
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),

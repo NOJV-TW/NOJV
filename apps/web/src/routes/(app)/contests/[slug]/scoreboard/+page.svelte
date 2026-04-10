@@ -180,8 +180,8 @@
     <div class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-12 text-center">
       <p class="text-muted-foreground">No participants yet.</p>
     </div>
-  {:else if scoreboard.scoringMode === "icpc"}
-    <!-- ICPC Table -->
+  {:else if scoreboard.scoringMode === "problem_count"}
+    <!-- Problem-count (ICPC-style) Table -->
     <div class="overflow-x-auto rounded-2xl border border-border">
       <table class="w-full text-sm">
         <thead>

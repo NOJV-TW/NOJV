@@ -112,8 +112,8 @@
     <div>
       <label class="text-sm font-medium" for="scoringMode">{m.contestCreate_scoringMode()}</label>
       <select class={inputClassName} id="scoringMode" name="scoringMode" bind:value={$form.scoringMode}>
-        <option value="icpc">ICPC (AC + penalty)</option>
-        <option value="ioi">IOI (best score per problem)</option>
+        <option value="problem_count">Problem count (ICPC-style, penalty tiebreaker)</option>
+        <option value="point_sum">Point sum (IOI-style, partial credit)</option>
       </select>
     </div>
 

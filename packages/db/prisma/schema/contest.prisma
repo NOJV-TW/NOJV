@@ -9,8 +9,8 @@ enum ContestVisibility {
 }
 
 enum ContestScoringMode {
-  icpc
-  ioi
+  problem_count // ICPC-style: score = number of problems solved, penalty time tiebreaker
+  point_sum // IOI-style: score = weighted sum of subtask partial credit
 }
 
 enum ContestParticipationStatus {
@@ -49,7 +49,7 @@ model Contest {
   endsAt   DateTime
 
   visibility        ContestVisibility  @default(draft)
-  scoringMode       ContestScoringMode @default(icpc)
+  scoringMode       ContestScoringMode @default(problem_count)
   scoreboardMode    ScoreboardMode     @default(live)
   frozenBoard       Boolean            @default(true)
   frozenAt          DateTime?
