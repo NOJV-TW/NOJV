@@ -281,6 +281,45 @@
   --ease-in-soft: var(--ease-in-soft);
   --ease-in-out-soft: var(--ease-in-out-soft);
   --ease-spring: var(--ease-spring);
+
+  /* Duration utilities — usage: duration-instant, duration-fast, etc. */
+  --duration-instant: var(--duration-instant);
+  --duration-fast: var(--duration-fast);
+  --duration-normal: var(--duration-normal);
+  --duration-slow: var(--duration-slow);
+  --duration-page: var(--duration-page);
+
+  /* Font family utilities — usage: font-sans, font-display, font-mono */
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  /*
+   * Type scale utilities — usage: text-micro, text-caption, text-body-sm,
+   * text-body, text-body-lg, text-title-sm, text-title, text-title-lg,
+   * text-headline, text-display, text-display-lg.
+   *
+   * Tailwind 4 generates font-size utilities from --text-* entries; this
+   * lets components write `text-title` instead of
+   * `text-[length:var(--text-title)]` everywhere.
+   */
+  --text-micro: var(--text-micro);
+  --text-caption: var(--text-caption);
+  --text-body-sm: var(--text-body-sm);
+  --text-body: var(--text-body);
+  --text-body-lg: var(--text-body-lg);
+  --text-title-sm: var(--text-title-sm);
+  --text-title: var(--text-title);
+  --text-title-lg: var(--text-title-lg);
+  --text-headline: var(--text-headline);
+  --text-display: var(--text-display);
+  --text-display-lg: var(--text-display-lg);
+
+  /* Leading utilities — usage: leading-tight, leading-snug, etc. */
+  --leading-tight: var(--leading-tight);
+  --leading-snug: var(--leading-snug);
+  --leading-normal: var(--leading-normal);
+  --leading-relaxed: var(--leading-relaxed);
 }
 
 /* === Keyframes === */
