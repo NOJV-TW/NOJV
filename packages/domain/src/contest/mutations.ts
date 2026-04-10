@@ -71,9 +71,9 @@ async function resolveAndAttachContestProblems(
 
   // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
-    for (const id of problemIds) {
-      await assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages);
-    }
+    await Promise.all(
+      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages))
+    );
   }
 
   await Promise.all(

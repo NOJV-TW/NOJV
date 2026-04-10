@@ -215,9 +215,11 @@ export async function createCourseAssessmentRecord(
     // Workspace invariant: every problem must ship editable main.<ext>
     // for every language listed on the assessment. Empty list = unrestricted.
     if (payload.allowedLanguages.length > 0) {
-      for (const id of payload.problemIds) {
-        await assertProblemHasWorkspaceForLanguages(tx, id, payload.allowedLanguages);
-      }
+      await Promise.all(
+        payload.problemIds.map((id) =>
+          assertProblemHasWorkspaceForLanguages(tx, id, payload.allowedLanguages)
+        )
+      );
     }
 
     const assessment = await assessmentRepo.withTx(tx).create({
