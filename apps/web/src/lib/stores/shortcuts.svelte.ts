@@ -33,19 +33,20 @@ function comboMatches(keys: string[], event: KeyboardEvent): boolean {
 }
 
 class ShortcutRegistry {
-  // $state.raw so only whole-array reassignment triggers reactivity;
-  // individual item reads are not tracked. Combined with the untrack
-  // wrappers below, this makes register/unregister side-effect-free from
-  // the caller effect's tracking perspective.
-  shortcuts = $state.raw<Shortcut[]>([]);
+  shortcuts = $state<Shortcut[]>([]);
   isOverlayOpen = $state(false);
-  #pendingFirstKey: string | null = null;
+  #pendingFirstKey = $state<string | null>(null);
   #sequenceTimer: ReturnType<typeof setTimeout> | null = null;
 
   register(shortcut: Shortcut): () => void {
-    // Read + write via untrack so callers running inside an $effect don't
-    // track `this.shortcuts` as a dep, which would cause register()'s
-    // write to retrigger the calling effect → infinite loop.
+    // `this.shortcuts = [...this.shortcuts, shortcut]` reads shortcuts on
+    // the RHS to spread it, and Svelte 5 tracks that read for whatever
+    // effect is currently running. When the caller is an $effect (as in
+    // Header.svelte) the subsequent write re-invalidates that effect,
+    // producing an `effect_update_depth_exceeded` loop. Wrapping in
+    // untrack() tells Svelte not to treat the RHS read as a tracked
+    // dep of the caller — the write still notifies subscribers like
+    // ShortcutOverlay, which is exactly what we want.
     untrack(() => {
       this.shortcuts = [...this.shortcuts, shortcut];
     });
@@ -55,6 +56,9 @@ class ShortcutRegistry {
   }
 
   unregister(id: string) {
+    // Same rationale as register(): filter reads the old array before
+    // writing the new one; untrack prevents that read from becoming a
+    // tracked dep of the caller effect.
     untrack(() => {
       this.shortcuts = this.shortcuts.filter((s) => s.id !== id);
     });

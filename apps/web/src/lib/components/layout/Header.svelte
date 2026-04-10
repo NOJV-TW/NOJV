@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
@@ -33,15 +32,11 @@
     return currentPath === href || currentPath.startsWith(`${href}/`);
   }
 
-  // Global "g + <key>" navigation shortcuts — only when signed in. Both
-  // the registration and the cleanup are wrapped in untrack() so that
-  // any reactive reads inside the shortcuts store don't get attributed
-  // to this effect (which would otherwise cause register/unregister
-  // writes to re-trigger the effect → effect_update_depth_exceeded).
+  // Global "g + <key>" navigation shortcuts — only when signed in.
   $effect(() => {
     if (!user) return;
 
-    const unregisters = untrack(() => [
+    const unregisters = [
       shortcuts.register({
         id: "nav-dashboard",
         keys: [["G"], ["D"]],
@@ -70,12 +65,10 @@
         category: "navigation",
         handler: () => goto("/submissions")
       })
-    ]);
+    ];
 
     return () => {
-      untrack(() => {
-        for (const off of unregisters) off();
-      });
+      for (const off of unregisters) off();
     };
   });
 </script>
