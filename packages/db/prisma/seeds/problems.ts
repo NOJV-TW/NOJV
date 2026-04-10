@@ -25,7 +25,7 @@ type SeedTestcaseSets = {
   hidden: SeedTestcaseSet;
 };
 
-type SeedSubmissionType = "full_source" | "function" | "zip_project";
+type SeedSubmissionType = "full_source" | "function";
 
 type SeedProblemMode = "standard" | "advanced";
 

@@ -46,7 +46,6 @@ enum JudgeType {
 enum SubmissionType {
   function
   full_source
-  zip_project
 }
 
 enum ContestVisibility {
