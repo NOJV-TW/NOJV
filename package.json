@@ -33,7 +33,9 @@
   "pnpm": {
     "overrides": {
       "@grpc/grpc-js": "~1.12.4",
-      "vite": "^8.0.7"
+      "vite": "^8.0.7",
+      "solid-js": "^1.9.4",
+      "drizzle-orm": "^0.45.2"
     },
     "onlyBuiltDependencies": [
       "@prisma/engines",
