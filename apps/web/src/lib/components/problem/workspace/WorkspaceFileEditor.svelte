@@ -1,12 +1,14 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import type { Language } from "@nojv/core";
+  import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils";
   import MonacoEditableRegions from "./MonacoEditableRegions.svelte";
 
   export interface WorkspaceFile {
     path: string;
     content: string;
+    description: string;
     visibility: "editable" | "readonly" | "hidden";
     editableRegions: [number, number][] | null;
     orderIndex: number;
@@ -89,6 +91,18 @@
       Delete
     </button>
   </div>
+
+  <label class="block text-xs text-muted-foreground">
+    <span>{m.workspace_description()}</span>
+    <textarea
+      class={inputClassName}
+      rows="2"
+      maxlength="5000"
+      placeholder={m.workspace_descriptionPlaceholder()}
+      value={file.description}
+      oninput={(e) => update({ description: (e.target as HTMLTextAreaElement).value })}
+    ></textarea>
+  </label>
 
   {#if file.visibility === "editable"}
     <label class="text-xs text-muted-foreground">

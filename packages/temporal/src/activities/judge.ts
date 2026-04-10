@@ -1,4 +1,5 @@
 import {
+  entryFileNameFor,
   submissionResultSchema,
   type SandboxExecutor,
   type SandboxRequest,
@@ -6,7 +7,7 @@ import {
   type SubmissionDraft,
   type SubmissionResult
 } from "@nojv/core";
-import { submissionDomain } from "@nojv/domain";
+import { ForbiddenError, submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
 
@@ -249,8 +250,8 @@ export async function fetchJudgeContext(
  * Merge student-submitted files with teacher workspace files into the
  * source-file payload sent to the sandbox.
  *
- * - Student's `draft.sourceCode` populates the main editable file
- *   (identified by language or by `draft.entryFile`).
+ * - Student's `draft.sourceCode` populates the entry file `main.<ext>`
+ *   derived from the submission language.
  * - Student's `draft.sourceFiles` (if provided) overrides any editable
  *   workspace file whose path matches.
  * - Teacher workspace files (readonly + hidden) are always added. If a
@@ -268,11 +269,10 @@ function mergeSandboxSources(
   const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
 
   if (langFiles.length === 0) {
-    // No workspace files configured — legacy path, just pass the draft through.
+    // No workspace files configured — legacy single-file path.
     return {
       sourceCode: draft.sourceCode,
-      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
-      ...(draft.entryFile ? { entryFile: draft.entryFile } : {})
+      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {})
     };
   }
 
@@ -297,12 +297,46 @@ function mergeSandboxSources(
     }
   }
 
-  // Handle the single sourceCode field: place it at draft.entryFile if
-  // provided, otherwise at the first editable file's path.
-  const fallbackEditable = langFiles.find((f) => f.visibility === "editable");
-  const mainPath = draft.entryFile ?? fallbackEditable?.path ?? null;
-  if (mainPath && draft.sourceCode && editablePaths.has(mainPath)) {
+  // Workspace-mode convention: the entry file is ALWAYS `main.<ext>`,
+  // ignoring any client-provided `draft.entryFile`. Keeps the server
+  // authoritative and matches the admin UI invariant that every enabled
+  // language ships exactly one editable `main.<ext>`.
+  const mainPath = entryFileNameFor(draft.language);
+  if (draft.sourceCode && editablePaths.has(mainPath)) {
     merged.set(mainPath, draft.sourceCode);
+  }
+
+  // Enforce editableRegions: for every editable workspace file that
+  // declares regions, the student's final content must match the
+  // teacher's original line-for-line outside those ranges. Any tampering
+  // throws — the judge activity converts the error to a user-visible
+  // system-error verdict.
+  for (const wf of langFiles) {
+    if (wf.visibility !== "editable" || !wf.editableRegions) continue;
+    const studentContent = merged.get(wf.path);
+    if (studentContent === undefined) continue;
+    if (studentContent === wf.content) continue;
+
+    const teacherLines = wf.content.split("\n");
+    const studentLines = studentContent.split("\n");
+
+    if (studentLines.length !== teacherLines.length) {
+      throw new ForbiddenError(
+        `Tampering detected in ${wf.path}: line count changed (expected ${String(
+          teacherLines.length
+        )}, got ${String(studentLines.length)}).`
+      );
+    }
+
+    for (let i = 1; i <= teacherLines.length; i++) {
+      const inRegion = wf.editableRegions.some(([start, end]) => i >= start && i <= end);
+      if (inRegion) continue;
+      if (studentLines[i - 1] !== teacherLines[i - 1]) {
+        throw new ForbiddenError(
+          `Tampering detected in ${wf.path}: line ${String(i)} is outside the editable region.`
+        );
+      }
+    }
   }
 
   const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
@@ -311,9 +345,9 @@ function mergeSandboxSources(
   }));
 
   return {
-    sourceCode: mainPath ? (merged.get(mainPath) ?? draft.sourceCode) : draft.sourceCode,
+    sourceCode: merged.get(mainPath) ?? draft.sourceCode,
     sourceFiles,
-    ...(mainPath ? { entryFile: mainPath } : {})
+    entryFile: mainPath
   };
 }
 

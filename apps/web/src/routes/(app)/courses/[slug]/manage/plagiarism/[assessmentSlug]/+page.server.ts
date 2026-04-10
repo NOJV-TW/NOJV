@@ -16,7 +16,11 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     error(404, "Assessment not found");
   }
 
-  const reports = await listAssessmentPlagiarismReports(assessment.id);
+  // Independent fetches — run in parallel to halve load latency.
+  const [reports, problemMap] = await Promise.all([
+    listAssessmentPlagiarismReports(assessment.id),
+    getAssessmentProblemMap(assessment.id)
+  ]);
 
   // Build a lookup of userId -> username/name for display
   const memberMap = new Map(
@@ -25,9 +29,6 @@ export const load: PageServerLoad = async ({ params, parent }) => {
       { displayName: m.displayName, username: m.username }
     ])
   );
-
-  // Build a lookup of problemId -> title for display
-  const problemMap = await getAssessmentProblemMap(assessment.id);
 
   return {
     assessment: { id: assessment.id, slug: assessment.slug, title: assessment.title },

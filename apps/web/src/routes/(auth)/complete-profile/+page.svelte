@@ -7,7 +7,6 @@
   import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
 
   import { isReservedUsername, parseSchoolEmail } from "$lib/school";
-  import { onMount } from "svelte";
 
   let { data } = $props();
 
@@ -25,32 +24,50 @@
   // General flow state
   let username = $state("");
 
-  // BroadcastChannel listener
-  onMount(() => {
-    let bc: BroadcastChannel | undefined;
+  /**
+   * Wait for verification after the email is sent. Two strategies run in
+   * parallel:
+   *   1. BroadcastChannel — fast path when the verification link opens in
+   *      the same browser. Fires instantly, shows the success state, then
+   *      navigates home.
+   *   2. invalidateAll() polling — fallback when the user opens the link
+   *      on another device, another browser, or in private mode (where
+   *      BroadcastChannel is scoped away). Each invalidation re-runs the
+   *      server load; once `locals.sessionUser.username` is set, the load
+   *      itself redirects to "/".
+   */
+  const POLL_INTERVAL_MS = 3000;
 
-    const unwatch = $effect.root(() => {
-      $effect(() => {
-        if (mode !== "school" || !emailSent) return;
+  $effect(() => {
+    if (mode !== "school" || !emailSent || verified) return;
 
-        bc = new BroadcastChannel("nojv-school-verify");
-        bc.onmessage = (event: MessageEvent) => {
-          if (broadcastVerifiedSchema.safeParse(event.data).success) {
-            verified = true;
-            setTimeout(() => {
-              goto("/");
-            }, 1500);
-          }
-        };
+    const bc = new BroadcastChannel("nojv-school-verify");
+    bc.onmessage = (event: MessageEvent) => {
+      if (broadcastVerifiedSchema.safeParse(event.data).success) {
+        verified = true;
+      }
+    };
 
-        return () => bc?.close();
-      });
-    });
+    const pollId = setInterval(() => {
+      void invalidateAll();
+    }, POLL_INTERVAL_MS);
 
     return () => {
-      unwatch();
-      bc?.close();
+      bc.close();
+      clearInterval(pollId);
     };
+  });
+
+  // Once we know the user is verified (via BroadcastChannel), show the
+  // success state for a beat and then navigate home. The polling path
+  // reaches home via the server load's own redirect, so no client nav
+  // is needed there.
+  $effect(() => {
+    if (!verified) return;
+    const timer = setTimeout(() => {
+      void goto("/");
+    }, 1500);
+    return () => clearTimeout(timer);
   });
 
   function clientValidateSchoolEmail(): boolean {

@@ -154,12 +154,16 @@ export async function joinCourseRecord(actor: ActorContext, payload: CourseJoinR
       throw new ForbiddenError("Course join token has expired.");
     }
 
-    if (joinToken.maxUses !== null && joinToken.usageCount >= joinToken.maxUses) {
-      throw new ForbiddenError("Course join token has reached its maximum usage.");
-    }
-
     if (existingMembership?.status === "active") {
       return existingMembership;
+    }
+
+    // Atomic increment-and-check to prevent concurrent joins from over-running maxUses.
+    // The Prisma `update` with `increment` is a single SQL UPDATE; if this tx later
+    // throws, the increment rolls back together with the membership upsert.
+    const updatedToken = await courseJoinTokenRepo.withTx(tx).incrementUsage(joinToken.id);
+    if (updatedToken.maxUses !== null && updatedToken.usageCount > updatedToken.maxUses) {
+      throw new ForbiddenError("Course join token has reached its maximum usage.");
     }
 
     const membership = await courseMembershipRepo.withTx(tx).upsert(
@@ -180,8 +184,6 @@ export async function joinCourseRecord(actor: ActorContext, payload: CourseJoinR
         status: "active"
       }
     );
-
-    await courseJoinTokenRepo.withTx(tx).incrementUsage(joinToken.id);
 
     return membership;
   });

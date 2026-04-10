@@ -4,6 +4,8 @@
   import AdvancedTestcasesSection, {
     type AdvancedCase,
   } from "$lib/components/problem/advanced/AdvancedTestcasesSection.svelte";
+  import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
+  import { toasts } from "$lib/stores/toast";
   import type { ProblemImageSource } from "@nojv/core";
 
   let { data } = $props();
@@ -22,11 +24,15 @@
 
   let cases = $state<AdvancedCase[]>([]);
 
-  async function postAction(action: string, payload: unknown) {
-    const fd = new FormData();
-    fd.append("data", JSON.stringify(payload));
-    const res = await fetch(`?/${action}`, { method: "POST", body: fd });
-    return res.ok;
+  async function postAction(action: string, payload: unknown): Promise<boolean> {
+    try {
+      const fd = new FormData();
+      fd.append("data", JSON.stringify(payload));
+      const res = await fetch(`?/${action}`, { method: "POST", body: fd });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   async function saveImage(payload: {
@@ -34,15 +40,23 @@
     imageSource: ProblemImageSource;
     resourceLimits: typeof resourceLimits;
   }) {
-    await postAction("updateImage", {
+    const ok = await postAction("updateImage", {
       ref: payload.imageRef,
       source: payload.imageSource,
       resourceLimits: payload.resourceLimits,
     });
+    toasts.add({
+      message: ok ? "Image config saved" : "Failed to save image config",
+      type: ok ? "success" : "error",
+    });
   }
 
   async function saveTestcases(next: AdvancedCase[]) {
-    await postAction("updateAdvancedTestcases", next);
+    const ok = await postAction("updateAdvancedTestcases", next);
+    toasts.add({
+      message: ok ? "Testcases saved" : "Failed to save testcases",
+      type: ok ? "success" : "error",
+    });
   }
 </script>
 
@@ -73,7 +87,7 @@
       </a>. Phase 6 will fold this section into the advanced page.
     </p>
     <article class="prose mt-4 max-w-none text-sm dark:prose-invert">
-      {@html data.problem.statement}
+      <MarkdownRenderer content={data.problem.statement ?? ""} />
     </article>
   </section>
 

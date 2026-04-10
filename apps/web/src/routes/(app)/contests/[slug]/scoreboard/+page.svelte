@@ -150,7 +150,7 @@
           <line x1="40" y1="260" x2="760" y2="260" stroke="currentColor" stroke-opacity="0.15" />
           <line x1="40" y1="40" x2="40" y2="260" stroke="currentColor" stroke-opacity="0.15" />
 
-          {#each chartPaths as path}
+          {#each chartPaths as path (path.username)}
             <polyline
               points={path.points}
               fill="none"
@@ -161,7 +161,7 @@
           {/each}
         </svg>
         <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-4">
-          {#each chartPaths as path}
+          {#each chartPaths as path (path.username)}
             <div class="flex items-center gap-1.5 text-xs">
               <span
                 class="inline-block h-2.5 w-2.5 rounded-full"
@@ -200,7 +200,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each scoreboard.entries as entry, idx}
+          {#each scoreboard.entries as entry, idx (entry.username)}
             <tr class="border-b border-border last:border-b-0 {idx % 2 === 0 ? 'bg-[color:var(--color-panel)]' : 'bg-[color:var(--color-panel-strong)]/30'}">
               <td class="px-3 py-2 font-medium">{entry.rank}</td>
               <td class="px-3 py-2">
@@ -246,7 +246,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each scoreboard.entries as entry, idx}
+          {#each scoreboard.entries as entry, idx (entry.username)}
             <tr class="border-b border-border last:border-b-0 {idx % 2 === 0 ? 'bg-[color:var(--color-panel)]' : 'bg-[color:var(--color-panel-strong)]/30'}">
               <td class="px-3 py-2 font-medium">{entry.rank}</td>
               <td class="px-3 py-2">

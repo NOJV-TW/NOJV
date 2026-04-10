@@ -71,6 +71,31 @@ function isPageLockExempt(pathname: string): boolean {
   );
 }
 
+/**
+ * Baseline security response headers, applied to every response.
+ * CSP is intentionally NOT set here — the inline theme bootstrap in
+ * `app.html` would need a nonce, which requires `app_template_contains_nonce`
+ * in svelte.config.js. Add CSP in a follow-up after auditing third-party
+ * scripts and inline handlers.
+ */
+function setSecurityHeaders(response: Response): void {
+  // Disable MIME sniffing — browsers must respect the declared Content-Type.
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  // Disallow framing entirely (clickjacking protection).
+  response.headers.set("X-Frame-Options", "DENY");
+  // Limit how much referrer info is sent on cross-origin navigation.
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Deny access to powerful APIs by default; opt in per route if needed.
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+  );
+  // HSTS only when the request is already HTTPS — avoid pinning HTTP-only dev.
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+}
+
 function isContestAllowed(
   pathname: string,
   searchParams: URLSearchParams,
@@ -190,9 +215,11 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  return paraglideMiddleware(event.request, ({ request }) => {
+  return paraglideMiddleware(event.request, async ({ request }) => {
     // Update the event request with the (potentially de-localized) request
     event.request = request;
-    return resolve(event);
+    const response = await resolve(event);
+    setSecurityHeaders(response);
+    return response;
   });
 };

@@ -19,13 +19,12 @@ describe("submissionDraftSchema", () => {
     expect(result.problemId).toBe("two-sum-plus");
   });
 
-  it("accepts multi-file submissions with entry file", () => {
+  it("accepts multi-file submissions", () => {
     const result = submissionDraftSchema.parse({
       language: "typescript",
       mode: "practice",
       problemId: "multi-file-ts",
       sourceCode: "// fallback entry source",
-      entryFile: "src/main.ts",
       sourceFiles: [
         {
           path: "src/main.ts",
@@ -38,8 +37,8 @@ describe("submissionDraftSchema", () => {
       ]
     });
 
-    expect(result.entryFile).toBe("src/main.ts");
     expect(result.sourceFiles).toHaveLength(2);
+    expect(result.sourceFiles?.[0]?.path).toBe("src/main.ts");
   });
 });
 

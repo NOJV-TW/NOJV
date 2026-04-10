@@ -16,6 +16,7 @@
   import { onSSEEvent } from "$lib/stores/sse";
   import MarkdownRenderer from "../../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../../ui/CodeBlock.svelte";
+  import SpecialLabels from "../SpecialLabels.svelte";
   import SubtaskResults from "../SubtaskResults.svelte";
 
   // ── Types (mirrors Workspace.svelte left-pane shape) ──────────────────────
@@ -56,18 +57,6 @@
     initialSubmissions,
     problem
   }: Props = $props();
-
-  const judgeTypeBadge: Record<string, () => string> = {
-    checker: () => m.problemDetail_checkerBadge(),
-    interactive: () => m.problemDetail_interactiveBadge(),
-    standard: () => m.problemDetail_standardBadge()
-  };
-
-  const judgeTypeBadgeColor: Record<string, string> = {
-    checker: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
-    interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-    standard: "bg-muted text-muted-foreground"
-  };
 
   let leftTab = $state<"description" | "editorials" | "submissions">("description");
   let submissions = $state<SubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
@@ -490,22 +479,17 @@
           >
             {problem.difficulty}
           </span>
-          <span
-            class="rounded-full px-2.5 py-0.5 text-xs font-medium {judgeTypeBadgeColor[
-              problem.judgeType
-            ] ?? 'bg-muted text-muted-foreground'}"
-          >
-            {(judgeTypeBadge[problem.judgeType] ?? judgeTypeBadge["standard"]!)()}
-          </span>
-          <span class="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-400">
-            Advanced Mode
-          </span>
           {#each problem.tags as tag (tag)}
             <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
               {tag}
             </span>
           {/each}
         </div>
+
+        <SpecialLabels
+          problemType={problem.problemType}
+          judgeType={problem.judgeType}
+        />
 
         <div class="mt-5 text-sm leading-7 text-foreground">
           <MarkdownRenderer content={problem.statement} />

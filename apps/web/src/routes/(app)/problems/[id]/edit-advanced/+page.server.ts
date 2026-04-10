@@ -4,6 +4,7 @@ import { advancedImageConfigSchema, advancedResourceLimitsSchema } from "@nojv/c
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { parseJsonField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
 import { advancedTestcaseRepo } from "@nojv/db";
 
@@ -32,7 +33,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
     error(404, "Problem not found");
   }
 
-  if (problem.mode !== "advanced") {
+  if (problem.problemType !== "special_env") {
     redirect(302, `/problems/${params.id}/edit`);
   }
 
@@ -74,17 +75,6 @@ function advancedAction<T>(
 
     return handler({ actor, problemId, event });
   };
-}
-
-function parseJsonField<T>(
-  raw: FormDataEntryValue | null,
-  schema: z.ZodType<T>,
-  fieldName = "data"
-): T {
-  if (typeof raw !== "string") error(400, `Missing ${fieldName} field`);
-  const parsed = schema.safeParse(JSON.parse(raw));
-  if (!parsed.success) error(400, `Invalid ${fieldName}`);
-  return parsed.data;
 }
 
 export const actions: Actions = {

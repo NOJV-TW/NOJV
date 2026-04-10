@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import type { TestcaseResult } from "../types.js";
+import { createBoundedBuffer } from "../utils.js";
 
 export interface RunProcessResult {
   stdout: string;
@@ -43,12 +44,16 @@ export function runProcess(
       timeout: options.timeoutMs
     });
 
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
+    const stdoutBuf = createBoundedBuffer();
+    const stderrBuf = createBoundedBuffer();
     let killed = false;
 
-    proc.stdout!.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
-    proc.stderr!.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
+    proc.stdout!.on("data", (chunk: Buffer) => {
+      stdoutBuf.push(chunk);
+    });
+    proc.stderr!.on("data", (chunk: Buffer) => {
+      stderrBuf.push(chunk);
+    });
 
     if (useStdin) {
       proc.stdin!.on("error", () => {}); // Ignore EPIPE when process exits before stdin is consumed
@@ -66,8 +71,8 @@ export function runProcess(
       clearTimeout(timer);
       const timeMs = Math.round(performance.now() - startTime);
       resolve({
-        stdout: Buffer.concat(stdoutChunks).toString("utf-8"),
-        stderr: Buffer.concat(stderrChunks).toString("utf-8"),
+        stdout: stdoutBuf.toString(),
+        stderr: stderrBuf.toString(),
         exitCode: code ?? -1,
         timeMs,
         timedOut: killed || signal === "SIGTERM" || timeMs >= options.timeoutMs,
