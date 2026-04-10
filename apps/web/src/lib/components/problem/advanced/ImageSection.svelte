@@ -17,7 +17,7 @@
       imageRef: string;
       imageSource: ProblemImageSource;
       resourceLimits: ResourceLimits;
-    }) => void;
+    }) => void | Promise<void>;
   }
 
   let {
@@ -76,12 +76,13 @@
     if (file) void handleTarball(file);
   }
 
-  function save() {
+  async function save() {
     saving = true;
-    onsave?.({ imageRef, imageSource, resourceLimits });
-    setTimeout(() => {
+    try {
+      await onsave?.({ imageRef, imageSource, resourceLimits });
+    } finally {
       saving = false;
-    }, 200);
+    }
   }
 </script>
 
