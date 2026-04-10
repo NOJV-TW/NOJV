@@ -54,17 +54,10 @@ export interface ProblemDetail extends ProblemOverview {
   tags: string[];
   timeLimitMs: number;
   visibility: ProblemVisibility;
-  /** special_env only. Null for other problem types. */
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
-  /** Only meaningful when type === "special_env". */
   networkEnabled: boolean;
-  /**
-   * Workspace files for the student editor. Hidden files are included so
-   * the UI can render their metadata (path, language, description), but
-   * their `content` is always `""` — the domain layer blanks it before it
-   * leaves the server.
-   */
+  // Hidden files have `content === ""`; the domain layer blanks them before they leave the server.
   workspaceFiles: {
     language: string;
     path: string;

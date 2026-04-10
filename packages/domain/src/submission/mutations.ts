@@ -16,13 +16,6 @@ import { requireCourseAssessment } from "../course/mutations";
 
 export type { ActorContext };
 
-/**
- * Validate constraints and create a queued submission record inside a transaction.
- *
- * @param payload  - The submission draft from the client.
- * @param actor    - The authenticated user context (no SvelteKit dependency).
- * @param clientIp - The pre-extracted client IP address (caller is responsible for extraction).
- */
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: ActorContext,
@@ -68,7 +61,6 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this contest");
     }
 
-    // ── Language restriction: assignment ──
     if (
       courseContext?.assessment &&
       courseContext.assessment.allowedLanguages.length > 0 &&
@@ -77,15 +69,10 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this assignment");
     }
 
-    // ── Workspace entry-file check ──
-    // Phase 1 redesign: ProblemType is the single source of truth.
-    //   - special_env: TA image owns everything; no main.<ext> required.
-    //   - full_source / function / multi_file: workspace must ship an
-    //     editable `main.<ext>` for the submitted language.
+    // special_env problems ship no workspace; other types must have an editable main.<ext>.
     if (problem.type !== "special_env") {
       const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
-      // For full_source problems with no workspace files at all, the
-      // student is just submitting their single source file — fine.
+      // full_source problems with no workspace files submit a single source file directly.
       if (workspaceFiles.length > 0 || problem.type !== "full_source") {
         const entryPath = entryFileNameFor(payload.language);
         const hasEntry = workspaceFiles.some(

@@ -1,16 +1,5 @@
 import { z } from "zod";
 
-/**
- * Assessment-level score adjustment rules.
- *
- * In the Phase 1 redesign these rules move from per-problem
- * `judgeConfig.scoring.adjustmentRules` to per-assessment (CourseAssessment)
- * and per-contest (Contest) configuration. A given assessment or contest
- * applies its own rules uniformly across all problems it contains.
- *
- * The shape of each rule is unchanged from the legacy `scoringRuleSchema`
- * so that the Phase 1 data migration script can lift rules as-is.
- */
 export const adjustmentRuleSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("late_penalty_fixed"),

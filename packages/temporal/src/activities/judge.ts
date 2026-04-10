@@ -49,19 +49,10 @@ const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error"
 };
 
-/**
- * Compute per-subtask results, honoring the configured strategy for
- * each set.
- *
- * - `all_or_nothing`: subtask passes only if every case passed. Score is
- *   the full weight on pass, zero otherwise.
- * - `proportional`: subtask score = weight * (passed / total). Subtask
- *   is "passed" if all cases passed.
- * - `minimum`: subtask score = weight * min(caseScores) where each
- *   AC case counts as 1.0 and non-AC as 0.0. Equivalent to
- *   all_or_nothing for binary verdicts, but reserved for future partial
- *   checker support.
- */
+// Subtask strategies:
+//   all_or_nothing  weight * (all cases passed ? 1 : 0)
+//   proportional    weight * (passed / total), passed iff every case passed
+//   minimum         weight * min(caseScores) — reserved for partial checkers
 function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: submissionDomain.TestcaseSetGroup[],
@@ -245,18 +236,8 @@ export async function fetchJudgeContext(
   return submissionDomain.getJudgeContext(submissionId);
 }
 
-/**
- * Merge student-submitted files with teacher workspace files into the
- * source-file payload sent to the sandbox.
- *
- * - Student's `draft.sourceCode` populates the entry file `main.<ext>`
- *   derived from the submission language.
- * - Student's `draft.sourceFiles` (if provided) overrides any editable
- *   workspace file whose path matches.
- * - Teacher workspace files (readonly + hidden) are always added. If a
- *   student file collides with a readonly/hidden path, the teacher file
- *   wins (students cannot override locked files).
- */
+// Student files may override only `editable` workspace files; readonly/hidden
+// teacher files always win on path collision.
 function mergeSandboxSources(
   draft: SubmissionDraft,
   judgeContext: submissionDomain.SubmissionJudgeContext

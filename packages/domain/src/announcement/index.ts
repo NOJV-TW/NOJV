@@ -19,15 +19,8 @@ export interface AnnouncementUpdatePayload {
   published: boolean;
 }
 
-/**
- * Create an announcement plus its default-locale translation. Title +
- * content live on the translation row now; the Announcement row only
- * carries lifecycle metadata (pinned, status, audience, publishedAt).
- *
- * The two writes are NOT wrapped in a transaction — admin announcement
- * authoring is low-volume and the translation upsert is idempotent if
- * the caller retries on failure.
- */
+// Two writes intentionally not wrapped in a transaction — admin authoring is
+// low-volume and the translation upsert is retry-safe.
 export async function createAnnouncement(data: AnnouncementCreatePayload) {
   const announcement = await announcementRepo.create({
     pinned: data.pinned,

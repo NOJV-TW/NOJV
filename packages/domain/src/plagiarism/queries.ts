@@ -30,13 +30,8 @@ export async function fetchSubmissionsForCheck(
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 
-/**
- * Plagiarism state is inlined on `Contest` / `CourseAssessment` as six
- * `plagiarism*` columns. There is no `PlagiarismReport` table any more —
- * the parent id IS the report identity, and re-running MOSS overwrites
- * the existing row. Every write below routes through the `upsertFor*`
- * helpers on `plagiarismRepo`.
- */
+// Plagiarism state is inlined on `Contest` / `CourseAssessment` as six
+// `plagiarism*` columns — the parent id IS the report identity.
 async function writePlagiarismFields(
   target: PlagiarismTarget,
   input: Parameters<typeof plagiarismRepo.upsertForContest>[1]
@@ -120,13 +115,6 @@ export async function resolvePlagiarismTarget(
   };
 }
 
-/**
- * Kick off a plagiarism scan by writing the initial `pending` state onto
- * the parent row. There is no separate `PlagiarismReport` row any more —
- * the six `plagiarism*` columns on `Contest` / `CourseAssessment` are the
- * identity, so this is an upsert in place. Re-running MOSS overwrites
- * the existing row.
- */
 export async function createPlagiarismReport(
   target: PlagiarismTarget,
   triggeredById: string
@@ -181,12 +169,8 @@ export async function getPlagiarismSourceCode(
   return submission[0]?.sourceCode ?? null;
 }
 
-/**
- * Get the single plagiarism report for a course assessment (plagiarism
- * manage page). Wrapper kept for backwards-compat with the route layer —
- * the `[...]` shape lets existing UI loops over results compile without
- * an empty-state check, but there is always either zero or one report.
- */
+// Returns 0 or 1 reports as an array so the route layer can keep its existing
+// list-style UI loop without a special empty-state branch.
 export async function listAssessmentPlagiarismReports(
   assessmentId: string
 ): Promise<PlagiarismReportSummary[]> {

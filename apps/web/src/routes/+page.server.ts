@@ -59,9 +59,7 @@ export const load: PageServerLoad = async (event) => {
     });
     return {
       ...a,
-      // Coalesce nullable `dueAt` to the closing time so the home-page
-      // template (which calls `new Date(...)` directly) doesn't break
-      // when an assessment has no soft due date.
+      // Template calls `new Date(dueAt)` directly; coalesce to closesAt.
       dueAt: a.dueAt ?? a.closesAt,
       windowState,
       windowStateColor: windowStateColorClass(windowState)

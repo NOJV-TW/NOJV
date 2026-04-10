@@ -70,26 +70,16 @@ function isPageLockExempt(pathname: string): boolean {
   );
 }
 
-/**
- * Baseline security response headers, applied to every response.
- * CSP is intentionally NOT set here — the inline theme bootstrap in
- * `app.html` would need a nonce, which requires `app_template_contains_nonce`
- * in svelte.config.js. Add CSP in a follow-up after auditing third-party
- * scripts and inline handlers.
- */
+// CSP is not set here — the inline theme bootstrap in app.html would need a
+// nonce (requires `app_template_contains_nonce` in svelte.config.js).
 function setSecurityHeaders(response: Response): void {
-  // Disable MIME sniffing — browsers must respect the declared Content-Type.
   response.headers.set("X-Content-Type-Options", "nosniff");
-  // Disallow framing entirely (clickjacking protection).
   response.headers.set("X-Frame-Options", "DENY");
-  // Limit how much referrer info is sent on cross-origin navigation.
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  // Deny access to powerful APIs by default; opt in per route if needed.
   response.headers.set(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=(), interest-cohort=()"
   );
-  // HSTS only when the request is already HTTPS — avoid pinning HTTP-only dev.
   if (process.env.NODE_ENV === "production") {
     response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
@@ -126,7 +116,6 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
 export const handle: Handle = async ({ event, resolve }) => {
   const cleanPath = stripLocalePrefix(event.url.pathname);
 
-  // --- CSRF: validate Origin header on mutating API requests ---
   if (
     cleanPath.startsWith("/api/") &&
     !["GET", "HEAD", "OPTIONS"].includes(event.request.method)
@@ -142,7 +131,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     return resolve(event);
   }
 
-  // --- Auth: populate event.locals with session/user/sessionUser ---
   const session = await getAuth().api.getSession({
     headers: event.request.headers
   });
@@ -153,7 +141,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   const parsed = sessionUserSchema.safeParse(session?.user ?? null);
   event.locals.sessionUser = parsed.success ? parsed.data : null;
 
-  // --- Guard: block disabled users ---
   if (event.locals.sessionUser?.disabled) {
     event.locals.session = null;
     event.locals.user = null;
@@ -163,7 +150,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  // --- Guard: redirect users without a username to /complete-profile ---
   if (
     event.locals.sessionUser &&
     !event.locals.sessionUser.username &&
@@ -172,9 +158,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     redirect(302, "/complete-profile");
   }
 
-  // --- Guard: page lock enforcement ---
-  // Only contests can page-lock now — homework assessments dropped that
-  // exam-only setting in the Phase 1 redesign.
   if (event.locals.sessionUser) {
     if (!isPageLockExempt(cleanPath)) {
       const lockCtx = await getCachedPageLockContext(event.locals.sessionUser.id);

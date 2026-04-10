@@ -31,9 +31,6 @@ function pickTranslation(translations: AnnouncementTranslationRow[] | undefined)
 
 export const load: PageServerLoad = async () => {
   const announcements = await listAllAnnouncements();
-  // Title + content moved to AnnouncementTranslation in the Phase 1
-  // redesign. Project them flat for the admin list view so the existing
-  // template doesn't need to know about the translation table.
   return {
     announcements: announcements.map((a) => {
       const localized = pickTranslation(a.translations);

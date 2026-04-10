@@ -41,11 +41,7 @@ export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hi
 
 export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySchema>;
 
-/**
- * An [startLine, endLine] inclusive tuple designating a line range the
- * student is allowed to edit. Lines outside all declared ranges are
- * rendered read-only in the browser editor.
- */
+// Inclusive [startLine, endLine] tuple; lines outside any region are read-only.
 export const editableRegionSchema = z.tuple([
   z.number().int().nonnegative(),
   z.number().int().nonnegative()
@@ -71,11 +67,6 @@ export const problemWorkspaceFileSchema = z.object({
 
 export type ProblemWorkspaceFile = z.infer<typeof problemWorkspaceFileSchema>;
 
-/**
- * Canonical file extension for each supported language — shared between
- * the workspace editor, the judge, and the submission validator so they
- * always agree on paths like `main.py` or `main.cpp`.
- */
 export function languageExtension(language: Language): string {
   const map: Record<Language, string> = {
     c: "c",
@@ -90,12 +81,6 @@ export function languageExtension(language: Language): string {
   return map[language];
 }
 
-/**
- * Workspace-mode convention: every enabled language must provide an
- * editable entry file named `main.<ext>`. Hard-coding the basename keeps
- * the judge, the submission validator, and the UI in agreement about
- * "where does the student start editing".
- */
 export const ENTRY_FILE_BASENAME = "main";
 
 export function entryFileNameFor(language: Language): string {

@@ -69,9 +69,7 @@ async function resolveAndAttachContestProblems(
     }
   }
 
-  // Workspace invariant: every listed allowedLanguage must have an
-  // editable main.<ext> on every problem in the contest. Empty list =
-  // unrestricted, no check.
+  // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
     for (const id of problemIds) {
       await assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages);
@@ -96,7 +94,6 @@ export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
   contestSlug: string,
-  /** Pass problemId + sampleOnly to enforce maxAttempts; omit for participation-only */
   attemptContext?: { problemId: string; sampleOnly: boolean }
 ) {
   const contest = await requireContest(tx, contestSlug);
@@ -113,7 +110,6 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
-  // If contest is linked to a course, verify course membership
   if (contest.courseId) {
     const membership = await courseMembershipRepo
       .withTx(tx)
@@ -138,11 +134,7 @@ export async function ensureContestParticipation(
     }
   );
 
-  // The Phase 1 redesign moved per-problem attempt limits onto
-  // CourseAssessment only — Contest no longer carries `maxAttempts`.
-  // The `attemptContext` parameter is preserved so the caller signature
-  // doesn't change, but it's currently unused for contests. Keep the
-  // unused-binding eslint exception via void to make intent clear.
+  // Contest has no `maxAttempts`; parameter kept for caller-signature parity.
   void attemptContext;
 
   return { contest, participation };

@@ -67,17 +67,13 @@ export interface SubmissionJudgeContext {
   problemId: string;
   runtime: Runtime;
   samples: ProblemSample[];
-  /** Single source of truth for the problem shape (Phase 1 redesign). */
   problemType: ProblemType;
   subtaskStrategies: SubtaskStrategyMap;
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
   workspaceFiles: WorkspaceFileEntry[];
-  /**
-   * Carries the special_env image ref + resource limits + testcase
-   * payloads. Non-null only when `problemType === "special_env"`.
-   */
+  /** Non-null only when `problemType === "special_env"`. */
   advanced: AdvancedModeContext | null;
 }
 

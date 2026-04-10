@@ -155,11 +155,6 @@ function assertProblemOwnership(
   }
 }
 
-/**
- * Public helper: verify `actor` may edit `problemId`. Intended for callers
- * (e.g. image upload endpoints) that need the ownership check without
- * performing a DB mutation. Throws `NotFoundError` or `ForbiddenError`.
- */
 export async function assertProblemEditAccess(
   actor: ProblemActorContext,
   problemId: string
@@ -169,16 +164,8 @@ export async function assertProblemEditAccess(
   assertProblemOwnership(problem, actor);
 }
 
-/**
- * Workspace-mode invariant: when adding a problem to a contest or
- * homework assessment whose `allowedLanguages` list is non-empty, the
- * problem MUST ship an editable `main.<ext>` workspace file for every
- * listed language. Otherwise students in that language have no entry
- * file to submit. Empty `allowedLanguages` means "any language allowed",
- * which we don't enforce here — only the languages the problem ships.
- *
- * Throws `ValidationError` listing every offending language.
- */
+// Every listed language must have an editable main.<ext> workspace file,
+// otherwise students in that language have no entry file to submit.
 export async function assertProblemHasWorkspaceForLanguages(
   tx: TransactionClient,
   problemId: string,
@@ -326,15 +313,8 @@ export async function updateProblemRecord(
   });
 }
 
-/**
- * Convert a standard-mode problem to special_env (advanced) mode. The
- * conversion is intentionally data-lossy: workspace files, testcase sets
- * (and their testcases via cascade), `samples`, and `judgeConfig` are
- * discarded and special_env defaults are written. The UI shows an
- * explicit warning before calling this.
- *
- * Throws `ConflictError` if the problem is already in special_env mode.
- */
+// Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
+// discarded. The UI shows an explicit warning before calling this.
 export async function convertProblemToAdvancedMode(
   actor: ProblemActorContext,
   problemId: string
@@ -387,23 +367,10 @@ export interface UpdateWorkspacePayload {
   }[];
 }
 
-/**
- * Soft quota enforced on every workspace save: each `(problem, language)`
- * pair is capped at 1 MB of total UTF-8 content across all files. The
- * per-file 200 KB cap is enforced earlier via the zod schema in
- * `@nojv/core`; this constant is the per-language aggregate.
- */
-const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576; // 1 MB
+// 1 MB aggregate cap per (problem, language); the per-file 200 KB cap is
+// enforced earlier via the zod schema in `@nojv/core`.
+const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 
-/**
- * Replace the workspace files for a problem and (optionally) update the
- * runtime config + allowed languages on the judge config.
- *
- * Replacement is wholesale: the existing ProblemWorkspaceFile rows are
- * deleted and the new list is inserted. This keeps the API simple for
- * callers and matches how the editor actually works (the whole payload
- * is sent on save).
- */
 export async function updateProblemWorkspace(
   actor: ProblemActorContext,
   problemId: string,
@@ -506,11 +473,6 @@ export interface AdvancedTestcasePayload {
   files: Record<string, string>;
 }
 
-/**
- * Replace the special_env testcase bag for a problem. Wholesale
- * replacement keeps the API simple for the UI (which ships the whole
- * list on save).
- */
 export async function replaceAdvancedTestcases(
   actor: ProblemActorContext,
   problemId: string,

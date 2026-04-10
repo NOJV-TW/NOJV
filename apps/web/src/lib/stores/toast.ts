@@ -27,12 +27,6 @@ export interface Toast {
   timeoutId?: ReturnType<typeof setTimeout>;
 }
 
-/**
- * Legacy input shape preserved for backward compatibility with existing
- * `toasts.add({ message, type, duration })` callers. New code should prefer
- * `toasts.show(message, options)` or the `toasts.success/error/warning/info`
- * helpers instead.
- */
 export interface LegacyToastInput {
   message: string;
   type?: ToastType;
@@ -111,10 +105,6 @@ function createToastStore() {
     return id;
   }
 
-  /**
-   * Legacy API: accepts a toast-shaped object. Prefer `show(message, options)`
-   * or the named helpers in new code.
-   */
   function add(input: LegacyToastInput): string {
     const options: ToastOptions = {};
     if (input.type !== undefined) options.type = input.type;

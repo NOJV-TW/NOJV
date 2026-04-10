@@ -41,12 +41,7 @@ export interface ProblemDetail {
   title: string;
   totalSubmissions: number;
   visibility: ProblemVisibility;
-  /**
-   * Workspace files for the student editor. `"hidden"` files are included
-   * (so the UI can show their metadata, e.g. description) but their `content`
-   * is always `""` — raw hidden content must never leave the server. The
-   * judge pipeline reads hidden content directly from the DB.
-   */
+  // Hidden files ship with `content === ""`; raw hidden content must never leave the server.
   workspaceFiles: {
     language: string;
     path: string;
@@ -55,16 +50,12 @@ export interface ProblemDetail {
     editableRegions: [number, number][] | null;
     description: string;
   }[];
-  // special_env metadata (Phase 7+ Phase-1 redesign)
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
   networkEnabled: boolean;
 }
 
-/**
- * Default starter code per language. Duplicated from apps/web/src/lib/types.ts
- * to avoid pulling UI-layer dependencies into the domain package.
- */
+// Duplicated from apps/web/src/lib/types.ts to avoid a UI→domain import.
 const starterByLanguage: Record<string, string> = {
   c: `#include <stdio.h>
 
@@ -103,10 +94,7 @@ fn main() {
   python: ``
 };
 
-/**
- * Difficulty lives inside `Problem.tags` ("easy" / "medium" / "hard");
- * pull it back out so the UI keeps its three-color badge logic.
- */
+// Difficulty lives inside `Problem.tags` as one of "easy" / "medium" / "hard".
 function pickDifficultyFromTags(tags: string[]): ProblemDifficulty {
   for (const tag of tags) {
     const parsed = problemDifficultySchema.safeParse(tag);
@@ -130,17 +118,7 @@ function buildProblemSamples(problem: {
     .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
-/**
- * Build the starter-code map shown in the student editor.
- *
- * For each language in the hardcoded fallback table: if the problem has at
- * least one `editable` workspace file for that language, use the content of
- * the first one (already ordered by `orderIndex`, then `path` from the repo
- * layer). Otherwise fall back to the hardcoded stub.
- *
- * The hardcoded map is retained as a fallback for full_source problems
- * that don't ship any workspace files.
- */
+// Per language: use the first editable workspace file if any, else the hardcoded stub.
 function buildStarterByLanguage(
   workspaceFiles: { language: string; path: string; visibility: string; content: string }[] = []
 ): Record<string, string> {
@@ -156,11 +134,7 @@ function buildStarterByLanguage(
   return result;
 }
 
-/**
- * Runtime-parse `ProblemWorkspaceFile.editableRegions`. The column is
- * stored as `Json?` so we can't trust the structural type. Returns `null`
- * (whole file editable) on any malformed input.
- */
+// `editableRegions` is `Json?` at the DB layer; return null (whole-file editable) on bad input.
 function parseEditableRegions(raw: unknown): [number, number][] | null {
   if (raw === null || raw === undefined) return null;
   if (!Array.isArray(raw)) return null;
