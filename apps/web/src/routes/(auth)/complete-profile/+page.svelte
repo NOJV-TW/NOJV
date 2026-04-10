@@ -5,8 +5,11 @@
   import { authClient } from "$lib/auth-client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
-
   import { isReservedUsername, parseSchoolEmail } from "$lib/school";
+  import { Button } from "$lib/components/ui/button";
+  import { Card } from "$lib/components/ui/card";
+  import { Input } from "$lib/components/ui/input";
+  import FormField from "$lib/components/ui/FormField.svelte";
 
   let { data } = $props();
 
@@ -120,53 +123,49 @@
 </script>
 
 <div class="flex min-h-[60vh] items-center justify-center">
-  <div
-    class="w-full max-w-sm rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-8 shadow-sm backdrop-blur-sm"
-  >
-    <h1 class="text-center text-2xl font-semibold">{m.onboarding_title()}</h1>
-    <p class="mt-2 text-center text-sm text-muted-foreground">
-      {data.name} ({data.email})
-    </p>
+  <Card variant="elevated" size="hero" class="w-full max-w-sm">
+    <div class="text-center">
+      <h1 class="font-display text-display font-semibold">{m.onboarding_title()}</h1>
+      <p class="mt-2 text-body-sm text-muted-foreground">
+        {data.name} ({data.email})
+      </p>
+    </div>
 
     {#if mode === "choose"}
-      <div class="mt-6 flex flex-col gap-3">
-        <p class="text-center text-sm text-muted-foreground">
+      <div class="flex flex-col gap-3">
+        <p class="text-center text-body-sm text-muted-foreground">
           {m.onboarding_subtitle()}
         </p>
         <button
-          class="rounded-2xl border border-border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-accent"
+          class="group rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
           onclick={() => (mode = "school")}
           type="button"
         >
-          <p class="text-sm font-medium">{m.onboarding_schoolOption()}</p>
-          <p class="mt-0.5 text-xs text-muted-foreground">
+          <p class="text-body-sm font-medium">{m.onboarding_schoolOption()}</p>
+          <p class="mt-0.5 text-caption text-muted-foreground">
             {m.onboarding_schoolOptionDesc()}
           </p>
         </button>
         <button
-          class="rounded-2xl border border-border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-accent"
+          class="group rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-4 py-3 text-left shadow-rest transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-px hover:shadow-hover"
           onclick={() => (mode = "general")}
           type="button"
         >
-          <p class="text-sm font-medium">{m.onboarding_generalOption()}</p>
-          <p class="mt-0.5 text-xs text-muted-foreground">
+          <p class="text-body-sm font-medium">{m.onboarding_generalOption()}</p>
+          <p class="mt-0.5 text-caption text-muted-foreground">
             {m.onboarding_generalOptionDesc()}
           </p>
         </button>
-        <button
-          class="mt-2 rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent"
-          onclick={() => void handleSignOut()}
-          type="button"
-        >
+        <Button variant="outline" size="default" onclick={() => void handleSignOut()}>
           {m.onboarding_useOtherAccount()}
-        </button>
+        </Button>
       </div>
     {/if}
 
     {#if mode === "school"}
-      <div class="mt-6">
+      <div>
         {#if verified}
-          <p class="text-center text-sm font-medium text-green-600">
+          <p class="text-center text-body-sm font-medium text-success">
             {m.onboarding_verified()}
           </p>
         {:else if emailSent}
@@ -174,10 +173,10 @@
             <div
               class="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"
             ></div>
-            <p class="text-center text-sm text-muted-foreground">
+            <p class="text-center text-body-sm text-muted-foreground">
               {m.onboarding_verificationSent()}
             </p>
-            <p class="text-center text-xs text-muted-foreground">
+            <p class="text-center text-caption text-muted-foreground">
               {m.onboarding_waitingVerification()}
             </p>
           </div>
@@ -205,10 +204,9 @@
               };
             }}
           >
-            <label class="flex flex-col gap-1 text-sm">
-              {m.onboarding_schoolEmailLabel()}
-              <input
-                class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
+            <FormField label={m.onboarding_schoolEmailLabel()} for="school-email" required>
+              <Input
+                id="school-email"
                 name="email"
                 oninput={(e) => (schoolEmail = (e.target as HTMLInputElement).value)}
                 placeholder={m.onboarding_schoolEmailPlaceholder()}
@@ -216,38 +214,39 @@
                 type="email"
                 value={schoolEmail}
               />
-            </label>
+            </FormField>
             {#if error}
-              <p class="text-sm text-red-600">{error}</p>
+              <div
+                class="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-body-sm text-destructive"
+                role="alert"
+              >
+                {error}
+              </div>
             {/if}
-            <button
-              class="rounded-full bg-primary py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
-              disabled={loading}
-              type="submit"
-            >
+            <Button type="submit" variant="default" size="lg" class="w-full" {loading} disabled={loading}>
               {loading ? m.onboarding_sending() : m.onboarding_sendVerification()}
-            </button>
-            <button
-              class="rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent"
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
               onclick={() => {
                 mode = "choose";
                 error = "";
               }}
-              type="button"
             >
               {m.onboarding_back()}
-            </button>
+            </Button>
           </form>
         {/if}
       </div>
     {/if}
 
     {#if mode === "general"}
-      <form class="mt-6 flex flex-col gap-4" onsubmit={handleGeneralSubmit}>
-        <label class="flex flex-col gap-1 text-sm">
-          {m.onboarding_usernameLabel()}
-          <input
-            class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
+      <form class="flex flex-col gap-4" onsubmit={handleGeneralSubmit}>
+        <FormField label={m.onboarding_usernameLabel()} for="general-username" required>
+          <Input
+            id="general-username"
             maxlength={64}
             oninput={(e) => (username = (e.target as HTMLInputElement).value)}
             pattern={USERNAME_INPUT_PATTERN}
@@ -257,28 +256,30 @@
             type="text"
             value={username}
           />
-        </label>
+        </FormField>
         {#if error}
-          <p class="text-sm text-red-600">{error}</p>
+          <div
+            class="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-body-sm text-destructive"
+            role="alert"
+          >
+            {error}
+          </div>
         {/if}
-        <button
-          class="rounded-full bg-primary py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
-          disabled={loading}
-          type="submit"
-        >
+        <Button type="submit" variant="default" size="lg" class="w-full" {loading} disabled={loading}>
           {loading ? m.onboarding_saving() : m.onboarding_continue()}
-        </button>
-        <button
-          class="rounded-full border border-border py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-accent"
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="default"
           onclick={() => {
             mode = "choose";
             error = "";
           }}
-          type="button"
         >
           {m.onboarding_back()}
-        </button>
+        </Button>
       </form>
     {/if}
-  </div>
+  </Card>
 </div>

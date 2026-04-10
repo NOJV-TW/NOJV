@@ -49,7 +49,8 @@ vi.mock("@nojv/db", () => {
       withTx: () => statementWithTx
     },
     problemWorkspaceFileRepo: {
-      withTx: () => workspaceWithTx
+      withTx: () => workspaceWithTx,
+      findByProblemId: vi.fn().mockResolvedValue([])
     },
     testcaseSetRepo: { withTx: () => ({}) },
     testcaseRepo: { withTx: () => ({}) },
@@ -67,7 +68,6 @@ const fakeTx = {} as never;
 const baseInput = {
   authorId: "usr_1",
   difficulty: "easy" as const,
-  summary: "",
   title: "Test Problem"
 };
 
@@ -77,59 +77,71 @@ describe("createProblemDefinition", () => {
     problemCreate.mockResolvedValue({ id: "prob_1" });
   });
 
-  it("defaults mode to standard and leaves advanced fields null", async () => {
+  it("defaults type to full_source and leaves special_env fields unset", async () => {
     await createProblemDefinition(fakeTx, baseInput);
 
     expect(problemCreate).toHaveBeenCalledTimes(1);
     const data = problemCreate.mock.calls[0][0];
-    expect(data.mode).toBe("standard");
+    expect(data.type).toBe("full_source");
     expect(data.samples).toBe(PRISMA_JSON_NULL);
     expect(data.advancedImageRef).toBeUndefined();
     expect(data.advancedImageSource).toBeUndefined();
-    expect(data.advancedResourceLimits).toBe(PRISMA_JSON_NULL);
+    expect(data.networkEnabled).toBe(false);
   });
 
-  it("honors mode: 'advanced' explicitly passed by the caller", async () => {
-    await createProblemDefinition(fakeTx, { ...baseInput, mode: "advanced" });
+  it("honors type: 'special_env' explicitly passed by the caller", async () => {
+    await createProblemDefinition(fakeTx, { ...baseInput, type: "special_env" });
 
     const data = problemCreate.mock.calls[0][0];
-    expect(data.mode).toBe("advanced");
+    expect(data.type).toBe("special_env");
   });
 
-  it("applies advanced defaults when mode is advanced and fields omitted", async () => {
-    await createProblemDefinition(fakeTx, { ...baseInput, mode: "advanced" });
+  it("applies special_env defaults when type is special_env and fields omitted", async () => {
+    await createProblemDefinition(fakeTx, { ...baseInput, type: "special_env" });
 
     const data = problemCreate.mock.calls[0][0];
     expect(data.advancedImageRef).toBe("");
     expect(data.advancedImageSource).toBe("registry");
-    expect(data.advancedResourceLimits).toEqual({
-      totalTimeMs: 30_000,
-      memoryMb: 512,
-      networkEnabled: false
-    });
+    expect(data.networkEnabled).toBe(false);
   });
 
-  it("preserves caller-supplied advanced fields when provided", async () => {
+  it("preserves caller-supplied special_env fields when provided", async () => {
     await createProblemDefinition(fakeTx, {
       ...baseInput,
-      mode: "advanced",
+      type: "special_env",
       advancedImageRef: "ghcr.io/acme/ta:1.2.3",
       advancedImageSource: "tarball",
-      advancedResourceLimits: {
-        totalTimeMs: 60_000,
-        memoryMb: 1024,
-        networkEnabled: true
-      }
+      networkEnabled: true
     });
 
     const data = problemCreate.mock.calls[0][0];
     expect(data.advancedImageRef).toBe("ghcr.io/acme/ta:1.2.3");
     expect(data.advancedImageSource).toBe("tarball");
-    expect(data.advancedResourceLimits).toEqual({
-      totalTimeMs: 60_000,
-      memoryMb: 1024,
-      networkEnabled: true
+    expect(data.networkEnabled).toBe(true);
+  });
+
+  it("merges difficulty into the tag list", async () => {
+    await createProblemDefinition(fakeTx, {
+      ...baseInput,
+      difficulty: "hard",
+      tags: ["graph", "dp"]
     });
+
+    const data = problemCreate.mock.calls[0][0];
+    // Difficulty tag is prepended; pre-existing non-difficulty tags follow.
+    expect(data.tags).toEqual(["hard", "graph", "dp"]);
+  });
+
+  it("strips a stale difficulty tag from the input list before re-adding the canonical one", async () => {
+    await createProblemDefinition(fakeTx, {
+      ...baseInput,
+      difficulty: "medium",
+      tags: ["easy", "graph"]
+    });
+
+    const data = problemCreate.mock.calls[0][0];
+    // The "easy" passed in tags is stripped; "medium" from difficulty wins.
+    expect(data.tags).toEqual(["medium", "graph"]);
   });
 });
 

@@ -135,14 +135,14 @@
 
 <div class="space-y-4">
   <!-- ─── Judge Type ───────────────────────── -->
-  <div class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-semibold">Judge type</h3>
-    <p class="mt-0.5 text-xs text-muted-foreground">
+  <div class="rounded-xl border border-border-subtle p-4">
+    <h3 class="text-body-sm font-semibold">Judge type</h3>
+    <p class="mt-0.5 text-caption text-muted-foreground">
       How each testcase is evaluated.
     </p>
 
     <div class="mt-3 flex gap-4">
-      <label class="flex items-center gap-2 text-sm">
+      <label class="flex items-center gap-2 text-body-sm">
         <input
           type="radio"
           class="accent-primary"
@@ -153,7 +153,7 @@
         />
         <span>Standard (stdin/stdout diff)</span>
       </label>
-      <label class="flex items-center gap-2 text-sm">
+      <label class="flex items-center gap-2 text-body-sm">
         <input
           type="radio"
           class="accent-primary"
@@ -164,7 +164,7 @@
         />
         <span>Checker script</span>
       </label>
-      <label class="flex items-center gap-2 text-sm">
+      <label class="flex items-center gap-2 text-body-sm">
         <input
           type="radio"
           class="accent-primary"
@@ -180,7 +180,7 @@
     <!-- Standard: compare mode -->
     {#if judgeType === "standard"}
       <div class="mt-4 space-y-3">
-        <label class="text-xs text-muted-foreground">
+        <label class="text-caption text-muted-foreground">
           <span>Compare mode</span>
           <select
             class={inputClassName}
@@ -199,7 +199,7 @@
 
         {#if compareMode === "float"}
           <div class="grid gap-3 md:grid-cols-2">
-            <label class="text-xs text-muted-foreground">
+            <label class="text-caption text-muted-foreground">
               <span>Absolute tolerance</span>
               <input
                 class={inputClassName}
@@ -208,7 +208,7 @@
                 bind:value={floatAbsTol}
               />
             </label>
-            <label class="text-xs text-muted-foreground">
+            <label class="text-caption text-muted-foreground">
               <span>Relative tolerance</span>
               <input
                 class={inputClassName}
@@ -219,10 +219,10 @@
             </label>
           </div>
         {:else if compareMode === "regex_filter"}
-          <label class="text-xs text-muted-foreground">
+          <label class="text-caption text-muted-foreground">
             <span>Ignore lines matching (one regex per line)</span>
             <textarea
-              class="{inputClassName} min-h-20 font-mono text-xs"
+              class="{inputClassName} min-h-20 font-mono text-caption"
               placeholder={"^Please enter.*\n^> .*"}
               bind:value={ignoreLinePatternsText}
             ></textarea>
@@ -231,7 +231,7 @@
       </div>
     {:else if judgeType === "checker"}
       <div class="mt-4 space-y-3">
-        <label class="text-xs text-muted-foreground">
+        <label class="text-caption text-muted-foreground">
           <span>Language</span>
           <select
             class={inputClassName}
@@ -257,7 +257,7 @@
       </div>
     {:else if judgeType === "interactive"}
       <div class="mt-4 space-y-3">
-        <label class="text-xs text-muted-foreground">
+        <label class="text-caption text-muted-foreground">
           <span>Interactor language</span>
           <select
             class={inputClassName}
@@ -285,22 +285,22 @@
   </div>
 
   <!-- ─── Subtask Scoring ───────────────────── -->
-  <div class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-semibold">Subtask scoring</h3>
-    <p class="mt-0.5 text-xs text-muted-foreground">
+  <div class="rounded-xl border border-border-subtle p-4">
+    <h3 class="text-body-sm font-semibold">Subtask scoring</h3>
+    <p class="mt-0.5 text-caption text-muted-foreground">
       How each graded set contributes to the final score.
     </p>
 
     {#if testcaseSets.filter((s) => s.weight > 0).length === 0}
-      <p class="mt-3 text-sm text-muted-foreground">
+      <p class="mt-3 text-body-sm text-muted-foreground">
         No graded testcase sets yet. Create one in the Testcases tab.
       </p>
     {:else}
       <div class="mt-3 space-y-2">
         {#each testcaseSets.filter((s) => s.weight > 0) as set (set.id)}
-          <div class="flex items-center gap-3 rounded-xl border border-border px-3 py-2">
-            <span class="text-sm font-medium">{set.name}</span>
-            <span class="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+          <div class="flex items-center gap-3 rounded-lg border border-border-subtle px-3 py-2">
+            <span class="text-body-sm font-medium">{set.name}</span>
+            <span class="rounded-full bg-primary/10 px-2 py-0.5 text-caption font-medium text-primary tabular-nums">
               {set.weight} pts
             </span>
             <select
@@ -325,9 +325,9 @@
       </div>
 
       {#if formulaPreview}
-        <div class="mt-3 rounded-xl bg-muted/50 px-3 py-2">
-          <span class="text-xs text-muted-foreground">Total score = </span>
-          <span class="text-xs font-mono">{formulaPreview}</span>
+        <div class="mt-3 rounded-lg bg-muted/50 px-3 py-2">
+          <span class="text-caption text-muted-foreground">Total score = </span>
+          <span class="text-caption font-mono">{formulaPreview}</span>
         </div>
       {/if}
     {/if}
@@ -337,7 +337,7 @@
   <div class="mt-2 flex justify-end">
     <div class="flex items-center gap-3">
       <button
-        class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+        class="inline-flex w-fit rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
         disabled={saving}
         type="button"
         onclick={() => void handleSave()}
@@ -345,9 +345,9 @@
         {saving ? m.common_saving() : m.common_saveSettings()}
       </button>
       {#if saveMessage === "saved"}
-        <span class="text-sm text-emerald-600 dark:text-emerald-400">{m.admin_saved()}</span>
+        <span class="text-body-sm text-success">{m.admin_saved()}</span>
       {:else if saveMessage === "error"}
-        <span class="text-sm text-red-600 dark:text-red-400">{m.admin_saveFailed()}</span>
+        <span class="text-body-sm text-destructive">{m.admin_saveFailed()}</span>
       {/if}
     </div>
   </div>

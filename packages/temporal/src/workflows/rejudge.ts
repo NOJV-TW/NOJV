@@ -14,13 +14,11 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   let total = 0;
   setHandler(getProgressQuery, () => ({ completed, total }));
 
-  // 1. Fetch submission IDs to rejudge
   const submissionIds = await judge.fetchSubmissionIdsForRejudge(input);
 
   total = submissionIds.length;
   if (total === 0) return;
 
-  // 2. Fan out child workflows with controlled concurrency
   const BATCH_SIZE = 10;
   for (let i = 0; i < submissionIds.length; i += BATCH_SIZE) {
     const batch = submissionIds.slice(i, i + BATCH_SIZE);

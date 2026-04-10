@@ -12,15 +12,12 @@ const { updateProblemRecord } = problemDomain;
 const MAX_SIZE = 2 * 1024 * 1024 * 1024;
 
 /**
- * Detect a Docker tarball by its magic bytes. `docker save` emits a
- * POSIX tar archive whose first entry is usually a directory entry for
- * a SHA256 hex digest. We only do a coarse check here — the worker
- * does a proper `docker load --dry-run`-style validation before the
- * image is used.
+ * Coarse tar sniff — the worker runs a proper `docker load` validation
+ * before the image is ever used, so all we need here is a fast reject
+ * for obviously-wrong uploads.
  */
 function looksLikeTar(buffer: Buffer): boolean {
   if (buffer.length < 512) return false;
-  // tar "ustar" magic at offset 257 (POSIX tar)
   const magic = buffer.subarray(257, 262).toString("utf8");
   return magic === "ustar";
 }
@@ -35,7 +32,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
-  // Per-problem ownership check: role alone is insufficient.
   await problemDomain.assertProblemEditAccess(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
     problemId
@@ -58,9 +54,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const client = createStorageClient();
   const key = await uploadAdvancedImageTarball(client, problemId, buffer);
 
-  // Persist the storage key on the Problem row. The worker's advanced
-  // executor resolves this key, streams the tarball to disk, and runs
-  // `docker load` before dispatching the judge image.
   await updateProblemRecord(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
     problemId,

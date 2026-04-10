@@ -6,25 +6,20 @@ import { canEditProblem, problemDomain } from "@nojv/domain";
 import { createStorageClient, uploadProblemImage } from "@nojv/storage";
 
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_SIZE = 5 * 1024 * 1024;
 
-/** Detect image type from magic bytes. Returns MIME type or null. */
 function detectImageType(buffer: Buffer): string | null {
   if (buffer.length < 12) return null;
 
-  // PNG: 89 50 4E 47
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
     return "image/png";
   }
-  // JPEG: FF D8 FF
   if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
     return "image/jpeg";
   }
-  // GIF: 47 49 46 38 ("GIF8")
   if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
     return "image/gif";
   }
-  // WebP: RIFF....WEBP
   if (
     buffer[0] === 0x52 &&
     buffer[1] === 0x49 &&
@@ -51,8 +46,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
-  // Per-problem ownership check: role alone is insufficient — a teacher must
-  // own the problem (or be an admin) to upload images for it.
   await problemDomain.assertProblemEditAccess(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
     problemId

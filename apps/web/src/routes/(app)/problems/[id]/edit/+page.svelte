@@ -9,6 +9,8 @@
   import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/problem/sections/WorkspaceSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Button } from "$lib/components/ui/button";
 
   let { data } = $props();
 
@@ -93,30 +95,29 @@
 
 <div class="mx-auto max-w-4xl space-y-6">
   <div class="flex items-center gap-3">
-    <h2 class="font-[family-name:var(--font-display)] text-3xl">
+    <h1 class="font-display text-title-lg">
       {data.problem.title === "Untitled Problem" ? m.admin_createProblem() : data.problem.title}
-    </h2>
+    </h1>
     {#if data.problem.status === "draft"}
-      <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-        Draft
-      </span>
+      <Badge variant="warning" size="md">Draft</Badge>
     {/if}
     {#if data.problem.status === "draft"}
-      <button
-        class="ml-auto rounded-full border border-red-300 px-4 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+      <Button
+        class="ml-auto"
+        variant="outline"
+        size="sm"
         disabled={deleting}
-        type="button"
         onclick={() => (showDeleteConfirm = true)}
       >
         {deleting ? m.common_deleting() : m.common_delete()}
-      </button>
+      </Button>
     {/if}
   </div>
 
   <ProblemSections
     bind:activeSection
     showPublish={data.problem.status === "draft"}
-    showConvertToAdvanced={data.problem.problemType !== "special_env"}
+    showConvertToAdvanced={data.problem.type !== "special_env"}
     {canPublish}
     {publishing}
     {basicInfoComplete}

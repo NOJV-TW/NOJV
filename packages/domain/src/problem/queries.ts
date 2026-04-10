@@ -7,22 +7,18 @@ import {
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
-  deriveProblemType,
   judgeConfigSchema,
   problemDifficultySchema,
-  submissionTypeSchema,
   type JudgeConfig,
   type JudgeType,
   type ProblemDifficulty,
   type ProblemImageSource,
-  type ProblemMode,
   type ProblemStatus,
   type ProblemType,
-  type ProblemVisibility,
-  type SubmissionType
+  type ProblemVisibility
 } from "@nojv/core";
 
-// ─── Types ──────────────────────────────────────────────────────────
+import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -34,31 +30,18 @@ export interface ProblemDetail {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  /**
-   * Derived, UI-facing category for the problem shape. Replaces the
-   * legacy `mode` + `submissionType` pair on the client — `special_env`
-   * is equivalent to the DB's `mode === "advanced"`, and the other
-   * three categories carry all the distinctions that used to live in
-   * `submissionType` plus the multi-file signal.
-   */
-  problemType: ProblemType;
+  /** Direct column on Problem; the single source of truth for shape. */
+  type: ProblemType;
   samples: { stdin: string; expected: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;
-  submissionType: SubmissionType;
-  summary: string;
   tags: string[];
   timeLimitMs: number;
   title: string;
   totalSubmissions: number;
   visibility: ProblemVisibility;
-  /**
-   * Workspace files for the student editor. `"hidden"` files are included
-   * (so the UI can show their metadata, e.g. description) but their `content`
-   * is always `""` — raw hidden content must never leave the server. The
-   * judge pipeline reads hidden content directly from the DB.
-   */
+  // Hidden files ship with `content === ""`; raw hidden content must never leave the server.
   workspaceFiles: {
     language: string;
     path: string;
@@ -67,20 +50,12 @@ export interface ProblemDetail {
     editableRegions: [number, number][] | null;
     description: string;
   }[];
-  // Phase 7: advanced-mode metadata
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
-  advancedResourceLimits: {
-    totalTimeMs: number;
-    memoryMb: number;
-    networkEnabled: boolean;
-  } | null;
+  networkEnabled: boolean;
 }
 
-/**
- * Default starter code per language. Duplicated from apps/web/src/lib/types.ts
- * to avoid pulling UI-layer dependencies into the domain package.
- */
+// Duplicated from apps/web/src/lib/types.ts to avoid a UI→domain import.
 const starterByLanguage: Record<string, string> = {
   c: `#include <stdio.h>
 
@@ -119,14 +94,14 @@ fn main() {
   python: ``
 };
 
-// ─── Schema parse helpers ───────────────────────────────────────────
-
-const parseDifficulty = (v: unknown) => problemDifficultySchema.catch("medium").parse(v);
-const parseSubmissionType = (v: unknown) => submissionTypeSchema.catch("full_source").parse(v);
-
-import { pickProblemStatement } from "../shared/pick-problem-statement";
-
-// ─── Internal helpers ───────────────────────────────────────────────
+// Difficulty lives inside `Problem.tags` as one of "easy" / "medium" / "hard".
+function pickDifficultyFromTags(tags: string[]): ProblemDifficulty {
+  for (const tag of tags) {
+    const parsed = problemDifficultySchema.safeParse(tag);
+    if (parsed.success) return parsed.data;
+  }
+  return "medium";
+}
 
 function buildProblemSamples(problem: {
   samples?: unknown;
@@ -143,17 +118,7 @@ function buildProblemSamples(problem: {
     .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
-/**
- * Build the starter-code map shown in the student editor.
- *
- * For each language in the hardcoded fallback table: if the problem has at
- * least one `editable` workspace file for that language, use the content of
- * the first one (already ordered by `orderIndex`, then `path` from the repo
- * layer). Otherwise fall back to the hardcoded stub.
- *
- * The hardcoded map is retained as a fallback for problems that haven't been
- * migrated to the workspace-file model.
- */
+// Per language: use the first editable workspace file if any, else the hardcoded stub.
 function buildStarterByLanguage(
   workspaceFiles: { language: string; path: string; visibility: string; content: string }[] = []
 ): Record<string, string> {
@@ -169,11 +134,7 @@ function buildStarterByLanguage(
   return result;
 }
 
-/**
- * Runtime-parse `ProblemWorkspaceFile.editableRegions`. The column is
- * stored as `Json?` so we can't trust the structural type. Returns `null`
- * (whole file editable) on any malformed input.
- */
+// `editableRegions` is `Json?` at the DB layer; return null (whole-file editable) on bad input.
 function parseEditableRegions(raw: unknown): [number, number][] | null {
   if (raw === null || raw === undefined) return null;
   if (!Array.isArray(raw)) return null;
@@ -192,8 +153,7 @@ function parseEditableRegions(raw: unknown): [number, number][] | null {
 function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
-    defaultTitle: string;
-    difficulty: string;
+    title: string;
     id: string;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
@@ -205,16 +165,14 @@ function mapPersistedProblemDetail(
       outputFormat?: string;
       title: string;
     }[];
-    submissionType?: string;
-    summary: string;
     tags?: string[];
     status?: string;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
-    mode?: ProblemMode | null;
+    type?: ProblemType;
+    networkEnabled?: boolean;
     advancedImageRef?: string | null;
     advancedImageSource?: ProblemImageSource | null;
-    advancedResourceLimits?: unknown;
     workspaceFiles?: {
       language: string;
       path: string;
@@ -229,14 +187,8 @@ function mapPersistedProblemDetail(
   totalSubmissions: number,
   acceptedCount: number
 ): ProblemDetail {
-  const localized = pickProblemStatement(
-    problem.statements,
-    locale,
-    problem.defaultTitle,
-    problem.summary
-  );
-
-  const submissionType = parseSubmissionType(problem.submissionType);
+  const tags = problem.tags ?? [];
+  const localized = pickProblemStatement(problem.statements, locale, problem.title, "");
 
   const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "standard"
@@ -258,30 +210,22 @@ function mapPersistedProblemDetail(
     };
   });
 
-  const problemType = deriveProblemType({
-    mode: problem.mode ?? "standard",
-    submissionType,
-    workspaceFileCount: (problem.workspaceFiles ?? []).length
-  });
-
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
-    difficulty: parseDifficulty(problem.difficulty),
+    difficulty: pickDifficultyFromTags(tags),
     id: problem.id,
     inputFormat: localized.inputFormat,
     judgeConfig,
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
-    problemType,
+    type: problem.type ?? "full_source",
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
-    submissionType,
-    summary: problem.summary.trim().length > 0 ? problem.summary : localized.statement,
-    tags: problem.tags ?? [],
+    tags,
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
     totalSubmissions,
@@ -289,23 +233,9 @@ function mapPersistedProblemDetail(
     workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
     advancedImageSource: problem.advancedImageSource ?? null,
-    advancedResourceLimits: parseAdvancedResourceLimits(problem.advancedResourceLimits)
+    networkEnabled: problem.networkEnabled ?? false
   };
 }
-
-function parseAdvancedResourceLimits(
-  raw: unknown
-): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const obj = raw as Record<string, unknown>;
-  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
-  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
-  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
-  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
-  return { totalTimeMs, memoryMb, networkEnabled };
-}
-
-// ─── Public query functions ─────────────────────────────────────────
 
 export interface ProblemListParams {
   difficulty?: string | undefined;
@@ -323,7 +253,7 @@ export interface ProblemCardWithStatus {
   difficulty: string;
   id: string;
   judgeType: JudgeType;
-  problemType: ProblemType;
+  type: ProblemType;
   status: ProblemUserStatus;
   tags: string[];
   title: string;
@@ -360,12 +290,12 @@ export async function listProblemCards(
     where.id = { in: [...allIds] };
   }
 
-  // Difficulty filter
+  // Difficulty filter — difficulty is now stored as a tag.
   if (params.difficulty && params.difficulty !== "all") {
-    where.difficulty = params.difficulty;
+    where.tags = { has: params.difficulty };
   }
 
-  // Tag filter
+  // Tag filter (intersected with difficulty if both are provided).
   if (params.tags && params.tags.length > 0) {
     where.tags = { hasEvery: params.tags };
   }
@@ -408,21 +338,15 @@ export async function listProblemCards(
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const
     };
-    const submissionType = parseSubmissionType(problem.submissionType);
-    const problemType = deriveProblemType({
-      mode: problem.mode,
-      submissionType,
-      workspaceFileCount: problem._count.workspaceFiles
-    });
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
-      difficulty: parseDifficulty(problem.difficulty),
+      difficulty: pickDifficultyFromTags(problem.tags),
       id: problem.id,
       judgeType: judgeConfig.type,
-      problemType,
+      type: problem.type,
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
-      title: problem.defaultTitle,
+      title: problem.title,
       totalSubmissions: total
     };
   });
@@ -437,20 +361,14 @@ export async function listEditableProblems(userId: string) {
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const
     };
-    const submissionType = parseSubmissionType(problem.submissionType);
-    const problemType = deriveProblemType({
-      mode: problem.mode,
-      submissionType,
-      workspaceFileCount: problem._count.workspaceFiles
-    });
     return {
-      difficulty: parseDifficulty(problem.difficulty),
+      difficulty: pickDifficultyFromTags(problem.tags),
       id: problem.id,
       judgeType: judgeConfig.type,
-      problemType,
+      type: problem.type,
       status: problem.status,
       tags: problem.tags,
-      title: problem.defaultTitle,
+      title: problem.title,
       visibility: problem.visibility
     };
   });

@@ -18,6 +18,10 @@
   import EChart from "$lib/components/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
   import { onMount } from "svelte";
+  import Section from "$lib/components/ui/Section.svelte";
+  import StatCard from "$lib/components/ui/StatCard.svelte";
+  import { Card } from "$lib/components/ui/card";
+  import { Badge } from "$lib/components/ui/badge";
 
   let { data }: { data: any } = $props();
 
@@ -209,167 +213,167 @@
   }
 </script>
 
-<div class="space-y-6">
-  <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h2 class="inline-flex items-center gap-2 text-xl font-semibold">
-          <Activity class="h-4 w-4 text-muted-foreground" />
-          {t("overview")}
-        </h2>
-        <p class="mt-1 text-sm text-muted-foreground">{t("overviewSubtitle")}</p>
-      </div>
-      <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
-        <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
-          <Languages class="h-3.5 w-3.5" />
-          {t("systemText")}
-        </span>
-        <button
-          type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
-          onclick={() => setUiLang("zh")}
-        >
-          {t("zh")}
-        </button>
-        <button
-          type="button"
-          class="rounded-full px-3 py-1 text-xs font-medium {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}"
-          onclick={() => setUiLang("en")}
-        >
-          {t("english")}
-        </button>
-      </div>
+<Section class="space-y-6">
+  {#snippet header()}
+    <h2 class="inline-flex items-center gap-2">
+      <Activity class="h-5 w-5 text-muted-foreground" />
+      {t("overview")}
+    </h2>
+    <p>{t("overviewSubtitle")}</p>
+  {/snippet}
+  {#snippet actions()}
+    <div class="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-muted/30 p-1">
+      <span class="inline-flex items-center gap-1 px-2 text-caption text-muted-foreground">
+        <Languages class="h-3.5 w-3.5" />
+        {t("systemText")}
+      </span>
+      <button
+        type="button"
+        class="min-h-9 rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => setUiLang("zh")}
+      >
+        {t("zh")}
+      </button>
+      <button
+        type="button"
+        class="min-h-9 rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}"
+        onclick={() => setUiLang("en")}
+      >
+        {t("english")}
+      </button>
     </div>
-  </section>
+  {/snippet}
 
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-        <Users class="h-3.5 w-3.5" /> {t("users")}
-      </p>
-      <p class="mt-1 text-2xl font-semibold">{data.kpi.totalUsers}</p>
-      <p class="text-xs text-muted-foreground">{data.kpi.disabledUsers} {t("disabled")}</p>
-    </div>
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-        <BookOpen class="h-3.5 w-3.5" /> {t("coursesAssets")}
-      </p>
-      <p class="mt-1 text-2xl font-semibold">{data.kpi.totalCourses}</p>
-      <p class="text-xs text-muted-foreground">{t("coursesLabel")} / {data.kpi.totalProblems} {t("problemsLabel")}</p>
-    </div>
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-        <Trophy class="h-3.5 w-3.5" /> {t("events")}
-      </p>
-      <p class="mt-1 text-2xl font-semibold">{data.kpi.totalAssessments}</p>
-      <p class="text-xs text-muted-foreground">assessments / {data.kpi.totalContests} contests</p>
-    </div>
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-        <CheckCircle2 class="h-3.5 w-3.5" /> {t("acceptedRate7d")}
-      </p>
-      <p class="mt-1 text-2xl font-semibold">{data.kpi.acceptedRate7d}%</p>
-      <p class="text-xs text-muted-foreground">{data.kpi.submissions7dTotal} {t("submissionsIn7d")}</p>
-    </div>
+    <StatCard
+      label={t("users")}
+      value={data.kpi.totalUsers}
+      icon={Users}
+    />
+    <StatCard
+      label={t("coursesAssets")}
+      value={data.kpi.totalCourses}
+      icon={BookOpen}
+    />
+    <StatCard
+      label={t("events")}
+      value={data.kpi.totalAssessments}
+      icon={Trophy}
+    />
+    <StatCard
+      label={t("acceptedRate7d")}
+      value={`${data.kpi.acceptedRate7d}%`}
+      icon={CheckCircle2}
+    />
   </section>
 
   <section class="grid gap-4 xl:grid-cols-3">
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4 xl:col-span-2">
-      <div class="mb-2 flex items-center justify-between">
-        <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+    <Card variant="surface" size="md" class="xl:col-span-2">
+      <div class="flex items-center justify-between">
+        <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
           <BarChart3 class="h-3.5 w-3.5" /> {t("submissionTrend")}
         </h2>
-        <span class="text-xs text-muted-foreground">{t("last14d")}</span>
+        <span class="text-caption text-muted-foreground">{t("last14d")}</span>
       </div>
       <EChart option={dailyOption} class="h-70 w-full" />
-    </div>
+    </Card>
 
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        <ShieldCheck class="h-3.5 w-3.5" /> {t("health")}
-      </h2>
-      <p class="mt-1 text-xs text-muted-foreground">{t("healthSubtitle")}</p>
-      <div class="mt-3 space-y-2 text-sm">
-        <div class="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+    <Card variant="surface" size="md">
+      <div>
+        <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
+          <ShieldCheck class="h-3.5 w-3.5" /> {t("health")}
+        </h2>
+        <p class="mt-1 text-caption text-muted-foreground">{t("healthSubtitle")}</p>
+      </div>
+      <div class="space-y-2 text-body-sm">
+        <div class="flex items-center justify-between rounded-sm border border-border-subtle px-3 py-2">
           <span class="inline-flex items-center gap-1"><Database class="h-3.5 w-3.5" /> {t("database")}</span>
-          <span class={data.dbOk ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
-            {data.dbOk ? t("connected") : t("disconnected")}
-          </span>
+          {#if data.dbOk}
+            <Badge variant="success" size="sm" dot>{t("connected")}</Badge>
+          {:else}
+            <Badge variant="destructive" size="sm" dot>{t("disconnected")}</Badge>
+          {/if}
         </div>
       </div>
-    </div>
+    </Card>
   </section>
 
   <section class="grid gap-4 xl:grid-cols-2">
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        <Users class="h-3.5 w-3.5" /> {t("userRoleDist")}
-      </h2>
-      <p class="mt-1 text-xs text-muted-foreground">{t("roleSubtitle")}</p>
-      <EChart option={roleOption} class="mt-2 h-60 w-full" />
-    </div>
+    <Card variant="surface" size="md">
+      <div>
+        <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
+          <Users class="h-3.5 w-3.5" /> {t("userRoleDist")}
+        </h2>
+        <p class="mt-1 text-caption text-muted-foreground">{t("roleSubtitle")}</p>
+      </div>
+      <EChart option={roleOption} class="h-60 w-full" />
+    </Card>
 
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-        <PieChart class="h-3.5 w-3.5" /> {t("statusDist")}
-      </h2>
-      <p class="mt-1 text-xs text-muted-foreground">{t("statusSubtitle")}</p>
-      <EChart option={statusOption} class="mt-2 h-60 w-full" />
-    </div>
+    <Card variant="surface" size="md">
+      <div>
+        <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
+          <PieChart class="h-3.5 w-3.5" /> {t("statusDist")}
+        </h2>
+        <p class="mt-1 text-caption text-muted-foreground">{t("statusSubtitle")}</p>
+      </div>
+      <EChart option={statusOption} class="h-60 w-full" />
+    </Card>
   </section>
 
   <section class="grid gap-4 xl:grid-cols-2">
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+    <Card variant="surface" size="md">
+      <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
         <AlertTriangle class="h-3.5 w-3.5" /> {t("topFailing")}
       </h2>
       {#if data.topFailingProblems.length === 0}
-        <p class="mt-3 text-sm text-muted-foreground">{t("noTopFail")}</p>
+        <p class="text-body-sm text-muted-foreground">{t("noTopFail")}</p>
       {:else}
-        <ul class="mt-3 space-y-2">
+        <ul class="space-y-2">
           {#each data.topFailingProblems as row (row.problemId)}
-            <li class="rounded-lg border border-border px-3 py-2 text-sm">
+            <li class="rounded-sm border border-border-subtle px-3 py-2 text-body-sm">
               <div class="flex items-center justify-between gap-3">
                 <a class="truncate font-medium hover:underline" href="/problems/{row.id}">
                   {row.title}
                 </a>
-                <span class="shrink-0 text-xs text-muted-foreground">{row.errorCount} errors</span>
+                <span class="shrink-0 text-caption text-muted-foreground">{row.errorCount} errors</span>
               </div>
             </li>
           {/each}
         </ul>
       {/if}
-    </div>
+    </Card>
 
-    <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+    <Card variant="surface" size="md">
+      <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
         <Bug class="h-3.5 w-3.5" /> {t("recentErrors")}
       </h2>
       {#if data.recentErrors.length === 0}
-        <p class="mt-3 text-sm text-muted-foreground">{t("noRecentErrors")}</p>
+        <p class="text-body-sm text-muted-foreground">{t("noRecentErrors")}</p>
       {:else}
-        <div class="mt-3 max-h-92 overflow-auto rounded-lg border border-border">
-          <table class="w-full text-sm">
+        <div class="max-h-92 overflow-auto rounded-sm border border-border-subtle">
+          <table class="w-full text-body-sm">
             <thead>
-              <tr class="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th class="px-3 py-2">{t("time")}</th>
-                <th class="px-3 py-2">{t("problem")}</th>
-                <th class="px-3 py-2">{t("users")}</th>
-                <th class="px-3 py-2">{t("status")}</th>
+              <tr class="border-b border-border-subtle bg-muted/40 text-left text-caption uppercase tracking-wider text-muted-foreground">
+                <th class="px-3 py-2 font-medium">{t("time")}</th>
+                <th class="px-3 py-2 font-medium">{t("problem")}</th>
+                <th class="px-3 py-2 font-medium">{t("users")}</th>
+                <th class="px-3 py-2 font-medium">{t("status")}</th>
               </tr>
             </thead>
             <tbody>
               {#each data.recentErrors as row (row.id)}
-                <tr class="border-b border-border last:border-b-0">
-                  <td class="px-3 py-2 text-xs text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</td>
+                <tr class="border-b border-border-subtle last:border-b-0">
+                  <td class="px-3 py-2 text-caption text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</td>
                   <td class="px-3 py-2">
-                    <a class="hover:underline" href="/problems/{row.problem.id}">{row.problem.defaultTitle}</a>
+                    <a class="hover:underline" href="/problems/{row.problem.id}">{row.problem.title}</a>
                   </td>
-                  <td class="px-3 py-2 text-xs">{row.user.username ?? row.user.name}</td>
-                  <td class="px-3 py-2 text-xs">
-                    <span class="rounded px-1.5 py-0.5 {row.status === 'runtime_error' ? 'bg-red-500/10 text-red-700 dark:text-red-400' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'}">
-                      {row.status.replaceAll("_", " ")}
-                    </span>
+                  <td class="px-3 py-2 text-caption">{row.user.username ?? row.user.name}</td>
+                  <td class="px-3 py-2">
+                    {#if row.status === "runtime_error"}
+                      <Badge variant="verdict-re" size="xs">{row.status.replaceAll("_", " ")}</Badge>
+                    {:else}
+                      <Badge variant="warning" size="xs">{row.status.replaceAll("_", " ")}</Badge>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -377,29 +381,29 @@
           </table>
         </div>
       {/if}
-    </div>
+    </Card>
   </section>
 
-  <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-    <h2 class="inline-flex items-center gap-1 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+  <Card variant="surface" size="md">
+    <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
       <UserCog class="h-3.5 w-3.5" /> {t("roleMix")}
     </h2>
-    <div class="mt-3 grid gap-3 sm:grid-cols-3">
-      <div class="rounded-lg border border-border px-3 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("admin")}</p>
-        <p class="mt-1 text-xl font-semibold">{data.roleCounts.admin}</p>
-        <p class="text-xs text-muted-foreground">{pct(data.roleCounts.admin, data.kpi.totalUsers)}</p>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="rounded-sm border border-border-subtle px-3 py-3">
+        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("admin")}</p>
+        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.admin}</p>
+        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.admin, data.kpi.totalUsers)}</p>
       </div>
-      <div class="rounded-lg border border-border px-3 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("teacher")}</p>
-        <p class="mt-1 text-xl font-semibold">{data.roleCounts.teacher}</p>
-        <p class="text-xs text-muted-foreground">{pct(data.roleCounts.teacher, data.kpi.totalUsers)}</p>
+      <div class="rounded-sm border border-border-subtle px-3 py-3">
+        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("teacher")}</p>
+        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.teacher}</p>
+        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.teacher, data.kpi.totalUsers)}</p>
       </div>
-      <div class="rounded-lg border border-border px-3 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("student")}</p>
-        <p class="mt-1 text-xl font-semibold">{data.roleCounts.student}</p>
-        <p class="text-xs text-muted-foreground">{pct(data.roleCounts.student, data.kpi.totalUsers)}</p>
+      <div class="rounded-sm border border-border-subtle px-3 py-3">
+        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("student")}</p>
+        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.student}</p>
+        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.student, data.kpi.totalUsers)}</p>
       </div>
     </div>
-  </section>
-</div>
+  </Card>
+</Section>

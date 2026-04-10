@@ -16,6 +16,7 @@ type SeedTestcase = {
 
 type SeedTestcaseSet = {
   cases: SeedTestcase[];
+  description?: string;
 };
 
 type SeedStatements = Record<SeedLocale, SeedStatement>;
@@ -25,9 +26,7 @@ type SeedTestcaseSets = {
   hidden: SeedTestcaseSet;
 };
 
-type SeedSubmissionType = "full_source" | "function";
-
-type SeedProblemMode = "standard" | "advanced";
+type SeedProblemType = "full_source" | "function" | "multi_file" | "special_env";
 
 type SeedWorkspaceFile = {
   language: "python" | "c" | "cpp" | "go" | "java" | "javascript" | "rust" | "typescript";
@@ -50,32 +49,24 @@ type SeedProblemSample = {
   expected: string;
 };
 
-type SeedAdvancedResourceLimits = {
-  totalTimeMs: number;
-  memoryMb: number;
-  networkEnabled: boolean;
-};
-
 type SeedProblemDef = {
   authorId: string;
-  defaultTitle: string;
-  difficulty: string;
+  title: string;
   id: string;
+  type: SeedProblemType;
+  tags?: string[];
   memoryLimitMb: number;
-  summary: string;
   timeLimitMs: number;
   visibility: "public" | "private";
   statements: SeedStatements;
   testcases?: SeedTestcaseSets;
-  submissionType?: SeedSubmissionType;
   judgeConfig?: Record<string, unknown>;
   status?: "draft" | "published";
   samples?: SeedProblemSample[];
   workspaceFiles?: SeedWorkspaceFile[];
-  mode?: SeedProblemMode;
+  networkEnabled?: boolean;
   advancedImageSource?: "registry" | "tarball";
   advancedImageRef?: string;
-  advancedResourceLimits?: SeedAdvancedResourceLimits;
   advancedTestcases?: SeedAdvancedTestcase[];
 };
 
@@ -98,19 +89,25 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
       throw new Error(`Missing required locales for problem: ${def.id}`);
     }
 
-    if (def.mode === "advanced") {
+    if (def.type === "special_env") {
       if (!def.advancedTestcases || def.advancedTestcases.length === 0) {
-        throw new Error(`Advanced-mode problem must declare advancedTestcases: ${def.id}`);
+        throw new Error(`special_env problem must declare advancedTestcases: ${def.id}`);
       }
       if (!def.advancedImageRef || !def.advancedImageSource) {
-        throw new Error(`Advanced-mode problem must declare image ref + source: ${def.id}`);
+        throw new Error(`special_env problem must declare image ref + source: ${def.id}`);
       }
     } else {
       if (!def.testcases) {
-        throw new Error(`Standard-mode problem must declare testcases: ${def.id}`);
+        throw new Error(`${def.type} problem must declare testcases: ${def.id}`);
       }
       if (def.testcases.sample.cases.length === 0 || def.testcases.hidden.cases.length === 0) {
         throw new Error(`Sample/hidden testcase sets must be non-empty: ${def.id}`);
+      }
+    }
+
+    if (def.type === "multi_file") {
+      if (!def.workspaceFiles || def.workspaceFiles.length < 2) {
+        throw new Error(`multi_file problem must declare >=2 workspace files: ${def.id}`);
       }
     }
 
@@ -132,8 +129,8 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
     if (!def) {
       throw new Error(`Missing hardened seed problem: ${id}`);
     }
-    if (def.difficulty !== "hard") {
-      throw new Error(`Hardened problem must be hard difficulty: ${id}`);
+    if (!def.tags?.includes("hard")) {
+      throw new Error(`Hardened problem must include "hard" tag: ${id}`);
     }
   }
 }
@@ -142,12 +139,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
   const problemDefs: SeedProblemDef[] = [
     {
       authorId: teacherId,
-      defaultTitle: "Warmup Sum",
-      difficulty: "easy",
+      title: "Warmup Sum",
+      tags: ["easy"],
+      type: "full_source" as const,
       id: "problem_warmup-sum",
       memoryLimitMb: 256,
-      summary:
-        "The sandbox-backed testcase judge uses this task to exercise the editor, queue, and submission lifecycle.",
       timeLimitMs: 1000,
       visibility: "public" as const,
       statements: {
@@ -172,6 +168,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
+          description: "Public sample cases shown on the problem page.",
           cases: [
             { stdin: "2 5", expectedStdout: "7" },
             { stdin: "0 0", expectedStdout: "0" },
@@ -179,6 +176,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           ]
         },
         hidden: {
+          description: "Hidden cases including 32-bit signed integer edges.",
           cases: [
             { stdin: "1000000 999999", expectedStdout: "1999999" },
             { stdin: "-100 -200", expectedStdout: "-300" },
@@ -189,11 +187,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
     },
     {
       authorId: teacherId,
-      defaultTitle: "Graph Docking",
-      difficulty: "medium",
+      title: "Graph Docking",
+      tags: ["medium"],
+      type: "full_source" as const,
       id: "problem_graph-docking",
       memoryLimitMb: 256,
-      summary: "A medium problem used to show richer catalog metadata on the problem page.",
       timeLimitMs: 2000,
       visibility: "public" as const,
       statements: {
@@ -218,12 +216,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
+          description: "1 ≤ N ≤ 6, simple verification cases.",
           cases: [
             { stdin: "4\n3\n4\n1\n1\n", expectedStdout: "2" },
             { stdin: "2\n1\n2\n", expectedStdout: "0" }
           ]
         },
         hidden: {
+          description: "1 ≤ N ≤ 10^6, stresses DSU/path compression.",
           cases: [
             { stdin: "6\n5\n6\n3\n3\n2\n1\n", expectedStdout: "3" },
             { stdin: "1\n1\n", expectedStdout: "0" }
@@ -233,12 +233,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
     },
     {
       authorId: teacherId,
-      defaultTitle: "Distributed Labyrinth",
-      difficulty: "hard",
+      title: "Distributed Labyrinth",
+      tags: ["hard"],
+      type: "full_source" as const,
       id: "problem_distributed-labyrinth",
       memoryLimitMb: 512,
-      summary:
-        "A hard graph problem that showcases the catalog's ability to carry richer editorial metadata and higher-difficulty workloads.",
       timeLimitMs: 3000,
       visibility: "public" as const,
       statements: {
@@ -264,12 +263,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
+          description: "Tiny mazes used to introduce the format.",
           cases: [
             { stdin: "3 3\n...\n.#.\n...\n", expectedStdout: "4" },
             { stdin: "2 2\n..\n..\n", expectedStdout: "2" }
           ]
         },
         hidden: {
+          description: "1 ≤ R, C ≤ 1000, dense and degenerate mazes.",
           cases: [
             { stdin: "5 5\n.....\n.###.\n.#.#.\n.###.\n.....\n", expectedStdout: "8" },
             { stdin: "1 1\n.\n", expectedStdout: "0" }
@@ -279,12 +280,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
     },
     {
       authorId: teacherId,
-      defaultTitle: "Process Log Parser",
-      difficulty: "medium",
+      title: "Process Log Parser",
+      tags: ["medium"],
+      type: "full_source" as const,
       id: "problem_process-log-parser",
       memoryLimitMb: 256,
-      summary:
-        "A private course problem for assignments where the public catalog should not reveal the prompt.",
       timeLimitMs: 1000,
       visibility: "private" as const,
       statements: {
@@ -313,6 +313,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
+          description: "1 ≤ N ≤ 5, demonstrates the event format.",
           cases: [
             {
               stdin: "3\nfork 1 2\nexit 2\nwait 1\n",
@@ -321,6 +322,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           ]
         },
         hidden: {
+          description: "1 ≤ N ≤ 10^5, nested fork chains.",
           cases: [
             {
               stdin: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
@@ -336,11 +338,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
     },
     {
       authorId: teacherId,
-      defaultTitle: "Fork Bomb Safeguard",
-      difficulty: "hard",
+      title: "Fork Bomb Safeguard",
+      tags: ["hard"],
+      type: "full_source" as const,
       id: "problem_fork-bomb-safeguard",
       memoryLimitMb: 512,
-      summary: "A private exam problem that should only surface inside a course assessment.",
       timeLimitMs: 2000,
       visibility: "private" as const,
       statements: {
@@ -365,12 +367,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
+          description: "Small process trees demonstrating the cost model.",
           cases: [
             { stdin: "4\n1 2\n1 3\n3 4\n", expectedStdout: "7" },
             { stdin: "2\n1 2\n", expectedStdout: "3" }
           ]
         },
         hidden: {
+          description: "2 ≤ N ≤ 10^5, deep + wide trees.",
           cases: [
             { stdin: "5\n1 2\n1 3\n3 4\n3 5\n", expectedStdout: "11" },
             { stdin: "3\n1 2\n2 3\n", expectedStdout: "6" }
@@ -380,12 +384,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
     },
     {
       authorId: teacherId,
-      defaultTitle: "Add Two Numbers",
-      difficulty: "easy",
+      title: "Add Two Numbers",
+      tags: ["easy"],
+      type: "function" as const,
       id: "problem_add-two-numbers",
       memoryLimitMb: 256,
-      submissionType: "function" as const,
-      summary: "Write a function that adds two integers.",
       timeLimitMs: 1000,
       visibility: "public" as const,
       statements: {
@@ -410,6 +413,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
+          description: "Public sample cases for the function signature.",
           cases: [
             { stdin: "1 2", expectedStdout: "3" },
             { stdin: "0 0", expectedStdout: "0" },
@@ -417,6 +421,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           ]
         },
         hidden: {
+          description: "Hidden cases including 32-bit signed integer edges.",
           cases: [
             { stdin: "1000000 999999", expectedStdout: "1999999" },
             { stdin: "-500 -700", expectedStdout: "-1200" },
@@ -427,11 +432,11 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
     },
     {
       authorId: teacherId,
-      defaultTitle: "Float Compare",
-      difficulty: "easy",
+      title: "Float Compare",
+      tags: ["easy"],
+      type: "full_source" as const,
       id: "problem_float-compare",
       memoryLimitMb: 256,
-      submissionType: "full_source" as const,
       judgeConfig: {
         type: "checker",
         checkerScript: `import sys
@@ -453,7 +458,6 @@ if __name__ == "__main__":
     main()
 `
       },
-      summary: "Compute the result with floating-point precision.",
       timeLimitMs: 1000,
       visibility: "public" as const,
       statements: {
@@ -479,12 +483,14 @@ if __name__ == "__main__":
       ],
       testcases: {
         sample: {
+          description: "Public sample cases for the floating-point judge.",
           cases: [
             { stdin: "1 3", expectedStdout: "0.333333" },
             { stdin: "1 7", expectedStdout: "0.142857" }
           ]
         },
         hidden: {
+          description: "Hidden cases evaluated by the custom checker.",
           cases: [
             { stdin: "2 3", expectedStdout: "0.666667" },
             { stdin: "355 113", expectedStdout: "3.141593" }
@@ -494,11 +500,11 @@ if __name__ == "__main__":
     },
     {
       authorId: teacherId,
-      defaultTitle: "Guess the Number",
-      difficulty: "medium",
+      title: "Guess the Number",
+      tags: ["medium"],
+      type: "full_source" as const,
       id: "problem_guess-the-number",
       memoryLimitMb: 256,
-      submissionType: "full_source" as const,
       judgeConfig: {
         type: "interactive",
         interactorScript: `import sys
@@ -535,7 +541,6 @@ if __name__ == "__main__":
     main()
 `
       },
-      summary: "Guess a hidden number using binary search with interactive I/O.",
       timeLimitMs: 2000,
       visibility: "public" as const,
       statements: {
@@ -560,12 +565,14 @@ if __name__ == "__main__":
       ],
       testcases: {
         sample: {
+          description: "Public sample secrets exercised by the interactor.",
           cases: [
             { stdin: "42", expectedStdout: "" },
             { stdin: "500000", expectedStdout: "" }
           ]
         },
         hidden: {
+          description: "Boundary secrets including 1 and 10^6.",
           cases: [
             { stdin: "1", expectedStdout: "" },
             { stdin: "1000000", expectedStdout: "" },
@@ -576,13 +583,11 @@ if __name__ == "__main__":
     },
     {
       authorId: teacherId,
-      defaultTitle: "Stateful DHCP Option Parser",
-      difficulty: "hard",
+      title: "Stateful DHCP Option Parser",
+      tags: ["hard"],
+      type: "multi_file" as const,
       id: "problem_stateful-dhcp-parser",
       memoryLimitMb: 256,
-      submissionType: "function" as const,
-      summary:
-        "Implement a resilient TLV parser over DHCP option bytes with malformed-stream handling and canonical formatting.",
       timeLimitMs: 1500,
       visibility: "public" as const,
       statements: {
@@ -702,6 +707,7 @@ if __name__ == "__main__":
       ],
       testcases: {
         sample: {
+          description: "Single sample exercising IPv4 + Ethernet codes.",
           cases: [
             {
               stdin: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
@@ -710,6 +716,7 @@ if __name__ == "__main__":
           ]
         },
         hidden: {
+          description: "Malformed payloads, multi-byte non-IP values, padding handling.",
           cases: [
             {
               stdin: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
@@ -725,13 +732,11 @@ if __name__ == "__main__":
     },
     {
       authorId: teacherId,
-      defaultTitle: "Memory Leak Forensics",
-      difficulty: "hard",
+      title: "Memory Leak Forensics",
+      tags: ["hard"],
+      type: "multi_file" as const,
       id: "problem_memory-leak-forensics",
       memoryLimitMb: 256,
-      submissionType: "function" as const,
-      summary:
-        "Analyze allocator event streams and report peak allocation, leaked block count, and invalid free attempts.",
       timeLimitMs: 2000,
       visibility: "public" as const,
       statements: {
@@ -820,6 +825,7 @@ if __name__ == "__main__":
       ],
       testcases: {
         sample: {
+          description: "Sample event streams covering basic and re-alloc-leak cases.",
           cases: [
             {
               stdin: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
@@ -832,6 +838,7 @@ if __name__ == "__main__":
           ]
         },
         hidden: {
+          description: "Mixed traces with peak tracking, leaks, and invalid frees.",
           cases: [
             {
               stdin:
@@ -848,11 +855,11 @@ if __name__ == "__main__":
     },
     {
       authorId: teacherId,
-      defaultTitle: "Noisy Oracle Hunt",
-      difficulty: "hard",
+      title: "Noisy Oracle Hunt",
+      tags: ["hard"],
+      type: "full_source" as const,
       id: "problem_noisy-oracle-hunt",
       memoryLimitMb: 256,
-      submissionType: "full_source" as const,
       judgeConfig: {
         type: "interactive",
         interactorScript: `import sys
@@ -889,8 +896,6 @@ if __name__ == "__main__":
     main()
 `
       },
-      summary:
-        "Interactive search under periodic adversarial lies: every 5th non-terminal response is inverted.",
       timeLimitMs: 2500,
       visibility: "public" as const,
       statements: {
@@ -913,12 +918,14 @@ if __name__ == "__main__":
       ],
       testcases: {
         sample: {
+          description: "Public sample secrets for the noisy oracle.",
           cases: [
             { stdin: "42", expectedStdout: "" },
             { stdin: "777777", expectedStdout: "" }
           ]
         },
         hidden: {
+          description: "Boundary secrets challenging the lie schedule.",
           cases: [
             { stdin: "1", expectedStdout: "" },
             { stdin: "1000000", expectedStdout: "" },
@@ -929,22 +936,16 @@ if __name__ == "__main__":
     },
     {
       authorId: teacherId,
-      defaultTitle: "Shell Scripting Lab",
-      difficulty: "medium",
+      title: "Shell Scripting Lab",
+      tags: ["medium"],
+      type: "special_env" as const,
       id: "problem_shell-scripting-lab",
       memoryLimitMb: 512,
-      summary:
-        "Advanced Mode demo: submit a ZIP of shell scripts that a TA-provided judge image runs against a scenario workspace.",
       timeLimitMs: 30_000,
       visibility: "public" as const,
-      mode: "advanced" as const,
+      networkEnabled: false,
       advancedImageSource: "registry" as const,
       advancedImageRef: "ghcr.io/nojv/demo-judge-shell:latest",
-      advancedResourceLimits: {
-        totalTimeMs: 30_000,
-        memoryMb: 512,
-        networkEnabled: false
-      },
       statements: {
         "zh-TW": {
           title: "Shell Scripting Lab",
@@ -983,21 +984,16 @@ if __name__ == "__main__":
   validateProblemDefinitions(problemDefs);
 
   for (const def of problemDefs) {
-    const mode = def.mode ?? "standard";
     const sharedFields = {
-      defaultTitle: def.defaultTitle,
-      difficulty: def.difficulty,
-      summary: def.summary,
-      ...("submissionType" in def && { submissionType: def.submissionType }),
+      title: def.title,
+      tags: def.tags ?? [],
+      type: def.type,
       judgeConfig: def.judgeConfig ?? undefined,
       status: def.status ?? "published",
-      mode,
       samples: def.samples ? (def.samples as unknown as object) : undefined,
+      networkEnabled: def.networkEnabled ?? false,
       advancedImageRef: def.advancedImageRef ?? null,
-      advancedImageSource: def.advancedImageSource ?? null,
-      advancedResourceLimits: def.advancedResourceLimits
-        ? (def.advancedResourceLimits as unknown as object)
-        : undefined
+      advancedImageSource: def.advancedImageSource ?? null
     };
 
     const problem = await prisma.problem.upsert({
@@ -1039,17 +1035,23 @@ if __name__ == "__main__":
       });
     }
 
-    // Upsert testcase sets (standard mode only — advanced mode uses
+    // Upsert testcase sets (standard types only — special_env uses
     // AdvancedTestcase rows via a different pipeline).
     if (def.testcases) {
-      for (const [setName, setDef] of Object.entries(def.testcases)) {
+      const setEntries = Object.entries(def.testcases);
+      for (const [index, [setName, setDef]] of setEntries.entries()) {
         const testcaseSet = await prisma.testcaseSet.upsert({
           create: {
             name: setName,
+            description: setDef.description ?? "",
+            ordinal: index,
             problemId: problem.id,
             weight: 1
           },
-          update: {},
+          update: {
+            description: setDef.description ?? "",
+            ordinal: index
+          },
           where: {
             problemId_name: {
               name: setName,
@@ -1063,11 +1065,11 @@ if __name__ == "__main__":
           where: { testcaseSetId: testcaseSet.id }
         });
 
-        for (const [index, tc] of setDef.cases.entries()) {
+        for (const [caseIndex, tc] of setDef.cases.entries()) {
           await prisma.testcase.create({
             data: {
               expectedStdout: tc.expectedStdout,
-              ordinal: index + 1,
+              ordinal: caseIndex + 1,
               stdin: tc.stdin,
               testcaseSetId: testcaseSet.id
             }
@@ -1076,9 +1078,7 @@ if __name__ == "__main__":
       }
     }
 
-    // Upsert workspace files (Phase 1 redesign: starter code + read-only
-    // helper + hidden test scaffolding for Standard Mode problems that
-    // benefit from demonstrating the editable-region UI).
+    // Upsert workspace files (multi-file scaffolds + hidden helpers).
     if (def.workspaceFiles && def.workspaceFiles.length > 0) {
       await prisma.problemWorkspaceFile.deleteMany({
         where: { problemId: problem.id }
@@ -1097,7 +1097,7 @@ if __name__ == "__main__":
       });
     }
 
-    // Upsert advanced-mode testcases.
+    // Upsert advanced (special_env) testcases.
     if (def.advancedTestcases && def.advancedTestcases.length > 0) {
       await prisma.advancedTestcase.deleteMany({
         where: { problemId: problem.id }
@@ -1121,7 +1121,7 @@ if __name__ == "__main__":
       extras.push(`${def.advancedTestcases.length} advanced testcases`);
     const extrasLabel = extras.length ? `, ${extras.join(", ")}` : "";
     console.log(
-      `  Problem: ${def.id} [${mode}] (${Object.keys(def.statements).join(", ")} statements, ${testcaseSetCount} testcase sets${extrasLabel})`
+      `  Problem: ${def.id} [${def.type}] (${Object.keys(def.statements).join(", ")} statements, ${testcaseSetCount} testcase sets${extrasLabel})`
     );
   }
 }

@@ -1,0 +1,166 @@
+// ═══════════════════════════════════════════════════════════════
+// Problem domain
+// ═══════════════════════════════════════════════════════════════
+
+enum ProblemVisibility {
+  public
+  private
+}
+
+enum ProblemStatus {
+  draft
+  published
+}
+
+/// Single source of truth for "what kind of problem is this".
+/// Replaces the old (submissionType × mode) matrix.
+enum ProblemType {
+  full_source // Single-file submission with main()
+  function // Student implements named function, system provides driver
+  multi_file // Teacher ships scaffold (main + helpers); student edits in-browser
+  special_env // TA Docker image owns the entire judging loop
+}
+
+enum ProblemImageSource {
+  registry
+  tarball
+}
+
+enum WorkspaceFileVisibility {
+  editable
+  readonly
+  hidden
+}
+
+model Problem {
+  id         String            @id @default(cuid())
+  title      String
+  authorId   String?
+  visibility ProblemVisibility @default(public)
+  status     ProblemStatus     @default(draft)
+  /// Free-form tags. Difficulty lives here (e.g. "easy"/"medium"/"hard")
+  /// and is styled with a special color in the UI.
+  tags       String[]          @default([])
+  /// Derived shape of the problem. See ProblemType.
+  type       ProblemType       @default(full_source)
+
+  /// Per-testcase limit for standard mode; total-per-invocation for
+  /// special_env (the TA image runs all cases in one call).
+  timeLimitMs    Int
+  memoryLimitMb  Int
+  /// Only meaningful when type = special_env. Ignored for other types.
+  networkEnabled Boolean @default(false)
+
+  /// Judge config JSON: `{ type: "standard"|"checker"|"interactive", ... }`.
+  /// Ignored when type = special_env (TA image decides everything).
+  judgeConfig Json?
+  /// Sample IO displayed in the problem statement (up to 5 entries).
+  samples     Json?
+
+  /// special_env only. Enforced at the app layer by a Zod .refine() on
+  /// problemCreateSchema: type = 'special_env' iff both fields are set.
+  advancedImageRef    String?
+  advancedImageSource ProblemImageSource?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author            User?                     @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  statements        ProblemStatementI18n[]
+  testcaseSets      TestcaseSet[]
+  workspaceFiles    ProblemWorkspaceFile[]
+  advancedTestcases AdvancedTestcase[]
+  submissions       Submission[]
+  contestLinks      ContestProblem[]
+  assessmentLinks   CourseAssessmentProblem[]
+  editorials        Editorial[]
+
+  @@index([status, visibility, createdAt])
+  @@index([authorId])
+  @@index([tags], type: Gin)
+}
+
+model ProblemStatementI18n {
+  id           String   @id @default(cuid())
+  problemId    String
+  locale       String
+  title        String
+  bodyMarkdown String   @db.Text
+  inputFormat  String   @default("") @db.Text
+  outputFormat String   @default("") @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  problem      Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, locale])
+}
+
+model TestcaseSet {
+  id          String     @id @default(cuid())
+  problemId   String
+  name        String
+  /// Describes the scope / constraints of this subset (e.g.
+  /// "1 ≤ n ≤ 10^3, values distinct"). Shown to students on
+  /// the problem page under the testcase section.
+  description String     @default("") @db.Text
+  weight      Int        @default(1)
+  /// Display order controlled by the teacher.
+  ordinal     Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  problem     Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  testcases   Testcase[]
+
+  @@unique([problemId, name])
+  @@unique([problemId, ordinal])
+}
+
+model Testcase {
+  id             String      @id @default(cuid())
+  testcaseSetId  String
+  ordinal        Int
+  stdin          String      @db.Text
+  expectedStdout String?     @db.Text
+  inputFiles     Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  testcaseSet    TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
+
+  @@unique([testcaseSetId, ordinal])
+}
+
+/// Mounted at /workspace/testcases/{ordinal}/ inside the TA container.
+/// Only used when Problem.type = "special_env".
+model AdvancedTestcase {
+  id        String   @id @default(cuid())
+  problemId String
+  ordinal   Int
+  stdin     String   @db.Text
+  expected  String   @db.Text
+  files     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, ordinal])
+  @@index([problemId])
+}
+
+model ProblemWorkspaceFile {
+  id              String                  @id @default(cuid())
+  problemId       String
+  language        SupportedLanguage
+  path            String
+  content         String                  @db.Text
+  visibility      WorkspaceFileVisibility
+  editableRegions Json?
+  description     String                  @default("") @db.Text
+  orderIndex      Int                     @default(0)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  problem         Problem                 @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, language, path])
+  @@index([problemId, language])
+}

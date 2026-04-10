@@ -116,14 +116,8 @@ export function classifySolutionVerdict(
   return null;
 }
 
-/**
- * Parse judge process output to determine verdict score and feedback.
- *
- * Used by both checker and interactor judges:
- * - Exit code 0 → accepted
- * - scoreText: integer 0-100 (defaults to 100 if accepted, 0 if rejected)
- * - feedbackText: human-readable feedback string
- */
+// Protocol: exit code 0 = accepted; scoreText is an integer 0-100 (defaults to
+// 100 on accept, 0 on reject); feedbackText is a human-readable string.
 export function parseJudgeOutput(
   exitCode: number,
   scoreText: string,

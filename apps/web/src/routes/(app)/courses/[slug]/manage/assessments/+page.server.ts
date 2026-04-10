@@ -1,9 +1,7 @@
 import {
   adjustmentRulesSchema,
-  assessmentScoreboardModeSchema,
   contestCreateSchema,
   courseAssessmentCreateSchema,
-  ipLockFormFields,
   languageSchema,
   slugSchema
 } from "@nojv/core";
@@ -20,17 +18,16 @@ import { contestDomain, courseDomain } from "@nojv/domain";
 const { createCourseAssessmentRecord } = courseDomain;
 const { createContestRecord, listCourseContests, contestFormSchema } = contestDomain;
 
+// Homework assessment form — no scoreboard, no IP lock, no page lock.
+// Those moved to Contest in the Phase 1 redesign.
 const assessmentFormSchema = z.object({
   adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   closesAt: z.string().min(1),
   dueAt: z.string().min(1),
-  ...ipLockFormFields,
   maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
   opensAt: z.string().min(1),
-  pageLockEnabled: z.boolean().default(false),
   problemIdsText: z.string().min(1),
-  scoreboardMode: assessmentScoreboardModeSchema.optional(),
   slug: slugSchema,
   summary: z.string().min(8).max(2_000),
   title: z.string().min(3).max(120)
@@ -71,13 +68,9 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const { problemIdsText, ipWhitelistText, opensAt, dueAt, closesAt, ...rest } = form.data;
+      const { problemIdsText, opensAt, dueAt, closesAt, ...rest } = form.data;
       const payload = courseAssessmentCreateSchema.parse({
         ...rest,
-        ipWhitelist: ipWhitelistText
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
         closesAt: new Date(closesAt).toISOString(),
         courseSlug: slug,
         dueAt: new Date(dueAt).toISOString(),

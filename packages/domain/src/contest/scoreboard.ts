@@ -1,9 +1,7 @@
 import { contestRepo, submissionRepo } from "@nojv/db";
-import type { AssessmentScoreboardMode, ContestScoringMode } from "@nojv/core";
+import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-
-// ─── Types ───────────────────────────────────────────────────────────
 
 export interface ProblemScore {
   problemId: string;
@@ -36,7 +34,7 @@ export interface ScoreboardData {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];
   scoringMode: ContestScoringMode;
-  scoreboardMode: AssessmentScoreboardMode;
+  scoreboardMode: ScoreboardMode;
   frozenAt: string | null;
   isFrozen: boolean;
 }
@@ -48,8 +46,6 @@ export interface ChartData {
     points: { time: number; score: number }[];
   }[];
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────
 
 interface ContestRow {
   id: string;
@@ -63,7 +59,7 @@ interface ContestRow {
     problemId: string;
     ordinal: number;
     points: number;
-    problem: { id: string; defaultTitle: string };
+    problem: { id: string; title: string };
   }[];
 }
 
@@ -118,8 +114,6 @@ function assignRanks(
   }
 }
 
-// ─── Scoreboard ──────────────────────────────────────────────────────
-
 export async function getScoreboard(
   contestSlug: string,
   options?: { unfrozen?: boolean; isPrivileged?: boolean }
@@ -131,7 +125,7 @@ export async function getScoreboard(
   }
 
   const now = new Date();
-  const scoreboardMode = contest.scoreboardMode as AssessmentScoreboardMode;
+  const scoreboardMode = contest.scoreboardMode as ScoreboardMode;
   const showFrozen =
     !options?.unfrozen &&
     (scoreboardMode === "frozen" ||
@@ -141,7 +135,7 @@ export async function getScoreboard(
     id: cp.problemId,
     ordinal: cp.ordinal,
     points: cp.points,
-    title: cp.problem.defaultTitle
+    title: cp.problem.title
   }));
 
   const scoringMode = contest.scoringMode as ContestScoringMode;
@@ -184,7 +178,7 @@ export async function getScoreboard(
   const participants: ParticipantRow[] = contest.participations;
 
   const entries =
-    scoringMode === "icpc"
+    scoringMode === "problem_count"
       ? buildIcpcScoreboard(contest, participants, submissions, problems, showFrozen)
       : buildIoiScoreboard(contest, participants, submissions, problems, showFrozen);
 
@@ -197,8 +191,6 @@ export async function getScoreboard(
     scoringMode
   };
 }
-
-// ─── ICPC Scoreboard ─────────────────────────────────────────────────
 
 function buildIcpcScoreboard(
   contest: ContestRow,
@@ -289,8 +281,6 @@ function buildIcpcScoreboard(
 
   return entries;
 }
-
-// ─── IOI Scoreboard ──────────────────────────────────────────────────
 
 function buildIoiScoreboard(
   contest: ContestRow,
@@ -384,8 +374,6 @@ function buildIoiScoreboard(
   return entries;
 }
 
-// ─── Chart ───────────────────────────────────────────────────────────
-
 export async function getScoreboardChart(
   contestSlug: string,
   topN: number
@@ -423,7 +411,7 @@ export async function getScoreboardChart(
 
     const points: { time: number; score: number }[] = [{ time: 0, score: 0 }];
 
-    if (scoringMode === "icpc") {
+    if (scoringMode === "problem_count") {
       // Track cumulative solved * points
       const solved = new Set<string>();
       let cumScore = 0;

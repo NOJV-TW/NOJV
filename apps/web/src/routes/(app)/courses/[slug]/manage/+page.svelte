@@ -15,6 +15,8 @@
   import EChart from "$lib/components/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
   import { onMount } from "svelte";
+  import { Badge } from "$lib/components/ui/badge";
+  import StatCard from "$lib/components/ui/StatCard.svelte";
 
   let { data }: { data: any } = $props();
   let course = $derived(data.courseData.course);
@@ -225,38 +227,29 @@
 </script>
 
 <section
-  class="rounded-4xl border border-border bg-(--color-panel-strong) px-6 py-8 backdrop-blur-sm"
+  class="rounded-3xl border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 shadow-rest backdrop-blur-sm"
 >
-  <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+  <p class="text-body-sm uppercase tracking-[0.18em] text-muted-foreground">
     {t("dashboard")} / {course.slug}
   </p>
-  <h2 class="mt-2 font-(family-name:--font-display) text-3xl">{course.title}</h2>
+  <h2 class="mt-2 font-display text-title-lg">{course.title}</h2>
   <p class="mt-4 text-muted-foreground">{course.description}</p>
   <div class="mt-6 grid gap-4 sm:grid-cols-3">
-    <div class="rounded-3xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-sm text-muted-foreground"><Users class="h-3.5 w-3.5" /> {t("members")}</p>
-      <p class="mt-2 text-2xl font-semibold">{course.members.length}</p>
-    </div>
-    <div class="rounded-3xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-sm text-muted-foreground"><ClipboardList class="h-3.5 w-3.5" /> {t("assessments")}</p>
-      <p class="mt-2 text-2xl font-semibold">{course.assessments.length}</p>
-    </div>
-    <div class="rounded-3xl border border-border bg-(--color-panel) px-4 py-4">
-      <p class="inline-flex items-center gap-1 text-sm text-muted-foreground"><BookOpen class="h-3.5 w-3.5" /> {t("problems")}</p>
-      <p class="mt-2 text-2xl font-semibold">{problems.length}</p>
-    </div>
+    <StatCard label={t("members")} value={course.members.length} icon={Users} />
+    <StatCard label={t("assessments")} value={course.assessments.length} icon={ClipboardList} />
+    <StatCard label={t("problems")} value={problems.length} icon={BookOpen} />
   </div>
 
   <div class="mt-4 flex flex-wrap gap-2">
     <a
       href="/courses/{course.slug}/manage/progress"
-      class="inline-flex items-center rounded-full border border-border bg-(--color-panel) px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+      class="inline-flex items-center rounded-full border border-border bg-[color:var(--color-panel)] px-4 py-2 text-body-sm font-medium shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover"
     >
       {t("openMatrix")}
     </a>
     <a
       href="/courses/{course.slug}/manage/assessments"
-      class="inline-flex items-center rounded-full border border-border bg-(--color-panel) px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+      class="inline-flex items-center rounded-full border border-border bg-[color:var(--color-panel)] px-4 py-2 text-body-sm font-medium shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover"
     >
       {t("manageAssessments")}
     </a>
@@ -282,94 +275,94 @@
   </div>
 </section>
 
-<section class="rounded-4xl border border-border bg-(--color-panel) px-6 py-6 backdrop-blur-sm">
+<section class="rounded-3xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
   <div class="flex flex-wrap items-end justify-between gap-3">
     <div>
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+      <p class="inline-flex items-center gap-1 text-caption uppercase tracking-[0.2em] text-muted-foreground">
         <LayoutDashboard class="h-3.5 w-3.5" /> {t("dashboard")}
       </p>
-      <h3 class="mt-2 text-2xl font-semibold">{t("courseRuntime")}</h3>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <h3 class="mt-2 text-title font-semibold">{t("courseRuntime")}</h3>
+      <p class="mt-1 text-body-sm text-muted-foreground">
         {t("watchOnePlace")}
       </p>
     </div>
-    <p class="text-xs text-muted-foreground">
+    <p class="text-caption text-muted-foreground">
       {t("updatedFromLive")}
     </p>
   </div>
 
   <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-    <div class="rounded-xl border border-border px-4 py-3">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground"><Users class="h-3.5 w-3.5" /> {t("students")}</p>
-      <p class="mt-1 text-2xl font-semibold">{analytics.overview.totalStudents}</p>
-      <p class="text-xs text-muted-foreground">{t("participationRate")} {analytics.overview.participationRate}%</p>
+    <div class="rounded-xl border border-border-subtle px-4 py-3">
+      <p class="inline-flex items-center gap-1 text-caption uppercase tracking-wider text-muted-foreground"><Users class="h-3.5 w-3.5" /> {t("students")}</p>
+      <p class="mt-1 text-title font-semibold tabular-nums">{analytics.overview.totalStudents}</p>
+      <p class="text-caption text-muted-foreground tabular-nums">{t("participationRate")} {analytics.overview.participationRate}%</p>
     </div>
-    <div class="rounded-xl border border-border px-4 py-3">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground"><ClipboardList class="h-3.5 w-3.5" /> {t("assessments")}</p>
-      <p class="mt-1 text-2xl font-semibold">{analytics.overview.totalAssessments}</p>
-      <p class="text-xs text-muted-foreground">{analytics.overview.activeAssessments} {t("active")}</p>
+    <div class="rounded-xl border border-border-subtle px-4 py-3">
+      <p class="inline-flex items-center gap-1 text-caption uppercase tracking-wider text-muted-foreground"><ClipboardList class="h-3.5 w-3.5" /> {t("assessments")}</p>
+      <p class="mt-1 text-title font-semibold tabular-nums">{analytics.overview.totalAssessments}</p>
+      <p class="text-caption text-muted-foreground tabular-nums">{analytics.overview.activeAssessments} {t("active")}</p>
     </div>
-    <div class="rounded-xl border border-border px-4 py-3">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground"><Gauge class="h-3.5 w-3.5" /> {t("submissionQuality")}</p>
-      <p class="mt-1 text-2xl font-semibold">{analytics.overview.acceptedRate}%</p>
-      <p class="text-xs text-muted-foreground">{analytics.overview.totalSubmissions} {t("submissions")}</p>
+    <div class="rounded-xl border border-border-subtle px-4 py-3">
+      <p class="inline-flex items-center gap-1 text-caption uppercase tracking-wider text-muted-foreground"><Gauge class="h-3.5 w-3.5" /> {t("submissionQuality")}</p>
+      <p class="mt-1 text-title font-semibold tabular-nums">{analytics.overview.acceptedRate}%</p>
+      <p class="text-caption text-muted-foreground tabular-nums">{analytics.overview.totalSubmissions} {t("submissions")}</p>
     </div>
-    <div class="rounded-xl border border-border px-4 py-3">
-      <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground"><ShieldAlert class="h-3.5 w-3.5" /> {t("pendingJudge")}</p>
-      <p class="mt-1 text-2xl font-semibold">{analytics.overview.pendingJudgeCount}</p>
-      <p class="text-xs text-muted-foreground">{t("pendingJudgeDesc")}</p>
+    <div class="rounded-xl border border-border-subtle px-4 py-3">
+      <p class="inline-flex items-center gap-1 text-caption uppercase tracking-wider text-muted-foreground"><ShieldAlert class="h-3.5 w-3.5" /> {t("pendingJudge")}</p>
+      <p class="mt-1 text-title font-semibold tabular-nums">{analytics.overview.pendingJudgeCount}</p>
+      <p class="text-caption text-muted-foreground">{t("pendingJudgeDesc")}</p>
     </div>
-    <div class="rounded-xl border border-border px-4 py-3 sm:col-span-2 xl:col-span-2">
-      <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("instructionalInsight")}</p>
-      <p class="mt-1 text-sm text-muted-foreground">
+    <div class="rounded-xl border border-border-subtle px-4 py-3 sm:col-span-2 xl:col-span-2">
+      <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("instructionalInsight")}</p>
+      <p class="mt-1 text-body-sm text-muted-foreground">
         {t("instructionalBody")}
       </p>
     </div>
   </div>
 
   <div class="mt-6 grid gap-4 xl:grid-cols-2">
-    <div class="rounded-xl border border-border px-4 py-4">
-      <h4 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><BarChart3 class="h-3.5 w-3.5" /> {t("assessmentTrend")}</h4>
+    <div class="rounded-xl border border-border-subtle px-4 py-4">
+      <h4 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><BarChart3 class="h-3.5 w-3.5" /> {t("assessmentTrend")}</h4>
       {#if analytics.series.labels.length > 0}
         <EChart option={assessmentTrendOption} class="mt-2 h-72 w-full" />
       {:else}
-        <p class="mt-3 text-sm text-muted-foreground">{t("noPublishedAssessments")}</p>
+        <p class="mt-3 text-body-sm text-muted-foreground">{t("noPublishedAssessments")}</p>
       {/if}
     </div>
 
-    <div class="rounded-xl border border-border px-4 py-4">
-      <h4 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><PieChart class="h-3.5 w-3.5" /> {t("verdictDistribution")}</h4>
+    <div class="rounded-xl border border-border-subtle px-4 py-4">
+      <h4 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><PieChart class="h-3.5 w-3.5" /> {t("verdictDistribution")}</h4>
       {#if analytics.statusBreakdown.length > 0}
         <EChart option={statusOption} class="mt-2 h-72 w-full" />
       {:else}
-        <p class="mt-3 text-sm text-muted-foreground">{t("noSubmissions")}</p>
+        <p class="mt-3 text-body-sm text-muted-foreground">{t("noSubmissions")}</p>
       {/if}
     </div>
   </div>
 
-  <div class="mt-4 rounded-xl border border-border px-4 py-4">
-    <h4 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><Medal class="h-3.5 w-3.5" /> {t("topStudents")}</h4>
+  <div class="mt-4 rounded-xl border border-border-subtle px-4 py-4">
+    <h4 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><Medal class="h-3.5 w-3.5" /> {t("topStudents")}</h4>
     {#if analytics.leaderboard.length > 0}
       <EChart option={leaderboardOption} class="mt-2 h-72 w-full" />
     {:else}
-      <p class="mt-3 text-sm text-muted-foreground">{t("noStudentSubmissions")}</p>
+      <p class="mt-3 text-body-sm text-muted-foreground">{t("noStudentSubmissions")}</p>
     {/if}
   </div>
 </section>
 
-<section class="rounded-4xl border border-border bg-(--color-panel) px-6 py-6 backdrop-blur-sm">
+<section class="rounded-3xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
   <div class="flex items-center justify-between gap-3">
-    <h3 class="text-xl font-semibold">{t("assessmentDrilldown")}</h3>
-    <a href="/courses/{course.slug}/manage/progress" class="text-sm text-primary hover:underline">
+    <h3 class="text-title-sm font-semibold">{t("assessmentDrilldown")}</h3>
+    <a href="/courses/{course.slug}/manage/progress" class="text-body-sm text-primary hover:underline">
       {t("goMatrix")}
     </a>
   </div>
 
   {#if analytics.assessmentRows.length === 0}
-    <p class="mt-4 text-sm text-muted-foreground">{t("noPublishedToAnalyze")}</p>
+    <p class="mt-4 text-body-sm text-muted-foreground">{t("noPublishedToAnalyze")}</p>
   {:else}
-    <div class="mt-4 overflow-x-auto rounded-xl border border-border">
-      <table class="w-full min-w-220 text-sm">
+    <div class="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
+      <table class="w-full min-w-220 text-body-sm">
         <thead>
           <tr class="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
             <th class="px-3 py-2">{t("assessment")}</th>
@@ -393,9 +386,9 @@
                     {row.title}
                   </a>
                   {#if row.isActive}
-                    <span class="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                    <Badge variant="success" size="xs" dot>
                       {t("active")}
-                    </span>
+                    </Badge>
                   {/if}
                 </div>
                 <p class="text-xs text-muted-foreground">/{row.slug}</p>
@@ -435,25 +428,23 @@
   {/if}
 </section>
 
-<section class="rounded-4xl border border-border bg-(--color-panel) px-6 py-6 backdrop-blur-sm">
-  <h3 class="text-xl font-semibold">{t("studentAttention")}</h3>
-  <p class="mt-1 text-sm text-muted-foreground">
+<section class="rounded-3xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+  <h3 class="text-title-sm font-semibold">{t("studentAttention")}</h3>
+  <p class="mt-1 text-body-sm text-muted-foreground">
     {t("studentAttentionDesc")}
   </p>
 
   {#if analytics.atRiskStudents.length === 0}
-    <p class="mt-4 text-sm text-muted-foreground">{t("noAtRisk")}</p>
+    <p class="mt-4 text-body-sm text-muted-foreground">{t("noAtRisk")}</p>
   {:else}
     <div class="mt-4 grid gap-3 md:grid-cols-2">
       {#each analytics.atRiskStudents as student (student.userId)}
-        <div class="rounded-xl border border-border px-4 py-3">
+        <div class="rounded-xl border border-border-subtle px-4 py-3">
           <div class="flex items-center justify-between gap-3">
             <p class="font-medium">{student.username}</p>
-            <span class="rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
-              attention
-            </span>
+            <Badge variant="warning">attention</Badge>
           </div>
-          <p class="mt-1 text-xs text-muted-foreground">
+          <p class="mt-1 text-caption text-muted-foreground tabular-nums">
             submissions: {student.submissionCount} / accepted: {student.acceptedCount}
           </p>
         </div>

@@ -27,12 +27,9 @@ export async function processSchoolVerification(
 
   const username = extractStudentId(parsed.school, parsed.studentId);
 
-  const result = await verificationDomain.initiateSchoolVerification(userId, username, {
-    email,
-    username,
-    school: parsed.school,
-    studentId: parsed.studentId
-  });
+  // The token row stores `username` directly now — no opaque payload
+  // is encoded into the better-auth Verification record any more.
+  const result = await verificationDomain.initiateSchoolVerification(userId, username);
 
   if (result.status === "error") {
     return { error: result.detail, status: result.httpStatus };

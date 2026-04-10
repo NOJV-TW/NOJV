@@ -1,13 +1,27 @@
 <script lang="ts">
+  import { Code2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import Section from "$lib/components/ui/Section.svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
 </script>
 
-<div class="space-y-6">
-  <h2 class="font-[family-name:var(--font-display)] text-3xl">
-    {m.navigation_submissions()}
-  </h2>
-  <p class="text-sm text-muted-foreground">
-    Submissions are displayed in the problem workspace. Navigate to a problem to view your
-    submission history.
-  </p>
-</div>
+<Section>
+  {#snippet header()}
+    <h1 class="font-display text-title-lg">{m.navigation_submissions()}</h1>
+    <p>{m.submissions_workspaceHint()}</p>
+  {/snippet}
+
+  <EmptyState
+    variant="onboarding"
+    icon={Code2}
+    title={m.submissions_empty()}
+    description={m.submissions_emptyHint()}
+    actions={[
+      {
+        href: "/problems",
+        label: m.submissions_browseCta(),
+        variant: "default",
+      },
+    ]}
+  />
+</Section>

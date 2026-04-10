@@ -22,14 +22,17 @@ describe("courseCreateSchema", () => {
 });
 
 describe("courseJoinRequestSchema", () => {
-  it("accepts QR-code based joins", () => {
+  it("accepts link-based joins", () => {
+    // Phase 1 redesign: join tokens are "link" or "code" — `qr_code` /
+    // `manual_invite` are gone. QR codes are just a rendering of a
+    // link-kind token.
     const result = courseJoinRequestSchema.parse({
       courseSlug: "os-lab-spring-2026",
-      joinMethod: "qr_code",
+      joinTokenKind: "link",
       joinToken: "oslab-qr-2026"
     });
 
-    expect(result.joinMethod).toBe("qr_code");
+    expect(result.joinTokenKind).toBe("link");
   });
 });
 

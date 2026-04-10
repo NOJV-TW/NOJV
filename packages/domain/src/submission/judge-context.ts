@@ -7,19 +7,16 @@ import type {
   JudgeType,
   ProblemImageSource,
   ProblemJudgeTestcase,
-  ProblemMode,
   ProblemSample,
+  ProblemType,
   Runtime,
   SubmissionDraft,
   SubmissionResult,
-  SubmissionType,
   WorkspaceFileVisibility
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
-
-// --- Types ---
 
 export interface TestcaseSetGroup {
   id: string;
@@ -41,7 +38,6 @@ export type SubtaskStrategyMap = Record<string, "all_or_nothing" | "proportional
 
 export interface AdjustmentContext {
   assessmentAdjustmentRules: AdjustmentRules | null;
-  contestAdjustmentRules: AdjustmentRules | null;
   dueAt: Date | null;
   submittedAt: Date;
 }
@@ -71,18 +67,13 @@ export interface SubmissionJudgeContext {
   problemId: string;
   runtime: Runtime;
   samples: ProblemSample[];
-  submissionType: SubmissionType;
+  problemType: ProblemType;
   subtaskStrategies: SubtaskStrategyMap;
   testcaseSets: TestcaseSetGroup[];
   testcases: ProblemJudgeTestcase[];
   timeLimitMs: number;
   workspaceFiles: WorkspaceFileEntry[];
-  /**
-   * Phase 7: when the problem is in advanced mode, this carries the
-   * TA-provided judge image ref + resource limits. The downstream judge
-   * activity uses it to populate `SandboxRequest.advanced`.
-   */
-  mode: ProblemMode;
+  /** Non-null only when `problemType === "special_env"`. */
   advanced: AdvancedModeContext | null;
 }
 
@@ -96,8 +87,6 @@ export interface CompletedSubmission {
   status: string;
   userId: string;
 }
-
-// --- Domain functions ---
 
 export async function getJudgeContext(submissionId: string): Promise<SubmissionJudgeContext> {
   const submission = await submissionRepo.findByIdWithJudgeContext(submissionId);
@@ -122,7 +111,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     weight: ts.weight
   }));
 
-  // Samples come from Problem.samples JSON (Phase 1 column).
   const samples = collectSamples(problem);
 
   // Runtime: authoritative source is judgeConfig.runtime. Legacy problems
@@ -146,34 +134,34 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   }));
 
   const assessment = submission.courseAssessment;
-  const contest = submission.contestParticipation?.contest ?? null;
 
+  // Late-penalty rules live on the assessment only — contests no longer
+  // carry adjustmentRules. The contest endsAt is still a useful default
+  // due-by for fallback display.
+  const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
     assessmentAdjustmentRules: (assessment?.adjustmentRules as AdjustmentRules | null) ?? null,
-    contestAdjustmentRules: (contest?.adjustmentRules as AdjustmentRules | null) ?? null,
-    dueAt: assessment?.dueAt ?? contest?.endsAt ?? null,
+    dueAt: assessment?.dueAt ?? contestEnd,
     submittedAt: submission.createdAt
   };
 
-  // Phase 7: surface advanced-mode container config when the problem is in
-  // advanced mode. Reads Problem.advancedResourceLimits if set, otherwise
-  // falls back to safe defaults.
-  const mode: ProblemMode = problem.mode;
-  const parsedLimits = parseAdvancedResourceLimits(problem.advancedResourceLimits);
+  // Phase 1 redesign: special_env carries its own image ref + per-case
+  // file payloads. The advanced container contract is unchanged.
+  const problemType = problem.type as ProblemType;
   const advancedTestcases = problem.advancedTestcases.map((c) => ({
     stdin: c.stdin,
     expected: c.expected,
     files: (c.files as Record<string, string> | null) ?? {}
   }));
   const advanced: AdvancedModeContext | null =
-    mode === "advanced" && problem.advancedImageRef && problem.advancedImageSource
+    problemType === "special_env" && problem.advancedImageRef && problem.advancedImageSource
       ? {
           imageRef: problem.advancedImageRef,
           imageSource: problem.advancedImageSource as ProblemImageSource,
-          resourceLimits: parsedLimits ?? {
-            totalTimeMs: 30_000,
-            memoryMb: 1_024,
-            networkEnabled: false
+          resourceLimits: {
+            totalTimeMs: problem.timeLimitMs,
+            memoryMb: problem.memoryLimitMb,
+            networkEnabled: problem.networkEnabled
           },
           testcases: advancedTestcases
         }
@@ -189,13 +177,12 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     problemId: submission.problemId,
     runtime,
     samples,
-    submissionType: problem.submissionType,
+    problemType,
     subtaskStrategies,
     testcaseSets,
     testcases: testcaseSets.flatMap((ts) => ts.testcases),
     timeLimitMs: runtime.timeLimitMs,
     workspaceFiles,
-    mode,
     advanced
   };
 }
@@ -213,18 +200,6 @@ function collectSamples(problem: { samples: unknown }): ProblemSample[] {
     .map((s) => ({ stdin: s.stdin, expected: s.expected }));
 }
 
-function parseAdvancedResourceLimits(
-  raw: unknown
-): { totalTimeMs: number; memoryMb: number; networkEnabled: boolean } | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const obj = raw as Record<string, unknown>;
-  const totalTimeMs = typeof obj.totalTimeMs === "number" ? obj.totalTimeMs : null;
-  const memoryMb = typeof obj.memoryMb === "number" ? obj.memoryMb : null;
-  const networkEnabled = typeof obj.networkEnabled === "boolean" ? obj.networkEnabled : null;
-  if (totalTimeMs === null || memoryMb === null || networkEnabled === null) return null;
-  return { totalTimeMs, memoryMb, networkEnabled };
-}
-
 export async function updateSubmissionStatus(
   submissionId: string,
   status: string
@@ -236,13 +211,14 @@ export async function completeJudge(
   submissionId: string,
   result: SubmissionResult
 ): Promise<CompletedSubmission> {
+  // verdictDetail is the sole source of truth for the full result blob:
+  // case-by-case results, subtask scores, compiler output — they all live
+  // inside it. There are no separate columns to keep in sync any more.
   const submission = await submissionRepo.complete(submissionId, {
-    compilerOutput: result.verdict === "compile_error" ? result.feedback : null,
     runtimeMs: result.runtimeMs,
     score: result.score,
     status: result.verdict,
-    verdictDetail: toJsonValue(result),
-    ...(result.subtaskResults ? { subtaskResults: toJsonValue(result.subtaskResults) } : {})
+    verdictDetail: toJsonValue(result)
   });
 
   return {
@@ -267,8 +243,10 @@ export async function findForRejudge(input: {
     sampleOnly: false
   };
 
+  // Submission has direct contestId / courseAssessmentId columns now;
+  // no need to traverse contestParticipation.
   if (input.contestId) {
-    where.contestParticipation = { contestId: input.contestId };
+    where.contestId = input.contestId;
   }
   if (input.assessmentId) {
     where.courseAssessmentId = input.assessmentId;

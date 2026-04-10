@@ -7,8 +7,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// --- Username validation ---
-
 export const USERNAME_INPUT_PATTERN = "[a-z0-9._-]{3,64}";
 const usernamePattern = /^[a-z0-9._-]{3,64}$/;
 
@@ -16,13 +14,9 @@ export function isValidUsername(value: string): boolean {
   return usernamePattern.test(value);
 }
 
-// --- Shared form class names ---
-
 export const inputClassName =
   "mt-2 w-full rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3 text-sm";
 export const monoTextareaClassName = `${inputClassName} min-h-24 resize-y font-mono`;
-
-// --- Date helpers ---
 
 export function toDateTimeLocalValue(date: Date) {
   const year = date.getFullYear();
@@ -33,13 +27,9 @@ export function toDateTimeLocalValue(date: Date) {
   return `${String(year)}-${month}-${day}T${hours}:${minutes}`;
 }
 
-// --- Array helpers ---
-
 export function toggleArrayItem<T>(array: T[], item: T): T[] {
   return array.includes(item) ? array.filter((i) => i !== item) : [...array, item];
 }
-
-// --- UI component type helpers (shadcn/svelte) ---
 
 export type WithoutChild<T> = T extends { child?: unknown } ? Omit<T, "child"> : T;
 type WithoutChildren<T> = T extends { children?: unknown } ? Omit<T, "children"> : T;

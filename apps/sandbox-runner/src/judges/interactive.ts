@@ -7,14 +7,13 @@ import { parseJudgeOutput } from "./run-process.js";
 import { createBoundedBuffer } from "../utils.js";
 
 /**
- * Interactive judge: bidirectional pipe between the solution and an interactor.
+ * Bidirectional pipe between the solution and the interactor:
+ *   solution.stdout → interactor.stdin
+ *   interactor.stdout → solution.stdin
  *
- * Solution's stdout → interactor's stdin
- * Interactor's stdout → solution's stdin
- *
- * The interactor receives the testcase input file path as its first argument.
- * The testcase input is written to a temp file so the interactor can read it.
- * Uses Node.js stream piping (no FIFOs needed since both run locally).
+ * The interactor receives the testcase input file path as its first arg,
+ * so the input has to be written to disk before spawning. Both processes
+ * run locally, so Node stream piping is enough — no FIFOs required.
  */
 export async function judgeInteractive(
   runCommand: string[],
@@ -22,7 +21,6 @@ export async function judgeInteractive(
   interactorCommand: string[],
   timeoutMs: number
 ): Promise<TestcaseResult> {
-  // Write testcase input to a temp file for the interactor
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "interactive-"));
   const inputFile = path.join(tmpDir, "input.txt");
   await fs.writeFile(inputFile, testcase.input);
@@ -59,22 +57,18 @@ function runInteractive(
       return;
     }
 
-    // Spawn solution process
     const solution = spawn(solCmd, solArgs, {
       stdio: ["pipe", "pipe", "pipe"]
     });
 
-    // Spawn interactor process — receives testcase input file path as argument
     const interactor = spawn(intCmd, [...intArgs, inputFile], {
       stdio: ["pipe", "pipe", "pipe"]
     });
 
-    // Pipe: solution.stdout → interactor.stdin
     solution.stdout.pipe(interactor.stdin);
-    // Pipe: interactor.stdout → solution.stdin
     interactor.stdout.pipe(solution.stdin);
 
-    // Handle EPIPE errors on piped streams (expected when one process exits)
+    // EPIPE is expected when one side exits before the other finishes writing.
     solution.stdin.on("error", () => {});
     interactor.stdin.on("error", () => {});
 
@@ -88,7 +82,7 @@ function runInteractive(
     interactor.stderr.on("data", (chunk: Buffer) => {
       interactorStderr.push(chunk);
     });
-    // Also capture solution stdout for the result (even though it's piped)
+    // Capture solution stdout alongside the pipe so we can include it in the result.
     solution.stdout.on("data", (chunk: Buffer) => {
       solutionStdout.push(chunk);
     });
@@ -145,7 +139,7 @@ function runInteractive(
         return resolve({ ...base, verdict: "MLE", stderr: solStderr });
       if (solutionExitCode !== 0) return resolve({ ...base, verdict: "RE", stderr: solStderr });
 
-      // Parse interactor's verdict — stderr line 1 = score, lines 2+ = feedback
+      // Interactor verdict protocol: stderr line 1 = score, lines 2+ = feedback.
       const intLines = intStderr.trim().split("\n");
       const parsed = parseJudgeOutput(
         interactorExitCode,
@@ -166,11 +160,10 @@ function runInteractive(
       solutionExitCode = code ?? -1;
       solutionSignal = signal;
       solutionDone = true;
-      // Close interactor's stdin when solution finishes
       try {
         interactor.stdin.end();
       } catch {
-        // Already closed
+        // already closed
       }
       tryFinish();
     });
@@ -179,11 +172,10 @@ function runInteractive(
       interactorExitCode = code ?? -1;
       interactorSignal = signal;
       interactorDone = true;
-      // Close solution's stdin when interactor finishes
       try {
         solution.stdin.end();
       } catch {
-        // Already closed
+        // already closed
       }
       tryFinish();
     });

@@ -76,12 +76,12 @@ describe("DB-backed read model", () => {
   it("surfaces persisted public problems in the practice catalog", async () => {
     listWithCounts.mockResolvedValue([
       {
-        _count: { submissions: 2 },
-        defaultTitle: "Compiler Intro",
-        difficulty: "easy",
+        _count: { submissions: 2, workspaceFiles: 0 },
+        title: "Compiler Intro",
         id: "prob_compiler_intro",
-        summary: "Introductory parser warmup.",
-        tags: [],
+        // Difficulty lives inside `tags` after the Phase 1 redesign.
+        tags: ["easy"],
+        type: "full_source",
         visibility: "public"
       }
     ]);
@@ -96,12 +96,17 @@ describe("DB-backed read model", () => {
         difficulty: "easy",
         id: "prob_compiler_intro",
         title: "Compiler Intro",
+        type: "full_source",
         totalSubmissions: 2
       })
     );
   });
 
   it("returns persisted course detail data for dynamic course pages", async () => {
+    // Course-level `problems` shelf was removed in the second-pass
+    // refactor — problems are now projected from assessment links
+    // (`CourseAssessmentProblem`), so the full problem payload lives on
+    // `assessments[i].problems[j].problem`.
     findDetailBySlugCourse.mockResolvedValue({
       assessments: [
         {
@@ -109,39 +114,44 @@ describe("DB-backed read model", () => {
           closesAt: new Date("2026-03-25T15:00:00.000Z"),
           dueAt: new Date("2026-03-23T15:00:00.000Z"),
           id: "assess_1",
-          ipBindingEnabled: false,
-          ipViolationMode: "notify",
-          ipWhitelist: [],
-          ipWhitelistEnabled: false,
           opensAt: new Date("2026-03-17T09:00:00.000Z"),
-          pageLockEnabled: false,
           problems: [
             {
               ordinal: 1,
               problem: {
-                id: "prob_compiler_intro"
+                author: {
+                  username: "teacher_amelia"
+                },
+                id: "prob_compiler_intro",
+                statements: [
+                  {
+                    bodyMarkdown: "Write a recursive descent parser.",
+                    locale: "zh-TW",
+                    title: "Compiler Intro"
+                  }
+                ],
+                title: "Compiler Intro",
+                visibility: "public"
               }
             }
           ],
-          scoreboardMode: "hidden",
           slug: "hw1-parser",
           summary: "First compiler assignment.",
-          title: "Homework 1",
-          type: "assignment"
+          title: "Homework 1"
         }
       ],
       description: "Compiler construction course.",
       joinTokens: [
         {
+          kind: "code",
           label: "Course code",
-          method: "join_code",
           token: "COMPILER2026"
         }
       ],
       locale: "zh-TW",
       memberships: [
         {
-          joinedVia: "manual_invite",
+          joinedTokenId: null,
           role: "teacher",
           user: {
             name: "Amelia Chen",
@@ -150,25 +160,6 @@ describe("DB-backed read model", () => {
             platformRole: "teacher"
           },
           userId: "usr_teacher_amelia"
-        }
-      ],
-      problems: [
-        {
-          problem: {
-            author: {
-              username: "teacher_amelia"
-            },
-            id: "prob_compiler_intro",
-            statements: [
-              {
-                bodyMarkdown: "Write a recursive descent parser.",
-                locale: "zh-TW",
-                title: "Compiler Intro"
-              }
-            ],
-            summary: "Introductory parser warmup.",
-            visibility: "public"
-          }
         }
       ],
       slug: "compiler-design-2026",
@@ -213,8 +204,7 @@ describe("DB-backed read model", () => {
     findDetailById.mockResolvedValue({
       _count: { submissions: 10 },
       author: { username: "admin_user" },
-      defaultTitle: "A+B Problem",
-      difficulty: "easy",
+      title: "A+B Problem",
       id: "prob_ab",
       statements: [
         {
@@ -225,8 +215,8 @@ describe("DB-backed read model", () => {
           title: "A+B Problem"
         }
       ],
-      summary: "Basic addition problem.",
-      tags: ["math", "beginner"],
+      tags: ["easy", "math", "beginner"],
+      type: "full_source",
       samples: [{ stdin: "1 2\n", expected: "3\n" }],
       visibility: "public"
     });
@@ -239,7 +229,8 @@ describe("DB-backed read model", () => {
     expect(detail?.authorUsername).toBe("admin_user");
     expect(detail?.inputFormat).toBe("Two integers a and b");
     expect(detail?.outputFormat).toBe("A single integer");
-    expect(detail?.tags).toEqual(["math", "beginner"]);
+    expect(detail?.tags).toEqual(["easy", "math", "beginner"]);
+    expect(detail?.difficulty).toBe("easy");
     expect(detail?.samples).toHaveLength(1);
     expect(detail?.samples[0]?.stdin).toBe("1 2\n");
     expect(detail?.samples[0]?.expected).toBe("3\n");
@@ -253,8 +244,7 @@ describe("DB-backed read model", () => {
     findDetailById.mockResolvedValue({
       _count: { submissions: 0 },
       author: { username: "teacher" },
-      defaultTitle: "Fill in the Blanks",
-      difficulty: "easy",
+      title: "Fill in the Blanks",
       id: "prob_blanks",
       statements: [
         {
@@ -265,8 +255,8 @@ describe("DB-backed read model", () => {
           title: "Fill in the Blanks"
         }
       ],
-      summary: "Partial-source exercise.",
-      tags: [],
+      tags: ["easy"],
+      type: "multi_file",
       samples: [],
       visibility: "public",
       workspaceFiles: [
@@ -333,12 +323,11 @@ describe("DB-backed read model", () => {
     findDetailById.mockResolvedValue({
       _count: { submissions: 0 },
       author: { username: "teacher" },
-      defaultTitle: "Malformed Regions",
-      difficulty: "easy",
+      title: "Malformed Regions",
       id: "prob_malformed",
       statements: [],
-      summary: "edge case",
-      tags: [],
+      tags: ["medium"],
+      type: "full_source",
       samples: [],
       visibility: "public",
       workspaceFiles: [
@@ -362,12 +351,11 @@ describe("DB-backed read model", () => {
   it("computes acceptance rate from total and accepted submissions", async () => {
     listWithCounts.mockResolvedValue([
       {
-        _count: { submissions: 10 },
-        defaultTitle: "Hard Problem",
-        difficulty: "hard",
+        _count: { submissions: 10, workspaceFiles: 0 },
+        title: "Hard Problem",
         id: "prob_hard",
-        summary: "A hard problem.",
-        tags: [],
+        tags: ["hard"],
+        type: "full_source",
         visibility: "public"
       }
     ]);
@@ -383,12 +371,11 @@ describe("DB-backed read model", () => {
   it("returns zero acceptance rate when there are no submissions", async () => {
     listWithCounts.mockResolvedValue([
       {
-        _count: { submissions: 0 },
-        defaultTitle: "New Problem",
-        difficulty: "medium",
+        _count: { submissions: 0, workspaceFiles: 0 },
+        title: "New Problem",
         id: "prob_new",
-        summary: "A new problem.",
-        tags: [],
+        tags: ["medium"],
+        type: "full_source",
         visibility: "public"
       }
     ]);

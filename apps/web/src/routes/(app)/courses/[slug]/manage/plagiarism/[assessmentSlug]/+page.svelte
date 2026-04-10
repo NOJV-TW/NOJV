@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { ShieldAlert } from "@lucide/svelte";
+  import { m } from "$lib/paraglide/messages.js";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Button } from "$lib/components/ui/button";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+
   let { data } = $props();
 
   let threshold = $state(50);
@@ -34,12 +40,12 @@
     return problem?.title ?? problemId.slice(0, 8);
   }
 
-  function statusColor(status: string): string {
+  function statusBadgeVariant(status: string): "success" | "destructive" | "warning" | "muted" {
     switch (status) {
-      case "completed": return "text-emerald-700 dark:text-emerald-400";
-      case "failed": return "text-red-700 dark:text-red-400";
-      case "running": return "text-amber-700 dark:text-amber-400";
-      default: return "text-muted-foreground";
+      case "completed": return "success";
+      case "failed": return "destructive";
+      case "running": return "warning";
+      default: return "muted";
     }
   }
 
@@ -87,37 +93,39 @@
 
 <div class="space-y-6">
   <section
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 backdrop-blur-sm"
+    class="rounded-2xl border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 shadow-rest backdrop-blur-sm"
   >
-    <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
-      Plagiarism Check
+    <p class="text-body-sm uppercase tracking-[0.18em] text-muted-foreground">
+      {m.plagiarism_title()}
     </p>
-    <h2 class="mt-2 font-[family-name:var(--font-display)] text-3xl">
+    <h2 class="mt-2 font-display text-title-lg">
       {data.assessment.title}
     </h2>
     <a
       href="/courses/{data.courseSlug}/manage/assessments"
-      class="mt-4 inline-block text-sm text-muted-foreground hover:underline"
+      class="mt-4 inline-block text-body-sm text-muted-foreground hover:underline"
     >
-      &larr; Back to assessments
+      {m.plagiarism_backToAssessments()}
     </a>
   </section>
 
   {#if latestReport}
     <section
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
+      class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-5 shadow-rest backdrop-blur-sm"
     >
       <div class="flex items-center justify-between gap-4">
-        <h3 class="text-2xl font-semibold">Report</h3>
-        <span class="rounded-full border border-border px-3 py-1 text-xs font-medium {statusColor(latestReport.status)}">
+        <h3 class="text-title font-semibold">{m.plagiarism_report()}</h3>
+        <Badge variant={statusBadgeVariant(latestReport.status)} dot>
           {latestReport.status}
-        </span>
+        </Badge>
       </div>
 
-      <div class="mt-3 text-sm text-muted-foreground">
-        <p>Created: {new Date(latestReport.createdAt).toLocaleString()}</p>
+      <div class="mt-3 text-body-sm text-muted-foreground">
+        {#if latestReport.triggeredAt}
+          <p class="tabular-nums">{m.plagiarism_triggered()}: {new Date(latestReport.triggeredAt).toLocaleString()}</p>
+        {/if}
         {#if latestReport.completedAt}
-          <p>Completed: {new Date(latestReport.completedAt).toLocaleString()}</p>
+          <p class="tabular-nums">{m.plagiarism_completed()}: {new Date(latestReport.completedAt).toLocaleString()}</p>
         {/if}
         {#if latestReport.mossReportUrl}
           <p class="mt-1">
@@ -127,7 +135,7 @@
               rel="noopener noreferrer"
               class="underline hover:text-foreground"
             >
-              MOSS Report
+              {m.plagiarism_mossReport()}
             </a>
           </p>
         {/if}
@@ -135,8 +143,8 @@
 
       {#if latestReport.status === "completed" && pairs.length > 0}
         <div class="mt-5">
-          <label class="flex items-center gap-3 text-sm">
-            <span>Similarity threshold: {threshold}%</span>
+          <label class="flex items-center gap-3 text-body-sm">
+            <span class="tabular-nums">{m.plagiarism_similarityThreshold()}: {threshold}%</span>
             <input
               type="range"
               min="0"
@@ -147,44 +155,44 @@
           </label>
         </div>
 
-        <div class="mt-4 overflow-x-auto">
-          <table class="w-full text-sm">
+        <div class="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
+          <table class="w-full text-body-sm">
             <thead>
-              <tr class="border-b border-border text-left text-muted-foreground">
-                <th class="px-3 py-2">Student 1</th>
-                <th class="px-3 py-2">Student 2</th>
-                <th class="px-3 py-2">Problem</th>
-                <th class="px-3 py-2">Similarity</th>
-                <th class="px-3 py-2">Lines</th>
-                <th class="px-3 py-2">Actions</th>
+              <tr class="border-b border-border-subtle text-left text-muted-foreground">
+                <th class="px-3 py-2">{m.plagiarism_student1()}</th>
+                <th class="px-3 py-2">{m.plagiarism_student2()}</th>
+                <th class="px-3 py-2">{m.plagiarism_problem()}</th>
+                <th class="px-3 py-2">{m.plagiarism_similarity()}</th>
+                <th class="px-3 py-2">{m.plagiarism_lines()}</th>
+                <th class="px-3 py-2">{m.plagiarism_actions()}</th>
               </tr>
             </thead>
             <tbody>
-              {#each filteredPairs as pair}
-                <tr class="border-b border-border/50 hover:bg-[color:var(--color-panel-strong)]/30">
-                  <td class="px-3 py-2 font-mono text-xs">{memberLabel(pair.userId1)}</td>
-                  <td class="px-3 py-2 font-mono text-xs">{memberLabel(pair.userId2)}</td>
+              {#each filteredPairs as pair (pair.userId1 + pair.userId2 + pair.problemId)}
+                <tr class="border-b border-border-subtle/50 hover:bg-[color:var(--color-panel-strong)]/30">
+                  <td class="px-3 py-2 font-mono text-caption">{memberLabel(pair.userId1)}</td>
+                  <td class="px-3 py-2 font-mono text-caption">{memberLabel(pair.userId2)}</td>
                   <td class="px-3 py-2">{problemLabel(pair.problemId)}</td>
                   <td class="px-3 py-2">
-                    <span class="font-semibold {Math.max(pair.similarity1, pair.similarity2) >= 80 ? 'text-red-700 dark:text-red-400' : Math.max(pair.similarity1, pair.similarity2) >= 50 ? 'text-amber-700 dark:text-amber-400' : ''}">
+                    <span class="font-semibold tabular-nums {Math.max(pair.similarity1, pair.similarity2) >= 80 ? 'text-destructive' : Math.max(pair.similarity1, pair.similarity2) >= 50 ? 'text-warning' : ''}">
                       {pair.similarity1}% / {pair.similarity2}%
                     </span>
                   </td>
-                  <td class="px-3 py-2">{pair.linesMatched}</td>
+                  <td class="px-3 py-2 tabular-nums">{pair.linesMatched}</td>
                   <td class="px-3 py-2">
                     <div class="flex items-center gap-2">
                       <button
-                        class="text-xs underline hover:text-foreground"
+                        class="text-caption underline hover:text-foreground"
                         onclick={() => showComparison(pair)}
                       >
-                        Compare
+                        {m.plagiarism_compare()}
                       </button>
                       {#if pair.mossUrl && pair.mossUrl.startsWith("http")}
                         <a
                           href={pair.mossUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          class="text-xs underline hover:text-foreground"
+                          class="text-caption underline hover:text-foreground"
                         >
                           MOSS
                         </a>
@@ -197,82 +205,59 @@
           </table>
 
           {#if filteredPairs.length === 0}
-            <p class="mt-4 text-center text-sm text-muted-foreground">
-              No pairs above {threshold}% similarity threshold.
+            <p class="mt-4 text-center text-body-sm text-muted-foreground">
+              {m.plagiarism_noPairsAboveThreshold({ threshold: String(threshold) })}
             </p>
           {/if}
         </div>
       {:else if latestReport.status === "completed"}
-        <p class="mt-4 text-sm text-muted-foreground">No similarity pairs found.</p>
+        <p class="mt-4 text-body-sm text-muted-foreground">{m.plagiarism_noSimilarityPairs()}</p>
       {:else if latestReport.status === "pending" || latestReport.status === "running"}
-        <p class="mt-4 text-sm text-muted-foreground">Check is in progress. Refresh the page to see updated results.</p>
+        <p class="mt-4 text-body-sm text-muted-foreground">{m.plagiarism_checkInProgress()}</p>
       {:else if latestReport.status === "failed"}
-        <p class="mt-4 text-sm text-red-700 dark:text-red-400">The plagiarism check failed. Try running it again.</p>
+        <p class="mt-4 text-body-sm text-destructive">{m.plagiarism_checkFailed()}</p>
       {/if}
     </section>
   {:else}
-    <section
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
-    >
-      <p class="text-sm text-muted-foreground">
-        No plagiarism reports yet. Run a check from the assessments page.
-      </p>
-    </section>
+    <EmptyState
+      icon={ShieldAlert}
+      title={m.plagiarism_noReportsTitle()}
+      description={m.plagiarism_noReportsDescription()}
+    />
   {/if}
 
   {#if comparisonPair}
     <section
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
+      class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-5 shadow-rest backdrop-blur-sm"
     >
       <div class="flex items-center justify-between gap-4">
-        <h3 class="text-lg font-semibold">
-          Side-by-Side: {memberLabel(comparisonPair.userId1)} vs {memberLabel(comparisonPair.userId2)}
+        <h3 class="text-title-sm font-semibold">
+          {m.plagiarism_sideBySide()}: {memberLabel(comparisonPair.userId1)} vs {memberLabel(comparisonPair.userId2)}
           ({problemLabel(comparisonPair.problemId)})
         </h3>
-        <button
-          class="rounded-full border border-border px-3 py-1 text-xs font-medium transition hover:-translate-y-0.5"
-          onclick={closeComparison}
-        >
-          Close
-        </button>
+        <Button variant="outline" size="sm" onclick={closeComparison}>
+          {m.plagiarism_close()}
+        </Button>
       </div>
 
       {#if loadingComparison}
-        <p class="mt-4 text-sm text-muted-foreground">Loading source code...</p>
+        <p class="mt-4 text-body-sm text-muted-foreground">{m.plagiarism_loadingSource()}</p>
       {:else}
         <div class="mt-4 grid gap-4 md:grid-cols-2">
           <div>
-            <p class="mb-2 text-xs font-semibold text-muted-foreground">
+            <p class="mb-2 text-caption font-semibold text-muted-foreground">
               {memberLabel(comparisonPair.userId1)}
             </p>
-            <pre class="max-h-96 overflow-auto rounded-xl border border-border bg-muted p-3 text-xs"><code>{sourceCode1}</code></pre>
+            <pre class="max-h-96 overflow-auto rounded-xl border border-border-subtle bg-muted p-3 text-caption"><code>{sourceCode1}</code></pre>
           </div>
           <div>
-            <p class="mb-2 text-xs font-semibold text-muted-foreground">
+            <p class="mb-2 text-caption font-semibold text-muted-foreground">
               {memberLabel(comparisonPair.userId2)}
             </p>
-            <pre class="max-h-96 overflow-auto rounded-xl border border-border bg-muted p-3 text-xs"><code>{sourceCode2}</code></pre>
+            <pre class="max-h-96 overflow-auto rounded-xl border border-border-subtle bg-muted p-3 text-caption"><code>{sourceCode2}</code></pre>
           </div>
         </div>
       {/if}
-    </section>
-  {/if}
-
-  {#if data.reports.length > 1}
-    <section
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
-    >
-      <h3 class="text-lg font-semibold">Previous Reports</h3>
-      <div class="mt-3 space-y-2">
-        {#each data.reports.slice(1) as report}
-          <div class="flex items-center justify-between rounded-xl border border-border/50 px-3 py-2 text-sm">
-            <span>{new Date(report.createdAt).toLocaleString()}</span>
-            <span class="rounded-full border border-border px-3 py-1 text-xs font-medium {statusColor(report.status)}">
-              {report.status}
-            </span>
-          </div>
-        {/each}
-      </div>
     </section>
   {/if}
 </div>

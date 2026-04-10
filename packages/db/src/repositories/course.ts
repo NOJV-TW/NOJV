@@ -1,8 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { CourseJoinMethod } from "../../generated/prisma/enums";
+import type { CourseJoinTokenKind } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
-import { problemPreviewSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -18,7 +17,6 @@ export const courseRepo = {
     });
   },
 
-  /** List course cards with assessment/member counts. */
   listCards(userId?: string) {
     return prisma.course.findMany({
       include: {
@@ -42,7 +40,6 @@ export const courseRepo = {
     });
   },
 
-  /** Fetch full course page data with assessments, members, problems. */
   findDetailBySlug(slug: string) {
     return prisma.course.findUnique({
       include: {
@@ -60,24 +57,12 @@ export const courseRepo = {
           include: { user: true },
           orderBy: { createdAt: "asc" },
           where: { status: "active" }
-        },
-        problems: {
-          include: {
-            problem: {
-              include: {
-                author: { select: { username: true } },
-                statements: true
-              }
-            }
-          },
-          orderBy: { createdAt: "asc" }
         }
       },
       where: { slug }
     });
   },
 
-  /** Find course by slug with a specific user's membership (for permission resolution). */
   findBySlugWithUserMembership(slug: string, userId: string) {
     return prisma.course.findUnique({
       where: { slug },
@@ -94,8 +79,6 @@ export const courseRepo = {
     return prisma.course.count();
   },
 
-  // ── Transaction variants ──
-
   withTx(tx: TxClient) {
     return {
       findBySlug(slug: string) {
@@ -110,7 +93,6 @@ export const courseRepo = {
 };
 
 export const courseMembershipRepo = {
-  /** Count active students across multiple courses (teacher overview). */
   countStudents(courseSlugs: string[]) {
     return prisma.courseMembership.count({
       where: {
@@ -121,7 +103,6 @@ export const courseMembershipRepo = {
     });
   },
 
-  /** Count active assessments across multiple courses (teacher overview). */
   countActiveAssessments(courseSlugs: string[], now: Date) {
     return prisma.courseAssessment.count({
       where: {
@@ -133,7 +114,6 @@ export const courseMembershipRepo = {
     });
   },
 
-  /** Find active student memberships for a course. */
   findStudents(courseId: string) {
     return prisma.courseMembership.findMany({
       where: { courseId, role: "student", status: "active" },
@@ -176,9 +156,9 @@ export const courseMembershipRepo = {
 export const courseJoinTokenRepo = {
   withTx(tx: TxClient) {
     return {
-      findByToken(courseId: string, method: CourseJoinMethod, token: string) {
+      findByToken(courseId: string, kind: CourseJoinTokenKind, token: string) {
         return tx.courseJoinToken.findFirst({
-          where: { courseId, method, token }
+          where: { courseId, kind, token }
         });
       },
 
@@ -190,36 +170,6 @@ export const courseJoinTokenRepo = {
         return tx.courseJoinToken.update({
           data: { usageCount: { increment: 1 } },
           where: { id }
-        });
-      }
-    };
-  }
-};
-
-export const courseProblemRepo = {
-  /** Find course problems with statements (for progress matrix). */
-  findByCourseId(courseId: string) {
-    return prisma.courseProblem.findMany({
-      where: { courseId },
-      select: {
-        problem: { select: problemPreviewSelect }
-      },
-      orderBy: { createdAt: "asc" }
-    });
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      upsert(
-        courseId: string,
-        problemId: string,
-        createData: Prisma.CourseProblemUncheckedCreateInput,
-        updateData: Prisma.CourseProblemUncheckedUpdateInput
-      ) {
-        return tx.courseProblem.upsert({
-          create: createData,
-          update: updateData,
-          where: { courseId_problemId: { courseId, problemId } }
         });
       }
     };

@@ -1,6 +1,5 @@
 import * as fs from "node:fs/promises";
 
-/** Return true iff `filePath` is accessible to the current process. */
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
@@ -10,13 +9,9 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-/**
- * Default per-stream output cap. The sandbox runs inside a memory-limited
- * container; without a cap, a runaway program that prints unbounded output
- * (e.g., an infinite loop with `printf`) would buffer the entire stream
- * into a `Buffer[]` and OOM-kill the runner before the timeout fires.
- */
-const DEFAULT_OUTPUT_CAP_BYTES = 16 * 1024 * 1024; // 16 MB
+// Cap per-stream buffering so a runaway program printing unbounded output
+// cannot OOM-kill the runner before its timeout fires.
+const DEFAULT_OUTPUT_CAP_BYTES = 16 * 1024 * 1024;
 
 export interface BoundedBuffer {
   push(chunk: Buffer): void;
@@ -24,11 +19,6 @@ export interface BoundedBuffer {
   get truncated(): boolean;
 }
 
-/**
- * Collect chunks up to `capBytes`, truncating any excess. Once the cap is
- * reached, subsequent chunks are dropped — the child process keeps running
- * (so timeouts and exit codes still work) but its output stops accumulating.
- */
 export function createBoundedBuffer(capBytes = DEFAULT_OUTPUT_CAP_BYTES): BoundedBuffer {
   const chunks: Buffer[] = [];
   let totalBytes = 0;

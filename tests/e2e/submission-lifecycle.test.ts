@@ -244,13 +244,19 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.locator("textarea[name='outputFormat']").fill(OUTPUT_FORMAT);
 
     // Visibility Select: click the trigger that currently reads "Private",
-    // then pick "Public". Difficulty defaults to "Medium" so this filter
-    // uniquely matches the visibility trigger.
+    // then pick "Public". Bits UI Select.Trigger renders as a <button> with
+    // aria-haspopup="listbox" and data-slot="select-trigger" (not an explicit
+    // role="combobox"), so target it by the data-slot attribute. Options are
+    // portalled and render with data-slot="select-item" — use that instead of
+    // role="option" for stability.
     await page
-      .getByRole("combobox")
+      .locator('[data-slot="select-trigger"]')
       .filter({ hasText: /private/i })
       .click();
-    await page.getByRole("option", { name: /public/i }).click();
+    await page
+      .locator('[data-slot="select-item"]')
+      .filter({ hasText: /^public$/i })
+      .click();
 
     // Save
     await page
