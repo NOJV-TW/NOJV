@@ -21,7 +21,7 @@
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "ci:verify": "pnpm format && pnpm db:generate && turbo run build lint test",
+    "ci:verify": "pnpm format && pnpm db:generate && turbo run build typecheck lint test",
     "db:deploy": "pnpm --filter @nojv/db db:deploy",
     "db:generate": "pnpm --filter @nojv/db db:generate",
     "db:migrate": "pnpm --filter @nojv/db db:migrate",
@@ -33,7 +33,9 @@
   "pnpm": {
     "overrides": {
       "@grpc/grpc-js": "~1.12.4",
-      "vite": "^8.0.7"
+      "vite": "^8.0.7",
+      "solid-js": "^1.9.4",
+      "drizzle-orm": "^0.45.2"
     },
     "onlyBuiltDependencies": [
       "@prisma/engines",

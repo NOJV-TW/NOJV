@@ -1,3 +1,6 @@
+import { error } from "@sveltejs/kit";
+import type { z } from "zod";
+
 /** Read a trimmed string field from FormData; returns "" for missing or non-string values. */
 export function readString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -7,4 +10,22 @@ export function readString(formData: FormData, key: string): string {
 /** Read a checkbox field; returns true iff the checkbox is "on". */
 export function readCheckbox(formData: FormData, key: string): boolean {
   return formData.get(key) === "on";
+}
+
+/** Read a JSON-encoded form field and validate it with a Zod schema. Throws 400 on failure. */
+export function parseJsonField<T>(
+  raw: FormDataEntryValue | null,
+  schema: z.ZodType<T>,
+  fieldName = "data"
+): T {
+  if (typeof raw !== "string") error(400, `Missing ${fieldName} field`);
+  const parsed = schema.safeParse(JSON.parse(raw));
+  if (!parsed.success) error(400, `Invalid ${fieldName}`);
+  return parsed.data;
+}
+
+/** Read a required string form field (e.g. an ID). Throws 400 if missing. */
+export function readStringField(raw: FormDataEntryValue | null, fieldName: string): string {
+  if (typeof raw !== "string") error(400, `Missing ${fieldName}`);
+  return raw;
 }

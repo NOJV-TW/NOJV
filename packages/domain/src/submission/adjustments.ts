@@ -44,7 +44,7 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
         score = score - deduction;
       }
     } else if (rule.type === "late_penalty_decay") {
-      if (dueAt && submittedAt > dueAt) {
+      if (dueAt && submittedAt > dueAt && rule.halfLifeHours > 0) {
         const hoursLate = (submittedAt.getTime() - dueAt.getTime()) / (60 * 60 * 1000);
         const decay = Math.pow(0.5, hoursLate / rule.halfLifeHours);
         score = score * decay;

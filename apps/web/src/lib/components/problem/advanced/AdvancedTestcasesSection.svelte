@@ -15,7 +15,7 @@
 
   interface Props {
     cases: AdvancedCase[];
-    onsave?: (cases: AdvancedCase[]) => void;
+    onsave?: (cases: AdvancedCase[]) => void | Promise<void>;
   }
 
   let { cases = $bindable<AdvancedCase[]>([]), onsave }: Props = $props();
@@ -79,12 +79,13 @@
     cases = next;
   }
 
-  function save() {
+  async function save() {
     saving = true;
-    onsave?.(cases);
-    setTimeout(() => {
+    try {
+      await onsave?.(cases);
+    } finally {
       saving = false;
-    }, 200);
+    }
   }
 </script>
 

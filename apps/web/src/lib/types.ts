@@ -4,6 +4,7 @@ import type {
   Language,
   ProblemOverview,
   ProblemStatus,
+  ProblemType,
   ProblemVisibility,
   SubmissionType
 } from "@nojv/core";
@@ -11,44 +12,6 @@ import type {
 export function formatVerdictLabel(verdict: string): string {
   return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
-
-export const starterByLanguage: Record<Language, string> = {
-  c: `#include <stdio.h>
-
-int main() {
-
-}
-`,
-  go: `package main
-
-func main() {
-}
-`,
-  cpp: `#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-
-}
-`,
-  java: `import java.util.Scanner;
-
-public class Main {
-  public static void main(String[] args) {
-
-  }
-}
-`,
-  rust: `use std::io::{self, Read};
-
-fn main() {
-
-}
-`,
-  javascript: ``,
-  typescript: ``,
-  python: ``
-};
 
 export const difficultyColor: Record<string, string> = {
   easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
@@ -77,7 +40,11 @@ export interface ProblemDetail extends ProblemOverview {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  mode: "standard" | "advanced";
+  /**
+   * Derived UI category — replaces the legacy `mode` + `submissionType`
+   * pair on the client. `special_env` is the old `mode === "advanced"`.
+   */
+  problemType: ProblemType;
   samples: {
     stdin: string;
     expected: string;
@@ -91,15 +58,18 @@ export interface ProblemDetail extends ProblemOverview {
   timeLimitMs: number;
   visibility: ProblemVisibility;
   /**
-   * Visible workspace files for the student editor. Hidden files are
-   * filtered out by the domain layer and never exposed to the client.
+   * Workspace files for the student editor. Hidden files are included so
+   * the UI can render their metadata (path, language, description), but
+   * their `content` is always `""` — the domain layer blanks it before it
+   * leaves the server.
    */
   workspaceFiles: {
     language: string;
     path: string;
     content: string;
-    visibility: "editable" | "readonly";
+    visibility: "editable" | "readonly" | "hidden";
     editableRegions: [number, number][] | null;
+    description: string;
   }[];
 }
 

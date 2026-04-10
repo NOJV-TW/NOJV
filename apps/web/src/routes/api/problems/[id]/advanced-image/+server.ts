@@ -35,6 +35,12 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
+  // Per-problem ownership check: role alone is insufficient.
+  await problemDomain.assertProblemEditAccess(
+    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
+    problemId
+  );
+
   const formData = await event.request.formData();
   const file = formData.get("tarball");
   if (!(file instanceof File)) {

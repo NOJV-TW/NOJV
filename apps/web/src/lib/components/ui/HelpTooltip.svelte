@@ -14,9 +14,10 @@
     <Tooltip.Trigger
       class="inline-flex cursor-help items-center align-middle text-muted-foreground/60 hover:text-muted-foreground transition-colors"
       type="button"
+      aria-label={text}
       onclick={(e: MouseEvent) => e.preventDefault()}
     >
-      <CircleHelp class="size-3.5" />
+      <CircleHelp class="size-3.5" aria-hidden="true" />
     </Tooltip.Trigger>
     <Tooltip.Portal>
       <Tooltip.Content

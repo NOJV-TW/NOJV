@@ -200,15 +200,7 @@ function emit(overrides: Partial<SandboxOutput>): void {
   process.stdout.write(JSON.stringify(output));
 }
 
-async function main(): Promise<void> {
-  log("Reading config...");
-  const config = await readConfig();
-  log(
-    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
-  );
-
-  // Prepare source files in a work directory
-  const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
+async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
   await materializeConfiguredSources(config, workDir);
 
   const defaultEntry = sourceFileName(config.language);
@@ -347,6 +339,21 @@ async function main(): Promise<void> {
   }
 
   emit({ testcaseResults: results });
+}
+
+async function main(): Promise<void> {
+  log("Reading config...");
+  const config = await readConfig();
+  log(
+    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
+  );
+
+  const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
+  try {
+    await runJudge(workDir, config);
+  } finally {
+    await fs.rm(workDir, { force: true, recursive: true }).catch(() => undefined);
+  }
 }
 
 // Run and handle any unhandled errors as SE
