@@ -2,7 +2,10 @@ import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { createSubscriber } from "@nojv/redis";
 import { userChannel } from "@nojv/core";
+import { createLogger } from "$lib/server/logger";
 import { z } from "zod";
+
+const logger = createLogger("sse-stream");
 
 const sseEnvSchema = z.object({
   REDIS_URL: z.url()
@@ -70,8 +73,10 @@ export const GET: RequestHandler = (event) => {
         }
       }
 
-      subscriber.subscribe(...channels).catch(() => {
-        // Subscription failed — silently degrade
+      subscriber.subscribe(...channels).catch((err: unknown) => {
+        // Subscription failed — the client will receive keepalives but no events.
+        // Log so operators can see the degradation instead of debugging silently.
+        logger.warn("Redis subscribe failed", { userId, err });
       });
 
       subscriber.on("message", (_channel: string, message: string) => {
