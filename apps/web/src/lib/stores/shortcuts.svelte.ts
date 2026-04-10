@@ -1,3 +1,5 @@
+import { untrack } from "svelte";
+
 export type ShortcutCategory = "navigation" | "actions" | "help";
 
 export interface Shortcut {
@@ -37,14 +39,21 @@ class ShortcutRegistry {
   #sequenceTimer: ReturnType<typeof setTimeout> | null = null;
 
   register(shortcut: Shortcut): () => void {
-    this.shortcuts = [...this.shortcuts, shortcut];
+    // Read via untrack so callers running inside an $effect don't track
+    // `this.shortcuts` as a dep, which would cause register()'s write to
+    // retrigger the calling effect → infinite loop.
+    untrack(() => {
+      this.shortcuts = [...this.shortcuts, shortcut];
+    });
     return () => {
       this.unregister(shortcut.id);
     };
   }
 
   unregister(id: string) {
-    this.shortcuts = this.shortcuts.filter((s) => s.id !== id);
+    untrack(() => {
+      this.shortcuts = this.shortcuts.filter((s) => s.id !== id);
+    });
   }
 
   toggleOverlay() {

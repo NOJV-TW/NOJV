@@ -561,10 +561,20 @@ export async function createProblemTestcaseSetRecord(
 
     assertProblemOwnership(problem, actor);
 
+    // TestcaseSet has @@unique([problemId, ordinal]) + ordinal defaults to 0,
+    // so every call without an explicit ordinal would collide. Compute the
+    // next slot by reading the current max within the transaction.
+    const { _max } = await tx.testcaseSet.aggregate({
+      where: { problemId: problem.id },
+      _max: { ordinal: true }
+    });
+    const nextOrdinal = (_max.ordinal ?? -1) + 1;
+
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
       name: payload.name,
       problemId: problem.id,
-      weight: payload.weight
+      weight: payload.weight,
+      ordinal: nextOrdinal
     });
 
     await testcaseRepo.withTx(tx).createMany(

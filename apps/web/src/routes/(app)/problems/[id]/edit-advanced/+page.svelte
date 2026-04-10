@@ -6,7 +6,6 @@
   } from "$lib/components/problem/advanced/AdvancedTestcasesSection.svelte";
   import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
   import { toasts } from "$lib/stores/toast";
-  import { Badge } from "$lib/components/ui/badge";
   import { LinkButton } from "$lib/components/ui/button";
   import type { ProblemImageSource } from "@nojv/core";
 
@@ -71,7 +70,11 @@
     <h1 class="font-display text-title-lg">
       {data.problem.title}
     </h1>
-    <Badge variant="info" size="md">Advanced mode</Badge>
+    <h2
+      class="inline-flex items-center rounded-full border border-info/25 bg-info/15 px-2.5 py-1 text-caption font-medium text-info"
+    >
+      Advanced mode
+    </h2>
     <LinkButton
       class="ml-auto"
       href={`/problems/${data.problem.id}/edit`}

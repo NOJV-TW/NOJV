@@ -31,7 +31,9 @@ test.describe("Contests", () => {
     const page = await context.newPage();
     await page.goto("/contests/spring-qualifier-2026/scoreboard");
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByText("Scoreboard")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Scoreboard", exact: true })
+    ).toBeVisible();
     await context.close();
   });
 
