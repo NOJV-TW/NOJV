@@ -51,9 +51,7 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // ── Derive mode from server context, ignore client-provided mode ──
-    const mode = payload.contestSlug ? "contest" : courseContext ? "assignment" : "practice";
-
+    // Mode is derived on read via `deriveSubmissionMode` — the column is gone.
     const user = await ensureUser(tx, actor.userId, actor);
     const contestResult = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug, {
@@ -158,7 +156,6 @@ export async function createQueuedSubmissionRecord(
       courseAssessmentId: courseContext?.assessment.id ?? null,
       courseId: courseContext?.course.id ?? null,
       language: payload.language,
-      mode,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
       sourceCode: payload.sourceCode,

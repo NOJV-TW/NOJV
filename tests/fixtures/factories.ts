@@ -203,7 +203,6 @@ export async function createTestSubmission(
       language: overrides.language ?? "python",
       sourceCode: overrides.sourceCode ?? 'print("hello")',
       status: overrides.status ?? "accepted",
-      mode: overrides.mode ?? "practice",
       ...overrides,
       userId,
       problemId

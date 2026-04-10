@@ -3,7 +3,6 @@ import {
   assessmentRepo,
   courseJoinTokenRepo,
   courseMembershipRepo,
-  courseProblemRepo,
   courseRepo,
   problemRepo,
   runTransaction,
@@ -14,7 +13,6 @@ import type {
   CourseAssessmentCreate,
   CourseCreate,
   CourseJoinRequest,
-  CourseProblemAttach,
   ManualCourseEnrollment
 } from "@nojv/core";
 
@@ -23,8 +21,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
 import {
   assertCourseProblemAccess,
-  assertProblemHasWorkspaceForLanguages,
-  requireProblem
+  assertProblemHasWorkspaceForLanguages
 } from "../problem/mutations";
 
 // ─── Course helpers ─────────────────────────────────────────────────
@@ -111,31 +108,6 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
       course,
       joinTokens
     };
-  });
-}
-
-export async function attachProblemToCourseRecord(
-  actor: ActorContext,
-  payload: CourseProblemAttach
-) {
-  return runTransaction(async (tx) => {
-    const user = await ensureUser(tx, actor.userId, actor);
-    const course = await requireCourse(tx, payload.courseSlug);
-    const problem = await requireProblem(tx, payload.problemId);
-    assertCourseProblemAccess(problem, actor);
-
-    return courseProblemRepo.withTx(tx).upsert(
-      course.id,
-      problem.id,
-      {
-        addedByUserId: user.id,
-        courseId: course.id,
-        problemId: problem.id
-      },
-      {
-        addedByUserId: user.id
-      }
-    );
   });
 }
 
@@ -287,18 +259,6 @@ export async function createCourseAssessmentRecord(
       problemIds.map(async (id, index) => {
         const problem = problemById.get(id);
         if (!problem) throw new NotFoundError(`Problem not found: ${id}`);
-        await courseProblemRepo.withTx(tx).upsert(
-          course.id,
-          problem.id,
-          {
-            addedByUserId: creator.id,
-            courseId: course.id,
-            problemId: problem.id
-          },
-          {
-            addedByUserId: creator.id
-          }
-        );
         await assessmentProblemRepo.withTx(tx).create({
           assessmentId: assessment.id,
           ordinal: index + 1,

@@ -38,7 +38,7 @@ export const load: PageServerLoad = async ({ params, parent }) => {
     reports: reports.map((r) => ({
       ...r,
       completedAt: r.completedAt?.toISOString() ?? null,
-      createdAt: r.createdAt.toISOString()
+      triggeredAt: r.triggeredAt?.toISOString() ?? null
     }))
   };
 };

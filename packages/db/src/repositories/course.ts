@@ -2,7 +2,6 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { CourseJoinTokenKind } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
-import { problemPreviewSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -42,7 +41,7 @@ export const courseRepo = {
     });
   },
 
-  /** Fetch full course page data with assessments, members, problems. */
+  /** Fetch full course page data with assessments (incl. their problems) and members. */
   findDetailBySlug(slug: string) {
     return prisma.course.findUnique({
       include: {
@@ -60,17 +59,6 @@ export const courseRepo = {
           include: { user: true },
           orderBy: { createdAt: "asc" },
           where: { status: "active" }
-        },
-        problems: {
-          include: {
-            problem: {
-              include: {
-                author: { select: { username: true } },
-                statements: true
-              }
-            }
-          },
-          orderBy: { createdAt: "asc" }
         }
       },
       where: { slug }
@@ -190,36 +178,6 @@ export const courseJoinTokenRepo = {
         return tx.courseJoinToken.update({
           data: { usageCount: { increment: 1 } },
           where: { id }
-        });
-      }
-    };
-  }
-};
-
-export const courseProblemRepo = {
-  /** Find course problems with statements (for progress matrix). */
-  findByCourseId(courseId: string) {
-    return prisma.courseProblem.findMany({
-      where: { courseId },
-      select: {
-        problem: { select: problemPreviewSelect }
-      },
-      orderBy: { createdAt: "asc" }
-    });
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      upsert(
-        courseId: string,
-        problemId: string,
-        createData: Prisma.CourseProblemUncheckedCreateInput,
-        updateData: Prisma.CourseProblemUncheckedUpdateInput
-      ) {
-        return tx.courseProblem.upsert({
-          create: createData,
-          update: updateData,
-          where: { courseId_problemId: { courseId, problemId } }
         });
       }
     };

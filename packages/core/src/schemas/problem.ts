@@ -102,7 +102,14 @@ export function entryFileNameFor(language: Language): string {
   return `${ENTRY_FILE_BASENAME}.${languageExtension(language)}`;
 }
 
-export const problemCreateSchema = z.object({
+// Plain object schema — kept separate so `problemUpdateSchema` can
+// call `.partial()` on it. The `.superRefine()` that enforces
+// `special_env` ↔ image-config coherence is applied only on the
+// create path below, because it requires the full create payload to
+// be present. Partial-update payloads that only touch unrelated
+// fields would otherwise fail the refine; the same invariant is
+// re-checked in the domain mutation layer when the update lands.
+const problemCreateObjectSchema = z.object({
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
@@ -132,7 +139,46 @@ export const problemCreateSchema = z.object({
   networkEnabled: z.boolean().default(false)
 });
 
-export const problemUpdateSchema = problemCreateSchema.partial();
+export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, ctx) => {
+  const isSpecialEnv = data.type === "special_env";
+  const hasImageRef = !!data.advancedImageRef && data.advancedImageRef.trim().length > 0;
+  const hasImageSource = !!data.advancedImageSource;
+
+  if (isSpecialEnv) {
+    if (!hasImageRef) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["advancedImageRef"],
+        message: "validation_required"
+      });
+    }
+    if (!hasImageSource) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["advancedImageSource"],
+        message: "validation_required"
+      });
+    }
+  } else {
+    // Non-special_env must NOT carry image config.
+    if (hasImageRef) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["advancedImageRef"],
+        message: "validation_onlyAllowedForSpecialEnv"
+      });
+    }
+    if (hasImageSource) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["advancedImageSource"],
+        message: "validation_onlyAllowedForSpecialEnv"
+      });
+    }
+  }
+});
+
+export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
   expectedStdout: z.string().max(200_000),

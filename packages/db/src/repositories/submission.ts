@@ -27,7 +27,6 @@ export const submissionRepo = {
         contestParticipationId: true,
         courseAssessmentId: true,
         courseId: true,
-        mode: true,
         verdictDetail: true
       },
       where: { id }

@@ -1,4 +1,4 @@
-import { problemRepo, submissionRepo, userRepo, userStatsRepo, type Prisma } from "@nojv/db";
+import { problemRepo, submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
 // ─── Admin: User management ────────────────────────────────────────
 
@@ -62,10 +62,14 @@ export interface DashboardStats {
 }
 
 export async function getUserDashboard(userId: string) {
-  const [stats, recentSubmissions, acProblemIds] = await Promise.all([
-    userStatsRepo.findByUserId(userId),
+  // The `UserStats` denorm row was removed in the second-pass refactor —
+  // the dashboard aggregates stats on-demand from `Submission`. All four
+  // reads are independent so they run in parallel.
+  const [recentSubmissions, acProblemIds, totalAttempts, mostRecent] = await Promise.all([
     submissionRepo.findRecentByUser(userId, 10),
-    submissionRepo.findDistinctAcByUser(userId)
+    submissionRepo.findDistinctAcByUser(userId),
+    submissionRepo.count({ userId, sampleOnly: false }),
+    submissionRepo.findMostRecent({ userId, sampleOnly: false })
   ]);
 
   const acIds = acProblemIds.map((s) => s.problemId);
@@ -81,13 +85,11 @@ export async function getUserDashboard(userId: string) {
   const shuffled = recommendations.sort(() => Math.random() - 0.5);
   const picked = shuffled.slice(0, 3);
 
-  const dashboardStats: DashboardStats = stats
-    ? {
-        totalAc: stats.totalAc,
-        totalAttempts: stats.totalAttempts,
-        lastSubmittedAt: stats.lastSubmittedAt
-      }
-    : { totalAc: 0, totalAttempts: 0, lastSubmittedAt: null };
+  const dashboardStats: DashboardStats = {
+    totalAc: acIds.length,
+    totalAttempts,
+    lastSubmittedAt: mostRecent?.createdAt ?? null
+  };
 
   return {
     stats: dashboardStats,

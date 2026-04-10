@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-// Submission + Editorial + user activity stats
+// Submission + Editorial + per-day activity
 //
-// UserStats is a small hot-path denorm for dashboard headers;
-// UserDailyActivity is one row per user per calendar day so
-// streaks / heatmaps / range queries are first-class SQL.
+// UserStats was dropped — the dashboard's totals (totalAc /
+// totalAttempts / lastSubmittedAt) are computed on-demand from
+// Submission via indexed aggregates. UserDailyActivity stays as
+// the only pre-aggregated table because streak / heatmap queries
+// over a 30-day window benefit from a dedicated row-per-day shape.
 // ═══════════════════════════════════════════════════════════════
 
 enum SupportedLanguage {
@@ -15,12 +17,6 @@ enum SupportedLanguage {
   python
   rust
   typescript
-}
-
-enum SubmissionMode {
-  practice
-  contest
-  assignment
 }
 
 enum SubmissionStatus {
@@ -35,6 +31,10 @@ enum SubmissionStatus {
   compile_error
 }
 
+/// "Mode" is no longer a stored column — it's derived on-demand
+/// from the FK shape: contestId ? "contest" : courseAssessmentId ?
+/// "assignment" : "practice". Domain helper `deriveSubmissionMode`
+/// lives in @nojv/domain.
 model Submission {
   id                     String            @id @default(cuid())
   userId                 String
@@ -43,7 +43,6 @@ model Submission {
   contestId              String?
   courseId               String?
   courseAssessmentId     String?
-  mode                   SubmissionMode
   sampleOnly             Boolean           @default(false)
   language               SupportedLanguage
   /// Single file for standard/function types. Multi-file is stored
@@ -91,18 +90,6 @@ model Editorial {
   /// long as they're in different languages.
   @@unique([userId, problemId, language])
   @@index([problemId, createdAt])
-}
-
-/// Hot-path denorm for the user's profile/dashboard header.
-/// Everything else (per-language histograms, difficulty breakdown)
-/// is computed on-demand from the Submission table via grouped queries.
-model UserStats {
-  userId          String    @id
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  totalAc         Int       @default(0)
-  totalAttempts   Int       @default(0)
-  lastSubmittedAt DateTime?
-  updatedAt       DateTime  @updatedAt
 }
 
 /// One row per user per calendar day (UTC). Powers streak counters,

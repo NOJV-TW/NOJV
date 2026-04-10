@@ -48,27 +48,8 @@ model AnnouncementTranslation {
   @@unique([announcementId, locale])
 }
 
-/// 1:1 with its parent — each Contest / CourseAssessment has at most
-/// one PlagiarismReport. Re-running MOSS updates the existing row in
-/// place; no history is kept.
-///
-/// Exactly one of `contestId` / `courseAssessmentId` must be non-null,
-/// enforced by a CHECK constraint in the initial migration:
-///   CHECK ((contestId IS NULL) != (courseAssessmentId IS NULL))
-///
-/// FK cascade: deleting the parent automatically cleans up this row.
-model PlagiarismReport {
-  id                 String                 @id @default(cuid())
-  contestId          String?                @unique
-  courseAssessmentId String?                @unique
-  triggeredById      String
-  status             PlagiarismReportStatus @default(pending)
-  results            Json?
-  mossReportUrl      String?
-  createdAt          DateTime               @default(now())
-  completedAt        DateTime?
-
-  triggeredBy      User              @relation("PlagiarismReportTriggeredBy", fields: [triggeredById], references: [id], onDelete: Cascade)
-  contest          Contest?          @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  courseAssessment CourseAssessment? @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
-}
+// Plagiarism reports are now inlined on Contest and CourseAssessment
+// (see `plagiarism*` columns on those models). Re-running MOSS upserts
+// the inline fields in place; there is no PlagiarismReport table.
+// The `PlagiarismReportStatus` enum above stays, because those inline
+// columns still reference it.

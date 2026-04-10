@@ -238,7 +238,6 @@ describe("contest queries (real DB)", () => {
           contestId: contest.id,
           contestParticipationId: participation.id,
           language: "python",
-          mode: "contest",
           problemId: problem.id,
           sampleOnly: false,
           sourceCode: "print(1)",

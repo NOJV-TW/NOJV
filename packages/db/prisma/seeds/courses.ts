@@ -93,32 +93,6 @@ export async function seedCourses(
     });
   }
 
-  // Course problems
-  const osLabProblemIds = [
-    "problem_warmup-sum",
-    "problem_graph-docking",
-    "problem_process-log-parser",
-    "problem_fork-bomb-safeguard"
-  ];
-
-  for (const problemId of osLabProblemIds) {
-    const problem = await prisma.problem.findUniqueOrThrow({ where: { id: problemId } });
-    await prisma.courseProblem.upsert({
-      create: {
-        addedByUserId: teacher.id,
-        courseId: osLabCourse.id,
-        problemId: problem.id
-      },
-      update: {},
-      where: {
-        courseId_problemId: {
-          courseId: osLabCourse.id,
-          problemId: problem.id
-        }
-      }
-    });
-  }
-
   // Course assessments. Homework no longer has IP lock, page lock, or
   // a scoreboard — those are exam concerns and live on Contest now.
   const hw1 = await prisma.courseAssessment.upsert({

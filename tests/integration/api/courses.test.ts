@@ -147,13 +147,29 @@ describe("course queries (real DB)", () => {
         }
       });
 
-      // Add a problem to the course
+      // Add a problem to the course via an assessment link (the standalone
+      // CourseProblem library table was removed — problems now reach the
+      // course read model through CourseAssessmentProblem).
       const problem = await createTestProblem({ authorId: teacher.id });
-      await testPrisma.courseProblem.create({
+      const assessment = await testPrisma.courseAssessment.create({
         data: {
           courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "Intro HW",
+          slug: "intro-hw",
+          summary: "Intro",
+          opensAt: new Date("2026-01-01"),
+          dueAt: new Date("2026-06-01"),
+          closesAt: new Date("2026-06-01"),
+          status: "published"
+        }
+      });
+      await testPrisma.courseAssessmentProblem.create({
+        data: {
+          assessmentId: assessment.id,
           problemId: problem.id,
-          addedByUserId: teacher.id
+          ordinal: 1,
+          points: 100
         }
       });
 

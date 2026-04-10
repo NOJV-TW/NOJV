@@ -43,14 +43,12 @@ describe("read model (real DB)", () => {
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted",
-        mode: "practice"
+        status: "accepted"
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "wrong_answer",
-        mode: "practice"
+        status: "wrong_answer"
       });
 
       const result = await listProblemCards();
@@ -68,14 +66,12 @@ describe("read model (real DB)", () => {
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted",
-        mode: "practice"
+        status: "accepted"
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "wrong_answer",
-        mode: "practice"
+        status: "wrong_answer"
       });
 
       const result = await listProblemCards();
@@ -173,20 +169,17 @@ describe("read model (real DB)", () => {
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted",
-        mode: "practice"
+        status: "accepted"
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "wrong_answer",
-        mode: "practice"
+        status: "wrong_answer"
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted",
-        mode: "practice"
+        status: "accepted"
       });
 
       const detail = await getProblemPageData("counted-problem", "en");
@@ -220,16 +213,10 @@ describe("read model (real DB)", () => {
         }
       });
 
-      // Add problem to course
-      await testPrisma.courseProblem.create({
-        data: {
-          courseId: course.id,
-          problemId: problem.id,
-          addedByUserId: teacher.id
-        }
-      });
+      // Add assessment with linked problem (problem is surfaced on the
+      // course read model via CourseAssessmentProblem now that the old
+      // CourseProblem library table has been removed).
 
-      // Add assessment with linked problem
       const assessment = await testPrisma.courseAssessment.create({
         data: {
           courseId: course.id,

@@ -279,6 +279,25 @@ export async function updateProblemRecord(
     if (payload.advancedImageSource !== undefined)
       updateData.advancedImageSource = payload.advancedImageSource;
 
+    // Special-env invariant: the create path's zod `superRefine` enforces
+    // `type === "special_env"` ⟺ (advancedImageRef && advancedImageSource),
+    // but `problemUpdateSchema.partial()` strips the refine (ZodEffects
+    // can't be partialed). Re-derive the merged row and check manually.
+    const mergedType = (payload.type ?? problem.type) as ProblemType;
+    const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
+    const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
+    const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);
+    if (mergedType === "special_env" && !hasImage) {
+      throw new ValidationError(
+        "special_env problems require both advancedImageRef and advancedImageSource."
+      );
+    }
+    if (mergedType !== "special_env" && hasImage) {
+      throw new ValidationError(
+        "advancedImageRef / advancedImageSource are only allowed on special_env problems."
+      );
+    }
+
     // Tags + difficulty: rebuild whenever either field is provided so
     // the difficulty tag stays consistent with the rest of the list.
     if (payload.tags !== undefined || payload.difficulty !== undefined) {

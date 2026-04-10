@@ -28,16 +28,15 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     throw new ForbiddenError("Only course staff can trigger plagiarism checks.");
   }
 
-  const report = await createPlagiarismReport(target, actor.userId);
+  await createPlagiarismReport(target, actor.userId);
 
   await dispatchPlagiarismCheck({
-    reportId: report.id,
     targetId: target.id,
     targetType: target.type,
     triggeredById: actor.userId
   });
 
-  return json({ reportId: report.id, status: "pending" }, { status: 202 });
+  return json({ targetId: target.id, status: "pending" }, { status: 202 });
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {

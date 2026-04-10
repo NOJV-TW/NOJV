@@ -1,10 +1,4 @@
-import {
-  assessmentRepo,
-  courseMembershipRepo,
-  courseProblemRepo,
-  courseRepo,
-  submissionRepo
-} from "@nojv/db";
+import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from "@nojv/db";
 
 import { localizeProblem } from "../shared/pick-problem-statement";
 
@@ -59,7 +53,10 @@ export async function getStudentProgressMatrix(
 
   const studentIds = new Set(students.map((s) => s.userId));
 
-  // 2. Get problems (all course problems or assessment-specific)
+  // 2. Get problems (all course problems or assessment-specific). The
+  // `CourseProblem` shelf table was removed in the second-pass refactor,
+  // so the course-wide view is now the distinct union of every problem
+  // across every published assessment.
   let assessmentId: string | undefined;
   let problemRecords: ProgressProblem[];
 
@@ -76,11 +73,23 @@ export async function getStudentProgressMatrix(
       title: localizeProblem(p.problem).title
     }));
   } else {
-    const courseProblems = await courseProblemRepo.findByCourseId(course.id);
-    problemRecords = courseProblems.map((cp) => ({
-      problemId: cp.problem.id,
-      title: localizeProblem(cp.problem).title
-    }));
+    const courseAssessments = await assessmentRepo.listByCourseSlug(courseSlug);
+    const allProblemRecords = await Promise.all(
+      courseAssessments.map((a) => assessmentRepo.findWithProblems(course.id, a.slug))
+    );
+    const seen = new Set<string>();
+    problemRecords = [];
+    for (const loaded of allProblemRecords) {
+      if (!loaded) continue;
+      for (const p of loaded.problems) {
+        if (seen.has(p.problem.id)) continue;
+        seen.add(p.problem.id);
+        problemRecords.push({
+          problemId: p.problem.id,
+          title: localizeProblem(p.problem).title
+        });
+      }
+    }
   }
 
   const problemIds = problemRecords.map((p) => p.problemId);

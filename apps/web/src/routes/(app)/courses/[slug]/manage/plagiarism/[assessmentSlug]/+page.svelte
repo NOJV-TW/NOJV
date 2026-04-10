@@ -115,7 +115,9 @@
       </div>
 
       <div class="mt-3 text-sm text-muted-foreground">
-        <p>Created: {new Date(latestReport.createdAt).toLocaleString()}</p>
+        {#if latestReport.triggeredAt}
+          <p>Triggered: {new Date(latestReport.triggeredAt).toLocaleString()}</p>
+        {/if}
         {#if latestReport.completedAt}
           <p>Completed: {new Date(latestReport.completedAt).toLocaleString()}</p>
         {/if}
@@ -255,24 +257,6 @@
           </div>
         </div>
       {/if}
-    </section>
-  {/if}
-
-  {#if data.reports.length > 1}
-    <section
-      class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-5 py-5 backdrop-blur-sm"
-    >
-      <h3 class="text-lg font-semibold">Previous Reports</h3>
-      <div class="mt-3 space-y-2">
-        {#each data.reports.slice(1) as report}
-          <div class="flex items-center justify-between rounded-xl border border-border/50 px-3 py-2 text-sm">
-            <span>{new Date(report.createdAt).toLocaleString()}</span>
-            <span class="rounded-full border border-border px-3 py-1 text-xs font-medium {statusColor(report.status)}">
-              {report.status}
-            </span>
-          </div>
-        {/each}
-      </div>
     </section>
   {/if}
 </div>

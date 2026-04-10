@@ -128,20 +128,20 @@ function submitToMoss(
 // --- Activity ---
 
 export async function runPlagiarismCheck(
-  reportId: string,
   targetId: string,
   targetType: PlagiarismTargetType
 ): Promise<void> {
-  await plagiarismDomain.updateReportStatus(reportId, "running");
+  // The `PlagiarismReport` table was removed in the second-pass refactor —
+  // plagiarism state lives inline on `Contest` / `CourseAssessment`, so
+  // the `(targetType, targetId)` tuple IS the report identity.
+  const target: plagiarismDomain.PlagiarismTarget = { type: targetType, id: targetId };
+  await plagiarismDomain.updateReportStatus(target, "running");
 
   try {
-    const submissions = await plagiarismDomain.fetchSubmissionsForCheck({
-      type: targetType,
-      id: targetId
-    });
+    const submissions = await plagiarismDomain.fetchSubmissionsForCheck(target);
 
     if (submissions.length === 0) {
-      await plagiarismDomain.saveResults(reportId, { pairs: [] }, null);
+      await plagiarismDomain.saveResults(target, { pairs: [] }, null);
       return;
     }
 
@@ -196,7 +196,7 @@ export async function runPlagiarismCheck(
           continue;
         }
       } else {
-        resultUrl = `https://moss.stanford.edu/results/placeholder/${reportId}`;
+        resultUrl = `https://moss.stanford.edu/results/placeholder/${targetType}-${targetId}`;
         mossReportUrl ??= resultUrl;
       }
 
@@ -220,9 +220,9 @@ export async function runPlagiarismCheck(
       }
     }
 
-    await plagiarismDomain.saveResults(reportId, { pairs: allPairs }, mossReportUrl);
+    await plagiarismDomain.saveResults(target, { pairs: allPairs }, mossReportUrl);
   } catch (err) {
-    await plagiarismDomain.markReportFailed(reportId).catch(() => {});
+    await plagiarismDomain.markReportFailed(target).catch(() => {});
 
     throw err;
   }

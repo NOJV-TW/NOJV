@@ -92,13 +92,30 @@ function mapProblemShelfEntry(problem: {
   } satisfies CourseProblemCatalogEntry;
 }
 
+interface PersistedAssessmentProblemLink {
+  ordinal: number;
+  problem: {
+    author?: { username: string | null } | null;
+    id: string;
+    statements?: {
+      bodyMarkdown: string;
+      inputFormat?: string;
+      locale: string;
+      outputFormat?: string;
+      title: string;
+    }[];
+    title: string;
+    visibility: ProblemVisibility;
+  };
+}
+
 function mapAssessmentRecord(assessment: {
   allowedLanguages: Language[];
   closesAt: Date;
   dueAt: Date | null;
   id: string;
   opensAt: Date;
-  problems: { ordinal: number; problem: { id: string } }[];
+  problems: PersistedAssessmentProblemLink[];
   slug: string;
   summary: string;
   title: string;
@@ -149,7 +166,7 @@ function mapPersistedCourse(course: {
     dueAt: Date | null;
     id: string;
     opensAt: Date;
-    problems: { ordinal: number; problem: { id: string } }[];
+    problems: PersistedAssessmentProblemLink[];
     slug: string;
     summary: string;
     title: string;
@@ -172,27 +189,25 @@ function mapPersistedCourse(course: {
     };
     userId: string;
   }[];
-  problems: {
-    problem: {
-      author?: { username: string | null } | null;
-      id: string;
-      statements?: {
-        bodyMarkdown: string;
-        inputFormat?: string;
-        locale: string;
-        outputFormat?: string;
-        title: string;
-      }[];
-      title: string;
-      visibility: ProblemVisibility;
-    };
-  }[];
   slug: string;
   title: string;
 }): CoursePageDetailData {
   const assessments = course.assessments.map(mapAssessmentRecord);
   const members = course.memberships.map(mapCourseMember);
-  const problems = course.problems.map((entry) => mapProblemShelfEntry(entry.problem));
+
+  // The `CourseProblem` shelf table was removed in the second-pass refactor —
+  // a course's problem list is now just the distinct union of every problem
+  // attached to one of its assessments. Dedupe by problemId, first-wins by
+  // assessment order (which is `opensAt asc` from the repo).
+  const seen = new Set<string>();
+  const problems: CourseProblemCatalogEntry[] = [];
+  for (const assessment of course.assessments) {
+    for (const link of assessment.problems) {
+      if (seen.has(link.problem.id)) continue;
+      seen.add(link.problem.id);
+      problems.push(mapProblemShelfEntry(link.problem));
+    }
+  }
 
   return {
     course: {

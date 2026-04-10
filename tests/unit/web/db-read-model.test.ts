@@ -103,6 +103,10 @@ describe("DB-backed read model", () => {
   });
 
   it("returns persisted course detail data for dynamic course pages", async () => {
+    // Course-level `problems` shelf was removed in the second-pass
+    // refactor — problems are now projected from assessment links
+    // (`CourseAssessmentProblem`), so the full problem payload lives on
+    // `assessments[i].problems[j].problem`.
     findDetailBySlugCourse.mockResolvedValue({
       assessments: [
         {
@@ -115,7 +119,19 @@ describe("DB-backed read model", () => {
             {
               ordinal: 1,
               problem: {
-                id: "prob_compiler_intro"
+                author: {
+                  username: "teacher_amelia"
+                },
+                id: "prob_compiler_intro",
+                statements: [
+                  {
+                    bodyMarkdown: "Write a recursive descent parser.",
+                    locale: "zh-TW",
+                    title: "Compiler Intro"
+                  }
+                ],
+                title: "Compiler Intro",
+                visibility: "public"
               }
             }
           ],
@@ -144,25 +160,6 @@ describe("DB-backed read model", () => {
             platformRole: "teacher"
           },
           userId: "usr_teacher_amelia"
-        }
-      ],
-      problems: [
-        {
-          problem: {
-            author: {
-              username: "teacher_amelia"
-            },
-            id: "prob_compiler_intro",
-            statements: [
-              {
-                bodyMarkdown: "Write a recursive descent parser.",
-                locale: "zh-TW",
-                title: "Compiler Intro"
-              }
-            ],
-            title: "Compiler Intro",
-            visibility: "public"
-          }
         }
       ],
       slug: "compiler-design-2026",

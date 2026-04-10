@@ -36,7 +36,6 @@ export interface AssessmentLifecycleInput {
 }
 
 export interface PlagiarismCheckInput {
-  reportId: string;
   targetId: string;
   targetType: "courseAssessment" | "contest";
   triggeredById: string;
@@ -113,9 +112,16 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
 
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
-    workflowId: `plagiarism-${input.reportId}`,
+    workflowId: plagiarismWorkflowId(input.targetType, input.targetId),
     args: [input]
   });
+}
+
+function plagiarismWorkflowId(
+  targetType: PlagiarismCheckInput["targetType"],
+  targetId: string
+): string {
+  return `plagiarism-${targetType}-${targetId}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,8 +142,11 @@ export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeP
   return handle.query<RejudgeProgress>("getProgress");
 }
 
-export async function queryPlagiarismStatus(reportId: string): Promise<PlagiarismCheckStatus> {
+export async function queryPlagiarismStatus(
+  targetType: PlagiarismCheckInput["targetType"],
+  targetId: string
+): Promise<PlagiarismCheckStatus> {
   const client = await getClient();
-  const handle = client.workflow.getHandle(`plagiarism-${reportId}`);
+  const handle = client.workflow.getHandle(plagiarismWorkflowId(targetType, targetId));
   return handle.query<PlagiarismCheckStatus>("getPlagiarismStatus");
 }

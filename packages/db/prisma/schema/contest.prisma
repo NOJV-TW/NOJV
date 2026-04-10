@@ -72,15 +72,21 @@ model Contest {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course           Course?                @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  createdBy        User?                  @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  problems         ContestProblem[]
-  participations   ContestParticipation[]
-  submissions      Submission[]
-  ipViolationLogs  IpViolationLog[]
-  /// 1:1 — latest plagiarism report; null until teacher runs a scan.
-  /// FK lives on PlagiarismReport.contestId with @unique.
-  plagiarismReport PlagiarismReport?
+  // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
+  plagiarismStatus        PlagiarismReportStatus?
+  plagiarismResults       Json?
+  plagiarismMossReportUrl String?
+  plagiarismTriggeredAt   DateTime?
+  plagiarismCompletedAt   DateTime?
+  plagiarismTriggeredById String?
+
+  course               Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdBy            User?                 @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  plagiarismTriggeredBy User?                @relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  problems             ContestProblem[]
+  participations       ContestParticipation[]
+  submissions          Submission[]
+  ipViolationLogs      IpViolationLog[]
 }
 
 model ContestProblem {

@@ -46,7 +46,6 @@ model Course {
   owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships CourseMembership[]
   joinTokens  CourseJoinToken[]
-  problems    CourseProblem[]
   assessments CourseAssessment[]
   contests    Contest[]
   submissions Submission[]
@@ -95,19 +94,6 @@ model CourseJoinToken {
   @@index([courseId, kind])
 }
 
-model CourseProblem {
-  id            String   @id @default(cuid())
-  courseId      String
-  problemId     String
-  addedByUserId String
-  createdAt     DateTime @default(now())
-  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  problem       Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  addedBy       User     @relation("CourseProblemAttacher", fields: [addedByUserId], references: [id], onDelete: Restrict)
-
-  @@unique([courseId, problemId])
-}
-
 model CourseAssessment {
   id       String                 @id @default(cuid())
   courseId String
@@ -137,12 +123,19 @@ model CourseAssessment {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course           Course                    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy        User                      @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  problems         CourseAssessmentProblem[]
-  submissions      Submission[]
-  /// 1:1 latest plagiarism report. FK lives on PlagiarismReport.courseAssessmentId.
-  plagiarismReport PlagiarismReport?
+  // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
+  plagiarismStatus        PlagiarismReportStatus?
+  plagiarismResults       Json?
+  plagiarismMossReportUrl String?
+  plagiarismTriggeredAt   DateTime?
+  plagiarismCompletedAt   DateTime?
+  plagiarismTriggeredById String?
+
+  course                 Course                    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy              User                      @relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  plagiarismTriggeredBy  User?                     @relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  problems               CourseAssessmentProblem[]
+  submissions            Submission[]
 
   @@unique([courseId, slug])
   @@index([courseId, status])
