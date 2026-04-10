@@ -50,7 +50,7 @@
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
-  let isFunctionMode = $derived(problem.submissionType === "function");
+  let isFunctionMode = $derived(problem.type === "function");
 
   let availableLanguages = $derived.by(() => {
     let langs = [...supportedLanguages];
@@ -464,12 +464,12 @@
 >
   <!-- Top toolbar -->
   <div
-    class="flex h-11 items-center justify-between border-b border-border bg-muted/40 px-3"
+    class="flex h-11 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
   >
     <div class="flex items-center gap-3">
-      <span class="text-xs font-semibold text-foreground/70">&lt;/&gt;</span>
+      <span class="text-caption font-semibold text-foreground/70">&lt;/&gt;</span>
       <select
-        class="border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-xs font-medium text-foreground outline-none transition focus:border-primary"
+        class="border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-caption font-medium text-foreground outline-none transition-[border-color] duration-fast ease-out-soft focus:border-primary"
         onchange={(e) => {
           const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
           if (parsed.success) language = parsed.data;
@@ -481,17 +481,17 @@
         {/each}
       </select>
       {#if isFunctionMode}
-        <span class="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
+        <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
           {m.editor_functionModeHint()}
         </span>
       {/if}
     </div>
     {#if contestSlug}
-      <span class="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+      <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
         {m.editor_contestMode()}
       </span>
     {:else if assessment}
-      <span class="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+      <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
         {m.editor_assignmentMode()}
       </span>
     {/if}
@@ -518,7 +518,7 @@
             class="shrink-0 overflow-y-auto bg-[color:var(--color-panel)] p-2"
             style="width: {filesWidth}px"
           >
-            <p class="mb-2 px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p class="mb-2 px-2 pt-1 text-caption font-semibold uppercase tracking-wide text-muted-foreground">
               Files
             </p>
             <ul class="space-y-0.5">
@@ -526,21 +526,21 @@
                 <li>
                   <button
                     type="button"
-                    class="flex w-full items-center justify-between px-2 py-1.5 text-left text-sm transition hover:bg-accent {selectedWorkspaceIndex ===
+                    class="flex w-full items-center justify-between px-2 py-1.5 text-left text-body-sm transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent {selectedWorkspaceIndex ===
                     index
                       ? 'bg-accent text-foreground'
                       : 'text-muted-foreground'}"
                     onclick={() => (selectedWorkspaceIndex = index)}
                   >
-                    <span class="truncate font-mono text-xs">
+                    <span class="truncate font-mono text-caption">
                       {#if file.visibility === 'hidden'}🔒 {/if}{file.path}
                     </span>
                     <span
-                      class="ml-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide {file.visibility ===
+                      class="ml-2 px-1.5 py-0.5 text-micro font-medium uppercase tracking-wide {file.visibility ===
                       'editable'
-                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                        ? 'bg-success/15 text-success'
                         : file.visibility === 'hidden'
-                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                          ? 'bg-warning/15 text-warning'
                           : 'bg-muted text-muted-foreground'}"
                     >
                       {file.visibility === 'editable'
@@ -572,22 +572,22 @@
             {#if selectedWorkspaceFile}
               {@const file = selectedWorkspaceFile}
               {#if file.visibility !== 'hidden' && file.description !== ''}
-                <p class="border-b border-border px-3 py-2 text-xs text-muted-foreground">
+                <p class="border-b border-border-subtle px-3 py-2 text-caption text-muted-foreground">
                   {file.description}
                 </p>
               {/if}
               <div class="min-h-0 flex-1">
                 {#if file.visibility === 'hidden'}
                   <div class="flex h-full flex-col gap-3 overflow-y-auto px-6 py-6">
-                    <h3 class="text-sm font-semibold text-foreground">
+                    <h3 class="text-body-sm font-semibold text-foreground">
                       {m.workspace_fileHidden()}
                     </h3>
                     {#if file.description !== ''}
-                      <div class="max-w-prose whitespace-pre-wrap border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                      <div class="max-w-prose whitespace-pre-wrap border border-border-subtle bg-muted/40 px-4 py-3 text-body-sm text-muted-foreground">
                         {file.description}
                       </div>
                     {:else}
-                      <p class="text-sm text-muted-foreground/70 italic">
+                      <p class="text-body-sm text-muted-foreground/70 italic">
                         {m.workspace_fileHiddenNoDescription()}
                       </p>
                     {/if}
@@ -613,14 +613,14 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5"
+    class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-2.5"
   >
-    <span class="text-xs font-medium text-muted-foreground">
+    <span class="text-caption font-medium text-muted-foreground tabular-nums">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
     </span>
     <div class="flex items-center gap-2">
       <button
-        class="rounded-full border border-border px-4 py-1.5 text-sm font-medium text-foreground transition hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        class="rounded-full border border-border px-4 py-1.5 text-body-sm font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isRunning || availableLanguages.length === 0}
         onclick={() => void handleRun()}
         type="button"
@@ -628,7 +628,7 @@
         {isRunning ? m.editor_running() : m.editor_run()}
       </button>
       <button
-        class="rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+        class="rounded-full bg-success px-4 py-1.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isSubmitting || availableLanguages.length === 0}
         onclick={() => void handleSubmit()}
         type="button"
@@ -659,9 +659,9 @@
     style="height: {bottomPanelHeight}px"
   >
     <!-- Bottom tabs -->
-    <div class="flex items-center border-b border-border px-2">
+    <div class="flex items-center border-b border-border-subtle px-2">
       <button
-        class="px-3 py-2 text-xs font-medium transition {bottomTab === 'testcase'
+        class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {bottomTab === 'testcase'
           ? 'border-b-2 border-foreground text-foreground'
           : 'text-muted-foreground hover:text-foreground'}"
         onclick={() => (bottomTab = "testcase")}
@@ -670,7 +670,7 @@
         {m.editor_testcase()}
       </button>
       <button
-        class="px-3 py-2 text-xs font-medium transition {bottomTab === 'result'
+        class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {bottomTab === 'result'
           ? 'border-b-2 border-foreground text-foreground'
           : 'text-muted-foreground hover:text-foreground'}"
         onclick={() => (bottomTab = "result")}
@@ -687,7 +687,7 @@
           <div class="flex items-center gap-1">
             {#each testcases as _, index (`tab-${index}`)}
               <button
-                class="group relative rounded-md px-3 py-1 text-xs font-medium transition {selectedCase ===
+                class="group relative rounded-md px-3 py-1 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedCase ===
                 index
                   ? 'bg-muted text-foreground'
                   : 'text-muted-foreground hover:text-foreground'}"
@@ -697,7 +697,7 @@
                 Case {index + 1}
                 {#if testcases.length > 1}
                   <span
-                    class="ml-1.5 hidden text-muted-foreground hover:text-red-400 group-hover:inline"
+                    class="ml-1.5 hidden text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive group-hover:inline"
                     role="button"
                     tabindex="-1"
                     onclick={(e: MouseEvent) => {
@@ -713,7 +713,7 @@
               </button>
             {/each}
             <button
-              class="rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:text-foreground"
+              class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
               onclick={() => {
                 testcases = [...testcases, { input: "", expectedOutput: "" }];
                 selectedCase = testcases.length - 1;
@@ -725,9 +725,9 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-xs text-muted-foreground">{m.editor_input()}</p>
+            <p class="text-caption text-muted-foreground">{m.editor_input()}</p>
             <textarea
-              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-sm text-foreground outline-none focus:ring-1 focus:ring-border"
+              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
               oninput={(e) => {
                 const val = (e.target as HTMLTextAreaElement).value;
                 testcases = testcases.map((tc, i) =>
@@ -740,9 +740,9 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-xs text-muted-foreground">{m.editor_expectedOutput()}</p>
+            <p class="text-caption text-muted-foreground">{m.editor_expectedOutput()}</p>
             <textarea
-              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-sm text-muted-foreground outline-none focus:ring-1 focus:ring-border"
+              class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
               oninput={(e) => {
                 const val = (e.target as HTMLTextAreaElement).value;
                 testcases = testcases.map((tc, i) =>
@@ -760,13 +760,13 @@
             <div>
               <div class="flex items-baseline gap-3">
                 <span
-                  class="text-lg font-semibold {verdictColor[runResult.verdict] ??
+                  class="text-body-lg font-semibold {verdictColor[runResult.verdict] ??
                     'text-foreground'}"
                 >
                   {runVerdictLabel}
                 </span>
                 {#if runResult.runtimeMs > 0}
-                  <span class="text-xs text-muted-foreground">
+                  <span class="text-caption text-muted-foreground tabular-nums">
                     Runtime: {String(runResult.runtimeMs)} ms
                   </span>
                 {/if}
@@ -776,14 +776,14 @@
                 <div class="mt-3 flex items-center gap-1">
                   {#each runResult.caseResults as cr, index (`rc-${index}`)}
                     <button
-                      class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition {selectedResultCase ===
+                      class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedResultCase ===
                       index
                         ? 'bg-muted text-foreground'
                         : 'text-muted-foreground hover:text-foreground'}"
                       onclick={() => (selectedResultCase = index)}
                       type="button"
                     >
-                      <span class={cr.passed ? "text-emerald-500" : "text-red-500"}>
+                      <span class={cr.passed ? "text-success" : "text-destructive"}>
                         {cr.passed ? "\u2714" : "\u2718"}
                       </span>
                       Case {index + 1}
@@ -794,40 +794,40 @@
                 <div class="mt-3 space-y-3">
                   {#if testcases[selectedResultCase]}
                     <div>
-                      <p class="text-xs font-medium text-muted-foreground">{m.editor_input()}</p>
+                      <p class="text-caption font-medium text-muted-foreground">{m.editor_input()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground">{testcases[selectedResultCase]!.input}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{testcases[selectedResultCase]!.input}</pre>
                     </div>
                   {/if}
 
                   {#if runResult.caseResults[selectedResultCase]}
                     {@const caseData = runResult.caseResults[selectedResultCase]!}
                     <div>
-                      <p class="text-xs font-medium text-muted-foreground">{m.editor_output()}</p>
+                      <p class="text-caption font-medium text-muted-foreground">{m.editor_output()}</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
                     </div>
                     {#if caseData.stderr}
                       <div>
-                        <p class="text-xs font-medium text-red-400 dark:text-red-400">Stderr</p>
+                        <p class="text-caption font-medium text-destructive">Stderr</p>
                         <pre
-                          class="mt-1 overflow-x-auto rounded-lg bg-red-500/10 px-3 py-2 font-mono text-sm text-red-700 dark:text-red-400">{caseData.stderr}</pre>
+                          class="mt-1 overflow-x-auto rounded-lg bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
                       </div>
                     {/if}
                   {/if}
 
                   {#if testcases[selectedResultCase]?.expectedOutput}
                     <div>
-                      <p class="text-xs font-medium text-muted-foreground">
+                      <p class="text-caption font-medium text-muted-foreground">
                         {m.editor_expectedOutput()}
                       </p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm text-foreground">{testcases[selectedResultCase]!.expectedOutput}</pre>
+                        class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{testcases[selectedResultCase]!.expectedOutput}</pre>
                     </div>
                   {/if}
                 </div>
               {:else if runResult.feedback}
-                <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                <p class="mt-2 text-body-sm leading-6 text-muted-foreground">
                   {runResult.feedback}
                 </p>
               {/if}
@@ -835,16 +835,16 @@
           {:else if runStatus}
             <div class="flex items-center gap-2 py-4">
               <div
-                class="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-foreground"
+                class="size-4 animate-spin rounded-full border-2 border-border border-t-foreground"
               ></div>
-              <span class="text-sm text-muted-foreground">{runStatus}</span>
+              <span class="text-body-sm text-muted-foreground">{runStatus}</span>
             </div>
           {:else if runError}
-            <div class="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+            <div class="rounded-md bg-destructive/10 px-3 py-2 text-body-sm text-destructive">
               {runError}
             </div>
           {:else}
-            <p class="py-4 text-sm text-muted-foreground">{m.editor_runFirst()}</p>
+            <p class="py-4 text-body-sm text-muted-foreground">{m.editor_runFirst()}</p>
           {/if}
         </div>
       {/if}

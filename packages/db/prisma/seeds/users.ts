@@ -11,7 +11,6 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "admin@nojv.local",
       username: "admin",
       id: "usr_admin",
-      locale: "zh-TW",
       platformRole: "admin"
     },
     update: {},
@@ -24,7 +23,6 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "teacher@nojv.local",
       username: "teacher",
       id: "usr_teacher",
-      locale: "zh-TW",
       platformRole: "teacher"
     },
     update: {},
@@ -37,7 +35,6 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "ta-student@nojv.local",
       username: "ta-student",
       id: "usr_ta_student",
-      locale: "zh-TW",
       platformRole: "student"
     },
     update: {},
@@ -50,7 +47,6 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "student@nojv.local",
       username: "student",
       id: "usr_student",
-      locale: "zh-TW",
       platformRole: "student"
     },
     update: {},

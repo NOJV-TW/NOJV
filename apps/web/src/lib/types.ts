@@ -2,11 +2,11 @@ import type {
   JudgeConfig,
   JudgeType,
   Language,
+  ProblemImageSource,
   ProblemOverview,
   ProblemStatus,
   ProblemType,
-  ProblemVisibility,
-  SubmissionType
+  ProblemVisibility
 } from "@nojv/core";
 
 export function formatVerdictLabel(verdict: string): string {
@@ -31,8 +31,6 @@ export const verdictColor: Record<string, string> = {
   wrong_answer: "text-red-600 dark:text-red-400"
 };
 
-// --- Problem types ---
-
 export interface ProblemDetail extends ProblemOverview {
   authorUsername: string;
   inputFormat: string;
@@ -41,10 +39,11 @@ export interface ProblemDetail extends ProblemOverview {
   memoryLimitMb: number;
   outputFormat: string;
   /**
-   * Derived UI category — replaces the legacy `mode` + `submissionType`
-   * pair on the client. `special_env` is the old `mode === "advanced"`.
+   * Single source of truth for "what shape is this problem". Mirror of
+   * `Problem.type` in the schema; `special_env` replaces the legacy
+   * `mode === "advanced"`.
    */
-  problemType: ProblemType;
+  type: ProblemType;
   samples: {
     stdin: string;
     expected: string;
@@ -52,17 +51,13 @@ export interface ProblemDetail extends ProblemOverview {
   starterByLanguage: Record<Language, string>;
   statement: string;
   status: ProblemStatus;
-  submissionType: SubmissionType;
-  summary: string;
   tags: string[];
   timeLimitMs: number;
   visibility: ProblemVisibility;
-  /**
-   * Workspace files for the student editor. Hidden files are included so
-   * the UI can render their metadata (path, language, description), but
-   * their `content` is always `""` — the domain layer blanks it before it
-   * leaves the server.
-   */
+  advancedImageRef: string | null;
+  advancedImageSource: ProblemImageSource | null;
+  networkEnabled: boolean;
+  // Hidden files have `content === ""`; the domain layer blanks them before they leave the server.
   workspaceFiles: {
     language: string;
     path: string;
@@ -73,19 +68,16 @@ export interface ProblemDetail extends ProblemOverview {
   }[];
 }
 
-// --- Route helpers ---
-
 export function assessmentPath(courseSlug: string, assessmentSlug: string): string {
   return `/courses/${courseSlug}/assignments/${assessmentSlug}`;
 }
-
-// --- Assessment helpers ---
 
 export type AssessmentWindowState = "upcoming" | "open" | "grace" | "closed";
 
 interface AssessmentWindowStateInput {
   closesAt: string;
-  dueAt: string;
+  /** Soft deadline — null = no late penalty configured (no `grace` state). */
+  dueAt: string | null;
   now?: string;
   opensAt: string;
 }
@@ -103,8 +95,10 @@ export function deriveAssessmentWindowState({
 }: AssessmentWindowStateInput): AssessmentWindowState {
   const currentTime = now ? new Date(now) : new Date();
   const opensDate = new Date(opensAt);
-  const dueDate = new Date(dueAt);
   const closesDate = new Date(closesAt);
+  // When there's no soft due date, we treat the whole open window as
+  // "open" — students never hit the grace state.
+  const dueDate = dueAt ? new Date(dueAt) : closesDate;
 
   if (currentTime < opensDate) {
     return "upcoming";

@@ -17,8 +17,7 @@ describe("health / DB connectivity", () => {
         email: "health@test.local",
         name: "Health Check",
         username: "healthcheck",
-        platformRole: "student",
-        locale: "en"
+        platformRole: "student"
       }
     });
 
@@ -38,8 +37,7 @@ describe("health / DB connectivity", () => {
         email: "truncate@test.local",
         name: "Truncate Me",
         username: "truncateme",
-        platformRole: "student",
-        locale: "en"
+        platformRole: "student"
       }
     });
 

@@ -65,13 +65,9 @@ test.describe("Course Lifecycle", () => {
     await context.close();
   });
 
-  test("teacher can access problems page", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: teacherAuth });
-    const page = await context.newPage();
-    await page.goto(`/courses/${COURSE_SLUG}/manage/problems`);
-    await expect(page.getByRole("main")).toBeVisible();
-    await context.close();
-  });
+  // NOTE: `/courses/[slug]/manage/problems` was removed in commit b21759a
+  // (schema redesign — problems are managed via the global /problems page
+  // now). The corresponding test was kept in-file as a stub for history.
 
   test("teacher can access assessments page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });

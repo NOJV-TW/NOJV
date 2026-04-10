@@ -208,8 +208,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
-  if (config.submissionType === "function") {
-    // Function mode always assembles user code into the entry file using the template.
+  if (config.problemType === "function") {
     log("Reading source code...");
 
     let rawSource: string;
@@ -231,7 +230,6 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
 
     await writeWorkFile(workDir, entryFile, assembledSource);
   } else if (!(await pathExists(srcFile))) {
-    // Full-source mode can run from uploaded project files; fallback to the canonical source file.
     log("Reading source code...");
     const rawSource = await readSourceCode(config.language, entryFile);
     await writeWorkFile(workDir, entryFile, rawSource);
@@ -245,7 +243,6 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     return;
   }
 
-  // If checker/interactive: compile checker/interactor
   let checkerCommand: string[] | undefined;
   let interactorCommand: string[] | undefined;
 
@@ -345,7 +342,7 @@ async function main(): Promise<void> {
   log("Reading config...");
   const config = await readConfig();
   log(
-    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.submissionType}`
+    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`
   );
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));

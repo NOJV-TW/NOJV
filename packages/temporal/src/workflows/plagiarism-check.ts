@@ -17,7 +17,7 @@ export async function plagiarismCheckWorkflow(input: PlagiarismCheckInput): Prom
   status = "running";
 
   try {
-    await plagiarism.runPlagiarismCheck(input.reportId, input.targetId, input.targetType);
+    await plagiarism.runPlagiarismCheck(input.targetId, input.targetType);
     status = "completed";
   } catch (err) {
     status = "failed";

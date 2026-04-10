@@ -95,26 +95,26 @@
 {#if compact}
   <span class="inline-flex flex-wrap items-center gap-1">
     {#if showProblemType}
-      <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {problemColor}">
+      <span class="rounded-full px-2 py-0.5 text-micro font-medium {problemColor}">
         {problemLabel}
       </span>
     {/if}
     {#if showJudgeMethod}
-      <span class="rounded-full px-2 py-0.5 text-[10px] font-medium {judgeColor}">
+      <span class="rounded-full px-2 py-0.5 text-micro font-medium {judgeColor}">
         {judgeLabel}
       </span>
     {/if}
   </span>
 {:else}
   <div
-    class="mt-3 grid gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 sm:grid-cols-2 sm:gap-4"
+    class="mt-3 grid gap-2 rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 sm:grid-cols-2 sm:gap-4"
   >
     {#if showProblemType}
       <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
           {m.problemDetail_problemTypeTitle()}
         </span>
-        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {problemColor}">
+        <span class="rounded-full px-2.5 py-0.5 text-caption font-medium {problemColor}">
           {problemLabel}
         </span>
         <HelpTooltip text={problemHelp} />
@@ -122,10 +122,10 @@
     {/if}
     {#if showJudgeMethod}
       <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
           {m.problemDetail_judgeMethodTitle()}
         </span>
-        <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {judgeColor}">
+        <span class="rounded-full px-2.5 py-0.5 text-caption font-medium {judgeColor}">
           {judgeLabel}
         </span>
         <HelpTooltip text={judgeHelp} />

@@ -13,17 +13,16 @@ import {
   type Prisma,
   type TransactionClient
 } from "@nojv/db";
-import type { ContestCreate, ContestUpdate } from "@nojv/core";
+import type { ContestCreate, ContestUpdate, Language } from "@nojv/core";
 
 import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/mutations";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
-
-// ─── Internal helpers ────────────────────────────────────────────────
 
 async function requireContest(tx: TransactionClient, contestSlug: string) {
   const contest = await contestRepo.withTx(tx).findBySlug(contestSlug);
@@ -56,7 +55,8 @@ async function requireUser(tx: TransactionClient, userId: string) {
 async function resolveAndAttachContestProblems(
   tx: TransactionClient,
   contestId: string,
-  problemIds: string[]
+  problemIds: string[],
+  allowedLanguages: Language[]
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
     id: { in: problemIds }
@@ -67,6 +67,13 @@ async function resolveAndAttachContestProblems(
     if (!problemById.has(id)) {
       throw new NotFoundError(`Problem not found: ${id}`);
     }
+  }
+
+  // Every allowedLanguage must have an editable main.<ext> on every problem.
+  if (allowedLanguages.length > 0) {
+    await Promise.all(
+      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages))
+    );
   }
 
   await Promise.all(
@@ -83,13 +90,10 @@ async function resolveAndAttachContestProblems(
   );
 }
 
-// ─── Contest participation ───────────────────────────────────────────
-
 export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
   contestSlug: string,
-  /** Pass problemId + sampleOnly to enforce maxAttempts; omit for participation-only */
   attemptContext?: { problemId: string; sampleOnly: boolean }
 ) {
   const contest = await requireContest(tx, contestSlug);
@@ -106,7 +110,6 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
-  // If contest is linked to a course, verify course membership
   if (contest.courseId) {
     const membership = await courseMembershipRepo
       .withTx(tx)
@@ -131,26 +134,11 @@ export async function ensureContestParticipation(
     }
   );
 
-  // Enforce per-problem attempt limit (non-sampleOnly submissions only)
-  if (attemptContext && !attemptContext.sampleOnly && contest.maxAttempts != null) {
-    const attemptCount = await submissionRepo.withTx(tx).count({
-      contestId: contest.id,
-      problemId: attemptContext.problemId,
-      sampleOnly: false,
-      userId
-    });
-
-    if (attemptCount >= contest.maxAttempts) {
-      throw new ForbiddenError(
-        `Attempt limit reached (${String(contest.maxAttempts)}/${String(contest.maxAttempts)}).`
-      );
-    }
-  }
+  // Contest has no `maxAttempts`; parameter kept for caller-signature parity.
+  void attemptContext;
 
   return { contest, participation };
 }
-
-// ─── Submit cooldown check ──────────────────────────────────────────
 
 export async function checkSubmitCooldown(
   tx: TransactionClient,
@@ -181,8 +169,6 @@ export async function checkSubmitCooldown(
     );
   }
 }
-
-// ─── Contest creation ───────────────────────────────────────────────
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
   return runTransaction(async (tx) => {
@@ -218,7 +204,6 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       ipViolationMode: payload.ipViolationMode,
       ipWhitelist: payload.ipWhitelist,
       ipWhitelistEnabled: payload.ipWhitelistEnabled,
-      maxAttempts: payload.maxAttempts ?? null,
       pageLockEnabled: payload.pageLockEnabled,
       scoreboardMode: payload.scoreboardMode,
       scoringMode: payload.scoringMode,
@@ -227,19 +212,19 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary,
       title: payload.title,
-      visibility: "published",
-      ...(payload.adjustmentRules
-        ? { adjustmentRules: payload.adjustmentRules as Prisma.InputJsonValue }
-        : {})
+      visibility: "published"
     });
 
-    await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);
+    await resolveAndAttachContestProblems(
+      tx,
+      contest.id,
+      payload.problemIds,
+      payload.allowedLanguages
+    );
 
     return contest;
   });
 }
-
-// ─── Contest update ─────────────────────────────────────────────────
 
 export async function updateContestRecord(
   actor: ActorContext,
@@ -249,7 +234,6 @@ export async function updateContestRecord(
   return runTransaction(async (tx) => {
     const contest = await requireContest(tx, contestSlug);
 
-    // Fields that pass through unchanged.
     const updateData: Prisma.ContestUncheckedUpdateInput = stripUndefined({
       title: payload.title,
       summary: payload.summary,
@@ -270,7 +254,6 @@ export async function updateContestRecord(
     if (payload.frozenAt !== undefined) {
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     }
-    if (payload.maxAttempts !== undefined) updateData.maxAttempts = payload.maxAttempts ?? null;
     if (payload.courseSlug !== undefined) {
       updateData.courseId = payload.courseSlug
         ? (await requireCourse(tx, payload.courseSlug)).id
@@ -281,18 +264,25 @@ export async function updateContestRecord(
       await contestRepo.withTx(tx).update(contest.id, updateData);
     }
 
-    // Replace problems if provided
+    // Replace problems if provided. Re-check the workspace invariant
+    // against either the new allowedLanguages (if set) or the contest's
+    // current value.
     if (payload.problemIds !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
-      await resolveAndAttachContestProblems(tx, contest.id, payload.problemIds);
+      const enforcedLanguages =
+        payload.allowedLanguages ?? (contest.allowedLanguages as Language[]);
+      await resolveAndAttachContestProblems(
+        tx,
+        contest.id,
+        payload.problemIds,
+        enforcedLanguages
+      );
     }
 
     return { id: contest.id };
   });
 }
-
-// ─── Lifecycle (called by temporal activities) ──────────────────────
 
 export interface ContestLifecycleInfo {
   endsAt: string;

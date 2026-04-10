@@ -1,16 +1,12 @@
 import { ipViolationLogRepo } from "@nojv/db";
 
 /**
- * List IP violation logs for a contest or assessment (admin/teacher view).
+ * List IP violation logs for a contest (admin/teacher view). Homework
+ * assessments no longer have IP lock, so there is no assessment branch.
  */
-export function listIpViolations(opts: {
-  contestId?: string;
-  assessmentId?: string;
-  take?: number;
-}) {
-  return ipViolationLogRepo.listByTarget({
-    ...(opts.contestId ? { contestId: opts.contestId } : {}),
-    ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {}),
+export function listContestIpViolations(opts: { contestId: string; take?: number }) {
+  return ipViolationLogRepo.listByContest({
+    contestId: opts.contestId,
     take: opts.take ?? 200
   });
 }

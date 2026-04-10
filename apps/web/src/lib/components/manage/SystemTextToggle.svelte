@@ -28,24 +28,24 @@
   }
 </script>
 
-<div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
-  <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
+<div class="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-muted/30 p-1">
+  <span class="inline-flex items-center gap-1 px-2 text-caption text-muted-foreground">
     <Languages class="h-3.5 w-3.5" /> {label}
   </span>
   <button
     type="button"
-    class="rounded-full px-3 py-1 text-xs font-medium {value === 'zh'
+    class="rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {value === 'zh'
       ? 'bg-primary text-primary-foreground'
-      : 'text-muted-foreground'}"
+      : 'text-muted-foreground hover:text-foreground'}"
     onclick={() => set("zh")}
   >
     中文
   </button>
   <button
     type="button"
-    class="rounded-full px-3 py-1 text-xs font-medium {value === 'en'
+    class="rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {value === 'en'
       ? 'bg-primary text-primary-foreground'
-      : 'text-muted-foreground'}"
+      : 'text-muted-foreground hover:text-foreground'}"
     onclick={() => set("en")}
   >
     English

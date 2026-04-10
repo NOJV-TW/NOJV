@@ -4,6 +4,11 @@
   import { m } from "$lib/paraglide/messages.js";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { parseSchoolEmail } from "$lib/school";
+  import { Button } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Input } from "$lib/components/ui/input";
+  import FormField from "$lib/components/ui/FormField.svelte";
+  import * as Card from "$lib/components/ui/card";
 
   interface Props {
     isSchoolVerified: boolean;
@@ -54,147 +59,150 @@
   }
 </script>
 
-{#if isSchoolVerified}
-  <section
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
-  >
-    <h3 class="text-sm font-medium">{m.account_schoolVerification()}</h3>
-    <p class="mt-1 text-sm text-green-600">{m.account_schoolVerified()}</p>
-  </section>
-{:else}
-  <section
-    class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] px-6 py-6 backdrop-blur-sm"
-  >
-    <h3 class="text-sm font-medium">{m.account_schoolVerification()}</h3>
-    <p class="mt-1 text-sm text-muted-foreground">
-      {m.account_schoolVerificationDesc()}
-    </p>
-
-    {#if phase === "idle"}
-      <button
-        class="mt-3 rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
-        onclick={() => (phase = "form")}
-        type="button"
-      >
-        {m.account_startVerification()}
-      </button>
+<Card.Root>
+  <Card.Header>
+    <div class="flex items-center justify-between gap-3">
+      <Card.Title class="text-title-sm">{m.account_schoolVerification()}</Card.Title>
+      {#if isSchoolVerified}
+        <Badge variant="success" dot>{m.account_verifiedBadge()}</Badge>
+      {/if}
+    </div>
+    {#if !isSchoolVerified}
+      <Card.Description>
+        {m.account_schoolVerificationDesc()}
+      </Card.Description>
     {/if}
+  </Card.Header>
 
-    {#if phase === "form"}
-      <form
-        class="mt-3 flex flex-col gap-3"
-        method="POST"
-        action="?/sendVerification"
-        use:enhance={({ cancel }) => {
-          if (!clientValidate()) {
-            cancel();
-            return;
-          }
-          loading = true;
-          return async ({ result, update }) => {
-            loading = false;
-            if (result.type === "success") {
-              phase = "sent";
-              cooldown = RESEND_COOLDOWN;
-            } else if (result.type === "failure") {
-              const parsed = actionErrorSchema.safeParse(result.data);
-              error = parsed.success ? parsed.data.error : "Failed to send verification email";
-            } else {
-              await update();
-            }
-          };
-        }}
-      >
-        <label class="flex flex-col gap-1 text-sm">
-          {m.account_schoolEmailLabel()}
-          <input
-            class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-3"
-            bind:value={schoolEmail}
-            name="email"
-            placeholder={m.account_schoolEmailPlaceholder()}
-            required
-            type="email"
-          />
-          <span class="text-xs text-muted-foreground">
-            {m.account_acceptedDomains()}
-          </span>
-        </label>
-        {#if error}
-          <p class="text-sm text-red-600">{error}</p>
-        {/if}
-        <div class="flex gap-2">
-          <button
-            class="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
-            disabled={loading}
-            type="submit"
-          >
-            {loading ? m.account_sending() : m.account_sendVerification()}
-          </button>
-          <button
-            class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
-            onclick={() => {
-              phase = "idle";
-              error = "";
-            }}
-            type="button"
-          >
-            {m.common_cancel()}
-          </button>
+  {#if isSchoolVerified}
+    <Card.Content>
+      <p class="text-body-sm text-muted-foreground">{m.account_schoolVerified()}</p>
+    </Card.Content>
+  {:else}
+    <Card.Content class="flex flex-col gap-3">
+      {#if phase === "idle"}
+        <div>
+          <Button variant="outline" onclick={() => (phase = "form")}>
+            {m.account_startVerification()}
+          </Button>
         </div>
-      </form>
-    {/if}
+      {/if}
 
-    {#if phase === "sent"}
-      <div class="mt-3 flex flex-col gap-2">
-        <p class="text-sm">{m.account_verificationSent()}</p>
+      {#if phase === "form"}
         <form
-          class="flex items-center gap-2"
+          class="flex flex-col gap-3"
           method="POST"
           action="?/sendVerification"
-          use:enhance={() => {
+          use:enhance={({ cancel }) => {
+            if (!clientValidate()) {
+              cancel();
+              return;
+            }
             loading = true;
             return async ({ result, update }) => {
               loading = false;
               if (result.type === "success") {
+                phase = "sent";
                 cooldown = RESEND_COOLDOWN;
               } else if (result.type === "failure") {
                 const parsed = actionErrorSchema.safeParse(result.data);
-                error = parsed.success ? parsed.data.error : "Failed to send verification email";
+                error = parsed.success
+                  ? parsed.data.error
+                  : m.account_sendVerificationFailed();
               } else {
                 await update();
               }
             };
           }}
         >
-          <input type="hidden" name="email" value={schoolEmail} />
-          <button
-            class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)] disabled:opacity-50"
-            disabled={cooldown > 0 || loading}
-            type="submit"
+          <FormField
+            label={m.account_schoolEmailLabel()}
+            hint={m.account_acceptedDomains()}
+            error={error}
+            for="school-email"
+            required
           >
-            {cooldown > 0
-              ? m.account_resendCooldown({ seconds: cooldown })
-              : m.account_resend()}
-          </button>
-          <button
-            class="rounded-full border border-border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
-            onclick={() => {
-              phase = "form";
-              error = "";
-            }}
-            type="button"
-          >
-            {m.account_changeEmail()}
-          </button>
+            <Input
+              id="school-email"
+              bind:value={schoolEmail}
+              name="email"
+              placeholder={m.account_schoolEmailPlaceholder()}
+              required
+              type="email"
+              aria-invalid={!!error}
+            />
+          </FormField>
+          <div class="flex flex-wrap gap-2">
+            <Button type="submit" disabled={loading} {loading}>
+              {loading ? m.account_sending() : m.account_sendVerification()}
+            </Button>
+            <Button
+              variant="ghost"
+              onclick={() => {
+                phase = "idle";
+                error = "";
+              }}
+            >
+              {m.common_cancel()}
+            </Button>
+          </div>
         </form>
-        {#if error}
-          <p class="text-sm text-red-600">{error}</p>
-        {/if}
-      </div>
-    {/if}
+      {/if}
 
-    {#if phase === "verified"}
-      <p class="mt-3 text-sm font-medium text-green-600">{m.account_verified()}</p>
-    {/if}
-  </section>
-{/if}
+      {#if phase === "sent"}
+        <div class="flex flex-col gap-3">
+          <p class="text-body-sm text-muted-foreground">{m.account_verificationSent()}</p>
+          <form
+            class="flex flex-wrap items-center gap-2"
+            method="POST"
+            action="?/sendVerification"
+            use:enhance={() => {
+              loading = true;
+              return async ({ result, update }) => {
+                loading = false;
+                if (result.type === "success") {
+                  cooldown = RESEND_COOLDOWN;
+                } else if (result.type === "failure") {
+                  const parsed = actionErrorSchema.safeParse(result.data);
+                  error = parsed.success
+                    ? parsed.data.error
+                    : m.account_sendVerificationFailed();
+                } else {
+                  await update();
+                }
+              };
+            }}
+          >
+            <input type="hidden" name="email" value={schoolEmail} />
+            <Button variant="outline" type="submit" disabled={cooldown > 0 || loading}>
+              {cooldown > 0
+                ? m.account_resendCooldown({ seconds: cooldown })
+                : m.account_resend()}
+            </Button>
+            <Button
+              variant="ghost"
+              onclick={() => {
+                phase = "form";
+                error = "";
+              }}
+            >
+              {m.account_changeEmail()}
+            </Button>
+          </form>
+          {#if error}
+            <div
+              class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-body-sm text-destructive"
+              role="alert"
+            >
+              {error}
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if phase === "verified"}
+        <Badge variant="success" dot>{m.account_verified()}</Badge>
+      {/if}
+    </Card.Content>
+  {/if}
+</Card.Root>

@@ -176,10 +176,10 @@
 
 <div class="space-y-6">
   <!-- Runtime -->
-  <section class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-semibold">Runtime</h3>
+  <section class="rounded-xl border border-border-subtle p-4">
+    <h3 class="text-body-sm font-semibold">Runtime</h3>
     <div class="mt-3 grid gap-3 md:grid-cols-2">
-      <label class="text-xs text-muted-foreground">
+      <label class="text-caption text-muted-foreground">
         <span>Time limit (ms)</span>
         <input
           class={inputClassName}
@@ -189,7 +189,7 @@
           bind:value={timeLimitMs}
         />
       </label>
-      <label class="text-xs text-muted-foreground">
+      <label class="text-caption text-muted-foreground">
         <span>Memory limit (MB)</span>
         <input
           class={inputClassName}
@@ -203,17 +203,17 @@
 
     <div class="mt-4">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold text-muted-foreground">Environment variables</span>
+        <span class="text-caption font-semibold text-muted-foreground">Environment variables</span>
         <button
           type="button"
-          class="text-xs text-muted-foreground hover:text-foreground"
+          class="text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
           onclick={addEnvRow}
         >
           + Add
         </button>
       </div>
       {#if envRows.length === 0}
-        <p class="mt-2 text-xs text-muted-foreground">None configured.</p>
+        <p class="mt-2 text-caption text-muted-foreground">None configured.</p>
       {:else}
         <div class="mt-2 space-y-2">
           {#each envRows as row, i (`env-${i}`)}
@@ -232,7 +232,7 @@
               />
               <button
                 type="button"
-                class="rounded border border-border px-2 text-xs text-muted-foreground hover:text-red-500"
+                class="rounded border border-border px-2 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive"
                 onclick={() => removeEnvRow(i)}
                 aria-label="Remove env var"
               >
@@ -246,11 +246,11 @@
   </section>
 
   <!-- Allowed languages -->
-  <section class="rounded-2xl border border-border p-4">
-    <h3 class="text-sm font-semibold">Allowed languages</h3>
+  <section class="rounded-xl border border-border-subtle p-4">
+    <h3 class="text-body-sm font-semibold">Allowed languages</h3>
     <div class="mt-3 flex flex-wrap gap-2">
       {#each supportedLanguages as lang (lang)}
-        <label class="flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs">
+        <label class="flex items-center gap-2 rounded-full border border-border px-3 py-1 text-caption">
           <input
             type="checkbox"
             class="accent-primary"
@@ -264,11 +264,11 @@
   </section>
 
   <!-- Files per language -->
-  <section class="rounded-2xl border border-border p-4">
+  <section class="rounded-xl border border-border-subtle p-4">
     <div class="flex items-center justify-between">
-      <h3 class="text-sm font-semibold">Files</h3>
+      <h3 class="text-body-sm font-semibold">Files</h3>
       <select
-        class="{inputClassName} w-auto text-xs"
+        class="{inputClassName} w-auto text-caption"
         value={activeLang}
         onchange={(e) => {
           activeLang = (e.target as HTMLSelectElement).value as Language;
@@ -301,7 +301,7 @@
         />
       {:else}
         <div
-          class="flex h-full items-center justify-center rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground"
+          class="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle p-6 text-body-sm text-muted-foreground"
         >
           No files for {activeLang}. Click "+ Add" to create one.
         </div>
@@ -313,18 +313,18 @@
   <div class="flex items-center justify-end gap-3">
     <button
       type="button"
-      class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      class="inline-flex rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
       disabled={saving}
       onclick={() => void handleSave()}
     >
       {saving ? "Saving..." : "Save workspace"}
     </button>
     {#if saveMessage === "saved"}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">Saved</span>
+      <span class="text-body-sm text-success">Saved</span>
     {:else if saveMessage === "error"}
-      <span class="text-sm text-red-600 dark:text-red-400">Save failed</span>
+      <span class="text-body-sm text-destructive">Save failed</span>
     {:else if saveMessage !== ""}
-      <span class="text-sm text-red-600 dark:text-red-400">{saveMessage}</span>
+      <span class="text-body-sm text-destructive">{saveMessage}</span>
     {/if}
   </div>
 </div>

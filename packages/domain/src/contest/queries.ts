@@ -1,20 +1,17 @@
 import { contestRepo, runTransaction } from "@nojv/db";
-import type { AssessmentScoreboardMode, ContestScoringMode, Language } from "@nojv/core";
+import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
-
-// ─── Types ───────────────────────────────────────────────────────────
 
 export interface ContestListItem {
   allowedLanguages: Language[];
   endsAt: string;
   ipBindingEnabled: boolean;
   ipWhitelistEnabled: boolean;
-  maxAttempts: number | null;
   pageLockEnabled: boolean;
   participantCount: number;
   problemCount: number;
-  scoreboardMode: AssessmentScoreboardMode;
+  scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
   slug: string;
   startsAt: string;
@@ -32,7 +29,6 @@ export interface ContestDetailData {
   ipViolationMode: "block" | "notify";
   ipWhitelist: string[];
   ipWhitelistEnabled: boolean;
-  maxAttempts: number | null;
   pageLockEnabled: boolean;
   participantCount: number;
   problems: {
@@ -41,7 +37,7 @@ export interface ContestDetailData {
     points: number;
     title: string;
   }[];
-  scoreboardMode: AssessmentScoreboardMode;
+  scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
   slug: string;
   startsAt: string;
@@ -59,8 +55,6 @@ export interface ContestWorkspaceData extends ContestDetailData {
   } | null;
 }
 
-// ─── Internal helpers ────────────────────────────────────────────────
-
 type ContestWithCounts = NonNullable<
   Awaited<ReturnType<typeof contestRepo.listPublished>>
 >[number];
@@ -71,11 +65,10 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
     endsAt: c.endsAt.toISOString(),
     ipBindingEnabled: c.ipBindingEnabled,
     ipWhitelistEnabled: c.ipWhitelistEnabled,
-    maxAttempts: c.maxAttempts,
     pageLockEnabled: c.pageLockEnabled,
     participantCount: c._count.participations,
     problemCount: c._count.problems,
-    scoreboardMode: c.scoreboardMode as AssessmentScoreboardMode,
+    scoreboardMode: c.scoreboardMode as ScoreboardMode,
     scoringMode: c.scoringMode,
     slug: c.slug,
     startsAt: c.startsAt.toISOString(),
@@ -83,8 +76,6 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
     title: c.title
   };
 }
-
-// ─── Shared mapper ──────────────────────────────────────────────────
 
 type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailBySlug>>>;
 
@@ -99,16 +90,15 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailData {
     ipViolationMode: contest.ipViolationMode as "block" | "notify",
     ipWhitelist: contest.ipWhitelist,
     ipWhitelistEnabled: contest.ipWhitelistEnabled,
-    maxAttempts: contest.maxAttempts,
     pageLockEnabled: contest.pageLockEnabled,
     participantCount: contest._count.participations,
     problems: contest.problems.map((cp) => ({
       id: cp.problem.id,
       ordinal: cp.ordinal,
       points: cp.points,
-      title: cp.problem.defaultTitle
+      title: cp.problem.title
     })),
-    scoreboardMode: contest.scoreboardMode as AssessmentScoreboardMode,
+    scoreboardMode: contest.scoreboardMode as ScoreboardMode,
     scoringMode: contest.scoringMode,
     slug: contest.slug,
     startsAt: contest.startsAt.toISOString(),
@@ -117,8 +107,6 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailData {
     title: contest.title
   };
 }
-
-// ─── Public query functions ──────────────────────────────────────────
 
 export async function listPublicContests(): Promise<ContestListItem[]> {
   const contests = await contestRepo.listPublished();
@@ -200,13 +188,6 @@ export async function checkContestIpAccess(
   participation: { id: string; boundIp: string | null } | null
 ): Promise<IpCheckResult> {
   return runTransaction(async (tx) => {
-    return checkIpLock(
-      tx,
-      config,
-      clientIp,
-      participation,
-      { userId, contestId },
-      "contestParticipation"
-    );
+    return checkIpLock(tx, config, clientIp, participation, { userId, contestId });
   });
 }

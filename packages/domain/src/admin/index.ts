@@ -9,8 +9,6 @@ import {
 } from "@nojv/db";
 import { getRedis } from "@nojv/redis";
 
-// ─── Helpers ───────────────────────────────────────────────────────
-
 function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -28,8 +26,6 @@ function subDays(date: Date, days: number): Date {
   next.setUTCDate(next.getUTCDate() - days);
   return next;
 }
-
-// ─── Admin dashboard monitoring ────────────────────────────────────
 
 export async function getAdminDashboard() {
   const now = new Date();
@@ -109,10 +105,7 @@ export async function getAdminDashboard() {
   const problemIds = failureGroups.map((row) => row.problemId);
   const failureProblems = problemIds.length > 0 ? await problemRepo.findByIds(problemIds) : [];
   const problemMap = new Map(
-    failureProblems.map((problem) => [
-      problem.id,
-      { id: problem.id, title: problem.defaultTitle }
-    ])
+    failureProblems.map((problem) => [problem.id, { id: problem.id, title: problem.title }])
   );
 
   const topFailingProblems = failureGroups.map((row) => {
@@ -147,8 +140,6 @@ export async function getAdminDashboard() {
     dbOk
   };
 }
-
-// ─── System health check ──────────────────────────────────────────
 
 export async function checkSystemHealth(
   timeoutMs = 3000

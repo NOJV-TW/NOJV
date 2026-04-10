@@ -8,13 +8,16 @@
     Languages,
     LayoutDashboard,
     ListChecks,
+    Plus,
     Users
   } from "@lucide/svelte";
-  import { onMount } from "svelte";
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { superForm } from "sveltekit-superforms";
   import { m } from "$lib/paraglide/messages.js";
-  import { Plus } from "@lucide/svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/ui/badge";
+  import Section from "$lib/components/ui/Section.svelte";
+  import StatCard from "$lib/components/ui/StatCard.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
 
   let { data }: { data: any } = $props();
@@ -95,31 +98,29 @@
   });
 </script>
 
-<div class="space-y-6">
-  <div class="flex items-center justify-between">
-    <h2 class="font-(family-name:--font-display) text-3xl">{m.navigation_courses()}</h2>
+<Section class="space-y-6">
+  {#snippet header()}
+    <h1 class="font-display text-title-lg">{m.navigation_courses()}</h1>
+  {/snippet}
+  {#snippet actions()}
     {#if canCreate}
-      <button
-        class="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-        type="button"
-        onclick={() => (showCreateForm = !showCreateForm)}
-      >
+      <Button onclick={() => (showCreateForm = !showCreateForm)}>
         <Plus class="h-4 w-4" />
         {m.admin_createCourseButton()}
-      </button>
+      </Button>
     {/if}
-  </div>
+  {/snippet}
 
   {#if canCreate && data.teacherOverview}
     <section
-      class="rounded-4xl border border-border bg-(--color-panel) px-5 py-5 backdrop-blur-sm"
+      class="rounded-3xl border border-border bg-[color:var(--color-panel)] px-5 py-5 shadow-rest backdrop-blur-sm"
     >
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p class="inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <p class="inline-flex items-center gap-1 text-caption uppercase tracking-[0.18em] text-muted-foreground">
             <LayoutDashboard class="h-3.5 w-3.5" /> {t("teacherDashboard")}
           </p>
-          <h3 class="mt-2 text-xl font-semibold">{t("crossCourseHealth")}</h3>
+          <h3 class="mt-2 text-title-sm font-semibold">{t("crossCourseHealth")}</h3>
         </div>
         <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
           <span class="inline-flex items-center gap-1 px-2 text-xs text-muted-foreground">
@@ -141,47 +142,20 @@
           </button>
         </div>
       </div>
-      <p class="mt-1 text-xs text-muted-foreground">{t("weekPulse")}</p>
+      <p class="mt-1 text-caption text-muted-foreground">{t("weekPulse")}</p>
 
       <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <div class="rounded-xl border border-border px-3 py-3">
-          <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-            <BookOpen class="h-3.5 w-3.5" /> {m.navigation_courses()}
-          </p>
-          <p class="mt-1 text-xl font-semibold">{data.teacherOverview.managedCourses}</p>
-        </div>
-        <div class="rounded-xl border border-border px-3 py-3">
-          <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-            <Users class="h-3.5 w-3.5" /> {t("students")}
-          </p>
-          <p class="mt-1 text-xl font-semibold">{data.teacherOverview.totalStudents}</p>
-        </div>
-        <div class="rounded-xl border border-border px-3 py-3">
-          <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-            <ClipboardList class="h-3.5 w-3.5" /> {t("activeAssessments")}
-          </p>
-          <p class="mt-1 text-xl font-semibold">{data.teacherOverview.activeAssessments}</p>
-        </div>
-        <div class="rounded-xl border border-border px-3 py-3">
-          <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-            <BarChart3 class="h-3.5 w-3.5" /> {t("submissions")}
-          </p>
-          <p class="mt-1 text-xl font-semibold">{data.teacherOverview.submissions7d}</p>
-          <p class="text-xs text-muted-foreground">7d</p>
-        </div>
-        <div class="rounded-xl border border-border px-3 py-3">
-          <p class="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-muted-foreground">
-            <ListChecks class="h-3.5 w-3.5" /> {t("acceptedRate")}
-          </p>
-          <p class="mt-1 text-xl font-semibold">{data.teacherOverview.acceptedRate7d}%</p>
-          <p class="text-xs text-muted-foreground">7d</p>
-        </div>
+        <StatCard label={m.navigation_courses()} value={data.teacherOverview.managedCourses} icon={BookOpen} />
+        <StatCard label={t("students")} value={data.teacherOverview.totalStudents} icon={Users} />
+        <StatCard label={t("activeAssessments")} value={data.teacherOverview.activeAssessments} icon={ClipboardList} />
+        <StatCard label={t("submissions")} value={`${data.teacherOverview.submissions7d} / 7d`} icon={BarChart3} />
+        <StatCard label={t("acceptedRate")} value={`${data.teacherOverview.acceptedRate7d}%`} icon={ListChecks} />
       </div>
 
       {#if data.teacherOverview.hottestAssessments.length > 0}
-        <p class="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">{t("hotAssessments")}</p>
-        <div class="mt-4 overflow-x-auto rounded-xl border border-border">
-          <table class="w-full text-sm">
+        <p class="mt-4 text-caption font-medium uppercase tracking-wider text-muted-foreground">{t("hotAssessments")}</p>
+        <div class="mt-4 overflow-x-auto rounded-xl border border-border-subtle">
+          <table class="w-full text-body-sm">
             <thead>
               <tr class="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th class="px-3 py-2">{t("course")}</th>
@@ -216,10 +190,10 @@
 
   {#if canCreate && showCreateForm}
     <section
-      class="rounded-4xl border border-border bg-(--color-panel) px-5 py-5 backdrop-blur-sm"
+      class="rounded-3xl border border-border bg-[color:var(--color-panel)] px-5 py-5 shadow-rest backdrop-blur-sm"
     >
-      <h3 class="text-lg font-semibold">{m.admin_createCourse()}</h3>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <h3 class="text-title-sm font-semibold">{m.admin_createCourse()}</h3>
+      <p class="mt-1 text-body-sm text-muted-foreground">
         {m.admin_createCourseSubtitle()}
       </p>
       <form
@@ -229,20 +203,20 @@
         use:enhance
       >
         <div>
-          <label class="text-sm font-medium" for="course-title">{m.admin_title()}</label>
+          <label class="text-body-sm font-medium" for="course-title">{m.admin_title()}</label>
           <input
-            class="mt-2 w-full rounded-2xl border border-border bg-(--color-panel) px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
             id="course-title"
             name="title"
             bind:value={$form.title}
             required
           />
-          {#if $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{$errors.title}</span>{/if}
+          {#if $errors.title}<span class="text-body-sm text-destructive">{$errors.title}</span>{/if}
         </div>
         <div>
-          <label class="text-sm font-medium" for="course-slug">{m.admin_slug()}</label>
+          <label class="text-body-sm font-medium" for="course-slug">{m.admin_slug()}</label>
           <input
-            class="mt-2 w-full rounded-2xl border border-border bg-(--color-panel) px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
             id="course-slug"
             name="slug"
             bind:value={$form.slug}
@@ -250,24 +224,24 @@
             placeholder="my-course"
             required
           />
-          {#if $errors.slug}<span class="text-sm text-red-700 dark:text-red-400">{$errors.slug}</span>{/if}
+          {#if $errors.slug}<span class="text-body-sm text-destructive">{$errors.slug}</span>{/if}
         </div>
         <div>
-          <label class="text-sm font-medium" for="course-description">{m.admin_description()}</label>
+          <label class="text-body-sm font-medium" for="course-description">{m.admin_description()}</label>
           <textarea
-            class="mt-2 w-full rounded-2xl border border-border bg-(--color-panel) px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
             id="course-description"
             name="description"
             bind:value={$form.description}
             rows="3"
             required
           ></textarea>
-          {#if $errors.description}<span class="text-sm text-red-700 dark:text-red-400">{$errors.description}</span>{/if}
+          {#if $errors.description}<span class="text-body-sm text-destructive">{$errors.description}</span>{/if}
         </div>
         <div>
-          <label class="text-sm font-medium" for="course-locale">{m.admin_locale()}</label>
+          <label class="text-body-sm font-medium" for="course-locale">{m.admin_locale()}</label>
           <select
-            class="mt-2 w-full rounded-2xl border border-border bg-(--color-panel) px-3 py-3 text-sm"
+            class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
             id="course-locale"
             name="locale"
             bind:value={$form.locale}
@@ -276,60 +250,56 @@
             <option value="en">en</option>
           </select>
         </div>
-        <button
-          class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-          disabled={$submitting}
-          type="submit"
-        >
+        <Button type="submit" disabled={$submitting} loading={$submitting} class="w-fit">
           {$submitting ? m.common_creating() : m.admin_createCourseButton()}
-        </button>
+        </Button>
       </form>
       {#if $formMessage}
-        <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-400">{$formMessage}</p>
+        <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
       {/if}
     </section>
   {/if}
 
   {#if data.courses.length === 0}
     <EmptyState
+      variant="onboarding"
       icon={GraduationCap}
-      title={m.courseDetail_empty()}
-      description={m.admin_createCourseSubtitle()}
+      title={m.courses_emptyTitle()}
+      description={m.courses_emptyDescription()}
+      actions={canCreate
+        ? [{ href: "#", label: m.admin_createCourseButton() }]
+        : [{ href: "/", label: m.courses_browsePublic() }]}
     />
   {:else}
     <section class="grid gap-4 lg:grid-cols-2">
       {#each data.courses as course (course.slug)}
         <article
-          class="rounded-4xl border border-border bg-(--color-panel) px-6 py-6 backdrop-blur-sm transition hover:-translate-y-0.5"
+          class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover"
         >
           <div class="flex items-center justify-between gap-4">
             <div>
-              <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+              <p class="text-body-sm uppercase tracking-[0.18em] text-muted-foreground">
                 {m.courseDetail_course()}
               </p>
-              <h3 class="mt-2 text-2xl font-semibold">
+              <h3 class="mt-2 text-title font-semibold">
                 <a href="/courses/{course.slug}" class="hover:underline">{course.title}</a>
               </h3>
             </div>
-            <span
-              class="rounded-full border border-border px-3 py-1 text-xs font-medium"
-            >
-              {m.courseDetail_rbacEnabled()}
-            </span>
+            <Badge variant="outline">{m.courseDetail_rbacEnabled()}</Badge>
           </div>
           <dl class="mt-5 grid gap-4 sm:grid-cols-2">
             <div>
-              <dt class="text-sm text-muted-foreground">{m.common_members()}</dt>
-              <dd class="mt-1 text-lg font-semibold">{course.memberCount}</dd>
+              <dt class="text-body-sm text-muted-foreground">{m.common_members()}</dt>
+              <dd class="mt-1 text-body-lg font-semibold tabular-nums">{course.memberCount}</dd>
             </div>
             <div>
-              <dt class="text-sm text-muted-foreground">{m.common_assessments()}</dt>
-              <dd class="mt-1 text-lg font-semibold">{course.assessmentCount}</dd>
+              <dt class="text-body-sm text-muted-foreground">{m.common_assessments()}</dt>
+              <dd class="mt-1 text-body-lg font-semibold tabular-nums">{course.assessmentCount}</dd>
             </div>
           </dl>
 
           {#if canCreate}
-            <div class="mt-4 flex flex-wrap gap-3 text-sm">
+            <div class="mt-4 flex flex-wrap gap-3 text-body-sm">
               <span class="text-muted-foreground">{t("staffShortcuts")}:</span>
               <a class="text-primary hover:underline" href="/courses/{course.slug}/manage">
                 {t("dashboard")}
@@ -346,4 +316,4 @@
       {/each}
     </section>
   {/if}
-</div>
+</Section>

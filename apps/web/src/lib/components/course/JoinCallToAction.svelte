@@ -3,18 +3,20 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
-  import { actionErrorSchema } from "@nojv/core";
+  import { actionErrorSchema, type CourseJoinTokenKind } from "@nojv/core";
   import { superForm } from "sveltekit-superforms";
+  import { Button, LinkButton } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/ui/badge";
 
   interface Props {
     courseSlug: string;
     courseTitle: string;
     form: any;
-    joinMethod: "join_code" | "manual_invite" | "qr_code" | null;
+    joinTokenKind: CourseJoinTokenKind | null;
     joinToken: string | null;
   }
 
-  let { courseSlug, courseTitle, form, joinMethod, joinToken }: Props = $props();
+  let { courseSlug, courseTitle, form, joinTokenKind, joinToken }: Props = $props();
 
   let error = $state<string | null>(null);
 
@@ -38,7 +40,7 @@
   });
 
   function handlePreCheck() {
-    if (!joinMethod || !joinToken || joinMethod === "manual_invite") {
+    if (!joinTokenKind || !joinToken) {
       error = m.courseJoin_incompleteLink();
       return false;
     }
@@ -48,26 +50,22 @@
 </script>
 
 <section
-  class="rounded-[2rem] border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 backdrop-blur-sm sm:px-8"
+  class="rounded-2xl border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 backdrop-blur-sm shadow-rest sm:px-8"
 >
-  <p class="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+  <p class="text-caption uppercase tracking-[0.18em] text-muted-foreground">
     {m.courseJoin_heading()}
   </p>
-  <h2 class="mt-2 font-[family-name:var(--font-display)] text-4xl">{courseTitle}</h2>
-  <p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+  <h2 class="mt-2 font-display text-headline">{courseTitle}</h2>
+  <p class="mt-4 max-w-2xl text-body leading-relaxed text-muted-foreground">
     {m.courseJoin_description({ name: user?.name ?? "" })}
   </p>
   <div class="mt-6 flex flex-wrap items-center gap-3">
-    <span
-      class="rounded-full border border-border px-3 py-1 text-xs font-medium"
-    >
-      {joinMethod ? joinMethod.replaceAll("_", " ") : "missing join method"}
-    </span>
-    <span
-      class="rounded-full border border-border px-3 py-1 text-xs font-medium"
-    >
+    <Badge variant="muted">
+      {joinTokenKind ?? "missing join kind"}
+    </Badge>
+    <Badge variant="muted">
       {platformRole}
-    </span>
+    </Badge>
   </div>
   <form
     action="?/join"
@@ -77,32 +75,25 @@
       if (!handlePreCheck()) e.preventDefault();
     }}
   >
-    <input type="hidden" name="joinMethod" value={joinMethod ?? ""} />
+    <input type="hidden" name="joinTokenKind" value={joinTokenKind ?? ""} />
     <input type="hidden" name="joinToken" value={joinToken ?? ""} />
     <div class="mt-6 flex flex-wrap gap-3">
-      <button
-        class="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-        disabled={$submitting}
-        type="submit"
-      >
+      <Button type="submit" loading={$submitting} disabled={$submitting}>
         {$submitting ? m.common_joining() : m.courseJoin_joinButton()}
-      </button>
-      <a
-        class="rounded-full border border-border px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]"
-        href="/courses/{courseSlug}"
-      >
+      </Button>
+      <LinkButton href="/courses/{courseSlug}" variant="outline">
         {m.courseJoin_backToCourse()}
-      </a>
+      </LinkButton>
     </div>
   </form>
   {#if joinToken}
-    <p class="mt-4 text-sm text-muted-foreground">
-      {m.courseJoin_token()}: {joinToken}
+    <p class="mt-4 text-body-sm text-muted-foreground">
+      {m.courseJoin_token()}: <span class="font-mono tabular-nums">{joinToken}</span>
     </p>
   {/if}
   {#if error}
     <div
-      class="mt-4 rounded-2xl border border-red-300 dark:border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400"
+      class="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
     >
       {error}
     </div>

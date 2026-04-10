@@ -6,6 +6,7 @@
   } from "$lib/components/problem/advanced/AdvancedTestcasesSection.svelte";
   import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { LinkButton } from "$lib/components/ui/button";
   import type { ProblemImageSource } from "@nojv/core";
 
   let { data } = $props();
@@ -14,12 +15,12 @@
   let imageSource = $state<ProblemImageSource>(
     untrack(() => data.imageConfig.source),
   );
-  let resourceLimits = $state(
-    untrack(() => ({
-      totalTimeMs: data.imageConfig.resourceLimits.totalTimeMs,
-      memoryMb: data.imageConfig.resourceLimits.memoryMb,
-      networkEnabled: data.imageConfig.resourceLimits.networkEnabled,
-    })),
+  let timeLimitMs = $state<number>(untrack(() => data.imageConfig.timeLimitMs));
+  let memoryLimitMb = $state<number>(
+    untrack(() => data.imageConfig.memoryLimitMb),
+  );
+  let networkEnabled = $state<boolean>(
+    untrack(() => data.imageConfig.networkEnabled),
   );
 
   let cases = $state<AdvancedCase[]>([]);
@@ -38,12 +39,16 @@
   async function saveImage(payload: {
     imageRef: string;
     imageSource: ProblemImageSource;
-    resourceLimits: typeof resourceLimits;
+    timeLimitMs: number;
+    memoryLimitMb: number;
+    networkEnabled: boolean;
   }) {
     const ok = await postAction("updateImage", {
       ref: payload.imageRef,
       source: payload.imageSource,
-      resourceLimits: payload.resourceLimits,
+      timeLimitMs: payload.timeLimitMs,
+      memoryLimitMb: payload.memoryLimitMb,
+      networkEnabled: payload.networkEnabled,
     });
     toasts.add({
       message: ok ? "Image config saved" : "Failed to save image config",
@@ -62,46 +67,50 @@
 
 <div class="mx-auto max-w-4xl space-y-6">
   <header class="flex items-center gap-3">
-    <h2 class="font-[family-name:var(--font-display)] text-3xl">
+    <h1 class="font-display text-title-lg">
       {data.problem.title}
-    </h2>
-    <span class="rounded-full bg-purple-500/15 px-3 py-1 text-xs font-medium text-purple-600 dark:text-purple-400">
+    </h1>
+    <h2
+      class="inline-flex items-center rounded-full border border-info/25 bg-info/15 px-2.5 py-1 text-caption font-medium text-info"
+    >
       Advanced mode
-    </span>
-    <a
+    </h2>
+    <LinkButton
+      class="ml-auto"
       href={`/problems/${data.problem.id}/edit`}
-      class="ml-auto text-sm text-muted-foreground underline-offset-4 hover:underline"
     >
       ← Back to standard editor
-    </a>
+    </LinkButton>
   </header>
 
   <!-- Statement section: minimal placeholder so the UI is usable while Phase 6 -->
   <!-- restructures navigation. Reuses the existing problem record. -->
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-6">
-    <h3 class="text-lg font-semibold">Statement</h3>
-    <p class="mt-1 text-sm text-muted-foreground">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+    <h3 class="text-title-sm font-semibold">Statement</h3>
+    <p class="mt-1 text-body-sm text-muted-foreground">
       Edit the title, statement, and tags from the
       <a class="underline" href={`/problems/${data.problem.id}/edit`}>
         standard editor
       </a>. Phase 6 will fold this section into the advanced page.
     </p>
-    <article class="prose mt-4 max-w-none text-sm dark:prose-invert">
+    <article class="prose mt-4 max-w-none text-body-sm dark:prose-invert">
       <MarkdownRenderer content={data.problem.statement ?? ""} />
     </article>
   </section>
 
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-6">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
     <ImageSection
       problemId={data.problem.id}
       bind:imageRef
       bind:imageSource
-      bind:resourceLimits
+      bind:timeLimitMs
+      bind:memoryLimitMb
+      bind:networkEnabled
       onsave={saveImage}
     />
   </section>
 
-  <section class="rounded-[2rem] border border-border bg-[color:var(--color-panel)] p-6">
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
     <AdvancedTestcasesSection bind:cases onsave={saveTestcases} />
   </section>
 </div>

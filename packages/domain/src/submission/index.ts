@@ -16,4 +16,5 @@ export {
   type WorkspaceFileEntry
 } from "./judge-context";
 export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
+export { deriveSubmissionMode } from "./mode";
 export { dispatchSubmissionJudge, querySubmissionStatus } from "@nojv/job-dispatch";

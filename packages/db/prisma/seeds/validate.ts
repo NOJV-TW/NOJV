@@ -1,21 +1,18 @@
 import { seedProblems } from "./problems";
 
 function createMockPrisma() {
-  const problemBySlug = new Map<string, { id: string; slug: string }>();
+  const problemById = new Map<string, { id: string }>();
 
   return {
     problem: {
-      upsert: async (args: { create: { id: string; slug: string } }) => {
-        const record = {
-          id: String(args.create.id),
-          slug: String(args.create.slug)
-        };
-        problemBySlug.set(record.slug, record);
+      upsert: async (args: { create: { id: string } }) => {
+        const record = { id: String(args.create.id) };
+        problemById.set(record.id, record);
         return record;
       },
-      findUnique: async (args: { where: { slug: string } }) => {
-        const slug = String(args.where.slug);
-        return problemBySlug.get(slug) ?? null;
+      findUnique: async (args: { where: { id: string } }) => {
+        const id = String(args.where.id);
+        return problemById.get(id) ?? null;
       }
     },
     problemStatementI18n: {

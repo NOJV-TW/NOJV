@@ -3,19 +3,12 @@ import { submissionJudgeJobSchema } from "@nojv/core";
 
 import { getClient } from "./client";
 
-// ---------------------------------------------------------------------------
-// Task queues — must match packages/temporal/src/task-queues.ts
-// ---------------------------------------------------------------------------
-
+// Task queue names must match packages/temporal/src/task-queues.ts.
 const JUDGE_TASK_QUEUE = "judge" as const;
 const PLATFORM_TASK_QUEUE = "platform" as const;
 
-// ---------------------------------------------------------------------------
-// Workflow input types — mirrors packages/temporal/src/types.ts
-// We duplicate rather than importing from @nojv/temporal so this package
-// stays decoupled from the worker-side dependency graph.
-// ---------------------------------------------------------------------------
-
+// Workflow input types mirror packages/temporal/src/types.ts; the duplication
+// keeps this package decoupled from the worker-side dependency graph.
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionDraft;
@@ -36,15 +29,10 @@ export interface AssessmentLifecycleInput {
 }
 
 export interface PlagiarismCheckInput {
-  reportId: string;
   targetId: string;
   targetType: "courseAssessment" | "contest";
   triggeredById: string;
 }
-
-// ---------------------------------------------------------------------------
-// Query / status types
-// ---------------------------------------------------------------------------
 
 export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";
 
@@ -54,10 +42,6 @@ export interface RejudgeProgress {
   completed: number;
   total: number;
 }
-
-// ---------------------------------------------------------------------------
-// Dispatch functions
-// ---------------------------------------------------------------------------
 
 export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
   const validated = submissionJudgeJobSchema.parse(payload);
@@ -113,14 +97,17 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
 
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
-    workflowId: `plagiarism-${input.reportId}`,
+    workflowId: plagiarismWorkflowId(input.targetType, input.targetId),
     args: [input]
   });
 }
 
-// ---------------------------------------------------------------------------
-// Query functions
-// ---------------------------------------------------------------------------
+function plagiarismWorkflowId(
+  targetType: PlagiarismCheckInput["targetType"],
+  targetId: string
+): string {
+  return `plagiarism-${targetType}-${targetId}`;
+}
 
 export async function querySubmissionStatus(
   submissionId: string
@@ -136,8 +123,11 @@ export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeP
   return handle.query<RejudgeProgress>("getProgress");
 }
 
-export async function queryPlagiarismStatus(reportId: string): Promise<PlagiarismCheckStatus> {
+export async function queryPlagiarismStatus(
+  targetType: PlagiarismCheckInput["targetType"],
+  targetId: string
+): Promise<PlagiarismCheckStatus> {
   const client = await getClient();
-  const handle = client.workflow.getHandle(`plagiarism-${reportId}`);
+  const handle = client.workflow.getHandle(plagiarismWorkflowId(targetType, targetId));
   return handle.query<PlagiarismCheckStatus>("getPlagiarismStatus");
 }

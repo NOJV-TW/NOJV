@@ -29,7 +29,7 @@ export async function publishVerdict(submission: {
       problemId: submission.problemId
     });
   } catch {
-    // Non-critical: don't fail if publish fails
+    // Notifications are best-effort; swallow publish failures.
   }
 }
 
@@ -43,7 +43,7 @@ export async function publishContestEvent(
   try {
     await publishEvent(keys.contestChannel(contestId), event);
   } catch {
-    // Non-critical
+    // best-effort; swallow publish failures.
   }
 }
 
@@ -53,6 +53,6 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
       type: SSE_ASSIGNMENT_DEADLINE
     });
   } catch {
-    // Non-critical
+    // best-effort; swallow publish failures.
   }
 }

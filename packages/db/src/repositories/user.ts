@@ -13,7 +13,6 @@ export const userRepo = {
     return prisma.user.findUnique({ where: { username } });
   },
 
-  /** List users with filtering and pagination (admin panel). */
   listPaginated(opts: { where: Prisma.UserWhereInput; skip: number; take: number }) {
     return prisma.user.findMany({
       where: opts.where,
@@ -40,7 +39,6 @@ export const userRepo = {
     return prisma.user.count();
   },
 
-  /** Group users by platform role (admin stats). */
   groupByRole() {
     return prisma.user.groupBy({
       by: ["platformRole"],
@@ -62,8 +60,6 @@ export const userRepo = {
     });
   },
 
-  // ── Transaction variants ──
-
   withTx(tx: TxClient) {
     return {
       findById(id: string) {
@@ -76,44 +72,6 @@ export const userRepo = {
 
       update(id: string, data: Prisma.UserUpdateInput) {
         return tx.user.update({ data, where: { id } });
-      }
-    };
-  }
-};
-
-export const userStatsRepo = {
-  findByUserId(userId: string) {
-    return prisma.userStats.findUnique({
-      where: { userId }
-    });
-  },
-
-  create(data: Prisma.UserStatsUncheckedCreateInput) {
-    return prisma.userStats.create({ data });
-  },
-
-  update(userId: string, data: Prisma.UserStatsUncheckedUpdateInput) {
-    return prisma.userStats.update({
-      data,
-      where: { userId }
-    });
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      findByUserId(userId: string) {
-        return tx.userStats.findUnique({ where: { userId } });
-      },
-
-      create(data: Prisma.UserStatsUncheckedCreateInput) {
-        return tx.userStats.create({ data });
-      },
-
-      update(userId: string, data: Prisma.UserStatsUncheckedUpdateInput) {
-        return tx.userStats.update({
-          data,
-          where: { userId }
-        });
       }
     };
   }

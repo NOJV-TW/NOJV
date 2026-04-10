@@ -73,21 +73,21 @@
 
 <form class="grid gap-4" method="POST" action="?/update" use:enhance>
   <!-- Title -->
-  <label class="text-sm text-muted-foreground">
-    <span>{m.admin_title()} <span class="text-red-500">*</span></span>
+  <label class="text-body-sm text-muted-foreground">
+    <span>{m.admin_title()} <span class="text-destructive">*</span></span>
     <input
       class={inputClassName}
       name="title"
       bind:value={$form.title}
       required
     />
-    {#if attempted && $errors.title}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.title)}</span>{/if}
+    {#if attempted && $errors.title}<span class="text-body-sm text-destructive">{tr($errors.title)}</span>{/if}
   </label>
 
   <!-- Difficulty + Visibility -->
   <div class="grid gap-4 md:grid-cols-2">
     <div class="space-y-1.5">
-      <span class="text-sm text-muted-foreground">{m.admin_difficulty()} <span class="text-red-500">*</span></span>
+      <span class="text-body-sm text-muted-foreground">{m.admin_difficulty()} <span class="text-destructive">*</span></span>
       <Select.Root
         type="single"
         name="difficulty"
@@ -103,10 +103,10 @@
           <Select.Item value="hard" label={m.admin_difficultyHard()}>{m.admin_difficultyHard()}</Select.Item>
         </Select.Content>
       </Select.Root>
-      {#if attempted && $errors.difficulty}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.difficulty)}</span>{/if}
+      {#if attempted && $errors.difficulty}<span class="text-body-sm text-destructive">{tr($errors.difficulty)}</span>{/if}
     </div>
     <div class="space-y-1.5">
-      <span class="text-sm text-muted-foreground">{m.admin_visibility()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
+      <span class="text-body-sm text-muted-foreground">{m.admin_visibility()} <span class="text-destructive">*</span> <HelpTooltip text={m.admin_helpVisibility()} /></span>
       <Select.Root
         type="single"
         name="visibility"
@@ -121,13 +121,13 @@
           <Select.Item value="public" label={m.admin_visibilityPublic()}>{m.admin_visibilityPublic()}</Select.Item>
         </Select.Content>
       </Select.Root>
-      {#if attempted && $errors.visibility}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.visibility)}</span>{/if}
+      {#if attempted && $errors.visibility}<span class="text-body-sm text-destructive">{tr($errors.visibility)}</span>{/if}
     </div>
   </div>
 
   <!-- Statement -->
-  <label class="text-sm text-muted-foreground">
-    <span>{m.admin_statement()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_statementTooltip()} /></span>
+  <label class="text-body-sm text-muted-foreground">
+    <span>{m.admin_statement()} <span class="text-destructive">*</span> <HelpTooltip text={m.admin_statementTooltip()} /></span>
     <ImageDropZone
       class="{textareaClassName} min-h-40"
       name="statement"
@@ -135,13 +135,13 @@
       {problemId}
       required
     />
-    {#if attempted && $errors.statement}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.statement)}</span>{/if}
+    {#if attempted && $errors.statement}<span class="text-body-sm text-destructive">{tr($errors.statement)}</span>{/if}
   </label>
 
   <!-- Input / Output Format -->
   <div class="grid gap-4 md:grid-cols-2">
-    <label class="text-sm text-muted-foreground">
-      <span>{m.admin_inputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
+    <label class="text-body-sm text-muted-foreground">
+      <span>{m.admin_inputFormat()} <span class="text-destructive">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
       <ImageDropZone
         class={textareaClassName}
         name="inputFormat"
@@ -149,10 +149,10 @@
         {problemId}
         required
       />
-      {#if attempted && $errors.inputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.inputFormat)}</span>{/if}
+      {#if attempted && $errors.inputFormat}<span class="text-body-sm text-destructive">{tr($errors.inputFormat)}</span>{/if}
     </label>
-    <label class="text-sm text-muted-foreground">
-      <span>{m.admin_outputFormat()} <span class="text-red-500">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
+    <label class="text-body-sm text-muted-foreground">
+      <span>{m.admin_outputFormat()} <span class="text-destructive">*</span> <HelpTooltip text={m.admin_outputFormatTooltip()} /></span>
       <ImageDropZone
         class={textareaClassName}
         name="outputFormat"
@@ -160,7 +160,7 @@
         {problemId}
         required
       />
-      {#if attempted && $errors.outputFormat}<span class="text-sm text-red-700 dark:text-red-400">{tr($errors.outputFormat)}</span>{/if}
+      {#if attempted && $errors.outputFormat}<span class="text-body-sm text-destructive">{tr($errors.outputFormat)}</span>{/if}
     </label>
   </div>
 
@@ -170,22 +170,14 @@
   <!-- Advanced Options -->
   <button
     type="button"
-    class="text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+    class="text-body-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground text-left"
     onclick={() => (showAdvanced = !showAdvanced)}
   >
     {showAdvanced ? "▾" : "▸"} {m.admin_advancedOptions()}
   </button>
   {#if showAdvanced}
     <div class="grid gap-4">
-      <label class="text-sm text-muted-foreground">
-        <span>{m.admin_summaryLabel()} <HelpTooltip text={m.admin_summaryTooltip()} /></span>
-        <textarea
-          class="{inputClassName} min-h-20 resize-y"
-          name="summary"
-          bind:value={$form.summary}
-        ></textarea>
-      </label>
-      <div class="text-sm text-muted-foreground">
+      <div class="text-body-sm text-muted-foreground">
         <span>{m.admin_tags()}</span>
         <div class="mt-2">
           <TagInput bind:tags placeholder={m.admin_tagsPlaceholder()} />
@@ -197,7 +189,7 @@
   <!-- Submit -->
   <div class="mt-2 flex items-center gap-3">
     <button
-      class="inline-flex rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+      class="inline-flex rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
       disabled={$submitting}
       type="submit"
     >
@@ -208,7 +200,7 @@
       {/if}
     </button>
     {#if $formMessage}
-      <span class="text-sm text-emerald-600 dark:text-emerald-400">{$formMessage}</span>
+      <span class="text-body-sm text-success">{$formMessage}</span>
     {/if}
   </div>
 </form>

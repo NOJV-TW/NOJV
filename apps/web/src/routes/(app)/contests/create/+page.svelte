@@ -11,6 +11,8 @@
   import CodeIcon from "@lucide/svelte/icons/code";
   import LinkIcon from "@lucide/svelte/icons/link";
   import ListIcon from "@lucide/svelte/icons/list";
+  import { Card } from "$lib/components/ui/card/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
 
   let { data } = $props();
 
@@ -26,16 +28,17 @@
 <div class="space-y-6">
   <div class="flex items-center gap-3">
     <TrophyIcon class="h-8 w-8 text-primary" />
-    <h2 class="font-[family-name:var(--font-display)] text-3xl">{m.contestCreate_title()}</h2>
+    <h1 class="font-display text-title-lg">{m.contestCreate_title()}</h1>
   </div>
 
   {#if $formMessage}
-    <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
+    <div class="rounded-xl border border-success/25 bg-success/10 px-5 py-4 text-body-sm text-success shadow-rest">
       {$formMessage}
     </div>
   {/if}
 
-  <form method="POST" action="?/create" use:enhance class="space-y-5 max-w-2xl">
+  <Card variant="surface" size="hero" class="max-w-2xl">
+    <form method="POST" action="?/create" use:enhance class="space-y-5">
     <div>
       <label class="text-sm font-medium" for="slug">{m.contestCreate_slug()}</label>
       <input
@@ -112,8 +115,8 @@
     <div>
       <label class="text-sm font-medium" for="scoringMode">{m.contestCreate_scoringMode()}</label>
       <select class={inputClassName} id="scoringMode" name="scoringMode" bind:value={$form.scoringMode}>
-        <option value="icpc">ICPC (AC + penalty)</option>
-        <option value="ioi">IOI (best score per problem)</option>
+        <option value="problem_count">Problem count (ICPC-style, penalty tiebreaker)</option>
+        <option value="point_sum">Point sum (IOI-style, partial credit)</option>
       </select>
     </div>
 
@@ -149,21 +152,6 @@
         type="datetime-local"
         bind:value={$form.frozenAt}
       />
-    </div>
-
-    <div>
-      <label class="text-sm font-medium" for="maxAttempts">{m.contestCreate_maxAttempts()}</label>
-      <input
-        class={inputClassName}
-        id="maxAttempts"
-        name="maxAttempts"
-        type="number"
-        min="1"
-        max="999"
-        placeholder={m.contestCreate_maxAttemptsPlaceholder()}
-        bind:value={$form.maxAttempts}
-      />
-      {#if $errors.maxAttempts}<p class="mt-1 text-xs text-red-600">{$errors.maxAttempts}</p>{/if}
     </div>
 
     <!-- Security -->
@@ -287,12 +275,10 @@
       {#if $errors.problemIdsText}<p class="mt-1 text-xs text-red-600">{$errors.problemIdsText}</p>{/if}
     </div>
 
-    <button
-      class="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-      type="submit"
-    >
-      <TrophyIcon class="h-4 w-4" />
-      {m.contestCreate_button()}
-    </button>
-  </form>
+      <Button type="submit" size="lg">
+        <TrophyIcon class="h-4 w-4" />
+        {m.contestCreate_button()}
+      </Button>
+    </form>
+  </Card>
 </div>

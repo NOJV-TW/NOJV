@@ -27,7 +27,6 @@ export function connectSSE() {
 
       const data = parsed.data;
 
-      // Notify specific listeners
       const typeListeners = listeners.get(data.type);
       if (typeListeners) {
         for (const listener of typeListeners) {
@@ -35,12 +34,11 @@ export function connectSSE() {
         }
       }
 
-      // Default toast for unhandled events
       if (!typeListeners?.size) {
         handleDefaultEvent(data);
       }
     } catch {
-      // Ignore malformed messages
+      // swallow malformed messages
     }
   };
 
@@ -69,7 +67,6 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
   }
   listeners.get(type)?.add(callback);
 
-  // Return unsubscribe function
   return () => {
     listeners.get(type)?.delete(callback);
   };

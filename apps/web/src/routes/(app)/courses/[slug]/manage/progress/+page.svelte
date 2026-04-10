@@ -5,6 +5,9 @@
   import { BarChart3, Download, Languages, PieChart, Table2, Users } from "@lucide/svelte";
   import EChart from "$lib/components/charts/EChart.svelte";
   import * as Select from "$lib/components/ui/select";
+  import { Badge } from "$lib/components/ui/badge";
+  import StatCard from "$lib/components/ui/StatCard.svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import type { EChartsOption } from "echarts";
   import { onMount } from "svelte";
 
@@ -371,7 +374,7 @@
 </script>
 
 <section
-  class="rounded-4xl border border-border bg-(--color-panel-strong) px-6 py-8 backdrop-blur-sm"
+  class="rounded-3xl border border-border bg-[color:var(--color-panel-strong)] px-6 py-8 shadow-rest backdrop-blur-sm"
 >
   <div class="mb-3 flex justify-end">
     <div class="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 p-1">
@@ -397,8 +400,8 @@
 
   <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
-      <p class="inline-flex items-center gap-1 text-sm uppercase tracking-[0.18em] text-muted-foreground"><Users class="h-4 w-4" /> {t("progress")}</p>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <p class="inline-flex items-center gap-1 text-body-sm uppercase tracking-[0.18em] text-muted-foreground"><Users class="h-4 w-4" /> {t("progress")}</p>
+      <p class="mt-1 text-body-sm text-muted-foreground tabular-nums">
         {matrix.students.length} {t("students")}, {matrix.problems.length} {t("problems")}
       </p>
     </div>
@@ -422,11 +425,7 @@
             {#each assessments as assessment (assessment.slug)}
               <Select.Item value={assessment.slug} label={assessment.title}>
                 <span class="inline-flex items-center gap-2">
-                  <span
-                    class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
-                  >
-                    {t("assignment")}
-                  </span>
+                  <Badge variant="info" size="xs">{t("assignment")}</Badge>
                   {assessment.title}
                 </span>
               </Select.Item>
@@ -438,7 +437,7 @@
           <a
             href="/courses/{data.courseSlug}/manage/progress/export?assessment={selectedAssessment}"
             download="progress-{selectedAssessment}.csv"
-            class="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-(--color-panel) px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            class="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-[color:var(--color-panel)] px-3 text-body-sm font-medium text-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-muted hover:shadow-hover"
           >
             <Download class="h-4 w-4" /> {t("exportCsv")}
           </a>
@@ -448,65 +447,47 @@
   </div>
 
   {#if matrix.problems.length === 0}
-    <div class="mt-8 text-center text-muted-foreground">
-      {#if selectedAssessment}
-        {t("noProblemsForAssessment")}
-      {:else}
-        {t("noProblemsForCourse")}
-      {/if}
-    </div>
+    <EmptyState
+      icon={Table2}
+      title={selectedAssessment ? t("noProblemsForAssessment") : t("noProblemsForCourse")}
+      class="mt-4"
+    />
   {:else if matrix.students.length === 0}
-    <div class="mt-8 text-center text-muted-foreground">{t("noStudents")}</div>
+    <EmptyState icon={Users} title={t("noStudents")} class="mt-4" />
   {:else}
     <!-- KPI cards -->
     <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("coverage")}</p>
-        <p class="mt-1 text-2xl font-semibold">{attemptedRate}%</p>
-        <p class="text-xs text-muted-foreground">{attemptedCells}/{totalCells} {t("attemptedCells")}</p>
-      </div>
-      <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("solvedRatio")}</p>
-        <p class="mt-1 text-2xl font-semibold">{solvedRate}%</p>
-        <p class="text-xs text-muted-foreground">{solvedCells}/{totalCells} {t("acceptedCells")}</p>
-      </div>
-      <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("avgBestScore")}</p>
-        <p class="mt-1 text-2xl font-semibold">{avgBestScore}</p>
-        <p class="text-xs text-muted-foreground">{t("acrossAttempted")}</p>
-      </div>
-      <div class="rounded-xl border border-border bg-(--color-panel) px-4 py-3">
-        <p class="text-xs uppercase tracking-wider text-muted-foreground">{t("submissionIntensity")}</p>
-        <p class="mt-1 text-2xl font-semibold">{avgSubmissionsPerCell}</p>
-        <p class="text-xs text-muted-foreground">{t("avgSubmissionsPerAttempted")}</p>
-      </div>
+      <StatCard label={t("coverage")} value={`${attemptedRate}%`} />
+      <StatCard label={t("solvedRatio")} value={`${solvedRate}%`} />
+      <StatCard label={t("avgBestScore")} value={avgBestScore} />
+      <StatCard label={t("submissionIntensity")} value={avgSubmissionsPerCell} />
     </div>
 
     <!-- Chart dashboard -->
     <div class="mt-6 grid gap-4 xl:grid-cols-2">
-      <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><BarChart3 class="h-4 w-4" /> {t("problemAcAttempt")}</h3>
+      <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4 shadow-rest">
+        <h3 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><BarChart3 class="h-4 w-4" /> {t("problemAcAttempt")}</h3>
         <EChart option={problemStatusOption} class="mt-3 h-64 w-full" />
       </section>
 
-      <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><BarChart3 class="h-4 w-4" /> {t("avgBestScoreByProblem")}</h3>
+      <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4 shadow-rest">
+        <h3 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><BarChart3 class="h-4 w-4" /> {t("avgBestScoreByProblem")}</h3>
         <EChart option={problemScoreOption} class="mt-3 h-64 w-full" />
       </section>
 
-      <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><PieChart class="h-4 w-4" /> {t("solveDistribution")}</h3>
+      <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4 shadow-rest">
+        <h3 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><PieChart class="h-4 w-4" /> {t("solveDistribution")}</h3>
         <EChart option={solveDistributionOption} class="mt-3 h-64 w-full" />
       </section>
 
-      <section class="rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-        <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><PieChart class="h-4 w-4" /> {t("bestVerdict")}</h3>
+      <section class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4 shadow-rest">
+        <h3 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><PieChart class="h-4 w-4" /> {t("bestVerdict")}</h3>
         <EChart option={verdictDistributionOption} class="mt-3 h-64 w-full" />
       </section>
     </div>
 
-    <section class="mt-4 rounded-xl border border-border bg-(--color-panel) px-4 py-4">
-      <h3 class="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground"><Users class="h-4 w-4" /> {t("topStudents")}</h3>
+    <section class="mt-4 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-4 py-4 shadow-rest">
+      <h3 class="inline-flex items-center gap-1 text-body-sm font-semibold text-muted-foreground"><Users class="h-4 w-4" /> {t("topStudents")}</h3>
       <EChart option={leaderboardOption} class="mt-3 h-72 w-full" />
     </section>
 
@@ -515,37 +496,37 @@
       {#each matrix.problems as problem (problem.problemId)}
         {@const pct = acPercent(problem.problemId)}
         <div
-          class="rounded-xl border border-border bg-(--color-panel) px-3 py-2 text-sm"
+          class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
         >
           <span class="font-medium">{problem.title}</span>
-          <span class="ml-2 text-muted-foreground">({pct} AC)</span>
+          <span class="ml-2 text-muted-foreground tabular-nums">({pct} AC)</span>
         </div>
       {/each}
     </div>
 
     <!-- Matrix table -->
-    <div class="mt-6 overflow-x-auto rounded-xl border border-border">
-      <table class="w-full min-w-150 border-collapse text-sm">
+    <div class="mt-6 overflow-x-auto rounded-xl border border-border-subtle">
+      <table class="w-full min-w-150 border-collapse text-body-sm">
         <thead>
-          <tr class="border-b border-border bg-(--color-panel)">
+          <tr class="border-b border-border-subtle bg-[color:var(--color-panel)]">
             <th
-              class="sticky left-0 z-10 bg-(--color-panel) px-4 py-3 text-left font-medium text-muted-foreground"
+              class="sticky left-0 z-10 bg-[color:var(--color-panel)] px-4 py-3 text-left font-medium text-muted-foreground"
             >
               <span class="inline-flex items-center gap-1"><Table2 class="h-4 w-4" /> {t("student")}</span>
             </th>
             {#each matrix.problems as problem (problem.problemId)}
               <th class="px-4 py-3 text-center font-medium text-muted-foreground">
                 <div class="max-w-30 truncate" title={problem.title}>{problem.title}</div>
-                <div class="text-xs font-normal">{acPercent(problem.problemId)} AC</div>
+                <div class="text-caption font-normal tabular-nums">{acPercent(problem.problemId)} AC</div>
               </th>
             {/each}
           </tr>
         </thead>
         <tbody>
           {#each matrix.students as student (student.userId)}
-            <tr class="border-b border-border last:border-b-0 hover:bg-muted/50">
+            <tr class="border-b border-border-subtle last:border-b-0 hover:bg-muted/50">
               <td
-                class="sticky left-0 z-10 bg-(--color-panel-strong) px-4 py-2.5 font-medium"
+                class="sticky left-0 z-10 bg-[color:var(--color-panel-strong)] px-4 py-2.5 font-medium"
               >
                 <div class="max-w-40 truncate" title={student.name}>
                   {student.username}
@@ -553,17 +534,17 @@
               </td>
               {#each matrix.problems as problem (problem.problemId)}
                 {@const score = matrix.scores[`${student.userId}:${problem.problemId}`]}
-                <td class="px-4 py-2.5 text-center {cellClass(score)}">
+                <td class="px-4 py-2.5 text-center tabular-nums {cellClass(score)}">
                   {#if score}
                     <div class="flex flex-col items-center gap-0.5">
                       <span
-                        class="text-base {score.bestVerdict === 'accepted'
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-600 dark:text-red-400'}"
+                        class="text-body {score.bestVerdict === 'accepted'
+                          ? 'text-success'
+                          : 'text-destructive'}"
                       >
                         {verdictIcon(score)}
                       </span>
-                      <span class="text-xs text-muted-foreground">
+                      <span class="text-caption text-muted-foreground tabular-nums">
                         {verdictLabel(score.bestVerdict)}
                         ({score.bestScore})
                       </span>

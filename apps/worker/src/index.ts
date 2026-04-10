@@ -2,7 +2,6 @@ import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";
 import { WorkerApp } from "./worker-app";
 
-// --- Process-level error handlers ---
 const processLogger = createLogger("process");
 
 process.on("unhandledRejection", (reason) => {

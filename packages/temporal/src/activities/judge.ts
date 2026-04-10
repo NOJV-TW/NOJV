@@ -49,19 +49,10 @@ const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error"
 };
 
-/**
- * Compute per-subtask results, honoring the configured strategy for
- * each set.
- *
- * - `all_or_nothing`: subtask passes only if every case passed. Score is
- *   the full weight on pass, zero otherwise.
- * - `proportional`: subtask score = weight * (passed / total). Subtask
- *   is "passed" if all cases passed.
- * - `minimum`: subtask score = weight * min(caseScores) where each
- *   AC case counts as 1.0 and non-AC as 0.0. Equivalent to
- *   all_or_nothing for binary verdicts, but reserved for future partial
- *   checker support.
- */
+// Subtask strategies:
+//   all_or_nothing  weight * (all cases passed ? 1 : 0)
+//   proportional    weight * (passed / total), passed iff every case passed
+//   minimum         weight * min(caseScores) — reserved for partial checkers
 function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: submissionDomain.TestcaseSetGroup[],
@@ -162,11 +153,10 @@ function mapResult(
     score = result.customScore;
   }
 
-  // Apply assessment/contest adjustment rules to raw score.
-  const adjustmentRules =
-    judgeContext.adjustment.assessmentAdjustmentRules ??
-    judgeContext.adjustment.contestAdjustmentRules ??
-    null;
+  // Apply assessment adjustment rules to raw score. The Phase 1 redesign
+  // dropped adjustmentRules from Contest — only assessments carry late
+  // penalty / bonus rules now.
+  const adjustmentRules = judgeContext.adjustment.assessmentAdjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
     const adjusted = submissionDomain.applyAdjustmentRules({
@@ -246,18 +236,8 @@ export async function fetchJudgeContext(
   return submissionDomain.getJudgeContext(submissionId);
 }
 
-/**
- * Merge student-submitted files with teacher workspace files into the
- * source-file payload sent to the sandbox.
- *
- * - Student's `draft.sourceCode` populates the entry file `main.<ext>`
- *   derived from the submission language.
- * - Student's `draft.sourceFiles` (if provided) overrides any editable
- *   workspace file whose path matches.
- * - Teacher workspace files (readonly + hidden) are always added. If a
- *   student file collides with a readonly/hidden path, the teacher file
- *   wins (students cannot override locked files).
- */
+// Student files may override only `editable` workspace files; readonly/hidden
+// teacher files always win on path collision.
 function mergeSandboxSources(
   draft: SubmissionDraft,
   judgeContext: submissionDomain.SubmissionJudgeContext
@@ -360,13 +340,12 @@ export async function executeSandbox(
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
-  // Phase 5: function-mode templates are gone. Starter code + teacher
-  // assets all flow through ProblemWorkspaceFile / mergeSandboxSources.
-  // Sample path: ignore testcase sets, use Problem.samples directly.
-  // Graded path: iterate testcase sets (Phase 2: all isHidden=true after
-  // the data migration runs; getJudgeContext already filters them).
+  // Starter code + teacher assets flow through ProblemWorkspaceFile /
+  // mergeSandboxSources. Sample path: ignore testcase sets, use
+  // Problem.samples directly. Graded path: iterate testcase sets.
   const useSamples = draft.sampleOnly;
-  const useAdvanced = judgeContext.mode === "advanced" && judgeContext.advanced !== null;
+  const useAdvanced =
+    judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
 
   const testcasesForSandbox = useSamples
     ? judgeContext.samples.map((s, i) => ({
@@ -398,10 +377,10 @@ export async function executeSandbox(
 
   const sources = mergeSandboxSources(draft, judgeContext);
 
-  // Phase 7: build the advanced-mode payload (when applicable). Standard
-  // mode submissions go through the existing pipeline unchanged.
+  // Build the advanced-mode payload when applicable. Standard-shape
+  // submissions go through the existing pipeline unchanged.
   let advancedPayload: SandboxRequest["advanced"] | undefined;
-  if (judgeContext.mode === "advanced" && judgeContext.advanced) {
+  if (judgeContext.problemType === "special_env" && judgeContext.advanced) {
     const ctx = judgeContext.advanced;
     const testcaseFiles: Record<number, Record<string, string>> = {};
     for (const [idx, c] of ctx.testcases.entries()) {
@@ -425,7 +404,7 @@ export async function executeSandbox(
     ...(sources.sourceFiles ? { sourceFiles: sources.sourceFiles } : {}),
     ...(sources.entryFile ? { entryFile: sources.entryFile } : {}),
     language: draft.language,
-    submissionType: judgeContext.submissionType,
+    problemType: judgeContext.problemType,
     testcases: testcasesForSandbox,
     judgeType: judgeContext.judgeType,
     judgeConfig: {

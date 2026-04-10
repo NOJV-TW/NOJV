@@ -4,7 +4,7 @@ import { contestDomain, courseDomain, problemDomain, submissionDomain } from "@n
 
 const { getAssessmentContext } = courseDomain;
 const { getContestAllowedLanguages } = contestDomain;
-const { getProblemPageData } = problemDomain;
+const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { listProblemSubmissions } = submissionDomain;
 import { assessmentPath } from "$lib/types";
 
@@ -15,17 +15,29 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
   const assessment = url.searchParams.get("assessment");
   const contest = url.searchParams.get("contest");
 
-  const problem = await getProblemPageData(id);
+  // All four inputs come from params/url only — fire them in parallel.
+  const [problem, fullTestcaseSets, assessmentContext, contestAllowedLanguages] =
+    await Promise.all([
+      getProblemPageData(id),
+      getProblemTestcaseSets(id),
+      course && assessment ? getAssessmentContext(course, assessment) : null,
+      contest ? getContestAllowedLanguages(contest) : null
+    ]);
 
   if (!problem) {
     error(404, "Problem not found");
   }
 
-  // ── Parallel: assessment context + contest languages (independent) ──
-  const [assessmentContext, contestAllowedLanguages] = await Promise.all([
-    course && assessment ? getAssessmentContext(course, assessment) : null,
-    contest ? getContestAllowedLanguages(contest) : null
-  ]);
+  // Testcase set summaries strip the actual stdin/expected payloads —
+  // students must never see hidden testcase contents.
+  const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
+    id: set.id,
+    name: set.name,
+    description: set.description,
+    weight: set.weight,
+    ordinal: set.ordinal,
+    caseCount: set.testcases.length
+  }));
 
   const backLink = assessmentContext
     ? {
@@ -60,6 +72,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     backLink,
     contestSlug: contest ?? undefined,
     problem,
-    submissions
+    submissions,
+    testcaseSets: testcaseSetSummaries
   };
 };
