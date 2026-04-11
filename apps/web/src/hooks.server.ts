@@ -102,13 +102,20 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
   if (cached && cached.expiresAt > now) return cached.context;
 
   const context = await getPageLockedContext(userId);
-  pageLockCache.set(userId, { context, expiresAt: now + PAGE_LOCK_CACHE_TTL });
 
-  if (pageLockCache.size > PAGE_LOCK_CACHE_MAX) {
-    for (const [key, entry] of pageLockCache) {
-      if (entry.expiresAt <= now) pageLockCache.delete(key);
-    }
+  // Bounded FIFO / LRU-on-write eviction. Map iterates in insertion order,
+  // so the first key is the oldest insertion. Deleting the existing entry
+  // for this user first (if any) re-promotes them to the tail on set,
+  // giving a proper LRU behavior for actively-refreshing users. Without
+  // this, the old cleanup logic was unbounded: it only removed EXPIRED
+  // entries when size > MAX, so 10k+ concurrent fresh users with a 30s
+  // TTL would grow the map indefinitely and make every miss O(N).
+  pageLockCache.delete(userId);
+  if (pageLockCache.size >= PAGE_LOCK_CACHE_MAX) {
+    const oldestKey = pageLockCache.keys().next().value;
+    if (oldestKey != null) pageLockCache.delete(oldestKey);
   }
+  pageLockCache.set(userId, { context, expiresAt: now + PAGE_LOCK_CACHE_TTL });
 
   return context;
 }

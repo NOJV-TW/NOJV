@@ -19,7 +19,17 @@ export function parseJsonField<T>(
   fieldName = "data"
 ): T {
   if (typeof raw !== "string") error(400, `Missing ${fieldName} field`);
-  const parsed = schema.safeParse(JSON.parse(raw));
+
+  // Wrap JSON.parse so a malformed payload becomes a clean 400 instead of
+  // a SyntaxError bubbling out as a 500 from the action handler.
+  let json: unknown = null;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    error(400, `Invalid ${fieldName}: not valid JSON`);
+  }
+
+  const parsed = schema.safeParse(json);
   if (!parsed.success) error(400, `Invalid ${fieldName}`);
   return parsed.data;
 }

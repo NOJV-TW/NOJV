@@ -29,6 +29,20 @@ function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
+// Map the TA image's top-level verdict onto the narrower SandboxVerdict.
+// Exhaustive Record so a new AdvancedResult verdict fails at the type
+// level until it gets an explicit mapping. `compile_error` is mapped to
+// "RE" because Advanced Mode surfaces compile failures via the top-level
+// `compilationError` field on SandboxResult, not as a per-testcase verdict.
+const ADVANCED_VERDICT_TO_SANDBOX: Record<AdvancedResult["verdict"], SandboxVerdict> = {
+  accepted: "AC",
+  wrong_answer: "WA",
+  time_limit_exceeded: "TLE",
+  memory_limit_exceeded: "MLE",
+  runtime_error: "RE",
+  compile_error: "RE"
+};
+
 export class DockerExecutor implements SandboxExecutor {
   private readonly config: DockerExecutorConfig;
 
@@ -570,19 +584,9 @@ export class DockerExecutor implements SandboxExecutor {
       }
       // Fall back to the top-level verdict when the image didn't provide
       // per-case details.
-      const topVerdict: SandboxVerdict =
-        result.verdict === "accepted"
-          ? "AC"
-          : result.verdict === "wrong_answer"
-            ? "WA"
-            : result.verdict === "time_limit_exceeded"
-              ? "TLE"
-              : result.verdict === "memory_limit_exceeded"
-                ? "MLE"
-                : "RE";
       return {
         index: tc.index,
-        verdict: topVerdict,
+        verdict: ADVANCED_VERDICT_TO_SANDBOX[result.verdict],
         stdout: "",
         stderr: "",
         exitCode: 0,

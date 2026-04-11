@@ -2,6 +2,7 @@ import { contestRepo, submissionRepo } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
+import { computeIcpcProblemPenalty } from "./scoring";
 
 export interface ProblemScore {
   problemId: string;
@@ -225,33 +226,30 @@ function buildIcpcScoreboard(
       const visibleSubs =
         showFrozen && frozenAt ? probSubs.filter((s) => s.createdAt <= frozenAt) : probSubs;
 
-      let score = 0;
-      let attempts = 0;
-      let firstAcTime: number | null = null;
       const isFrozen = showFrozen && frozenSubs.length > 0;
       const isPending = isFrozen;
 
-      for (const sub of visibleSubs) {
-        if (sub.status === "accepted") {
-          score = prob.points;
-          firstAcTime = secondsSince(contest.startsAt, sub.createdAt);
-          totalScore += prob.points;
-          totalPenalty += firstAcTime + attempts * 20 * 60;
-          break;
-        }
-        attempts++;
+      // Single source of truth for ICPC per-problem penalty. Shared with
+      // the DB-write path in updateContestScores so the two can't drift.
+      const result = computeIcpcProblemPenalty(visibleSubs, contest.startsAt);
+      const score = result.solved ? prob.points : 0;
+      if (result.solved) {
+        totalScore += prob.points;
+        totalPenalty += result.penaltySeconds;
       }
 
       problemScores.push({
-        attempts,
-        firstAcTime,
+        attempts: result.wrongAttempts,
+        firstAcTime: result.firstAcTimeSec,
         isFrozen,
         isPending,
         problemId: prob.id,
         score
       });
 
-      isFirstBlood.push(firstAcByProblem.get(prob.id) === p.userId && firstAcTime != null);
+      isFirstBlood.push(
+        firstAcByProblem.get(prob.id) === p.userId && result.firstAcTimeSec != null
+      );
     }
 
     return {
