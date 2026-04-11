@@ -1,0 +1,104 @@
+import {
+  assignRanks,
+  groupByUser,
+  resolveDisplayUsername,
+  secondsSince,
+  type ContestRow,
+  type ParticipantRow,
+  type ProblemScore,
+  type ScoreboardEntry,
+  type ScoreboardProblem,
+  type SubmissionRow
+} from "./rank-util";
+
+export function buildIoiScoreboard(
+  contest: ContestRow,
+  participants: ParticipantRow[],
+  submissions: SubmissionRow[],
+  problems: ScoreboardProblem[],
+  showFrozen: boolean
+): ScoreboardEntry[] {
+  const frozenAt = contest.frozenAt;
+
+  // Track first full-score per problem (global). Submissions are sorted by
+  // createdAt asc, so the first full score seen is the global first.
+  const firstFullByProblem = new Map<string, string>();
+  const pointsByProblem = new Map(problems.map((p) => [p.id, p.points]));
+  for (const sub of submissions) {
+    const maxPts = pointsByProblem.get(sub.problemId);
+    if (maxPts != null && sub.score >= maxPts && !firstFullByProblem.has(sub.problemId)) {
+      firstFullByProblem.set(sub.problemId, sub.userId);
+    }
+  }
+
+  const subsByUser = groupByUser(submissions);
+
+  const entries: ScoreboardEntry[] = participants.map((p) => {
+    const userSubs = subsByUser.get(p.userId) ?? [];
+    let totalScore = 0;
+    let lastImprovementTime = 0;
+    const problemScores: ProblemScore[] = [];
+    const isFirstBlood: boolean[] = [];
+
+    for (const prob of problems) {
+      const probSubs = userSubs.filter((s) => s.problemId === prob.id);
+      const frozenSubs = frozenAt ? probSubs.filter((s) => s.createdAt > frozenAt) : [];
+      const visibleSubs =
+        showFrozen && frozenAt ? probSubs.filter((s) => s.createdAt <= frozenAt) : probSubs;
+
+      const isFrozen = showFrozen && frozenSubs.length > 0;
+      const isPending = isFrozen;
+
+      let bestScore = 0;
+      let firstAcTime: number | null = null;
+
+      for (const sub of visibleSubs) {
+        if (sub.score > bestScore) {
+          bestScore = sub.score;
+          const subTime = secondsSince(contest.startsAt, sub.createdAt);
+          if (subTime > lastImprovementTime) {
+            lastImprovementTime = subTime;
+          }
+        }
+        if (sub.score >= prob.points && firstAcTime == null) {
+          firstAcTime = secondsSince(contest.startsAt, sub.createdAt);
+        }
+      }
+
+      totalScore += bestScore;
+
+      problemScores.push({
+        attempts: visibleSubs.length,
+        firstAcTime,
+        isFrozen,
+        isPending,
+        problemId: prob.id,
+        score: bestScore
+      });
+
+      isFirstBlood.push(firstFullByProblem.get(prob.id) === p.userId && firstAcTime != null);
+    }
+
+    return {
+      displayName: p.user.name,
+      username: resolveDisplayUsername(p.user),
+      isFirstBlood,
+      problems: problemScores,
+      rank: 0,
+      totalPenalty: lastImprovementTime,
+      totalScore,
+      userId: p.userId
+    };
+  });
+
+  // Sort: totalScore DESC, lastImprovementTime ASC
+  entries.sort((a, b) => {
+    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+    return a.totalPenalty - b.totalPenalty;
+  });
+
+  // IOI ties on total score alone
+  assignRanks(entries, (prev, curr) => prev.totalScore === curr.totalScore);
+
+  return entries;
+}
