@@ -18,13 +18,20 @@ describe("computeIcpcProblemPenalty", () => {
   it("returns not-solved for an empty submission list", () => {
     expect(computeIcpcProblemPenalty([], CONTEST_START)).toEqual({
       solved: false,
+      wrongAttempts: 0,
+      firstAcTimeSec: null,
       penaltySeconds: 0
     });
   });
 
   it("returns just the solve time when the first submission is AC", () => {
     const r = computeIcpcProblemPenalty([sub("accepted", 30)], CONTEST_START);
-    expect(r).toEqual({ solved: true, penaltySeconds: 30 * 60 });
+    expect(r).toEqual({
+      solved: true,
+      wrongAttempts: 0,
+      firstAcTimeSec: 30 * 60,
+      penaltySeconds: 30 * 60
+    });
   });
 
   it("adds 20 minutes per prior wrong attempt", () => {
@@ -76,6 +83,8 @@ describe("computeIcpcProblemPenalty", () => {
     const subs = [sub("wrong_answer", 5), sub("time_limit_exceeded", 10)];
     expect(computeIcpcProblemPenalty(subs, CONTEST_START)).toEqual({
       solved: false,
+      wrongAttempts: 2,
+      firstAcTimeSec: null,
       penaltySeconds: 0
     });
   });
@@ -84,8 +93,20 @@ describe("computeIcpcProblemPenalty", () => {
     const subs = [sub("queued", 5), sub("running", 10), sub("compiling", 15)];
     expect(computeIcpcProblemPenalty(subs, CONTEST_START)).toEqual({
       solved: false,
+      wrongAttempts: 0,
+      firstAcTimeSec: null,
       penaltySeconds: 0
     });
+  });
+
+  it("clamps firstAcTimeSec to 0 for submissions timestamped before contest start", () => {
+    const preContest = new Date(CONTEST_START.getTime() - 5000);
+    const r = computeIcpcProblemPenalty(
+      [{ status: "accepted", createdAt: preContest }],
+      CONTEST_START
+    );
+    expect(r.firstAcTimeSec).toBe(0);
+    expect(r.penaltySeconds).toBe(0);
   });
 
   it("floors sub-second solve time differences", () => {
