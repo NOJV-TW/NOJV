@@ -171,6 +171,26 @@ export const assessmentProblemRepo = {
     });
   },
 
+  // Distinct union of every problem assigned to any published assessment
+  // of a course. Replaces a 1+N pattern (listByCourseSlug → findWithProblems
+  // per assessment) used by the course-wide progress matrix.
+  listDistinctByCourseSlug(courseSlug: string) {
+    return prisma.courseAssessmentProblem.findMany({
+      where: {
+        assessment: {
+          course: { slug: courseSlug },
+          status: "published"
+        }
+      },
+      distinct: ["problemId"],
+      select: {
+        problemId: true,
+        problem: { select: problemPreviewSelect }
+      },
+      orderBy: { ordinal: "asc" }
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {
