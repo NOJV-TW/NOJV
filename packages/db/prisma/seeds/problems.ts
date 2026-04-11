@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../generated/prisma/client";
+import type { Prisma, PrismaClient } from "../../generated/prisma/client";
 
 const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
 type SeedDifficulty = (typeof SEED_DIFFICULTIES)[number];
@@ -59,9 +59,19 @@ type SeedWorkspaceFile = {
 };
 
 type SeedProblemSample = {
-  input: string;
-  output: string;
+  readonly input: string;
+  readonly output: string;
 };
+
+function toSamplesJson(
+  samples: readonly SeedProblemSample[] | undefined
+): Prisma.InputJsonValue | undefined {
+  if (!samples) return undefined;
+  return samples.map((sample) => ({
+    input: sample.input,
+    output: sample.output
+  }));
+}
 
 type SeedProblemDef = {
   authorId: string;
@@ -981,7 +991,7 @@ if __name__ == "__main__":
       type: def.type,
       judgeConfig: def.judgeConfig ?? undefined,
       status: def.status ?? "published",
-      samples: def.samples ? (def.samples as unknown as object) : undefined,
+      samples: toSamplesJson(def.samples),
       advancedImageRef: def.advancedImageRef ?? null,
       advancedImageSource: def.advancedImageSource ?? null
     };
