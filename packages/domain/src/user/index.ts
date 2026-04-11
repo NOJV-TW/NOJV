@@ -9,3 +9,5 @@ export {
   getUserAnalytics,
   type UserAnalytics
 } from "./queries";
+export { aggregateByTag } from "./analytics-helpers";
+export type { TagAcCount } from "./analytics-helpers";
