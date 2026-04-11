@@ -81,10 +81,10 @@ export const actions = {
           .filter(Boolean)
       });
       await createCourseAssessmentRecord(actor, payload);
-      return message(form, `Published ${payload.title}.`);
+      return message(form, { kind: "success", text: `Published ${payload.title}.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Assessment publish failed.";
-      return fail(400, { form, error: msg });
+      return message(form, { kind: "error", text: msg }, { status: 400 });
     }
   },
 
@@ -122,10 +122,10 @@ export const actions = {
         startsAt: new Date(startsAt).toISOString()
       });
       await createContestRecord(actor, payload);
-      return message(form, `Contest "${payload.title}" created.`);
+      return message(form, { kind: "success", text: `Contest "${payload.title}" created.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Contest creation failed.";
-      return fail(400, { contestForm: form, error: msg });
+      return message(form, { kind: "error", text: msg }, { status: 400 });
     }
   }
 } satisfies Actions;
