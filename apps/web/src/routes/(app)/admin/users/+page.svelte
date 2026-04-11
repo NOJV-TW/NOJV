@@ -13,6 +13,7 @@
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import FormField from "$lib/components/ui/FormField.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { toasts } from "$lib/components/ui/toast";
 
   let { data } = $props();
 
@@ -252,11 +253,46 @@
                       method="POST"
                       action="?/updateRole"
                       class="flex flex-col gap-2"
-                      use:enhance={() => {
+                      use:enhance={({ cancel, formData }) => {
+                        const submittedRole = String(formData.get("role") ?? "");
+                        const targetUsername = user.username ?? user.name;
+
+                        if (user.id === data.actor?.userId) {
+                          toasts.error(m.admin_usersRoleSelfBlocked());
+                          cancel();
+                          return;
+                        }
+
+                        if (user.platformRole === "admin" && submittedRole !== "admin") {
+                          const ok = confirm(
+                            m.admin_usersRoleDemoteConfirm({
+                              username: targetUsername,
+                              to: submittedRole
+                            })
+                          );
+                          if (!ok) {
+                            cancel();
+                            return;
+                          }
+                        }
+
                         return async ({ result, update }) => {
-                          await update();
                           if (result.type === "success") {
+                            toasts.success(
+                              m.admin_usersRoleUpdateSuccess({
+                                username: targetUsername,
+                                to: submittedRole
+                              })
+                            );
                             editingUserId = null;
+                            await update();
+                          } else if (result.type === "failure") {
+                            const err =
+                              (result.data as { error?: string } | undefined)?.error ??
+                              m.admin_usersRoleUpdateFailed();
+                            toasts.error(err);
+                          } else {
+                            await update();
                           }
                         };
                       }}
