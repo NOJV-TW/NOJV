@@ -203,6 +203,7 @@ describe("DB-backed read model", () => {
     findDetailById.mockResolvedValue({
       _count: { submissions: 10 },
       author: { username: "admin_user" },
+      difficulty: "easy",
       title: "A+B Problem",
       id: "prob_ab",
       statements: [
