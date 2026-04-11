@@ -3,6 +3,8 @@ import {
   assignRanks,
   groupByUser,
   resolveDisplayUsername,
+  sortByScoreThenPenalty,
+  splitFrozenVisible,
   type ContestRow,
   type ParticipantRow,
   type ProblemScore,
@@ -40,12 +42,7 @@ export function buildIcpcScoreboard(
 
     for (const prob of problems) {
       const probSubs = userSubs.filter((s) => s.problemId === prob.id);
-      const frozenSubs = frozenAt ? probSubs.filter((s) => s.createdAt > frozenAt) : [];
-      const visibleSubs =
-        showFrozen && frozenAt ? probSubs.filter((s) => s.createdAt <= frozenAt) : probSubs;
-
-      const isFrozen = showFrozen && frozenSubs.length > 0;
-      const isPending = isFrozen;
+      const { visibleSubs, isFrozen } = splitFrozenVisible(probSubs, frozenAt, showFrozen);
 
       // Single source of truth for ICPC per-problem penalty. Shared with
       // the DB-write path in updateContestScores so the two can't drift.
@@ -60,7 +57,7 @@ export function buildIcpcScoreboard(
         attempts: result.wrongAttempts,
         firstAcTime: result.firstAcTimeSec,
         isFrozen,
-        isPending,
+        isPending: isFrozen,
         problemId: prob.id,
         score
       });
@@ -82,11 +79,7 @@ export function buildIcpcScoreboard(
     };
   });
 
-  // Sort: totalScore DESC, totalPenalty ASC
-  entries.sort((a, b) => {
-    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-    return a.totalPenalty - b.totalPenalty;
-  });
+  sortByScoreThenPenalty(entries);
 
   // Same score+penalty = same rank
   assignRanks(

@@ -3,6 +3,8 @@ import {
   groupByUser,
   resolveDisplayUsername,
   secondsSince,
+  sortByScoreThenPenalty,
+  splitFrozenVisible,
   type ContestRow,
   type ParticipantRow,
   type ProblemScore,
@@ -42,12 +44,7 @@ export function buildIoiScoreboard(
 
     for (const prob of problems) {
       const probSubs = userSubs.filter((s) => s.problemId === prob.id);
-      const frozenSubs = frozenAt ? probSubs.filter((s) => s.createdAt > frozenAt) : [];
-      const visibleSubs =
-        showFrozen && frozenAt ? probSubs.filter((s) => s.createdAt <= frozenAt) : probSubs;
-
-      const isFrozen = showFrozen && frozenSubs.length > 0;
-      const isPending = isFrozen;
+      const { visibleSubs, isFrozen } = splitFrozenVisible(probSubs, frozenAt, showFrozen);
 
       let bestScore = 0;
       let firstAcTime: number | null = null;
@@ -71,7 +68,7 @@ export function buildIoiScoreboard(
         attempts: visibleSubs.length,
         firstAcTime,
         isFrozen,
-        isPending,
+        isPending: isFrozen,
         problemId: prob.id,
         score: bestScore
       });
@@ -91,11 +88,8 @@ export function buildIoiScoreboard(
     };
   });
 
-  // Sort: totalScore DESC, lastImprovementTime ASC
-  entries.sort((a, b) => {
-    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
-    return a.totalPenalty - b.totalPenalty;
-  });
+  // IOI reuses totalPenalty as lastImprovementTime for the secondary sort key
+  sortByScoreThenPenalty(entries);
 
   // IOI ties on total score alone
   assignRanks(entries, (prev, curr) => prev.totalScore === curr.totalScore);

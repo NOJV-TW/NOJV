@@ -91,3 +91,42 @@ export function assignRanks(
     entry.rank = prev && isTied(prev, entry) ? prev.rank : i + 1;
   }
 }
+
+/**
+ * Splits a user's submissions for one problem into the portion visible on the
+ * scoreboard and derives whether the cell is frozen. ICPC and IOI scoring
+ * share this rule exactly: when `showFrozen` is active and a freeze time is
+ * set, hide anything submitted after the freeze; the cell is "frozen" when
+ * the user has at least one post-freeze submission.
+ */
+export function splitFrozenVisible(
+  probSubs: SubmissionRow[],
+  frozenAt: Date | null,
+  showFrozen: boolean
+): { visibleSubs: SubmissionRow[]; isFrozen: boolean } {
+  if (!(showFrozen && frozenAt)) {
+    return { isFrozen: false, visibleSubs: probSubs };
+  }
+  const visibleSubs: SubmissionRow[] = [];
+  let hasFrozen = false;
+  for (const s of probSubs) {
+    if (s.createdAt > frozenAt) {
+      hasFrozen = true;
+    } else {
+      visibleSubs.push(s);
+    }
+  }
+  return { isFrozen: hasFrozen, visibleSubs };
+}
+
+/**
+ * Shared scoreboard comparator: higher `totalScore` first, ties broken by
+ * lower `totalPenalty`. ICPC uses seconds-of-penalty; IOI reuses the slot as
+ * `lastImprovementTime`. The ordering rule is identical.
+ */
+export function sortByScoreThenPenalty(entries: ScoreboardEntry[]): void {
+  entries.sort((a, b) => {
+    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+    return a.totalPenalty - b.totalPenalty;
+  });
+}
