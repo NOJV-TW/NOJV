@@ -490,7 +490,7 @@
           </span>
           {#each problem.tags as tag (tag)}
             <span
-              class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass(tag)}"
+              class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
             >
               {tag}
             </span>

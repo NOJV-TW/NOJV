@@ -15,7 +15,7 @@ export function formatVerdictLabel(verdict: string): string {
 
 // Topic/skill tag pill — intentionally uniform, colour-coding lives on the
 // dedicated `Problem.difficulty` column (see `difficultyClass`).
-export function tagClass(_tag: string): string {
+export function tagClass(): string {
   return "bg-muted text-muted-foreground border-border";
 }
 

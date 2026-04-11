@@ -14,6 +14,7 @@
   import FormField from "$lib/components/ui/FormField.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/components/ui/toast";
+  import type { PlatformRole } from "@nojv/core";
 
   let { data } = $props();
 
@@ -103,8 +104,6 @@
     if (roleValue) params.set("role", roleValue);
     goto(`/admin/users?${params.toString()}`);
   }
-
-  type PlatformRole = "admin" | "teacher" | "student";
 
   let editingUserId = $state<string | null>(null);
   let draftRole = $state<PlatformRole>("student");
@@ -340,9 +339,9 @@
                       type="button"
                       class="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={m.admin_usersRoleEdit()}
-                      onclick={() => beginEditRole({ id: user.id, platformRole: user.platformRole as PlatformRole })}
+                      onclick={() => beginEditRole({ id: user.id, platformRole: user.platformRole })}
                     >
-                      <Badge variant={roleBadgeVariant(user.platformRole as PlatformRole)} size="sm">
+                      <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
                         {user.platformRole}
                       </Badge>
                     </button>

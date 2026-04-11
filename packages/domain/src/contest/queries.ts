@@ -25,10 +25,10 @@ export interface ContestListItemForUser extends ContestListItem {
   visibility: "draft" | "published" | "archived";
 }
 
-export type ContestListForUserResult = {
+export interface ContestListForUserResult {
   participable: ContestListItem[];
   managed: ContestListItemForUser[];
-};
+}
 
 export interface ContestProblemSummary {
   id: string;
@@ -95,7 +95,10 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
 
 type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailBySlug>>>;
 
-type ContestDetailBase = Omit<ContestDetailData, "isManager" | "problemsHidden" | "problems"> & {
+type ContestDetailBase = Omit<
+  ContestDetailData,
+  "isManager" | "problemsHidden" | "problems"
+> & {
   problems: ContestProblemSummary[];
 };
 
@@ -139,8 +142,7 @@ export async function listCourseContests(courseSlug: string): Promise<ContestLis
 }
 
 export async function listContestsForUser(
-  userId: string | null,
-  _now: Date
+  userId: string | null
 ): Promise<ContestListForUserResult> {
   if (userId === null) {
     const rows = await contestRepo.listParticipableForUser([]);
@@ -173,33 +175,46 @@ export async function listContestsForUser(
   return { managed, participable };
 }
 
-export type ContestDetailOptions = {
+export interface ContestDetailOptions {
   userId: string | null;
   now: Date;
-};
+}
+
+function resolveVisibility(
+  userId: string | null,
+  contest: { createdByUserId: string | null; courseId: string | null; startsAt: Date },
+  memberships: Awaited<ReturnType<typeof courseMembershipRepo.listActiveForUser>>,
+  now: Date
+): { isManager: boolean; problemsHidden: boolean } {
+  const isManager = canManageContest(
+    userId,
+    { createdByUserId: contest.createdByUserId, courseId: contest.courseId },
+    memberships
+  );
+  return {
+    isManager,
+    problemsHidden: !isManager && now < contest.startsAt
+  };
+}
 
 export async function getContestDetail(
   contestSlug: string,
   options: ContestDetailOptions
 ): Promise<ContestDetailData | null> {
-  const contest = await contestRepo.findDetailBySlug(contestSlug);
+  const [contest, memberships] = await Promise.all([
+    contestRepo.findDetailBySlug(contestSlug),
+    options.userId === null
+      ? Promise.resolve([])
+      : courseMembershipRepo.listActiveForUser(options.userId)
+  ]);
   if (contest?.visibility !== "published") return null;
 
-  const memberships =
-    options.userId === null
-      ? []
-      : await courseMembershipRepo.listActiveForUser(options.userId);
-
-  const isManager = canManageContest(
+  const { isManager, problemsHidden } = resolveVisibility(
     options.userId,
-    {
-      createdByUserId: contest.createdByUserId ?? "",
-      courseId: contest.courseId
-    },
-    memberships
+    contest,
+    memberships,
+    options.now
   );
-
-  const problemsHidden = !isManager && options.now < contest.startsAt;
 
   const base = mapContestDetail(contest);
   return {
@@ -215,21 +230,18 @@ export async function getContestWorkspaceData(
   userId: string,
   options: { now: Date }
 ): Promise<ContestWorkspaceData | null> {
-  const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
+  const [contest, memberships] = await Promise.all([
+    contestRepo.findWorkspaceBySlug(contestSlug, userId),
+    courseMembershipRepo.listActiveForUser(userId)
+  ]);
   if (contest?.visibility !== "published") return null;
 
-  const memberships = await courseMembershipRepo.listActiveForUser(userId);
-
-  const isManager = canManageContest(
+  const { isManager, problemsHidden } = resolveVisibility(
     userId,
-    {
-      createdByUserId: contest.createdByUserId ?? "",
-      courseId: contest.courseId
-    },
-    memberships
+    contest,
+    memberships,
+    options.now
   );
-
-  const problemsHidden = !isManager && options.now < contest.startsAt;
 
   const base = mapContestDetail(contest);
   const participation = contest.participations[0] ?? null;
