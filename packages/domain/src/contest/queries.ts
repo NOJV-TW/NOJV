@@ -1,6 +1,7 @@
 import { contestRepo, courseMembershipRepo, runTransaction } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
+import { NotFoundError } from "../shared/errors";
 import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
 import { canManageContest } from "./permissions";
 
@@ -200,14 +201,16 @@ function resolveVisibility(
 export async function getContestDetail(
   contestSlug: string,
   options: ContestDetailOptions
-): Promise<ContestDetailData | null> {
+): Promise<ContestDetailData> {
   const [contest, memberships] = await Promise.all([
     contestRepo.findDetailBySlug(contestSlug),
     options.userId === null
       ? Promise.resolve([])
       : courseMembershipRepo.listActiveForUser(options.userId)
   ]);
-  if (contest?.visibility !== "published") return null;
+  if (contest?.visibility !== "published") {
+    throw new NotFoundError(`Contest not found: ${contestSlug}`);
+  }
 
   const { isManager, problemsHidden } = resolveVisibility(
     options.userId,
@@ -229,12 +232,14 @@ export async function getContestWorkspaceData(
   contestSlug: string,
   userId: string,
   options: { now: Date }
-): Promise<ContestWorkspaceData | null> {
+): Promise<ContestWorkspaceData> {
   const [contest, memberships] = await Promise.all([
     contestRepo.findWorkspaceBySlug(contestSlug, userId),
     courseMembershipRepo.listActiveForUser(userId)
   ]);
-  if (contest?.visibility !== "published") return null;
+  if (contest?.visibility !== "published") {
+    throw new NotFoundError(`Contest not found: ${contestSlug}`);
+  }
 
   const { isManager, problemsHidden } = resolveVisibility(
     userId,

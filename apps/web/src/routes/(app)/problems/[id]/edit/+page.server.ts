@@ -13,9 +13,10 @@ import type { ProblemType } from "@nojv/core";
 import { superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
-import type { Actions, PageServerLoad } from "./$types";
+import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
 import { problemWorkspaceFileRepo } from "@nojv/db";
@@ -40,42 +41,40 @@ const updateWorkspaceSchema = z.object({
   files: z.array(problemWorkspaceFileSchema).max(50)
 });
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-  if (!locals.user) {
-    redirect(302, `/problems/${params.id}`);
+export const load: PageServerLoad = handleLoad(
+  async ({ params, locals }: PageServerLoadEvent) => {
+    if (!locals.user) {
+      redirect(302, `/problems/${params.id}`);
+    }
+
+    const [problem, testcaseSets, workspaceFiles] = await Promise.all([
+      getProblemPageData(params.id),
+      getProblemTestcaseSets(params.id),
+      problemWorkspaceFileRepo.findByProblemId(params.id)
+    ]);
+
+    const form = await superValidate(
+      {
+        difficulty: problem.difficulty,
+        inputFormat: problem.inputFormat,
+        judgeConfig: problem.judgeConfig,
+        memoryLimitMb: problem.memoryLimitMb,
+        outputFormat: problem.outputFormat,
+        samples: problem.samples,
+        statement: problem.statement,
+        status: problem.status,
+        tags: problem.tags,
+        timeLimitMs: problem.timeLimitMs,
+        title: problem.title,
+        type: problem.type satisfies ProblemType,
+        visibility: problem.visibility
+      },
+      zod4(problemCreateSchema)
+    );
+
+    return { problem, form, testcaseSets, workspaceFiles };
   }
-
-  const [problem, testcaseSets, workspaceFiles] = await Promise.all([
-    getProblemPageData(params.id),
-    getProblemTestcaseSets(params.id),
-    problemWorkspaceFileRepo.findByProblemId(params.id)
-  ]);
-
-  if (!problem) {
-    error(404, "Problem not found");
-  }
-
-  const form = await superValidate(
-    {
-      difficulty: problem.difficulty,
-      inputFormat: problem.inputFormat,
-      judgeConfig: problem.judgeConfig,
-      memoryLimitMb: problem.memoryLimitMb,
-      outputFormat: problem.outputFormat,
-      samples: problem.samples,
-      statement: problem.statement,
-      status: problem.status,
-      tags: problem.tags,
-      timeLimitMs: problem.timeLimitMs,
-      title: problem.title,
-      type: problem.type satisfies ProblemType,
-      visibility: problem.visibility
-    },
-    zod4(problemCreateSchema)
-  );
-
-  return { problem, form, testcaseSets, workspaceFiles };
-};
+);
 
 function problemEditAction<T>(
   handler: (ctx: {
@@ -181,7 +180,7 @@ export const actions: Actions = {
   deleteProblem: problemEditAction(async ({ actor, problemId }) => {
     // Only draft problems can be deleted
     const problem = await getProblemPageData(problemId);
-    if (problem?.status !== "draft") {
+    if (problem.status !== "draft") {
       error(403, "Published problems cannot be deleted");
     }
 

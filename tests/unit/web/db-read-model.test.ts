@@ -183,20 +183,20 @@ describe("DB-backed read model", () => {
     );
   });
 
-  it("returns null when a course slug is not found", async () => {
+  it("throws NotFoundError when a course slug is not found", async () => {
     findDetailBySlugCourse.mockResolvedValue(null);
 
-    const detail = await getCoursePageData("nonexistent-course");
-
-    expect(detail).toBeNull();
+    await expect(getCoursePageData("nonexistent-course")).rejects.toThrow(
+      "Course not found: nonexistent-course"
+    );
   });
 
-  it("returns null when a problem id is not found", async () => {
+  it("throws NotFoundError when a problem id is not found", async () => {
     findDetailById.mockResolvedValue(null);
 
-    const detail = await getProblemPageData("nonexistent-problem", "en");
-
-    expect(detail).toBeNull();
+    await expect(getProblemPageData("nonexistent-problem", "en")).rejects.toThrow(
+      "Problem not found: nonexistent-problem"
+    );
   });
 
   it("returns problem detail with samples from visible testcase set", async () => {

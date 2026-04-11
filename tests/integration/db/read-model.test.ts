@@ -105,9 +105,10 @@ describe("read model (real DB)", () => {
   // --- getProblemPageData ---
 
   describe("getProblemPageData", () => {
-    it("returns null for nonexistent id", async () => {
-      const result = await getProblemPageData("nonexistent");
-      expect(result).toBeNull();
+    it("throws NotFoundError for nonexistent id", async () => {
+      await expect(getProblemPageData("nonexistent")).rejects.toThrow(
+        "Problem not found: nonexistent"
+      );
     });
 
     it("returns full problem detail with statement and samples", async () => {

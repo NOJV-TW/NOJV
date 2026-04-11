@@ -18,6 +18,7 @@ import {
   type ProblemVisibility
 } from "@nojv/core";
 
+import { NotFoundError } from "../shared/errors";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 export interface ProblemDetail {
@@ -349,7 +350,7 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
   const persistedProblem = await problemRepo.findDetailById(id);
 
   if (!persistedProblem) {
-    return null;
+    throw new NotFoundError(`Problem not found: ${id}`);
   }
 
   const acceptedCount = await submissionRepo.count({

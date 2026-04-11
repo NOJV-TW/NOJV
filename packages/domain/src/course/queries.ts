@@ -238,11 +238,11 @@ export async function listCourseCards(userId?: string) {
   }));
 }
 
-export async function getCoursePageData(slug: string): Promise<CoursePageDetailData | null> {
+export async function getCoursePageData(slug: string): Promise<CoursePageDetailData> {
   const persistedCourse = await courseRepo.findDetailBySlug(slug);
 
   if (!persistedCourse) {
-    return null;
+    throw new NotFoundError(`Course not found: ${slug}`);
   }
 
   return mapPersistedCourse(persistedCourse);

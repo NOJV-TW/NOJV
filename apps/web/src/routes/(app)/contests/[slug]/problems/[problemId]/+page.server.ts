@@ -1,14 +1,15 @@
 import { error, redirect } from "@sveltejs/kit";
 
-import type { PageServerLoad } from "./$types";
+import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
 const { getContestWorkspaceData } = contestDomain;
 const { getProblemPageData } = problemDomain;
 const { listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-export const load: PageServerLoad = async (event) => {
+export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const { slug: contestSlug, problemId } = event.params;
   const now = new Date();
@@ -18,14 +19,6 @@ export const load: PageServerLoad = async (event) => {
     getProblemPageData(problemId),
     listProblemSubmissions(actor.userId, problemId)
   ]);
-
-  if (!contestData) {
-    error(404, "Contest not found");
-  }
-
-  if (!problem) {
-    error(404, "Problem not found");
-  }
 
   // A manager may preview any problem in the contest even before start.
   // Non-managers still require the contest to be active.
@@ -51,4 +44,4 @@ export const load: PageServerLoad = async (event) => {
     problem,
     submissions
   };
-};
+});

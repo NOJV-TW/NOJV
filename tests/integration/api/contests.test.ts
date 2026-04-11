@@ -111,15 +111,17 @@ describe("contest queries (real DB)", () => {
       expect(detail!.problems![0]!.slug).toBe(problem.slug);
     });
 
-    it("returns null for nonexistent slug", async () => {
-      const detail = await getContestDetail("nonexistent", { userId: null, now: new Date() });
-      expect(detail).toBeNull();
+    it("throws NotFoundError for nonexistent slug", async () => {
+      await expect(
+        getContestDetail("nonexistent", { userId: null, now: new Date() })
+      ).rejects.toThrow("Contest not found: nonexistent");
     });
 
-    it("returns null for draft contest", async () => {
+    it("throws NotFoundError for draft contest", async () => {
       await createTestContest({ slug: "draft-contest", visibility: "draft" });
-      const detail = await getContestDetail("draft-contest", { userId: null, now: new Date() });
-      expect(detail).toBeNull();
+      await expect(
+        getContestDetail("draft-contest", { userId: null, now: new Date() })
+      ).rejects.toThrow("Contest not found: draft-contest");
     });
 
     it("returns problems ordered by ordinal", async () => {
