@@ -673,8 +673,6 @@
   "admin_usersEmpty": "No users found",
   "admin_usersEmptyHint": "Try a different search term or role filter.",
   "admin_usersRoleEdit": "Edit role",
-  "admin_usersRoleSave": "Save",
-  "admin_usersRoleCancel": "Cancel",
   "admin_usersRoleChangeDiff": "Change {username} from {from} to {to}",
   "admin_usersRoleDemoteConfirm": "Demote {username} from admin to {to}?",
   "admin_usersRoleSelfBlocked": "You cannot change your own role.",
