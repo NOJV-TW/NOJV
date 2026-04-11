@@ -91,7 +91,7 @@
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
   let testcases = $state(
-    initialProblem.samples.map((s) => ({ input: s.stdin, expectedOutput: s.expected }))
+    initialProblem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
   );
   let runResult = $state<SubmissionResult | null>(null);
   let runStatus = $state<string | null>(null);
@@ -111,7 +111,7 @@
     } catch {}
   });
 
-  // ── Workspace-file (Phase 4) state ──
+  // ── Workspace-file state ──
   // `problem.workspaceFiles` includes `editable`, `readonly`, and `hidden`
   // files. Hidden files arrive with `content: ""` from the domain layer — raw
   // content never leaves the server — but their metadata (path, description)
@@ -332,8 +332,8 @@
       // (editable + readonly) so the server can merge them with hidden files
       // when building the judge context. Hidden files are excluded — their
       // `content` is `""` on the client and the server reads the real content
-      // from the DB. `sourceCode` is the first editable file's draft — used
-      // by legacy views that expect a single blob.
+      // from the DB. `sourceCode` is the first editable file's draft — kept
+      // alongside `sourceFiles` for callers that still expect a single blob.
       const files = workspaceFilesForLanguage.filter(
         (f) => f.visibility !== "hidden"
       );
@@ -740,7 +740,7 @@
           </div>
 
           <div class="mt-3">
-            <p class="text-caption text-muted-foreground">{m.editor_expectedOutput()}</p>
+            <p class="text-caption text-muted-foreground">{m.editor_output()}</p>
             <textarea
               class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
               oninput={(e) => {
@@ -819,7 +819,7 @@
                   {#if testcases[selectedResultCase]?.expectedOutput}
                     <div>
                       <p class="text-caption font-medium text-muted-foreground">
-                        {m.editor_expectedOutput()}
+                        {m.editor_output()}
                       </p>
                       <pre
                         class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{testcases[selectedResultCase]!.expectedOutput}</pre>

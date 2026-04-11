@@ -97,9 +97,8 @@ describe("read model (real DB)", () => {
       expect(result.problems).toHaveLength(1);
       expect(result.problems[0]!.id).toBe("two-sum");
       expect(result.problems[0]!.difficulty).toBe("hard");
-      // Difficulty tag ("hard") is merged into tags by the factory; the
-      // domain query exposes both the derived `difficulty` + the full tag list.
-      expect(result.problems[0]!.tags).toEqual(["hard", "array", "hash-table"]);
+      // Difficulty is a dedicated column; tags are topic-only.
+      expect(result.problems[0]!.tags).toEqual(["array", "hash-table"]);
     });
   });
 
@@ -137,13 +136,13 @@ describe("read model (real DB)", () => {
       });
 
       // The factory writes a default `samples` pair on `Problem` matching
-      // the default testcase — samples live on `Problem.samples` directly
-      // since Phase 1, not on a specially-flagged testcase set.
+      // the default testcase — samples live on `Problem.samples` directly,
+      // not on a specially-flagged testcase set.
       const detail = await getProblemPageData("samples-problem", "en");
       expect(detail).not.toBeNull();
       expect(detail!.samples.length).toBeGreaterThanOrEqual(1);
-      expect(detail!.samples[0]!.stdin).toBe("1 2");
-      expect(detail!.samples[0]!.expected).toBe("3");
+      expect(detail!.samples[0]!.input).toBe("1 2");
+      expect(detail!.samples[0]!.output).toBe("3");
     });
 
     it("includes input/output format from statement", async () => {

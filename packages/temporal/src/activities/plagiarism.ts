@@ -133,9 +133,8 @@ export async function runPlagiarismCheck(
   targetId: string,
   targetType: PlagiarismTargetType
 ): Promise<void> {
-  // The `PlagiarismReport` table was removed in the second-pass refactor —
-  // plagiarism state lives inline on `Contest` / `CourseAssessment`, so
-  // the `(targetType, targetId)` tuple IS the report identity.
+  // Plagiarism state lives inline on `Contest` / `CourseAssessment`,
+  // so the `(targetType, targetId)` tuple IS the report identity.
   const target: plagiarismDomain.PlagiarismTarget = { type: targetType, id: targetId };
   await plagiarismDomain.updateReportStatus(target, "running");
 

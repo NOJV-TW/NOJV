@@ -29,7 +29,6 @@ export interface WorkspaceFileEntry {
   content: string;
   editableRegions: [number, number][] | null;
   language: string;
-  orderIndex: number;
   path: string;
   visibility: WorkspaceFileVisibility;
 }
@@ -48,13 +47,7 @@ export interface AdvancedModeContext {
   resourceLimits: {
     totalTimeMs: number;
     memoryMb: number;
-    networkEnabled: boolean;
   };
-  testcases: {
-    stdin: string;
-    expected: string;
-    files: Record<string, string>;
-  }[];
 }
 
 export interface SubmissionJudgeContext {
@@ -63,15 +56,11 @@ export interface SubmissionJudgeContext {
   compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
-  memoryLimitMb: number;
-  problemId: string;
   runtime: Runtime;
   samples: ProblemSample[];
   problemType: ProblemType;
   subtaskStrategies: SubtaskStrategyMap;
   testcaseSets: TestcaseSetGroup[];
-  testcases: ProblemJudgeTestcase[];
-  timeLimitMs: number;
   workspaceFiles: WorkspaceFileEntry[];
   /** Non-null only when `problemType === "special_env"`. */
   advanced: AdvancedModeContext | null;
@@ -102,10 +91,10 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     id: ts.id,
     name: ts.name,
     testcases: ts.testcases.map((testcase) => ({
-      expectedStdout: testcase.expectedStdout ?? undefined,
+      output: testcase.output ?? undefined,
       id: testcase.id,
       inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-      stdin: testcase.stdin,
+      input: testcase.input,
       weight: ts.weight
     })),
     weight: ts.weight
@@ -128,7 +117,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     content: f.content,
     editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
     language: f.language,
-    orderIndex: f.orderIndex,
     path: f.path,
     visibility: f.visibility as WorkspaceFileVisibility
   }));
@@ -145,14 +133,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     submittedAt: submission.createdAt
   };
 
-  // Phase 1 redesign: special_env carries its own image ref + per-case
-  // file payloads. The advanced container contract is unchanged.
+  // special_env: the TA image fully owns grading. The system only hands
+  // over the student files + resource limits; no testcase payload.
   const problemType = problem.type as ProblemType;
-  const advancedTestcases = problem.advancedTestcases.map((c) => ({
-    stdin: c.stdin,
-    expected: c.expected,
-    files: (c.files as Record<string, string> | null) ?? {}
-  }));
   const advanced: AdvancedModeContext | null =
     problemType === "special_env" && problem.advancedImageRef && problem.advancedImageSource
       ? {
@@ -160,10 +143,8 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
           imageSource: problem.advancedImageSource as ProblemImageSource,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
-            memoryMb: problem.memoryLimitMb,
-            networkEnabled: problem.networkEnabled
-          },
-          testcases: advancedTestcases
+            memoryMb: problem.memoryLimitMb
+          }
         }
       : null;
 
@@ -173,15 +154,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     compare: judgeConfig.compare ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
-    memoryLimitMb: runtime.memoryLimitMb,
-    problemId: submission.problemId,
     runtime,
     samples,
     problemType,
     subtaskStrategies,
     testcaseSets,
-    testcases: testcaseSets.flatMap((ts) => ts.testcases),
-    timeLimitMs: runtime.timeLimitMs,
     workspaceFiles,
     advanced
   };
@@ -191,13 +168,13 @@ function collectSamples(problem: { samples: unknown }): ProblemSample[] {
   if (!Array.isArray(problem.samples)) return [];
   return problem.samples
     .filter(
-      (s): s is { stdin: string; expected: string } =>
+      (s): s is { input: string; output: string } =>
         typeof s === "object" &&
         s !== null &&
-        typeof (s as { stdin?: unknown }).stdin === "string" &&
-        typeof (s as { expected?: unknown }).expected === "string"
+        typeof (s as { input?: unknown }).input === "string" &&
+        typeof (s as { output?: unknown }).output === "string"
     )
-    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
+    .map((s) => ({ input: s.input, output: s.output }));
 }
 
 export async function updateSubmissionStatus(

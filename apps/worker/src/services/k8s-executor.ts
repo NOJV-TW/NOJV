@@ -113,8 +113,8 @@ export class K8sExecutor implements SandboxExecutor {
     // Testcase data as flat keys
     for (const tc of request.testcases) {
       data[`testcase-${String(tc.index)}-input.txt`] = tc.input;
-      if (tc.expected != null) {
-        data[`testcase-${String(tc.index)}-expected.txt`] = tc.expected;
+      if (tc.output != null) {
+        data[`testcase-${String(tc.index)}-expected.txt`] = tc.output;
       }
     }
 

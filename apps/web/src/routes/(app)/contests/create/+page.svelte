@@ -13,10 +13,12 @@
   import ListIcon from "@lucide/svelte/icons/list";
   import { Card } from "$lib/components/ui/card/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
+  import FormError from "$lib/components/ui/FormError.svelte";
+  import type { FormMessage } from "$lib/types/form-message";
 
   let { data } = $props();
 
-  const { form, errors, enhance, message: formMessage } = superForm(untrack(() => data.form), {
+  const { form, errors, enhance, message: formMessage } = superForm<typeof data.form.data, FormMessage>(untrack(() => data.form), {
     resetForm: false
   });
 
@@ -31,14 +33,13 @@
     <h1 class="font-display text-title-lg">{m.contestCreate_title()}</h1>
   </div>
 
-  {#if $formMessage}
-    <div class="rounded-xl border border-success/25 bg-success/10 px-5 py-4 text-body-sm text-success shadow-rest">
-      {$formMessage}
-    </div>
+  {#if $formMessage?.kind === "success"}
+    <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
   {/if}
 
   <Card variant="surface" size="hero" class="max-w-2xl">
     <form method="POST" action="?/create" use:enhance class="space-y-5">
+    <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
     <div>
       <label class="text-sm font-medium" for="slug">{m.contestCreate_slug()}</label>
       <input

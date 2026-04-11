@@ -15,6 +15,8 @@
   import SystemTextToggle, { type UiLang } from "./SystemTextToggle.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import FormError from "$lib/components/ui/FormError.svelte";
+  import type { FormMessage } from "$lib/types/form-message";
 
   import type { courseDomain } from "@nojv/domain";
   type CourseAssessmentRecord = courseDomain.CourseAssessmentRecord;
@@ -112,7 +114,13 @@
 
   const defaultWindow = createDefaultAssessmentWindow();
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
+  const {
+    form,
+    errors,
+    submitting,
+    message: formMessage,
+    enhance
+  } = superForm<typeof formData.data, FormMessage>(untrack(() => formData), {
     dataType: "json",
     invalidateAll: true
   });
@@ -300,6 +308,7 @@
       action="?/create"
       use:enhance
     >
+      <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
       <div class="grid gap-3 md:grid-cols-2">
         <div>
           <input
@@ -394,8 +403,8 @@
         {$submitting ? t("publishing") : t("publishAssessment")}
       </Button>
     </form>
-    {#if $formMessage}
-      <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
+    {#if $formMessage?.kind === "success"}
+      <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
     {/if}
   </section>
 </div>

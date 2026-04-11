@@ -7,16 +7,19 @@ const { getContestDetail, getContestParticipationForIpCheck, checkContestIpAcces
   contestDomain;
 
 export const load: PageServerLoad = async ({ params, locals, request }) => {
-  const contest = await getContestDetail(params.slug);
+  const now = new Date();
+  const user = locals.user;
+
+  const contest = await getContestDetail(params.slug, {
+    userId: user?.id ?? null,
+    now
+  });
 
   if (!contest) {
     error(404, "Contest not found");
   }
 
-  const user = locals.user;
-
   if (user && (contest.ipWhitelistEnabled || contest.ipBindingEnabled)) {
-    const now = new Date();
     const isActive = new Date(contest.startsAt) <= now && now <= new Date(contest.endsAt);
 
     if (isActive) {

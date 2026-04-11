@@ -56,10 +56,9 @@ export class DockerExecutor implements SandboxExecutor {
     );
 
     try {
-      // Phase 7: advanced-mode submissions skip the sandbox-runner image
-      // and spawn the TA-provided judge image directly. The workspace
-      // layout follows the container contract documented in
-      // docs/plans/active/2026-04-09-problem-ui-redesign.md.
+      // Advanced-mode submissions skip the sandbox-runner image and
+      // spawn the TA-provided judge image directly. See
+      // `runAdvancedContainer` for the `/workspace/` contract.
       if (request.advanced) {
         return await this.runAdvancedContainer(tempDir, request);
       }
@@ -138,8 +137,8 @@ export class DockerExecutor implements SandboxExecutor {
         await mkdir(tcDir, { recursive: true });
         await writeFile(join(tcDir, "input.txt"), tc.input, "utf8");
 
-        if (tc.expected !== undefined) {
-          await writeFile(join(tcDir, "expected.txt"), tc.expected, "utf8");
+        if (tc.output !== undefined) {
+          await writeFile(join(tcDir, "expected.txt"), tc.output, "utf8");
         }
       })
     );
@@ -156,10 +155,10 @@ export class DockerExecutor implements SandboxExecutor {
     const workDir = join(tempDir, "_workspace");
     await mkdir(workDir, { mode: 0o777, recursive: true });
 
-    // Standard mode is hardcoded to --network none by design: student
-    // submissions must never reach the network. Advanced mode has its
-    // own container launch path (see runAdvancedContainer) which is
-    // where request.advanced.networkEnabled is honored.
+    // All containers — standard and advanced — run with
+    // `--network=none`. Student submissions must never reach the
+    // network. Advanced mode has its own launch path in
+    // `runAdvancedContainer` but enforces the same flag.
     const networkArgs = ["--network", "none"];
 
     const args = [
@@ -271,18 +270,18 @@ export class DockerExecutor implements SandboxExecutor {
   }
 
   /**
-   * Phase 7 — Advanced Mode dispatch.
+   * Advanced Mode dispatch.
    *
    * Lay out /workspace per the advanced container contract and spawn
    * the TA-provided image directly (no sandbox-runner intermediate).
    * The TA image is expected to:
-   *   1. Read /workspace/submission/, /workspace/testcases/N/,
-   *      /workspace/meta.json
-   *   2. Do whatever grading it wants (compile, run, compare, ...)
+   *   1. Read /workspace/submission/ and /workspace/meta.json
+   *   2. Do whatever grading it wants (compile, run, compare, ...) —
+   *      testcases are bundled inside the image itself
    *   3. Write /workspace/output/result.json matching
    *      advancedResultSchema
    * On timeout, crash, or missing result.json we return a synthetic
-   * SE verdict for every testcase.
+   * SE result.
    */
   private async runAdvancedContainer(
     tempDir: string,
@@ -309,11 +308,9 @@ export class DockerExecutor implements SandboxExecutor {
 
     const workspaceDir = join(tempDir, "workspace");
     const submissionDir = join(workspaceDir, "submission");
-    const testcasesRoot = join(workspaceDir, "testcases");
     const outputDir = join(workspaceDir, "output");
     await mkdir(workspaceDir, { mode: 0o777, recursive: true });
     await mkdir(submissionDir, { mode: 0o777, recursive: true });
-    await mkdir(testcasesRoot, { mode: 0o777, recursive: true });
     await mkdir(outputDir, { mode: 0o777, recursive: true });
 
     // 1. Student sources → /workspace/submission/
@@ -339,45 +336,14 @@ export class DockerExecutor implements SandboxExecutor {
       );
     }
 
-    // 2. Testcases → /workspace/testcases/N/
-    for (const [i, tc] of request.testcases.entries()) {
-      const tcDir = join(testcasesRoot, String(i));
-      fileWrites.push(
-        (async () => {
-          await mkdir(tcDir, { recursive: true });
-          await writeFile(join(tcDir, "stdin"), tc.input, "utf8");
-          if (tc.expected !== undefined) {
-            await writeFile(join(tcDir, "expected"), tc.expected, "utf8");
-          }
-        })()
-      );
-
-      const perCaseFiles = request.advanced.testcaseFiles?.[i];
-      if (perCaseFiles) {
-        for (const [relPath, content] of Object.entries(perCaseFiles)) {
-          const normalized = normalizeRelativePath(relPath);
-          if (!normalized) continue;
-          const dest = join(tcDir, "files", normalized);
-          fileWrites.push(
-            (async () => {
-              await mkdir(dirname(dest), { recursive: true });
-              await writeFile(dest, content, "utf8");
-            })()
-          );
-        }
-      }
-    }
-
-    // 3. meta.json
+    // 2. meta.json — tells the TA image what it's grading.
     const meta = {
       submissionId: request.submissionId,
-      numTestcases: request.testcases.length,
       language: request.language,
       submissionFiles: [defaultSourcePath],
       resourceLimits: {
         totalTimeMs: request.advanced.totalTimeMs,
-        memoryMb: request.advanced.memoryMb,
-        networkEnabled: request.advanced.networkEnabled
+        memoryMb: request.advanced.memoryMb
       }
     };
     fileWrites.push(
@@ -389,16 +355,10 @@ export class DockerExecutor implements SandboxExecutor {
 
     // 4. Spawn the TA image
     const containerName = `nojv-advanced-${sanitizeId(request.submissionId).slice(0, 40)}`;
-    // Advanced Mode containers are TA-provided and run with the
-    // TA's chosen network mode. When networkEnabled is true, the
-    // container joins the default Docker bridge network — this
-    // grants access to other Docker networks and the host gateway,
-    // so advanced-mode images must be treated as trusted code
-    // provided by the problem author. Students never pick the
-    // network mode; it's configured on the Problem row by the TA.
-    const networkArgs = request.advanced.networkEnabled
-      ? ["--network", "bridge"]
-      : ["--network", "none"];
+    // Advanced Mode containers are fully network-isolated. Any packages
+    // or test data the TA image needs must be baked into the image at
+    // build time — runtime fetches are not allowed.
+    const networkArgs = ["--network", "none"];
 
     const args = [
       "run",
@@ -553,50 +513,54 @@ export class DockerExecutor implements SandboxExecutor {
     return ref;
   }
 
-  private advancedFallbackResult(request: SandboxRequest, message: string): SandboxResult {
+  // Synthetic "overall" verdict emitted when the TA image failed to run
+  // or didn't produce result.json. One entry is enough — special_env
+  // problems don't have system-managed testcases any more.
+  private advancedFallbackResult(_request: SandboxRequest, message: string): SandboxResult {
     return {
-      testcaseResults: request.testcases.map((tc) => ({
-        index: tc.index,
-        verdict: "SE" as SandboxVerdict,
-        stdout: "",
-        stderr: message,
-        exitCode: -1,
-        timeMs: 0,
-        feedback: message
-      }))
+      testcaseResults: [
+        {
+          index: 0,
+          verdict: "SE" as SandboxVerdict,
+          stdout: "",
+          stderr: message,
+          exitCode: -1,
+          timeMs: 0,
+          feedback: message
+        }
+      ]
     };
   }
 
-  private mapAdvancedResult(request: SandboxRequest, result: AdvancedResult): SandboxResult {
-    const perCase = new Map(result.testcases?.map((t) => [t.index, t]) ?? []);
-    const testcaseResults: SandboxTestcaseResult[] = request.testcases.map((tc) => {
-      const entry = perCase.get(tc.index);
-      if (entry) {
-        return {
-          index: tc.index,
-          verdict: entry.verdict,
-          stdout: "",
-          stderr: "",
-          exitCode: 0,
-          timeMs: entry.runtimeMs ?? 0,
-          ...(entry.feedback ? { feedback: entry.feedback } : {})
-        };
-      }
-      // Fall back to the top-level verdict when the image didn't provide
-      // per-case details.
-      return {
-        index: tc.index,
-        verdict: ADVANCED_VERDICT_TO_SANDBOX[result.verdict],
-        stdout: "",
-        stderr: "",
-        exitCode: 0,
-        timeMs: 0,
-        ...(result.feedback ? { feedback: result.feedback } : {})
-      };
-    });
+  private mapAdvancedResult(_request: SandboxRequest, result: AdvancedResult): SandboxResult {
+    // Prefer per-case details from the image if present. Otherwise emit a
+    // single synthetic result using the top-level verdict — the TA image
+    // fully owns grading, so the system doesn't know the real case count.
+    const perCaseResults: SandboxTestcaseResult[] =
+      result.testcases && result.testcases.length > 0
+        ? result.testcases.map((entry) => ({
+            index: entry.index,
+            verdict: entry.verdict,
+            stdout: "",
+            stderr: "",
+            exitCode: 0,
+            timeMs: entry.runtimeMs ?? 0,
+            ...(entry.feedback ? { feedback: entry.feedback } : {})
+          }))
+        : [
+            {
+              index: 0,
+              verdict: ADVANCED_VERDICT_TO_SANDBOX[result.verdict],
+              stdout: "",
+              stderr: "",
+              exitCode: 0,
+              timeMs: 0,
+              ...(result.feedback ? { feedback: result.feedback } : {})
+            }
+          ];
 
     return {
-      testcaseResults,
+      testcaseResults: perCaseResults,
       customScore: result.score,
       ...(result.feedback ? { scoringFeedback: result.feedback } : {})
     };

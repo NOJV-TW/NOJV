@@ -4,7 +4,7 @@ import { userDailyActivityRepo } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
 
-const { getUserDashboard } = userDomain;
+const { getUserDashboard, getUserAnalytics } = userDomain;
 
 const ACTIVITY_DAYS = 30;
 
@@ -19,28 +19,40 @@ function utcDayOffset(daysBack: number): Date {
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
 
-  // Daily activity is now first-class in `UserDailyActivity` (one row
-  // per user per UTC day) instead of a JSON blob on `UserStats`.
   const from = utcDayOffset(ACTIVITY_DAYS - 1);
   const to = utcDayOffset(0);
 
-  const [{ stats, recentSubmissions, recommendations }, dailyActivity] = await Promise.all([
+  const [
+    { stats, recentSubmissions },
+    dailyActivity,
+    analytics
+  ] = await Promise.all([
     getUserDashboard(actor.userId),
-    userDailyActivityRepo.findRange(actor.userId, from, to)
+    userDailyActivityRepo.findRange(actor.userId, from, to),
+    getUserAnalytics(actor.userId)
   ]);
+
+  const activityByDate = new Map(
+    dailyActivity.map((row) => [row.date.toISOString().slice(0, 10), row])
+  );
+
+  const filledActivity = Array.from({ length: ACTIVITY_DAYS }, (_, i) => {
+    const dayOffset = ACTIVITY_DAYS - 1 - i;
+    const d = utcDayOffset(dayOffset);
+    const date = d.toISOString().slice(0, 10);
+    const row = activityByDate.get(date);
+    return {
+      date,
+      acCount: row?.acCount ?? 0,
+      submissionCount: row?.submissionCount ?? 0
+    };
+  });
 
   return {
     stats,
     recentSubmissions,
-    recommendations,
     username: actor.username,
-    dailyActivity: dailyActivity
-      .slice()
-      .reverse()
-      .map((row) => ({
-        date: row.date.toISOString().slice(0, 10),
-        acCount: row.acCount,
-        submissionCount: row.submissionCount
-      }))
+    analytics,
+    dailyActivity: filledActivity
   };
 };

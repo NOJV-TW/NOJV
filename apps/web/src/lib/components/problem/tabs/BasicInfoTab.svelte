@@ -39,7 +39,7 @@
   });
 
   // Samples - sync with superform store
-  let samples = $state<{ stdin: string; expected: string }[]>($form.samples ?? []);
+  let samples = $state<{ input: string; output: string }[]>($form.samples ?? []);
   $effect(() => {
     $form.samples = samples;
   });

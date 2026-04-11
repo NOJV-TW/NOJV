@@ -58,10 +58,10 @@ export const actions = {
         startsAt: new Date(startsAt).toISOString()
       });
       const result = await createContestRecord(actor, payload);
-      return message(form, `Contest "${result.title}" created.`);
+      return message(form, { kind: "success", text: `Contest "${result.title}" created.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Contest creation failed.";
-      return fail(400, { form, error: msg });
+      return message(form, { kind: "error", text: msg }, { status: 400 });
     }
   }
 } satisfies Actions;

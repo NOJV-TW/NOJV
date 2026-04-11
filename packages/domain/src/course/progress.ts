@@ -56,9 +56,8 @@ export async function getStudentProgressMatrix(
   const studentIds = new Set(students.map((s) => s.userId));
 
   // 2. Get problems (all course problems or assessment-specific). The
-  // `CourseProblem` shelf table was removed in the second-pass refactor,
-  // so the course-wide view is now the distinct union of every problem
-  // across every published assessment.
+  // course-wide view is the distinct union of every problem across
+  // every published assessment.
   let assessmentId: string | undefined;
   let problemRecords: ProgressProblem[];
 
@@ -76,8 +75,7 @@ export async function getStudentProgressMatrix(
     }));
   } else {
     // Single query fetches the distinct union of every problem across
-    // every published assessment for this course. Replaces the previous
-    // 1+N pattern (listByCourseSlug + findWithProblems per assessment).
+    // every published assessment for this course.
     const coursewideProblems = await assessmentProblemRepo.listDistinctByCourseSlug(courseSlug);
     problemRecords = coursewideProblems.map((cp) => ({
       problemId: cp.problemId,

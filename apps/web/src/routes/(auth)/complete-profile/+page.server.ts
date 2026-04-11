@@ -5,9 +5,7 @@ import { handleSendVerificationAction } from "$lib/server/shared/school-verifica
 import type { Actions, PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = ({ locals }) => {
-  const user = locals.user;
-
-  if (!user) {
+  if (!locals.user) {
     redirect(302, "/");
   }
 
@@ -15,10 +13,7 @@ export const load: PageServerLoad = ({ locals }) => {
     redirect(302, "/");
   }
 
-  return {
-    email: user.email,
-    name: user.name || user.email
-  };
+  return {};
 };
 
 export const actions = {
