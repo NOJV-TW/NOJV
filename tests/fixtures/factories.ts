@@ -1,6 +1,23 @@
 // tests/fixtures/factories.ts
 import { PrismaPg } from "@prisma/adapter-pg";
+import { submissionVerdicts } from "@nojv/core";
 import { PrismaClient, type Prisma } from "../../packages/db/generated/prisma/client";
+
+type SubmissionVerdict = (typeof submissionVerdicts)[number];
+
+function isTerminalVerdict(status: string): status is SubmissionVerdict {
+  return (submissionVerdicts as readonly string[]).includes(status);
+}
+
+function buildDefaultVerdictDetail(status: SubmissionVerdict): Prisma.InputJsonValue {
+  return {
+    accepted: status === "accepted",
+    feedback: status.replace(/_/g, " "),
+    runtimeMs: 0,
+    score: status === "accepted" ? 100 : 0,
+    verdict: status
+  };
+}
 
 const TEST_DB_URL =
   process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/nojv_test";
@@ -191,12 +208,22 @@ export async function createTestSubmission(
     problemId = problem.id;
   }
 
+  const status = overrides.status ?? "accepted";
+  // Terminal statuses always carry a verdictDetail in production — the judge
+  // pipeline writes them atomically. Integration tests that only care about
+  // filtering/ordering fall through this default so `listProblemSubmissions`
+  // (which `.parse()`s verdictDetail) doesn't blow up on a missing JSONB.
+  const defaultVerdictDetail = isTerminalVerdict(status)
+    ? buildDefaultVerdictDetail(status)
+    : undefined;
+
   return testPrisma.submission.create({
     data: {
       id,
       language: overrides.language ?? "python",
       sourceCode: overrides.sourceCode ?? 'print("hello")',
-      status: overrides.status ?? "accepted",
+      status,
+      ...(defaultVerdictDetail !== undefined ? { verdictDetail: defaultVerdictDetail } : {}),
       ...overrides,
       userId,
       problemId
