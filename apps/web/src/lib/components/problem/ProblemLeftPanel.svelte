@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
-  import { m } from "$lib/paraglide/messages.js";
-  import { SSE_SUBMISSION_VERDICT, supportedLanguages, type Language } from "@nojv/core";
+  import { untrack } from "svelte";
+  import { supportedLanguages, type Language } from "@nojv/core";
   import type {
     ProblemDetail,
     ProblemEditorialEntry,
@@ -9,7 +8,7 @@
     ProblemTestcaseSetSummary
   } from "$lib/types";
   import { difficultyClass, formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
-  import { onSSEEvent } from "$lib/stores/sse";
+  import { m } from "$lib/paraglide/messages.js";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
@@ -23,9 +22,11 @@
      * left pane owns the rendering and the lazy source-code fetch effect.
      */
     submissions?: ProblemSubmissionEntry[];
-    /** Bindable active tab — parents flip this to "submissions" after a submit. */
+    /** Initial active tab when the panel mounts. Parents pass the default and
+     * then leave tab state alone — the panel auto-flips to "submissions" when
+     * it detects a new entry at the head of `submissions`. */
     leftTab?: "description" | "editorials" | "submissions";
-    /** Bindable submission focus index. null = show list; number = show detail. */
+    /** Initial submission focus when the panel mounts. */
     viewingIndex?: number | null;
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
@@ -36,12 +37,38 @@
   let {
     backLink,
     submissions = $bindable([]),
-    leftTab = $bindable("description"),
-    viewingIndex = $bindable(null),
+    leftTab: initialLeftTab = "description",
+    viewingIndex: initialViewingIndex = null,
     problem,
     testcaseSets = [],
     editorialFormIdSuffix = ""
   }: ProblemLeftPanelProps = $props();
+
+  // Tab + focused-entry are panel-owned one-way state. Parents never read them
+  // back, so we drop the $bindable round-trip and instead auto-flip when a new
+  // submission lands at the head of `submissions` (see effect below). The
+  // props seed the initial value only; untrack() makes the capture explicit.
+  let leftTab = $state<"description" | "editorials" | "submissions">(
+    untrack(() => initialLeftTab)
+  );
+  let viewingIndex = $state<number | null>(untrack(() => initialViewingIndex));
+
+  // Detect a newly-prepended submission by watching the first entry's marker
+  // (id when the server has assigned one, otherwise submittedAt). On mount we
+  // seed the baseline so the initial render does NOT count as a new submit.
+  let lastKnownHead = $state<string | null>(
+    untrack(() => submissions[0]?.id ?? submissions[0]?.submittedAt ?? null)
+  );
+  $effect(() => {
+    const head = submissions[0]?.id ?? submissions[0]?.submittedAt ?? null;
+    if (head !== lastKnownHead) {
+      lastKnownHead = head;
+      if (head !== null) {
+        leftTab = "submissions";
+        viewingIndex = 0;
+      }
+    }
+  });
 
   let loadingSourceId = $state<string | null>(null);
 
@@ -93,24 +120,15 @@
     }
   }
 
-  // Listen for global SSE verdict events for this problem. Submissions are
-  // added locally by whichever right-pane owns the submit flow; this
-  // subscription is currently a no-op hook for future toast-style updates
-  // but lives here because it is a concern of the submissions tab.
-  let unsubVerdict: (() => void) | null = null;
-
-  onMount(() => {
-    unsubVerdict = onSSEEvent(SSE_SUBMISSION_VERDICT, (data) => {
-      if (data.type !== SSE_SUBMISSION_VERDICT) return;
-      if (data.problemId !== problem.id) return;
-      // Verdict is displayed directly in the submissions tab — no toast needed.
-    });
-  });
-
-  onDestroy(() => {
-    unsubVerdict?.();
-  });
-
+  // Lazy-fetch the source code for the submission currently in focus. We key
+  // the work off the entry ID (not the array index) and gate writes on a
+  // per-effect-run `cancelled` flag so that:
+  //   1. if `viewingIndex` changes before the request resolves, the late
+  //      response is dropped (the cleanup callback flips `cancelled`),
+  //   2. if the parent re-shuffles `submissions` between dispatch and
+  //      resolution, we re-locate the target entry by ID at write time, and
+  //   3. if the entry has been dropped entirely (e.g. truncated off the
+  //      50-entry tail), the response is discarded silently.
   $effect(() => {
     const idx = viewingIndex;
     if (idx === null) return;
@@ -119,21 +137,36 @@
     if (!entry || entry.sourceCode !== undefined || !entry.id) return;
 
     const entryId = entry.id;
+    let cancelled = false;
     loadingSourceId = entryId;
+
     fetch(`/api/submissions/${entryId}/source`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load source code.");
-        return res.json();
+        return res.json() as Promise<{ sourceCode: string }>;
       })
-      .then((data: { sourceCode: string }) => {
-        submissions[idx] = { ...submissions[idx]!, sourceCode: data.sourceCode };
+      .then((data) => {
+        if (cancelled) return;
+        const currentIdx = submissions.findIndex((s) => s.id === entryId);
+        if (currentIdx === -1) return;
+        submissions[currentIdx] = { ...submissions[currentIdx]!, sourceCode: data.sourceCode };
       })
       .catch(() => {
-        submissions[idx] = { ...submissions[idx]!, sourceCode: "// Failed to load source code." };
+        if (cancelled) return;
+        const currentIdx = submissions.findIndex((s) => s.id === entryId);
+        if (currentIdx === -1) return;
+        submissions[currentIdx] = {
+          ...submissions[currentIdx]!,
+          sourceCode: "// Failed to load source code."
+        };
       })
       .finally(() => {
-        if (loadingSourceId === entryId) loadingSourceId = null;
+        if (!cancelled && loadingSourceId === entryId) loadingSourceId = null;
       });
+
+    return () => {
+      cancelled = true;
+    };
   });
 </script>
 

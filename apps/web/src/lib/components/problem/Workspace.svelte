@@ -28,9 +28,7 @@
     testcaseSets = []
   }: Props = $props();
 
-  let leftTab = $state<"description" | "editorials" | "submissions">("description");
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
-  let viewingIndex = $state<number | null>(null);
 
   function handleSubmissionComplete(
     result: SubmissionResult,
@@ -46,8 +44,8 @@
       },
       ...submissions
     ].slice(0, 50);
-    leftTab = "submissions";
-    viewingIndex = 0;
+    // ProblemLeftPanel auto-flips to the submissions tab when it sees a new
+    // head entry in `submissions`.
   }
 
   // ── Resizable panels ──
@@ -86,8 +84,6 @@
   <ProblemLeftPanel
     {backLink}
     bind:submissions
-    bind:leftTab
-    bind:viewingIndex
     {problem}
     {testcaseSets}
   />
