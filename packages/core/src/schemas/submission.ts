@@ -29,16 +29,45 @@ const problemIdentifierSchema = z
   .max(128, "validation_tooLong")
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
-export const submissionDraftSchema = z.object({
-  assessment: assessmentContextSchema.optional(),
-  contestSlug: slugSchema.optional(),
-  language: languageSchema,
-  mode: submissionModeSchema.optional(),
-  problemId: problemIdentifierSchema,
-  sampleOnly: z.boolean().optional(),
-  sourceCode: sourceCodeSchema,
-  sourceFiles: z.array(sourceFileSchema).max(200).optional()
+// Custom testcases are an ephemeral Run-mode input: the student types a
+// short list of stdin/expected-stdout pairs into the editor bottom panel
+// and the Run button replaces the DB sample set with them for that one
+// invocation. They are NEVER persisted and NEVER allowed on Submit —
+// mixing student-authored input into a graded run would break the
+// grading contract. Caps mirror `problemSampleSchema` (200_000 chars per
+// field) so the two paths have the same upper bound.
+const MAX_CUSTOM_TESTCASES = 10;
+const MAX_CUSTOM_TESTCASE_FIELD_LEN = 200_000;
+
+export const submissionCustomTestcaseSchema = z.object({
+  input: z.string().max(MAX_CUSTOM_TESTCASE_FIELD_LEN),
+  expectedOutput: z.string().max(MAX_CUSTOM_TESTCASE_FIELD_LEN).optional()
 });
+
+export type SubmissionCustomTestcase = z.infer<typeof submissionCustomTestcaseSchema>;
+
+export const submissionDraftSchema = z
+  .object({
+    assessment: assessmentContextSchema.optional(),
+    contestSlug: slugSchema.optional(),
+    customTestcases: z.array(submissionCustomTestcaseSchema).max(MAX_CUSTOM_TESTCASES).optional(),
+    language: languageSchema,
+    mode: submissionModeSchema.optional(),
+    problemId: problemIdentifierSchema,
+    sampleOnly: z.boolean().optional(),
+    sourceCode: sourceCodeSchema,
+    sourceFiles: z.array(sourceFileSchema).max(200).optional()
+  })
+  .refine(
+    (draft) =>
+      draft.customTestcases === undefined ||
+      draft.customTestcases.length === 0 ||
+      draft.sampleOnly === true,
+    {
+      message: "customTestcases is only allowed on sample-only (Run) submissions",
+      path: ["customTestcases"]
+    }
+  );
 
 // Output caps are defense-in-depth against a compromised or modified
 // sandbox-runner. The runner's `createBoundedBuffer` already caps the

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import type { SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
@@ -10,8 +9,19 @@
   }
 
   interface Props {
-    /** Seed cases pulled from `problem.samples`; the panel owns mutations after mount. */
-    initialTestcases: Testcase[];
+    /**
+     * Bindable: the parent (Editor.svelte) owns this array so the Run
+     * handler can read exactly what the student typed into the panel.
+     * The parent seeds it from `problem.samples` on first render.
+     */
+    testcases: Testcase[];
+    /**
+     * When `true`, the Testcase tab hides its editing UI and shows a
+     * read-only notice instead. Used for `special_env` problems where
+     * the TA image owns the testcase format and a generic stdin panel
+     * would be misleading.
+     */
+    readOnly?: boolean;
     /** Active tab — bound so the parent can flip to "result" when a run starts. */
     tab: "testcase" | "result";
     /** Final verdict from the most recent Run invocation, if any. */
@@ -25,7 +35,8 @@
   }
 
   let {
-    initialTestcases,
+    testcases = $bindable(),
+    readOnly = false,
     tab,
     runResult,
     runStatus,
@@ -33,7 +44,6 @@
     ontabchange
   }: Props = $props();
 
-  let testcases = $state<Testcase[]>(untrack(() => [...initialTestcases]));
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
 
@@ -75,7 +85,15 @@
   <!-- Bottom content -->
   <div class="flex-1 overflow-y-auto px-4 py-3">
     {#if tab === "testcase"}
+      {#if readOnly}
+        <p class="py-4 text-body-sm text-muted-foreground">
+          {m.editor_customTestcasesDisabled()}
+        </p>
+      {:else}
       <div>
+        <p class="mb-2 text-caption text-muted-foreground">
+          {m.editor_customTestcasesHelp()}
+        </p>
         <div class="flex items-center gap-1">
           {#each testcases as _, index (`tab-${index}`)}
             <button
@@ -146,6 +164,7 @@
           ></textarea>
         </div>
       </div>
+      {/if}
     {:else}
       <div>
         {#if runResult}

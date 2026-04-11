@@ -414,6 +414,8 @@
   "editor_chars": "字元",
   "editor_code": "程式碼",
   "editor_contestMode": "競賽",
+  "editor_customTestcasesDisabled": "此題目使用自訂評測環境，執行時會採用題目內建的測試資料，無法在此編輯。",
+  "editor_customTestcasesHelp": "這些測試資料只會用於「執行」，「提交」一律使用完整評分資料。",
   "editor_input": "輸入",
   "editor_languageNoTemplate": "此語言尚未提供題目範本",
   "editor_output": "輸出",

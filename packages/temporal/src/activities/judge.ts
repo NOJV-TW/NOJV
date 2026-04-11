@@ -109,33 +109,52 @@ export async function executeSandbox(
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
   // Starter code + teacher assets flow through ProblemWorkspaceFile /
-  // mergeSandboxSources. Sample path: ignore testcase sets, use
-  // Problem.samples directly. Graded path: iterate testcase sets.
-  const useSamples = draft.sampleOnly;
+  // mergeSandboxSources. Sample path: either the student-supplied custom
+  // testcases (from the editor bottom panel — ephemeral, never
+  // persisted) or, when absent, Problem.samples directly. Graded path:
+  // iterate testcase sets. Advanced-mode problems always bundle their
+  // own testcases inside the TA image.
+  const useSamples = draft.sampleOnly === true;
   const useAdvanced =
     judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
+  const hasCustomTestcases =
+    useSamples &&
+    !useAdvanced &&
+    draft.customTestcases !== undefined &&
+    draft.customTestcases.length > 0;
 
-  const testcasesForSandbox = useSamples
-    ? judgeContext.samples.map((s, i) => ({
+  const testcasesForSandbox = hasCustomTestcases
+    ? // `draft.customTestcases` is validated at the API edge
+      // (submissionDraftSchema), so we can rely on the cap/size limits
+      // having already been enforced before this runs.
+      draft.customTestcases!.map((tc, i) => ({
         index: i,
-        input: s.input,
-        output: s.output,
+        input: tc.input,
+        ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),
         weight: 0,
         isSample: true
       }))
-    : useAdvanced
-      ? // Advanced-mode TA images bundle their own testcases; the
-        // system hands over student files + resource limits only.
-        []
-      : judgeContext.testcaseSets.flatMap((ts) =>
-          ts.testcases.map((tc, i) => ({
-            index: i,
-            input: tc.input,
-            ...(tc.output != null ? { output: tc.output } : {}),
-            weight: tc.weight,
-            isSample: false
-          }))
-        );
+    : useSamples
+      ? judgeContext.samples.map((s, i) => ({
+          index: i,
+          input: s.input,
+          output: s.output,
+          weight: 0,
+          isSample: true
+        }))
+      : useAdvanced
+        ? // Advanced-mode TA images bundle their own testcases; the
+          // system hands over student files + resource limits only.
+          []
+        : judgeContext.testcaseSets.flatMap((ts) =>
+            ts.testcases.map((tc, i) => ({
+              index: i,
+              input: tc.input,
+              ...(tc.output != null ? { output: tc.output } : {}),
+              weight: tc.weight,
+              isSample: false
+            }))
+          );
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 

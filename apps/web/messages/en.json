@@ -414,6 +414,8 @@
   "editor_chars": "chars",
   "editor_code": "Code",
   "editor_contestMode": "contest",
+  "editor_customTestcasesDisabled": "This problem uses a custom judge image, so Run uses the testcases bundled with the problem. You cannot edit testcases here.",
+  "editor_customTestcasesHelp": "Only Run uses these testcases. Submit always uses the full graded set.",
   "editor_input": "Input",
   "editor_languageNoTemplate": "No template available for this language",
   "editor_output": "Output",

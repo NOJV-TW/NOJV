@@ -63,6 +63,16 @@
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
 
+  // Custom testcases owned here so the Run handler can forward them to
+  // the submission service. Seeded from `problem.samples` on first
+  // render; students mutate them via `EditorBottomPanel` (bindable).
+  // Special-env problems skip this entirely — the TA image owns the
+  // testcase format, so the panel shows a read-only notice instead.
+  let panelTestcases = $state<{ input: string; expectedOutput: string }[]>(
+    initialProblem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
+  );
+  let isSpecialEnv = $derived(problem.type === "special_env");
+
   // Persist language choice to localStorage so the student sees the same
   // default when they come back to any problem.
   $effect(() => {
@@ -186,9 +196,28 @@
       }));
   }
 
+  // Materialize the panel's current testcases into the wire shape for a
+  // Run dispatch. Only called when `sampleOnly && !isSpecialEnv`; on
+  // Submit or special-env problems we return undefined and the server
+  // uses the graded set (Submit) or TA-bundled testcases (special env).
+  function customTestcasesForRun(): { input: string; expectedOutput?: string }[] | undefined {
+    if (isSpecialEnv) return undefined;
+    // Pass through exactly what's in the panel (even empty strings) so
+    // the sandbox-runner sees the same bytes the student typed. An
+    // undefined `expectedOutput` means "don't compare, just echo
+    // stdout"; we preserve that distinction here.
+    return panelTestcases.map((tc) => {
+      const mapped: { input: string; expectedOutput?: string } = { input: tc.input };
+      if (tc.expectedOutput !== "") mapped.expectedOutput = tc.expectedOutput;
+      return mapped;
+    });
+  }
+
   async function runSubmission(sampleOnly: boolean): Promise<SubmissionResult | null> {
     pollAbortController = new AbortController();
     const { signal } = pollAbortController;
+
+    const customTestcases = sampleOnly ? customTestcasesForRun() : undefined;
 
     if (isWorkspaceMode) {
       // Workspace-file mode: send the current contents of every visible
@@ -208,6 +237,7 @@
         {
           assessment,
           contestSlug,
+          ...(customTestcases ? { customTestcases } : {}),
           language,
           problemId: problem.id,
           sampleOnly,
@@ -222,6 +252,7 @@
       {
         assessment,
         contestSlug,
+        ...(customTestcases ? { customTestcases } : {}),
         language,
         problemId: problem.id,
         sampleOnly,
@@ -377,10 +408,8 @@
   ></div>
   <div class="shrink-0" style="height: {bottomPanelHeight}px">
     <EditorBottomPanel
-      initialTestcases={initialProblem.samples.map((s) => ({
-        input: s.input,
-        expectedOutput: s.output
-      }))}
+      bind:testcases={panelTestcases}
+      readOnly={isSpecialEnv}
       tab={bottomTab}
       {runResult}
       {runStatus}

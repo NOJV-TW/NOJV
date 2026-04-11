@@ -22,6 +22,7 @@ import {
   submissionOperationSchema,
   submissionResultSchema,
   type Language,
+  type SubmissionCustomTestcase,
   type SubmissionResult
 } from "@nojv/core";
 
@@ -38,6 +39,12 @@ export interface SubmissionWorkspaceFilePayload {
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
   contestSlug?: string | undefined;
+  /**
+   * Run-mode only: ephemeral stdin/expected-stdout pairs authored by the
+   * student in the editor bottom panel. Server rejects these when
+   * `sampleOnly` is false — they must never touch graded submissions.
+   */
+  customTestcases?: SubmissionCustomTestcase[];
   language: Language;
   problemId: string;
   sampleOnly?: boolean;
@@ -99,6 +106,17 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
     problemSlug: request.problemId,
     sampleOnly: request.sampleOnly ?? false
   };
+
+  // Custom testcases ride along only when this is a Run (sampleOnly
+  // true) — the server schema rejects them on Submit, so we never even
+  // attach them to a graded payload.
+  if (
+    request.sampleOnly === true &&
+    request.customTestcases !== undefined &&
+    request.customTestcases.length > 0
+  ) {
+    commonFields.customTestcases = request.customTestcases;
+  }
 
   if (request.sourceFiles && request.sourceFiles.length > 0) {
     return {
