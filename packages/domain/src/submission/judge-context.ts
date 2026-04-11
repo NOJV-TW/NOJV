@@ -115,7 +115,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
     content: f.content,
-    editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
+    editableRegions: f.editableRegions as [number, number][] | null,
     language: f.language,
     path: f.path,
     visibility: f.visibility as WorkspaceFileVisibility
@@ -128,7 +128,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   // due-by for fallback display.
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
-    assessmentAdjustmentRules: (assessment?.adjustmentRules as AdjustmentRules | null) ?? null,
+    assessmentAdjustmentRules: assessment?.adjustmentRules as AdjustmentRules | null,
     dueAt: assessment?.dueAt ?? contestEnd,
     submittedAt: submission.createdAt
   };
