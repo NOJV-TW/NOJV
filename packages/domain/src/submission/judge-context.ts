@@ -48,13 +48,7 @@ export interface AdvancedModeContext {
   resourceLimits: {
     totalTimeMs: number;
     memoryMb: number;
-    networkEnabled: boolean;
   };
-  testcases: {
-    stdin: string;
-    expected: string;
-    files: Record<string, string>;
-  }[];
 }
 
 export interface SubmissionJudgeContext {
@@ -102,10 +96,10 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     id: ts.id,
     name: ts.name,
     testcases: ts.testcases.map((testcase) => ({
-      expectedStdout: testcase.expectedStdout ?? undefined,
+      output: testcase.output ?? undefined,
       id: testcase.id,
       inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-      stdin: testcase.stdin,
+      input: testcase.input,
       weight: ts.weight
     })),
     weight: ts.weight
@@ -145,14 +139,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     submittedAt: submission.createdAt
   };
 
-  // Phase 1 redesign: special_env carries its own image ref + per-case
-  // file payloads. The advanced container contract is unchanged.
+  // special_env: the TA image fully owns grading. The system only hands
+  // over the student files + resource limits; no testcase payload.
   const problemType = problem.type as ProblemType;
-  const advancedTestcases = problem.advancedTestcases.map((c) => ({
-    stdin: c.stdin,
-    expected: c.expected,
-    files: (c.files as Record<string, string> | null) ?? {}
-  }));
   const advanced: AdvancedModeContext | null =
     problemType === "special_env" && problem.advancedImageRef && problem.advancedImageSource
       ? {
@@ -160,10 +149,8 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
           imageSource: problem.advancedImageSource as ProblemImageSource,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
-            memoryMb: problem.memoryLimitMb,
-            networkEnabled: problem.networkEnabled
-          },
-          testcases: advancedTestcases
+            memoryMb: problem.memoryLimitMb
+          }
         }
       : null;
 
@@ -191,13 +178,13 @@ function collectSamples(problem: { samples: unknown }): ProblemSample[] {
   if (!Array.isArray(problem.samples)) return [];
   return problem.samples
     .filter(
-      (s): s is { stdin: string; expected: string } =>
+      (s): s is { input: string; output: string } =>
         typeof s === "object" &&
         s !== null &&
-        typeof (s as { stdin?: unknown }).stdin === "string" &&
-        typeof (s as { expected?: unknown }).expected === "string"
+        typeof (s as { input?: unknown }).input === "string" &&
+        typeof (s as { output?: unknown }).output === "string"
     )
-    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
+    .map((s) => ({ input: s.input, output: s.output }));
 }
 
 export async function updateSubmissionStatus(

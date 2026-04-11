@@ -22,10 +22,10 @@ describe("problem seed hardening", () => {
           },
           testcases: {
             sample: {
-              cases: [{ stdin: "1", expectedStdout: "" }]
+              cases: [{ input: "1", output: "" }]
             },
             hidden: {
-              cases: [{ stdin: "2", expectedStdout: "" }]
+              cases: [{ input: "2", output: "" }]
             }
           }
         }
@@ -52,10 +52,10 @@ describe("problem seed hardening", () => {
           },
           testcases: {
             sample: {
-              cases: [{ stdin: "1", expectedStdout: "" }]
+              cases: [{ input: "1", output: "" }]
             },
             hidden: {
-              cases: [{ stdin: "2", expectedStdout: "" }]
+              cases: [{ input: "2", output: "" }]
             }
           }
         }

@@ -1,5 +1,4 @@
 import {
-  advancedTestcaseRepo,
   Prisma,
   problemRepo,
   problemStatementRepo,
@@ -22,7 +21,8 @@ import type {
   TestcaseSetUpdate,
   TestcaseUpdate
 } from "@nojv/core";
-import { DEFAULT_LOCALE, entryFileNameFor, problemDifficulties } from "@nojv/core";
+import type { ProblemDifficulty } from "@nojv/core";
+import { DEFAULT_LOCALE, entryFileNameFor } from "@nojv/core";
 
 import {
   ConflictError,
@@ -39,28 +39,9 @@ export interface ProblemActorContext {
   platformRole: PlatformRole;
 }
 
-/**
- * Callers still send a `difficulty` form field (dropdown UX), but it's
- * persisted as a tag — splice it back into the tag list so the row always
- * has exactly one of {easy, medium, hard}.
- */
-function mergeDifficultyTag(
-  baseTags: string[] | undefined,
-  difficulty: string | undefined
-): string[] {
-  const stripped = (baseTags ?? []).filter(
-    (tag) => !(problemDifficulties as readonly string[]).includes(tag)
-  );
-  if (difficulty && (problemDifficulties as readonly string[]).includes(difficulty)) {
-    return [difficulty, ...stripped];
-  }
-  return stripped;
-}
-
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
-  /** Stored as a tag entry; not its own column. */
-  difficulty?: string | undefined;
+  difficulty?: ProblemDifficulty | undefined;
   inputFormat?: string | undefined;
   judgeConfig?: unknown;
   memoryLimitMb?: number | undefined;
@@ -71,10 +52,7 @@ export interface CreateProblemDefinitionInput {
   timeLimitMs?: number | undefined;
   title: string;
   visibility?: ProblemVisibility | undefined;
-  // Phase 1 redesign: ProblemType is the single source of truth.
   type?: ProblemType | undefined;
-  /** Only meaningful when type = special_env. Otherwise ignored. */
-  networkEnabled?: boolean | undefined;
   advancedImageRef?: string | undefined;
   advancedImageSource?: ProblemImageSource | undefined;
 }
@@ -84,16 +62,15 @@ export async function createProblemDefinition(
   input: CreateProblemDefinitionInput
 ) {
   const type: ProblemType = input.type ?? "full_source";
-  const tags = mergeDifficultyTag(input.tags, input.difficulty);
 
   const createData: Prisma.ProblemUncheckedCreateInput = {
     authorId: input.authorId ?? null,
     title: input.title,
+    difficulty: input.difficulty ?? "medium",
     memoryLimitMb: input.memoryLimitMb ?? 256,
-    networkEnabled: type === "special_env" ? (input.networkEnabled ?? false) : false,
     samples: Prisma.JsonNull,
     status: input.status ?? "published",
-    tags,
+    tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
     type,
     visibility: input.visibility ?? "public"
@@ -210,7 +187,6 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       inputFormat: payload.inputFormat,
       judgeConfig: payload.judgeConfig,
       memoryLimitMb: payload.memoryLimitMb,
-      networkEnabled: payload.networkEnabled,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
       status: payload.status,
@@ -244,9 +220,6 @@ export async function updateProblemRecord(
     if (payload.judgeConfig !== undefined) updateData.judgeConfig = payload.judgeConfig;
     if (payload.status !== undefined) updateData.status = payload.status;
     if (payload.type !== undefined) updateData.type = payload.type;
-    if (payload.networkEnabled !== undefined) {
-      updateData.networkEnabled = payload.networkEnabled;
-    }
     if (payload.samples !== undefined) updateData.samples = payload.samples;
     if (payload.advancedImageRef !== undefined)
       updateData.advancedImageRef = payload.advancedImageRef;
@@ -272,12 +245,8 @@ export async function updateProblemRecord(
       );
     }
 
-    // Tags + difficulty: rebuild whenever either field is provided so
-    // the difficulty tag stays consistent with the rest of the list.
-    if (payload.tags !== undefined || payload.difficulty !== undefined) {
-      const baseTags = payload.tags ?? problem.tags;
-      updateData.tags = mergeDifficultyTag(baseTags, payload.difficulty);
-    }
+    if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
+    if (payload.tags !== undefined) updateData.tags = payload.tags;
 
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
@@ -341,7 +310,6 @@ export async function convertProblemToAdvancedMode(
 
     await problemRepo.withTx(tx).update(problem.id, {
       type: "special_env",
-      networkEnabled: false,
       samples: Prisma.JsonNull,
       judgeConfig: resetJudgeConfig,
       advancedImageRef: "",
@@ -467,39 +435,6 @@ export async function updateProblemWorkspace(
   });
 }
 
-export interface AdvancedTestcasePayload {
-  stdin: string;
-  expected: string;
-  files: Record<string, string>;
-}
-
-export async function replaceAdvancedTestcases(
-  actor: ProblemActorContext,
-  problemId: string,
-  cases: AdvancedTestcasePayload[]
-) {
-  return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
-
-    await advancedTestcaseRepo.withTx(tx).deleteByProblemId(problem.id);
-
-    if (cases.length > 0) {
-      await advancedTestcaseRepo.withTx(tx).createMany(
-        cases.map((c, index) => ({
-          expected: c.expected,
-          files: c.files as Prisma.InputJsonValue,
-          ordinal: index,
-          problemId: problem.id,
-          stdin: c.stdin
-        }))
-      );
-    }
-
-    return { id: problem.id, count: cases.length };
-  });
-}
-
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
   problemId: string,
@@ -528,9 +463,9 @@ export async function createProblemTestcaseSetRecord(
 
     await testcaseRepo.withTx(tx).createMany(
       payload.cases.map((testcase, index) => ({
-        expectedStdout: testcase.expectedStdout,
+        output: testcase.output,
         ordinal: index + 1,
-        stdin: testcase.stdin,
+        input: testcase.input,
         testcaseSetId: testcaseSet.id
       }))
     );

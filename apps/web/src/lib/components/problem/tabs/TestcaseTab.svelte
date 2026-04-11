@@ -11,8 +11,8 @@
   interface TestcaseData {
     id: string;
     ordinal: number;
-    stdin: string;
-    expectedStdout: string | null;
+    input: string;
+    output: string | null;
   }
 
   interface TestcaseSetData {
@@ -65,7 +65,7 @@
         data: JSON.stringify({
           name: newSetName.trim(),
           weight: newSetWeight,
-          cases: [{ stdin: "", expectedStdout: "" }]
+          cases: [{ input: "", output: "" }]
         })
       });
       newSetName = "";
@@ -146,8 +146,8 @@
             postProblemAction(problemId, "createTestcaseSet", {
               data: JSON.stringify({
                 cases: subtask.caseIndices.map((idx) => ({
-                  stdin: parsedCases[idx]?.stdin ?? "",
-                  expectedStdout: parsedCases[idx]?.expectedStdout ?? ""
+                  input: parsedCases[idx]?.input ?? "",
+                  output: parsedCases[idx]?.output ?? ""
                 })),
                 name: subtask.name,
                 weight: subtask.points

@@ -58,8 +58,7 @@ export interface DashboardStats {
 }
 
 export async function getUserDashboard(userId: string) {
-  // The `UserStats` denorm row was removed in the second-pass refactor —
-  // the dashboard aggregates stats on-demand from `Submission`. All four
+  // Dashboard aggregates stats on-demand from `Submission`. All four
   // reads are independent so they run in parallel.
   const [recentSubmissions, acProblemIds, totalAttempts, mostRecent] = await Promise.all([
     submissionRepo.findRecentByUser(userId, 10),
@@ -91,5 +90,38 @@ export async function getUserDashboard(userId: string) {
     stats: dashboardStats,
     recentSubmissions,
     recommendations: picked
+  };
+}
+
+export interface UserAnalytics {
+  byDifficulty: { difficulty: "easy" | "medium" | "hard"; acCount: number }[];
+  byLanguage: { language: string; count: number }[];
+  byVerdict: { status: string; count: number }[];
+}
+
+export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
+  const [acProblems, languageGroups, verdictGroups] = await Promise.all([
+    submissionRepo.findDistinctAcByUser(userId),
+    submissionRepo.groupByLanguageForUser(userId),
+    submissionRepo.groupByStatusForUser(userId)
+  ]);
+
+  const difficultyCounts: Record<"easy" | "medium" | "hard", number> = {
+    easy: 0,
+    medium: 0,
+    hard: 0
+  };
+  for (const row of acProblems) {
+    const d = row.problem.difficulty;
+    if (d === "easy" || d === "medium" || d === "hard") difficultyCounts[d] += 1;
+  }
+
+  return {
+    byDifficulty: (["easy", "medium", "hard"] as const).map((d) => ({
+      difficulty: d,
+      acCount: difficultyCounts[d]
+    })),
+    byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
+    byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all }))
   };
 }

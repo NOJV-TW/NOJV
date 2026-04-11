@@ -30,7 +30,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     difficulty: "medium",
     inputFormat: "",
     memoryLimitMb: 256,
-    networkEnabled: false,
     outputFormat: "",
     statement: "",
     status: "draft",

@@ -61,8 +61,7 @@ export const submissionRepo = {
                 { orderIndex: "asc" as const },
                 { path: "asc" as const }
               ]
-            },
-            advancedTestcases: { orderBy: { ordinal: "asc" as const } }
+            }
           }
         }
       },
@@ -240,8 +239,27 @@ export const submissionRepo = {
   findDistinctAcByUser(userId: string) {
     return prisma.submission.findMany({
       where: { userId, status: "accepted", sampleOnly: false },
-      select: { problemId: true, problem: { select: { tags: true } } },
+      select: {
+        problemId: true,
+        problem: { select: { tags: true, difficulty: true } }
+      },
       distinct: ["problemId"] as const
+    });
+  },
+
+  groupByLanguageForUser(userId: string) {
+    return prisma.submission.groupBy({
+      by: ["language"],
+      where: { userId, sampleOnly: false },
+      _count: { _all: true }
+    });
+  },
+
+  groupByStatusForUser(userId: string) {
+    return prisma.submission.groupBy({
+      by: ["status"],
+      where: { userId, sampleOnly: false },
+      _count: { _all: true }
     });
   },
 

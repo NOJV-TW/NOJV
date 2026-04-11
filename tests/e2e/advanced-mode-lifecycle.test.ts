@@ -91,11 +91,8 @@ test.describe("Advanced Mode Lifecycle", () => {
         data: JSON.stringify({
           ref: REGISTRY_REF,
           source: "registry",
-          resourceLimits: {
-            totalTimeMs: 30_000,
-            memoryMb: 1_024,
-            networkEnabled: false
-          }
+          timeLimitMs: 30_000,
+          memoryLimitMb: 1_024
         })
       }
     );

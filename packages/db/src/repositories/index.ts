@@ -14,7 +14,6 @@ export {
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,
-  advancedTestcaseRepo,
   testcaseSetRepo,
   testcaseRepo
 } from "./problem";

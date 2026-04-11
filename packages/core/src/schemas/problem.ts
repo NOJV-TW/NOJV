@@ -11,11 +11,8 @@ import {
 
 import { judgeConfigSchema } from "./judge-config";
 
-// ─── Phase 1 redesign: problem type + samples + workspace files ────
-//
-// `ProblemType` is now the single source of truth for "what shape is
-// this problem". It replaces the legacy (ProblemMode × SubmissionType)
-// matrix, and is persisted directly on the Problem table.
+// `ProblemType` is the single source of truth for "what shape is this
+// problem", persisted directly on the Problem table.
 //
 // - `full_source`   — single-file, student writes everything including main()
 // - `function`      — student implements the named function, judge provides the driver
@@ -27,8 +24,8 @@ export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
 export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
 
 export const problemSampleSchema = z.object({
-  stdin: z.string().max(200_000),
-  expected: z.string().max(200_000)
+  input: z.string().max(200_000),
+  output: z.string().max(200_000)
 });
 
 export type ProblemSample = z.infer<typeof problemSampleSchema>;
@@ -119,9 +116,7 @@ const problemCreateObjectSchema = z.object({
   // Sample IO + special_env image config
   samples: problemSamplesSchema.optional(),
   advancedImageRef: z.string().max(500).optional(),
-  advancedImageSource: problemImageSourceSchema.optional(),
-  /// Only meaningful when type = special_env; ignored otherwise.
-  networkEnabled: z.boolean().default(false)
+  advancedImageSource: problemImageSourceSchema.optional()
 });
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, ctx) => {
@@ -166,15 +161,15 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
-  expectedStdout: z.string().max(200_000),
-  stdin: z.string().max(200_000)
+  output: z.string().max(200_000),
+  input: z.string().max(200_000)
 });
 
 export const problemJudgeTestcaseSchema = z.object({
-  expectedStdout: z.string().max(200_000).optional(),
+  output: z.string().max(200_000).optional(),
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), z.string()).optional(),
-  stdin: z.string().max(200_000),
+  input: z.string().max(200_000),
   weight: z.coerce.number().int().min(1).max(100)
 });
 

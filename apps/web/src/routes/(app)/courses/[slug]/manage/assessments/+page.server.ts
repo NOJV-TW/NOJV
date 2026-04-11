@@ -19,7 +19,7 @@ const { createCourseAssessmentRecord } = courseDomain;
 const { createContestRecord, listCourseContests, contestFormSchema } = contestDomain;
 
 // Homework assessment form — no scoreboard, no IP lock, no page lock.
-// Those moved to Contest in the Phase 1 redesign.
+// Those live on Contest.
 const assessmentFormSchema = z.object({
   adjustmentRules: adjustmentRulesSchema.optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),

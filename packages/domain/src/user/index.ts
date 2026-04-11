@@ -5,5 +5,7 @@ export {
   countUsers,
   updateUserRole,
   toggleUserDisabled,
-  getUserDashboard
+  getUserDashboard,
+  getUserAnalytics,
+  type UserAnalytics
 } from "./queries";

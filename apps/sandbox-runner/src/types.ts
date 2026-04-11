@@ -8,12 +8,10 @@ export type {
   SandboxVerdict
 } from "@nojv/core";
 
-// Config schema for validating /submission/config.json
-// Uses domain enums from @nojv/core for consistency. The legacy
-// `submissionType` field was rolled into `ProblemType` in the Phase 1
-// redesign — sandbox-runner only cares about whether the submission is
-// `function` (assemble against a template) or anything else (run as-is),
-// so it now branches on `problemType` directly.
+// Config schema for validating /submission/config.json.
+// Uses domain enums from @nojv/core. The sandbox-runner only cares
+// whether the submission is `function` (assemble against a template)
+// or anything else (run as-is), so it branches on `problemType`.
 export const SandboxInputSchema = z.object({
   submissionId: z.string(),
   language: languageSchema,

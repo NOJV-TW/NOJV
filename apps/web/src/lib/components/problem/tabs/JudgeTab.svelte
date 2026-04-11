@@ -19,7 +19,7 @@
 
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");
 
-  // Compare mode (Phase 1 new shape).
+  // Compare mode.
   let compareMode = $state<CompareMode>(cfg.compare?.mode ?? "exact");
   let floatAbsTol = $state(cfg.compare?.floatAbsTol ?? 1e-6);
   let floatRelTol = $state(cfg.compare?.floatRelTol ?? 0);
@@ -27,7 +27,7 @@
     (cfg.compare?.ignoreLinePatterns ?? []).join("\n")
   );
 
-  // Checker + interactor (Phase 1 new shape).
+  // Checker + interactor.
   let checkerScript = $state(cfg.checkerScript ?? "");
   let checkerLanguage = $state<JudgeScriptLanguage>(cfg.checkerLanguage ?? "python");
   let interactorScript = $state(cfg.interactorScript ?? "");
@@ -35,7 +35,7 @@
     cfg.interactorLanguage ?? "python"
   );
 
-  // Subtask scoring (merged from old ScoringTab — Phase 5).
+  // Subtask scoring.
   let subtaskStrategies = $state<Record<string, "all_or_nothing" | "proportional" | "minimum">>(
     (cfg.scoring?.subtaskStrategies as Record<
       string,

@@ -23,9 +23,8 @@ describe("courseCreateSchema", () => {
 
 describe("courseJoinRequestSchema", () => {
   it("accepts link-based joins", () => {
-    // Phase 1 redesign: join tokens are "link" or "code" — `qr_code` /
-    // `manual_invite` are gone. QR codes are just a rendering of a
-    // link-kind token.
+    // Join tokens are "link" or "code". QR codes are just a rendering
+    // of a link-kind token.
     const result = courseJoinRequestSchema.parse({
       courseSlug: "os-lab-spring-2026",
       joinTokenKind: "link",
