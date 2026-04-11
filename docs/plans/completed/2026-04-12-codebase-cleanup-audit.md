@@ -256,3 +256,61 @@ PR 3-8 之間幾乎無相依，可並行；PR 3 與 PR 4 有重疊（都動 Work
 - 全 repo grep 交叉驗證：`as any`（0）、`@ts-(ignore|expect-error|nocheck)`（0）、`as unknown as`（2）
 - 並行 explore agents：架構、型別、死碼、防禦性程式碼、docs 五個面向各一
 - Agent 間的矛盾已人工覆核（例如「`.tmp` 是否在 gitignore」）
+
+## 8. Execution Summary (2026-04-12)
+
+### Original audit items (P0 / P1 / P2) status
+
+| Item | Status     | Commit(s)                                                         |
+| ---- | ---------- | ----------------------------------------------------------------- |
+| P0-1 | ✅ shipped | cdaa355                                                           |
+| P0-2 | ✅ shipped | 9753a2a                                                           |
+| P0-3 | ✅ shipped | 60524ac                                                           |
+| P0-4 | ✅ shipped | b0a6146                                                           |
+| P0-5 | ✅ shipped | e92d4c7                                                           |
+| P0-6 | ✅ shipped | 96139c6 (CLAUDE.md doc index — landed with audit baseline commit) |
+| P1-1 | ✅ shipped | 0f12460 + 7700a52 (extract + fix round)                           |
+| P1-2 | ✅ shipped | e60cc88                                                           |
+| P1-3 | ✅ shipped | 7f60789                                                           |
+| P1-4 | ✅ shipped | 79e6bb3                                                           |
+| P1-5 | ✅ shipped | d40df72 + ad96313 + 799a935 (split + reshape + break cycle)       |
+| P1-6 | ✅ shipped | 5fd0c9f                                                           |
+| P2-1 | ✅ shipped | fd6555d                                                           |
+| P2-2 | ✅ shipped | 3740657 + 58d5c4f (flatten + strict tsc fix)                      |
+| P2-3 | ✅ shipped | 2904094                                                           |
+| P2-4 | ✅ shipped | 0e8530d                                                           |
+| P2-5 | ✅ shipped | 05baf3d + 4cb7c6b + 8e204d7 + (FU-16 SHA tbd)                     |
+| P2-6 | ❌ wontfix | n/a — audit over-estimated the overlap (see below)                |
+| P2-7 | ✅ shipped | b9c5a6b                                                           |
+
+### Follow-up items (FU-5 onward) status
+
+| Item                                        | Status                                   | Commit  |
+| ------------------------------------------- | ---------------------------------------- | ------- |
+| FU-5 drop function type                     | ✅ shipped                               | 295e8ed |
+| FU-6 drop editableRegions                   | ✅ shipped                               | 03bb3a2 |
+| FU-7 wire customTestcases                   | ✅ shipped                               | fedd100 |
+| FU-8 removal verification                   | ✅ audit (research-only)                 | n/a     |
+| FU-9 Run output UI verification             | ✅ verified OK                           | n/a     |
+| FU-10 require\* audit                       | ✅ audit (research-only)                 | n/a     |
+| FU-11 residue cleanup                       | ✅ shipped                               | 82cf181 |
+| FU-12 rename customTestcases → runCases     | ✅ shipped                               | 5065423 |
+| FU-13 handleError hook + handleLoad wrapper | ✅ shipped                               | 05baf3d |
+| FU-14 consolidate require helpers           | ✅ shipped                               | 4cb7c6b |
+| FU-15 nullable queries → throwing           | ✅ shipped                               | 8e204d7 |
+| FU-16 doc + lint guard                      | ⏳ in progress at time of this plan move | tbd     |
+
+### Wontfix explanation (P2-6)
+
+The audit matched `admin/users/+page.svelte` (454 lines) and `courses/[slug]/manage/+page.svelte` (454 lines) primarily by line count and the presence of a `<table>` element, but the actual content turned out to be meaningfully different. The courses manage page is only ~65 lines of embedded drilldown table surrounded by dashboard chrome (stat cards, ECharts visualizations), while the users page is built around a filter + pagination shell with inline form actions. Forcing those two surfaces through a shared `DataTableWithFilters` component would have produced a bad abstraction that served neither call site well. The right follow-up was a local-component split of `admin/users/+page.svelte` only, which was done in FU-4 (`fd2b7bb`).
+
+### P2-5 decomposition notes
+
+P2-5 was originally flagged as "needs independent audit first" in the original spec because throw-vs-return-null policy touches every domain query call site. FU-10 produced that audit and recommended Option A — all-throw with an explicit carve-out for truly optional lookups. The implementation was then decomposed into four reviewable PRs: FU-13 (error-boundary plumbing via `handleError` hook + `handleLoad` wrapper), FU-14 (consolidation of the scattered `require*` helpers), FU-15 (behavior change: flipping nullable queries to throwing), and FU-16 (convention guard via docs + lint rule). Each PR was independently reviewable and could be reverted without unwinding the others.
+
+### Scope that did NOT ship
+
+- Real E2E validation of the Run → custom test cases → sandbox flow (FU-9 was static verification only)
+- Full `pnpm ci:verify` run after FU-16 merges (scheduled post-merge)
+- `docs/plans/2026-04-11-design-system-refactor-design.md` pre-existing deletion still pending a decision from the user
+- LeetCode-style native `function` problem type with `assembleSource` template system — deliberately out of scope; user chose to delete `function` type instead and let teachers use `multi_file` + readonly driver for that pattern
