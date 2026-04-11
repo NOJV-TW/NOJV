@@ -10,16 +10,6 @@ export interface ProblemActorContext {
   platformRole: PlatformRole;
 }
 
-export async function requireProblem(tx: TransactionClient, problemId: string) {
-  const problem = await problemRepo.withTx(tx).findById(problemId);
-
-  if (!problem) {
-    throw new NotFoundError(`Problem not found: ${problemId}`);
-  }
-
-  return problem;
-}
-
 export function assertCourseProblemAccess(
   problem: { authorId: string | null; visibility: string },
   actor: ProblemActorContext

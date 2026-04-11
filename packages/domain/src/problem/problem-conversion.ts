@@ -7,8 +7,9 @@ import {
 } from "@nojv/db";
 
 import { ConflictError } from "../shared/errors";
+import { requireProblem } from "../shared/require";
 
-import { assertProblemOwnership, requireProblem, type ProblemActorContext } from "./helpers";
+import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
 // Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
 // discarded. The UI shows an explicit warning before calling this.

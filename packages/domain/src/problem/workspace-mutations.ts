@@ -3,8 +3,9 @@ import type { Language } from "@nojv/core";
 import { entryFileNameFor } from "@nojv/core";
 
 import { ConflictError, ValidationError } from "../shared/errors";
+import { requireProblem } from "../shared/require";
 
-import { assertProblemOwnership, requireProblem, type ProblemActorContext } from "./helpers";
+import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
 export interface UpdateWorkspacePayload {
   runtime?: {

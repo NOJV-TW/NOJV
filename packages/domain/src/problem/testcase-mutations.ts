@@ -1,9 +1,10 @@
 import { runTransaction, testcaseRepo, testcaseSetRepo } from "@nojv/db";
 import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
+import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 
-import { assertProblemOwnership, requireProblem, type ProblemActorContext } from "./helpers";
+import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
