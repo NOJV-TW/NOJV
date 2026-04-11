@@ -252,7 +252,14 @@
                       method="POST"
                       action="?/updateRole"
                       class="flex flex-col gap-2"
-                      use:enhance
+                      use:enhance={() => {
+                        return async ({ result, update }) => {
+                          await update();
+                          if (result.type === "success") {
+                            editingUserId = null;
+                          }
+                        };
+                      }}
                     >
                       <input type="hidden" name="userId" value={user.id} />
                       <input type="hidden" name="role" value={draftRole} />
