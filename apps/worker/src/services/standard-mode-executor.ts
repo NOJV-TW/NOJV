@@ -9,9 +9,9 @@ import {
   type SandboxResult
 } from "@nojv/core";
 
+import { forceRemoveContainer, sanitizeId } from "./docker-executor";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
-import { forceRemoveContainer, sanitizeId } from "./sandbox-result-mapper";
 
 export interface StandardModeConfig {
   cpuLimit: string;

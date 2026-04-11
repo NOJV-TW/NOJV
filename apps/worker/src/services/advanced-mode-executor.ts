@@ -11,13 +11,9 @@ import {
 } from "@nojv/core";
 import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
+import { forceRemoveContainer, sanitizeId } from "./docker-executor";
 import { sandboxSystemError } from "./sandbox-plan";
-import {
-  advancedFallbackResult,
-  forceRemoveContainer,
-  mapAdvancedResult,
-  sanitizeId
-} from "./sandbox-result-mapper";
+import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
 
 export interface AdvancedModeConfig {
   cpuLimit: string;
