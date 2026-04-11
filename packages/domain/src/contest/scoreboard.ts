@@ -232,6 +232,13 @@ function buildIcpcScoreboard(
       const isPending = isFrozen;
 
       for (const sub of visibleSubs) {
+        // In-progress statuses aren't a verdict yet and must not count as
+        // wrong attempts. Mirrors the fix in scoring.ts — keeping both
+        // paths consistent so the DB-written penalty matches what the
+        // scoreboard displays.
+        if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
+          continue;
+        }
         if (sub.status === "accepted") {
           score = prob.points;
           firstAcTime = secondsSince(contest.startsAt, sub.createdAt);
