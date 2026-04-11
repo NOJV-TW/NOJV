@@ -32,7 +32,7 @@ const contestCreateBaseSchema = z.object({
   inviteCode: z.string().trim().max(32).optional(),
   ...ipLockFields,
   pageLockEnabled: z.boolean().default(false),
-  problemIds: z.array(slugSchema).min(1).max(32),
+  problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   slug: slugSchema,
