@@ -359,7 +359,48 @@
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
                 <td class="px-5 py-3">
-                  <form method="POST" action="?/toggleDisabled" use:enhance>
+                  <form
+                    method="POST"
+                    action="?/toggleDisabled"
+                    use:enhance={({ cancel }) => {
+                      const targetUsername = user.username ?? user.name;
+                      const willDisable = !user.disabled;
+
+                      if (user.id === data.actor?.userId) {
+                        toasts.error(m.admin_usersDisableSelfBlocked());
+                        cancel();
+                        return;
+                      }
+
+                      if (willDisable) {
+                        const ok = confirm(
+                          m.admin_usersDisableConfirm({ username: targetUsername })
+                        );
+                        if (!ok) {
+                          cancel();
+                          return;
+                        }
+                      }
+
+                      return async ({ result, update }) => {
+                        if (result.type === "success") {
+                          toasts.success(
+                            willDisable
+                              ? m.admin_usersDisableSuccess({ username: targetUsername })
+                              : m.admin_usersEnableSuccess({ username: targetUsername })
+                          );
+                          await update();
+                        } else if (result.type === "failure") {
+                          const err =
+                            (result.data as { error?: string } | undefined)?.error ??
+                            m.admin_usersDisableFailed();
+                          toasts.error(err);
+                        } else {
+                          await update();
+                        }
+                      };
+                    }}
+                  >
                     <input type="hidden" name="userId" value={user.id} />
                     <Button
                       type="submit"
