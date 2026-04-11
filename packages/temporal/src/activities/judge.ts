@@ -109,25 +109,22 @@ export async function executeSandbox(
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
   // Starter code + teacher assets flow through ProblemWorkspaceFile /
-  // mergeSandboxSources. Sample path: either the student-supplied custom
-  // testcases (from the editor bottom panel — ephemeral, never
-  // persisted) or, when absent, Problem.samples directly. Graded path:
-  // iterate testcase sets. Advanced-mode problems always bundle their
-  // own testcases inside the TA image.
+  // mergeSandboxSources. Sample path: either the student-supplied run
+  // cases (from the editor bottom panel — ephemeral, never persisted)
+  // or, when absent, Problem.samples directly. Graded path: iterate
+  // testcase sets. Advanced-mode problems always bundle their own
+  // testcases inside the TA image.
   const useSamples = draft.sampleOnly === true;
   const useAdvanced =
     judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
-  const hasCustomTestcases =
-    useSamples &&
-    !useAdvanced &&
-    draft.customTestcases !== undefined &&
-    draft.customTestcases.length > 0;
+  const hasRunCases =
+    useSamples && !useAdvanced && draft.runCases !== undefined && draft.runCases.length > 0;
 
-  const testcasesForSandbox = hasCustomTestcases
-    ? // `draft.customTestcases` is validated at the API edge
+  const testcasesForSandbox = hasRunCases
+    ? // `draft.runCases` is validated at the API edge
       // (submissionDraftSchema), so we can rely on the cap/size limits
       // having already been enforced before this runs.
-      draft.customTestcases!.map((tc, i) => ({
+      draft.runCases!.map((tc, i) => ({
         index: i,
         input: tc.input,
         ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),

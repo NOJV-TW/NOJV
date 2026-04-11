@@ -3,7 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
 
-  interface Testcase {
+  interface RunCase {
     input: string;
     expectedOutput: string;
   }
@@ -14,7 +14,7 @@
      * handler can read exactly what the student typed into the panel.
      * The parent seeds it from `problem.samples` on first render.
      */
-    testcases: Testcase[];
+    runCases: RunCase[];
     /**
      * When `true`, the Testcase tab hides its editing UI and shows a
      * read-only notice instead. Used for `special_env` problems where
@@ -35,7 +35,7 @@
   }
 
   let {
-    testcases = $bindable(),
+    runCases = $bindable(),
     readOnly = false,
     tab,
     runResult,
@@ -87,15 +87,15 @@
     {#if tab === "testcase"}
       {#if readOnly}
         <p class="py-4 text-body-sm text-muted-foreground">
-          {m.editor_customTestcasesDisabled()}
+          {m.editor_runCasesDisabled()}
         </p>
       {:else}
       <div>
         <p class="mb-2 text-caption text-muted-foreground">
-          {m.editor_customTestcasesHelp()}
+          {m.editor_runCasesHelp()}
         </p>
         <div class="flex items-center gap-1">
-          {#each testcases as _, index (`tab-${index}`)}
+          {#each runCases as _, index (`tab-${index}`)}
             <button
               class="group relative rounded-md px-3 py-1 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedCase ===
               index
@@ -105,15 +105,15 @@
               type="button"
             >
               Case {index + 1}
-              {#if testcases.length > 1}
+              {#if runCases.length > 1}
                 <span
                   class="ml-1.5 hidden text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive group-hover:inline"
                   role="button"
                   tabindex="-1"
                   onclick={(e: MouseEvent) => {
                     e.stopPropagation();
-                    testcases = testcases.filter((_, i) => i !== index);
-                    selectedCase = Math.min(selectedCase, testcases.length - 1);
+                    runCases = runCases.filter((_, i) => i !== index);
+                    selectedCase = Math.min(selectedCase, runCases.length - 1);
                   }}
                   onkeydown={() => {}}
                 >
@@ -125,8 +125,8 @@
           <button
             class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
             onclick={() => {
-              testcases = [...testcases, { input: "", expectedOutput: "" }];
-              selectedCase = testcases.length - 1;
+              runCases = [...runCases, { input: "", expectedOutput: "" }];
+              selectedCase = runCases.length - 1;
             }}
             type="button"
           >
@@ -140,27 +140,27 @@
             class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
             oninput={(e) => {
               const val = (e.target as HTMLTextAreaElement).value;
-              testcases = testcases.map((tc, i) =>
+              runCases = runCases.map((tc, i) =>
                 i === selectedCase ? { ...tc, input: val } : tc
               );
             }}
             rows={3}
-            value={testcases[selectedCase]?.input ?? ""}
+            value={runCases[selectedCase]?.input ?? ""}
           ></textarea>
         </div>
 
         <div class="mt-3">
-          <p class="text-caption text-muted-foreground">{m.editor_output()}</p>
+          <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
           <textarea
             class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-muted-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
             oninput={(e) => {
               const val = (e.target as HTMLTextAreaElement).value;
-              testcases = testcases.map((tc, i) =>
+              runCases = runCases.map((tc, i) =>
                 i === selectedCase ? { ...tc, expectedOutput: val } : tc
               );
             }}
             rows={2}
-            value={testcases[selectedCase]?.expectedOutput ?? ""}
+            value={runCases[selectedCase]?.expectedOutput ?? ""}
           ></textarea>
         </div>
       </div>
@@ -203,18 +203,18 @@
               </div>
 
               <div class="mt-3 space-y-3">
-                {#if testcases[selectedResultCase]}
+                {#if runCases[selectedResultCase]}
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">{m.editor_input()}</p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{testcases[selectedResultCase]!.input}</pre>
+                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.input}</pre>
                   </div>
                 {/if}
 
                 {#if runResult.caseResults[selectedResultCase]}
                   {@const caseData = runResult.caseResults[selectedResultCase]!}
                   <div>
-                    <p class="text-caption font-medium text-muted-foreground">{m.editor_output()}</p>
+                    <p class="text-caption font-medium text-muted-foreground">{m.editor_outputLabel()}</p>
                     <pre
                       class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
                   </div>
@@ -227,13 +227,13 @@
                   {/if}
                 {/if}
 
-                {#if testcases[selectedResultCase]?.expectedOutput}
+                {#if runCases[selectedResultCase]?.expectedOutput}
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">
-                      {m.editor_output()}
+                      {m.editor_expectLabel()}
                     </p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{testcases[selectedResultCase]!.expectedOutput}</pre>
+                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.expectedOutput}</pre>
                   </div>
                 {/if}
               </div>

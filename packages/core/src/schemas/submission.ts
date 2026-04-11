@@ -29,46 +29,43 @@ const problemIdentifierSchema = z
   .max(128, "validation_tooLong")
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
-// Custom testcases are an ephemeral Run-mode input: the student types a
-// short list of stdin/expected-stdout pairs into the editor bottom panel
-// and the Run button replaces the DB sample set with them for that one
+// Run cases are an ephemeral Run-mode input: the student types a short
+// list of stdin/expected-stdout pairs into the editor bottom panel and
+// the Run button replaces the DB sample set with them for that one
 // invocation. They are NEVER persisted and NEVER allowed on Submit —
 // mixing student-authored input into a graded run would break the
-// grading contract. Caps mirror `problemSampleSchema` (200_000 chars per
-// field) so the two paths have the same upper bound.
-const MAX_CUSTOM_TESTCASES = 10;
-const MAX_CUSTOM_TESTCASE_FIELD_LEN = 200_000;
+// grading contract. The name `runCases` avoids collision with the DB
+// `Testcase` / `TestcaseSet` models, which are teacher-owned graded
+// data. Caps mirror `problemSampleSchema` (200_000 chars per field) so
+// the two paths have the same upper bound.
+const MAX_RUN_CASES = 10;
+const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
-export const submissionCustomTestcaseSchema = z.object({
-  input: z.string().max(MAX_CUSTOM_TESTCASE_FIELD_LEN),
-  expectedOutput: z.string().max(MAX_CUSTOM_TESTCASE_FIELD_LEN).optional()
+export const runCaseSchema = z.object({
+  input: z.string().max(MAX_RUN_CASE_FIELD_LEN),
+  expectedOutput: z.string().max(MAX_RUN_CASE_FIELD_LEN).optional()
 });
 
-export type SubmissionCustomTestcase = z.infer<typeof submissionCustomTestcaseSchema>;
+export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
 
 export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
     contestSlug: slugSchema.optional(),
-    customTestcases: z
-      .array(submissionCustomTestcaseSchema)
-      .max(MAX_CUSTOM_TESTCASES)
-      .optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
     problemId: problemIdentifierSchema,
+    runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
     sampleOnly: z.boolean().optional(),
     sourceCode: sourceCodeSchema,
     sourceFiles: z.array(sourceFileSchema).max(200).optional()
   })
   .refine(
     (draft) =>
-      draft.customTestcases === undefined ||
-      draft.customTestcases.length === 0 ||
-      draft.sampleOnly === true,
+      draft.runCases === undefined || draft.runCases.length === 0 || draft.sampleOnly === true,
     {
-      message: "customTestcases is only allowed on sample-only (Run) submissions",
-      path: ["customTestcases"]
+      message: "runCases is only allowed on sample-only (Run) submissions",
+      path: ["runCases"]
     }
   );
 

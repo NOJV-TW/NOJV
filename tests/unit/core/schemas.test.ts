@@ -41,29 +41,29 @@ describe("submissionDraftSchema", () => {
     expect(result.sourceFiles?.[0]?.path).toBe("src/main.ts");
   });
 
-  it("accepts customTestcases on sample-only runs", () => {
+  it("accepts runCases on sample-only runs", () => {
     const result = submissionDraftSchema.parse({
-      customTestcases: [
-        { input: "1 2\n", expectedOutput: "3\n" },
-        { input: "10 20\n" } // expectedOutput omitted — Run shows actual stdout only
-      ],
       language: "cpp",
       mode: "practice",
       problemId: "sum-ab",
+      runCases: [
+        { input: "1 2\n", expectedOutput: "3\n" },
+        { input: "10 20\n" } // expectedOutput omitted — Run shows actual stdout only
+      ],
       sampleOnly: true,
       sourceCode: "int main(){}"
     });
 
-    expect(result.customTestcases).toHaveLength(2);
-    expect(result.customTestcases?.[1]?.expectedOutput).toBeUndefined();
+    expect(result.runCases).toHaveLength(2);
+    expect(result.runCases?.[1]?.expectedOutput).toBeUndefined();
   });
 
-  it("rejects customTestcases on graded submissions", () => {
+  it("rejects runCases on graded submissions", () => {
     const parsed = submissionDraftSchema.safeParse({
-      customTestcases: [{ input: "1\n", expectedOutput: "1\n" }],
       language: "cpp",
       mode: "practice",
       problemId: "sum-ab",
+      runCases: [{ input: "1\n", expectedOutput: "1\n" }],
       sampleOnly: false,
       sourceCode: "int main(){}"
     });
@@ -71,11 +71,11 @@ describe("submissionDraftSchema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects more than 10 customTestcases", () => {
+  it("rejects more than 10 runCases", () => {
     const parsed = submissionDraftSchema.safeParse({
-      customTestcases: Array.from({ length: 11 }, () => ({ input: "x" })),
       language: "cpp",
       problemId: "sum-ab",
+      runCases: Array.from({ length: 11 }, () => ({ input: "x" })),
       sampleOnly: true,
       sourceCode: "int main(){}"
     });
