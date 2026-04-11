@@ -1,3 +1,5 @@
+import type Redis from "ioredis";
+
 import { getRedis } from "./connection";
 import { keys } from "./keys";
 
@@ -5,15 +7,27 @@ import { keys } from "./keys";
 // but ended contests release the memory after the grace window.
 const SCOREBOARD_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
+// Batch a pipeline into one round-trip while still surfacing per-command
+// errors so callers see them instead of silently continuing.
+async function execPipeline(pipeline: ReturnType<Redis["pipeline"]>): Promise<void> {
+  const results = await pipeline.exec();
+  for (const [err] of results ?? []) {
+    if (err) throw err;
+  }
+}
+
 export async function updateScoreboard(
   contestId: string,
   participationId: string,
   score: number
 ): Promise<void> {
-  const redis = getRedis();
   const key = keys.scoreboard(contestId);
-  await redis.zadd(key, score.toString(), participationId);
-  await redis.expire(key, SCOREBOARD_TTL_SECONDS);
+  await execPipeline(
+    getRedis()
+      .pipeline()
+      .zadd(key, score.toString(), participationId)
+      .expire(key, SCOREBOARD_TTL_SECONDS)
+  );
 }
 
 /**
@@ -75,8 +89,12 @@ export async function freezeScoreboard(contestId: string): Promise<void> {
     }
   }
   if (zaddArgs.length > 0) {
-    await redis.zadd(frozenKey, ...zaddArgs);
-    await redis.expire(frozenKey, SCOREBOARD_TTL_SECONDS);
+    await execPipeline(
+      redis
+        .pipeline()
+        .zadd(frozenKey, ...zaddArgs)
+        .expire(frozenKey, SCOREBOARD_TTL_SECONDS)
+    );
   }
 }
 

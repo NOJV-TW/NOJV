@@ -22,14 +22,23 @@ export async function createQueuedSubmissionRecord(
   clientIp: string
 ) {
   return runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, payload.problemId);
-    const courseContext = payload.assessment
-      ? await requireCourseAssessment(
-          tx,
-          payload.assessment.courseSlug,
-          payload.assessment.assessmentSlug
-        )
-      : null;
+    // The problem lookup, the (optional) course-assessment lookup, and
+    // the user upsert are independent — each only needs tx + params.
+    // Run them in parallel to cut two round-trips off the submission
+    // hot path. Concurrent queries inside a Prisma interactive
+    // transaction are supported here (see contest/course mutations
+    // for other examples).
+    const [problem, courseContext, user] = await Promise.all([
+      requireProblem(tx, payload.problemId),
+      payload.assessment
+        ? requireCourseAssessment(
+            tx,
+            payload.assessment.courseSlug,
+            payload.assessment.assessmentSlug
+          )
+        : null,
+      ensureUser(tx, actor.userId, actor)
+    ]);
 
     // ── Authorization: verify user is enrolled in the course ──
     if (courseContext) {
@@ -42,8 +51,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // Mode is derived on read via `deriveSubmissionMode` — the column is gone.
-    const user = await ensureUser(tx, actor.userId, actor);
     const contestResult = payload.contestSlug
       ? await ensureContestParticipation(tx, user.id, payload.contestSlug, {
           problemId: problem.id,

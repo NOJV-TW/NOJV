@@ -15,12 +15,17 @@ const editorialSubmitSchema = z.object({
   language: languageSchema
 });
 
+// findProblemById and hasUserAcProblem are independent — both accept the
+// same problemId, and hasUserAcProblem is a count query that safely
+// returns false for an unknown problem. Fire them in parallel; the
+// NotFoundError still takes precedence over the ForbiddenError.
 async function requireProblemWithAc(userId: string, problemId: string) {
-  const problem = await findProblemById(problemId);
+  const [problem, ac] = await Promise.all([
+    findProblemById(problemId),
+    hasUserAcProblem(userId, problemId)
+  ]);
 
   if (!problem) throw new NotFoundError("Problem not found.");
-
-  const ac = await hasUserAcProblem(userId, problem.id);
   if (!ac) throw new ForbiddenError("Solve this problem first to view editorials.");
 
   return problem;
@@ -31,8 +36,13 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
 
-  const problem = await requireProblemWithAc(actor.userId, id);
-  const editorials = await listEditorials(problem.id);
+  // listEditorials also only needs `id` and is safe to run alongside the
+  // auth gate — on the rare error path the wasted query has no side
+  // effects, and on the common happy path we save another round-trip.
+  const [, editorials] = await Promise.all([
+    requireProblemWithAc(actor.userId, id),
+    listEditorials(id)
+  ]);
 
   return json(editorials);
 });
