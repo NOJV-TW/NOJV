@@ -1,6 +1,42 @@
 import { contestParticipationRepo, submissionRepo } from "@nojv/db";
 import { scoreboard } from "@nojv/redis";
 
+const ICPC_PENALTY_PER_WRONG_SEC = 20 * 60;
+
+interface IcpcScoringSubmission {
+  status: string;
+  createdAt: Date;
+}
+
+// Pure helper: compute the ICPC solved/penalty for ONE (participant, problem)
+// pair from that participant's ordered submissions to that problem. The
+// outer caller aggregates across problems.
+//
+// In-progress statuses (queued/compiling/running) are skipped — they aren't
+// verdicts yet. The next recalc picks them up once judging completes.
+export function computeIcpcProblemPenalty(
+  submissions: readonly IcpcScoringSubmission[],
+  contestStartsAt: Date
+): { solved: boolean; penaltySeconds: number } {
+  let wrongAttempts = 0;
+  for (const sub of submissions) {
+    if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
+      continue;
+    }
+    if (sub.status === "accepted") {
+      const solveTimeSec = Math.floor(
+        (sub.createdAt.getTime() - contestStartsAt.getTime()) / 1000
+      );
+      return {
+        solved: true,
+        penaltySeconds: solveTimeSec + wrongAttempts * ICPC_PENALTY_PER_WRONG_SEC
+      };
+    }
+    wrongAttempts++;
+  }
+  return { solved: false, penaltySeconds: 0 };
+}
+
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
   const participation =
     await contestParticipationRepo.findByIdWithContest(contestParticipationId);
@@ -26,31 +62,14 @@ export async function updateContestScores(contestParticipationId: string): Promi
     }
 
     for (const [, problemSubs] of byProblem) {
-      let wrongAttempts = 0;
-      let solved = false;
-
-      for (const sub of problemSubs) {
-        // In-progress submissions (queued/compiling/running) are not
-        // yet a verdict — they must not count as wrong attempts. When
-        // updateContestScores fires on the first completed judge for a
-        // participant, later-submitted attempts may still be mid-flight;
-        // they'll be counted (or not) on the next recalc once their
-        // own judge completes.
-        if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
-          continue;
-        }
-        if (sub.status === "accepted") {
-          solved = true;
-          const solveTimeSec = Math.floor(
-            (sub.createdAt.getTime() - contest.startsAt.getTime()) / 1000
-          );
-          totalPenalty += solveTimeSec + wrongAttempts * 20 * 60;
-          break;
-        }
-        wrongAttempts++;
+      const { solved, penaltySeconds } = computeIcpcProblemPenalty(
+        problemSubs,
+        contest.startsAt
+      );
+      if (solved) {
+        solvedCount++;
+        totalPenalty += penaltySeconds;
       }
-
-      if (solved) solvedCount++;
     }
 
     await contestParticipationRepo.update(participation.id, {
