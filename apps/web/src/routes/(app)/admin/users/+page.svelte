@@ -102,6 +102,14 @@
     if (roleValue) params.set("role", roleValue);
     goto(`/admin/users?${params.toString()}`);
   }
+
+  type PlatformRole = "admin" | "teacher" | "student";
+
+  function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
+    if (role === "admin") return "warning";
+    if (role === "teacher") return "info";
+    return "success";
+  }
 </script>
 
 <svelte:head>
@@ -227,19 +235,24 @@
                 <td class="px-5 py-3">{user.email}</td>
                 <td class="px-5 py-3">{user.name}</td>
                 <td class="px-5 py-3">
-                  <form method="POST" action="?/updateRole" use:enhance>
-                    <input type="hidden" name="userId" value={user.id} />
-                    <select
-                      class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                      name="role"
-                      value={user.platformRole}
-                      onchange={(e) => e.currentTarget.form?.requestSubmit()}
-                    >
-                      <option value="admin">admin</option>
-                      <option value="teacher">teacher</option>
-                      <option value="student">student</option>
-                    </select>
-                  </form>
+                  <div class="flex items-center gap-2">
+                    <Badge variant={roleBadgeVariant(user.platformRole as PlatformRole)} size="sm">
+                      {user.platformRole}
+                    </Badge>
+                    <form method="POST" action="?/updateRole" use:enhance>
+                      <input type="hidden" name="userId" value={user.id} />
+                      <select
+                        class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
+                        name="role"
+                        value={user.platformRole}
+                        onchange={(e) => e.currentTarget.form?.requestSubmit()}
+                      >
+                        <option value="admin">admin</option>
+                        <option value="teacher">teacher</option>
+                        <option value="student">student</option>
+                      </select>
+                    </form>
+                  </div>
                 </td>
                 <td class="px-5 py-3">
                   {#if user.disabled}
