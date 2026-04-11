@@ -14,6 +14,8 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import SystemTextToggle, { type UiLang } from "./SystemTextToggle.svelte";
+  import FormError from "$lib/components/ui/FormError.svelte";
+  import type { FormMessage } from "$lib/types/form-message";
 
   interface Props {
     contests: ContestListItem[];
@@ -112,10 +114,16 @@
     new Date(Date.now() + 1000 * 60 * 60 * 3)
   );
 
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(
-    untrack(() => formData),
-    { dataType: "json", invalidateAll: true }
-  );
+  const {
+    form,
+    errors,
+    submitting,
+    message: formMessage,
+    enhance
+  } = superForm<typeof formData.data, FormMessage>(untrack(() => formData), {
+    dataType: "json",
+    invalidateAll: true
+  });
 
   if (!$form.startsAt) $form.startsAt = defaultStart;
   if (!$form.endsAt) $form.endsAt = defaultEnd;
@@ -188,6 +196,7 @@
   >
     <h3 class="inline-flex items-center gap-2 font-display text-title font-semibold"><Sparkles class="h-5 w-5 text-muted-foreground" /> {t("createContest")}</h3>
     <form class="mt-4 grid gap-3" method="POST" action="?/createContest" use:enhance>
+      <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
       <div class="grid gap-3 md:grid-cols-2">
         <div>
           <input
@@ -335,8 +344,8 @@
         {$submitting ? t("creating") : t("createContest")}
       </Button>
     </form>
-    {#if $formMessage}
-      <p class="mt-4 text-body-sm text-success">{$formMessage}</p>
+    {#if $formMessage?.kind === "success"}
+      <p class="mt-4 text-body-sm text-success">{$formMessage.text}</p>
     {/if}
   </section>
 </div>
