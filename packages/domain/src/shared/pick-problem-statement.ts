@@ -18,11 +18,10 @@ function selectStatement(
   statements: ProblemStatement[] | undefined,
   locale: string
 ): ProblemStatement | null {
-  if (!statements || statements.length === 0) return null;
-  const [head, ...rest] = statements;
-  if (head.locale === locale) return head;
-  const match = rest.find((statement) => statement.locale === locale);
-  return match ?? head;
+  if (!statements) return null;
+  const match = statements.find((statement) => statement.locale === locale);
+  if (match) return match;
+  return statements[0] ?? null;
 }
 
 export function pickProblemStatement(
