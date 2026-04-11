@@ -11,6 +11,7 @@ The admin area currently has three pages: `/admin` (overview), `/admin/users`, `
 Goal: refine the admin interface so that (a) the pages we keep are truly admin-only and well-scoped, (b) role changes and account disables are deliberate actions with visible state and clear feedback, and (c) teacher status is visually distinct from student/admin status in the user list.
 
 Out of scope:
+
 - Audit logging of role changes (deferred by product decision).
 - Unifying the per-page zh/en local dictionaries in `/admin/+page.svelte` and `/admin/users/+page.svelte` with Paraglide (`m.*`). Tracked as separate i18n cleanup.
 - Any changes to `/admin/announcements`.
@@ -47,7 +48,7 @@ All UI changes live in `apps/web/src/routes/(app)/admin/users/+page.svelte`. No 
 Each row renders the role as a `<Badge>` whose variant maps to the role:
 
 | Role      | Badge variant | Visual token |
-|-----------|---------------|--------------|
+| --------- | ------------- | ------------ |
 | `admin`   | `warning`     | Orange       |
 | `teacher` | `info`        | Blue         |
 | `student` | `success`     | Green        |

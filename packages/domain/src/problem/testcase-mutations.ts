@@ -1,17 +1,9 @@
 import { runTransaction, testcaseRepo, testcaseSetRepo } from "@nojv/db";
-import type {
-  ProblemTestcaseSetCreate,
-  TestcaseSetUpdate,
-  TestcaseUpdate
-} from "@nojv/core";
+import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
 import { stripUndefined } from "../shared/strip-undefined";
 
-import {
-  assertProblemOwnership,
-  requireProblem,
-  type ProblemActorContext
-} from "./helpers";
+import { assertProblemOwnership, requireProblem, type ProblemActorContext } from "./helpers";
 
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,

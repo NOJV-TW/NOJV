@@ -40,24 +40,24 @@ Course ──┬── CourseMembership
 
 ## Enums
 
-| Enum                             | Values                                                                                                                       |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `SupportedLanguage`              | c, cpp, go, java, javascript, python, rust, typescript                                                                       |
-| `SubmissionStatus`               | queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error |
-| `JudgeType`                      | standard, checker, interactive                                                                                               |
-| `ProblemType`                    | full_source, function, multi_file, special_env                                                                               |
-| `ProblemDifficulty`              | easy, medium, hard                                                                                                           |
-| `ProblemImageSource`             | registry, tarball                                                                                                            |
-| `WorkspaceFileVisibility`        | editable, readonly, hidden                                                                                                   |
-| `PlatformRole`                   | admin, teacher, student                                                                                                      |
-| `CourseRole`                     | teacher, ta, student                                                                                                         |
-| `ContestScoringMode`             | problem_count, point_sum                                                                                                     |
-| `CourseMembershipStatus`         | active, removed                                                                                                              |
-| `CourseJoinTokenKind`            | link, code                                                                                                                   |
-| `ProblemVisibility`              | public, private                                                                                                              |
-| `ProblemStatus`                  | draft, published                                                                                                             |
-| `ScoreboardMode`                 | hidden, live, frozen                                                                                                         |
-| `PlagiarismReportStatus`         | pending, running, completed, failed                                                                                          |
+| Enum                      | Values                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SupportedLanguage`       | c, cpp, go, java, javascript, python, rust, typescript                                                                       |
+| `SubmissionStatus`        | queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error |
+| `JudgeType`               | standard, checker, interactive                                                                                               |
+| `ProblemType`             | full_source, function, multi_file, special_env                                                                               |
+| `ProblemDifficulty`       | easy, medium, hard                                                                                                           |
+| `ProblemImageSource`      | registry, tarball                                                                                                            |
+| `WorkspaceFileVisibility` | editable, readonly, hidden                                                                                                   |
+| `PlatformRole`            | admin, teacher, student                                                                                                      |
+| `CourseRole`              | teacher, ta, student                                                                                                         |
+| `ContestScoringMode`      | problem_count, point_sum                                                                                                     |
+| `CourseMembershipStatus`  | active, removed                                                                                                              |
+| `CourseJoinTokenKind`     | link, code                                                                                                                   |
+| `ProblemVisibility`       | public, private                                                                                                              |
+| `ProblemStatus`           | draft, published                                                                                                             |
+| `ScoreboardMode`          | hidden, live, frozen                                                                                                         |
+| `PlagiarismReportStatus`  | pending, running, completed, failed                                                                                          |
 
 ## Key Models
 
@@ -75,30 +75,30 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 
 ### Problem
 
-| Field                 | Type                | Notes                                                                                   |
-| --------------------- | ------------------- | --------------------------------------------------------------------------------------- |
-| `id`                  | String              | CUID, primary key                                                                       |
-| `title`               | String              | Problem title                                                                           |
-| `visibility`          | ProblemVisibility   | public or private (course-only)                                                         |
-| `status`              | ProblemStatus       | draft or published                                                                      |
-| `type`                | ProblemType         | full_source, function, multi_file, or special_env                                       |
-| `difficulty`          | ProblemDifficulty   | easy, medium, or hard (dedicated column; NOT a tag)                                     |
-| `tags`                | String[]            | Free-form topic/skill tags (difficulty lives on its own column)                         |
-| `timeLimitMs`         | Int                 | Execution time limit (per-case for standard, total for special_env)                     |
-| `memoryLimitMb`       | Int                 | Memory limit                                                                            |
-| `judgeConfig`         | Json?               | Unified judge configuration (ignored when `type === "special_env"`)                     |
-| `samples`             | Json?               | `{ input, output }[]` sample I/O pairs                                                  |
-| `advancedImageRef`    | String?             | TA image registry ref or tarball storage key (special_env only)                         |
-| `advancedImageSource` | ProblemImageSource? | `registry` or `tarball` (special_env only)                                              |
+| Field                 | Type                | Notes                                                               |
+| --------------------- | ------------------- | ------------------------------------------------------------------- |
+| `id`                  | String              | CUID, primary key                                                   |
+| `title`               | String              | Problem title                                                       |
+| `visibility`          | ProblemVisibility   | public or private (course-only)                                     |
+| `status`              | ProblemStatus       | draft or published                                                  |
+| `type`                | ProblemType         | full_source, function, multi_file, or special_env                   |
+| `difficulty`          | ProblemDifficulty   | easy, medium, or hard (dedicated column; NOT a tag)                 |
+| `tags`                | String[]            | Free-form topic/skill tags (difficulty lives on its own column)     |
+| `timeLimitMs`         | Int                 | Execution time limit (per-case for standard, total for special_env) |
+| `memoryLimitMb`       | Int                 | Memory limit                                                        |
+| `judgeConfig`         | Json?               | Unified judge configuration (ignored when `type === "special_env"`) |
+| `samples`             | Json?               | `{ input, output }[]` sample I/O pairs                              |
+| `advancedImageRef`    | String?             | TA image registry ref or tarball storage key (special_env only)     |
+| `advancedImageSource` | ProblemImageSource? | `registry` or `tarball` (special_env only)                          |
 
 ### Submission
 
-| Field           | Type             | Notes                                                                                                        |
-| --------------- | ---------------- | ------------------------------------------------------------------------------------------------------------ |
-| `status`        | SubmissionStatus | Judge progress/verdict                                                                                       |
-| `score`         | Int              | 0-100                                                                                                        |
-| `sampleOnly`    | Boolean          | `true` for in-editor sample runs — never graded                                                              |
-| `verdictDetail` | Json?            | Full `SubmissionResult`: per-case + per-subtask results, compiler output, scoring feedback                   |
+| Field           | Type             | Notes                                                                                      |
+| --------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `status`        | SubmissionStatus | Judge progress/verdict                                                                     |
+| `score`         | Int              | 0-100                                                                                      |
+| `sampleOnly`    | Boolean          | `true` for in-editor sample runs — never graded                                            |
+| `verdictDetail` | Json?            | Full `SubmissionResult`: per-case + per-subtask results, compiler output, scoring feedback |
 
 "Mode" is not a stored column — it's derived from the FK shape: `contestId` ? "contest" : `courseAssessmentId` ? "assignment" : "practice".
 
@@ -141,16 +141,16 @@ Tracks MOSS plagiarism detection runs. Created by web endpoint, processed by Tem
 
 ## JSON Columns
 
-| Model.Field                            | Schema                                      | Purpose                                                                          |
-| -------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
-| `Problem.judgeConfig`                  | `JudgeConfig`                               | type / compare / checker / interactor / runtime / subtaskStrategies              |
-| `Problem.samples`                      | `{ input, output }[]`                       | Sample I/O pairs rendered on the student problem page                            |
-| `ProblemWorkspaceFile.editableRegions` | `[[startLine, endLine]][]`                  | Monaco read-only decoration ranges                                               |
-| `CourseAssessment.adjustmentRules`     | `AdjustmentRule[]`                          | Late penalty / time bonus / memory penalty rules (applied post-judge)            |
-| `Contest.adjustmentRules`              | `AdjustmentRule[]`                          | Same as above, applied to contest submissions                                    |
-| `Submission.verdictDetail`             | Full `SubmissionResult`                     | Per-case + per-subtask results, compiler output, scoring feedback                |
-| `ContestParticipation.subtaskScores`   | Score breakdown                             | Per-subtask contest scores                                                       |
-| `PlagiarismReport.results`             | MOSS result array                           | Similarity pairs and percentages                                                 |
+| Model.Field                            | Schema                     | Purpose                                                               |
+| -------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
+| `Problem.judgeConfig`                  | `JudgeConfig`              | type / compare / checker / interactor / runtime / subtaskStrategies   |
+| `Problem.samples`                      | `{ input, output }[]`      | Sample I/O pairs rendered on the student problem page                 |
+| `ProblemWorkspaceFile.editableRegions` | `[[startLine, endLine]][]` | Monaco read-only decoration ranges                                    |
+| `CourseAssessment.adjustmentRules`     | `AdjustmentRule[]`         | Late penalty / time bonus / memory penalty rules (applied post-judge) |
+| `Contest.adjustmentRules`              | `AdjustmentRule[]`         | Same as above, applied to contest submissions                         |
+| `Submission.verdictDetail`             | Full `SubmissionResult`    | Per-case + per-subtask results, compiler output, scoring feedback     |
+| `ContestParticipation.subtaskScores`   | Score breakdown            | Per-subtask contest scores                                            |
+| `PlagiarismReport.results`             | MOSS result array          | Similarity pairs and percentages                                      |
 
 ## Seed Data
 

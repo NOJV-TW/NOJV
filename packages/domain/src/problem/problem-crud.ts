@@ -19,11 +19,7 @@ import { DEFAULT_LOCALE } from "@nojv/core";
 import { NotFoundError, ValidationError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
 
-import {
-  assertProblemOwnership,
-  requireProblem,
-  type ProblemActorContext
-} from "./helpers";
+import { assertProblemOwnership, requireProblem, type ProblemActorContext } from "./helpers";
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;

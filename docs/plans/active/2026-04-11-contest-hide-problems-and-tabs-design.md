@@ -11,7 +11,7 @@ Two related gaps in the current contest surface:
 1. **Problems leak before `startsAt`.** `getContestDetail()` unconditionally returns the full `problems` array, and the detail page only disables links in the UI — problem titles, ordinals, and points are still rendered in the DOM. A contestant can learn what's coming before the contest starts.
 2. **No ownership lens on the contest list.** `/contests` lists every published contest in one stream. Contest managers (owners, course teachers, course TAs) have no easy view of "contests I run."
 
-The user's framing: *competitions must not display problems before they begin, but general competition information is fine*. Alongside that, surface a "my contests" view for people who manage them.
+The user's framing: _competitions must not display problems before they begin, but general competition information is fine_. Alongside that, surface a "my contests" view for people who manage them.
 
 ## Non-Goals
 
@@ -34,14 +34,14 @@ type ContestPermissionInput = {
 
 type CourseMembershipRow = {
   courseId: string;
-  role: CourseRole;        // teacher | ta | student
+  role: CourseRole; // teacher | ta | student
   status: CourseMembershipStatus; // active | removed
 };
 
 export function canManageContest(
   userId: string | null,
   contest: ContestPermissionInput,
-  courseMemberships: CourseMembershipRow[],
+  courseMemberships: CourseMembershipRow[]
 ): boolean;
 ```
 
@@ -93,7 +93,7 @@ type ContestDetailView = {
     allowedLanguages: SupportedLanguage[];
     ipWhitelistEnabled: boolean;
     ipBindingEnabled: boolean;
-    status: 'upcoming' | 'active' | 'ended';
+    status: "upcoming" | "active" | "ended";
   };
   problems: ProblemSummary[] | null; // null when problemsHidden
   problemsHidden: boolean;
@@ -152,8 +152,8 @@ This lets a manager click through to the problem page before start, matching §3
 **What the placeholder shows:**
 
 - Lock icon (lucide `Lock`)
-- Title: *Problems are not yet available* / *題目尚未公開*
-- Body: *Problems will be revealed when the contest starts.* / *本競賽的題目將於開始時公開。*
+- Title: _Problems are not yet available_ / _題目尚未公開_
+- Body: _Problems will be revealed when the contest starts._ / _本競賽的題目將於開始時公開。_
 - Countdown to `startsAt` (reuses the existing `contests_startsIn` string composition)
 
 **What the placeholder does NOT show:**
@@ -169,6 +169,7 @@ This matches the user's choice (the strictest of the three levels discussed duri
 ### 5. List page: participable vs managed tabs
 
 **Files:**
+
 - `packages/domain/src/contest/queries.ts` — new function
 - `apps/web/src/routes/(app)/contests/+page.server.ts` — call the new function
 - `apps/web/src/routes/(app)/contests/+page.svelte` — tabs UI
@@ -214,7 +215,7 @@ For an unauthenticated caller (`userId = null`), skip the membership query, skip
 **UI:**
 
 - Bits UI `Tabs` component at the top of `/contests`.
-- Two tabs: *Participable* (default), *Managed*.
+- Two tabs: _Participable_ (default), _Managed_.
 - Tab state synced to URL via `?tab=managed` so links are shareable and refresh-stable.
 - Each tab renders the existing contest card list (unchanged card markup).
 - Managed cards additionally show a small `visibility` badge (`draft` / `published` / `archived`) so owners can tell a draft from a live contest at a glance.
@@ -227,16 +228,16 @@ For an unauthenticated caller (`userId = null`), skip the membership query, skip
 
 Add to both `en.json` and `zh-TW.json`:
 
-| Key | English | 繁體中文 |
-|---|---|---|
-| `contests_tabParticipable` | Participable | 可參加的 |
-| `contests_tabManaged` | My contests | 我的競賽 |
-| `contests_emptyParticipable` | No contests available right now. | 目前沒有可參加的競賽。 |
-| `contests_emptyManaged` | You don't manage any contests yet. | 您還沒有主辦任何競賽。 |
-| `contests_visibilityDraft` | Draft | 草稿 |
-| `contests_visibilityArchived` | Archived | 已封存 |
-| `contestDetail_problemsHiddenTitle` | Problems are not yet available | 題目尚未公開 |
-| `contestDetail_problemsHiddenBody` | Problems will be revealed when the contest starts. | 本競賽的題目將於開始時公開。 |
+| Key                                 | English                                            | 繁體中文                     |
+| ----------------------------------- | -------------------------------------------------- | ---------------------------- |
+| `contests_tabParticipable`          | Participable                                       | 可參加的                     |
+| `contests_tabManaged`               | My contests                                        | 我的競賽                     |
+| `contests_emptyParticipable`        | No contests available right now.                   | 目前沒有可參加的競賽。       |
+| `contests_emptyManaged`             | You don't manage any contests yet.                 | 您還沒有主辦任何競賽。       |
+| `contests_visibilityDraft`          | Draft                                              | 草稿                         |
+| `contests_visibilityArchived`       | Archived                                           | 已封存                       |
+| `contestDetail_problemsHiddenTitle` | Problems are not yet available                     | 題目尚未公開                 |
+| `contestDetail_problemsHiddenBody`  | Problems will be revealed when the contest starts. | 本競賽的題目將於開始時公開。 |
 
 ## Edge Cases
 
@@ -283,17 +284,17 @@ Add to both `en.json` and `zh-TW.json`:
 
 ## File Impact Summary
 
-| File | Change |
-|---|---|
-| `packages/domain/src/contest/permissions.ts` | **New** — `canManageContest()` |
-| `packages/domain/src/contest/queries.ts` | `getContestDetail` signature + `problemsHidden` shaping; new `listContestsForUser` |
-| `apps/web/src/routes/(app)/contests/+page.server.ts` | Call `listContestsForUser`, pass through `tab` query param |
-| `apps/web/src/routes/(app)/contests/+page.svelte` | Bits UI Tabs, visibility badges, empty states |
-| `apps/web/src/routes/(app)/contests/[slug]/+page.server.ts` | Pass `userId`, `now` to domain |
-| `apps/web/src/routes/(app)/contests/[slug]/+page.svelte` | `{#if problemsHidden}` branch, `isManager` in link href |
-| `apps/web/src/routes/(app)/contests/[slug]/problems/[problemId]/+page.server.ts` | Admit managers before `startsAt` |
-| `apps/web/messages/en.json` | 8 new keys |
-| `apps/web/messages/zh-TW.json` | 8 new keys |
-| `tests/` | Unit + integration + E2E as above |
+| File                                                                             | Change                                                                             |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `packages/domain/src/contest/permissions.ts`                                     | **New** — `canManageContest()`                                                     |
+| `packages/domain/src/contest/queries.ts`                                         | `getContestDetail` signature + `problemsHidden` shaping; new `listContestsForUser` |
+| `apps/web/src/routes/(app)/contests/+page.server.ts`                             | Call `listContestsForUser`, pass through `tab` query param                         |
+| `apps/web/src/routes/(app)/contests/+page.svelte`                                | Bits UI Tabs, visibility badges, empty states                                      |
+| `apps/web/src/routes/(app)/contests/[slug]/+page.server.ts`                      | Pass `userId`, `now` to domain                                                     |
+| `apps/web/src/routes/(app)/contests/[slug]/+page.svelte`                         | `{#if problemsHidden}` branch, `isManager` in link href                            |
+| `apps/web/src/routes/(app)/contests/[slug]/problems/[problemId]/+page.server.ts` | Admit managers before `startsAt`                                                   |
+| `apps/web/messages/en.json`                                                      | 8 new keys                                                                         |
+| `apps/web/messages/zh-TW.json`                                                   | 8 new keys                                                                         |
+| `tests/`                                                                         | Unit + integration + E2E as above                                                  |
 
 **Untouched:** Prisma schema, `contestRepo`, `ContestParticipation` logic, IP lock, scoreboard, judge pipeline.

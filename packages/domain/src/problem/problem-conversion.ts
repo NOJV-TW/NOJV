@@ -8,11 +8,7 @@ import {
 
 import { ConflictError } from "../shared/errors";
 
-import {
-  assertProblemOwnership,
-  requireProblem,
-  type ProblemActorContext
-} from "./helpers";
+import { assertProblemOwnership, requireProblem, type ProblemActorContext } from "./helpers";
 
 // Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
 // discarded. The UI shows an explicit warning before calling this.

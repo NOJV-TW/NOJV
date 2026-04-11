@@ -137,7 +137,10 @@ describe("contest queries (real DB)", () => {
         data: { contestId: contest.id, problemId: p2.id, ordinal: 1, points: 100 }
       });
 
-      const detail = await getContestDetail("ordered-problems", { userId: null, now: new Date() });
+      const detail = await getContestDetail("ordered-problems", {
+        userId: null,
+        now: new Date()
+      });
       expect(detail!.problems![0]!.title).toBe("Problem A");
       expect(detail!.problems![1]!.title).toBe("Problem B");
     });
@@ -153,7 +156,9 @@ describe("contest queries (real DB)", () => {
       });
       const user = await createTestUser();
 
-      const data = await getContestWorkspaceData("workspace-test", user.id, { now: new Date() });
+      const data = await getContestWorkspaceData("workspace-test", user.id, {
+        now: new Date()
+      });
       expect(data).not.toBeNull();
       expect(data!.participation).toBeNull();
     });
@@ -174,7 +179,9 @@ describe("contest queries (real DB)", () => {
         }
       });
 
-      const data = await getContestWorkspaceData("joined-contest", user.id, { now: new Date() });
+      const data = await getContestWorkspaceData("joined-contest", user.id, {
+        now: new Date()
+      });
       expect(data).not.toBeNull();
       expect(data!.participation).not.toBeNull();
       expect(data!.participation!.status).toBe("active");
