@@ -34,9 +34,9 @@
   const hasTagData = $derived(analytics.byTag.length > 0);
 
   const difficultyColor: Record<string, string> = {
-    easy: "#10b981",
-    medium: "#f59e0b",
-    hard: "#ef4444"
+    easy: "var(--success)",
+    medium: "var(--warning)",
+    hard: "var(--destructive)"
   };
 
   const difficultyOption: EChartsOption = $derived({
@@ -57,7 +57,7 @@
         data: analytics.byDifficulty.map((d) => ({
           name: d.difficulty,
           value: d.acCount,
-          itemStyle: { color: difficultyColor[d.difficulty] ?? "#94a3b8" }
+          itemStyle: { color: difficultyColor[d.difficulty] ?? "var(--muted-foreground)" }
         }))
       }
     ]
@@ -65,14 +65,14 @@
 
   const verdictPalette: Record<string, string> = {
     accepted: "var(--chart-5)",
-    wrong_answer: "rgba(239, 68, 68, 0.5)",
-    time_limit_exceeded: "rgba(245, 158, 11, 0.5)",
-    memory_limit_exceeded: "rgba(249, 115, 22, 0.5)",
-    runtime_error: "rgba(168, 85, 247, 0.5)",
-    compile_error: "rgba(239, 68, 68, 0.35)",
-    queued: "rgba(148, 163, 184, 0.5)",
-    compiling: "rgba(148, 163, 184, 0.5)",
-    running: "rgba(148, 163, 184, 0.5)"
+    wrong_answer: "var(--destructive)",
+    time_limit_exceeded: "var(--warning)",
+    memory_limit_exceeded: "var(--warning)",
+    runtime_error: "var(--destructive)",
+    compile_error: "var(--destructive)",
+    queued: "var(--muted-foreground)",
+    compiling: "var(--muted-foreground)",
+    running: "var(--muted-foreground)"
   };
 
   const verdictOption: EChartsOption = $derived({
@@ -102,8 +102,9 @@
           name: formatVerdictLabel(v.status),
           value: v.count,
           itemStyle: {
-            color: verdictPalette[v.status] ?? "rgba(100, 116, 139, 0.5)",
-            borderWidth: v.status === "accepted" ? 3 : 2
+            color: verdictPalette[v.status] ?? "var(--muted-foreground)",
+            borderWidth: v.status === "accepted" ? 3 : 2,
+            opacity: v.status === "accepted" ? 1 : 0.5
           }
         }))
       }
@@ -172,9 +173,9 @@
   <Card variant="surface" size="lg">
     <div class="flex flex-col gap-6">
       <div class="flex items-baseline justify-between gap-4">
-        <h2 class="text-title-sm font-semibold">
+        <h1 class="text-title-sm font-semibold">
           {m.dashboard_welcome({ username: data.username })}
-        </h2>
+        </h1>
         <span class="text-caption text-muted-foreground">
           {m.dashboard_last30Days()}
         </span>
