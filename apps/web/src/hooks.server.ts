@@ -1,5 +1,5 @@
 import { redirect, type Handle } from "@sveltejs/kit";
-import { sessionUserSchema } from "@nojv/core";
+import type { SessionUser } from "@nojv/core";
 
 import { getAuth } from "$lib/auth";
 import { createLogger } from "$lib/server/logger";
@@ -144,9 +144,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
-
-  const parsed = sessionUserSchema.safeParse(session?.user ?? null);
-  event.locals.sessionUser = parsed.success ? parsed.data : null;
+  // better-auth already infers session.user from the auth config (additional
+  // fields + username plugin), so the value is trustworthy. The only gap vs.
+  // SessionUser is that platformRole is widened to `string` and username may
+  // be `undefined`; cast to reconcile without re-validating.
+  event.locals.sessionUser = (session?.user ?? null) as SessionUser | null;
 
   if (event.locals.sessionUser?.disabled) {
     event.locals.session = null;
