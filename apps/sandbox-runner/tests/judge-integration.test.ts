@@ -23,9 +23,18 @@ const SHORT_TIMEOUT_MS = 500;
 
 // ─── Utilities ──────────────────────────────────────────────────────
 
+const commandVersionFlags: Record<string, string> = {
+  gcc: "--version",
+  "g++": "--version",
+  go: "version",
+  javac: "-version",
+  rustc: "--version"
+};
+
 function commandExists(cmd: string): Promise<boolean> {
+  const flag = commandVersionFlags[cmd] ?? "--version";
   return new Promise((resolve) => {
-    execFile("which", [cmd], (err) => resolve(!err));
+    execFile(cmd, [flag], { timeout: 5_000 }, (err) => resolve(!err));
   });
 }
 
