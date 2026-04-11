@@ -32,18 +32,27 @@ export const load: PageServerLoad = async (event) => {
     getUserAnalytics(actor.userId)
   ]);
 
+  const activityByDate = new Map(
+    dailyActivity.map((row) => [row.date.toISOString().slice(0, 10), row])
+  );
+
+  const filledActivity = Array.from({ length: ACTIVITY_DAYS }, (_, i) => {
+    const dayOffset = ACTIVITY_DAYS - 1 - i;
+    const d = utcDayOffset(dayOffset);
+    const date = d.toISOString().slice(0, 10);
+    const row = activityByDate.get(date);
+    return {
+      date,
+      acCount: row?.acCount ?? 0,
+      submissionCount: row?.submissionCount ?? 0
+    };
+  });
+
   return {
     stats,
     recentSubmissions,
     username: actor.username,
     analytics,
-    dailyActivity: dailyActivity
-      .slice()
-      .reverse()
-      .map((row) => ({
-        date: row.date.toISOString().slice(0, 10),
-        acCount: row.acCount,
-        submissionCount: row.submissionCount
-      }))
+    dailyActivity: filledActivity
   };
 };
