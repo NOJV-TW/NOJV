@@ -59,7 +59,7 @@ Per-case results are aggregated into a 0–100 raw score using `judgeConfig.scor
 
 - `all_or_nothing` — set weight if every case AC, else 0. Default.
 - `proportional` — `weight * (passed / total)`.
-- `minimum` — `weight * min(caseScore)`. For binary verdicts this is equivalent to `all_or_nothing`; reserved for future partial-credit checker support.
+- `minimum` — accepted by the schema but behaves identically to `all_or_nothing` today. The runner has no partial-credit signal to take a minimum over, so `buildSubtaskResults()` collapses it to the binary case. Not implemented as a distinct strategy — no code path exists today.
 
 The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/temporal/src/activities/judge.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
 

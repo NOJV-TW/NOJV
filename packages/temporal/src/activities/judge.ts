@@ -52,7 +52,8 @@ const verdictMap: Record<string, SubmissionResult["verdict"]> = {
 // Subtask strategies:
 //   all_or_nothing  weight * (all cases passed ? 1 : 0)
 //   proportional    weight * (passed / total), passed iff every case passed
-//   minimum         weight * min(caseScores) — reserved for partial checkers
+//   minimum         accepted for schema compatibility but collapses to all_or_nothing;
+//                   no partial-credit signal exists to take a minimum over today
 function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: submissionDomain.TestcaseSetGroup[],
