@@ -30,6 +30,15 @@ export async function updateContestScores(contestParticipationId: string): Promi
       let solved = false;
 
       for (const sub of problemSubs) {
+        // In-progress submissions (queued/compiling/running) are not
+        // yet a verdict — they must not count as wrong attempts. When
+        // updateContestScores fires on the first completed judge for a
+        // participant, later-submitted attempts may still be mid-flight;
+        // they'll be counted (or not) on the next recalc once their
+        // own judge completes.
+        if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
+          continue;
+        }
         if (sub.status === "accepted") {
           solved = true;
           const solveTimeSec = Math.floor(
