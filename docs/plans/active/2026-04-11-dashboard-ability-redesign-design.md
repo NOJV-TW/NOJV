@@ -37,11 +37,11 @@ A single `Card variant="surface" size="lg"` containing:
 
 Four KPIs:
 
-| Cell | Value | Source |
-| --- | --- | --- |
-| 已解題 | `stats.totalAc` | existing `getUserDashboard` |
-| 嘗試題數 | `stats.totalAttempts` | existing |
-| 通過率 | `acRate` (formatted %) | existing derived value |
+| Cell     | Value                                                     | Source                                                          |
+| -------- | --------------------------------------------------------- | --------------------------------------------------------------- |
+| 已解題   | `stats.totalAc`                                           | existing `getUserDashboard`                                     |
+| 嘗試題數 | `stats.totalAttempts`                                     | existing                                                        |
+| 通過率   | `acRate` (formatted %)                                    | existing derived value                                          |
 | 練習天數 | count of `dailyActivity` rows where `submissionCount > 0` | computed inline in `+page.svelte` from existing `dailyActivity` |
 
 The existing `StatCard` component is **not** used on this page anymore. It stays in `$lib/components/ui/` for other routes.
@@ -99,9 +99,9 @@ Horizontal ECharts bar chart, top 8 tags by AC count.
 ```ts
 export interface UserAnalytics {
   byDifficulty: { difficulty: "easy" | "medium" | "hard"; acCount: number }[];
-  byLanguage: { language: string; count: number }[];  // kept for other callers; this page stops rendering it
+  byLanguage: { language: string; count: number }[]; // kept for other callers; this page stops rendering it
   byVerdict: { status: string; count: number }[];
-  byTag: { tag: string; acCount: number }[];          // NEW — sorted desc, capped at 8
+  byTag: { tag: string; acCount: number }[]; // NEW — sorted desc, capped at 8
 }
 ```
 
@@ -211,14 +211,14 @@ Existing hard-coded Chinese strings in the current `+page.svelte` (`已解難度
 
 ## Files Touched
 
-| File | Change |
-| --- | --- |
-| `packages/domain/src/user/queries.ts` | Add `byTag` to `UserAnalytics` + populate in `getUserAnalytics` |
-| `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` | **New.** 30-day DOM-based heatmap with tooltips |
-| `apps/web/src/routes/(app)/dashboard/+page.svelte` | Full rewrite per layout above |
-| `apps/web/src/routes/(app)/dashboard/+page.server.ts` | Remove courses/assessments/announcements loads |
-| `apps/web/messages/zh-TW.json` | Add 5 new keys, remove 3-4 unused keys |
-| `apps/web/messages/en.json` | Mirror the zh-TW changes |
+| File                                                        | Change                                                          |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| `packages/domain/src/user/queries.ts`                       | Add `byTag` to `UserAnalytics` + populate in `getUserAnalytics` |
+| `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` | **New.** 30-day DOM-based heatmap with tooltips                 |
+| `apps/web/src/routes/(app)/dashboard/+page.svelte`          | Full rewrite per layout above                                   |
+| `apps/web/src/routes/(app)/dashboard/+page.server.ts`       | Remove courses/assessments/announcements loads                  |
+| `apps/web/messages/zh-TW.json`                              | Add 5 new keys, remove 3-4 unused keys                          |
+| `apps/web/messages/en.json`                                 | Mirror the zh-TW changes                                        |
 
 No changes to `packages/db`, no Prisma migrations, no Temporal workflow changes, no test infrastructure changes.
 

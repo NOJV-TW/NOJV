@@ -36,10 +36,7 @@ describe("aggregateByTag", () => {
   });
 
   it("ignores problems with an empty tag list", () => {
-    const rows = [
-      { problem: { tags: [] } },
-      { problem: { tags: ["dp"] } }
-    ];
+    const rows = [{ problem: { tags: [] } }, { problem: { tags: ["dp"] } }];
     expect(aggregateByTag(rows)).toEqual([{ tag: "dp", acCount: 1 }]);
   });
 });

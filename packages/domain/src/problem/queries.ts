@@ -18,6 +18,7 @@ import {
   type ProblemVisibility
 } from "@nojv/core";
 
+import { NotFoundError } from "../shared/errors";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
 export interface ProblemDetail {
@@ -47,7 +48,6 @@ export interface ProblemDetail {
     path: string;
     content: string;
     visibility: "editable" | "readonly" | "hidden";
-    editableRegions: [number, number][] | null;
     description: string;
   }[];
   advancedImageRef: string | null;
@@ -124,22 +124,6 @@ function buildStarterByLanguage(
   return result;
 }
 
-// `editableRegions` is `Json?` at the DB layer; return null (whole-file editable) on bad input.
-function parseEditableRegions(raw: unknown): [number, number][] | null {
-  if (raw === null || raw === undefined) return null;
-  if (!Array.isArray(raw)) return null;
-  const result: [number, number][] = [];
-  for (const entry of raw) {
-    if (!Array.isArray(entry) || entry.length !== 2) return null;
-    const [start, end] = entry as [unknown, unknown];
-    if (typeof start !== "number" || typeof end !== "number") return null;
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-    if (start < 1 || end < start) return null;
-    result.push([start, end]);
-  }
-  return result;
-}
-
 function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
@@ -168,7 +152,6 @@ function mapPersistedProblemDetail(
       path: string;
       content: string;
       visibility: string;
-      editableRegions?: unknown;
       orderIndex?: number;
       description?: string;
     }[];
@@ -195,7 +178,6 @@ function mapPersistedProblemDetail(
       path: f.path,
       content: visibility === "hidden" ? "" : f.content,
       visibility,
-      editableRegions: parseEditableRegions(f.editableRegions),
       description: f.description ?? ""
     };
   });
@@ -368,7 +350,7 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
   const persistedProblem = await problemRepo.findDetailById(id);
 
   if (!persistedProblem) {
-    return null;
+    throw new NotFoundError(`Problem not found: ${id}`);
   }
 
   const acceptedCount = await submissionRepo.count({

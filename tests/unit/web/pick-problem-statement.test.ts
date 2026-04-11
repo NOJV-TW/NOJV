@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { pickProblemStatement } from "$lib/server/shared/pick-problem-statement";
+import { pickProblemStatement } from "@nojv/domain";
 
 describe("pickProblemStatement", () => {
   it("returns localized statement when matching locale exists", () => {

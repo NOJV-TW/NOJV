@@ -4,7 +4,6 @@
  * Verdicts: AC, WA, RE, TLE, CE, MLE, SE
  * Languages: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
  * Judge types: standard, checker, interactive
- * Plus: function mode (template injection) for all languages
  */
 import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
@@ -23,9 +22,18 @@ const SHORT_TIMEOUT_MS = 500;
 
 // ─── Utilities ──────────────────────────────────────────────────────
 
+const commandVersionFlags: Record<string, string> = {
+  gcc: "--version",
+  "g++": "--version",
+  go: "version",
+  javac: "-version",
+  rustc: "--version"
+};
+
 function commandExists(cmd: string): Promise<boolean> {
+  const flag = commandVersionFlags[cmd] ?? "--version";
   return new Promise((resolve) => {
-    execFile("which", [cmd], (err) => resolve(!err));
+    execFile(cmd, [flag], { timeout: 5_000 }, (err) => resolve(!err));
   });
 }
 

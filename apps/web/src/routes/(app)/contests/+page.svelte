@@ -46,8 +46,14 @@
   }
 </script>
 
-{#snippet contestCard(contest: AnyContest, showVisibility: boolean)}
+{#snippet contestCard(contest: AnyContest)}
   {@const status = statusOf(contest)}
+  {@const visibilityLabel =
+    "visibility" in contest && contest.visibility === "draft"
+      ? m.contests_visibilityDraft()
+      : "visibility" in contest && contest.visibility === "archived"
+        ? m.contests_visibilityArchived()
+        : null}
   <a class="block" href="/contests/{contest.slug}">
     <Card variant="surface" size="lg" interactive>
       <div class="flex items-start justify-between gap-4">
@@ -68,13 +74,9 @@
             <h3 class="font-display text-title font-semibold [text-wrap:balance]">
               {contest.title}
             </h3>
-            {#if showVisibility && "visibility" in contest && contest.visibility === "draft"}
+            {#if visibilityLabel}
               <span class="rounded-sm bg-muted px-2 py-0.5 text-caption text-muted-foreground">
-                {m.contests_visibilityDraft()}
-              </span>
-            {:else if showVisibility && "visibility" in contest && contest.visibility === "archived"}
-              <span class="rounded-sm bg-muted px-2 py-0.5 text-caption text-muted-foreground">
-                {m.contests_visibilityArchived()}
+                {visibilityLabel}
               </span>
             {/if}
           </div>
@@ -207,37 +209,15 @@
       </a>
     </div>
 
-    <div class="mt-4" role="tabpanel">
-      {#if tabValue === "participable"}
-        {#if data.participable.length === 0}
-          <EmptyState
-            variant="minimal"
-            icon={Trophy}
-            title={m.contests_emptyParticipable()}
-            description={m.contests_emptyHint()}
-          />
-        {:else if filteredParticipable.length === 0}
-          <EmptyState
-            variant="minimal"
-            icon={Trophy}
-            title={m.contests_noMatches()}
-            description={m.contests_noMatchesHint()}
-          />
-        {:else}
-          <section class="grid gap-4 lg:grid-cols-2">
-            {#each filteredParticipable as contest (contest.id)}
-              {@render contestCard(contest, false)}
-            {/each}
-          </section>
-        {/if}
-      {:else if data.managed.length === 0}
+    {#snippet tabBody(list: AnyContest[], filtered: AnyContest[], emptyTitle: string)}
+      {#if list.length === 0}
         <EmptyState
           variant="minimal"
           icon={Trophy}
-          title={m.contests_emptyManaged()}
+          title={emptyTitle}
           description={m.contests_emptyHint()}
         />
-      {:else if filteredManaged.length === 0}
+      {:else if filtered.length === 0}
         <EmptyState
           variant="minimal"
           icon={Trophy}
@@ -246,10 +226,18 @@
         />
       {:else}
         <section class="grid gap-4 lg:grid-cols-2">
-          {#each filteredManaged as contest (contest.id)}
-            {@render contestCard(contest, true)}
+          {#each filtered as contest (contest.id)}
+            {@render contestCard(contest)}
           {/each}
         </section>
+      {/if}
+    {/snippet}
+
+    <div class="mt-4" role="tabpanel">
+      {#if tabValue === "participable"}
+        {@render tabBody(data.participable, filteredParticipable, m.contests_emptyParticipable())}
+      {:else}
+        {@render tabBody(data.managed, filteredManaged, m.contests_emptyManaged())}
       {/if}
     </div>
   </div>

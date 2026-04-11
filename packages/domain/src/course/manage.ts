@@ -1,5 +1,6 @@
 import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from "@nojv/db";
 
+import { NotFoundError } from "../shared/errors";
 import { localizeProblem } from "../shared/pick-problem-statement";
 
 export async function getCourseManageAnalytics(
@@ -300,7 +301,9 @@ export async function getTeacherOverview(courseSlugs: string[]) {
 
 export async function getExportData(courseSlug: string, assessmentSlug: string) {
   const course = await courseRepo.findIdBySlug(courseSlug);
-  if (!course) return null;
+  if (!course) {
+    throw new NotFoundError(`Course not found: ${courseSlug}`);
+  }
 
   // Assessment lookup and student membership lookup are independent
   // after we have course.id — fire them in parallel.
@@ -308,7 +311,9 @@ export async function getExportData(courseSlug: string, assessmentSlug: string) 
     assessmentRepo.findWithProblemDetails(course.id, assessmentSlug),
     courseMembershipRepo.findStudents(course.id)
   ]);
-  if (!assessment) return null;
+  if (!assessment) {
+    throw new NotFoundError(`Assessment not found: ${courseSlug}/${assessmentSlug}`);
+  }
 
   const problems = assessment.problems.map((p) => ({
     problemId: p.problem.id,

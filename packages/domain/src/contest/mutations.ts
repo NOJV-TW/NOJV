@@ -4,12 +4,10 @@ import {
   contestParticipationRepo,
   contestProblemRepo,
   contestRepo,
-  courseRepo,
   courseMembershipRepo,
   problemRepo,
   runTransaction,
   submissionRepo,
-  userRepo,
   type Prisma,
   type TransactionClient
 } from "@nojv/db";
@@ -19,38 +17,11 @@ import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/mutations";
+import { requireContest, requireCourse, requireUser } from "../shared/require";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
-
-async function requireContest(tx: TransactionClient, contestSlug: string) {
-  const contest = await contestRepo.withTx(tx).findBySlug(contestSlug);
-
-  if (!contest) {
-    throw new NotFoundError(`Contest not found: ${contestSlug}`);
-  }
-
-  return contest;
-}
-
-async function requireCourse(tx: TransactionClient, courseSlug: string) {
-  const course = await courseRepo.withTx(tx).findBySlug(courseSlug);
-
-  if (!course) {
-    throw new NotFoundError(`Course not found: ${courseSlug}`);
-  }
-
-  return course;
-}
-
-async function requireUser(tx: TransactionClient, userId: string) {
-  const existing = await userRepo.withTx(tx).findById(userId);
-  if (!existing) {
-    throw new NotFoundError(`User not found: ${userId}`);
-  }
-  return existing;
-}
 
 async function resolveAndAttachContestProblems(
   tx: TransactionClient,

@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "lint": "turbo lint",
+    "lint": "pnpm lint:domain-queries && turbo lint",
+    "lint:domain-queries": "node tooling/scripts/check-query-returns.mjs",
     "test": "turbo test",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -21,7 +22,7 @@
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "ci:verify": "pnpm format && pnpm db:generate && turbo run build typecheck lint test",
+    "ci:verify": "pnpm format && pnpm lint:domain-queries && pnpm db:generate && turbo run build typecheck lint test",
     "db:deploy": "pnpm --filter @nojv/db db:deploy",
     "db:generate": "pnpm --filter @nojv/db db:generate",
     "db:migrate": "pnpm --filter @nojv/db db:migrate",

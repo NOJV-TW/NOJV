@@ -38,10 +38,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     });
   }
 
-  const exportData = await getExportData(slug, assessmentSlug);
-  if (!exportData) throw new NotFoundError("Course or assessment not found.");
-
-  const { problems, students, scoreLookup } = exportData;
+  const { problems, students, scoreLookup } = await getExportData(slug, assessmentSlug);
 
   // Generate CSV
   const headers = ["Name", "Username", ...problems.map((p) => p.title), "Total"];

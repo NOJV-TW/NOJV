@@ -275,7 +275,7 @@
           <EmptyState
             variant="minimal"
             icon={PieChart}
-            title={m.dashboard_noTagData()}
+            title={m.dashboard_noActivity()}
           />
         {/if}
       </Card>

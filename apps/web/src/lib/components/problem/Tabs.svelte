@@ -44,7 +44,6 @@
 
   const problemTypeFieldLabel: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceBadge(),
-    function: () => m.problemDetail_functionBadge(),
     multi_file: () => m.problemDetail_multiFileBadge(),
     special_env: () => m.problemDetail_specialEnvBadge()
   };
@@ -448,7 +447,7 @@
                   <div class="mt-1.5 flex flex-wrap items-center gap-1">
                     {#each problem.tags as tag (tag)}
                       <span
-                        class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass(tag)}"
+                        class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass()}"
                       >
                         {tag}
                       </span>
@@ -630,7 +629,7 @@
               <div class="mt-1.5 flex flex-wrap items-center gap-1">
                 {#each problem.tags as tag (tag)}
                   <span
-                    class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass(tag)}"
+                    class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass()}"
                   >
                     {tag}
                   </span>

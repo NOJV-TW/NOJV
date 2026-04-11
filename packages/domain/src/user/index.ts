@@ -5,9 +5,9 @@ export {
   countUsers,
   updateUserRole,
   toggleUserDisabled,
-  getUserDashboard,
-  getUserAnalytics,
-  type UserAnalytics
+  getDashboardView,
+  type UserAnalytics,
+  type DashboardView
 } from "./queries";
 export { aggregateByTag } from "./analytics-helpers";
 export type { TagAcCount } from "./analytics-helpers";
