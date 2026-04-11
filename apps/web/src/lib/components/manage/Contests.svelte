@@ -284,6 +284,8 @@
             <label class="flex items-center gap-1.5 text-body-sm">
               <input
                 type="checkbox"
+                name="allowedLanguages"
+                value={lang}
                 checked={($form.allowedLanguages ?? []).includes(lang)}
                 onchange={() => toggleLanguage(lang)}
               />
