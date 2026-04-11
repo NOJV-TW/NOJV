@@ -1,7 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
+  import * as Tabs from "$lib/components/ui/tabs/index.js";
   import { Trophy, Plus } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Section from "$lib/components/ui/Section.svelte";
@@ -10,20 +13,37 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
 
+  type ParticipableContest = (typeof data)["participable"][number];
+  type ManagedContest = (typeof data)["managed"][number];
+  type AnyContest = ParticipableContest | ManagedContest;
+
   let { data, form: actionData } = $props();
 
   let search = $state("");
   let joinDialogOpen = $state(false);
 
-  let filtered = $derived(
-    search
-      ? data.contests.filter(
-          (c) =>
-            c.title.toLowerCase().includes(search.toLowerCase()) ||
-            c.slug.toLowerCase().includes(search.toLowerCase())
-        )
-      : data.contests
+  let tabValue = $state<"participable" | "managed">(
+    $page.url.searchParams.get("tab") === "managed" ? "managed" : "participable"
   );
+
+  function onTabChange(value: string) {
+    tabValue = value as "participable" | "managed";
+    const url = new URL($page.url);
+    if (value === "managed") url.searchParams.set("tab", "managed");
+    else url.searchParams.delete("tab");
+    goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+  }
+
+  function applySearch<T extends AnyContest>(list: T[]): T[] {
+    if (!search) return list;
+    const q = search.toLowerCase();
+    return list.filter(
+      (c) => c.title.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+    );
+  }
+
+  let filteredParticipable = $derived(applySearch(data.participable));
+  let filteredManaged = $derived(applySearch(data.managed));
 
   function statusOf(contest: { startsAt: string; endsAt: string }) {
     const now = Date.now();
@@ -34,6 +54,73 @@
     return "ended";
   }
 </script>
+
+{#snippet contestCard(contest: AnyContest, showVisibility: boolean)}
+  {@const status = statusOf(contest)}
+  <a class="block" href="/contests/{contest.slug}">
+    <Card variant="surface" size="lg" interactive>
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="text-caption uppercase tracking-wide text-muted-foreground">
+              {contest.scoringMode}
+            </p>
+            {#if status === "active"}
+              <Badge variant="success">{m.contestDetail_live()}</Badge>
+            {:else if status === "upcoming"}
+              <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
+            {:else}
+              <Badge variant="muted">{m.contests_statusEnded()}</Badge>
+            {/if}
+          </div>
+          <div class="mt-2 flex items-center gap-2 flex-wrap">
+            <h3 class="font-display text-title font-semibold [text-wrap:balance]">
+              {contest.title}
+            </h3>
+            {#if showVisibility && "visibility" in contest && contest.visibility === "draft"}
+              <span class="rounded-sm bg-muted px-2 py-0.5 text-caption text-muted-foreground">
+                {m.contests_visibilityDraft()}
+              </span>
+            {:else if showVisibility && "visibility" in contest && contest.visibility === "archived"}
+              <span class="rounded-sm bg-muted px-2 py-0.5 text-caption text-muted-foreground">
+                {m.contests_visibilityArchived()}
+              </span>
+            {/if}
+          </div>
+          {#if contest.summary}
+            <p class="mt-1 text-body-sm text-muted-foreground [text-wrap:pretty]">
+              {contest.summary}
+            </p>
+          {/if}
+        </div>
+      </div>
+      <dl class="mt-5 grid gap-4 sm:grid-cols-3 rounded-sm bg-[color:var(--color-panel-strong)] p-4">
+        <div>
+          <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+            {m.contestDetail_problems()}
+          </dt>
+          <dd class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+            {contest.problemCount}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+            {m.contests_participants()}
+          </dt>
+          <dd class="mt-1 font-display text-title-sm font-semibold tabular-nums">
+            {contest.participantCount}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+            {m.contestDetail_scoreboard()}
+          </dt>
+          <dd class="mt-1 text-body-sm font-medium">{contest.scoreboardMode}</dd>
+        </div>
+      </dl>
+    </Card>
+  </a>
+{/snippet}
 
 <div class="space-y-6">
   <Section>
@@ -92,77 +179,58 @@
     </Dialog.Content>
   </Dialog.Root>
 
-  {#if data.contests.length === 0}
-    <EmptyState
-      variant="minimal"
-      icon={Trophy}
-      title={m.contests_empty()}
-      description={m.contests_emptyHint()}
-    />
-  {:else if filtered.length === 0}
-    <EmptyState
-      variant="minimal"
-      icon={Trophy}
-      title={m.contests_noMatches()}
-      description={m.contests_noMatchesHint()}
-    />
-  {:else}
-    <section class="grid gap-4 lg:grid-cols-2">
-      {#each filtered as contest (contest.slug)}
-        {@const status = statusOf(contest)}
-        <a class="block" href="/contests/{contest.slug}">
-          <Card variant="surface" size="lg" interactive>
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <p class="text-caption uppercase tracking-wide text-muted-foreground">
-                    {contest.scoringMode}
-                  </p>
-                  {#if status === "active"}
-                    <Badge variant="success">{m.contestDetail_live()}</Badge>
-                  {:else if status === "upcoming"}
-                    <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
-                  {:else}
-                    <Badge variant="muted">{m.contests_statusEnded()}</Badge>
-                  {/if}
-                </div>
-                <h3 class="mt-2 font-display text-title font-semibold [text-wrap:balance]">
-                  {contest.title}
-                </h3>
-                {#if contest.summary}
-                  <p class="mt-1 text-body-sm text-muted-foreground [text-wrap:pretty]">
-                    {contest.summary}
-                  </p>
-                {/if}
-              </div>
-            </div>
-            <dl class="mt-5 grid gap-4 sm:grid-cols-3 rounded-sm bg-[color:var(--color-panel-strong)] p-4">
-              <div>
-                <dt class="text-caption uppercase tracking-wide text-muted-foreground">
-                  {m.contestDetail_problems()}
-                </dt>
-                <dd class="mt-1 font-display text-title-sm font-semibold tabular-nums">
-                  {contest.problemCount}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-caption uppercase tracking-wide text-muted-foreground">
-                  {m.contests_participants()}
-                </dt>
-                <dd class="mt-1 font-display text-title-sm font-semibold tabular-nums">
-                  {contest.participantCount}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-caption uppercase tracking-wide text-muted-foreground">
-                  {m.contestDetail_scoreboard()}
-                </dt>
-                <dd class="mt-1 text-body-sm font-medium">{contest.scoreboardMode}</dd>
-              </div>
-            </dl>
-          </Card>
-        </a>
-      {/each}
-    </section>
-  {/if}
+  <Tabs.Root value={tabValue} onValueChange={onTabChange}>
+    <Tabs.List>
+      <Tabs.Trigger value="participable">{m.contests_tabParticipable()}</Tabs.Trigger>
+      <Tabs.Trigger value="managed">{m.contests_tabManaged()}</Tabs.Trigger>
+    </Tabs.List>
+
+    <Tabs.Content value="participable">
+      {#if data.participable.length === 0}
+        <EmptyState
+          variant="minimal"
+          icon={Trophy}
+          title={m.contests_emptyParticipable()}
+          description={m.contests_emptyHint()}
+        />
+      {:else if filteredParticipable.length === 0}
+        <EmptyState
+          variant="minimal"
+          icon={Trophy}
+          title={m.contests_noMatches()}
+          description={m.contests_noMatchesHint()}
+        />
+      {:else}
+        <section class="grid gap-4 lg:grid-cols-2">
+          {#each filteredParticipable as contest (contest.id)}
+            {@render contestCard(contest, false)}
+          {/each}
+        </section>
+      {/if}
+    </Tabs.Content>
+
+    <Tabs.Content value="managed">
+      {#if data.managed.length === 0}
+        <EmptyState
+          variant="minimal"
+          icon={Trophy}
+          title={m.contests_emptyManaged()}
+          description={m.contests_emptyHint()}
+        />
+      {:else if filteredManaged.length === 0}
+        <EmptyState
+          variant="minimal"
+          icon={Trophy}
+          title={m.contests_noMatches()}
+          description={m.contests_noMatchesHint()}
+        />
+      {:else}
+        <section class="grid gap-4 lg:grid-cols-2">
+          {#each filteredManaged as contest (contest.id)}
+            {@render contestCard(contest, true)}
+          {/each}
+        </section>
+      {/if}
+    </Tabs.Content>
+  </Tabs.Root>
 </div>
