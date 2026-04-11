@@ -13,6 +13,7 @@
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import FormField from "$lib/components/ui/FormField.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { toasts } from "$lib/components/ui/toast";
 
   let { data } = $props();
 
@@ -101,6 +102,26 @@
     if (searchValue) params.set("search", searchValue);
     if (roleValue) params.set("role", roleValue);
     goto(`/admin/users?${params.toString()}`);
+  }
+
+  type PlatformRole = "admin" | "teacher" | "student";
+
+  let editingUserId = $state<string | null>(null);
+  let draftRole = $state<PlatformRole>("student");
+
+  function beginEditRole(user: { id: string; platformRole: PlatformRole }) {
+    editingUserId = user.id;
+    draftRole = user.platformRole;
+  }
+
+  function cancelEditRole() {
+    editingUserId = null;
+  }
+
+  function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
+    if (role === "admin") return "warning";
+    if (role === "teacher") return "info";
+    return "success";
   }
 </script>
 
@@ -227,19 +248,105 @@
                 <td class="px-5 py-3">{user.email}</td>
                 <td class="px-5 py-3">{user.name}</td>
                 <td class="px-5 py-3">
-                  <form method="POST" action="?/updateRole" use:enhance>
-                    <input type="hidden" name="userId" value={user.id} />
-                    <select
-                      class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                      name="role"
-                      value={user.platformRole}
-                      onchange={(e) => e.currentTarget.form?.requestSubmit()}
+                  {#if editingUserId === user.id}
+                    <form
+                      method="POST"
+                      action="?/updateRole"
+                      class="flex flex-col gap-2"
+                      use:enhance={({ cancel, formData }) => {
+                        const submittedRole = String(formData.get("role") ?? "");
+                        const targetUsername = user.username ?? user.name;
+
+                        if (user.id === data.actor?.userId) {
+                          toasts.error(m.admin_usersRoleSelfBlocked());
+                          cancel();
+                          return;
+                        }
+
+                        if (user.platformRole === "admin" && submittedRole !== "admin") {
+                          const ok = confirm(
+                            m.admin_usersRoleDemoteConfirm({
+                              username: targetUsername,
+                              to: submittedRole
+                            })
+                          );
+                          if (!ok) {
+                            cancel();
+                            return;
+                          }
+                        }
+
+                        return async ({ result, update }) => {
+                          if (result.type === "success") {
+                            toasts.success(
+                              m.admin_usersRoleUpdateSuccess({
+                                username: targetUsername,
+                                to: submittedRole
+                              })
+                            );
+                            editingUserId = null;
+                            await update();
+                          } else if (result.type === "failure") {
+                            const err =
+                              (result.data as { error?: string } | undefined)?.error ??
+                              m.admin_usersRoleUpdateFailed();
+                            toasts.error(err);
+                          } else {
+                            await update();
+                          }
+                        };
+                      }}
                     >
-                      <option value="admin">admin</option>
-                      <option value="teacher">teacher</option>
-                      <option value="student">student</option>
-                    </select>
-                  </form>
+                      <input type="hidden" name="userId" value={user.id} />
+                      <input type="hidden" name="role" value={draftRole} />
+                      <select
+                        class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
+                        bind:value={draftRole}
+                      >
+                        <option value="admin">admin</option>
+                        <option value="teacher">teacher</option>
+                        <option value="student">student</option>
+                      </select>
+                      {#if draftRole !== user.platformRole}
+                        <p class="text-caption text-muted-foreground">
+                          {m.admin_usersRoleChangeDiff({
+                            username: user.username ?? user.name,
+                            from: user.platformRole,
+                            to: draftRole
+                          })}
+                        </p>
+                      {/if}
+                      <div class="flex items-center gap-1">
+                        <Button
+                          type="submit"
+                          variant="default"
+                          size="sm"
+                          disabled={draftRole === user.platformRole}
+                        >
+                          {m.common_save()}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onclick={cancelEditRole}
+                        >
+                          {m.common_cancel()}
+                        </Button>
+                      </div>
+                    </form>
+                  {:else}
+                    <button
+                      type="button"
+                      class="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={m.admin_usersRoleEdit()}
+                      onclick={() => beginEditRole({ id: user.id, platformRole: user.platformRole as PlatformRole })}
+                    >
+                      <Badge variant={roleBadgeVariant(user.platformRole as PlatformRole)} size="sm">
+                        {user.platformRole}
+                      </Badge>
+                    </button>
+                  {/if}
                 </td>
                 <td class="px-5 py-3">
                   {#if user.disabled}
@@ -252,7 +359,48 @@
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
                 <td class="px-5 py-3">
-                  <form method="POST" action="?/toggleDisabled" use:enhance>
+                  <form
+                    method="POST"
+                    action="?/toggleDisabled"
+                    use:enhance={({ cancel }) => {
+                      const targetUsername = user.username ?? user.name;
+                      const willDisable = !user.disabled;
+
+                      if (user.id === data.actor?.userId) {
+                        toasts.error(m.admin_usersDisableSelfBlocked());
+                        cancel();
+                        return;
+                      }
+
+                      if (willDisable) {
+                        const ok = confirm(
+                          m.admin_usersDisableConfirm({ username: targetUsername })
+                        );
+                        if (!ok) {
+                          cancel();
+                          return;
+                        }
+                      }
+
+                      return async ({ result, update }) => {
+                        if (result.type === "success") {
+                          toasts.success(
+                            willDisable
+                              ? m.admin_usersDisableSuccess({ username: targetUsername })
+                              : m.admin_usersEnableSuccess({ username: targetUsername })
+                          );
+                          await update();
+                        } else if (result.type === "failure") {
+                          const err =
+                            (result.data as { error?: string } | undefined)?.error ??
+                            m.admin_usersDisableFailed();
+                          toasts.error(err);
+                        } else {
+                          await update();
+                        }
+                      };
+                    }}
+                  >
                     <input type="hidden" name="userId" value={user.id} />
                     <Button
                       type="submit"

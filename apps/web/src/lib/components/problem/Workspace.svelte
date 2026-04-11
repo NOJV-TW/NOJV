@@ -3,7 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { supportedLanguages, type Language, type SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
-  import { difficultyColor, formatVerdictLabel, verdictColor } from "$lib/types";
+  import { difficultyClass, formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { SSE_SUBMISSION_VERDICT } from "@nojv/core";
   import { onSSEEvent } from "$lib/stores/sse";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
@@ -256,16 +256,16 @@
       <div class="p-5">
         <h1 class="text-body-lg font-semibold leading-snug">{problem.title}</h1>
 
-        <div class="mt-3 flex flex-wrap items-center gap-2">
+        <div class="mt-3 flex flex-wrap items-center gap-1.5">
           <span
-            class="rounded-full px-2.5 py-0.5 text-caption font-medium capitalize {difficultyColor[
-              problem.difficulty
-            ] ?? 'bg-muted text-muted-foreground'}"
+            class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-semibold capitalize {difficultyClass(problem.difficulty)}"
           >
             {problem.difficulty}
           </span>
           {#each problem.tags as tag (tag)}
-            <span class="rounded-full bg-muted px-2.5 py-0.5 text-caption text-muted-foreground">
+            <span
+              class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass(tag)}"
+            >
               {tag}
             </span>
           {/each}
@@ -306,30 +306,36 @@
             <div class="mt-3 space-y-3 text-body-sm">
               <div>
                 <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_input()}</p>
-                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.stdin}</pre>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.input}</pre>
               </div>
               <div>
                 <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_output()}</p>
-                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.expected}</pre>
+                <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.output}</pre>
               </div>
             </div>
           </div>
         {/each}
 
-        {#if testcaseSets.length > 0}
+        {#if testcaseSets.some((s) => s.weight > 0)}
+          {@const subtaskSets = testcaseSets
+            .filter((s) => s.weight > 0)
+            .sort((a, b) => a.ordinal - b.ordinal)}
+          {@const totalWeight = subtaskSets.reduce((sum, s) => sum + s.weight, 0)}
           <div class="mt-6 border-t border-border-subtle pt-6">
             <p class="text-body font-semibold">{m.problemDetail_testcaseSets()}</p>
             <ul class="mt-3 space-y-3">
-              {#each testcaseSets as set (set.id)}
+              {#each subtaskSets as set, idx (set.id)}
                 <li class="rounded-lg border border-border-subtle px-4 py-3">
-                  <div class="flex items-center justify-between gap-3">
-                    <p class="text-body-sm font-semibold">{set.name}</p>
-                    <span class="text-caption text-muted-foreground tabular-nums">
-                      {set.caseCount} {m.problemDetail_cases()} &middot; ×{set.weight}
+                  <div class="flex items-baseline justify-between gap-3">
+                    <span class="text-caption font-medium text-muted-foreground tabular-nums">
+                      #subtask{idx + 1}
+                    </span>
+                    <span class="text-caption font-medium text-muted-foreground tabular-nums">
+                      {totalWeight > 0 ? Math.round((set.weight / totalWeight) * 100) : 0}%
                     </span>
                   </div>
                   {#if set.description}
-                    <p class="mt-1 text-caption leading-6 text-muted-foreground">
+                    <p class="mt-2 text-body-sm leading-6 text-foreground">
                       {set.description}
                     </p>
                   {/if}

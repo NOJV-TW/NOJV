@@ -1,6 +1,6 @@
 # Judge Pipeline
 
-The judge pipeline is the evaluation framework that compiles, executes, and scores submissions. It runs as a Temporal activity inside `apps/worker`. Since the Phase 5 redesign, problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** as an escape hatch for anything Standard Mode cannot express. The pipeline has no user-configurable stage graph — both modes run a fixed flow.
+The judge pipeline is the evaluation framework that compiles, executes, and scores submissions. It runs as a Temporal activity inside `apps/worker`. Problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** as an escape hatch for anything Standard Mode cannot express. The pipeline has no user-configurable stage graph — both modes run a fixed flow.
 
 ## Standard Mode pipeline
 
@@ -31,7 +31,7 @@ Interpreted languages skip the compile step entirely — a syntax error only sur
 
 ### execute
 
-One sandboxed process per testcase. Stdin comes from the testcase `stdin`, stdout/stderr/exit code/runtime/memory are captured. Per-case limits come from `Problem.judgeConfig.runtime`:
+One sandboxed process per testcase. Stdin comes from the testcase `input`, stdout/stderr/exit code/runtime/memory are captured. Per-case limits come from `Problem.judgeConfig.runtime`:
 
 - `timeLimitMs` — 100 ms to 30 s, default 1000 ms
 - `memoryLimitMb` — 16 MB to 1024 MB, default 256 MB
@@ -73,17 +73,13 @@ The worker lays out a fixed `/workspace/` directory and mounts it into the TA im
 
 ```
 /workspace/submission/     student files (from ZIP or wrapped single source)
-/workspace/testcases/N/    one subdirectory per testcase
-    stdin                  text, may be empty
-    expected               optional reference output
-    files/                 arbitrary auxiliary files
-/workspace/meta.json       { submissionId, numTestcases, language, submissionFiles, resourceLimits }
+/workspace/meta.json       { submissionId, language, submissionFiles, resourceLimits }
 /workspace/output/         TA image writes here
     result.json            required
     artifacts/             optional; currently ignored by the platform
 ```
 
-The TA image is expected to read `submission/`, `testcases/N/`, and `meta.json`, do whatever grading it wants, then write `/workspace/output/result.json`.
+Testcases are bundled inside the TA image itself — the platform no longer manages advanced-mode testcases. The TA image is expected to read `submission/` and `meta.json`, do whatever grading it wants against its baked-in test data, then write `/workspace/output/result.json`.
 
 ### `result.json` schema
 
@@ -117,24 +113,25 @@ The TA provides an image via two columns on `Problem`:
 
 For `tarball` sources, the worker streams the tarball out of object storage and `docker load`s it on first use. The loaded ref is cached per storage key for the worker's lifetime.
 
-Resource limits come from `Problem.advancedResourceLimits`:
+Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb`:
 
-- `totalTimeMs` — 1 s to 300 s wall clock for the entire container
-- `memoryMb` — 16 MB to 4096 MB cgroup limit
-- `networkEnabled` — default `false`; when `true`, the container joins the default bridge network instead of `--network none`
+- `timeLimitMs` — 1 s to 300 s wall clock for the entire container
+- `memoryLimitMb` — 16 MB to 4096 MB cgroup limit
 
-Advanced Mode always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
+Advanced Mode containers always run with `--network none`. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
 
 Only the Docker executor currently runs advanced containers — `runAdvancedContainer()` lives in `apps/worker/src/services/docker-executor.ts`. The Kubernetes executor does not yet support Advanced Mode.
 
-## Submission types
+## Problem types
 
-The judge pipeline operates on two active submission types:
+`Problem.type` drives the shape of the submission and how the judge pipeline assembles it:
 
 - **`full_source`** — the student submits one complete source file. Content lands at `main.<ext>` in the sandbox workspace.
-- **`zip_project`** — the student submits a multi-file project. Each file lands at its own relative path. Used for problems with multiple source files.
+- **`function`** — the student implements a named function against a teacher-provided driver. Assembled from workspace files at judge time.
+- **`multi_file`** — the teacher ships a scaffold (main + helpers); the student edits designated files in-browser. Every enabled language ships exactly one editable `main.<ext>`.
+- **`special_env`** — Advanced Mode. The TA-provided Docker image owns the entire judging loop; the student uploads a tarball / ZIP. See [Advanced Mode pipeline](#advanced-mode-pipeline).
 
-There is no "function" mode in the current design: editable regions on a `ProblemWorkspaceFile` replace the old driver-code / `// __USER_CODE__` insertion pattern. A workspace file may have `editableRegions: [[startLine, endLine], ...]`, and the student edits only those line ranges.
+Editable regions on a `ProblemWorkspaceFile` replace the old driver-code / `// __USER_CODE__` insertion pattern. A workspace file may have `editableRegions: [[startLine, endLine], ...]`, and the student edits only those line ranges.
 
 ## Workspace files
 

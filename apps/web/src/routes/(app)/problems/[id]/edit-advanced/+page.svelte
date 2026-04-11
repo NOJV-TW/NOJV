@@ -1,9 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import ImageSection from "$lib/components/problem/advanced/ImageSection.svelte";
-  import AdvancedTestcasesSection, {
-    type AdvancedCase,
-  } from "$lib/components/problem/advanced/AdvancedTestcasesSection.svelte";
+  import ContainerContractSection from "$lib/components/problem/advanced/ContainerContractSection.svelte";
   import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
   import { toasts } from "$lib/stores/toast";
   import { LinkButton } from "$lib/components/ui/button";
@@ -19,11 +17,6 @@
   let memoryLimitMb = $state<number>(
     untrack(() => data.imageConfig.memoryLimitMb),
   );
-  let networkEnabled = $state<boolean>(
-    untrack(() => data.imageConfig.networkEnabled),
-  );
-
-  let cases = $state<AdvancedCase[]>([]);
 
   async function postAction(action: string, payload: unknown): Promise<boolean> {
     try {
@@ -41,25 +34,15 @@
     imageSource: ProblemImageSource;
     timeLimitMs: number;
     memoryLimitMb: number;
-    networkEnabled: boolean;
   }) {
     const ok = await postAction("updateImage", {
       ref: payload.imageRef,
       source: payload.imageSource,
       timeLimitMs: payload.timeLimitMs,
       memoryLimitMb: payload.memoryLimitMb,
-      networkEnabled: payload.networkEnabled,
     });
     toasts.add({
       message: ok ? "Image config saved" : "Failed to save image config",
-      type: ok ? "success" : "error",
-    });
-  }
-
-  async function saveTestcases(next: AdvancedCase[]) {
-    const ok = await postAction("updateAdvancedTestcases", next);
-    toasts.add({
-      message: ok ? "Testcases saved" : "Failed to save testcases",
       type: ok ? "success" : "error",
     });
   }
@@ -83,19 +66,22 @@
     </LinkButton>
   </header>
 
-  <!-- Statement section: minimal placeholder so the UI is usable while Phase 6 -->
-  <!-- restructures navigation. Reuses the existing problem record. -->
   <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
     <h3 class="text-title-sm font-semibold">Statement</h3>
     <p class="mt-1 text-body-sm text-muted-foreground">
-      Edit the title, statement, and tags from the
+      題目標題、敘述、tag 在
       <a class="underline" href={`/problems/${data.problem.id}/edit`}>
         standard editor
-      </a>. Phase 6 will fold this section into the advanced page.
+      </a>
+      編輯。
     </p>
     <article class="prose mt-4 max-w-none text-body-sm dark:prose-invert">
       <MarkdownRenderer content={data.problem.statement ?? ""} />
     </article>
+  </section>
+
+  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+    <ContainerContractSection />
   </section>
 
   <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
@@ -105,12 +91,7 @@
       bind:imageSource
       bind:timeLimitMs
       bind:memoryLimitMb
-      bind:networkEnabled
       onsave={saveImage}
     />
-  </section>
-
-  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
-    <AdvancedTestcasesSection bind:cases onsave={saveTestcases} />
   </section>
 </div>

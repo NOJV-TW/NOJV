@@ -91,11 +91,9 @@ export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
 export type ProblemType = z.infer<typeof problemTypeSchema>;
-// `SubmissionMode` is no longer a Prisma enum — the `Submission.mode`
-// column was deleted in the Phase 2 data-model cleanup. The concept
-// (this submission belongs to a practice / contest / assignment flow)
-// is still useful for UI display and domain logic, so the Zod schema
-// is kept as a pure TS type.
+// `SubmissionMode` is not a Prisma enum — the concept (practice /
+// contest / assignment flow) is carried as a pure TS type for UI
+// display and domain logic.
 export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;

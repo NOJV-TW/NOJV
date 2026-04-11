@@ -19,7 +19,6 @@ const TABLES = [
   "TestcaseSet",
   "ProblemStatementI18n",
   "ProblemWorkspaceFile",
-  "AdvancedTestcase",
   "Problem",
   "Announcement",
   "Verification",

@@ -11,9 +11,10 @@ import { requireAuth } from "$lib/server/auth";
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
   const { slug: contestSlug, problemId } = event.params;
+  const now = new Date();
 
   const [contestData, problem, submissions] = await Promise.all([
-    getContestWorkspaceData(contestSlug, actor.userId),
+    getContestWorkspaceData(contestSlug, actor.userId, { now }),
     getProblemPageData(problemId),
     listProblemSubmissions(actor.userId, problemId)
   ]);
@@ -26,17 +27,22 @@ export const load: PageServerLoad = async (event) => {
     error(404, "Problem not found");
   }
 
-  const isContestProblem = contestData.problems.some((p) => p.id === problemId);
-  if (!isContestProblem) {
+  // A manager may preview any problem in the contest even before start.
+  // Non-managers still require the contest to be active.
+  const problemsList = contestData.problems ?? [];
+  const isContestProblem = problemsList.some((p) => p.id === problemId);
+
+  if (!isContestProblem && !contestData.isManager) {
     error(404, "Problem not found in this contest");
   }
 
-  const now = new Date();
-  if (now < new Date(contestData.startsAt)) {
-    redirect(303, `/contests/${contestSlug}`);
-  }
-  if (now > new Date(contestData.endsAt)) {
-    redirect(303, `/contests/${contestSlug}`);
+  if (!contestData.isManager) {
+    if (now < new Date(contestData.startsAt)) {
+      redirect(303, `/contests/${contestSlug}`);
+    }
+    if (now > new Date(contestData.endsAt)) {
+      redirect(303, `/contests/${contestSlug}`);
+    }
   }
 
   return {

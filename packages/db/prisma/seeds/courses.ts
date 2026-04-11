@@ -210,5 +210,53 @@ export async function seedCourses(
     });
   }
 
+  // Upcoming demo contest — linked to the OS lab course. Used by the
+  // contest-hidden-problems e2e tests to verify that students see the
+  // placeholder and course teachers see the seeded problem title.
+  // startsAt is set far into the future so the hiding logic always fires
+  // during e2e runs regardless of clock drift.
+  const upcomingDemo = await prisma.contest.upsert({
+    create: {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      endsAt: new Date("2099-12-31T12:00:00.000Z"),
+      frozenBoard: false,
+      id: "contest_upcoming-demo-contest",
+      scoreboardMode: "live",
+      slug: "upcoming-demo-contest",
+      startsAt: new Date("2099-12-31T09:00:00.000Z"),
+      summary: "Upcoming contest fixture used by e2e tests for problem hiding.",
+      title: "Upcoming Demo Contest",
+      visibility: "published"
+    },
+    update: {
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      endsAt: new Date("2099-12-31T12:00:00.000Z"),
+      startsAt: new Date("2099-12-31T09:00:00.000Z"),
+      visibility: "published"
+    },
+    where: { slug: "upcoming-demo-contest" }
+  });
+
+  await prisma.contestProblem.upsert({
+    create: {
+      contestId: upcomingDemo.id,
+      ordinal: 1,
+      points: 100,
+      problemId: "problem_warmup-sum"
+    },
+    update: {
+      ordinal: 1,
+      points: 100
+    },
+    where: {
+      contestId_problemId: {
+        contestId: upcomingDemo.id,
+        problemId: "problem_warmup-sum"
+      }
+    }
+  });
+
   console.log(`  Courses: 1 upserted with memberships, join tokens, problems, and assessments`);
 }

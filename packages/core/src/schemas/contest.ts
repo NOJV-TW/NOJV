@@ -21,9 +21,9 @@ export const contestSessionSchema = z
     path: ["endsAt"]
   });
 
-// Contest schema — `maxAttempts` and `adjustmentRules` were removed from
-// the Contest table in the Phase 1 redesign (they belong to course
-// homework assessments only). The contest form no longer collects them.
+// Contest schema — `maxAttempts` and `adjustmentRules` belong to
+// course homework assessments only; the contest form does not
+// collect them.
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseSlug: slugSchema.optional(),
@@ -32,7 +32,7 @@ const contestCreateBaseSchema = z.object({
   inviteCode: z.string().trim().max(32).optional(),
   ...ipLockFields,
   pageLockEnabled: z.boolean().default(false),
-  problemIds: z.array(slugSchema).min(1).max(32),
+  problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),
   slug: slugSchema,

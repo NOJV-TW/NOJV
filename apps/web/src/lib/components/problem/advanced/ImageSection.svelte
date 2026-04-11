@@ -6,16 +6,13 @@
     problemId: string;
     imageRef: string;
     imageSource: ProblemImageSource;
-    // Resource-limit columns now live directly on the problem row.
     timeLimitMs: number;
     memoryLimitMb: number;
-    networkEnabled: boolean;
     onsave?: (payload: {
       imageRef: string;
       imageSource: ProblemImageSource;
       timeLimitMs: number;
       memoryLimitMb: number;
-      networkEnabled: boolean;
     }) => void | Promise<void>;
   }
 
@@ -25,7 +22,6 @@
     imageSource = $bindable<ProblemImageSource>("registry"),
     timeLimitMs = $bindable(30_000),
     memoryLimitMb = $bindable(1_024),
-    networkEnabled = $bindable(false),
     onsave,
   }: Props = $props();
 
@@ -81,7 +77,6 @@
         imageSource,
         timeLimitMs,
         memoryLimitMb,
-        networkEnabled,
       });
     } finally {
       saving = false;
@@ -93,7 +88,7 @@
   <header class="space-y-1">
     <h3 class="text-body-lg font-semibold">Judge image</h3>
     <p class="text-body-sm text-muted-foreground">
-      Provide a Docker image that implements the advanced container contract.
+      提供一個 Docker image,容器內部必須自行 bundle 測資與評分邏輯。
     </p>
   </header>
 
@@ -134,8 +129,8 @@
         spellcheck="false"
       />
       <p class="mt-2 text-caption text-muted-foreground">
-        e.g. <code>ghcr.io/your-org/your-judge:tag</code> — the worker will
-        try to pull this image at judge time.
+        e.g. <code>ghcr.io/your-org/your-judge:tag</code> — worker 會在評分時
+        嘗試 pull。
       </p>
     </label>
   {:else}
@@ -189,10 +184,10 @@
     </div>
   {/if}
 
-  <!-- Resource limits (now direct Problem columns) -->
-  <div class="grid gap-4 md:grid-cols-3">
+  <!-- Resource limits (total-per-invocation for advanced mode) -->
+  <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm">
-      <span class="text-body-sm font-medium">Total time (ms)</span>
+      <span class="text-body-sm font-medium">總執行時間 (ms)</span>
       <input
         type="number"
         class={inputClassName}
@@ -200,9 +195,12 @@
         max="300000"
         bind:value={timeLimitMs}
       />
+      <p class="mt-1 text-caption text-muted-foreground">
+        整個容器的總預算(非 per-testcase)。
+      </p>
     </label>
     <label class="text-body-sm">
-      <span class="text-body-sm font-medium">Memory (MB)</span>
+      <span class="text-body-sm font-medium">記憶體上限 (MB)</span>
       <input
         type="number"
         class={inputClassName}
@@ -211,55 +209,7 @@
         bind:value={memoryLimitMb}
       />
     </label>
-    <label class="flex items-end gap-3 text-body-sm">
-      <input
-        type="checkbox"
-        class="size-4"
-        bind:checked={networkEnabled}
-      />
-      <span>Allow network</span>
-    </label>
   </div>
-
-  <!-- Contract docs -->
-  <details class="rounded-xl border border-border-subtle bg-muted/40 px-4 py-3 text-body-sm">
-    <summary class="cursor-pointer font-medium">Container contract</summary>
-    <div class="mt-3 space-y-2 text-muted-foreground">
-      <p>The judge container is launched with the following workspace:</p>
-      <ul class="ml-4 list-disc space-y-1">
-        <li><code>/workspace/submission/</code> — student source files</li>
-        <li>
-          <code>/workspace/testcases/N/</code> — per-testcase data
-          (<code>input.txt</code>, optional <code>expected.txt</code>, plus any
-          aux files you upload)
-        </li>
-        <li><code>/workspace/meta.json</code> — submission metadata</li>
-        <li>
-          <code>/workspace/output/result.json</code> — your judge writes the
-          final verdict here
-        </li>
-      </ul>
-      <p>
-        <code>result.json</code> must conform to <code>advancedResultSchema</code>:
-        a top-level <code>score</code> (0–100), <code>verdict</code>, and
-        optional <code>testcases</code>/<code>subtasks</code> arrays.
-      </p>
-      <a
-        class="inline-block rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-background"
-        href="/advanced-mode/starter.Dockerfile"
-        download
-      >
-        Download starter Dockerfile
-      </a>
-      <a
-        class="ml-2 inline-block rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-background"
-        href="/advanced-mode/judge.py"
-        download
-      >
-        Download example judge.py
-      </a>
-    </div>
-  </details>
 
   <div class="flex justify-end">
     <button

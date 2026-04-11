@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
     error(404, "Problem not found");
   }
 
-  // Testcase set summaries strip the actual stdin/expected payloads —
+  // Testcase set summaries strip the actual input/output payloads —
   // students must never see hidden testcase contents.
   const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
     id: set.id,

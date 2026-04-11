@@ -5,12 +5,16 @@ import { getActorContext, requireAuth } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { contestDomain } from "@nojv/domain";
 
-const { findContestByInviteCode, listPublicContests } = contestDomain;
+const { findContestByInviteCode, listContestsForUser } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
-  const contests = await listPublicContests();
-  return { contests, loggedIn: actor != null };
+  const now = new Date();
+  const { managed, participable } = await listContestsForUser(
+    actor?.userId ?? null,
+    now
+  );
+  return { managed, participable, loggedIn: actor != null };
 };
 
 export const actions = {

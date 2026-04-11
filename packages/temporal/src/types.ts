@@ -34,12 +34,9 @@ export interface AssessmentLifecycleInput {
   assessmentId: string;
 }
 
-// PlagiarismCheckWorkflow
-//
-// The `PlagiarismReport` table was removed in the second-pass refactor, so
-// `(targetType, targetId)` is now the report identity. `triggeredById` is
-// still carried in the workflow input so the activity can record who
-// kicked the scan off on the parent row.
+// PlagiarismCheckWorkflow — plagiarism state lives inline on
+// `Contest` / `CourseAssessment`, so `(targetType, targetId)` is the
+// report identity. `triggeredById` records who kicked the scan off.
 export interface PlagiarismCheckInput {
   targetId: string;
   targetType: "courseAssessment" | "contest";

@@ -2,8 +2,8 @@
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
 
   interface Sample {
-    stdin: string;
-    expected: string;
+    input: string;
+    output: string;
   }
 
   interface Props {
@@ -16,19 +16,19 @@
 
   function addSample() {
     if (samples.length >= MAX_SAMPLES) return;
-    samples = [...samples, { stdin: "", expected: "" }];
+    samples = [...samples, { input: "", output: "" }];
   }
 
   function removeSample(index: number) {
     samples = samples.filter((_, i) => i !== index);
   }
 
-  function updateStdin(index: number, value: string) {
-    samples = samples.map((s, i) => (i === index ? { ...s, stdin: value } : s));
+  function updateInput(index: number, value: string) {
+    samples = samples.map((s, i) => (i === index ? { ...s, input: value } : s));
   }
 
-  function updateExpected(index: number, value: string) {
-    samples = samples.map((s, i) => (i === index ? { ...s, expected: value } : s));
+  function updateOutput(index: number, value: string) {
+    samples = samples.map((s, i) => (i === index ? { ...s, output: value } : s));
   }
 </script>
 
@@ -68,19 +68,19 @@
           </div>
           <div class="mt-2 grid gap-3 md:grid-cols-2">
             <label class="text-caption text-muted-foreground">
-              <span>Input (stdin)</span>
+              <span>Input</span>
               <textarea
                 class="{monoTextareaClassName} min-h-24"
-                value={sample.stdin}
-                oninput={(e) => updateStdin(index, (e.target as HTMLTextAreaElement).value)}
+                value={sample.input}
+                oninput={(e) => updateInput(index, (e.target as HTMLTextAreaElement).value)}
               ></textarea>
             </label>
             <label class="text-caption text-muted-foreground">
-              <span>Expected output</span>
+              <span>Output</span>
               <textarea
                 class="{monoTextareaClassName} min-h-24"
-                value={sample.expected}
-                oninput={(e) => updateExpected(index, (e.target as HTMLTextAreaElement).value)}
+                value={sample.output}
+                oninput={(e) => updateOutput(index, (e.target as HTMLTextAreaElement).value)}
               ></textarea>
             </label>
           </div>
