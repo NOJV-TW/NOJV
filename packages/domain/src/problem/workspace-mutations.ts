@@ -18,7 +18,6 @@ export interface UpdateWorkspacePayload {
     path: string;
     content: string;
     visibility: "editable" | "readonly" | "hidden";
-    editableRegions: [number, number][] | null;
     orderIndex?: number;
   }[];
 }
@@ -85,20 +84,14 @@ export async function updateProblemWorkspace(
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     if (payload.files.length > 0) {
       const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = payload.files.map(
-        (f, index) => {
-          const base: Prisma.ProblemWorkspaceFileCreateManyInput = {
-            content: f.content,
-            language: f.language,
-            orderIndex: f.orderIndex ?? index,
-            path: f.path,
-            problemId: problem.id,
-            visibility: f.visibility
-          };
-          if (f.editableRegions !== null) {
-            base.editableRegions = f.editableRegions as Prisma.InputJsonValue;
-          }
-          return base;
-        }
+        (f, index) => ({
+          content: f.content,
+          language: f.language,
+          orderIndex: f.orderIndex ?? index,
+          path: f.path,
+          problemId: problem.id,
+          visibility: f.visibility
+        })
       );
       await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
     }

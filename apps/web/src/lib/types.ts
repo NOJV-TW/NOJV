@@ -111,7 +111,6 @@ export interface ProblemDetail extends ProblemOverview {
     path: string;
     content: string;
     visibility: "editable" | "readonly" | "hidden";
-    editableRegions: [number, number][] | null;
     description: string;
   }[];
 }

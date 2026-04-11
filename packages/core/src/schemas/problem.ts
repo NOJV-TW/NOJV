@@ -37,14 +37,6 @@ export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hi
 
 export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySchema>;
 
-// Inclusive [startLine, endLine] tuple; lines outside any region are read-only.
-export const editableRegionSchema = z.tuple([
-  z.number().int().nonnegative(),
-  z.number().int().nonnegative()
-]);
-
-export type EditableRegion = z.infer<typeof editableRegionSchema>;
-
 export const problemWorkspaceFileSchema = z.object({
   language: languageSchema,
   path: z
@@ -56,7 +48,6 @@ export const problemWorkspaceFileSchema = z.object({
     }),
   content: z.string().max(200_000),
   visibility: workspaceFileVisibilitySchema,
-  editableRegions: z.array(editableRegionSchema).max(50).nullable().optional(),
   description: z.string().max(5_000).default(""),
   orderIndex: z.number().int().nonnegative().default(0)
 });

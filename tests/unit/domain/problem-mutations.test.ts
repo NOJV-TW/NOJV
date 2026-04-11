@@ -155,8 +155,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: "print('hello')\n",
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           }
         ]
       })
@@ -177,22 +176,19 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: "print('hi')\n",
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           },
           {
             language: "python",
             path: "big_a.py",
             content: chunk,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           },
           {
             language: "python",
             path: "big_b.py",
             content: chunk,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           }
         ]
       })
@@ -210,15 +206,13 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: pythonChunk,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           },
           {
             language: "cpp",
             path: "main.cpp",
             content: cppChunk,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           }
         ]
       })
@@ -236,15 +230,13 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: pythonChunk,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           },
           {
             language: "cpp",
             path: "main.cpp",
             content: cppBig,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           }
         ]
       })
@@ -260,8 +252,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: chunk,
-            visibility: "editable",
-            editableRegions: null
+            visibility: "editable"
           }
         ]
       })

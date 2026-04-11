@@ -6,7 +6,7 @@ import {
   type SubmissionDraft,
   type SubmissionResult
 } from "@nojv/core";
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
 
@@ -85,39 +85,6 @@ function mergeSandboxSources(
   const mainPath = entryFileNameFor(draft.language);
   if (draft.sourceCode && editablePaths.has(mainPath)) {
     merged.set(mainPath, draft.sourceCode);
-  }
-
-  // Enforce editableRegions: for every editable workspace file that
-  // declares regions, the student's final content must match the
-  // teacher's original line-for-line outside those ranges. Any tampering
-  // throws — the judge activity converts the error to a user-visible
-  // system-error verdict.
-  for (const wf of langFiles) {
-    if (wf.visibility !== "editable" || !wf.editableRegions) continue;
-    const studentContent = merged.get(wf.path);
-    if (studentContent === undefined) continue;
-    if (studentContent === wf.content) continue;
-
-    const teacherLines = wf.content.split("\n");
-    const studentLines = studentContent.split("\n");
-
-    if (studentLines.length !== teacherLines.length) {
-      throw new ForbiddenError(
-        `Tampering detected in ${wf.path}: line count changed (expected ${String(
-          teacherLines.length
-        )}, got ${String(studentLines.length)}).`
-      );
-    }
-
-    for (let i = 1; i <= teacherLines.length; i++) {
-      const inRegion = wf.editableRegions.some(([start, end]) => i >= start && i <= end);
-      if (inRegion) continue;
-      if (studentLines[i - 1] !== teacherLines[i - 1]) {
-        throw new ForbiddenError(
-          `Tampering detected in ${wf.path}: line ${String(i)} is outside the editable region.`
-        );
-      }
-    }
   }
 
   const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({

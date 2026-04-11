@@ -125,7 +125,6 @@ export async function createTestProblemWorkspaceFile(
       path: overrides.path ?? "main.cpp",
       content: overrides.content ?? "// starter\n",
       visibility: overrides.visibility ?? "editable",
-      editableRegions: overrides.editableRegions ?? undefined,
       orderIndex: overrides.orderIndex ?? 0,
       problemId: overrides.problemId
     }

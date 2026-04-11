@@ -27,7 +27,6 @@ export interface TestcaseSetGroup {
 
 export interface WorkspaceFileEntry {
   content: string;
-  editableRegions: [number, number][] | null;
   language: string;
   path: string;
   visibility: WorkspaceFileVisibility;
@@ -115,7 +114,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
     content: f.content,
-    editableRegions: f.editableRegions as [number, number][] | null,
     language: f.language,
     path: f.path,
     visibility: f.visibility as WorkspaceFileVisibility

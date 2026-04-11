@@ -143,7 +143,6 @@ model ProblemWorkspaceFile {
   path            String
   content         String                  @db.Text
   visibility      WorkspaceFileVisibility
-  editableRegions Json?
   description     String                  @default("") @db.Text
   orderIndex      Int                     @default(0)
   createdAt       DateTime                @default(now())

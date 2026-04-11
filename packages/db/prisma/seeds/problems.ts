@@ -53,7 +53,6 @@ type SeedWorkspaceFile = {
   path: string;
   content: string;
   visibility: "editable" | "readonly" | "hidden";
-  editableRegions?: [number, number][] | null;
   description?: string;
   orderIndex?: number;
 };
@@ -654,7 +653,6 @@ def parse_dhcp_options(hex_payload: str) -> List[str]:
     return []
 `,
           visibility: "editable",
-          editableRegions: [[15, 17]],
           description:
             "Implement parse_dhcp_options here. This is the file you edit; the driver and hidden smoke check import from `main`.",
           orderIndex: 0
@@ -691,7 +689,6 @@ if __name__ == "__main__":
     main_driver()
 `,
           visibility: "readonly",
-          editableRegions: null,
           description:
             "Judge driver — reads Q hex payloads from stdin and prints the return of parse_dhcp_options for each. You don't need to touch this file.",
           orderIndex: 1
@@ -718,7 +715,6 @@ if __name__ == "__main__":
     _smoke()
 `,
           visibility: "hidden",
-          editableRegions: null,
           description:
             "Hidden pre-flight sanity check run by the judge before grading. Ensures parse_dhcp_options at least returns a list of strings so a crash here fails fast with a clear signal.",
           orderIndex: 2
@@ -802,7 +798,6 @@ def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
     return (0, 0, 0)
 `,
           visibility: "editable",
-          editableRegions: [[11, 13]],
           description:
             "Implement analyze_trace here. The driver imports it from `main` and feeds it parsed event lines.",
           orderIndex: 0
@@ -836,7 +831,6 @@ if __name__ == "__main__":
     main_driver()
 `,
           visibility: "readonly",
-          editableRegions: null,
           description:
             "Judge driver — parses the stdin event stream and prints the three integers your analyze_trace returns. Read-only.",
           orderIndex: 1
@@ -1090,7 +1084,6 @@ if __name__ == "__main__":
           path: wf.path,
           content: wf.content,
           visibility: wf.visibility,
-          editableRegions: wf.editableRegions ?? undefined,
           description: wf.description ?? "",
           orderIndex: wf.orderIndex ?? 0
         }))

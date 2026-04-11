@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemDetail } from "$lib/types";
-  import MonacoEditableRegions from "./workspace/MonacoEditableRegions.svelte";
+  import MonacoScriptEditor from "./editors/MonacoScriptEditor.svelte";
 
   type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 
@@ -139,12 +139,11 @@
           </div>
         {:else}
           {#key `${file.language}::${file.path}`}
-            <MonacoEditableRegions
+            <MonacoScriptEditor
               value={selectedContent}
               onchange={onfilechange}
               language={file.language}
               readonly={file.visibility === "readonly"}
-              editableRegions={file.visibility === "editable" ? file.editableRegions : null}
               height="100%"
             />
           {/key}

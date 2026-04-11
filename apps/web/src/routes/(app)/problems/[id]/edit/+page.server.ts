@@ -167,7 +167,6 @@ export const actions: Actions = {
         path: f.path,
         content: f.content,
         visibility: f.visibility,
-        editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
         orderIndex: f.orderIndex
       }))
     });
