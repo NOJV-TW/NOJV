@@ -105,6 +105,18 @@
 
   type PlatformRole = "admin" | "teacher" | "student";
 
+  let editingUserId = $state<string | null>(null);
+  let draftRole = $state<PlatformRole>("student");
+
+  function beginEditRole(user: { id: string; platformRole: PlatformRole }) {
+    editingUserId = user.id;
+    draftRole = user.platformRole;
+  }
+
+  function cancelEditRole() {
+    editingUserId = null;
+  }
+
   function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
     if (role === "admin") return "warning";
     if (role === "teacher") return "info";
@@ -235,24 +247,63 @@
                 <td class="px-5 py-3">{user.email}</td>
                 <td class="px-5 py-3">{user.name}</td>
                 <td class="px-5 py-3">
-                  <div class="flex items-center gap-2">
-                    <Badge variant={roleBadgeVariant(user.platformRole as PlatformRole)} size="sm">
-                      {user.platformRole}
-                    </Badge>
-                    <form method="POST" action="?/updateRole" use:enhance>
+                  {#if editingUserId === user.id}
+                    <form
+                      method="POST"
+                      action="?/updateRole"
+                      class="flex flex-col gap-2"
+                      use:enhance
+                    >
                       <input type="hidden" name="userId" value={user.id} />
+                      <input type="hidden" name="role" value={draftRole} />
                       <select
                         class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
-                        name="role"
-                        value={user.platformRole}
-                        onchange={(e) => e.currentTarget.form?.requestSubmit()}
+                        bind:value={draftRole}
                       >
                         <option value="admin">admin</option>
                         <option value="teacher">teacher</option>
                         <option value="student">student</option>
                       </select>
+                      {#if draftRole !== user.platformRole}
+                        <p class="text-caption text-muted-foreground">
+                          {m.admin_usersRoleChangeDiff({
+                            username: user.username ?? user.name,
+                            from: user.platformRole,
+                            to: draftRole
+                          })}
+                        </p>
+                      {/if}
+                      <div class="flex items-center gap-1">
+                        <Button
+                          type="submit"
+                          variant="default"
+                          size="sm"
+                          disabled={draftRole === user.platformRole}
+                        >
+                          {m.common_save()}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onclick={cancelEditRole}
+                        >
+                          {m.common_cancel()}
+                        </Button>
+                      </div>
                     </form>
-                  </div>
+                  {:else}
+                    <button
+                      type="button"
+                      class="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={m.admin_usersRoleEdit()}
+                      onclick={() => beginEditRole({ id: user.id, platformRole: user.platformRole as PlatformRole })}
+                    >
+                      <Badge variant={roleBadgeVariant(user.platformRole as PlatformRole)} size="sm">
+                        {user.platformRole}
+                      </Badge>
+                    </button>
+                  {/if}
                 </td>
                 <td class="px-5 py-3">
                   {#if user.disabled}
