@@ -1,16 +1,14 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils";
-  import MonacoEditableRegions from "./MonacoEditableRegions.svelte";
+  import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
 
   export interface WorkspaceFile {
     path: string;
     content: string;
     description: string;
     visibility: "editable" | "readonly" | "hidden";
-    editableRegions: [number, number][] | null;
     orderIndex: number;
   }
 
@@ -25,34 +23,6 @@
 
   function update(partial: Partial<WorkspaceFile>) {
     onchange?.({ ...file, ...partial });
-  }
-
-  // Parse a region string like "10-15, 25-40" into tuples.
-  // regionsText is a scratchpad seeded from the initial `file` prop; subsequent
-  // external updates to `file.editableRegions` shouldn't clobber in-progress edits.
-  let regionsText = $state(
-    untrack(() => (file.editableRegions ?? []).map(([a, b]) => `${a}-${b}`).join(", "))
-  );
-
-  function parseRegions(text: string): [number, number][] | null {
-    const trimmed = text.trim();
-    if (trimmed === "") return null;
-    const parts = trimmed.split(",").map((p) => p.trim()).filter((p) => p !== "");
-    const result: [number, number][] = [];
-    for (const part of parts) {
-      const m = /^(\d+)-(\d+)$/.exec(part);
-      if (!m) return null;
-      const start = parseInt(m[1]!, 10);
-      const end = parseInt(m[2]!, 10);
-      if (start < 1 || end < start) return null;
-      result.push([start, end]);
-    }
-    return result;
-  }
-
-  function commitRegions() {
-    const parsed = parseRegions(regionsText);
-    update({ editableRegions: parsed });
   }
 </script>
 
@@ -104,27 +74,10 @@
     ></textarea>
   </label>
 
-  {#if file.visibility === "editable"}
-    <label class="text-caption text-muted-foreground">
-      <span>
-        Editable regions (optional, e.g. "10-15, 25-40")
-        — leave blank to allow editing the whole file
-      </span>
-      <input
-        class={inputClassName}
-        type="text"
-        placeholder="10-15, 25-40"
-        bind:value={regionsText}
-        onblur={commitRegions}
-      />
-    </label>
-  {/if}
-
-  <MonacoEditableRegions
+  <MonacoScriptEditor
     value={file.content}
     onchange={(v) => update({ content: v })}
     {language}
-    editableRegions={null}
     readonly={false}
     height="360px"
   />

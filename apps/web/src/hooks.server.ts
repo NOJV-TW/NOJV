@@ -1,16 +1,18 @@
-import { redirect, type Handle } from "@sveltejs/kit";
-import { sessionUserSchema } from "@nojv/core";
+import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
+import type { SessionUser } from "@nojv/core";
 
 import { getAuth } from "$lib/auth";
 import { createLogger } from "$lib/server/logger";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import { getPageLockedContext, type PageLockedContext } from "$lib/server/page-lock";
 import { getWebEnv } from "$lib/server/env";
+import { classifyError } from "$lib/server/shared/handle-action-error";
 
 // Validate environment variables eagerly on startup.
 getWebEnv();
 
 const processLogger = createLogger("process");
+const errorLogger = createLogger("handle-error");
 
 process.on("unhandledRejection", (reason) => {
   processLogger.warn("Unhandled promise rejection", {
@@ -144,9 +146,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
-
-  const parsed = sessionUserSchema.safeParse(session?.user ?? null);
-  event.locals.sessionUser = parsed.success ? parsed.data : null;
+  // better-auth already infers session.user from the auth config (additional
+  // fields + username plugin), so the value is trustworthy. The only gap vs.
+  // SessionUser is that platformRole is widened to `string` and username may
+  // be `undefined`; cast to reconcile without re-validating.
+  event.locals.sessionUser = (session?.user ?? null) as SessionUser | null;
 
   if (event.locals.sessionUser?.disabled) {
     event.locals.session = null;
@@ -181,4 +185,47 @@ export const handle: Handle = async ({ event, resolve }) => {
     setSecurityHeaders(response);
     return response;
   });
+};
+
+/**
+ * Global error hook for UNEXPECTED server-side errors.
+ *
+ * SvelteKit invokes this only when a load / render / endpoint path throws
+ * something other than a redirect or a `error(status, message)` call. For
+ * EXPECTED domain errors (404/403/422), load functions should be wrapped
+ * with `handleLoad` from `$lib/server/shared/load-wrapper`, which maps
+ * `HttpError` subclasses to `error(status, message)` before they reach
+ * this hook.
+ *
+ * This hook's job is therefore:
+ *   1. Log the unexpected error with enough context to debug.
+ *   2. Return a user-safe `App.Error` body that never leaks internals.
+ *
+ * It must never throw.
+ */
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+  const classified = classifyError(error);
+
+  // Redirects and SvelteKit's own errors short-circuit before reaching this
+  // hook, so anything classified as "http" here is a domain HttpError that
+  // escaped a load function without being wrapped by `handleLoad`. Surface
+  // the real message in that case — it's already safe by construction.
+  if (classified.type === "http") {
+    errorLogger.warn("Unwrapped domain HttpError reached handleError", {
+      method: event.request.method,
+      status: classified.status,
+      url: event.url.pathname
+    });
+    return { message: classified.message };
+  }
+
+  errorLogger.error("Unhandled server error", {
+    err: error instanceof Error ? error.message : String(error),
+    method: event.request.method,
+    stack: error instanceof Error ? error.stack : undefined,
+    status,
+    url: event.url.pathname
+  });
+
+  return { message };
 };

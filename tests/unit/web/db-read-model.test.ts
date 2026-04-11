@@ -183,26 +183,27 @@ describe("DB-backed read model", () => {
     );
   });
 
-  it("returns null when a course slug is not found", async () => {
+  it("throws NotFoundError when a course slug is not found", async () => {
     findDetailBySlugCourse.mockResolvedValue(null);
 
-    const detail = await getCoursePageData("nonexistent-course");
-
-    expect(detail).toBeNull();
+    await expect(getCoursePageData("nonexistent-course")).rejects.toThrow(
+      "Course not found: nonexistent-course"
+    );
   });
 
-  it("returns null when a problem id is not found", async () => {
+  it("throws NotFoundError when a problem id is not found", async () => {
     findDetailById.mockResolvedValue(null);
 
-    const detail = await getProblemPageData("nonexistent-problem", "en");
-
-    expect(detail).toBeNull();
+    await expect(getProblemPageData("nonexistent-problem", "en")).rejects.toThrow(
+      "Problem not found: nonexistent-problem"
+    );
   });
 
   it("returns problem detail with samples from visible testcase set", async () => {
     findDetailById.mockResolvedValue({
       _count: { submissions: 10 },
       author: { username: "admin_user" },
+      difficulty: "easy",
       title: "A+B Problem",
       id: "prob_ab",
       statements: [
@@ -265,7 +266,6 @@ describe("DB-backed read model", () => {
           content: "int solve() { return 42; }\n",
           description: "Your solution goes here.",
           visibility: "editable",
-          editableRegions: [[1, 1]],
           orderIndex: 0
         },
         {
@@ -274,7 +274,6 @@ describe("DB-backed read model", () => {
           content: "#pragma once\nint solve();\n",
           description: "",
           visibility: "readonly",
-          editableRegions: null,
           orderIndex: 1
         },
         {
@@ -283,7 +282,6 @@ describe("DB-backed read model", () => {
           content: "// server-only test harness\n",
           description: "Hidden server-side grader.",
           visibility: "hidden",
-          editableRegions: null,
           orderIndex: 2
         }
       ]
@@ -301,9 +299,6 @@ describe("DB-backed read model", () => {
       "helpers.h",
       "grader.cpp"
     ]);
-    // Editable regions are parsed into tuples.
-    expect(detail?.workspaceFiles[0]?.editableRegions).toEqual([[1, 1]]);
-    expect(detail?.workspaceFiles[1]?.editableRegions).toBeNull();
     // Hidden file's raw content must never leave the server.
     const hidden = detail?.workspaceFiles.find((f) => f.visibility === "hidden");
     expect(hidden?.content).toBe("");
@@ -316,35 +311,6 @@ describe("DB-backed read model", () => {
     expect(detail?.starterByLanguage.cpp).toBe("int solve() { return 42; }\n");
     // Other languages still fall back to the hardcoded stub.
     expect(detail?.starterByLanguage.python).toBeDefined();
-  });
-
-  it("treats malformed editableRegions as null instead of crashing", async () => {
-    findDetailById.mockResolvedValue({
-      _count: { submissions: 0 },
-      author: { username: "teacher" },
-      title: "Malformed Regions",
-      id: "prob_malformed",
-      statements: [],
-      tags: ["medium"],
-      type: "full_source",
-      samples: [],
-      visibility: "public",
-      workspaceFiles: [
-        {
-          language: "python",
-          path: "main.py",
-          content: "print('hello')\n",
-          visibility: "editable",
-          editableRegions: "not-an-array",
-          orderIndex: 0
-        }
-      ]
-    });
-    countSubmissions.mockResolvedValue(0);
-
-    const detail = await getProblemPageData("prob_malformed", "en");
-
-    expect(detail?.workspaceFiles[0]?.editableRegions).toBeNull();
   });
 
   it("computes acceptance rate from total and accepted submissions", async () => {

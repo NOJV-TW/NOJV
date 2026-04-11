@@ -53,8 +53,8 @@ pnpm dev
 3. 綁定課程的競賽：`midterm-systems-lab`
 4. 公開競賽：`spring-qualifier-2026`（邀請碼 `spring2026`）
 5. 新增的高難題目：
-   - `stateful-dhcp-parser`（function）
-   - `memory-leak-forensics`（function）
+   - `stateful-dhcp-parser`（multi_file）
+   - `memory-leak-forensics`（multi_file）
    - `noisy-oracle-hunt`（interactive）
 
 ## 3. 展前 10 分鐘檢查清單
@@ -135,8 +135,8 @@ print(a + b)
 操作：
 
 1. 切換 judge modes：standard/checker/interactive
-2. 切換 submission modes：full source/function template
-3. 展示 template editor 與 testcase 區塊
+2. 切換 problem types：full_source / multi_file / special_env
+3. 展示 workspace file visibility（editable/readonly/hidden）與 testcase 區塊
 
 接著切到 `/problems` 並打開這三題：
 
@@ -145,7 +145,7 @@ print(a + b)
 3. `noisy-oracle-hunt`
 
 台詞：
-"這些題目刻意偏離基本 IO，包含 function-mode 與對抗式互動評測。"
+"這些題目刻意偏離基本 IO，老師透過 multi_file 題型搭配 readonly 的 driver 檔（像 DHCP 這題），讓學生只實作核心函式；再加上對抗式互動評測，展現平台的題型廣度。"
 
 ## 第 9-14 分鐘：課程營運面
 

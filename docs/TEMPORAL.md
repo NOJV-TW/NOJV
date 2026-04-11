@@ -94,12 +94,12 @@ Plagiarism state lives inline on `Contest` / `CourseAssessment`, so the `(target
 
 ### Judge Activities (judge queue)
 
-| Activity                       | Purpose                                                     |
-| ------------------------------ | ----------------------------------------------------------- |
-| `fetchJudgeContext`            | Load problem, testcases, workspace files, judge config     |
-| `executeSandbox`               | Run code in Docker/K8s sandbox, return verdict              |
-| `completeSubmission`           | Write verdict, score, runtime, memory to DB                 |
-| `fetchSubmissionIdsForRejudge` | Query submission IDs for rejudge filtering                  |
+| Activity                       | Purpose                                                |
+| ------------------------------ | ------------------------------------------------------ |
+| `fetchJudgeContext`            | Load problem, testcases, workspace files, judge config |
+| `executeSandbox`               | Run code in Docker/K8s sandbox, return verdict         |
+| `completeSubmission`           | Write verdict, score, runtime, memory to DB            |
+| `fetchSubmissionIdsForRejudge` | Query submission IDs for rejudge filtering             |
 
 ### Platform Activities (platform queue)
 

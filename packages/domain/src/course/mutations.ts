@@ -6,8 +6,7 @@ import {
   courseRepo,
   problemRepo,
   runTransaction,
-  type Prisma,
-  type TransactionClient
+  type Prisma
 } from "@nojv/db";
 import type {
   CourseAssessmentCreate,
@@ -18,39 +17,12 @@ import type {
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages
-} from "../problem/mutations";
-
-export async function requireCourse(tx: TransactionClient, courseSlug: string) {
-  const course = await courseRepo.withTx(tx).findBySlug(courseSlug);
-
-  if (!course) {
-    throw new NotFoundError(`Course not found: ${courseSlug}`);
-  }
-
-  return course;
-}
-
-export async function requireCourseAssessment(
-  tx: TransactionClient,
-  courseSlug: string,
-  assessmentSlug: string
-) {
-  const course = await requireCourse(tx, courseSlug);
-  const assessment = await assessmentRepo.withTx(tx).findByComposite(course.id, assessmentSlug);
-
-  if (!assessment) {
-    throw new NotFoundError(`Assessment not found: ${courseSlug}/${assessmentSlug}`);
-  }
-
-  return {
-    assessment,
-    course
-  };
-}
+} from "../problem/helpers";
 
 export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
   return runTransaction(async (tx) => {

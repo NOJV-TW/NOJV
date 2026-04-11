@@ -2,9 +2,10 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Hide contest problems from non-managers until `startsAt`, and split `/contests` into *Participable* vs *Managed* tabs. Both features share one permission primitive (`canManageContest`: owner + course teacher + course TA).
+**Goal:** Hide contest problems from non-managers until `startsAt`, and split `/contests` into _Participable_ vs _Managed_ tabs. Both features share one permission primitive (`canManageContest`: owner + course teacher + course TA).
 
 **Architecture:**
+
 - Permission logic lives in `packages/domain/src/contest/permissions.ts` as a pure function consumed by detail page, problem solve page, and list page.
 - `getContestDetail` / `getContestWorkspaceData` are refactored to accept `{ userId, now }` and return `{ problems: ProblemSummary[] | null, problemsHidden: boolean, isManager: boolean }`. No Prisma schema or existing repo method changes; additive repo methods are added for the new list-page queries.
 - Contest list page renders Bits UI Tabs with URL-synced state (`?tab=`).
@@ -15,30 +16,31 @@
 
 **File Structure:**
 
-| File | Purpose |
-|---|---|
-| `packages/domain/src/contest/permissions.ts` *(new)* | Pure `canManageContest(userId, contest, memberships)` |
-| `packages/domain/src/contest/queries.ts` *(modified)* | Refactor detail queries; add `listContestsForUser` |
-| `packages/domain/src/contest/index.ts` *(modified)* | Export permissions module |
-| `packages/db/src/repositories/contest.ts` *(modified)* | Additive: `listManagedForUser`, `listParticipableForUser` |
-| `packages/db/src/repositories/course.ts` *(modified)* | Additive: `courseMembershipRepo.listActiveForUser` |
-| `apps/web/src/routes/(app)/contests/+page.server.ts` *(modified)* | Call `listContestsForUser`, read `?tab=` |
-| `apps/web/src/routes/(app)/contests/+page.svelte` *(modified)* | Bits UI Tabs, empty states, visibility badges |
-| `apps/web/src/routes/(app)/contests/[slug]/+page.server.ts` *(modified)* | Pass `userId` + `now` to domain |
-| `apps/web/src/routes/(app)/contests/[slug]/+page.svelte` *(modified)* | `{#if problemsHidden}` branch, manager link gate |
-| `apps/web/src/routes/(app)/contests/[slug]/problems/[problemId]/+page.server.ts` *(modified)* | Admit managers before `startsAt` |
-| `apps/web/messages/en.json` *(modified)* | 8 new keys |
-| `apps/web/messages/zh-TW.json` *(modified)* | 8 new keys |
-| `tests/unit/domain/contest-permissions.test.ts` *(new)* | `canManageContest` truth table |
-| `tests/integration/domain/contest-visibility.test.ts` *(new)* | `getContestDetail` hide behavior |
-| `tests/integration/domain/contest-list-for-user.test.ts` *(new)* | `listContestsForUser` classification |
-| `tests/e2e/contest-hidden-problems.test.ts` *(new)* | Student sees placeholder; teacher sees problems |
+| File                                                                                          | Purpose                                                   |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `packages/domain/src/contest/permissions.ts` _(new)_                                          | Pure `canManageContest(userId, contest, memberships)`     |
+| `packages/domain/src/contest/queries.ts` _(modified)_                                         | Refactor detail queries; add `listContestsForUser`        |
+| `packages/domain/src/contest/index.ts` _(modified)_                                           | Export permissions module                                 |
+| `packages/db/src/repositories/contest.ts` _(modified)_                                        | Additive: `listManagedForUser`, `listParticipableForUser` |
+| `packages/db/src/repositories/course.ts` _(modified)_                                         | Additive: `courseMembershipRepo.listActiveForUser`        |
+| `apps/web/src/routes/(app)/contests/+page.server.ts` _(modified)_                             | Call `listContestsForUser`, read `?tab=`                  |
+| `apps/web/src/routes/(app)/contests/+page.svelte` _(modified)_                                | Bits UI Tabs, empty states, visibility badges             |
+| `apps/web/src/routes/(app)/contests/[slug]/+page.server.ts` _(modified)_                      | Pass `userId` + `now` to domain                           |
+| `apps/web/src/routes/(app)/contests/[slug]/+page.svelte` _(modified)_                         | `{#if problemsHidden}` branch, manager link gate          |
+| `apps/web/src/routes/(app)/contests/[slug]/problems/[problemId]/+page.server.ts` _(modified)_ | Admit managers before `startsAt`                          |
+| `apps/web/messages/en.json` _(modified)_                                                      | 8 new keys                                                |
+| `apps/web/messages/zh-TW.json` _(modified)_                                                   | 8 new keys                                                |
+| `tests/unit/domain/contest-permissions.test.ts` _(new)_                                       | `canManageContest` truth table                            |
+| `tests/integration/domain/contest-visibility.test.ts` _(new)_                                 | `getContestDetail` hide behavior                          |
+| `tests/integration/domain/contest-list-for-user.test.ts` _(new)_                              | `listContestsForUser` classification                      |
+| `tests/e2e/contest-hidden-problems.test.ts` _(new)_                                           | Student sees placeholder; teacher sees problems           |
 
 ---
 
 ## Task 1: Permission primitive — `canManageContest`
 
 **Files:**
+
 - Create: `packages/domain/src/contest/permissions.ts`
 - Test: `tests/unit/domain/contest-permissions.test.ts`
 
@@ -191,6 +193,7 @@ git commit -m "feat(domain): add canManageContest permission primitive"
 ## Task 2: Additive repo method — `courseMembershipRepo.listActiveForUser`
 
 **Files:**
+
 - Modify: `packages/db/src/repositories/course.ts`
 
 - [ ] **Step 2.1: Add the method**
@@ -225,6 +228,7 @@ git commit -m "feat(db): add courseMembershipRepo.listActiveForUser"
 ## Task 3: Refactor `getContestDetail` / `getContestWorkspaceData` to accept `{userId, now}`
 
 **Files:**
+
 - Modify: `packages/domain/src/contest/queries.ts`
 - Test: `tests/integration/domain/contest-visibility.test.ts`
 
@@ -386,12 +390,14 @@ import { canManageContest } from "./permissions";
 ```ts
 export interface ContestDetailData {
   // ...all existing fields unchanged...
-  problems: {
-    id: string;
-    ordinal: number;
-    points: number;
-    title: string;
-  }[] | null;       // ← was: [] without null
+  problems:
+    | {
+        id: string;
+        ordinal: number;
+        points: number;
+        title: string;
+      }[]
+    | null; // ← was: [] without null
   problemsHidden: boolean;
   isManager: boolean;
 }
@@ -413,9 +419,7 @@ export async function getContestDetail(
   if (contest?.visibility !== "published") return null;
 
   const memberships =
-    options.userId === null
-      ? []
-      : await courseMembershipRepo.listActiveForUser(options.userId);
+    options.userId === null ? [] : await courseMembershipRepo.listActiveForUser(options.userId);
 
   const isManager = canManageContest(
     options.userId,
@@ -507,6 +511,7 @@ git commit -m "feat(domain): hide contest problems before startsAt for non-manag
 ## Task 4: Detail page `+page.server.ts` — pass `userId` + `now`
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/[slug]/+page.server.ts`
 
 - [ ] **Step 4.1: Update the load function**
@@ -581,6 +586,7 @@ git commit -m "feat(web): pass userId and now to getContestDetail"
 ## Task 5: i18n — add 8 new message keys
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
 
@@ -630,6 +636,7 @@ git commit -m "i18n(web): add contest hide-problems and tab keys"
 ## Task 6: Detail page `+page.svelte` — placeholder branch + manager link gate
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/[slug]/+page.svelte`
 
 - [ ] **Step 6.1: Add `Lock` icon import**
@@ -707,6 +714,7 @@ Find the current problems section (`{#each contest.problems as p (p.id)}` at ~li
 ```
 
 Notes:
+
 - `startsIn` is the existing countdown string already computed in this file; keep its declaration intact.
 - `data.contest.problems ?? []` defends the `#each` typing — when `problemsHidden` is false, `problems` is non-null, but `??` keeps TS happy inside the fallback branch.
 - The manager link gate (`isActive || data.contest.isManager`) lets owners preview problems before start.
@@ -728,6 +736,7 @@ git commit -m "feat(web): hide contest problems before start with placeholder"
 ## Task 7: Problem solve page — admit managers before `startsAt`
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/[slug]/problems/[problemId]/+page.server.ts`
 
 - [ ] **Step 7.1: Update the load function**
@@ -792,6 +801,7 @@ export const load: PageServerLoad = async (event) => {
 ```
 
 Key changes:
+
 - Passes `{ now }` to `getContestWorkspaceData`.
 - Uses `contestData.problems ?? []` (safe because managers bypass the hide).
 - `isManager` short-circuits both the `isContestProblem` check (manager might be previewing a hidden list — but because managers bypass hide, `problems` is populated, so the check still works; the `!contestData.isManager` guard is a defensive safety net for any future logic change) and the time gates.
@@ -813,6 +823,7 @@ git commit -m "feat(web): admit contest managers before startsAt"
 ## Task 8: Additive repo methods for the list page
 
 **Files:**
+
 - Modify: `packages/db/src/repositories/contest.ts`
 
 - [ ] **Step 8.1: Add two new methods to `contestRepo`**
@@ -875,6 +886,7 @@ git commit -m "feat(db): add listManagedForUser and listParticipableForUser"
 ## Task 9: Domain — `listContestsForUser`
 
 **Files:**
+
 - Modify: `packages/domain/src/contest/queries.ts`
 - Test: `tests/integration/domain/contest-list-for-user.test.ts`
 
@@ -885,11 +897,7 @@ Create `tests/integration/domain/contest-list-for-user.test.ts`:
 ```ts
 import { describe, expect, it } from "vitest";
 
-import {
-  createTestContest,
-  createTestUser,
-  testPrisma
-} from "../../fixtures/factories";
+import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
 
 import { contestDomain } from "@nojv/domain";
 
@@ -1073,6 +1081,7 @@ export async function listContestsForUser(
 ```
 
 Notes:
+
 - `mapContestListItem` is the existing helper used by `listPublicContests`; reuse it. If its output type lacks `visibility`, extend it or construct the managed rows inline — whatever matches the current helper.
 - `_now` is reserved for future use (e.g., filtering out very old archived contests); for now the parameter is in the signature so callers pass it.
 
@@ -1094,6 +1103,7 @@ git commit -m "feat(domain): add listContestsForUser with managed/participable s
 ## Task 10: List page `+page.server.ts` — call `listContestsForUser`
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/+page.server.ts`
 
 - [ ] **Step 10.1: Update the load function**
@@ -1137,6 +1147,7 @@ git commit -m "feat(web): load participable and managed contests on list page"
 ## Task 11: List page `+page.svelte` — Tabs + empty states + badges
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/+page.svelte`
 
 - [ ] **Step 11.1: Replace the contest list rendering with Tabs**
@@ -1151,7 +1162,7 @@ import { goto } from "$app/navigation";
 let { data } = $props();
 
 let tabValue = $state<"participable" | "managed">(
-  ($page.url.searchParams.get("tab") === "managed" ? "managed" : "participable")
+  $page.url.searchParams.get("tab") === "managed" ? "managed" : "participable"
 );
 
 function onTabChange(value: string) {
@@ -1246,6 +1257,7 @@ git commit -m "feat(web): add participable/managed tabs to contest list"
 ## Task 12: E2E test — student sees placeholder, teacher sees problems
 
 **Files:**
+
 - Create: `tests/e2e/contest-hidden-problems.test.ts`
 
 - [ ] **Step 12.1: Write the E2E test**
@@ -1357,6 +1369,7 @@ Expected: pass.
 Run: `pnpm --filter @nojv/web dev`
 
 Walk through:
+
 1. Anonymous → `/contests` → participable tab shows public contests; managed empty state visible.
 2. Login as student → upcoming contest detail → placeholder visible, no problem titles in DOM. List page managed tab empty.
 3. Login as course teacher → same upcoming contest → problem list visible, can click into a problem page even before start. List page managed tab contains the contest with no visibility badge (because it's `published`).
@@ -1386,8 +1399,7 @@ git commit -m "chore: apply prettier formatting"
   - §5 list page tabs → Tasks 8, 9, 10, 11
   - §6 i18n → Task 5
   - Testing §7 → Tasks 1.1, 3.1, 9.1, 12
-- **Ambiguity fix over spec:** the spec says "repo untouched" but cleanly implementing `listContestsForUser` requires two new repo methods. The plan adds them as *additive* (no existing method signatures change). Existing `findDetailBySlug` / `findWorkspaceBySlug` remain byte-for-byte identical — the spirit of "don't break what's there" is preserved.
+- **Ambiguity fix over spec:** the spec says "repo untouched" but cleanly implementing `listContestsForUser` requires two new repo methods. The plan adds them as _additive_ (no existing method signatures change). Existing `findDetailBySlug` / `findWorkspaceBySlug` remain byte-for-byte identical — the spirit of "don't break what's there" is preserved.
 - **Task 11.2 snippet body is not inlined** because the existing card markup is ~40 lines of layout that must be copied verbatim from the current file. The step instructs the engineer to copy rather than reinvent; inlining here would hard-code markup that could drift from reality between spec-writing and execution.
 - **Task 12.2 has a conditional escape hatch** for the E2E seed — if adding a dedicated upcoming-contest seed is too much churn, the test degrades gracefully.
 - **`_now` parameter in `listContestsForUser`** is intentionally unused today but kept in the signature so callers pass a request-scoped clock. This matches `getContestDetail`'s shape and lets future filters (e.g., "hide contests that ended more than 90 days ago") drop in without a signature change.
-

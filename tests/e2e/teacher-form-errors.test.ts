@@ -1,10 +1,7 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
-const teacherAuth = path.resolve(
-  import.meta.dirname,
-  "../fixtures/auth-states/teacher.json"
-);
+const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 
 test.describe("Teacher form error visibility", () => {
   test("teacher can create an assessment and sees a success banner", async ({ browser }) => {
@@ -29,7 +26,9 @@ test.describe("Teacher form error visibility", () => {
     await context.close();
   });
 
-  test("teacher sees a visible error banner when assessment creation fails", async ({ browser }) => {
+  test("teacher sees a visible error banner when assessment creation fails", async ({
+    browser
+  }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     await page.goto("/courses/os-lab-spring-2026/manage/assessments");
@@ -38,8 +37,13 @@ test.describe("Teacher form error visibility", () => {
     // which must surface through the FormError banner (data-testid="form-error").
     await page.getByPlaceholder("測驗標題").fill("Never Published");
     await page.getByPlaceholder("assessment-slug").fill("never-published-regression");
-    await page.getByPlaceholder("測驗摘要").fill("Intentional failure to test error surfacing.");
-    await page.getByPlaceholder("problem-one, problem-two").first().fill("problem_does_not_exist_zzzz");
+    await page
+      .getByPlaceholder("測驗摘要")
+      .fill("Intentional failure to test error surfacing.");
+    await page
+      .getByPlaceholder("problem-one, problem-two")
+      .first()
+      .fill("problem_does_not_exist_zzzz");
 
     await page.getByRole("button", { name: /發布測驗/i }).click();
 
@@ -58,13 +62,17 @@ test.describe("Teacher form error visibility", () => {
 
     await page.getByPlaceholder("競賽標題").fill(title);
     await page.getByPlaceholder("contest-slug").fill(`quiz-fix-${uniqueSuffix}`);
-    await page.getByPlaceholder("競賽摘要").fill("Regression contest to verify form error fix.");
+    await page
+      .getByPlaceholder("競賽摘要")
+      .fill("Regression contest to verify form error fix.");
     // problemIdsText — last textarea with this placeholder (contest form)
     await page.getByPlaceholder("problem-one, problem-two").last().fill("problem_warmup-sum");
 
     await page.getByRole("button", { name: /建立競賽/i }).click();
 
-    await expect(page.getByText(`Contest "${title}" created.`)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(`Contest "${title}" created.`)).toBeVisible({
+      timeout: 10_000
+    });
     await context.close();
   });
 });

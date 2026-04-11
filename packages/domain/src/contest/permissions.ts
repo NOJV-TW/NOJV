@@ -1,15 +1,15 @@
 import type { CourseRole, CourseMembershipStatus } from "@nojv/core";
 
-export type ContestPermissionInput = {
-  createdByUserId: string;
+export interface ContestPermissionInput {
+  createdByUserId: string | null;
   courseId: string | null;
-};
+}
 
-export type CourseMembershipRow = {
+export interface CourseMembershipRow {
   courseId: string;
   role: CourseRole;
   status: CourseMembershipStatus;
-};
+}
 
 /**
  * True when the user may edit the contest, preview problems before start,

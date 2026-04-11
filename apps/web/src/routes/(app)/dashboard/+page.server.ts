@@ -4,11 +4,10 @@ import { userDailyActivityRepo } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
 
-const { getUserDashboard, getUserAnalytics } = userDomain;
+const { getDashboardView } = userDomain;
 
 const ACTIVITY_DAYS = 30;
 
-/** Midnight UTC for the day `n` days before now (inclusive lower bound). */
 function utcDayOffset(daysBack: number): Date {
   const now = new Date();
   return new Date(
@@ -22,14 +21,9 @@ export const load: PageServerLoad = async (event) => {
   const from = utcDayOffset(ACTIVITY_DAYS - 1);
   const to = utcDayOffset(0);
 
-  const [
-    { stats, recentSubmissions },
-    dailyActivity,
-    analytics
-  ] = await Promise.all([
-    getUserDashboard(actor.userId),
-    userDailyActivityRepo.findRange(actor.userId, from, to),
-    getUserAnalytics(actor.userId)
+  const [{ stats, recentSubmissions, analytics }, dailyActivity] = await Promise.all([
+    getDashboardView(actor.userId),
+    userDailyActivityRepo.findRange(actor.userId, from, to)
   ]);
 
   const activityByDate = new Map(

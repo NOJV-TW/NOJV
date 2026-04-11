@@ -122,9 +122,10 @@ describe("course queries (real DB)", () => {
   // --- getCoursePageData ---
 
   describe("getCoursePageData", () => {
-    it("returns null for nonexistent slug", async () => {
-      const result = await getCoursePageData("nonexistent");
-      expect(result).toBeNull();
+    it("throws NotFoundError for nonexistent slug", async () => {
+      await expect(getCoursePageData("nonexistent")).rejects.toThrow(
+        "Course not found: nonexistent"
+      );
     });
 
     it("returns course detail with members and problems", async () => {
