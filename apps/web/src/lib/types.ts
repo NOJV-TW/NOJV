@@ -13,11 +13,18 @@ export function formatVerdictLabel(verdict: string): string {
   return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export const difficultyColor: Record<string, string> = {
-  easy: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  medium: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  hard: "bg-red-500/15 text-red-700 dark:text-red-400"
-};
+// Topic/skill tag pill — intentionally uniform, colour-coding lives on the
+// dedicated `Problem.difficulty` column (see `difficultyClass`).
+export function tagClass(_tag: string): string {
+  return "bg-muted text-muted-foreground border-border";
+}
+
+export function difficultyClass(difficulty: string): string {
+  if (difficulty === "easy") return "bg-success/15 text-success border-success/25";
+  if (difficulty === "medium") return "bg-warning/15 text-warning border-warning/25";
+  if (difficulty === "hard") return "bg-destructive/15 text-destructive border-destructive/25";
+  return "bg-muted text-muted-foreground border-border";
+}
 
 export const verdictColor: Record<string, string> = {
   accepted: "text-emerald-600 dark:text-emerald-400",
@@ -40,13 +47,12 @@ export interface ProblemDetail extends ProblemOverview {
   outputFormat: string;
   /**
    * Single source of truth for "what shape is this problem". Mirror of
-   * `Problem.type` in the schema; `special_env` replaces the legacy
-   * `mode === "advanced"`.
+   * `Problem.type` in the schema.
    */
   type: ProblemType;
   samples: {
-    stdin: string;
-    expected: string;
+    input: string;
+    output: string;
   }[];
   starterByLanguage: Record<Language, string>;
   statement: string;
@@ -56,7 +62,6 @@ export interface ProblemDetail extends ProblemOverview {
   visibility: ProblemVisibility;
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
-  networkEnabled: boolean;
   // Hidden files have `content === ""`; the domain layer blanks them before they leave the server.
   workspaceFiles: {
     language: string;

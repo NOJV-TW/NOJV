@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
 // Submission + Editorial + per-day activity
 //
-// UserStats was dropped — the dashboard's totals (totalAc /
-// totalAttempts / lastSubmittedAt) are computed on-demand from
-// Submission via indexed aggregates. UserDailyActivity stays as
-// the only pre-aggregated table because streak / heatmap queries
-// over a 30-day window benefit from a dedicated row-per-day shape.
+// Dashboard totals (totalAc / totalAttempts / lastSubmittedAt) are
+// computed on-demand from Submission via indexed aggregates.
+// UserDailyActivity is the only pre-aggregated table because streak
+// and heatmap queries over a 30-day window benefit from a dedicated
+// row-per-day shape.
 // ═══════════════════════════════════════════════════════════════
 
 enum SupportedLanguage {
@@ -31,10 +31,10 @@ enum SubmissionStatus {
   compile_error
 }
 
-/// "Mode" is no longer a stored column — it's derived on-demand
-/// from the FK shape: contestId ? "contest" : courseAssessmentId ?
-/// "assignment" : "practice". Domain helper `deriveSubmissionMode`
-/// lives in @nojv/domain.
+/// Submission "mode" is derived on-demand from the FK shape:
+/// `contestId` ? "contest" : `courseAssessmentId` ? "assignment" :
+/// "practice". Domain helper `deriveSubmissionMode` lives in
+/// `@nojv/domain`.
 model Submission {
   id                     String            @id @default(cuid())
   userId                 String

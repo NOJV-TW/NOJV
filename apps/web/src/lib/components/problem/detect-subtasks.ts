@@ -1,6 +1,6 @@
 export interface ParsedCase {
-  stdin: string;
-  expectedStdout: string;
+  input: string;
+  output: string;
   sourceFile: string;
 }
 
@@ -78,8 +78,8 @@ export function detectSubtasksFromFiles(
       if (!entry) continue;
       indices.push(allCases.length);
       allCases.push({
-        stdin: entry.in ?? "",
-        expectedStdout: entry.out ?? "",
+        input: entry.in ?? "",
+        output: entry.out ?? "",
         sourceFile: `${entry.fileName}${inExt}`
       });
     }

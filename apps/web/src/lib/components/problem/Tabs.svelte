@@ -2,15 +2,15 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
-  import type { ProblemDifficulty, ProblemVisibility } from "@nojv/core";
+  import type { ProblemDifficulty, ProblemType, ProblemVisibility } from "@nojv/core";
   import { CheckCircle2, ChevronDown, FileCode, Pencil, Plus, Search, Tags, Trash2, XCircle } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import SpecialLabels from "$lib/components/problem/SpecialLabels.svelte";
   import { Button, LinkButton } from "$lib/components/ui/button";
-  import { Badge, type BadgeVariant } from "$lib/components/ui/badge";
+  import { Badge } from "$lib/components/ui/badge";
   import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { difficultyClass, tagClass } from "$lib/types";
   import type { problemDomain } from "@nojv/domain";
   type ProblemListResult = problemDomain.ProblemListResult;
 
@@ -37,15 +37,32 @@
     }
   }
 
-  function formatAcceptanceRate(value: number): string {
+  function formatAcceptanceRate(value: number, totalSubmissions: number): string {
+    if (totalSubmissions === 0) return "—";
     return `${String(Math.round(value * 100))}%`;
   }
 
-  const difficultyBadgeVariant: Record<string, BadgeVariant> = {
-    easy: "success",
-    medium: "warning",
-    hard: "destructive"
+  const problemTypeFieldLabel: Record<ProblemType, () => string> = {
+    full_source: () => m.problemDetail_fullSourceBadge(),
+    function: () => m.problemDetail_functionBadge(),
+    multi_file: () => m.problemDetail_multiFileBadge(),
+    special_env: () => m.problemDetail_specialEnvBadge()
   };
+
+  const judgeTypeFieldLabel: Record<string, () => string> = {
+    standard: () => m.problemDetail_standardBadge(),
+    checker: () => m.problemDetail_checkerBadge(),
+    interactive: () => m.problemDetail_interactiveBadge()
+  };
+
+  function renderProblemType(type: ProblemType): string {
+    return problemTypeFieldLabel[type]();
+  }
+
+  function renderJudgeMethod(type: ProblemType, judgeType: string): string {
+    if (type === "special_env") return "—";
+    return (judgeTypeFieldLabel[judgeType] ?? judgeTypeFieldLabel["standard"]!)();
+  }
 
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
@@ -417,53 +434,51 @@
             variant="surface"
             size="lg"
             interactive
-            class="grid gap-4 sm:grid-cols-[auto_1.4fr_auto_auto_auto_auto] sm:items-center"
+            class="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:items-center"
           >
-            <div class="flex w-6 items-center justify-center">
+            <div class="flex min-w-0 items-center gap-3">
               {#if problem.status === "ac"}
-                <CheckCircle2 class="size-5 text-success" aria-label={m.problems_statusAc()} />
+                <CheckCircle2 class="size-5 shrink-0 text-success" aria-label={m.problems_statusAc()} />
               {:else if problem.status === "attempted"}
-                <XCircle class="size-5 text-warning" aria-label={m.problems_statusAttempted()} />
+                <XCircle class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
               {/if}
+              <div class="min-w-0">
+                <h3 class="text-title font-semibold">{problem.title}</h3>
+                {#if problem.tags.length > 0}
+                  <div class="mt-1.5 flex flex-wrap items-center gap-1">
+                    {#each problem.tags as tag (tag)}
+                      <span
+                        class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass(tag)}"
+                      >
+                        {tag}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
             </div>
-            <div>
-              <h3 class="text-title font-semibold">{problem.title}</h3>
-              {#if showPublicCardTags && problem.tags.length > 0}
-                <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                  {#each problem.tags as tag (tag)}
-                    <Badge variant="muted" size="sm">{tag}</Badge>
-                  {/each}
-                </div>
-              {/if}
+            <div class="flex min-w-24 flex-col items-center text-center">
+              <p class="text-body-sm text-muted-foreground">{m.problemDetail_problemTypeTitle()}</p>
+              <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
             </div>
-            <div class="sm:text-center">
-              <SpecialLabels
-                problemType={problem.type}
-                judgeType={problem.judgeType}
-                compact
-                which="problem-type"
-              />
+            <div class="flex min-w-24 flex-col items-center text-center">
+              <p class="text-body-sm text-muted-foreground">{m.problemDetail_judgeMethodTitle()}</p>
+              <p class="mt-1 text-body font-semibold">
+                {renderJudgeMethod(problem.type, problem.judgeType)}
+              </p>
             </div>
-            <div class="sm:text-center">
-              <SpecialLabels
-                problemType={problem.type}
-                judgeType={problem.judgeType}
-                compact
-                which="judge-method"
-              />
+            <div class="flex min-w-20 flex-col items-center text-center">
+              <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
+              <span
+                class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(problem.difficulty)}"
+              >
+                {problem.difficulty}
+              </span>
             </div>
-            <Badge
-              variant={difficultyBadgeVariant[problem.difficulty] ?? "muted"}
-              size="md"
-              class="self-center capitalize"
-              aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
-            >
-              {problem.difficulty}
-            </Badge>
-            <div class="sm:text-right">
+            <div class="flex min-w-16 flex-col items-center text-center">
               <p class="text-body-sm text-muted-foreground">{m.common_acceptance()}</p>
               <p class="mt-1 text-body-lg font-semibold tabular-nums">
-                {formatAcceptanceRate(problem.acceptanceRate)}
+                {formatAcceptanceRate(problem.acceptanceRate, problem.totalSubmissions)}
               </p>
             </div>
           </Card.Root>
@@ -598,47 +613,49 @@
         />
       {/if}
       {#each mineFiltered as problem (problem.id)}
+        {@const titleHref =
+          problem.status === "published"
+            ? `/problems/${problem.id}`
+            : `/problems/${problem.id}/edit${problem.type === "special_env" ? "-advanced" : ""}`}
         <Card.Root
           variant="surface"
           size="lg"
-          class="grid gap-4 sm:grid-cols-[1.4fr_auto_auto_auto_auto_auto] sm:items-center"
+          class="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
         >
-          <div>
-            <a href="/problems/{problem.id}" class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80">
+          <div class="min-w-0">
+            <a href={titleHref} class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80">
               <h3 class="text-title font-semibold">{problem.title}</h3>
             </a>
-            {#if showMineCardTags && problem.tags.length > 0}
-              <div class="mt-1 flex flex-wrap items-center gap-1.5">
+            {#if problem.tags.length > 0}
+              <div class="mt-1.5 flex flex-wrap items-center gap-1">
                 {#each problem.tags as tag (tag)}
-                  <Badge variant="muted" size="sm">{tag}</Badge>
+                  <span
+                    class="inline-flex h-4 items-center rounded-full border px-1.5 text-[10px] font-medium capitalize leading-none {tagClass(tag)}"
+                  >
+                    {tag}
+                  </span>
                 {/each}
               </div>
             {/if}
           </div>
-          <div class="sm:text-center">
-            <SpecialLabels
-              problemType={problem.type}
-              judgeType={problem.judgeType}
-              compact
-              which="problem-type"
-            />
+          <div class="flex min-w-24 flex-col items-center text-center">
+            <p class="text-body-sm text-muted-foreground">{m.problemDetail_problemTypeTitle()}</p>
+            <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
           </div>
-          <div class="sm:text-center">
-            <SpecialLabels
-              problemType={problem.type}
-              judgeType={problem.judgeType}
-              compact
-              which="judge-method"
-            />
+          <div class="flex min-w-24 flex-col items-center text-center">
+            <p class="text-body-sm text-muted-foreground">{m.problemDetail_judgeMethodTitle()}</p>
+            <p class="mt-1 text-body font-semibold">
+              {renderJudgeMethod(problem.type, problem.judgeType)}
+            </p>
           </div>
-          <Badge
-            variant={difficultyBadgeVariant[problem.difficulty] ?? "muted"}
-            size="md"
-            class="self-center capitalize"
-            aria-label={`${m.common_difficulty()}: ${problem.difficulty}`}
-          >
-            {problem.difficulty}
-          </Badge>
+          <div class="flex min-w-20 flex-col items-center text-center">
+            <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
+            <span
+              class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(problem.difficulty)}"
+            >
+              {problem.difficulty}
+            </span>
+          </div>
           <div class="flex flex-wrap gap-1.5 sm:justify-end">
             {#if problem.status === "draft"}
               <Badge variant="warning" size="md">

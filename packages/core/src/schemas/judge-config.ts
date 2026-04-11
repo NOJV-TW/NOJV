@@ -2,11 +2,7 @@ import { z } from "zod";
 import { judgeTypeSchema } from "../types";
 import { subtaskScoringStrategySchema } from "../pipeline";
 
-// ─── Phase 1 redesign: judge config shape ─────────────────────────
-//
-// Authoritative judge configuration. After the Phase 5 cleanup all
-// legacy fields (staticAnalysis, artifacts, networkAccess, pipeline,
-// customScripts) are removed.
+// Authoritative judge configuration.
 
 export const judgeScriptLanguageSchema = z.enum(["bash", "python", "node", "c", "cpp"]);
 
@@ -60,8 +56,8 @@ export const judgeConfigSchema = z.object({
   // Runtime: authoritative source for time/memory limits + env.
   runtime: runtimeSchema.optional(),
 
-  // Scoring: only subtask strategies after Phase 1. Adjustment rules
-  // moved to CourseAssessment / Contest.adjustmentRules.
+  // Scoring: subtask strategies only. Adjustment rules live on
+  // CourseAssessment / Contest.adjustmentRules.
   scoring: judgeScoringSchema.optional()
 });
 

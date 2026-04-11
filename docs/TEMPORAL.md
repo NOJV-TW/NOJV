@@ -25,7 +25,6 @@ queued → compiling → running → completed
            │            │          │
   fetchJudgeContext  executeSandbox  ├── completeSubmission
                                     ├── updateContestScores (if contest)
-                                    ├── updateUserStats
                                     └── publishVerdict
 ```
 
@@ -33,7 +32,9 @@ Status transitions:
 
 1. **queued → compiling**: Fetch problem, testcases, and judge configuration from DB
 2. **compiling → running**: Execute code in sandbox container (Docker/K8s)
-3. **running → completed**: Write verdict to DB, update contest scores if applicable, update user stats, publish SSE event
+3. **running → completed**: Write verdict to DB, update contest scores if applicable, publish SSE event
+
+Dashboard totals (AC count, per-language / per-difficulty histograms) are computed on-demand from the `Submission` table; only `UserDailyActivity` is pre-aggregated (one row per user per calendar day).
 
 The web app polls status via `workflow.query("getStatus")` on the `/api/submissions/[id]/stream` endpoint, with DB fallback if the workflow has already completed.
 
@@ -83,23 +84,22 @@ start → sleep(opensAt) → activateAssessment
 ### plagiarismCheckWorkflow
 
 **Queue**: `platform`
-**Input**: `{ reportId, targetId, targetType, triggeredById }`
+**Input**: `{ targetId, targetType, triggeredById }`
 **Query**: `getProgress()` → `pending | running | completed | failed`
-**Workflow ID**: `plagiarism-{reportId}`
+**Workflow ID**: `plagiarism-{targetType}-{targetId}`
 
-The web endpoint creates the `PlagiarismReport` DB record first and passes the `reportId` to avoid duplicate creation.
+Plagiarism state lives inline on `Contest` / `CourseAssessment`, so the `(targetType, targetId)` tuple identifies the report.
 
 ## Activities
 
 ### Judge Activities (judge queue)
 
-| Activity                       | Purpose                                                          |
-| ------------------------------ | ---------------------------------------------------------------- |
-| `fetchJudgeContext`            | Load problem, testcases, templates, pipeline config from DB      |
-| `executeSandbox`               | Run code in Docker/K8s sandbox, return verdict                   |
-| `completeSubmission`           | Write verdict, score, runtime, memory to DB                      |
-| `fetchSubmissionIdsForRejudge` | Query submission IDs for rejudge filtering                       |
-| `updateUserStats`              | Update UserStats table (AC count, language dist, daily activity) |
+| Activity                       | Purpose                                                     |
+| ------------------------------ | ----------------------------------------------------------- |
+| `fetchJudgeContext`            | Load problem, testcases, workspace files, judge config     |
+| `executeSandbox`               | Run code in Docker/K8s sandbox, return verdict              |
+| `completeSubmission`           | Write verdict, score, runtime, memory to DB                 |
+| `fetchSubmissionIdsForRejudge` | Query submission IDs for rejudge filtering                  |
 
 ### Platform Activities (platform queue)
 

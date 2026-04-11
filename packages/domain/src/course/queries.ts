@@ -191,10 +191,9 @@ function mapPersistedCourse(course: {
   const assessments = course.assessments.map(mapAssessmentRecord);
   const members = course.memberships.map(mapCourseMember);
 
-  // The `CourseProblem` shelf table was removed in the second-pass refactor —
-  // a course's problem list is now just the distinct union of every problem
-  // attached to one of its assessments. Dedupe by problemId, first-wins by
-  // assessment order (which is `opensAt asc` from the repo).
+  // A course's problem list is the distinct union of every problem
+  // attached to one of its assessments. Dedupe by problemId, first-wins
+  // by assessment order (which is `opensAt asc` from the repo).
   const seen = new Set<string>();
   const problems: CourseProblemCatalogEntry[] = [];
   for (const assessment of course.assessments) {

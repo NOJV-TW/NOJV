@@ -32,7 +32,7 @@ export interface ProblemDetail {
   outputFormat: string;
   /** Direct column on Problem; the single source of truth for shape. */
   type: ProblemType;
-  samples: { stdin: string; expected: string }[];
+  samples: { input: string; output: string }[];
   starterByLanguage: Record<string, string>;
   statement: string;
   status: ProblemStatus;
@@ -52,7 +52,6 @@ export interface ProblemDetail {
   }[];
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
-  networkEnabled: boolean;
 }
 
 // Duplicated from apps/web/src/lib/types.ts to avoid a UI→domain import.
@@ -94,28 +93,19 @@ fn main() {
   python: ``
 };
 
-// Difficulty lives inside `Problem.tags` as one of "easy" / "medium" / "hard".
-function pickDifficultyFromTags(tags: string[]): ProblemDifficulty {
-  for (const tag of tags) {
-    const parsed = problemDifficultySchema.safeParse(tag);
-    if (parsed.success) return parsed.data;
-  }
-  return "medium";
-}
-
 function buildProblemSamples(problem: {
   samples?: unknown;
-}): { stdin: string; expected: string }[] {
+}): { input: string; output: string }[] {
   if (!Array.isArray(problem.samples)) return [];
   return problem.samples
     .filter(
-      (s): s is { stdin: string; expected: string } =>
+      (s): s is { input: string; output: string } =>
         typeof s === "object" &&
         s !== null &&
-        typeof (s as { stdin?: unknown }).stdin === "string" &&
-        typeof (s as { expected?: unknown }).expected === "string"
+        typeof (s as { input?: unknown }).input === "string" &&
+        typeof (s as { output?: unknown }).output === "string"
     )
-    .map((s) => ({ stdin: s.stdin, expected: s.expected }));
+    .map((s) => ({ input: s.input, output: s.output }));
 }
 
 // Per language: use the first editable workspace file if any, else the hardcoded stub.
@@ -155,6 +145,7 @@ function mapPersistedProblemDetail(
     author?: { username: string | null } | null;
     title: string;
     id: string;
+    difficulty?: ProblemDifficulty;
     judgeConfig?: unknown;
     memoryLimitMb?: number;
     samples?: unknown;
@@ -170,7 +161,6 @@ function mapPersistedProblemDetail(
     timeLimitMs?: number;
     visibility: ProblemVisibility;
     type?: ProblemType;
-    networkEnabled?: boolean;
     advancedImageRef?: string | null;
     advancedImageSource?: ProblemImageSource | null;
     workspaceFiles?: {
@@ -213,7 +203,7 @@ function mapPersistedProblemDetail(
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
     authorUsername: problem.author?.username ?? "course_staff",
-    difficulty: pickDifficultyFromTags(tags),
+    difficulty: problem.difficulty ?? "medium",
     id: problem.id,
     inputFormat: localized.inputFormat,
     judgeConfig,
@@ -232,8 +222,7 @@ function mapPersistedProblemDetail(
     visibility: problem.visibility,
     workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
-    advancedImageSource: problem.advancedImageSource ?? null,
-    networkEnabled: problem.networkEnabled ?? false
+    advancedImageSource: problem.advancedImageSource ?? null
   };
 }
 
@@ -250,7 +239,7 @@ export type ProblemUserStatus = "ac" | "attempted" | null;
 
 export interface ProblemCardWithStatus {
   acceptanceRate: number;
-  difficulty: string;
+  difficulty: ProblemDifficulty;
   id: string;
   judgeType: JudgeType;
   type: ProblemType;
@@ -290,12 +279,13 @@ export async function listProblemCards(
     where.id = { in: [...allIds] };
   }
 
-  // Difficulty filter — difficulty is now stored as a tag.
+  // Difficulty filter — now a dedicated column.
   if (params.difficulty && params.difficulty !== "all") {
-    where.tags = { has: params.difficulty };
+    const parsed = problemDifficultySchema.safeParse(params.difficulty);
+    if (parsed.success) where.difficulty = parsed.data;
   }
 
-  // Tag filter (intersected with difficulty if both are provided).
+  // Tag filter.
   if (params.tags && params.tags.length > 0) {
     where.tags = { hasEvery: params.tags };
   }
@@ -340,7 +330,7 @@ export async function listProblemCards(
     };
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
-      difficulty: pickDifficultyFromTags(problem.tags),
+      difficulty: problem.difficulty,
       id: problem.id,
       judgeType: judgeConfig.type,
       type: problem.type,
@@ -362,7 +352,7 @@ export async function listEditableProblems(userId: string) {
       type: "standard" as const
     };
     return {
-      difficulty: pickDifficultyFromTags(problem.tags),
+      difficulty: problem.difficulty,
       id: problem.id,
       judgeType: judgeConfig.type,
       type: problem.type,

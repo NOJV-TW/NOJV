@@ -44,8 +44,7 @@ export const advancedImageConfigSchema = z.object({
   resourceLimits: z
     .object({
       totalTimeMs: z.number().int().min(1_000).max(300_000).default(30_000),
-      memoryMb: z.number().int().min(16).max(4096).default(1_024),
-      networkEnabled: z.boolean().default(false)
+      memoryMb: z.number().int().min(16).max(4096).default(1_024)
     })
     .optional()
 });

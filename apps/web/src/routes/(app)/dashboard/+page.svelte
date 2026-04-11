@@ -1,10 +1,9 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { Code2, Lightbulb, LineChart } from "@lucide/svelte";
+  import { Code2, LineChart, PieChart } from "@lucide/svelte";
   import EChart from "$lib/components/charts/EChart.svelte";
+  import ActivityHeatmap from "$lib/components/charts/ActivityHeatmap.svelte";
   import { Card } from "$lib/components/ui/card";
-  import Section from "$lib/components/ui/Section.svelte";
-  import StatCard from "$lib/components/ui/StatCard.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { formatVerdictLabel } from "$lib/types";
@@ -14,16 +13,8 @@
   let { data } = $props();
 
   const stats = $derived(data.stats);
-
-  // The Phase 1 redesign moved daily activity into its own table
-  // (`UserDailyActivity`) and dropped the JSON `languageDist` /
-  // `difficultyDist` blobs from `UserStats`. The activity chart still
-  // works because the server-side load now reads from the new table.
-  // The language + difficulty pies are TODO: a follow-up should add a
-  // domain helper to compute these histograms on demand from the
-  // `Submission` and `Problem` tables.
+  const analytics = $derived(data.analytics);
   const dailyActivity = $derived(data.dailyActivity);
-  const hasActivity = $derived(dailyActivity.length > 0);
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -31,26 +22,113 @@
       : "0%"
   );
 
-  // -- Activity line chart (last 30 days) --
-  const activityOption: EChartsOption = $derived({
-    grid: { left: 40, right: 16, top: 16, bottom: 32 },
-    xAxis: {
-      type: "category",
-      data: dailyActivity.map((d) => d.date),
-      axisLabel: { fontSize: 11 }
-    },
-    yAxis: { type: "value", minInterval: 1, axisLabel: { fontSize: 11 } },
+  const practiceDays = $derived(
+    dailyActivity.filter((d) => d.submissionCount > 0).length
+  );
+
+  const hasHeatmapData = $derived(dailyActivity.some((d) => d.acCount > 0));
+  const hasDifficultyData = $derived(
+    analytics.byDifficulty.some((d) => d.acCount > 0)
+  );
+  const hasVerdictData = $derived(analytics.byVerdict.length > 0);
+  const hasTagData = $derived(analytics.byTag.length > 0);
+
+  const difficultyColor: Record<string, string> = {
+    easy: "var(--success)",
+    medium: "var(--warning)",
+    hard: "var(--destructive)"
+  };
+
+  const difficultyOption: EChartsOption = $derived({
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { bottom: 0, textStyle: { fontSize: 11 } },
     series: [
       {
-        type: "line",
-        data: dailyActivity.map((d) => d.acCount),
-        smooth: true,
-        areaStyle: { opacity: 0.15 },
-        lineStyle: { width: 2 },
-        itemStyle: { color: "var(--chart-5)" }
+        type: "pie",
+        radius: ["40%", "70%"],
+        center: ["50%", "45%"],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 6,
+          borderColor: "var(--color-panel)",
+          borderWidth: 2
+        },
+        label: { show: false },
+        data: analytics.byDifficulty.map((d) => ({
+          name: d.difficulty,
+          value: d.acCount,
+          itemStyle: { color: difficultyColor[d.difficulty] ?? "var(--muted-foreground)" }
+        }))
       }
-    ],
-    tooltip: { trigger: "axis" }
+    ]
+  });
+
+  const verdictPalette: Record<string, string> = {
+    accepted: "var(--chart-5)",
+    wrong_answer: "var(--destructive)",
+    time_limit_exceeded: "var(--warning)",
+    memory_limit_exceeded: "var(--warning)",
+    runtime_error: "var(--destructive)",
+    compile_error: "var(--destructive)",
+    queued: "var(--muted-foreground)",
+    compiling: "var(--muted-foreground)",
+    running: "var(--muted-foreground)"
+  };
+
+  const verdictOption: EChartsOption = $derived({
+    title: {
+      text: acRate,
+      subtext: m.dashboard_acRate(),
+      left: "center",
+      top: "34%",
+      textStyle: { fontSize: 26, fontWeight: 600 },
+      subtextStyle: { fontSize: 12 }
+    },
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    series: [
+      {
+        type: "pie",
+        radius: ["55%", "75%"],
+        center: ["50%", "45%"],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 6,
+          borderColor: "var(--color-panel)",
+          borderWidth: 2
+        },
+        label: { show: false },
+        data: analytics.byVerdict.map((v) => ({
+          name: formatVerdictLabel(v.status),
+          value: v.count,
+          itemStyle: {
+            color: verdictPalette[v.status] ?? "var(--muted-foreground)",
+            borderWidth: v.status === "accepted" ? 3 : 2,
+            opacity: v.status === "accepted" ? 1 : 0.5
+          }
+        }))
+      }
+    ]
+  });
+
+  const tagOption: EChartsOption = $derived({
+    grid: { left: 96, right: 24, top: 8, bottom: 24 },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+    xAxis: { type: "value", axisLabel: { fontSize: 11 }, minInterval: 1 },
+    yAxis: {
+      type: "category",
+      inverse: true,
+      data: analytics.byTag.map((g) => g.tag),
+      axisLabel: { fontSize: 12 }
+    },
+    series: [
+      {
+        type: "bar",
+        data: analytics.byTag.map((g) => g.acCount),
+        itemStyle: { color: "var(--chart-3)", borderRadius: [0, 4, 4, 0] },
+        barMaxWidth: 18
+      }
+    ]
   });
 
   function verdictToBadgeVariant(status: string): BadgeVariant {
@@ -91,108 +169,157 @@
 </script>
 
 <div class="space-y-6">
-  <!-- Welcome -->
-  <h2 class="font-display text-title-lg">
-    {m.dashboard_welcome({ username: data.username })}
-  </h2>
+  <!-- Section 1 — Hero Bar -->
+  <Card variant="surface" size="lg">
+    <div class="flex flex-col gap-6">
+      <div class="flex items-baseline justify-between gap-4">
+        <h1 class="text-title-sm font-semibold">
+          {m.dashboard_welcome({ username: data.username })}
+        </h1>
+        <span class="text-caption text-muted-foreground">
+          {m.dashboard_last30Days()}
+        </span>
+      </div>
+      <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
+        <div class="flex flex-col gap-1">
+          <span class="text-caption text-muted-foreground">
+            {m.dashboard_totalAc()}
+          </span>
+          <span class="text-headline font-semibold tabular-nums">
+            {stats.totalAc}
+          </span>
+        </div>
+        <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
+          <span class="text-caption text-muted-foreground">
+            {m.dashboard_totalAttempts()}
+          </span>
+          <span class="text-headline font-semibold tabular-nums">
+            {stats.totalAttempts}
+          </span>
+        </div>
+        <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
+          <span class="text-caption text-muted-foreground">
+            {m.dashboard_acRate()}
+          </span>
+          <span class="text-headline font-semibold tabular-nums">{acRate}</span>
+        </div>
+        <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
+          <span class="text-caption text-muted-foreground">
+            {m.dashboard_practiceDays()}
+          </span>
+          <span class="text-headline font-semibold tabular-nums">
+            {practiceDays}
+          </span>
+        </div>
+      </div>
+    </div>
+  </Card>
 
-  <!-- Stats cards -->
-  <div class="grid gap-4 sm:grid-cols-3">
-    <StatCard label={m.dashboard_totalAc()} value={stats.totalAc} />
-    <StatCard label={m.dashboard_totalAttempts()} value={stats.totalAttempts} />
-    <StatCard label={m.dashboard_acRate()} value={acRate} />
+  <!-- Section 2 — Activity Heatmap -->
+  <Card variant="surface" size="lg">
+    <h2 class="mb-4 text-title-sm font-semibold">
+      {m.dashboard_activityChart()}
+    </h2>
+    {#if hasHeatmapData}
+      <ActivityHeatmap data={dailyActivity} />
+    {:else}
+      <EmptyState
+        variant="minimal"
+        icon={LineChart}
+        title={m.dashboard_noActivity()}
+        description={m.dashboard_startPracticing()}
+      />
+    {/if}
+  </Card>
+
+  <!-- Section 3 — Ability Profile -->
+  <div class="grid gap-4">
+    <Card variant="surface" size="lg">
+      <h2 class="mb-4 text-title-sm font-semibold">
+        {m.dashboard_tagProficiency()}
+      </h2>
+      {#if hasTagData}
+        <EChart option={tagOption} class="h-64 w-full" />
+      {:else}
+        <EmptyState
+          variant="minimal"
+          icon={PieChart}
+          title={m.dashboard_noTagData()}
+        />
+      {/if}
+    </Card>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+      <Card variant="surface" size="lg">
+        <h2 class="mb-4 text-title-sm font-semibold">
+          {m.dashboard_difficultyDist()}
+        </h2>
+        {#if hasDifficultyData}
+          <EChart option={difficultyOption} class="h-56 w-full" />
+        {:else}
+          <EmptyState
+            variant="minimal"
+            icon={PieChart}
+            title={m.dashboard_noTagData()}
+          />
+        {/if}
+      </Card>
+
+      <Card variant="surface" size="lg">
+        <h2 class="mb-4 text-title-sm font-semibold">
+          {m.dashboard_verdictDistribution()}
+        </h2>
+        {#if hasVerdictData}
+          <EChart option={verdictOption} class="h-56 w-full" />
+        {:else}
+          <EmptyState
+            variant="minimal"
+            icon={PieChart}
+            title={m.dashboard_noTagData()}
+          />
+        {/if}
+      </Card>
+    </div>
   </div>
 
-  <!-- Activity chart -->
+  <!-- Section 4 — Recent Submissions -->
   <Card variant="surface" size="lg">
-    <Section>
-      {#snippet header()}
-        <h2>{m.dashboard_activityChart()}</h2>
-      {/snippet}
-      {#if hasActivity}
-        <EChart option={activityOption} class="h-56 w-full" />
-      {:else}
-        <EmptyState
-          variant="minimal"
-          icon={LineChart}
-          title={m.dashboard_noActivity()}
-          description={m.dashboard_startPracticing()}
-        />
-      {/if}
-    </Section>
-  </Card>
-
-  <!--
-    TODO(phase-5-followup): the language + difficulty pies were removed
-    when `UserStats.languageDist` / `difficultyDist` JSON blobs were
-    dropped in the Phase 1 redesign. They can be re-added once the
-    domain layer exposes histogram queries that compute them on demand
-    from the Submission + Problem tables.
-  -->
-
-  <!-- Recent activity -->
-  <Card variant="surface" size="lg">
-    <Section>
-      {#snippet header()}
-        <h2>{m.dashboard_recentActivity()}</h2>
-      {/snippet}
-      {#if data.recentSubmissions.length > 0}
-        <ul class="space-y-3">
-          {#each data.recentSubmissions as sub (sub.id)}
-            <li class="flex items-center gap-3 text-body-sm">
-              <time class="shrink-0 text-caption text-muted-foreground tabular-nums">
-                {timeAgo(sub.createdAt)}
-              </time>
-              <Badge variant={verdictToBadgeVariant(sub.status)} size="sm">
-                {formatVerdictLabel(sub.status)}
-              </Badge>
-              <a href="/problems/{sub.problem.id}" class="truncate hover:underline">
-                {sub.problem.title}
-              </a>
-              <span class="shrink-0 text-caption text-muted-foreground">({sub.language})</span>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <EmptyState
-          variant="minimal"
-          icon={Code2}
-          title={m.dashboard_noActivity()}
-          description={m.dashboard_startPracticing()}
-          actionHref="/problems"
-          actionLabel={m.dashboard_browseProblems()}
-        />
-      {/if}
-    </Section>
-  </Card>
-
-  <!-- Recommendations -->
-  <Card variant="surface" size="lg">
-    <Section>
-      {#snippet header()}
-        <h2>{m.dashboard_recommendations()}</h2>
-      {/snippet}
-      {#if data.recommendations.length > 0}
-        <ul class="space-y-3">
-          {#each data.recommendations as rec (rec.id)}
-            <li class="flex flex-wrap items-center gap-2 text-body-sm">
-              <a href="/problems/{rec.id}" class="font-medium hover:underline">
-                {rec.title}
-              </a>
-              {#each rec.tags as tag (tag)}
-                <Badge variant="muted" size="xs">#{tag}</Badge>
-              {/each}
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <EmptyState
-          variant="minimal"
-          icon={Lightbulb}
-          title={m.dashboard_noRecommendations()}
-          description={m.dashboard_recommendationsEmptyDescription()}
-        />
-      {/if}
-    </Section>
+    <h2 class="mb-4 text-title-sm font-semibold">
+      {m.dashboard_recentActivity()}
+    </h2>
+    {#if data.recentSubmissions.length > 0}
+      <ul class="space-y-3">
+        {#each data.recentSubmissions.slice(0, 5) as sub (sub.id)}
+          <li class="flex items-center gap-3 text-body-sm">
+            <time
+              class="shrink-0 text-caption text-muted-foreground tabular-nums"
+            >
+              {timeAgo(sub.createdAt)}
+            </time>
+            <Badge variant={verdictToBadgeVariant(sub.status)} size="sm">
+              {formatVerdictLabel(sub.status)}
+            </Badge>
+            <a
+              href="/problems/{sub.problem.id}"
+              class="truncate hover:underline"
+            >
+              {sub.problem.title}
+            </a>
+            <span class="shrink-0 text-caption text-muted-foreground">
+              ({sub.language})
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <EmptyState
+        variant="minimal"
+        icon={Code2}
+        title={m.dashboard_noActivity()}
+        description={m.dashboard_startPracticing()}
+        actionHref="/problems"
+        actionLabel={m.dashboard_browseProblems()}
+      />
+    {/if}
   </Card>
 </div>

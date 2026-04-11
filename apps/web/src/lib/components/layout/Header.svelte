@@ -13,7 +13,7 @@
   let currentPath = $derived($page.url.pathname);
 
   let navItems = $derived(
-    user
+    user?.username
       ? [
           { href: "/dashboard", label: m.navigation_dashboard() },
           { href: "/problems", label: m.navigation_problems() },

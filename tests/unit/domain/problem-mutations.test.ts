@@ -54,7 +54,6 @@ vi.mock("@nojv/db", () => {
     },
     testcaseSetRepo: { withTx: () => ({}) },
     testcaseRepo: { withTx: () => ({}) },
-    advancedTestcaseRepo: { withTx: () => ({}) },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
   };
 });
@@ -86,7 +85,6 @@ describe("createProblemDefinition", () => {
     expect(data.samples).toBe(PRISMA_JSON_NULL);
     expect(data.advancedImageRef).toBeUndefined();
     expect(data.advancedImageSource).toBeUndefined();
-    expect(data.networkEnabled).toBe(false);
   });
 
   it("honors type: 'special_env' explicitly passed by the caller", async () => {
@@ -102,7 +100,6 @@ describe("createProblemDefinition", () => {
     const data = problemCreate.mock.calls[0][0];
     expect(data.advancedImageRef).toBe("");
     expect(data.advancedImageSource).toBe("registry");
-    expect(data.networkEnabled).toBe(false);
   });
 
   it("preserves caller-supplied special_env fields when provided", async () => {
@@ -110,17 +107,15 @@ describe("createProblemDefinition", () => {
       ...baseInput,
       type: "special_env",
       advancedImageRef: "ghcr.io/acme/ta:1.2.3",
-      advancedImageSource: "tarball",
-      networkEnabled: true
+      advancedImageSource: "tarball"
     });
 
     const data = problemCreate.mock.calls[0][0];
     expect(data.advancedImageRef).toBe("ghcr.io/acme/ta:1.2.3");
     expect(data.advancedImageSource).toBe("tarball");
-    expect(data.networkEnabled).toBe(true);
   });
 
-  it("merges difficulty into the tag list", async () => {
+  it("writes difficulty to its dedicated column and leaves tags untouched", async () => {
     await createProblemDefinition(fakeTx, {
       ...baseInput,
       difficulty: "hard",
@@ -128,20 +123,8 @@ describe("createProblemDefinition", () => {
     });
 
     const data = problemCreate.mock.calls[0][0];
-    // Difficulty tag is prepended; pre-existing non-difficulty tags follow.
-    expect(data.tags).toEqual(["hard", "graph", "dp"]);
-  });
-
-  it("strips a stale difficulty tag from the input list before re-adding the canonical one", async () => {
-    await createProblemDefinition(fakeTx, {
-      ...baseInput,
-      difficulty: "medium",
-      tags: ["easy", "graph"]
-    });
-
-    const data = problemCreate.mock.calls[0][0];
-    // The "easy" passed in tags is stripped; "medium" from difficulty wins.
-    expect(data.tags).toEqual(["medium", "graph"]);
+    expect(data.difficulty).toBe("hard");
+    expect(data.tags).toEqual(["graph", "dp"]);
   });
 });
 

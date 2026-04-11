@@ -25,10 +25,8 @@ export function buildSandboxConfigJson(
     submissionId: request.submissionId,
     language: request.language,
     judgeType: request.judgeType,
-    // Phase 1 redesign: the runner now receives `problemType` (the
-    // single source of truth on Problem) instead of the legacy
-    // `submissionType` field. The on-disk config key matches the
-    // sandbox-runner's parser.
+    // `problemType` is the single source of truth on Problem. The
+    // on-disk config key matches the sandbox-runner's parser.
     problemType: request.problemType,
     limits: request.limits,
     ...(request.entryFile ? { entryFile: request.entryFile } : {}),

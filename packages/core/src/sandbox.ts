@@ -6,7 +6,7 @@ import type { JudgeType, Language, ProblemType } from "./types";
 export interface SandboxTestcase {
   index: number;
   input: string;
-  expected?: string;
+  output?: string;
   weight: number;
   isSample: boolean;
 }
@@ -20,20 +20,14 @@ export interface SandboxSourceFile {
  * Optional payload supplied when the submission is for an advanced-mode
  * problem (TA-provided judge container). When set, the runner skips the
  * standard pipeline and instead invokes the configured image with the
- * advanced container contract.
+ * v2 container contract: student files under `/workspace/submission/`,
+ * image writes its score to `/workspace/output/result.json`.
  */
 export interface SandboxAdvancedRequest {
   imageRef: string;
   imageSource: "registry" | "tarball";
   totalTimeMs: number;
   memoryMb: number;
-  networkEnabled: boolean;
-  /**
-   * Per-testcase auxiliary file map: index → { relative path → content }.
-   * These files are materialized inside `/workspace/testcases/{index}/`
-   * before the TA container starts.
-   */
-  testcaseFiles?: Record<number, Record<string, string>>;
 }
 
 export interface SandboxRequest {
@@ -53,7 +47,7 @@ export interface SandboxRequest {
   };
   /**
    * Standard-judge compare mode config. When absent, the runner falls
-   * back to trimmed exact comparison (the legacy behavior).
+   * back to trimmed exact comparison.
    */
   compare?: Compare;
   limits: {

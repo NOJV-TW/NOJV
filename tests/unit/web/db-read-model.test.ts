@@ -79,8 +79,8 @@ describe("DB-backed read model", () => {
         _count: { submissions: 2, workspaceFiles: 0 },
         title: "Compiler Intro",
         id: "prob_compiler_intro",
-        // Difficulty lives inside `tags` after the Phase 1 redesign.
-        tags: ["easy"],
+        difficulty: "easy",
+        tags: [],
         type: "full_source",
         visibility: "public"
       }
@@ -103,8 +103,7 @@ describe("DB-backed read model", () => {
   });
 
   it("returns persisted course detail data for dynamic course pages", async () => {
-    // Course-level `problems` shelf was removed in the second-pass
-    // refactor — problems are now projected from assessment links
+    // Course problems are projected from assessment links
     // (`CourseAssessmentProblem`), so the full problem payload lives on
     // `assessments[i].problems[j].problem`.
     findDetailBySlugCourse.mockResolvedValue({
@@ -217,7 +216,7 @@ describe("DB-backed read model", () => {
       ],
       tags: ["easy", "math", "beginner"],
       type: "full_source",
-      samples: [{ stdin: "1 2\n", expected: "3\n" }],
+      samples: [{ input: "1 2\n", output: "3\n" }],
       visibility: "public"
     });
     countSubmissions.mockResolvedValue(5);
@@ -232,8 +231,8 @@ describe("DB-backed read model", () => {
     expect(detail?.tags).toEqual(["easy", "math", "beginner"]);
     expect(detail?.difficulty).toBe("easy");
     expect(detail?.samples).toHaveLength(1);
-    expect(detail?.samples[0]?.stdin).toBe("1 2\n");
-    expect(detail?.samples[0]?.expected).toBe("3\n");
+    expect(detail?.samples[0]?.input).toBe("1 2\n");
+    expect(detail?.samples[0]?.output).toBe("3\n");
     expect(detail?.starterByLanguage).toBeDefined();
     expect(detail?.starterByLanguage.python).toBeDefined();
     // Without workspace files, the field is an empty array.

@@ -3,6 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Card } from "$lib/components/ui/card/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import Lock from "@lucide/svelte/icons/lock";
 
   let { data } = $props();
 
@@ -141,11 +142,43 @@
     <h2 class="font-display text-title font-semibold">{m.contestDetail_contestProblems()}</h2>
 
     <div class="grid gap-3">
-      {#each contest.problems as p (p.id)}
-        {@const href = isActive ? `/contests/${contest.slug}/problems/${p.id}` : null}
-        {#if href}
-          <a class="block" {href}>
-            <Card variant="surface" size="md" interactive class="flex-row items-center justify-between">
+      {#if contest.problemsHidden}
+        <Card variant="surface" size="md" class="flex-col items-center justify-center gap-3 py-10 text-center">
+          <Lock class="h-8 w-8 text-muted-foreground" />
+          <h3 class="font-display text-title-sm font-semibold">
+            {m.contestDetail_problemsHiddenTitle()}
+          </h3>
+          <p class="text-body-sm text-muted-foreground">
+            {m.contestDetail_problemsHiddenBody()}
+          </p>
+          {#if !hasStarted}
+            <p class="font-mono text-body-sm tabular-nums text-muted-foreground">
+              {formatDuration(remainingMs)}
+            </p>
+          {/if}
+        </Card>
+      {:else}
+        {#each data.contest.problems ?? [] as p (p.id)}
+          {@const href =
+            isActive || data.contest.isManager
+              ? `/contests/${data.contest.slug}/problems/${p.id}`
+              : null}
+          {#if href}
+            <a class="block" {href}>
+              <Card variant="surface" size="md" interactive class="flex-row items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
+                    {String.fromCharCode(64 + p.ordinal)}
+                  </span>
+                  <span class="font-medium text-body">{p.title}</span>
+                </div>
+                <span class="text-caption text-muted-foreground tabular-nums">
+                  {p.points} {m.contestDetail_pts()}
+                </span>
+              </Card>
+            </a>
+          {:else}
+            <Card variant="flat" size="md" class="flex-row items-center justify-between opacity-60">
               <div class="flex items-center gap-3">
                 <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
                   {String.fromCharCode(64 + p.ordinal)}
@@ -156,21 +189,9 @@
                 {p.points} {m.contestDetail_pts()}
               </span>
             </Card>
-          </a>
-        {:else}
-          <Card variant="flat" size="md" class="flex-row items-center justify-between opacity-60">
-            <div class="flex items-center gap-3">
-              <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
-                {String.fromCharCode(64 + p.ordinal)}
-              </span>
-              <span class="font-medium text-body">{p.title}</span>
-            </div>
-            <span class="text-caption text-muted-foreground tabular-nums">
-              {p.points} {m.contestDetail_pts()}
-            </span>
-          </Card>
-        {/if}
-      {/each}
+          {/if}
+        {/each}
+      {/if}
     </div>
   </div>
 </div>

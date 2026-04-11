@@ -153,9 +153,8 @@ function mapResult(
     score = result.customScore;
   }
 
-  // Apply assessment adjustment rules to raw score. The Phase 1 redesign
-  // dropped adjustmentRules from Contest — only assessments carry late
-  // penalty / bonus rules now.
+  // Apply assessment adjustment rules to raw score. Only assessments
+  // carry late-penalty / bonus rules — contests do not.
   const adjustmentRules = judgeContext.adjustment.assessmentAdjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
@@ -249,7 +248,7 @@ function mergeSandboxSources(
   const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
 
   if (langFiles.length === 0) {
-    // No workspace files configured — legacy single-file path.
+    // No workspace files configured — single-file submission path.
     return {
       sourceCode: draft.sourceCode,
       ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {})
@@ -350,24 +349,20 @@ export async function executeSandbox(
   const testcasesForSandbox = useSamples
     ? judgeContext.samples.map((s, i) => ({
         index: i,
-        input: s.stdin,
-        expected: s.expected,
+        input: s.input,
+        output: s.output,
         weight: 0,
         isSample: true
       }))
     : useAdvanced
-      ? (judgeContext.advanced?.testcases ?? []).map((c, i) => ({
-          index: i,
-          input: c.stdin,
-          expected: c.expected,
-          weight: 1,
-          isSample: false
-        }))
+      ? // Advanced-mode TA images bundle their own testcases; the
+        // system hands over student files + resource limits only.
+        []
       : judgeContext.testcaseSets.flatMap((ts) =>
           ts.testcases.map((tc, i) => ({
             index: i,
-            input: tc.stdin,
-            ...(tc.expectedStdout != null ? { expected: tc.expectedStdout } : {}),
+            input: tc.input,
+            ...(tc.output != null ? { output: tc.output } : {}),
             weight: tc.weight,
             isSample: false
           }))
@@ -377,24 +372,17 @@ export async function executeSandbox(
 
   const sources = mergeSandboxSources(draft, judgeContext);
 
-  // Build the advanced-mode payload when applicable. Standard-shape
-  // submissions go through the existing pipeline unchanged.
+  // Build the advanced-mode payload when applicable. In the v2 contract
+  // the TA image bundles its own testcases; the system only hands over
+  // student files + resource limits.
   let advancedPayload: SandboxRequest["advanced"] | undefined;
   if (judgeContext.problemType === "special_env" && judgeContext.advanced) {
     const ctx = judgeContext.advanced;
-    const testcaseFiles: Record<number, Record<string, string>> = {};
-    for (const [idx, c] of ctx.testcases.entries()) {
-      if (Object.keys(c.files).length > 0) {
-        testcaseFiles[idx] = c.files;
-      }
-    }
     advancedPayload = {
       imageRef: ctx.imageRef,
       imageSource: ctx.imageSource,
       totalTimeMs: ctx.resourceLimits.totalTimeMs,
-      memoryMb: ctx.resourceLimits.memoryMb,
-      networkEnabled: ctx.resourceLimits.networkEnabled,
-      ...(Object.keys(testcaseFiles).length > 0 ? { testcaseFiles } : {})
+      memoryMb: ctx.resourceLimits.memoryMb
     };
   }
 

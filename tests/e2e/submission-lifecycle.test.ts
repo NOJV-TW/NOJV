@@ -33,17 +33,17 @@ const OUTPUT_FORMAT = `A single line containing three floating-point numbers sep
 
 If the input points are collinear, print \`-1.00 -1.00 -1.00\`.`;
 
-const SAMPLE_CASES: Array<{ stdin: string; expectedStdout: string }> = [
-  { stdin: "0 0 4 0 0 3", expectedStdout: "14.00 12.00 90.00" },
-  { stdin: "0 0 2 0 3 4", expectedStdout: "14.00 8.00 53.13" },
-  { stdin: "0 0 1 0 2 0", expectedStdout: "-1.00 -1.00 -1.00" }
+const SAMPLE_CASES: Array<{ input: string; output: string }> = [
+  { input: "0 0 4 0 0 3", output: "14.00 12.00 90.00" },
+  { input: "0 0 2 0 3 4", output: "14.00 8.00 53.13" },
+  { input: "0 0 1 0 2 0", output: "-1.00 -1.00 -1.00" }
 ];
 
-const HIDDEN_CASES: Array<{ stdin: string; expectedStdout: string }> = [
-  { stdin: "1 1 4 1 1 5", expectedStdout: "14.00 12.00 90.00" },
-  { stdin: "0 0 5 0 3 4", expectedStdout: "20.00 20.00 53.13" },
-  { stdin: "-2 -2 2 -2 -2 2", expectedStdout: "16.00 16.00 90.00" },
-  { stdin: "0 0 3 0 6 0", expectedStdout: "-1.00 -1.00 -1.00" }
+const HIDDEN_CASES: Array<{ input: string; output: string }> = [
+  { input: "1 1 4 1 1 5", output: "14.00 12.00 90.00" },
+  { input: "0 0 5 0 3 4", output: "20.00 20.00 53.13" },
+  { input: "-2 -2 2 -2 -2 2", output: "16.00 16.00 90.00" },
+  { input: "0 0 3 0 6 0", output: "-1.00 -1.00 -1.00" }
 ];
 
 // -----------------------------------------------------------------------------
