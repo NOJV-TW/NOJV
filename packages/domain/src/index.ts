@@ -1,4 +1,6 @@
 export * from "./shared";
+export { canManageContest } from "./contest/permissions";
+export type { ContestPermissionInput, CourseMembershipRow } from "./contest/permissions";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as assessmentDomain from "./assessment";
