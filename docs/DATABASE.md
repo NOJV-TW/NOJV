@@ -45,7 +45,7 @@ Course ──┬── CourseMembership
 | `SupportedLanguage`       | c, cpp, go, java, javascript, python, rust, typescript                                                                       |
 | `SubmissionStatus`        | queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error |
 | `JudgeType`               | standard, checker, interactive                                                                                               |
-| `ProblemType`             | full_source, function, multi_file, special_env                                                                               |
+| `ProblemType`             | full_source, multi_file, special_env                                                                                         |
 | `ProblemDifficulty`       | easy, medium, hard                                                                                                           |
 | `ProblemImageSource`      | registry, tarball                                                                                                            |
 | `WorkspaceFileVisibility` | editable, readonly, hidden                                                                                                   |
@@ -81,7 +81,7 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | `title`               | String              | Problem title                                                       |
 | `visibility`          | ProblemVisibility   | public or private (course-only)                                     |
 | `status`              | ProblemStatus       | draft or published                                                  |
-| `type`                | ProblemType         | full_source, function, multi_file, or special_env                   |
+| `type`                | ProblemType         | full_source, multi_file, or special_env                             |
 | `difficulty`          | ProblemDifficulty   | easy, medium, or hard (dedicated column; NOT a tag)                 |
 | `tags`                | String[]            | Free-form topic/skill tags (difficulty lives on its own column)     |
 | `timeLimitMs`         | Int                 | Execution time limit (per-case for standard, total for special_env) |

@@ -431,7 +431,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       ],
       testcases: {
         sample: {
-          description: "Public sample cases for the function signature.",
+          description: "Public sample cases.",
           cases: [
             { input: "1 2", output: "3" },
             { input: "0 0", output: "0" },
@@ -611,14 +611,14 @@ if __name__ == "__main__":
       statements: {
         "zh-TW": {
           title: "Stateful DHCP Option Parser",
-          body: '這是一題函式題。你要實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
+          body: '這是一題多檔函式實作題。你要在 `main.py` 裡實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
           inputFormat:
             "評測 driver 會先讀入整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
           outputFormat: "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。"
         },
         en: {
           title: "Stateful DHCP Option Parser",
-          body: 'This is a function-mode problem. Implement `parse_dhcp_options(hex_payload)`, where the input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `["ERROR"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.',
+          body: 'In this problem, implement `parse_dhcp_options(hex_payload)` in `main.py`; the judge driver calls it with each payload. The input is a hexadecimal string (2 chars per byte) representing a DHCP option TLV stream.\n\nRules:\n1. Code 0 is padding and must be skipped.\n2. Code 255 is End and terminates parsing.\n3. If length/data is malformed, return `["ERROR"]`.\n4. Return each TLV entry as `CODE:LEN:VALUE`.\n5. For codes 1/3/6, VALUE must be formatted as IPv4 addresses (4-byte chunks joined by commas); for other codes, output uppercase contiguous hex.',
           inputFormat:
             "The judge driver reads an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
           outputFormat:
@@ -757,14 +757,14 @@ if __name__ == "__main__":
       statements: {
         "zh-TW": {
           title: "Memory Leak Forensics",
-          body: "這是一題函式題。實作 `analyze_trace(events)`，每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
+          body: "這是一題多檔函式實作題。你要在 `main.py` 裡實作 `analyze_trace(events)`，每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
           inputFormat:
             "評測 driver 會先讀入整數 $N$，再讀 $N$ 行事件，最後呼叫 `analyze_trace`。",
           outputFormat: "輸出三個整數：`peak_bytes leaked_blocks invalid_free_count`。"
         },
         en: {
           title: "Memory Leak Forensics",
-          body: "This is a function-mode problem. Implement `analyze_trace(events)`, where each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
+          body: "In this problem, implement `analyze_trace(events)` in `main.py`; the judge driver calls it with the parsed event list. Each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
           inputFormat:
             "The judge driver reads an integer $N$, then $N$ event lines, and calls `analyze_trace`.",
           outputFormat: "Print three integers: `peak_bytes leaked_blocks invalid_free_count`."
