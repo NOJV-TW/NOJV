@@ -50,7 +50,10 @@ export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
     contestSlug: slugSchema.optional(),
-    customTestcases: z.array(submissionCustomTestcaseSchema).max(MAX_CUSTOM_TESTCASES).optional(),
+    customTestcases: z
+      .array(submissionCustomTestcaseSchema)
+      .max(MAX_CUSTOM_TESTCASES)
+      .optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
     problemId: problemIdentifierSchema,
