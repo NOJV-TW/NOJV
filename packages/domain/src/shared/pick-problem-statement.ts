@@ -8,14 +8,30 @@ interface ProblemStatement {
   title: string;
 }
 
+/**
+ * Selects the best statement for a locale: prefer an exact locale match,
+ * otherwise fall back to the first row, otherwise `null`. Centralising this
+ * lets callers treat the result as a single nullable instead of chaining
+ * `??` across undefined/missing-locale/empty-array branches.
+ */
+function selectStatement(
+  statements: ProblemStatement[] | undefined,
+  locale: string
+): ProblemStatement | null {
+  if (!statements || statements.length === 0) return null;
+  const [head, ...rest] = statements;
+  if (head.locale === locale) return head;
+  const match = rest.find((statement) => statement.locale === locale);
+  return match ?? head;
+}
+
 export function pickProblemStatement(
   statements: ProblemStatement[] | undefined,
   locale: string,
   fallbackTitle: string,
   fallbackStatement: string
 ) {
-  const localized =
-    statements?.find((statement) => statement.locale === locale) ?? statements?.[0] ?? null;
+  const localized = selectStatement(statements, locale);
 
   return {
     inputFormat: localized?.inputFormat ?? "",
