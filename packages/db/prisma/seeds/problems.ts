@@ -46,7 +46,7 @@ type SeedTestcaseSets = {
   hidden: SeedTestcaseSet;
 };
 
-type SeedProblemType = "full_source" | "function" | "multi_file" | "special_env";
+type SeedProblemType = "full_source" | "multi_file" | "special_env";
 
 type SeedWorkspaceFile = {
   language: "python" | "c" | "cpp" | "go" | "java" | "javascript" | "rust" | "typescript";
@@ -405,7 +405,7 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       authorId: teacherId,
       title: "Add Two Numbers",
       tags: ["easy"],
-      type: "function" as const,
+      type: "full_source" as const,
       id: "problem_add-two-numbers",
       memoryLimitMb: 256,
       timeLimitMs: 1000,
@@ -413,14 +413,14 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       statements: {
         "zh-TW": {
           title: "兩數相加",
-          body: "撰寫一個函式，接收兩個整數並回傳它們的總和。",
+          body: "讀入兩個整數並輸出它們的總和。",
           inputFormat:
             "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
           outputFormat: "一行，輸出 $a + b$ 的值。"
         },
         en: {
           title: "Add Two Numbers",
-          body: "Write a function that takes two integers and returns their sum.",
+          body: "Read two integers from stdin and print their sum.",
           inputFormat:
             "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
           outputFormat: "A single line containing the value of $a + b$."

@@ -39,7 +39,6 @@
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
-  let isFunctionMode = $derived(problem.type === "function");
 
   // `LanguageSelector` owns the language-availability logic; we mirror its
   // computed list so the action bar can disable Run/Submit when empty.
@@ -298,11 +297,6 @@
         onchange={(next) => (language = next)}
         onavailablechange={(available) => (availableLanguages = available)}
       />
-      {#if isFunctionMode}
-        <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
-          {m.editor_functionModeHint()}
-        </span>
-      {/if}
     </div>
     {#if contestSlug}
       <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">

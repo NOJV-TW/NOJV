@@ -44,7 +44,6 @@
 
   const problemTypeFieldLabel: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceBadge(),
-    function: () => m.problemDetail_functionBadge(),
     multi_file: () => m.problemDetail_multiFileBadge(),
     special_env: () => m.problemDetail_specialEnvBadge()
   };

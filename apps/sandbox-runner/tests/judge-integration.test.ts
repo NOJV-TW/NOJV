@@ -4,7 +4,6 @@
  * Verdicts: AC, WA, RE, TLE, CE, MLE, SE
  * Languages: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
  * Judge types: standard, checker, interactive
- * Plus: function mode (template injection) for all languages
  */
 import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";

@@ -15,7 +15,6 @@ import { judgeConfigSchema } from "./judge-config";
 // problem", persisted directly on the Problem table.
 //
 // - `full_source`   — single-file, student writes everything including main()
-// - `function`      — student implements the named function, judge provides the driver
 // - `multi_file`    — teacher ships multiple files; student edits the designated ones in-browser
 // - `special_env`   — TA-provided Docker image owns the entire judging loop; student
 //                     uploads a tarball. No judge-method badge is displayed for this category.

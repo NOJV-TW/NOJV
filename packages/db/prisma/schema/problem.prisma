@@ -16,7 +16,6 @@ enum ProblemStatus {
 /// Replaces the old (submissionType × mode) matrix.
 enum ProblemType {
   full_source // Single-file submission with main()
-  function // Student implements named function, system provides driver
   multi_file // Teacher ships scaffold (main + helpers); student edits in-browser
   special_env // TA Docker image owns the entire judging loop
 }

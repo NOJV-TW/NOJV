@@ -9,10 +9,6 @@ export type CompileResult =
   | { success: true; runCommand: string[] }
   | { success: false; error: string };
 
-export function assembleSource(userSource: string, _input: SandboxInput): string {
-  return userSource;
-}
-
 export function sourceFileName(language: SandboxInput["language"]): string {
   return sourceFileNames[language];
 }
