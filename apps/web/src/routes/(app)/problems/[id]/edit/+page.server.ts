@@ -69,8 +69,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       timeLimitMs: problem.timeLimitMs,
       title: problem.title,
       type: problem.type satisfies ProblemType,
-      visibility: problem.visibility,
-      networkEnabled: problem.networkEnabled
+      visibility: problem.visibility
     },
     zod4(problemCreateSchema)
   );

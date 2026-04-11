@@ -1,4 +1,6 @@
 export * from "./shared";
+export { canManageContest } from "./contest/permissions";
+export type { ContestPermissionInput, CourseMembershipRow } from "./contest/permissions";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as assessmentDomain from "./assessment";
@@ -8,4 +10,6 @@ export * as plagiarismDomain from "./plagiarism";
 export * as problemDomain from "./problem";
 export * as submissionDomain from "./submission";
 export * as userDomain from "./user";
+export { aggregateByTag } from "./user/analytics-helpers";
+export type { TagAcCount } from "./user/analytics-helpers";
 export * as verificationDomain from "./verification";

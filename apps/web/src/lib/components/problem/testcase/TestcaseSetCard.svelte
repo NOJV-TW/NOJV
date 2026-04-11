@@ -8,8 +8,8 @@
   interface TestcaseData {
     id: string;
     ordinal: number;
-    stdin: string;
-    expectedStdout: string | null;
+    input: string;
+    output: string | null;
   }
 
   interface Props {
@@ -36,8 +36,8 @@
   let editWeight = $state(untrack(() => set.weight));
 
   // Edit state for testcase
-  let editStdin = $state("");
-  let editExpectedStdout = $state("");
+  let editInput = $state("");
+  let editOutput = $state("");
 
   function startEditSet() {
     editName = set.name;
@@ -71,8 +71,8 @@
   }
 
   function startEditTestcase(tc: TestcaseData) {
-    editStdin = tc.stdin;
-    editExpectedStdout = tc.expectedStdout ?? "";
+    editInput = tc.input;
+    editOutput = tc.output ?? "";
     editingTestcaseId = tc.id;
   }
 
@@ -81,7 +81,7 @@
     try {
       await postProblemAction(problemId, "updateTestcase", {
         testcaseId: tcId,
-        data: JSON.stringify({ stdin: editStdin, expectedStdout: editExpectedStdout })
+        data: JSON.stringify({ input: editInput, output: editOutput })
       });
       editingTestcaseId = null;
       await invalidateAll();
@@ -225,19 +225,19 @@
             <!-- Editing testcase -->
             <div class="space-y-2">
               <label class="grid gap-1 text-caption text-muted-foreground">
-                stdin
+                {m.testcases_input()}
                 <textarea
                   class="w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
                   rows={3}
-                  bind:value={editStdin}
+                  bind:value={editInput}
                 ></textarea>
               </label>
               <label class="grid gap-1 text-caption text-muted-foreground">
-                expected stdout
+                {m.testcases_output()}
                 <textarea
                   class="w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
                   rows={3}
-                  bind:value={editExpectedStdout}
+                  bind:value={editOutput}
                 ></textarea>
               </label>
               <div class="flex gap-2">
@@ -288,12 +288,12 @@
               </span>
               <div class="min-w-0 flex-1 grid gap-1">
                 <div class="text-caption text-muted-foreground">
-                  <span class="font-medium">stdin:</span>
-                  <code class="ml-1 break-all">{truncate(tc.stdin)}</code>
+                  <span class="font-medium">{m.testcases_input()}:</span>
+                  <code class="ml-1 break-all">{truncate(tc.input)}</code>
                 </div>
                 <div class="text-caption text-muted-foreground">
-                  <span class="font-medium">stdout:</span>
-                  <code class="ml-1 break-all">{truncate(tc.expectedStdout ?? "")}</code>
+                  <span class="font-medium">{m.testcases_output()}:</span>
+                  <code class="ml-1 break-all">{truncate(tc.output ?? "")}</code>
                 </div>
               </div>
               <div class="flex shrink-0 gap-1">

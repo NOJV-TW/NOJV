@@ -26,6 +26,12 @@ enum ProblemImageSource {
   tarball
 }
 
+enum ProblemDifficulty {
+  easy
+  medium
+  hard
+}
+
 enum WorkspaceFileVisibility {
   editable
   readonly
@@ -38,8 +44,11 @@ model Problem {
   authorId   String?
   visibility ProblemVisibility @default(public)
   status     ProblemStatus     @default(draft)
-  /// Free-form tags. Difficulty lives here (e.g. "easy"/"medium"/"hard")
-  /// and is styled with a special color in the UI.
+  /// Dedicated column so the UI can colour-code difficulty without reading
+  /// the free-form tag list.
+  difficulty ProblemDifficulty @default(medium)
+  /// Free-form tags (topics, skills). Difficulty lives in its own column —
+  /// do NOT mirror it here.
   tags       String[]          @default([])
   /// Derived shape of the problem. See ProblemType.
   type       ProblemType       @default(full_source)
@@ -48,8 +57,6 @@ model Problem {
   /// special_env (the TA image runs all cases in one call).
   timeLimitMs    Int
   memoryLimitMb  Int
-  /// Only meaningful when type = special_env. Ignored for other types.
-  networkEnabled Boolean @default(false)
 
   /// Judge config JSON: `{ type: "standard"|"checker"|"interactive", ... }`.
   /// Ignored when type = special_env (TA image decides everything).
@@ -70,7 +77,6 @@ model Problem {
   statements        ProblemStatementI18n[]
   testcaseSets      TestcaseSet[]
   workspaceFiles    ProblemWorkspaceFile[]
-  advancedTestcases AdvancedTestcase[]
   submissions       Submission[]
   contestLinks      ContestProblem[]
   assessmentLinks   CourseAssessmentProblem[]
@@ -78,6 +84,7 @@ model Problem {
 
   @@index([status, visibility, createdAt])
   @@index([authorId])
+  @@index([difficulty])
   @@index([tags], type: Gin)
 }
 
@@ -117,34 +124,17 @@ model TestcaseSet {
 }
 
 model Testcase {
-  id             String      @id @default(cuid())
-  testcaseSetId  String
-  ordinal        Int
-  stdin          String      @db.Text
-  expectedStdout String?     @db.Text
-  inputFiles     Json?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  testcaseSet    TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  testcaseSetId String
+  ordinal       Int
+  input         String      @db.Text
+  output        String?     @db.Text
+  inputFiles    Json?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  testcaseSet   TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
 
   @@unique([testcaseSetId, ordinal])
-}
-
-/// Mounted at /workspace/testcases/{ordinal}/ inside the TA container.
-/// Only used when Problem.type = "special_env".
-model AdvancedTestcase {
-  id        String   @id @default(cuid())
-  problemId String
-  ordinal   Int
-  stdin     String   @db.Text
-  expected  String   @db.Text
-  files     Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
-
-  @@unique([problemId, ordinal])
-  @@index([problemId])
 }
 
 model ProblemWorkspaceFile {

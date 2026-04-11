@@ -31,10 +31,8 @@ export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> 
 
 // --- Problem ---
 type TestProblemOverrides = Partial<Prisma.ProblemUncheckedCreateInput> & {
-  /** Legacy alias accepted by tests that still pass `defaultTitle`. */
+  /** Convenience alias accepted by tests that still pass `defaultTitle`. */
   defaultTitle?: string;
-  /** Legacy alias: merged into `tags` as a difficulty tag. */
-  difficulty?: string;
 };
 
 export async function createTestProblem(overrides: TestProblemOverrides = {}) {
@@ -46,13 +44,10 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
   }
 
   const title = overrides.title ?? overrides.defaultTitle ?? `Test Problem ${id}`;
-  const difficultyTag = overrides.difficulty ?? "easy";
   const extraTags = Array.isArray(overrides.tags) ? overrides.tags : [];
-  const tags = Array.from(new Set([difficultyTag, ...extraTags]));
 
   const {
     defaultTitle: _defaultTitle,
-    difficulty: _difficulty,
     title: _title,
     tags: _tags,
     slug: _slug,
@@ -60,7 +55,6 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     ...rest
   } = overrides;
   void _defaultTitle;
-  void _difficulty;
   void _title;
   void _tags;
   void _slug;
@@ -69,7 +63,8 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     data: {
       id,
       title,
-      tags,
+      tags: extraTags,
+      difficulty: overrides.difficulty ?? "easy",
       type: overrides.type ?? "full_source",
       timeLimitMs: overrides.timeLimitMs ?? 1000,
       memoryLimitMb: overrides.memoryLimitMb ?? 256,
@@ -77,7 +72,7 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
       // Default to published so tests that assert list-visibility Just Work.
       // Production-facing create flows override this with a draft default.
       status: overrides.status ?? "published",
-      samples: overrides.samples ?? [{ stdin: "1 2", expected: "3" }],
+      samples: overrides.samples ?? [{ input: "1 2", output: "3" }],
       ...rest,
       authorId
     }
@@ -108,8 +103,8 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     data: {
       testcaseSetId: testcaseSet.id,
       ordinal: 1,
-      stdin: "1 2",
-      expectedStdout: "3"
+      input: "1 2",
+      output: "3"
     }
   });
 

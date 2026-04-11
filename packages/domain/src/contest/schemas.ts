@@ -7,9 +7,9 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-// Contest form schema — `maxAttempts` and `adjustmentRules` were removed
-// from the Contest model in the Phase 1 redesign and live only on course
-// homework assessments. The form no longer collects them.
+// Contest form schema — `maxAttempts` and `adjustmentRules` live only
+// on course homework assessments; the contest form does not collect
+// them.
 export const contestFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseSlug: slugSchema.optional(),

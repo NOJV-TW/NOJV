@@ -125,6 +125,13 @@ export const courseMembershipRepo = {
     });
   },
 
+  listActiveForUser(userId: string) {
+    return prisma.courseMembership.findMany({
+      where: { userId, status: "active" },
+      select: { courseId: true, role: true, status: true }
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       findByComposite(courseId: string, userId: string) {

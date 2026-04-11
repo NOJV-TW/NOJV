@@ -12,7 +12,6 @@
     PieChart,
     ShieldCheck,
     Trophy,
-    UserCog,
     Users
   } from "@lucide/svelte";
   import EChart from "$lib/components/charts/EChart.svelte";
@@ -56,7 +55,6 @@
       queue: "Submission queue",
       queueSnapshot: "Queue snapshot",
       recentErrors: "Recent Error Submissions",
-      roleMix: "Role mix quick view",
       roleSubtitle: "Distribution of platform roles",
       status: "Status",
       statusDist: "Submission status distribution",
@@ -100,7 +98,6 @@
       queue: "提交佇列",
       queueSnapshot: "佇列快照",
       recentErrors: "近期錯誤提交",
-      roleMix: "角色比例速覽",
       roleSubtitle: "平台角色分布",
       status: "狀態",
       statusDist: "提交狀態分布",
@@ -207,10 +204,6 @@
     ]
   }));
 
-  function pct(value: number, total: number): string {
-    if (total <= 0) return "0%";
-    return `${Math.round((value / total) * 100)}%`;
-  }
 </script>
 
 <Section class="space-y-6">
@@ -384,26 +377,4 @@
     </Card>
   </section>
 
-  <Card variant="surface" size="md">
-    <h2 class="inline-flex items-center gap-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-      <UserCog class="h-3.5 w-3.5" /> {t("roleMix")}
-    </h2>
-    <div class="grid gap-3 sm:grid-cols-3">
-      <div class="rounded-sm border border-border-subtle px-3 py-3">
-        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("admin")}</p>
-        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.admin}</p>
-        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.admin, data.kpi.totalUsers)}</p>
-      </div>
-      <div class="rounded-sm border border-border-subtle px-3 py-3">
-        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("teacher")}</p>
-        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.teacher}</p>
-        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.teacher, data.kpi.totalUsers)}</p>
-      </div>
-      <div class="rounded-sm border border-border-subtle px-3 py-3">
-        <p class="text-caption uppercase tracking-wider text-muted-foreground">{t("student")}</p>
-        <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">{data.roleCounts.student}</p>
-        <p class="text-caption text-muted-foreground">{pct(data.roleCounts.student, data.kpi.totalUsers)}</p>
-      </div>
-    </div>
-  </Card>
 </Section>

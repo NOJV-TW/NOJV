@@ -96,7 +96,18 @@ export class WorkerApp {
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
       for (const w of this.workers) {
-        w.shutdown();
+        // Swallow "Not running. Current state: DRAINING" when a second
+        // signal races the first shutdown — e.g. under `node --watch`
+        // hot-restart the SIGTERM arrives while the worker is already
+        // draining from a prior shutdown call.
+        try {
+          w.shutdown();
+        } catch (err) {
+          if (err instanceof Error && /DRAINING|STOPPED|STOPPING/.test(err.message)) {
+            continue;
+          }
+          throw err;
+        }
       }
     })();
 

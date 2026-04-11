@@ -1,5 +1,25 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 
+const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
+type SeedDifficulty = (typeof SEED_DIFFICULTIES)[number];
+
+function isSeedDifficulty(value: string): value is SeedDifficulty {
+  return (SEED_DIFFICULTIES as readonly string[]).includes(value);
+}
+
+// Seed defs still list difficulty inside `tags` for brevity — split it out
+// into the dedicated column at upsert time so `tags` stays topic-only.
+function pickSeedDifficulty(tags: string[] | undefined): SeedDifficulty {
+  for (const tag of tags ?? []) {
+    if (isSeedDifficulty(tag)) return tag;
+  }
+  return "medium";
+}
+
+function stripDifficultyTags(tags: string[] | undefined): string[] {
+  return (tags ?? []).filter((tag) => !isSeedDifficulty(tag));
+}
+
 type SeedLocale = "en" | "zh-TW";
 
 type SeedStatement = {
@@ -10,8 +30,8 @@ type SeedStatement = {
 };
 
 type SeedTestcase = {
-  stdin: string;
-  expectedStdout: string;
+  input: string;
+  output: string;
 };
 
 type SeedTestcaseSet = {
@@ -38,15 +58,9 @@ type SeedWorkspaceFile = {
   orderIndex?: number;
 };
 
-type SeedAdvancedTestcase = {
-  stdin: string;
-  expected: string;
-  files: Record<string, string>;
-};
-
 type SeedProblemSample = {
-  stdin: string;
-  expected: string;
+  input: string;
+  output: string;
 };
 
 type SeedProblemDef = {
@@ -64,10 +78,8 @@ type SeedProblemDef = {
   status?: "draft" | "published";
   samples?: SeedProblemSample[];
   workspaceFiles?: SeedWorkspaceFile[];
-  networkEnabled?: boolean;
   advancedImageSource?: "registry" | "tarball";
   advancedImageRef?: string;
-  advancedTestcases?: SeedAdvancedTestcase[];
 };
 
 const hardenedIds = [
@@ -90,9 +102,6 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
     }
 
     if (def.type === "special_env") {
-      if (!def.advancedTestcases || def.advancedTestcases.length === 0) {
-        throw new Error(`special_env problem must declare advancedTestcases: ${def.id}`);
-      }
       if (!def.advancedImageRef || !def.advancedImageSource) {
         throw new Error(`special_env problem must declare image ref + source: ${def.id}`);
       }
@@ -129,8 +138,8 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
     if (!def) {
       throw new Error(`Missing hardened seed problem: ${id}`);
     }
-    if (!def.tags?.includes("hard")) {
-      throw new Error(`Hardened problem must include "hard" tag: ${id}`);
+    if (pickSeedDifficulty(def.tags) !== "hard") {
+      throw new Error(`Hardened problem must have difficulty "hard": ${id}`);
     }
   }
 }
@@ -163,24 +172,24 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
         }
       },
       samples: [
-        { stdin: "2 5", expected: "7" },
-        { stdin: "0 0", expected: "0" }
+        { input: "2 5", output: "7" },
+        { input: "0 0", output: "0" }
       ],
       testcases: {
         sample: {
           description: "Public sample cases shown on the problem page.",
           cases: [
-            { stdin: "2 5", expectedStdout: "7" },
-            { stdin: "0 0", expectedStdout: "0" },
-            { stdin: "-3 7", expectedStdout: "4" }
+            { input: "2 5", output: "7" },
+            { input: "0 0", output: "0" },
+            { input: "-3 7", output: "4" }
           ]
         },
         hidden: {
           description: "Hidden cases including 32-bit signed integer edges.",
           cases: [
-            { stdin: "1000000 999999", expectedStdout: "1999999" },
-            { stdin: "-100 -200", expectedStdout: "-300" },
-            { stdin: "2147483646 1", expectedStdout: "2147483647" }
+            { input: "1000000 999999", output: "1999999" },
+            { input: "-100 -200", output: "-300" },
+            { input: "2147483646 1", output: "2147483647" }
           ]
         }
       }
@@ -211,22 +220,22 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
         }
       },
       samples: [
-        { stdin: "4\n3\n4\n1\n1\n", expected: "2" },
-        { stdin: "2\n1\n2\n", expected: "0" }
+        { input: "4\n3\n4\n1\n1\n", output: "2" },
+        { input: "2\n1\n2\n", output: "0" }
       ],
       testcases: {
         sample: {
           description: "1 ≤ N ≤ 6, simple verification cases.",
           cases: [
-            { stdin: "4\n3\n4\n1\n1\n", expectedStdout: "2" },
-            { stdin: "2\n1\n2\n", expectedStdout: "0" }
+            { input: "4\n3\n4\n1\n1\n", output: "2" },
+            { input: "2\n1\n2\n", output: "0" }
           ]
         },
         hidden: {
           description: "1 ≤ N ≤ 10^6, stresses DSU/path compression.",
           cases: [
-            { stdin: "6\n5\n6\n3\n3\n2\n1\n", expectedStdout: "3" },
-            { stdin: "1\n1\n", expectedStdout: "0" }
+            { input: "6\n5\n6\n3\n3\n2\n1\n", output: "3" },
+            { input: "1\n1\n", output: "0" }
           ]
         }
       }
@@ -258,22 +267,22 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
         }
       },
       samples: [
-        { stdin: "3 3\n...\n.#.\n...\n", expected: "4" },
-        { stdin: "2 2\n..\n..\n", expected: "2" }
+        { input: "3 3\n...\n.#.\n...\n", output: "4" },
+        { input: "2 2\n..\n..\n", output: "2" }
       ],
       testcases: {
         sample: {
           description: "Tiny mazes used to introduce the format.",
           cases: [
-            { stdin: "3 3\n...\n.#.\n...\n", expectedStdout: "4" },
-            { stdin: "2 2\n..\n..\n", expectedStdout: "2" }
+            { input: "3 3\n...\n.#.\n...\n", output: "4" },
+            { input: "2 2\n..\n..\n", output: "2" }
           ]
         },
         hidden: {
           description: "1 ≤ R, C ≤ 1000, dense and degenerate mazes.",
           cases: [
-            { stdin: "5 5\n.....\n.###.\n.#.#.\n.###.\n.....\n", expectedStdout: "8" },
-            { stdin: "1 1\n.\n", expectedStdout: "0" }
+            { input: "5 5\n.....\n.###.\n.#.#.\n.###.\n.....\n", output: "8" },
+            { input: "1 1\n.\n", output: "0" }
           ]
         }
       }
@@ -307,8 +316,8 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
       },
       samples: [
         {
-          stdin: "3\nfork 1 2\nexit 2\nwait 1\n",
-          expected: "1->2 forked\n2 exited\n1 waited\n"
+          input: "3\nfork 1 2\nexit 2\nwait 1\n",
+          output: "1->2 forked\n2 exited\n1 waited\n"
         }
       ],
       testcases: {
@@ -316,8 +325,8 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           description: "1 ≤ N ≤ 5, demonstrates the event format.",
           cases: [
             {
-              stdin: "3\nfork 1 2\nexit 2\nwait 1\n",
-              expectedStdout: "1->2 forked\n2 exited\n1 waited\n"
+              input: "3\nfork 1 2\nexit 2\nwait 1\n",
+              output: "1->2 forked\n2 exited\n1 waited\n"
             }
           ]
         },
@@ -325,12 +334,12 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
           description: "1 ≤ N ≤ 10^5, nested fork chains.",
           cases: [
             {
-              stdin: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
-              expectedStdout: "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n"
+              input: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
+              output: "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n"
             },
             {
-              stdin: "2\nfork 1 2\nexit 2\n",
-              expectedStdout: "1->2 forked\n2 exited\n"
+              input: "2\nfork 1 2\nexit 2\n",
+              output: "1->2 forked\n2 exited\n"
             }
           ]
         }
@@ -362,22 +371,22 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
         }
       },
       samples: [
-        { stdin: "4\n1 2\n1 3\n3 4\n", expected: "7" },
-        { stdin: "2\n1 2\n", expected: "3" }
+        { input: "4\n1 2\n1 3\n3 4\n", output: "7" },
+        { input: "2\n1 2\n", output: "3" }
       ],
       testcases: {
         sample: {
           description: "Small process trees demonstrating the cost model.",
           cases: [
-            { stdin: "4\n1 2\n1 3\n3 4\n", expectedStdout: "7" },
-            { stdin: "2\n1 2\n", expectedStdout: "3" }
+            { input: "4\n1 2\n1 3\n3 4\n", output: "7" },
+            { input: "2\n1 2\n", output: "3" }
           ]
         },
         hidden: {
           description: "2 ≤ N ≤ 10^5, deep + wide trees.",
           cases: [
-            { stdin: "5\n1 2\n1 3\n3 4\n3 5\n", expectedStdout: "11" },
-            { stdin: "3\n1 2\n2 3\n", expectedStdout: "6" }
+            { input: "5\n1 2\n1 3\n3 4\n3 5\n", output: "11" },
+            { input: "3\n1 2\n2 3\n", output: "6" }
           ]
         }
       }
@@ -408,24 +417,24 @@ export async function seedProblems(prisma: PrismaClient, teacherId: string) {
         }
       },
       samples: [
-        { stdin: "1 2", expected: "3" },
-        { stdin: "0 0", expected: "0" }
+        { input: "1 2", output: "3" },
+        { input: "0 0", output: "0" }
       ],
       testcases: {
         sample: {
           description: "Public sample cases for the function signature.",
           cases: [
-            { stdin: "1 2", expectedStdout: "3" },
-            { stdin: "0 0", expectedStdout: "0" },
-            { stdin: "-1 1", expectedStdout: "0" }
+            { input: "1 2", output: "3" },
+            { input: "0 0", output: "0" },
+            { input: "-1 1", output: "0" }
           ]
         },
         hidden: {
           description: "Hidden cases including 32-bit signed integer edges.",
           cases: [
-            { stdin: "1000000 999999", expectedStdout: "1999999" },
-            { stdin: "-500 -700", expectedStdout: "-1200" },
-            { stdin: "2147483646 1", expectedStdout: "2147483647" }
+            { input: "1000000 999999", output: "1999999" },
+            { input: "-500 -700", output: "-1200" },
+            { input: "2147483646 1", output: "2147483647" }
           ]
         }
       }
@@ -478,22 +487,22 @@ if __name__ == "__main__":
         }
       },
       samples: [
-        { stdin: "1 3", expected: "0.333333" },
-        { stdin: "1 7", expected: "0.142857" }
+        { input: "1 3", output: "0.333333" },
+        { input: "1 7", output: "0.142857" }
       ],
       testcases: {
         sample: {
           description: "Public sample cases for the floating-point judge.",
           cases: [
-            { stdin: "1 3", expectedStdout: "0.333333" },
-            { stdin: "1 7", expectedStdout: "0.142857" }
+            { input: "1 3", output: "0.333333" },
+            { input: "1 7", output: "0.142857" }
           ]
         },
         hidden: {
           description: "Hidden cases evaluated by the custom checker.",
           cases: [
-            { stdin: "2 3", expectedStdout: "0.666667" },
-            { stdin: "355 113", expectedStdout: "3.141593" }
+            { input: "2 3", output: "0.666667" },
+            { input: "355 113", output: "3.141593" }
           ]
         }
       }
@@ -560,23 +569,23 @@ if __name__ == "__main__":
         }
       },
       samples: [
-        { stdin: "42", expected: "" },
-        { stdin: "500000", expected: "" }
+        { input: "42", output: "" },
+        { input: "500000", output: "" }
       ],
       testcases: {
         sample: {
           description: "Public sample secrets exercised by the interactor.",
           cases: [
-            { stdin: "42", expectedStdout: "" },
-            { stdin: "500000", expectedStdout: "" }
+            { input: "42", output: "" },
+            { input: "500000", output: "" }
           ]
         },
         hidden: {
           description: "Boundary secrets including 1 and 10^6.",
           cases: [
-            { stdin: "1", expectedStdout: "" },
-            { stdin: "1000000", expectedStdout: "" },
-            { stdin: "314159", expectedStdout: "" }
+            { input: "1", output: "" },
+            { input: "1000000", output: "" },
+            { input: "314159", output: "" }
           ]
         }
       }
@@ -609,8 +618,8 @@ if __name__ == "__main__":
       },
       samples: [
         {
-          stdin: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
-          expected: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
+          input: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
+          output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
         }
       ],
       workspaceFiles: [
@@ -710,8 +719,8 @@ if __name__ == "__main__":
           description: "Single sample exercising IPv4 + Ethernet codes.",
           cases: [
             {
-              stdin: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
-              expectedStdout: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
+              input: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
+              output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
             }
           ]
         },
@@ -719,12 +728,12 @@ if __name__ == "__main__":
           description: "Malformed payloads, multi-byte non-IP values, padding handling.",
           cases: [
             {
-              stdin: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
-              expectedStdout: "12:6:6E6F6A762D31\nERROR"
+              input: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
+              output: "12:6:6E6F6A762D31\nERROR"
             },
             {
-              stdin: "1\n00000608C0A80101C0A801FEFF\n",
-              expectedStdout: "6:8:192.168.1.1,192.168.1.254"
+              input: "1\n00000608C0A80101C0A801FEFF\n",
+              output: "6:8:192.168.1.1,192.168.1.254"
             }
           ]
         }
@@ -757,12 +766,12 @@ if __name__ == "__main__":
       },
       samples: [
         {
-          stdin: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
-          expected: "48 0 0"
+          input: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
+          output: "48 0 0"
         },
         {
-          stdin: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
-          expected: "10 1 2"
+          input: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
+          output: "10 1 2"
         }
       ],
       workspaceFiles: [
@@ -828,12 +837,12 @@ if __name__ == "__main__":
           description: "Sample event streams covering basic and re-alloc-leak cases.",
           cases: [
             {
-              stdin: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
-              expectedStdout: "48 0 0"
+              input: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
+              output: "48 0 0"
             },
             {
-              stdin: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
-              expectedStdout: "10 1 2"
+              input: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
+              output: "10 1 2"
             }
           ]
         },
@@ -841,13 +850,13 @@ if __name__ == "__main__":
           description: "Mixed traces with peak tracking, leaks, and invalid frees.",
           cases: [
             {
-              stdin:
+              input:
                 "8\nALLOC p1 100\nALLOC p2 200\nFREE p1\nALLOC p3 50\nALLOC p2 30\nFREE p3\nFREE p9\nFREE p2\n",
-              expectedStdout: "300 1 1"
+              output: "300 1 1"
             },
             {
-              stdin: "4\nFREE z\nALLOC z 1\nALLOC z 2\nALLOC z 3\n",
-              expectedStdout: "3 2 1"
+              input: "4\nFREE z\nALLOC z 1\nALLOC z 2\nALLOC z 3\n",
+              output: "3 2 1"
             }
           ]
         }
@@ -913,23 +922,23 @@ if __name__ == "__main__":
         }
       },
       samples: [
-        { stdin: "42", expected: "" },
-        { stdin: "777777", expected: "" }
+        { input: "42", output: "" },
+        { input: "777777", output: "" }
       ],
       testcases: {
         sample: {
           description: "Public sample secrets for the noisy oracle.",
           cases: [
-            { stdin: "42", expectedStdout: "" },
-            { stdin: "777777", expectedStdout: "" }
+            { input: "42", output: "" },
+            { input: "777777", output: "" }
           ]
         },
         hidden: {
           description: "Boundary secrets challenging the lie schedule.",
           cases: [
-            { stdin: "1", expectedStdout: "" },
-            { stdin: "1000000", expectedStdout: "" },
-            { stdin: "314159", expectedStdout: "" }
+            { input: "1", output: "" },
+            { input: "1000000", output: "" },
+            { input: "314159", output: "" }
           ]
         }
       }
@@ -943,41 +952,22 @@ if __name__ == "__main__":
       memoryLimitMb: 512,
       timeLimitMs: 30_000,
       visibility: "public" as const,
-      networkEnabled: false,
       advancedImageSource: "registry" as const,
       advancedImageRef: "ghcr.io/nojv/demo-judge-shell:latest",
       statements: {
         "zh-TW": {
           title: "Shell Scripting Lab",
-          body: "這是一道 Advanced Mode 題目。請上傳一份 ZIP 檔案，內含可執行的 shell 腳本（例如 `solve.sh`）。\n\n判題容器會把 ZIP 解壓到 `/workspace/submission/`，接著進入 `/workspace/testcases/<ordinal>/` 取得輸入與輔助檔案，執行 `bash /workspace/submission/solve.sh < stdin` 並與 `expected` 比對輸出。\n\n本題用於示範 Advanced Mode 的上傳介面與 TA 自訂判題映像檔流程。",
-          inputFormat:
-            "每個 testcase 以 `stdin` 檔案提供標準輸入。部分 testcase 會在目錄中附上輔助檔案，腳本可透過相對路徑 `./aux.txt` 存取。",
-          outputFormat: "腳本的標準輸出需與 `expected` 完全相符。"
+          body: "這是一道 Advanced Mode 題目。請上傳 shell 腳本 (例如 `main.sh`)，系統會把檔案放到 `/workspace/submission/`。\n\n判題容器已由助教事先打包，內部 bundle 所有測資與評分腳本，跑完後把分數寫到 `/workspace/output/result.json`。",
+          inputFormat: "（由助教的判題映像檔自行定義。）",
+          outputFormat: "（由助教的判題映像檔自行定義。）"
         },
         en: {
           title: "Shell Scripting Lab",
-          body: "This is an Advanced Mode problem. Upload a ZIP file containing executable shell scripts (e.g. `solve.sh`).\n\nThe judge container extracts the ZIP into `/workspace/submission/`, then iterates `/workspace/testcases/<ordinal>/`, piping `stdin` into `bash /workspace/submission/solve.sh` and comparing stdout to `expected`.\n\nThis problem exists to demonstrate the Advanced Mode ZIP upload view and the TA-provided judge image flow.",
-          inputFormat:
-            "Each testcase provides a `stdin` file as standard input. Some testcases additionally ship auxiliary files; the script can open them via relative paths like `./aux.txt`.",
-          outputFormat: "The script\u2019s standard output must match `expected` byte-for-byte."
+          body: "Advanced Mode demo problem. Upload a shell script (e.g. `main.sh`); the system mounts it under `/workspace/submission/`.\n\nThe TA-provided judge image bundles its own testcases, runs the script internally, and writes the final score to `/workspace/output/result.json`.",
+          inputFormat: "(Defined inside the TA's judge image.)",
+          outputFormat: "(Defined inside the TA's judge image.)"
         }
-      },
-      advancedTestcases: [
-        {
-          stdin: "hello\nworld\n",
-          expected: "HELLO\nWORLD\n",
-          files: {
-            "notes.txt": "uppercase each line using tr or awk"
-          }
-        },
-        {
-          stdin: "3\n1\n2\n",
-          expected: "6\n",
-          files: {
-            "aux.txt": "sum the numbers from stdin, first line is count"
-          }
-        }
-      ]
+      }
     }
   ];
 
@@ -986,12 +976,12 @@ if __name__ == "__main__":
   for (const def of problemDefs) {
     const sharedFields = {
       title: def.title,
-      tags: def.tags ?? [],
+      difficulty: pickSeedDifficulty(def.tags),
+      tags: stripDifficultyTags(def.tags),
       type: def.type,
       judgeConfig: def.judgeConfig ?? undefined,
       status: def.status ?? "published",
       samples: def.samples ? (def.samples as unknown as object) : undefined,
-      networkEnabled: def.networkEnabled ?? false,
       advancedImageRef: def.advancedImageRef ?? null,
       advancedImageSource: def.advancedImageSource ?? null
     };
@@ -1035,8 +1025,8 @@ if __name__ == "__main__":
       });
     }
 
-    // Upsert testcase sets (standard types only — special_env uses
-    // AdvancedTestcase rows via a different pipeline).
+    // Upsert testcase sets (standard types only — special_env has no
+    // system-managed testcases; the TA image bundles everything).
     if (def.testcases) {
       const setEntries = Object.entries(def.testcases);
       for (const [index, [setName, setDef]] of setEntries.entries()) {
@@ -1068,9 +1058,9 @@ if __name__ == "__main__":
         for (const [caseIndex, tc] of setDef.cases.entries()) {
           await prisma.testcase.create({
             data: {
-              expectedStdout: tc.expectedStdout,
+              output: tc.output,
               ordinal: caseIndex + 1,
-              stdin: tc.stdin,
+              input: tc.input,
               testcaseSetId: testcaseSet.id
             }
           });
@@ -1097,28 +1087,10 @@ if __name__ == "__main__":
       });
     }
 
-    // Upsert advanced (special_env) testcases.
-    if (def.advancedTestcases && def.advancedTestcases.length > 0) {
-      await prisma.advancedTestcase.deleteMany({
-        where: { problemId: problem.id }
-      });
-      await prisma.advancedTestcase.createMany({
-        data: def.advancedTestcases.map((tc, index) => ({
-          problemId: problem.id,
-          ordinal: index + 1,
-          stdin: tc.stdin,
-          expected: tc.expected,
-          files: tc.files
-        }))
-      });
-    }
-
     const testcaseSetCount = def.testcases ? Object.keys(def.testcases).length : 0;
     const extras: string[] = [];
     if (def.samples?.length) extras.push(`${def.samples.length} samples`);
     if (def.workspaceFiles?.length) extras.push(`${def.workspaceFiles.length} workspace files`);
-    if (def.advancedTestcases?.length)
-      extras.push(`${def.advancedTestcases.length} advanced testcases`);
     const extrasLabel = extras.length ? `, ${extras.join(", ")}` : "";
     console.log(
       `  Problem: ${def.id} [${def.type}] (${Object.keys(def.statements).join(", ")} statements, ${testcaseSetCount} testcase sets${extrasLabel})`

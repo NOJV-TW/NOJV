@@ -56,16 +56,16 @@ describe("contestSessionSchema", () => {
 });
 
 describe("problemTestcaseSetCreateSchema", () => {
-  it("accepts weighted testcase sets with ordered stdin/stdout pairs", () => {
+  it("accepts weighted testcase sets with ordered input/output pairs", () => {
     const result = problemTestcaseSetCreateSchema.parse({
       cases: [
         {
-          expectedStdout: "3\n",
-          stdin: "1 2\n"
+          output: "3\n",
+          input: "1 2\n"
         },
         {
-          expectedStdout: "300\n",
-          stdin: "100 200\n"
+          output: "300\n",
+          input: "100 200\n"
         }
       ],
       name: "Hidden Set",
@@ -80,9 +80,9 @@ describe("problemTestcaseSetCreateSchema", () => {
 describe("problemJudgeTestcaseSchema", () => {
   it("accepts persisted testcase metadata used by the judge runtime", () => {
     const result = problemJudgeTestcaseSchema.parse({
-      expectedStdout: "3\n",
+      output: "3\n",
       id: "tc_01",
-      stdin: "1 2\n",
+      input: "1 2\n",
       weight: 3
     });
 
