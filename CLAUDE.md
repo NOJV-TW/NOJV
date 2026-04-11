@@ -20,6 +20,35 @@ This file is the agent entrypoint for this repository. Read it first, then follo
 14. [Planning System](docs/PLANS.md)
 15. [Getting Started Runbook](docs/runbooks/getting-started.md)
 
+## Doc Index by Task
+
+Reading Order above is for onboarding. This table is for task-driven lookup —
+when working on a specific area, open the listed doc first.
+
+| Working on... | Read |
+|---|---|
+| Submission judging flow, subtask scoring, verdicts | [Judge Pipeline](docs/JUDGE_PIPELINE.md) |
+| Workflow orchestration, task queues, retry policy | [Temporal Workflows](docs/TEMPORAL.md) |
+| Schema changes, new tables, Prisma migrations | [Database Schema](docs/DATABASE.md) |
+| Cache keys, pub/sub channels, rate limiting | [Redis Architecture](docs/REDIS.md) |
+| SvelteKit routes, page layout, component hierarchy | [Frontend Surface](docs/FRONTEND.md) |
+| Tailwind tokens, Bits UI usage, visual consistency | [Design Rules](docs/DESIGN.md) |
+| Sandbox isolation, seccomp, capability drop | [Security Requirements](docs/SECURITY.md) |
+| Risk assessment, attacker scenarios | [Threat Model](docs/THREAT_MODEL.md) |
+| Idempotency, health checks, failure modes | [Reliability Invariants](docs/RELIABILITY.md) |
+| Cloud Run / GKE config, env vars, Cloud Build | [Deployment Guide](docs/DEPLOYMENT.md) |
+| Feature scope, product direction, shipped vs planned | [Product Sense](docs/PRODUCT_SENSE.md) |
+| Multi-step work needing checkpoints | [Planning System](docs/PLANS.md) → write plan in `docs/plans/active/` |
+| Local dev setup, first run, troubleshooting | [Getting Started](docs/runbooks/getting-started.md) |
+| Cross-cutting quality / tech debt | [Quality Ledger](docs/QUALITY_SCORE.md) |
+| Overall system map, layer boundaries | [Architecture Overview](ARCHITECTURE.md) |
+
+## Doc Authoring Rules
+
+- Each doc has ONE purpose (see table above). Don't duplicate content across docs — link instead.
+- If a topic doesn't fit any existing doc, extend the closest one rather than creating a new untracked doc.
+- Plans live in `docs/plans/active/YYYY-MM-DD-short-topic.md`; move to `completed/` when shipped. See [Planning System](docs/PLANS.md).
+
 ## Quick Reference
 
 - **Monorepo**: pnpm workspaces + Turborepo, Node.js >= 24, ESM throughout
