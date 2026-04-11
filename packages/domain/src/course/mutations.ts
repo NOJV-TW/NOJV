@@ -22,7 +22,7 @@ import { ensureUser } from "../user/mutations";
 import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages
-} from "../problem/mutations";
+} from "../problem/helpers";
 
 export async function requireCourse(tx: TransactionClient, courseSlug: string) {
   const course = await courseRepo.withTx(tx).findBySlug(courseSlug);

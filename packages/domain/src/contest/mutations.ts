@@ -19,7 +19,7 @@ import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/mutations";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
