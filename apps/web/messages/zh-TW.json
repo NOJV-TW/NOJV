@@ -388,7 +388,7 @@
   "progress_exportCsv": "匯出 CSV",
   "courseManage_publishAssessment": "發佈評量",
   "dashboard_acRate": "AC 率",
-  "dashboard_activityChart": "解題成長曲線",
+  "dashboard_activityChart": "每日解題熱圖",
   "dashboard_difficultyDist": "難度分佈",
   "dashboard_last30Days": "近 30 天",
   "dashboard_noActivity": "尚無提交記錄",

@@ -388,7 +388,7 @@
   "progress_exportCsv": "Export CSV",
   "courseManage_publishAssessment": "Publish assessment",
   "dashboard_acRate": "AC Rate",
-  "dashboard_activityChart": "Solving Progress",
+  "dashboard_activityChart": "Daily Activity",
   "dashboard_difficultyDist": "Difficulty Distribution",
   "dashboard_last30Days": "Last 30 days",
   "dashboard_noActivity": "No submissions yet",
