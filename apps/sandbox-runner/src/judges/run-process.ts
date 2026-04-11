@@ -69,13 +69,17 @@ export function runProcess(
 
     proc.on("close", (code, signal) => {
       clearTimeout(timer);
-      const timeMs = Math.round(performance.now() - startTime);
+      // Compare against the raw float elapsed to avoid round-up false TLEs:
+      // a process that finishes at 999.6ms (rounded to 1000) must not be
+      // classified as TLE when the limit is 1000ms. The spawn-level timeout
+      // and the SIGKILL fallback are the authoritative cut-offs.
+      const elapsedMs = performance.now() - startTime;
       resolve({
         stdout: stdoutBuf.toString(),
         stderr: stderrBuf.toString(),
         exitCode: code ?? -1,
-        timeMs,
-        timedOut: killed || signal === "SIGTERM" || timeMs >= options.timeoutMs,
+        timeMs: Math.round(elapsedMs),
+        timedOut: killed || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
         spawnError: false
       });

@@ -1,6 +1,65 @@
 import { contestParticipationRepo, submissionRepo } from "@nojv/db";
 import { scoreboard } from "@nojv/redis";
 
+export const ICPC_PENALTY_PER_WRONG_SEC = 20 * 60;
+
+interface IcpcScoringSubmission {
+  status: string;
+  createdAt: Date;
+}
+
+export interface IcpcProblemResult {
+  solved: boolean;
+  wrongAttempts: number;
+  firstAcTimeSec: number | null;
+  penaltySeconds: number;
+}
+
+// Pure helper: compute the ICPC verdict + penalty for ONE (participant, problem)
+// pair from that participant's ordered submissions to that problem. The
+// outer caller aggregates across problems.
+//
+// Shared by BOTH paths — the DB-write path in updateContestScores and the
+// display-read path in scoreboard.ts::buildIcpcScoreboard. Keeping one
+// function prevents the two from drifting apart (historical bug: round 12
+// fixed the scoring path, round 16 then had to fix the scoreboard path
+// with the same change).
+//
+// In-progress statuses (queued/compiling/running) are skipped — they aren't
+// verdicts yet. The next recalc picks them up once judging completes.
+// `firstAcTimeSec` is clamped to [0, ∞) for the pathological case of a
+// submission timestamp before the contest start.
+export function computeIcpcProblemPenalty(
+  submissions: readonly IcpcScoringSubmission[],
+  contestStartsAt: Date
+): IcpcProblemResult {
+  let wrongAttempts = 0;
+  for (const sub of submissions) {
+    if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
+      continue;
+    }
+    if (sub.status === "accepted") {
+      const firstAcTimeSec = Math.max(
+        0,
+        Math.floor((sub.createdAt.getTime() - contestStartsAt.getTime()) / 1000)
+      );
+      return {
+        solved: true,
+        wrongAttempts,
+        firstAcTimeSec,
+        penaltySeconds: firstAcTimeSec + wrongAttempts * ICPC_PENALTY_PER_WRONG_SEC
+      };
+    }
+    wrongAttempts++;
+  }
+  return {
+    solved: false,
+    wrongAttempts,
+    firstAcTimeSec: null,
+    penaltySeconds: 0
+  };
+}
+
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
   const participation =
     await contestParticipationRepo.findByIdWithContest(contestParticipationId);
@@ -26,22 +85,14 @@ export async function updateContestScores(contestParticipationId: string): Promi
     }
 
     for (const [, problemSubs] of byProblem) {
-      let wrongAttempts = 0;
-      let solved = false;
-
-      for (const sub of problemSubs) {
-        if (sub.status === "accepted") {
-          solved = true;
-          const solveTimeSec = Math.floor(
-            (sub.createdAt.getTime() - contest.startsAt.getTime()) / 1000
-          );
-          totalPenalty += solveTimeSec + wrongAttempts * 20 * 60;
-          break;
-        }
-        wrongAttempts++;
+      const { solved, penaltySeconds } = computeIcpcProblemPenalty(
+        problemSubs,
+        contest.startsAt
+      );
+      if (solved) {
+        solvedCount++;
+        totalPenalty += penaltySeconds;
       }
-
-      if (solved) solvedCount++;
     }
 
     await contestParticipationRepo.update(participation.id, {

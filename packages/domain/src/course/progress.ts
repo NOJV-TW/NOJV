@@ -1,4 +1,10 @@
-import { assessmentRepo, courseMembershipRepo, courseRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentProblemRepo,
+  assessmentRepo,
+  courseMembershipRepo,
+  courseRepo,
+  submissionRepo
+} from "@nojv/db";
 
 import { localizeProblem } from "../shared/pick-problem-statement";
 
@@ -69,23 +75,14 @@ export async function getStudentProgressMatrix(
       title: localizeProblem(p.problem).title
     }));
   } else {
-    const courseAssessments = await assessmentRepo.listByCourseSlug(courseSlug);
-    const allProblemRecords = await Promise.all(
-      courseAssessments.map((a) => assessmentRepo.findWithProblems(course.id, a.slug))
-    );
-    const seen = new Set<string>();
-    problemRecords = [];
-    for (const loaded of allProblemRecords) {
-      if (!loaded) continue;
-      for (const p of loaded.problems) {
-        if (seen.has(p.problem.id)) continue;
-        seen.add(p.problem.id);
-        problemRecords.push({
-          problemId: p.problem.id,
-          title: localizeProblem(p.problem).title
-        });
-      }
-    }
+    // Single query fetches the distinct union of every problem across
+    // every published assessment for this course. Replaces the previous
+    // 1+N pattern (listByCourseSlug + findWithProblems per assessment).
+    const coursewideProblems = await assessmentProblemRepo.listDistinctByCourseSlug(courseSlug);
+    problemRecords = coursewideProblems.map((cp) => ({
+      problemId: cp.problemId,
+      title: localizeProblem(cp.problem).title
+    }));
   }
 
   const problemIds = problemRecords.map((p) => p.problemId);

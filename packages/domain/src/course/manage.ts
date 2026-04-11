@@ -302,7 +302,12 @@ export async function getExportData(courseSlug: string, assessmentSlug: string) 
   const course = await courseRepo.findIdBySlug(courseSlug);
   if (!course) return null;
 
-  const assessment = await assessmentRepo.findWithProblemDetails(course.id, assessmentSlug);
+  // Assessment lookup and student membership lookup are independent
+  // after we have course.id — fire them in parallel.
+  const [assessment, memberships] = await Promise.all([
+    assessmentRepo.findWithProblemDetails(course.id, assessmentSlug),
+    courseMembershipRepo.findStudents(course.id)
+  ]);
   if (!assessment) return null;
 
   const problems = assessment.problems.map((p) => ({
@@ -310,7 +315,6 @@ export async function getExportData(courseSlug: string, assessmentSlug: string) 
     title: localizeProblem(p.problem).title
   }));
 
-  const memberships = await courseMembershipRepo.findStudents(course.id);
   const students = memberships.map((m) => ({
     userId: m.userId,
     username: m.user.username ?? m.user.name,

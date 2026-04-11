@@ -1,8 +1,10 @@
+import { fail, type RequestEvent } from "@sveltejs/kit";
 import { Resend } from "resend";
 import { env } from "$env/dynamic/private";
 import { verificationDomain } from "@nojv/domain";
 
 import { createLogger } from "../logger";
+import { consumeFormRateLimit } from "./rate-limiter";
 import { extractStudentId, parseSchoolEmail } from "$lib/school";
 
 const logger = createLogger("school-verification");
@@ -65,6 +67,29 @@ export async function processSchoolVerification(
       err: error.message
     });
     return { error: "Failed to send email", status: 500 };
+  }
+
+  return { success: true };
+}
+
+// Shared form action handler for the "send school verification email"
+// button. /account and /complete-profile both POST to ?/sendVerification
+// with identical semantics, so both routes alias this single handler.
+export async function handleSendVerificationAction(event: RequestEvent) {
+  const limited = await consumeFormRateLimit(event);
+  if (limited) return limited;
+
+  const user = event.locals.user;
+  if (!user) {
+    return fail(401, { error: "Unauthorized" });
+  }
+
+  const formData = await event.request.formData();
+  const email = ((formData.get("email") as string | null) ?? "").trim();
+  const result = await processSchoolVerification(user.id, email);
+
+  if ("error" in result) {
+    return fail(result.status, { error: result.error });
   }
 
   return { success: true };
