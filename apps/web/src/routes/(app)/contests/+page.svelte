@@ -1,7 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { page } from "$app/stores";
-  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { cn } from "$lib/utils.js";
@@ -22,16 +21,9 @@
   let search = $state("");
   let joinDialogOpen = $state(false);
 
-  let tabValue = $derived<"participable" | "managed">(
-    $page.url.searchParams.get("tab") === "managed" ? "managed" : "participable"
+  let tabValue = $derived(
+    $page.url.searchParams.get("tab") === "managed" ? ("managed" as const) : ("participable" as const)
   );
-
-  function setTab(value: "participable" | "managed") {
-    const url = new URL($page.url);
-    if (value === "managed") url.searchParams.set("tab", "managed");
-    else url.searchParams.delete("tab");
-    goto(url, { replaceState: true, keepFocus: true, noScroll: true });
-  }
 
   function applySearch<T extends AnyContest>(list: T[]): T[] {
     if (!search) return list;
@@ -183,9 +175,11 @@
       role="tablist"
       class="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground"
     >
-      <button
-        type="button"
+      <a
         role="tab"
+        href="/contests"
+        data-sveltekit-replacestate
+        data-sveltekit-noscroll
         aria-selected={tabValue === "participable"}
         class={cn(
           "inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-body-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -193,13 +187,14 @@
             ? "bg-background text-foreground shadow-rest"
             : "hover:text-foreground"
         )}
-        onclick={() => setTab("participable")}
       >
         {m.contests_tabParticipable()}
-      </button>
-      <button
-        type="button"
+      </a>
+      <a
         role="tab"
+        href="/contests?tab=managed"
+        data-sveltekit-replacestate
+        data-sveltekit-noscroll
         aria-selected={tabValue === "managed"}
         class={cn(
           "inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-body-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -207,10 +202,9 @@
             ? "bg-background text-foreground shadow-rest"
             : "hover:text-foreground"
         )}
-        onclick={() => setTab("managed")}
       >
         {m.contests_tabManaged()}
-      </button>
+      </a>
     </div>
 
     <div class="mt-4" role="tabpanel">
