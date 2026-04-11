@@ -23,6 +23,6 @@ export function aggregateByTag(rows: readonly AcRow[]): TagAcCount[] {
   }
   return [...counts.entries()]
     .map(([tag, acCount]) => ({ tag, acCount }))
-    .sort((a, b) => b.acCount - a.acCount)
+    .sort((a, b) => b.acCount - a.acCount || a.tag.localeCompare(b.tag))
     .slice(0, MAX_TAGS);
 }
