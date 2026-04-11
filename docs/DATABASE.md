@@ -131,7 +131,7 @@ Testcases organized into named sets with weights for subtask scoring. Every `Tes
 
 ### ProblemWorkspaceFile
 
-Per-language files that make up a Standard Mode problem's workspace. Columns: `language`, `path`, `content`, `visibility` (`editable` / `readonly` / `hidden`), `editableRegions` (`[[startLine, endLine]]` JSON), `orderIndex`. Hidden files are never exposed to students but are merged into the sandbox at judge time. Editable regions enforce per-line read-only decorations in Monaco.
+Per-language files that make up a Standard Mode problem's workspace. Columns: `language`, `path`, `content`, `visibility` (`editable` / `readonly` / `hidden`), `orderIndex`. Hidden files are never exposed to students but are merged into the sandbox at judge time. Edit access is whole-file: `editable` means the student can replace the file; `readonly` and `hidden` are protected server-side in `mergeSandboxSources()`.
 
 Advanced Mode (`Problem.type === "special_env"`) does not use `TestcaseSet` / `Testcase` rows — the TA-provided Docker image bundles its own testcases and writes a structured `result.json`. See [Judge Pipeline](JUDGE_PIPELINE.md#advanced-mode-pipeline).
 
@@ -141,16 +141,15 @@ Tracks MOSS plagiarism detection runs. Created by web endpoint, processed by Tem
 
 ## JSON Columns
 
-| Model.Field                            | Schema                     | Purpose                                                               |
-| -------------------------------------- | -------------------------- | --------------------------------------------------------------------- |
-| `Problem.judgeConfig`                  | `JudgeConfig`              | type / compare / checker / interactor / runtime / subtaskStrategies   |
-| `Problem.samples`                      | `{ input, output }[]`      | Sample I/O pairs rendered on the student problem page                 |
-| `ProblemWorkspaceFile.editableRegions` | `[[startLine, endLine]][]` | Monaco read-only decoration ranges                                    |
-| `CourseAssessment.adjustmentRules`     | `AdjustmentRule[]`         | Late penalty / time bonus / memory penalty rules (applied post-judge) |
-| `Contest.adjustmentRules`              | `AdjustmentRule[]`         | Same as above, applied to contest submissions                         |
-| `Submission.verdictDetail`             | Full `SubmissionResult`    | Per-case + per-subtask results, compiler output, scoring feedback     |
-| `ContestParticipation.subtaskScores`   | Score breakdown            | Per-subtask contest scores                                            |
-| `PlagiarismReport.results`             | MOSS result array          | Similarity pairs and percentages                                      |
+| Model.Field                          | Schema                  | Purpose                                                               |
+| ------------------------------------ | ----------------------- | --------------------------------------------------------------------- |
+| `Problem.judgeConfig`                | `JudgeConfig`           | type / compare / checker / interactor / runtime / subtaskStrategies   |
+| `Problem.samples`                    | `{ input, output }[]`   | Sample I/O pairs rendered on the student problem page                 |
+| `CourseAssessment.adjustmentRules`   | `AdjustmentRule[]`      | Late penalty / time bonus / memory penalty rules (applied post-judge) |
+| `Contest.adjustmentRules`            | `AdjustmentRule[]`      | Same as above, applied to contest submissions                         |
+| `Submission.verdictDetail`           | Full `SubmissionResult` | Per-case + per-subtask results, compiler output, scoring feedback     |
+| `ContestParticipation.subtaskScores` | Score breakdown         | Per-subtask contest scores                                            |
+| `PlagiarismReport.results`           | MOSS result array       | Similarity pairs and percentages                                      |
 
 ## Seed Data
 

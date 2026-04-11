@@ -127,23 +127,20 @@ Only the Docker executor currently runs advanced containers — `runAdvancedCont
 `Problem.type` drives the shape of the submission and how the judge pipeline assembles it:
 
 - **`full_source`** — the student submits one complete source file. Content lands at `main.<ext>` in the sandbox workspace.
-- **`function`** — the student implements a named function against a teacher-provided driver. Assembled from workspace files at judge time.
-- **`multi_file`** — the teacher ships a scaffold (main + helpers); the student edits designated files in-browser. Every enabled language ships exactly one editable `main.<ext>`.
+- **`multi_file`** — the teacher ships a scaffold (main + helpers); the student edits designated files in-browser. Every enabled language ships exactly one editable `main.<ext>`. Teachers achieve LeetCode-style "student implements a named function" by marking the function file as `visibility: "editable"` and the driver file as `visibility: "readonly"`.
 - **`special_env`** — Advanced Mode. The TA-provided Docker image owns the entire judging loop; the student uploads a tarball / ZIP. See [Advanced Mode pipeline](#advanced-mode-pipeline).
-
-Editable regions on a `ProblemWorkspaceFile` replace the old driver-code / `// __USER_CODE__` insertion pattern. A workspace file may have `editableRegions: [[startLine, endLine], ...]`, and the student edits only those line ranges.
 
 ## Workspace files
 
-`ProblemWorkspaceFile` is the authoritative source for starter code, scaffolding, and hidden assets. Each row has a `visibility`:
+`ProblemWorkspaceFile` is the authoritative source for starter code, scaffolding, and hidden assets. Each row has a `visibility` that fully governs student edit access — there is no sub-file granularity:
 
-| Visibility | Shown in UI      | Student can edit                              | Present in sandbox |
-| ---------- | ---------------- | --------------------------------------------- | ------------------ |
-| `editable` | yes              | yes (optionally limited by `editableRegions`) | yes                |
-| `readonly` | yes (greyed out) | no                                            | yes                |
-| `hidden`   | no               | no                                            | yes                |
+| Visibility | Shown in UI      | Student can edit | Present in sandbox |
+| ---------- | ---------------- | ---------------- | ------------------ |
+| `editable` | yes              | yes (whole file) | yes                |
+| `readonly` | yes (greyed out) | no               | yes                |
+| `hidden`   | no               | no               | yes                |
 
-Editable regions are enforced in two places. The frontend uses Monaco read-only decorations, but that is only a UX hint. The server re-verifies by rebuilding the sandbox workspace from `ProblemWorkspaceFile` + the student's submitted editable-file contents in `mergeSandboxSources()`. A tampered client cannot inject replacements for readonly or hidden paths — the teacher version wins.
+Visibility is enforced on the server: `mergeSandboxSources()` rebuilds the sandbox workspace from `ProblemWorkspaceFile` plus the student's submitted contents for `visibility: "editable"` files only. A tampered client cannot inject replacements for `readonly` or `hidden` paths — the teacher version wins.
 
 ## Adjustment rules
 
