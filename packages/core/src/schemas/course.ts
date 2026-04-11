@@ -57,7 +57,7 @@ export const courseAssessmentCreateSchema = z
     dueAt: isoDateTimeSchema.optional(),
     maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
-    problemIds: z.array(slugSchema).min(1).max(32),
+    problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
     slug: slugSchema,
     summary: z.string().trim().min(8).max(2_000),
     title: z.string().trim().min(3).max(120)

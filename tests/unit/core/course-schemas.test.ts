@@ -50,6 +50,49 @@ describe("courseAssessmentCreateSchema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
+    const result = courseAssessmentCreateSchema.safeParse({
+      closesAt: "2026-03-30T12:00:00.000Z",
+      courseSlug: "os-lab-spring-2026",
+      opensAt: "2026-03-18T12:00:00.000Z",
+      dueAt: "2026-03-25T12:00:00.000Z",
+      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
+      slug: "hw1-process-warmup",
+      summary: "Process warmup with two easy problems.",
+      title: "HW1 Process Warmup"
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty problemIds array", () => {
+    const result = courseAssessmentCreateSchema.safeParse({
+      closesAt: "2026-03-30T12:00:00.000Z",
+      courseSlug: "os-lab-spring-2026",
+      opensAt: "2026-03-18T12:00:00.000Z",
+      problemIds: [],
+      slug: "hw1-process-warmup",
+      summary: "Process warmup with two easy problems.",
+      title: "HW1 Process Warmup"
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects problemIds whose entries are empty strings", () => {
+    const result = courseAssessmentCreateSchema.safeParse({
+      closesAt: "2026-03-30T12:00:00.000Z",
+      courseSlug: "os-lab-spring-2026",
+      opensAt: "2026-03-18T12:00:00.000Z",
+      problemIds: [""],
+      slug: "hw1-process-warmup",
+      summary: "Process warmup with two easy problems.",
+      title: "HW1 Process Warmup"
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("assessmentContextSchema", () => {
