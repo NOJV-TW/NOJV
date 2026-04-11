@@ -11,7 +11,7 @@ import {
 } from "@nojv/core";
 import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
-import { forceRemoveContainer, sanitizeId } from "./docker-executor";
+import { forceRemoveContainer, sanitizeId } from "./docker-process";
 import { sandboxSystemError } from "./sandbox-plan";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
 

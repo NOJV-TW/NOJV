@@ -9,7 +9,7 @@ import {
   type SandboxResult
 } from "@nojv/core";
 
-import { forceRemoveContainer, sanitizeId } from "./docker-executor";
+import { forceRemoveContainer, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
 
