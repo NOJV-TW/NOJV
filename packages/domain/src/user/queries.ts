@@ -1,4 +1,5 @@
 import { problemRepo, submissionRepo, userRepo, type Prisma } from "@nojv/db";
+import { aggregateByTag } from "./analytics-helpers";
 
 export interface UserSearchParams {
   search?: string;
@@ -97,6 +98,7 @@ export interface UserAnalytics {
   byDifficulty: { difficulty: "easy" | "medium" | "hard"; acCount: number }[];
   byLanguage: { language: string; count: number }[];
   byVerdict: { status: string; count: number }[];
+  byTag: { tag: string; acCount: number }[];
 }
 
 export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
@@ -122,6 +124,7 @@ export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
       acCount: difficultyCounts[d]
     })),
     byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
-    byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all }))
+    byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all })),
+    byTag: aggregateByTag(acProblems)
   };
 }
