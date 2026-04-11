@@ -7,6 +7,7 @@ import { canManageContest } from "./permissions";
 export interface ContestListItem {
   allowedLanguages: Language[];
   endsAt: string;
+  id: string;
   ipBindingEnabled: boolean;
   ipWhitelistEnabled: boolean;
   pageLockEnabled: boolean;
@@ -19,6 +20,15 @@ export interface ContestListItem {
   summary: string;
   title: string;
 }
+
+export interface ContestListItemForUser extends ContestListItem {
+  visibility: "draft" | "published" | "archived";
+}
+
+export type ContestListForUserResult = {
+  participable: ContestListItem[];
+  managed: ContestListItemForUser[];
+};
 
 export interface ContestProblemSummary {
   id: string;
@@ -68,6 +78,7 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
   return {
     allowedLanguages: c.allowedLanguages as Language[],
     endsAt: c.endsAt.toISOString(),
+    id: c.id,
     ipBindingEnabled: c.ipBindingEnabled,
     ipWhitelistEnabled: c.ipWhitelistEnabled,
     pageLockEnabled: c.pageLockEnabled,
@@ -125,6 +136,41 @@ export async function listPublicContests(): Promise<ContestListItem[]> {
 export async function listCourseContests(courseSlug: string): Promise<ContestListItem[]> {
   const contests = await contestRepo.listByCourseSlug(courseSlug);
   return contests.map(mapContestListItem);
+}
+
+export async function listContestsForUser(
+  userId: string | null,
+  _now: Date
+): Promise<ContestListForUserResult> {
+  if (userId === null) {
+    const rows = await contestRepo.listParticipableForUser([]);
+    return { managed: [], participable: rows.map(mapContestListItem) };
+  }
+
+  const memberships = await courseMembershipRepo.listActiveForUser(userId);
+  const teacherOrTaCourseIds = memberships
+    .filter((m) => m.role === "teacher" || m.role === "ta")
+    .map((m) => m.courseId);
+  const studentCourseIds = memberships
+    .filter((m) => m.role === "student")
+    .map((m) => m.courseId);
+
+  const [managedRows, participableRows] = await Promise.all([
+    contestRepo.listManagedForUser(userId, teacherOrTaCourseIds),
+    contestRepo.listParticipableForUser(studentCourseIds)
+  ]);
+
+  const managedIds = new Set(managedRows.map((c) => c.id));
+  const participable = participableRows
+    .filter((c) => !managedIds.has(c.id))
+    .map(mapContestListItem);
+
+  const managed: ContestListItemForUser[] = managedRows.map((row) => ({
+    ...mapContestListItem(row),
+    visibility: row.visibility
+  }));
+
+  return { managed, participable };
 }
 
 export type ContestDetailOptions = {
