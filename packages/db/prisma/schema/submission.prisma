@@ -45,7 +45,7 @@ model Submission {
   courseAssessmentId     String?
   sampleOnly             Boolean           @default(false)
   language               SupportedLanguage
-  /// Single file for standard/function types. Multi-file is stored
+  /// Single file for full_source submissions. Multi-file is stored
   /// as JSON.stringify({ [path]: content }) — the judge pipeline
   /// parses on the other side.
   sourceCode             String            @db.Text

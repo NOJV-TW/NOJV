@@ -15,11 +15,13 @@
 ## File Structure
 
 **New files:**
+
 - `packages/domain/src/user/analytics-helpers.ts` — pure aggregation helpers (tag counting). Pure fns so they're trivial to unit-test without mocking Prisma.
 - `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` — 30-cell DOM heatmap with tooltips.
 - `tests/unit/domain/user-analytics-helpers.test.ts` — covers the tag aggregation helper.
 
 **Modified files:**
+
 - `packages/domain/src/user/queries.ts` — wire the helper into `getUserAnalytics`, extend `UserAnalytics` interface with `byTag`.
 - `apps/web/src/routes/(app)/dashboard/+page.server.ts` — drop courses/assessments/announcements loads.
 - `apps/web/src/routes/(app)/dashboard/+page.svelte` — full rewrite per spec.
@@ -33,6 +35,7 @@
 ## Task 1: Pure tag-aggregation helper (TDD)
 
 **Files:**
+
 - Create: `packages/domain/src/user/analytics-helpers.ts`
 - Create: `tests/unit/domain/user-analytics-helpers.test.ts`
 
@@ -81,10 +84,7 @@ describe("aggregateByTag", () => {
   });
 
   it("ignores problems with an empty tag list", () => {
-    const rows = [
-      { problem: { tags: [] } },
-      { problem: { tags: ["dp"] } }
-    ];
+    const rows = [{ problem: { tags: [] } }, { problem: { tags: ["dp"] } }];
     expect(aggregateByTag(rows)).toEqual([{ tag: "dp", acCount: 1 }]);
   });
 });
@@ -176,6 +176,7 @@ git commit -m "feat(domain): add aggregateByTag helper for user analytics"
 ## Task 2: Wire `byTag` into `getUserAnalytics`
 
 **Files:**
+
 - Modify: `packages/domain/src/user/queries.ts` (interface `UserAnalytics` + function `getUserAnalytics`)
 
 - [ ] **Step 1: Update the `UserAnalytics` interface**
@@ -212,15 +213,15 @@ import { aggregateByTag } from "./analytics-helpers";
 Find `getUserAnalytics` (around line 102). Locate the `return { ... }` block at the end. Replace the return with:
 
 ```ts
-  return {
-    byDifficulty: (["easy", "medium", "hard"] as const).map((d) => ({
-      difficulty: d,
-      acCount: difficultyCounts[d]
-    })),
-    byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
-    byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all })),
-    byTag: aggregateByTag(acProblems)
-  };
+return {
+  byDifficulty: (["easy", "medium", "hard"] as const).map((d) => ({
+    difficulty: d,
+    acCount: difficultyCounts[d]
+  })),
+  byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
+  byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all })),
+  byTag: aggregateByTag(acProblems)
+};
 ```
 
 `acProblems` is already in scope from the existing `Promise.all` — no new query needed.
@@ -253,6 +254,7 @@ git commit -m "feat(domain): expose byTag from getUserAnalytics"
 ## Task 3: `ActivityHeatmap.svelte` component
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/charts/ActivityHeatmap.svelte`
 
 Rationale: 30 DOM cells render faster and with less bundle cost than spinning up an ECharts calendar. We have no Svelte component test harness in this repo, so visual verification happens in Task 7 via `pnpm --filter web dev`.
@@ -348,6 +350,7 @@ git commit -m "feat(web): add ActivityHeatmap component for dashboard"
 ## Task 4: i18n — add new keys
 
 **Files:**
+
 - Modify: `apps/web/messages/zh-TW.json`
 - Modify: `apps/web/messages/en.json`
 
@@ -399,6 +402,7 @@ git commit -m "i18n(web): add dashboard redesign keys"
 ## Task 5: Trim the dashboard server loader
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.server.ts`
 
 - [ ] **Step 1: Replace the file**
@@ -430,11 +434,7 @@ export const load: PageServerLoad = async (event) => {
   const from = utcDayOffset(ACTIVITY_DAYS - 1);
   const to = utcDayOffset(0);
 
-  const [
-    { stats, recentSubmissions },
-    dailyActivity,
-    analytics
-  ] = await Promise.all([
+  const [{ stats, recentSubmissions }, dailyActivity, analytics] = await Promise.all([
     getUserDashboard(actor.userId),
     userDailyActivityRepo.findRange(actor.userId, from, to),
     getUserAnalytics(actor.userId)
@@ -458,6 +458,7 @@ export const load: PageServerLoad = async (event) => {
 ```
 
 Changes from the old file:
+
 - `courseDomain` import removed
 - `DEFAULT_LOCALE` import removed
 - `deriveAssessmentWindowState`, `windowStateColorClass` imports removed
@@ -485,6 +486,7 @@ git commit -m "refactor(web): trim dashboard loader to ability-overview fields"
 ## Task 6: Rewrite `dashboard/+page.svelte`
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.svelte`
 
 - [ ] **Step 1: Replace the entire file**
@@ -820,6 +822,7 @@ Overwrite `apps/web/src/routes/(app)/dashboard/+page.svelte` with:
 ```
 
 Notes on this rewrite:
+
 - No `Section.svelte` — each Card has an inline `<h2 class="mb-4 text-title-sm font-semibold">` so Fraunces never touches CJK headings on this page.
 - No `StatCard.svelte` — hero bar is one card with four flex cells.
 - `verdictPalette` uses rgba with 0.5 alpha for non-AC verdicts so AC dominates visually.
@@ -833,6 +836,7 @@ pnpm --filter web check
 ```
 
 Expected: no errors. Common issues:
+
 - If `Card` import path differs from `$lib/components/ui/card` → adjust to match other routes (e.g., `/problems/+page.svelte` imports Card the same way this file did).
 - If `text-headline` is not a recognized Tailwind utility → confirm `app.css` defines `--text-headline` in the `@theme` block (it does, per line 157/315 of `app.css`).
 
@@ -848,6 +852,7 @@ git commit -m "feat(web): redesign dashboard as student ability overview"
 ## Task 7: Remove unused i18n keys + full verification
 
 **Files:**
+
 - Modify: `apps/web/messages/zh-TW.json`
 - Modify: `apps/web/messages/en.json`
 

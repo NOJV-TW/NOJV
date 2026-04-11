@@ -1,5 +1,4 @@
-import { error } from "@sveltejs/kit";
-import { courseDomain, NotFoundError } from "@nojv/domain";
+import { courseDomain } from "@nojv/domain";
 
 const { loadAssessmentDetail, listUserAssessments } = courseDomain;
 type CoursePageDetailData = courseDomain.CoursePageDetailData;
@@ -25,31 +24,26 @@ export function createAssessmentDetailLoader() {
     const { courseData } = await parent();
     const userId = locals.user?.id ?? null;
 
-    try {
-      const { assessment, course, problems } = await loadAssessmentDetail({
-        assessmentSlug,
-        courseData,
-        userId
-      });
+    const { assessment, course, problems } = await loadAssessmentDetail({
+      assessmentSlug,
+      courseData,
+      userId
+    });
 
-      const presentation = assessmentPresentation;
-      const windowState = deriveAssessmentWindowState({
-        closesAt: assessment.closesAt,
-        dueAt: assessment.dueAt,
-        opensAt: assessment.opensAt
-      });
+    const presentation = assessmentPresentation;
+    const windowState = deriveAssessmentWindowState({
+      closesAt: assessment.closesAt,
+      dueAt: assessment.dueAt,
+      opensAt: assessment.opensAt
+    });
 
-      return {
-        assessment,
-        course,
-        presentation,
-        problems,
-        windowState
-      };
-    } catch (err) {
-      if (err instanceof NotFoundError) error(404, err.message);
-      throw err;
-    }
+    return {
+      assessment,
+      course,
+      presentation,
+      problems,
+      windowState
+    };
   };
 }
 

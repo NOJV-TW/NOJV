@@ -1,9 +1,10 @@
 import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import { z } from "zod";
 import { problemImageSourceSchema } from "@nojv/core";
-import type { Actions, PageServerLoad } from "./$types";
+import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
 
@@ -19,31 +20,29 @@ const advancedImageSavePayloadSchema = z.object({
   memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional()
 });
 
-export const load: PageServerLoad = async ({ params, locals }) => {
-  if (!locals.user) {
-    redirect(302, `/problems/${params.id}`);
-  }
-
-  const problem = await getProblemPageData(params.id);
-
-  if (!problem) {
-    error(404, "Problem not found");
-  }
-
-  if (problem.type !== "special_env") {
-    redirect(302, `/problems/${params.id}/edit`);
-  }
-
-  return {
-    problem,
-    imageConfig: {
-      source: problem.advancedImageSource ?? "registry",
-      ref: problem.advancedImageRef ?? "",
-      timeLimitMs: problem.timeLimitMs,
-      memoryLimitMb: problem.memoryLimitMb
+export const load: PageServerLoad = handleLoad(
+  async ({ params, locals }: PageServerLoadEvent) => {
+    if (!locals.user) {
+      redirect(302, `/problems/${params.id}`);
     }
-  };
-};
+
+    const problem = await getProblemPageData(params.id);
+
+    if (problem.type !== "special_env") {
+      redirect(302, `/problems/${params.id}/edit`);
+    }
+
+    return {
+      problem,
+      imageConfig: {
+        source: problem.advancedImageSource ?? "registry",
+        ref: problem.advancedImageRef ?? "",
+        timeLimitMs: problem.timeLimitMs,
+        memoryLimitMb: problem.memoryLimitMb
+      }
+    };
+  }
+);
 
 function advancedAction<T>(
   handler: (ctx: {

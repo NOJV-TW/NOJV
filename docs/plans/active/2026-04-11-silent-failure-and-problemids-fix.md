@@ -15,12 +15,14 @@
 ## File Structure
 
 **New files:**
+
 - `apps/web/src/lib/components/ui/FormError.svelte` — presentational red banner for top-of-form server errors. Consumes `message` prop.
 - `apps/web/src/lib/types/form-message.ts` — shared discriminated-union type `FormMessage = { kind: "success" | "error"; text: string }` used by every form that adopts the new pattern.
 - `tests/unit/core/contest-schemas.test.ts` — unit tests for `contestCreateSchema` (new file; matches the existing `course-schemas.test.ts` neighbor).
 - `tests/e2e/teacher-form-errors.test.ts` — Playwright test proving errors now surface in the UI.
 
 **Modified files:**
+
 - `packages/core/src/schemas/course.ts` — line 60: relax `problemIds` validation.
 - `packages/core/src/schemas/contest.ts` — line 35: relax `problemIds` validation.
 - `apps/web/src/routes/(app)/courses/[slug]/manage/assessments/+page.server.ts` — switch both actions to `message(form, { kind, text }, { status })`.
@@ -39,6 +41,7 @@
 **Goal:** Provide a single reusable top-of-form error banner plus a typed message shape used across the three broken forms.
 
 **Files:**
+
 - Create: `apps/web/src/lib/types/form-message.ts`
 - Create: `apps/web/src/lib/components/ui/FormError.svelte`
 
@@ -104,6 +107,7 @@ git commit -m "feat(web): add shared FormError component and FormMessage type"
 **Goal:** Stop rejecting `problem_*` IDs that actually exist in the database. The current `slugSchema` regex forbids underscores, so every submission fails.
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/course.ts:60`
 - Modify: `tests/unit/core/course-schemas.test.ts`
 
@@ -112,48 +116,48 @@ git commit -m "feat(web): add shared FormError component and FormMessage type"
 Append this block to `tests/unit/core/course-schemas.test.ts` (inside the existing `describe("courseAssessmentCreateSchema", ...)` block, before its closing `});`):
 
 ```ts
-  it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
-      closesAt: "2026-03-30T12:00:00.000Z",
-      courseSlug: "os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      dueAt: "2026-03-25T12:00:00.000Z",
-      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
-      slug: "hw1-process-warmup",
-      summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup"
-    });
-
-    expect(result.success).toBe(true);
+it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
+  const result = courseAssessmentCreateSchema.safeParse({
+    closesAt: "2026-03-30T12:00:00.000Z",
+    courseSlug: "os-lab-spring-2026",
+    opensAt: "2026-03-18T12:00:00.000Z",
+    dueAt: "2026-03-25T12:00:00.000Z",
+    problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
+    slug: "hw1-process-warmup",
+    summary: "Process warmup with two easy problems.",
+    title: "HW1 Process Warmup"
   });
 
-  it("rejects empty problemIds array", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
-      closesAt: "2026-03-30T12:00:00.000Z",
-      courseSlug: "os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      problemIds: [],
-      slug: "hw1-process-warmup",
-      summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup"
-    });
+  expect(result.success).toBe(true);
+});
 
-    expect(result.success).toBe(false);
+it("rejects empty problemIds array", () => {
+  const result = courseAssessmentCreateSchema.safeParse({
+    closesAt: "2026-03-30T12:00:00.000Z",
+    courseSlug: "os-lab-spring-2026",
+    opensAt: "2026-03-18T12:00:00.000Z",
+    problemIds: [],
+    slug: "hw1-process-warmup",
+    summary: "Process warmup with two easy problems.",
+    title: "HW1 Process Warmup"
   });
 
-  it("rejects problemIds whose entries are empty strings", () => {
-    const result = courseAssessmentCreateSchema.safeParse({
-      closesAt: "2026-03-30T12:00:00.000Z",
-      courseSlug: "os-lab-spring-2026",
-      opensAt: "2026-03-18T12:00:00.000Z",
-      problemIds: [""],
-      slug: "hw1-process-warmup",
-      summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup"
-    });
+  expect(result.success).toBe(false);
+});
 
-    expect(result.success).toBe(false);
+it("rejects problemIds whose entries are empty strings", () => {
+  const result = courseAssessmentCreateSchema.safeParse({
+    closesAt: "2026-03-30T12:00:00.000Z",
+    courseSlug: "os-lab-spring-2026",
+    opensAt: "2026-03-18T12:00:00.000Z",
+    problemIds: [""],
+    slug: "hw1-process-warmup",
+    summary: "Process warmup with two easy problems.",
+    title: "HW1 Process Warmup"
   });
+
+  expect(result.success).toBe(false);
+});
 ```
 
 - [ ] **Step 2: Run the test and verify it fails**
@@ -194,6 +198,7 @@ git commit -m "fix(core): accept raw problem ids in courseAssessmentCreateSchema
 **Goal:** Identical fix to Task 2, but for the contest schema. Create a new test file matching the neighbor pattern.
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/contest.ts:35`
 - Create: `tests/unit/core/contest-schemas.test.ts`
 
@@ -302,6 +307,7 @@ git commit -m "fix(core): accept raw problem ids in contestCreateSchema"
 **Goal:** The allowedLanguages checkboxes in `Contests.svelte` have no `name`, so superForm never sees them and always submits an empty array. Fix the attribute and the `toggleLanguage` binding so selections round-trip.
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/manage/Contests.svelte:285-289`
 
 - [ ] **Step 1: Inspect the current markup**
@@ -360,6 +366,7 @@ git commit -m "fix(web): restore name on contest language checkboxes"
 **Depends on:** Task 1 (FormError component + FormMessage type), Task 2 (schema fix so real submissions succeed).
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[slug]/manage/assessments/+page.server.ts:81-131`
 - Modify: `apps/web/src/lib/components/manage/Assessments.svelte:115-398`
 
@@ -368,15 +375,15 @@ git commit -m "fix(web): restore name on contest language checkboxes"
 Open `apps/web/src/routes/(app)/courses/[slug]/manage/assessments/+page.server.ts`. Locate the `create` action's success return around line 84:
 
 ```ts
-      await createCourseAssessmentRecord(actor, payload);
-      return message(form, `Published ${payload.title}.`);
+await createCourseAssessmentRecord(actor, payload);
+return message(form, `Published ${payload.title}.`);
 ```
 
 Replace with:
 
 ```ts
-      await createCourseAssessmentRecord(actor, payload);
-      return message(form, { kind: "success", text: `Published ${payload.title}.` });
+await createCourseAssessmentRecord(actor, payload);
+return message(form, { kind: "success", text: `Published ${payload.title}.` });
 ```
 
 - [ ] **Step 2: Update the assessments server action — error path**
@@ -404,15 +411,15 @@ Replace with:
 Same file, around line 125 (success):
 
 ```ts
-      await createContestRecord(actor, payload);
-      return message(form, `Contest "${payload.title}" created.`);
+await createContestRecord(actor, payload);
+return message(form, `Contest "${payload.title}" created.`);
 ```
 
 →
 
 ```ts
-      await createContestRecord(actor, payload);
-      return message(form, { kind: "success", text: `Contest "${payload.title}" created.` });
+await createContestRecord(actor, payload);
+return message(form, { kind: "success", text: `Contest "${payload.title}" created.` });
 ```
 
 Around line 127-129 (error):
@@ -450,8 +457,8 @@ After Steps 2 and 3 there is still one remaining `fail()` call (the `!form.valid
 Open `apps/web/src/lib/components/manage/Assessments.svelte`. At the end of the `<script>` import block (after the `import { Button } from "$lib/components/ui/button";` line around line 17), add:
 
 ```ts
-  import FormError from "$lib/components/ui/FormError.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+import FormError from "$lib/components/ui/FormError.svelte";
+import type { FormMessage } from "$lib/types/form-message";
 ```
 
 - [ ] **Step 6: Type the superForm message**
@@ -459,25 +466,37 @@ Open `apps/web/src/lib/components/manage/Assessments.svelte`. At the end of the 
 Locate line 115 which currently reads:
 
 ```ts
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
+const {
+  form,
+  errors,
+  submitting,
+  message: formMessage,
+  enhance
+} = superForm(
+  untrack(() => formData),
+  {
     dataType: "json",
     invalidateAll: true
-  });
+  }
+);
 ```
 
 Replace with (add the `Message` generic parameter via a cast helper):
 
 ```ts
-  const {
-    form,
-    errors,
-    submitting,
-    message: formMessage,
-    enhance
-  } = superForm<typeof formData.data, FormMessage>(untrack(() => formData), {
+const {
+  form,
+  errors,
+  submitting,
+  message: formMessage,
+  enhance
+} = superForm<typeof formData.data, FormMessage>(
+  untrack(() => formData),
+  {
     dataType: "json",
     invalidateAll: true
-  });
+  }
+);
 ```
 
 - [ ] **Step 7: Replace the message render at the bottom of the form**
@@ -546,6 +565,7 @@ git commit -m "fix(web): surface assessment form errors via FormError banner"
 **Depends on:** Task 1 (FormError component), Task 3 (contest schema fix), Task 4 (checkbox name fix), Task 5 (server already converted to `message()`).
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/manage/Contests.svelte:115-337`
 
 - [ ] **Step 1: Import FormError and FormMessage**
@@ -553,8 +573,8 @@ git commit -m "fix(web): surface assessment form errors via FormError banner"
 At the end of the existing `<script>` import block (after the `import SystemTextToggle ...` line around line 16), add:
 
 ```ts
-  import FormError from "$lib/components/ui/FormError.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+import FormError from "$lib/components/ui/FormError.svelte";
+import type { FormMessage } from "$lib/types/form-message";
 ```
 
 - [ ] **Step 2: Type the superForm message**
@@ -562,25 +582,34 @@ At the end of the existing `<script>` import block (after the `import SystemText
 Locate line 115:
 
 ```ts
-  const { form, errors, submitting, message: formMessage, enhance } = superForm(
-    untrack(() => formData),
-    { dataType: "json", invalidateAll: true }
-  );
+const {
+  form,
+  errors,
+  submitting,
+  message: formMessage,
+  enhance
+} = superForm(
+  untrack(() => formData),
+  { dataType: "json", invalidateAll: true }
+);
 ```
 
 Replace with:
 
 ```ts
-  const {
-    form,
-    errors,
-    submitting,
-    message: formMessage,
-    enhance
-  } = superForm<typeof formData.data, FormMessage>(untrack(() => formData), {
+const {
+  form,
+  errors,
+  submitting,
+  message: formMessage,
+  enhance
+} = superForm<typeof formData.data, FormMessage>(
+  untrack(() => formData),
+  {
     dataType: "json",
     invalidateAll: true
-  });
+  }
+);
 ```
 
 - [ ] **Step 3: Replace the message render at the bottom**
@@ -630,6 +659,7 @@ git commit -m "fix(web): surface contest form errors via FormError banner"
 **Depends on:** Task 1 (FormError), Task 3 (schema fix).
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/create/+page.server.ts`
 - Modify: `apps/web/src/routes/(app)/contests/create/+page.svelte`
 
@@ -640,13 +670,13 @@ Read `apps/web/src/routes/(app)/contests/create/+page.server.ts`. Locate the act
 - [ ] **Step 2: Convert success path**
 
 ```ts
-      return message(form, `Contest "${payload.title}" created.`);
+return message(form, `Contest "${payload.title}" created.`);
 ```
 
 →
 
 ```ts
-      return message(form, { kind: "success", text: `Contest "${payload.title}" created.` });
+return message(form, { kind: "success", text: `Contest "${payload.title}" created.` });
 ```
 
 - [ ] **Step 3: Convert error path**
@@ -674,8 +704,8 @@ Keep the `fail` import (still used for `!form.valid` / permission gates).
 Open `apps/web/src/routes/(app)/contests/create/+page.svelte`. At the end of the existing `<script>` import block, add:
 
 ```ts
-  import FormError from "$lib/components/ui/FormError.svelte";
-  import type { FormMessage } from "$lib/types/form-message";
+import FormError from "$lib/components/ui/FormError.svelte";
+import type { FormMessage } from "$lib/types/form-message";
 ```
 
 - [ ] **Step 5: Type the superForm message**
@@ -683,15 +713,15 @@ Open `apps/web/src/routes/(app)/contests/create/+page.svelte`. At the end of the
 Find the `superForm(...)` call in the component's `<script>`. Add the `FormMessage` generic the same way as Task 5 Step 6:
 
 ```ts
-  const {
-    form,
-    errors,
-    submitting,
-    message: formMessage,
-    enhance
-  } = superForm<typeof formData.data, FormMessage>(formData, {
-    dataType: "json"
-  });
+const {
+  form,
+  errors,
+  submitting,
+  message: formMessage,
+  enhance
+} = superForm<typeof formData.data, FormMessage>(formData, {
+  dataType: "json"
+});
 ```
 
 (Keep any other options the existing call passes — e.g. `invalidateAll` — unchanged. Only the generic types and the possible wrapper differ.)
@@ -735,6 +765,7 @@ git commit -m "fix(web): surface standalone contest create errors via FormError 
 **Depends on:** Tasks 5, 6 (and transitively 1, 2, 3, 4, 7).
 
 **Files:**
+
 - Create: `tests/e2e/teacher-form-errors.test.ts`
 
 - [ ] **Step 1: Read the existing e2e conventions**
@@ -748,10 +779,7 @@ Read `tests/e2e/course-manage.test.ts` for reference. Note the `teacherAuth` sto
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
-const teacherAuth = path.resolve(
-  import.meta.dirname,
-  "../fixtures/auth-states/teacher.json"
-);
+const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 
 test.describe("Teacher form error visibility", () => {
   test("teacher can create an assessment and sees a success banner", async ({ browser }) => {
@@ -762,29 +790,46 @@ test.describe("Teacher form error visibility", () => {
     // Fill the assessment form with a unique slug + real problem ids.
     const uniqueSuffix = Date.now().toString(36);
     const slug = `hw-fix-${uniqueSuffix}`;
-    await page.getByRole("textbox", { name: /測驗標題|Assessment title/i }).fill(`Fix HW ${uniqueSuffix}`);
+    await page
+      .getByRole("textbox", { name: /測驗標題|Assessment title/i })
+      .fill(`Fix HW ${uniqueSuffix}`);
     await page.getByRole("textbox", { name: /assessment-slug/i }).fill(slug);
-    await page.getByRole("textbox", { name: /測驗摘要|Assessment summary/i }).fill("Regression test for silent failure fix.");
+    await page
+      .getByRole("textbox", { name: /測驗摘要|Assessment summary/i })
+      .fill("Regression test for silent failure fix.");
     // The problemIdsText textarea has placeholder "problem-one, problem-two"
     await page.getByPlaceholder("problem-one, problem-two").first().fill("problem_warmup-sum");
 
     await page.getByRole("button", { name: /發布測驗|Publish assessment/i }).click();
 
-    await expect(page.getByText(`Published Fix HW ${uniqueSuffix}.`)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(`Published Fix HW ${uniqueSuffix}.`)).toBeVisible({
+      timeout: 10_000
+    });
     await context.close();
   });
 
-  test("teacher sees a visible error banner when assessment creation fails", async ({ browser }) => {
+  test("teacher sees a visible error banner when assessment creation fails", async ({
+    browser
+  }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     await page.goto("/courses/os-lab-spring-2026/manage/assessments");
 
     // Use a problem id that does not exist — server will throw NotFoundError,
     // which must now surface through the FormError banner.
-    await page.getByRole("textbox", { name: /測驗標題|Assessment title/i }).fill("Never Published");
-    await page.getByRole("textbox", { name: /assessment-slug/i }).fill("never-published-regression");
-    await page.getByRole("textbox", { name: /測驗摘要|Assessment summary/i }).fill("Intentional failure to test error surfacing.");
-    await page.getByPlaceholder("problem-one, problem-two").first().fill("problem_does_not_exist_zzzz");
+    await page
+      .getByRole("textbox", { name: /測驗標題|Assessment title/i })
+      .fill("Never Published");
+    await page
+      .getByRole("textbox", { name: /assessment-slug/i })
+      .fill("never-published-regression");
+    await page
+      .getByRole("textbox", { name: /測驗摘要|Assessment summary/i })
+      .fill("Intentional failure to test error surfacing.");
+    await page
+      .getByPlaceholder("problem-one, problem-two")
+      .first()
+      .fill("problem_does_not_exist_zzzz");
 
     await page.getByRole("button", { name: /發布測驗|Publish assessment/i }).click();
 
@@ -800,14 +845,20 @@ test.describe("Teacher form error visibility", () => {
 
     const uniqueSuffix = Date.now().toString(36);
     const slug = `quiz-fix-${uniqueSuffix}`;
-    await page.getByRole("textbox", { name: /競賽標題|Contest title/i }).fill(`Fix Quiz ${uniqueSuffix}`);
+    await page
+      .getByRole("textbox", { name: /競賽標題|Contest title/i })
+      .fill(`Fix Quiz ${uniqueSuffix}`);
     await page.getByRole("textbox", { name: /contest-slug/i }).fill(slug);
-    await page.getByRole("textbox", { name: /競賽摘要|Contest summary/i }).fill("Regression contest to verify form error fix.");
+    await page
+      .getByRole("textbox", { name: /競賽摘要|Contest summary/i })
+      .fill("Regression contest to verify form error fix.");
     await page.getByPlaceholder("problem-one, problem-two").last().fill("problem_warmup-sum");
 
     await page.getByRole("button", { name: /建立競賽|Create Contest/i }).click();
 
-    await expect(page.getByText(`Contest "Fix Quiz ${uniqueSuffix}" created.`)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(`Contest "Fix Quiz ${uniqueSuffix}" created.`)).toBeVisible({
+      timeout: 10_000
+    });
     await context.close();
   });
 });

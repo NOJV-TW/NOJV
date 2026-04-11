@@ -53,7 +53,6 @@
         content: f.content,
         description: f.description,
         visibility: f.visibility as "editable" | "readonly" | "hidden",
-        editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
         orderIndex: f.orderIndex
       }))
     };

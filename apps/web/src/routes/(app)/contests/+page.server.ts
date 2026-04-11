@@ -9,11 +9,7 @@ const { findContestByInviteCode, listContestsForUser } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
-  const now = new Date();
-  const { managed, participable } = await listContestsForUser(
-    actor?.userId ?? null,
-    now
-  );
+  const { managed, participable } = await listContestsForUser(actor?.userId ?? null);
   return { managed, participable, loggedIn: actor != null };
 };
 

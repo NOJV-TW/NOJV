@@ -3,8 +3,7 @@ import {
   languageSchema,
   submissionResultSchema,
   submissionVerdicts,
-  submissionVerdictSchema,
-  type SubmissionResult
+  submissionVerdictSchema
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -56,29 +55,17 @@ export async function listProblemSubmissions(
   });
 
   return submissions.map((s) => {
-    const verdictParsed = submissionVerdictSchema.safeParse(s.status);
-    const verdict = verdictParsed.success ? verdictParsed.data : ("wrong_answer" as const);
-
     // verdictDetail is the sole source of truth for case results,
-    // subtask results, compiler output, etc. There are no fallback
-    // columns to merge any more.
-    const detailParsed = submissionResultSchema.safeParse(s.verdictDetail);
-    const result: SubmissionResult = detailParsed.success
-      ? detailParsed.data
-      : {
-          accepted: s.status === "accepted",
-          caseResults: undefined,
-          feedback: s.status.replace(/_/g, " "),
-          runtimeMs: s.runtimeMs ?? 0,
-          score: s.score,
-          verdict
-        };
-
-    const langParsed = languageSchema.safeParse(s.language);
+    // subtask results, compiler output, etc. We still validate
+    // `s.status` up front so DB corruption at the enum column is
+    // surfaced rather than hidden.
+    submissionVerdictSchema.parse(s.status);
+    const result = submissionResultSchema.parse(s.verdictDetail);
+    const language = languageSchema.parse(s.language);
 
     return {
       id: s.id,
-      language: langParsed.success ? langParsed.data : s.language,
+      language,
       result,
       submittedAt: s.createdAt.toISOString()
     };

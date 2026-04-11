@@ -41,7 +41,6 @@
   aria-label={`30-day activity heatmap: ${totalAcLabel}`}
 >
   {#each data as day (day.date)}
-    <!-- TODO: replace `title` with a shared Tooltip wrapper when $lib/components/ui/tooltip lands -->
     <div
       class="h-4 w-full rounded-[3px] transition-colors duration-fast sm:h-5 {intensityClass(
         day.acCount

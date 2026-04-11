@@ -10,9 +10,8 @@ import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError } from "../shared/errors";
 import { checkIpLock } from "../shared/ip-utils";
 import { ensureUser } from "../user/mutations";
-import { requireProblem } from "../problem/mutations";
+import { requireCourseAssessment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
-import { requireCourseAssessment } from "../course/mutations";
 
 export type { ActorContext };
 

@@ -40,6 +40,48 @@ describe("submissionDraftSchema", () => {
     expect(result.sourceFiles).toHaveLength(2);
     expect(result.sourceFiles?.[0]?.path).toBe("src/main.ts");
   });
+
+  it("accepts runCases on sample-only runs", () => {
+    const result = submissionDraftSchema.parse({
+      language: "cpp",
+      mode: "practice",
+      problemId: "sum-ab",
+      runCases: [
+        { input: "1 2\n", expectedOutput: "3\n" },
+        { input: "10 20\n" } // expectedOutput omitted — Run shows actual stdout only
+      ],
+      sampleOnly: true,
+      sourceCode: "int main(){}"
+    });
+
+    expect(result.runCases).toHaveLength(2);
+    expect(result.runCases?.[1]?.expectedOutput).toBeUndefined();
+  });
+
+  it("rejects runCases on graded submissions", () => {
+    const parsed = submissionDraftSchema.safeParse({
+      language: "cpp",
+      mode: "practice",
+      problemId: "sum-ab",
+      runCases: [{ input: "1\n", expectedOutput: "1\n" }],
+      sampleOnly: false,
+      sourceCode: "int main(){}"
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects more than 10 runCases", () => {
+    const parsed = submissionDraftSchema.safeParse({
+      language: "cpp",
+      problemId: "sum-ab",
+      runCases: Array.from({ length: 11 }, () => ({ input: "x" })),
+      sampleOnly: true,
+      sourceCode: "int main(){}"
+    });
+
+    expect(parsed.success).toBe(false);
+  });
 });
 
 describe("contestSessionSchema", () => {

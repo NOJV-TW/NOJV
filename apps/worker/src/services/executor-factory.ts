@@ -1,7 +1,8 @@
+import type { SandboxExecutor } from "@nojv/core";
+
 import type { WorkerEnv } from "../env";
 import { DockerExecutor } from "./docker-executor.js";
 import { K8sExecutor } from "./k8s-executor.js";
-import type { SandboxExecutor } from "@nojv/core";
 
 export function createExecutor(env: WorkerEnv): SandboxExecutor {
   if (env.EXECUTION_BACKEND === "kubernetes") {

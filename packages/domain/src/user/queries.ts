@@ -1,4 +1,4 @@
-import { problemRepo, submissionRepo, userRepo, type Prisma } from "@nojv/db";
+import { submissionRepo, userRepo, type Prisma } from "@nojv/db";
 import { aggregateByTag } from "./analytics-helpers";
 
 export interface UserSearchParams {
@@ -57,37 +57,6 @@ export interface DashboardStats {
   totalAttempts: number;
 }
 
-export async function getUserDashboard(userId: string) {
-  const [recentSubmissions, acProblemIds, totalAttempts] = await Promise.all([
-    submissionRepo.findRecentByUser(userId, 10),
-    submissionRepo.findDistinctAcByUser(userId),
-    submissionRepo.count({ userId, sampleOnly: false })
-  ]);
-
-  const acIds = acProblemIds.map((s) => s.problemId);
-  const acTags = [...new Set(acProblemIds.flatMap((s) => s.problem.tags))];
-
-  const recommendations = await problemRepo.findRecommendations({
-    excludeIds: acIds,
-    tags: acTags,
-    take: 20
-  });
-
-  const shuffled = recommendations.sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, 3);
-
-  const dashboardStats: DashboardStats = {
-    totalAc: acIds.length,
-    totalAttempts
-  };
-
-  return {
-    stats: dashboardStats,
-    recentSubmissions,
-    recommendations: picked
-  };
-}
-
 export interface UserAnalytics {
   byDifficulty: { difficulty: "easy" | "medium" | "hard"; acCount: number }[];
   byLanguage: { language: string; count: number }[];
@@ -95,12 +64,21 @@ export interface UserAnalytics {
   byTag: { tag: string; acCount: number }[];
 }
 
-export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
-  const [acProblems, languageGroups, verdictGroups] = await Promise.all([
-    submissionRepo.findDistinctAcByUser(userId),
-    submissionRepo.groupByLanguageForUser(userId),
-    submissionRepo.groupByStatusForUser(userId)
-  ]);
+export interface DashboardView {
+  stats: DashboardStats;
+  recentSubmissions: Awaited<ReturnType<typeof submissionRepo.findRecentByUser>>;
+  analytics: UserAnalytics;
+}
+
+export async function getDashboardView(userId: string): Promise<DashboardView> {
+  const [recentSubmissions, acProblems, totalAttempts, languageGroups, verdictGroups] =
+    await Promise.all([
+      submissionRepo.findRecentByUser(userId, 10),
+      submissionRepo.findDistinctAcByUser(userId),
+      submissionRepo.count({ userId, sampleOnly: false }),
+      submissionRepo.groupByLanguageForUser(userId),
+      submissionRepo.groupByStatusForUser(userId)
+    ]);
 
   const difficultyCounts: Record<"easy" | "medium" | "hard", number> = {
     easy: 0,
@@ -108,11 +86,10 @@ export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
     hard: 0
   };
   for (const row of acProblems) {
-    const d = row.problem.difficulty;
-    if (d === "easy" || d === "medium" || d === "hard") difficultyCounts[d] += 1;
+    difficultyCounts[row.problem.difficulty] += 1;
   }
 
-  return {
+  const analytics: UserAnalytics = {
     byDifficulty: (["easy", "medium", "hard"] as const).map((d) => ({
       difficulty: d,
       acCount: difficultyCounts[d]
@@ -120,5 +97,11 @@ export async function getUserAnalytics(userId: string): Promise<UserAnalytics> {
     byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
     byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all })),
     byTag: aggregateByTag(acProblems)
+  };
+
+  return {
+    stats: { totalAc: acProblems.length, totalAttempts },
+    recentSubmissions,
+    analytics
   };
 }

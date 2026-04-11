@@ -94,7 +94,6 @@
       content: "",
       description: "",
       visibility: "editable",
-      editableRegions: null,
       orderIndex: files.length
     };
     files = [...files, newFile];

@@ -80,7 +80,7 @@ All `[*Id]` segments are Prisma cuid strings (e.g. `cmbxxxxxxxxxxxxxx`). No slug
 ### 4.2 `/courses/[courseId]` — Overview
 
 **Tab navigation (sticky):** `Overview | Assignments | Exams | Members | Settings*`
-(* Settings only visible to `courseRole ∈ {teacher, ta}`.)
+(\* Settings only visible to `courseRole ∈ {teacher, ta}`.)
 
 **Header:** course title + subtitle (`semester · N students`), right-aligned `TEACHER` badge when user has management role.
 
@@ -112,12 +112,14 @@ All `[*Id]` segments are Prisma cuid strings (e.g. `cmbxxxxxxxxxxxxxx`). No slug
 ### 4.4 `/courses/[courseId]/assignments/[assignmentId]` — Assignment detail
 
 **Shared header for all roles:**
+
 - Breadcrumb: `← Assignments`
 - Title + meta (`Due Apr 18, 23:59 · 3 problems · Max 5 attempts` for student; replace `Max 5 attempts` with `12/23 submitted` for teacher/TA).
 - Status badge (`Open / Closed / Upcoming / Draft`).
 - **No description block**. If a summary is needed it lives inside Problems section or nowhere.
 
 **Body:**
+
 - **Student:** single `Problems` list (no sub-tabs). Each row shows problem title, difficulty, points, personal result (`✓ Solved 100`, `In progress 60`, `Not started`). Footer: `Your score so far: X / Y` (right-aligned).
 - **Teacher/TA:** sub-tab strip `Problems | 提交 [N] | 抄襲 | 設定`. Each tab swaps the body only; header stays.
   - `Problems` tab body: same problem list, each row augmented with class stats (`20/23 solved · avg 94`).
@@ -132,16 +134,16 @@ Also used by `設定` sub-tab as the edit view.
 **Form sections (stacked cards):**
 
 1. **Basics**
-   - `Title` *
+   - `Title` \*
    - (**No slug, no summary field.**)
-2. **Problems** *
+2. **Problems** \*
    - **Problem picker** component:
      - Search box (title + tag matching on existing accessible problems)
      - Dropdown list of matches, each row `+ Add` adds to selection
      - Selected list with drag handle (`≡`) for reordering, `✕` to remove
      - **Sends `problemIds: Problem.id[]` to server**. No free-text input.
 3. **Schedule**
-   - `Opens` * / `Due` * / `Hard close` * (three datetime-local)
+   - `Opens` _ / `Due` _ / `Hard close` \* (three datetime-local)
 4. **Advanced** (collapsed by default)
    - Allowed languages (multi-checkbox)
    - Max attempts (nullable)
@@ -154,6 +156,7 @@ Also used by `設定` sub-tab as the edit view.
 ### 4.6 `/courses/[courseId]/exams` — Exams list
 
 Same shape as Assignments list, but:
+
 - Rows show `Starts May 3, 14:00 · 180 min` instead of due date.
 - Status chips: `Upcoming / Running / Ended / Draft`.
 - Primary action for student: `Start exam` (only when status == Running and student hasn't submitted).
@@ -164,11 +167,13 @@ Same shape as Assignments list, but:
 **Two distinct states:**
 
 **State A: Outside active session (registration view)**
+
 - Shared: breadcrumb, title, schedule, scoring mode, proctoring summary, registered-count.
 - Student: `Start exam` button (disabled until start time).
 - Teacher/TA: sub-tabs `Problems | 提交 | 設定` (no `抄襲` — not applicable to exams), `+ Announce / Unlock` panel.
 
 **State B: Inside active session (exam mode — student only)**
+
 - Triggered when student clicks `Start exam` and server creates an `ActiveExamSession` row.
 - **Full-screen layout**: main nav hidden; only exam problems, timer, submission area, and a single `Submit & end` button.
 - **Route confinement (session lock):**
@@ -180,7 +185,7 @@ Same shape as Assignments list, but:
   2. Student clicks `Submit & end`
   3. Teacher/TA clicks `Release` on the student's row in the Submissions sub-tab (manual unlock)
 - **Audit logging**: new `ExamSessionEvent` rows for `enter`, `visibility_lost`, `release`, `auto_close`.
-- **Settings `分頁鎖` semantics** (clarification): this flag *enables the session lock*; when off, students can freely navigate the rest of the site during the exam window. The lock is not a warning system; it is hard confinement within the SvelteKit app. (Cannot prevent the student from opening a new browser tab; that remains a human invigilation problem.)
+- **Settings `分頁鎖` semantics** (clarification): this flag _enables the session lock_; when off, students can freely navigate the rest of the site during the exam window. The lock is not a warning system; it is hard confinement within the SvelteKit app. (Cannot prevent the student from opening a new browser tab; that remains a human invigilation problem.)
 
 ### 4.8 `/courses/[courseId]/exams/new` — Create exam
 
@@ -207,6 +212,7 @@ Same scaffold as assignment form plus two extra cards:
   - Teacher/TA extra: email, role dropdown (change role), `Remove` button.
 
 **Add members panel (teacher/TA only):**
+
 - Expands on `+ Add members` click
 - Textarea accepts pasted handles, one per line or separated by `,` / whitespace
 - Role selector (defaults to Student, also TA)
@@ -241,14 +247,15 @@ Same scaffold as assignment form plus two extra cards:
 
 Migrations required:
 
-| Model              | Action                                                |
-|--------------------|-------------------------------------------------------|
-| `Course`           | Drop column `slug`; no replacement (id used in URLs)  |
-| `CourseAssessment` | Drop column `slug`                                    |
-| `Contest`          | Drop column `slug`                                    |
+| Model              | Action                                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `Course`           | Drop column `slug`; no replacement (id used in URLs)                                                           |
+| `CourseAssessment` | Drop column `slug`                                                                                             |
+| `Contest`          | Drop column `slug`                                                                                             |
 | `Problem`          | Change `id` default from seeded `problem_*` strings to Prisma `cuid()`. Seeded data rebuilt with cuid-like ids |
 
 Knock-on:
+
 - `packages/core/src/schemas/course.ts`: `courseCreateSchema.slug` and `courseAssessmentCreateSchema.slug` / `.problemIds` field deleted. `problemIds` now `z.array(z.string().min(1)).min(1).max(32)` (plain string id validation, not slug).
 - `packages/core/src/schemas/contest.ts`: same for contest schema.
 - `packages/db/prisma/seeds/*`: rewrite with ids + drop slug fields.
@@ -264,6 +271,7 @@ Knock-on:
 ### 5.3 Placeholder users
 
 For handles pasted by teachers that don't match an existing user:
+
 - Create `User` with `handle = pasted handle`, `status = 'pending_first_login'` (new enum value), `email = null`, `authProviderIds = []`.
 - First time a real user authenticates via OAuth or admin-signin with a matching handle, the auth adapter finds the placeholder by handle and attaches the auth identity to it (rather than creating a new user). This logic lives in a better-auth `onBeforeCreateUser` hook in `apps/web/src/lib/server/auth`.
 - Add `User.handle` as a nullable unique text column in the same migration as the placeholder support (the column does not exist today).
@@ -277,18 +285,18 @@ For handles pasted by teachers that don't match an existing user:
 
 ## 6. Permissions
 
-| Action                                | platformRole | courseRole            |
-|---------------------------------------|--------------|-----------------------|
-| Create course                         | teacher, admin | n/a                 |
-| Edit course settings                  | any          | teacher, ta            |
-| Create / edit / delete assignment     | any          | teacher, ta            |
-| Create / edit / delete exam           | any          | teacher, ta            |
-| Post / edit announcements             | any          | teacher, ta            |
-| Add / remove members                  | any          | teacher, ta            |
-| Change member role                    | any          | teacher                |
-| Release student from exam session     | any          | teacher, ta            |
-| See class stats on assignments/exams  | any          | teacher, ta            |
-| See other members' emails             | any          | teacher, ta            |
+| Action                               | platformRole   | courseRole  |
+| ------------------------------------ | -------------- | ----------- |
+| Create course                        | teacher, admin | n/a         |
+| Edit course settings                 | any            | teacher, ta |
+| Create / edit / delete assignment    | any            | teacher, ta |
+| Create / edit / delete exam          | any            | teacher, ta |
+| Post / edit announcements            | any            | teacher, ta |
+| Add / remove members                 | any            | teacher, ta |
+| Change member role                   | any            | teacher     |
+| Release student from exam session    | any            | teacher, ta |
+| See class stats on assignments/exams | any            | teacher, ta |
+| See other members' emails            | any            | teacher, ta |
 
 TA ≈ teacher in almost all course-level actions **except** changing member roles (only teacher) and creating new courses (blocked by platformRole gate).
 
@@ -303,6 +311,7 @@ TA ≈ teacher in almost all course-level actions **except** changing member rol
 ## 8. Error handling
 
 New shared `FormError` component rendered at top of any form:
+
 - Red left border + icon + server message
 - Auto-scroll-to on submit failure
 - Per-field errors still render inline (unchanged)
