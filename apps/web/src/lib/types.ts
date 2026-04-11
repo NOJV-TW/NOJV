@@ -6,8 +6,51 @@ import type {
   ProblemOverview,
   ProblemStatus,
   ProblemType,
-  ProblemVisibility
+  ProblemVisibility,
+  SubmissionResult
 } from "@nojv/core";
+
+/**
+ * Shared shape used by both the standard and advanced problem workspaces
+ * for rendering submission history in the left-pane submissions tab.
+ *
+ * `id` is absent for submissions that have not yet been persisted (e.g. a
+ * fresh local entry added right after `handleSubmissionComplete`). When
+ * present, the left pane lazily fetches source code from `/api/submissions/:id/source`.
+ */
+export interface ProblemSubmissionEntry {
+  id?: string;
+  language: string;
+  result: SubmissionResult;
+  sourceCode?: string;
+  submittedAt: string;
+}
+
+/**
+ * Authored editorial displayed inside the left-pane editorials tab. This
+ * mirrors the payload returned by `GET /api/problems/:id/editorials`.
+ */
+export interface ProblemEditorialEntry {
+  id: string;
+  content: string;
+  language: string;
+  createdAt: string;
+  user: { username: string | null; name: string };
+}
+
+/**
+ * Subtask/testcase-set summary rendered in the description tab under the
+ * problem statement. Both workspaces receive the same shape from the load
+ * function.
+ */
+export interface ProblemTestcaseSetSummary {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+  ordinal: number;
+  caseCount: number;
+}
 
 export function formatVerdictLabel(verdict: string): string {
   return verdict.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
