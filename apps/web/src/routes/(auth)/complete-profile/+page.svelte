@@ -11,9 +11,8 @@
   import { Input } from "$lib/components/ui/input";
   import FormField from "$lib/components/ui/FormField.svelte";
 
-  let { data } = $props();
-
   type Mode = "choose" | "school" | "general";
+  const RESEND_COOLDOWN = 60;
 
   let mode = $state<Mode>("choose");
   let error = $state("");
@@ -22,7 +21,15 @@
   // School flow state
   let schoolEmail = $state("");
   let emailSent = $state(false);
+  let cooldown = $state(0);
   let verified = $state(false);
+
+  // Countdown timer for resend cooldown
+  $effect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => (cooldown -= 1), 1000);
+    return () => clearTimeout(timer);
+  });
 
   // General flow state
   let username = $state("");
@@ -67,8 +74,9 @@
   // is needed there.
   $effect(() => {
     if (!verified) return;
-    const timer = setTimeout(() => {
-      void goto("/");
+    const timer = setTimeout(async () => {
+      await invalidateAll();
+      await goto("/");
     }, 1500);
     return () => clearTimeout(timer);
   });
@@ -90,7 +98,7 @@
     const normalized = username.trim().toLowerCase();
 
     if (!isValidUsername(normalized)) {
-      error = "Use 3-64 lowercase letters, digits, dots, hyphens, or underscores.";
+      error = m.onboarding_usernamePatternError();
       return;
     }
 
@@ -108,11 +116,12 @@
     loading = false;
 
     if (updateError) {
-      error = updateError.message ?? "Failed to save username.";
+      error = updateError.message ?? m.onboarding_failedToSaveUsername();
       return;
     }
 
-    goto("/");
+    await invalidateAll();
+    await goto("/");
   }
 
   async function handleSignOut() {
@@ -126,9 +135,6 @@
   <Card variant="elevated" size="hero" class="w-full max-w-sm">
     <div class="text-center">
       <h1 class="font-display text-display font-semibold">{m.onboarding_title()}</h1>
-      <p class="mt-2 text-body-sm text-muted-foreground">
-        {data.name} ({data.email})
-      </p>
     </div>
 
     {#if mode === "choose"}
@@ -168,18 +174,6 @@
           <p class="text-center text-body-sm font-medium text-success">
             {m.onboarding_verified()}
           </p>
-        {:else if emailSent}
-          <div class="flex flex-col items-center gap-3">
-            <div
-              class="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent"
-            ></div>
-            <p class="text-center text-body-sm text-muted-foreground">
-              {m.onboarding_verificationSent()}
-            </p>
-            <p class="text-center text-caption text-muted-foreground">
-              {m.onboarding_waitingVerification()}
-            </p>
-          </div>
         {:else}
           <form
             class="flex flex-col gap-4"
@@ -191,13 +185,15 @@
                 return;
               }
               loading = true;
+              error = "";
               return async ({ result, update }) => {
                 loading = false;
                 if (result.type === "success") {
                   emailSent = true;
+                  cooldown = RESEND_COOLDOWN;
                 } else if (result.type === "failure") {
                   const parsed = actionErrorSchema.safeParse(result.data);
-                  error = parsed.success ? parsed.data.error : "Failed to send verification email";
+                  error = parsed.success ? parsed.data.error : m.onboarding_failedToSendVerification();
                 } else {
                   await update();
                 }
@@ -215,6 +211,11 @@
                 value={schoolEmail}
               />
             </FormField>
+            {#if emailSent && !error}
+              <p class="text-body-sm text-muted-foreground">
+                {m.onboarding_verificationSent()}
+              </p>
+            {/if}
             {#if error}
               <div
                 class="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-body-sm text-destructive"
@@ -223,8 +224,23 @@
                 {error}
               </div>
             {/if}
-            <Button type="submit" variant="default" size="lg" class="w-full" {loading} disabled={loading}>
-              {loading ? m.onboarding_sending() : m.onboarding_sendVerification()}
+            <Button
+              type="submit"
+              variant="default"
+              size="lg"
+              class="w-full"
+              {loading}
+              disabled={loading || cooldown > 0}
+            >
+              {#if loading}
+                {m.onboarding_sending()}
+              {:else if cooldown > 0}
+                {m.account_resendCooldown({ seconds: cooldown })}
+              {:else if emailSent}
+                {m.account_resend()}
+              {:else}
+                {m.onboarding_sendVerification()}
+              {/if}
             </Button>
             <Button
               type="button"
@@ -252,7 +268,7 @@
             pattern={USERNAME_INPUT_PATTERN}
             placeholder={m.onboarding_usernamePlaceholder()}
             required
-            title="3-64 characters, lowercase letters, digits, dots, hyphens, underscores"
+            title={m.onboarding_usernamePatternHint()}
             type="text"
             value={username}
           />

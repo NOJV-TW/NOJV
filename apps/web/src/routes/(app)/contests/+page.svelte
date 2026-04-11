@@ -4,7 +4,7 @@
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import * as Tabs from "$lib/components/ui/tabs/index.js";
+  import { cn } from "$lib/utils.js";
   import { Trophy, Plus } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Section from "$lib/components/ui/Section.svelte";
@@ -22,12 +22,11 @@
   let search = $state("");
   let joinDialogOpen = $state(false);
 
-  let tabValue = $state<"participable" | "managed">(
+  let tabValue = $derived<"participable" | "managed">(
     $page.url.searchParams.get("tab") === "managed" ? "managed" : "participable"
   );
 
-  function onTabChange(value: string) {
-    tabValue = value as "participable" | "managed";
+  function setTab(value: "participable" | "managed") {
     const url = new URL($page.url);
     if (value === "managed") url.searchParams.set("tab", "managed");
     else url.searchParams.delete("tab");
@@ -179,38 +178,65 @@
     </Dialog.Content>
   </Dialog.Root>
 
-  <Tabs.Root value={tabValue} onValueChange={onTabChange}>
-    <Tabs.List>
-      <Tabs.Trigger value="participable">{m.contests_tabParticipable()}</Tabs.Trigger>
-      <Tabs.Trigger value="managed">{m.contests_tabManaged()}</Tabs.Trigger>
-    </Tabs.List>
+  <div>
+    <div
+      role="tablist"
+      class="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tabValue === "participable"}
+        class={cn(
+          "inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-body-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          tabValue === "participable"
+            ? "bg-background text-foreground shadow-rest"
+            : "hover:text-foreground"
+        )}
+        onclick={() => setTab("participable")}
+      >
+        {m.contests_tabParticipable()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={tabValue === "managed"}
+        class={cn(
+          "inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-body-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          tabValue === "managed"
+            ? "bg-background text-foreground shadow-rest"
+            : "hover:text-foreground"
+        )}
+        onclick={() => setTab("managed")}
+      >
+        {m.contests_tabManaged()}
+      </button>
+    </div>
 
-    <Tabs.Content value="participable">
-      {#if data.participable.length === 0}
-        <EmptyState
-          variant="minimal"
-          icon={Trophy}
-          title={m.contests_emptyParticipable()}
-          description={m.contests_emptyHint()}
-        />
-      {:else if filteredParticipable.length === 0}
-        <EmptyState
-          variant="minimal"
-          icon={Trophy}
-          title={m.contests_noMatches()}
-          description={m.contests_noMatchesHint()}
-        />
-      {:else}
-        <section class="grid gap-4 lg:grid-cols-2">
-          {#each filteredParticipable as contest (contest.id)}
-            {@render contestCard(contest, false)}
-          {/each}
-        </section>
-      {/if}
-    </Tabs.Content>
-
-    <Tabs.Content value="managed">
-      {#if data.managed.length === 0}
+    <div class="mt-4" role="tabpanel">
+      {#if tabValue === "participable"}
+        {#if data.participable.length === 0}
+          <EmptyState
+            variant="minimal"
+            icon={Trophy}
+            title={m.contests_emptyParticipable()}
+            description={m.contests_emptyHint()}
+          />
+        {:else if filteredParticipable.length === 0}
+          <EmptyState
+            variant="minimal"
+            icon={Trophy}
+            title={m.contests_noMatches()}
+            description={m.contests_noMatchesHint()}
+          />
+        {:else}
+          <section class="grid gap-4 lg:grid-cols-2">
+            {#each filteredParticipable as contest (contest.id)}
+              {@render contestCard(contest, false)}
+            {/each}
+          </section>
+        {/if}
+      {:else if data.managed.length === 0}
         <EmptyState
           variant="minimal"
           icon={Trophy}
@@ -231,6 +257,6 @@
           {/each}
         </section>
       {/if}
-    </Tabs.Content>
-  </Tabs.Root>
+    </div>
+  </div>
 </div>

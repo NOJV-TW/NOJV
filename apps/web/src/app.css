@@ -169,7 +169,7 @@
   --background: #1a1412;
   --foreground: #f5ede4;
   /* Brighter card bg so panels visibly separate from the near-black body. */
-  --card: rgba(60, 46, 38, 0.88);
+  --card: rgba(74, 58, 48, 0.88);
   --card-foreground: #f5ede4;
   --popover: #38281e;
   --popover-foreground: #f5ede4;
@@ -206,8 +206,8 @@
   --sidebar-accent-foreground: #f5ede4;
   --sidebar-border: rgba(255, 250, 244, 0.1);
   --sidebar-ring: #d4834a;
-  --panel: rgba(60, 46, 38, 0.88);
-  --panel-strong: rgba(72, 56, 46, 0.94);
+  --panel: rgba(74, 58, 48, 0.88);
+  --panel-strong: rgba(86, 68, 56, 0.94);
 
   /* Dark-mode shadow ladder: softer, warmer tint */
   --shadow-rest:

@@ -29,7 +29,6 @@ export interface WorkspaceFileEntry {
   content: string;
   editableRegions: [number, number][] | null;
   language: string;
-  orderIndex: number;
   path: string;
   visibility: WorkspaceFileVisibility;
 }
@@ -57,15 +56,11 @@ export interface SubmissionJudgeContext {
   compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
-  memoryLimitMb: number;
-  problemId: string;
   runtime: Runtime;
   samples: ProblemSample[];
   problemType: ProblemType;
   subtaskStrategies: SubtaskStrategyMap;
   testcaseSets: TestcaseSetGroup[];
-  testcases: ProblemJudgeTestcase[];
-  timeLimitMs: number;
   workspaceFiles: WorkspaceFileEntry[];
   /** Non-null only when `problemType === "special_env"`. */
   advanced: AdvancedModeContext | null;
@@ -122,7 +117,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     content: f.content,
     editableRegions: (f.editableRegions as [number, number][] | null) ?? null,
     language: f.language,
-    orderIndex: f.orderIndex,
     path: f.path,
     visibility: f.visibility as WorkspaceFileVisibility
   }));
@@ -160,15 +154,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     compare: judgeConfig.compare ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
-    memoryLimitMb: runtime.memoryLimitMb,
-    problemId: submission.problemId,
     runtime,
     samples,
     problemType,
     subtaskStrategies,
     testcaseSets,
-    testcases: testcaseSets.flatMap((ts) => ts.testcases),
-    timeLimitMs: runtime.timeLimitMs,
     workspaceFiles,
     advanced
   };

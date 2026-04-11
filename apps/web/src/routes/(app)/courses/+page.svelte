@@ -266,9 +266,7 @@
       icon={GraduationCap}
       title={m.courses_emptyTitle()}
       description={m.courses_emptyDescription()}
-      actions={canCreate
-        ? [{ href: "#", label: m.admin_createCourseButton() }]
-        : [{ href: "/", label: m.courses_browsePublic() }]}
+      actions={canCreate ? [{ href: "#", label: m.admin_createCourseButton() }] : []}
     />
   {:else}
     <section class="grid gap-4 lg:grid-cols-2">

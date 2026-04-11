@@ -55,17 +55,13 @@ export async function toggleUserDisabled(userId: string) {
 export interface DashboardStats {
   totalAc: number;
   totalAttempts: number;
-  lastSubmittedAt: Date | null;
 }
 
 export async function getUserDashboard(userId: string) {
-  // Dashboard aggregates stats on-demand from `Submission`. All four
-  // reads are independent so they run in parallel.
-  const [recentSubmissions, acProblemIds, totalAttempts, mostRecent] = await Promise.all([
+  const [recentSubmissions, acProblemIds, totalAttempts] = await Promise.all([
     submissionRepo.findRecentByUser(userId, 10),
     submissionRepo.findDistinctAcByUser(userId),
-    submissionRepo.count({ userId, sampleOnly: false }),
-    submissionRepo.findMostRecent({ userId, sampleOnly: false })
+    submissionRepo.count({ userId, sampleOnly: false })
   ]);
 
   const acIds = acProblemIds.map((s) => s.problemId);
@@ -77,14 +73,12 @@ export async function getUserDashboard(userId: string) {
     take: 20
   });
 
-  // Randomly pick 3
   const shuffled = recommendations.sort(() => Math.random() - 0.5);
   const picked = shuffled.slice(0, 3);
 
   const dashboardStats: DashboardStats = {
     totalAc: acIds.length,
-    totalAttempts,
-    lastSubmittedAt: mostRecent?.createdAt ?? null
+    totalAttempts
   };
 
   return {
