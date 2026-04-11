@@ -3,11 +3,10 @@ import {
   submissionResultSchema,
   type SandboxExecutor,
   type SandboxRequest,
-  type SandboxResult,
   type SubmissionDraft,
   type SubmissionResult
 } from "@nojv/core";
-import { ForbiddenError, submissionDomain } from "@nojv/domain";
+import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
 
@@ -29,203 +28,6 @@ function getExecutor(): SandboxExecutor {
 export type CompletedSubmission = submissionDomain.CompletedSubmission;
 export type SubmissionJudgeContext = submissionDomain.SubmissionJudgeContext;
 export type TestcaseSetGroup = submissionDomain.TestcaseSetGroup;
-
-// --- Internal helpers ---
-
-interface SubtaskResultItem {
-  cases: { ordinal: number; runtimeMs: number; testcaseId: string; verdict: string }[];
-  label: string;
-  passed: boolean;
-  rawScore: number;
-  testcaseSetId: string;
-  weight: number;
-}
-
-const verdictMap: Record<string, SubmissionResult["verdict"]> = {
-  WA: "wrong_answer",
-  TLE: "time_limit_exceeded",
-  MLE: "memory_limit_exceeded",
-  RE: "runtime_error",
-  SE: "runtime_error"
-};
-
-// Subtask strategies:
-//   all_or_nothing  weight * (all cases passed ? 1 : 0)
-//   proportional    weight * (passed / total), passed iff every case passed
-//   minimum         weight * min(caseScores) — reserved for partial checkers
-function buildSubtaskResults(
-  result: SandboxResult,
-  testcaseSets: submissionDomain.TestcaseSetGroup[],
-  strategies: submissionDomain.SubtaskStrategyMap
-): SubtaskResultItem[] {
-  let flatIndex = 0;
-  const subtaskResults: SubtaskResultItem[] = [];
-
-  for (const ts of testcaseSets) {
-    const cases: SubtaskResultItem["cases"] = [];
-    for (let ordinal = 0; ordinal < ts.testcases.length; ordinal++) {
-      const sandboxCase = result.testcaseResults[flatIndex++];
-      cases.push({
-        ordinal,
-        runtimeMs: sandboxCase?.timeMs ?? 0,
-        testcaseId: ts.testcases[ordinal]?.id ?? "",
-        verdict: sandboxCase?.verdict ?? "SE"
-      });
-    }
-
-    const total = cases.length;
-    const passed = cases.filter((c) => c.verdict === "AC").length;
-    const allPassed = total > 0 && passed === total;
-
-    const strategy = strategies[ts.id] ?? "all_or_nothing";
-    let rawScore: number;
-    if (total === 0) {
-      rawScore = 0;
-    } else if (strategy === "proportional") {
-      rawScore = ts.weight * (passed / total);
-    } else if (strategy === "minimum") {
-      rawScore = allPassed ? ts.weight : 0;
-    } else {
-      // all_or_nothing default
-      rawScore = allPassed ? ts.weight : 0;
-    }
-
-    subtaskResults.push({
-      cases,
-      label: ts.name,
-      passed: allPassed,
-      rawScore,
-      testcaseSetId: ts.id,
-      weight: ts.weight
-    });
-  }
-
-  return subtaskResults;
-}
-
-function mapResult(
-  result: SandboxResult,
-  testcaseSets: submissionDomain.TestcaseSetGroup[],
-  judgeContext: submissionDomain.SubmissionJudgeContext
-): SubmissionResult {
-  const caseResults = result.testcaseResults.map((t) => ({
-    index: t.index,
-    passed: t.verdict === "AC",
-    ...(t.stderr ? { stderr: t.stderr } : {}),
-    stdout: t.stdout,
-    timeMs: t.timeMs
-  }));
-
-  if (result.compilationError) {
-    return {
-      accepted: false,
-      caseResults: [],
-      feedback: result.compilationError,
-      runtimeMs: 0,
-      score: 0,
-      verdict: "compile_error"
-    };
-  }
-
-  if (result.pipelineError) {
-    return {
-      accepted: false,
-      caseResults,
-      feedback: `[Pipeline Error] ${result.pipelineError}`,
-      runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
-      score: 0,
-      verdict: "compile_error"
-    };
-  }
-
-  const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
-  const subtaskResults = buildSubtaskResults(
-    result,
-    testcaseSets,
-    judgeContext.subtaskStrategies
-  );
-
-  const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
-  const rawScoreSum = subtaskResults.reduce((s, st) => s + st.rawScore, 0);
-  let score = totalWeight > 0 ? Math.round((rawScoreSum / totalWeight) * 100) : 0;
-
-  if (result.customScore !== undefined) {
-    score = result.customScore;
-  }
-
-  // Apply assessment adjustment rules to raw score. Only assessments
-  // carry late-penalty / bonus rules — contests do not.
-  const adjustmentRules = judgeContext.adjustment.assessmentAdjustmentRules ?? null;
-
-  if (adjustmentRules && adjustmentRules.length > 0) {
-    const adjusted = submissionDomain.applyAdjustmentRules({
-      dueAt: judgeContext.adjustment.dueAt,
-      rawScore: score,
-      rules: adjustmentRules,
-      runtimeMs,
-      submittedAt: judgeContext.adjustment.submittedAt
-    });
-    score = adjusted.score;
-  }
-
-  const allAc = result.testcaseResults.every((t) => t.verdict === "AC");
-
-  if (allAc && score >= 100) {
-    return {
-      accepted: true,
-      caseResults,
-      feedback: result.scoringFeedback ?? "All testcases passed",
-      runtimeMs,
-      score: result.customScore ?? score,
-      subtaskResults,
-      verdict: "accepted"
-    };
-  }
-
-  if (allAc) {
-    // All AC but score < 100 (e.g. late penalty dropped it). Still
-    // counts as "accepted" in verdict semantics, score reflects penalty.
-    return {
-      accepted: true,
-      caseResults,
-      feedback:
-        result.scoringFeedback ?? `All testcases passed (score adjusted to ${String(score)})`,
-      runtimeMs,
-      score,
-      subtaskResults,
-      verdict: "accepted"
-    };
-  }
-
-  for (const tc of result.testcaseResults) {
-    if (tc.verdict !== "AC") {
-      const verdict = verdictMap[tc.verdict] ?? "runtime_error";
-      const feedback =
-        result.scoringFeedback ??
-        tc.feedback ??
-        `Failed on testcase ${String(tc.index + 1)}: ${verdict.replace(/_/g, " ")}`;
-      return {
-        accepted: false,
-        caseResults,
-        feedback,
-        runtimeMs,
-        score,
-        subtaskResults,
-        verdict
-      };
-    }
-  }
-
-  return {
-    accepted: false,
-    caseResults,
-    feedback: "Unknown error",
-    runtimeMs,
-    score,
-    subtaskResults,
-    verdict: "runtime_error" as const
-  };
-}
 
 // --- Activities ---
 
@@ -285,39 +87,6 @@ function mergeSandboxSources(
     merged.set(mainPath, draft.sourceCode);
   }
 
-  // Enforce editableRegions: for every editable workspace file that
-  // declares regions, the student's final content must match the
-  // teacher's original line-for-line outside those ranges. Any tampering
-  // throws — the judge activity converts the error to a user-visible
-  // system-error verdict.
-  for (const wf of langFiles) {
-    if (wf.visibility !== "editable" || !wf.editableRegions) continue;
-    const studentContent = merged.get(wf.path);
-    if (studentContent === undefined) continue;
-    if (studentContent === wf.content) continue;
-
-    const teacherLines = wf.content.split("\n");
-    const studentLines = studentContent.split("\n");
-
-    if (studentLines.length !== teacherLines.length) {
-      throw new ForbiddenError(
-        `Tampering detected in ${wf.path}: line count changed (expected ${String(
-          teacherLines.length
-        )}, got ${String(studentLines.length)}).`
-      );
-    }
-
-    for (let i = 1; i <= teacherLines.length; i++) {
-      const inRegion = wf.editableRegions.some(([start, end]) => i >= start && i <= end);
-      if (inRegion) continue;
-      if (studentLines[i - 1] !== teacherLines[i - 1]) {
-        throw new ForbiddenError(
-          `Tampering detected in ${wf.path}: line ${String(i)} is outside the editable region.`
-        );
-      }
-    }
-  }
-
   const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
     path,
     content
@@ -340,33 +109,49 @@ export async function executeSandbox(
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
   // Starter code + teacher assets flow through ProblemWorkspaceFile /
-  // mergeSandboxSources. Sample path: ignore testcase sets, use
-  // Problem.samples directly. Graded path: iterate testcase sets.
-  const useSamples = draft.sampleOnly;
+  // mergeSandboxSources. Sample path: either the student-supplied run
+  // cases (from the editor bottom panel — ephemeral, never persisted)
+  // or, when absent, Problem.samples directly. Graded path: iterate
+  // testcase sets. Advanced-mode problems always bundle their own
+  // testcases inside the TA image.
+  const useSamples = draft.sampleOnly === true;
   const useAdvanced =
     judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
+  const hasRunCases =
+    useSamples && !useAdvanced && draft.runCases !== undefined && draft.runCases.length > 0;
 
-  const testcasesForSandbox = useSamples
-    ? judgeContext.samples.map((s, i) => ({
+  const testcasesForSandbox = hasRunCases
+    ? // `draft.runCases` is validated at the API edge
+      // (submissionDraftSchema), so we can rely on the cap/size limits
+      // having already been enforced before this runs.
+      draft.runCases!.map((tc, i) => ({
         index: i,
-        input: s.input,
-        output: s.output,
+        input: tc.input,
+        ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),
         weight: 0,
         isSample: true
       }))
-    : useAdvanced
-      ? // Advanced-mode TA images bundle their own testcases; the
-        // system hands over student files + resource limits only.
-        []
-      : judgeContext.testcaseSets.flatMap((ts) =>
-          ts.testcases.map((tc, i) => ({
-            index: i,
-            input: tc.input,
-            ...(tc.output != null ? { output: tc.output } : {}),
-            weight: tc.weight,
-            isSample: false
-          }))
-        );
+    : useSamples
+      ? judgeContext.samples.map((s, i) => ({
+          index: i,
+          input: s.input,
+          output: s.output,
+          weight: 0,
+          isSample: true
+        }))
+      : useAdvanced
+        ? // Advanced-mode TA images bundle their own testcases; the
+          // system hands over student files + resource limits only.
+          []
+        : judgeContext.testcaseSets.flatMap((ts) =>
+            ts.testcases.map((tc, i) => ({
+              index: i,
+              input: tc.input,
+              ...(tc.output != null ? { output: tc.output } : {}),
+              weight: tc.weight,
+              isSample: false
+            }))
+          );
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 
@@ -416,12 +201,14 @@ export async function executeSandbox(
   // Sample runs don't apply scoring/adjustments — they're for student
   // feedback only and never go to final grades.
   if (useSamples) {
-    const mapped = mapResult(result, [], judgeContext);
+    const mapped = submissionDomain.mapResult(result, [], judgeContext);
     mapped.score = 0;
     return submissionResultSchema.parse(mapped);
   }
 
-  return submissionResultSchema.parse(mapResult(result, activeSets, judgeContext));
+  return submissionResultSchema.parse(
+    submissionDomain.mapResult(result, activeSets, judgeContext)
+  );
 }
 
 export async function completeSubmission(

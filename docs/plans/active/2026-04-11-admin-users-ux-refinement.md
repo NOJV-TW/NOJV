@@ -13,12 +13,14 @@
 ## File structure
 
 **Modified:**
+
 - `apps/web/messages/zh-TW.json` — add new keys.
 - `apps/web/messages/en.json` — add matching keys.
 - `apps/web/src/routes/(app)/admin/+page.svelte` — delete the `roleMix` card.
 - `apps/web/src/routes/(app)/admin/users/+page.svelte` — the main refactor.
 
 **Not modified:**
+
 - `apps/web/src/routes/(app)/admin/users/+page.server.ts` — already returns `fail(400, { error })` / `{ success: true }` which is what the new enhance handlers expect. Leave it alone unless a task below flags an issue.
 - `apps/web/src/routes/(app)/admin/announcements/*` — unchanged.
 - Any domain / Prisma / repository code — unchanged.
@@ -28,6 +30,7 @@
 ## Task 1: Add Paraglide i18n keys
 
 **Files:**
+
 - Modify: `apps/web/messages/zh-TW.json` (insert near existing `admin_users*` keys, around line 677)
 - Modify: `apps/web/messages/en.json` (same keys in the equivalent location)
 
@@ -90,6 +93,7 @@ git commit -m "i18n(admin): add users role/disable UX strings"
 ## Task 2: Trim `/admin` overview — remove redundant role-mix card
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/admin/+page.svelte` (around lines 387–408)
 
 - [ ] **Step 1: Delete the roleMix card**
@@ -139,6 +143,7 @@ Run: `pnpm -w -F @nojv/web check`
 Expected: no errors.
 
 Run: `pnpm -w -F @nojv/web dev`, open `/admin` in a browser, confirm:
+
 - The page renders.
 - The bottom "Role mix quick view" card is gone.
 - The `User role distribution` bar chart above it still renders with the three bars.
@@ -157,6 +162,7 @@ git commit -m "refactor(admin): drop redundant role-mix card from overview"
 This task adds the badge rendering without yet removing the existing select. After this task the page shows both the badge and the select temporarily — this is a deliberate intermediate commit so regressions are easy to bisect. Task 4 replaces the select with edit-mode gating.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/admin/users/+page.svelte`
 
 - [ ] **Step 1: Add a `roleBadgeVariant` helper**
@@ -164,13 +170,13 @@ This task adds the badge rendering without yet removing the existing select. Aft
 Open `apps/web/src/routes/(app)/admin/users/+page.svelte`. Inside the `<script>` block, immediately after the existing `applyFilters` function (around line 104), add:
 
 ```ts
-  type PlatformRole = "admin" | "teacher" | "student";
+type PlatformRole = "admin" | "teacher" | "student";
 
-  function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
-    if (role === "admin") return "warning";
-    if (role === "teacher") return "info";
-    return "success";
-  }
+function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
+  if (role === "admin") return "warning";
+  if (role === "teacher") return "info";
+  return "success";
+}
 ```
 
 - [ ] **Step 2: Render the badge above the existing select (temporary co-existence)**
@@ -228,6 +234,7 @@ Run: `pnpm -w -F @nojv/web check`
 Expected: no errors.
 
 Open `/admin/users` in the browser and confirm each row shows a colored badge next to the select:
+
 - `admin` → orange badge
 - `teacher` → blue badge
 - `student` → green badge
@@ -246,6 +253,7 @@ git commit -m "feat(admin/users): show role as colored badge (intermediate step)
 ## Task 4: `/admin/users` — replace select with click-to-edit mode
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/admin/users/+page.svelte`
 
 - [ ] **Step 1: Add editing state and draft role**
@@ -253,17 +261,17 @@ git commit -m "feat(admin/users): show role as colored badge (intermediate step)
 In the `<script>` block of `apps/web/src/routes/(app)/admin/users/+page.svelte`, after the `let roleValue = $state(...)` line (around line 97), add:
 
 ```ts
-  let editingUserId = $state<string | null>(null);
-  let draftRole = $state<PlatformRole>("student");
+let editingUserId = $state<string | null>(null);
+let draftRole = $state<PlatformRole>("student");
 
-  function beginEditRole(user: { id: string; platformRole: PlatformRole }) {
-    editingUserId = user.id;
-    draftRole = user.platformRole;
-  }
+function beginEditRole(user: { id: string; platformRole: PlatformRole }) {
+  editingUserId = user.id;
+  draftRole = user.platformRole;
+}
 
-  function cancelEditRole() {
-    editingUserId = null;
-  }
+function cancelEditRole() {
+  editingUserId = null;
+}
 ```
 
 - [ ] **Step 2: Replace the role cell with badge-as-button + edit form**
@@ -348,6 +356,7 @@ Run: `pnpm -w -F @nojv/web check`
 Expected: no errors.
 
 Browser checks at `/admin/users`:
+
 - Each role cell shows a colored badge (not a select).
 - Clicking a badge turns the cell into an edit form with select + Save + Cancel.
 - Save is disabled until the select value differs from the original role.
@@ -367,6 +376,7 @@ git commit -m "feat(admin/users): click-to-edit role with draft state and diff p
 ## Task 5: `/admin/users` — confirm gate + toast feedback for role change
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/admin/users/+page.svelte`
 
 - [ ] **Step 1: Import the toasts store**
@@ -374,7 +384,7 @@ git commit -m "feat(admin/users): click-to-edit role with draft state and diff p
 At the top of the `<script>` block (near the other `$lib` imports, around line 10), add:
 
 ```ts
-  import { toasts } from "$lib/components/ui/toast";
+import { toasts } from "$lib/components/ui/toast";
 ```
 
 - [ ] **Step 2: Upgrade the `use:enhance` on the role edit form**
@@ -443,6 +453,7 @@ Run: `pnpm -w -F @nojv/web check`
 Expected: no errors.
 
 Browser checks at `/admin/users`:
+
 - Pick a non-admin user, change their role to something else, Save → success toast appears, row returns to badge view, new colour reflected.
 - Pick an admin user (other than yourself), change to student, Save → `confirm()` dialog appears. Cancelling leaves edit mode open; confirming commits with a toast.
 - Open your own row, try to change your role, Save → error toast "不能變更自己的角色。", no server round-trip. (The server will also reject this with "Cannot change your own role." as a safety net if the client check is bypassed.)
@@ -460,6 +471,7 @@ git commit -m "feat(admin/users): confirm demotions and surface role changes via
 ## Task 6: `/admin/users` — confirm + toast on enable/disable
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/admin/users/+page.svelte`
 
 - [ ] **Step 1: Upgrade the `use:enhance` on the toggleDisabled form**
@@ -527,6 +539,7 @@ Run: `pnpm -w -F @nojv/web check`
 Expected: no errors.
 
 Browser checks at `/admin/users`:
+
 - Click Disable on an active non-self user → confirm dialog → cancel leaves state unchanged; confirm disables and shows success toast; status badge flips to "停用".
 - Click Enable on a disabled user → no confirm (enabling is safe), success toast fires, badge flips back to "啟用".
 - Click Disable on your own row → error toast "不能停用自己的帳號。", no server call.
@@ -543,6 +556,7 @@ git commit -m "feat(admin/users): confirm disables and surface account state cha
 ## Task 7: Full-page manual verification and cleanup
 
 **Files:**
+
 - Possibly: `apps/web/src/routes/(app)/admin/users/+page.svelte` (cleanup only, if needed)
 
 - [ ] **Step 1: Full lint + typecheck across the repo**

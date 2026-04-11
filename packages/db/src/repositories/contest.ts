@@ -75,8 +75,7 @@ export const contestRepo = {
 
   listManagedForUser(userId: string, managedCourseIds: string[]) {
     const orClauses: Prisma.ContestWhereInput[] = [{ createdByUserId: userId }];
-    if (managedCourseIds.length > 0)
-      orClauses.push({ courseId: { in: managedCourseIds } });
+    if (managedCourseIds.length > 0) orClauses.push({ courseId: { in: managedCourseIds } });
     return prisma.contest.findMany({
       include: contestListWithCourseInclude,
       orderBy: { updatedAt: "desc" },
@@ -86,8 +85,7 @@ export const contestRepo = {
 
   listParticipableForUser(studentCourseIds: string[]) {
     const orClauses: Prisma.ContestWhereInput[] = [{ courseId: null }];
-    if (studentCourseIds.length > 0)
-      orClauses.push({ courseId: { in: studentCourseIds } });
+    if (studentCourseIds.length > 0) orClauses.push({ courseId: { in: studentCourseIds } });
     return prisma.contest.findMany({
       include: contestListWithCourseInclude,
       orderBy: { startsAt: "desc" },

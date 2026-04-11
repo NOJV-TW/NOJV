@@ -32,21 +32,18 @@
 
   const problemTypeLabel: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceBadge(),
-    function: () => m.problemDetail_functionBadge(),
     multi_file: () => m.problemDetail_multiFileBadge(),
     special_env: () => m.problemDetail_specialEnvBadge()
   };
 
   const problemTypeHelp: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceHelp(),
-    function: () => m.problemDetail_functionHelp(),
     multi_file: () => m.problemDetail_multiFileHelp(),
     special_env: () => m.problemDetail_specialEnvHelp()
   };
 
   const problemTypeColor: Record<ProblemType, string> = {
     full_source: "bg-muted text-muted-foreground",
-    function: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
     multi_file: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
     special_env: "bg-violet-500/15 text-violet-700 dark:text-violet-400"
   };

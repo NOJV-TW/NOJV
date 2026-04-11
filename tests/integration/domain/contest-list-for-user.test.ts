@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createTestContest,
-  createTestUser,
-  testPrisma
-} from "../../fixtures/factories";
+import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
 
 import { contestDomain } from "@nojv/domain";
 
@@ -45,7 +41,7 @@ describe("listContestsForUser", () => {
       title: "Public"
     });
 
-    const result = await listContestsForUser(user.id, new Date());
+    const result = await listContestsForUser(user.id);
 
     const managedIds = result.managed.map((c) => c.id);
     const participableIds = result.participable.map((c) => c.id);
@@ -62,7 +58,7 @@ describe("listContestsForUser", () => {
       title: "Draft"
     });
 
-    const result = await listContestsForUser(user.id, new Date());
+    const result = await listContestsForUser(user.id);
     expect(result.managed.map((c) => c.id)).toContain(draft.id);
   });
 
@@ -74,7 +70,7 @@ describe("listContestsForUser", () => {
       courseId: course.id
     });
 
-    const result = await listContestsForUser(teacher.id, new Date());
+    const result = await listContestsForUser(teacher.id);
     expect(result.managed.map((c) => c.id)).toContain(contest.id);
     expect(result.participable.map((c) => c.id)).not.toContain(contest.id);
   });
@@ -87,7 +83,7 @@ describe("listContestsForUser", () => {
       courseId: course.id
     });
 
-    const result = await listContestsForUser(ta.id, new Date());
+    const result = await listContestsForUser(ta.id);
     expect(result.managed.map((c) => c.id)).toContain(contest.id);
   });
 
@@ -99,7 +95,7 @@ describe("listContestsForUser", () => {
       courseId: course.id
     });
 
-    const result = await listContestsForUser(student.id, new Date());
+    const result = await listContestsForUser(student.id);
     expect(result.participable.map((c) => c.id)).toContain(contest.id);
     expect(result.managed.map((c) => c.id)).not.toContain(contest.id);
   });
@@ -113,7 +109,7 @@ describe("listContestsForUser", () => {
       courseId: course.id
     });
 
-    const result = await listContestsForUser(user.id, new Date());
+    const result = await listContestsForUser(user.id);
     const managedAppearances = result.managed.filter((c) => c.id === contest.id).length;
     expect(managedAppearances).toBe(1);
     expect(result.participable.map((c) => c.id)).not.toContain(contest.id);
@@ -125,7 +121,7 @@ describe("listContestsForUser", () => {
     const standalone = await createTestContest({ visibility: "published" });
     await createTestContest({ visibility: "published", courseId: course.id });
 
-    const result = await listContestsForUser(null, new Date());
+    const result = await listContestsForUser(null);
     expect(result.managed).toEqual([]);
     expect(result.participable.map((c) => c.id)).toContain(standalone.id);
   });

@@ -8,7 +8,7 @@ import {
   type TestcaseFiles,
   type TestcaseResult
 } from "./types.js";
-import { assembleSource, compile, compileChecker, sourceFileName } from "./compiler.js";
+import { compile, compileChecker, sourceFileName } from "./compiler.js";
 import { pathExists } from "./utils.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
@@ -208,28 +208,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     (config.entryFile && normalizeRelativePath(config.entryFile)) ?? defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
-  if (config.problemType === "function") {
-    log("Reading source code...");
-
-    let rawSource: string;
-    if (await pathExists(srcFile)) {
-      rawSource = await fs.readFile(srcFile, "utf-8");
-    } else {
-      rawSource = await readSourceCode(config.language, entryFile);
-    }
-
-    let assembledSource: string;
-    try {
-      assembledSource = assembleSource(rawSource, config);
-    } catch (err) {
-      emit({
-        compilationError: err instanceof Error ? err.message : "Source assembly failed."
-      });
-      return;
-    }
-
-    await writeWorkFile(workDir, entryFile, assembledSource);
-  } else if (!(await pathExists(srcFile))) {
+  if (!(await pathExists(srcFile))) {
     log("Reading source code...");
     const rawSource = await readSourceCode(config.language, entryFile);
     await writeWorkFile(workDir, entryFile, rawSource);

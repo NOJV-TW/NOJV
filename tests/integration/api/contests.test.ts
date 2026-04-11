@@ -111,15 +111,17 @@ describe("contest queries (real DB)", () => {
       expect(detail!.problems![0]!.slug).toBe(problem.slug);
     });
 
-    it("returns null for nonexistent slug", async () => {
-      const detail = await getContestDetail("nonexistent", { userId: null, now: new Date() });
-      expect(detail).toBeNull();
+    it("throws NotFoundError for nonexistent slug", async () => {
+      await expect(
+        getContestDetail("nonexistent", { userId: null, now: new Date() })
+      ).rejects.toThrow("Contest not found: nonexistent");
     });
 
-    it("returns null for draft contest", async () => {
+    it("throws NotFoundError for draft contest", async () => {
       await createTestContest({ slug: "draft-contest", visibility: "draft" });
-      const detail = await getContestDetail("draft-contest", { userId: null, now: new Date() });
-      expect(detail).toBeNull();
+      await expect(
+        getContestDetail("draft-contest", { userId: null, now: new Date() })
+      ).rejects.toThrow("Contest not found: draft-contest");
     });
 
     it("returns problems ordered by ordinal", async () => {
@@ -137,7 +139,10 @@ describe("contest queries (real DB)", () => {
         data: { contestId: contest.id, problemId: p2.id, ordinal: 1, points: 100 }
       });
 
-      const detail = await getContestDetail("ordered-problems", { userId: null, now: new Date() });
+      const detail = await getContestDetail("ordered-problems", {
+        userId: null,
+        now: new Date()
+      });
       expect(detail!.problems![0]!.title).toBe("Problem A");
       expect(detail!.problems![1]!.title).toBe("Problem B");
     });
@@ -153,7 +158,9 @@ describe("contest queries (real DB)", () => {
       });
       const user = await createTestUser();
 
-      const data = await getContestWorkspaceData("workspace-test", user.id, { now: new Date() });
+      const data = await getContestWorkspaceData("workspace-test", user.id, {
+        now: new Date()
+      });
       expect(data).not.toBeNull();
       expect(data!.participation).toBeNull();
     });
@@ -174,7 +181,9 @@ describe("contest queries (real DB)", () => {
         }
       });
 
-      const data = await getContestWorkspaceData("joined-contest", user.id, { now: new Date() });
+      const data = await getContestWorkspaceData("joined-contest", user.id, {
+        now: new Date()
+      });
       expect(data).not.toBeNull();
       expect(data!.participation).not.toBeNull();
       expect(data!.participation!.status).toBe("active");

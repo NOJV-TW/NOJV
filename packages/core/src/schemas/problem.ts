@@ -15,7 +15,6 @@ import { judgeConfigSchema } from "./judge-config";
 // problem", persisted directly on the Problem table.
 //
 // - `full_source`   — single-file, student writes everything including main()
-// - `function`      — student implements the named function, judge provides the driver
 // - `multi_file`    — teacher ships multiple files; student edits the designated ones in-browser
 // - `special_env`   — TA-provided Docker image owns the entire judging loop; student
 //                     uploads a tarball. No judge-method badge is displayed for this category.
@@ -38,14 +37,6 @@ export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hi
 
 export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySchema>;
 
-// Inclusive [startLine, endLine] tuple; lines outside any region are read-only.
-export const editableRegionSchema = z.tuple([
-  z.number().int().nonnegative(),
-  z.number().int().nonnegative()
-]);
-
-export type EditableRegion = z.infer<typeof editableRegionSchema>;
-
 export const problemWorkspaceFileSchema = z.object({
   language: languageSchema,
   path: z
@@ -57,7 +48,6 @@ export const problemWorkspaceFileSchema = z.object({
     }),
   content: z.string().max(200_000),
   visibility: workspaceFileVisibilitySchema,
-  editableRegions: z.array(editableRegionSchema).max(50).nullable().optional(),
   description: z.string().max(5_000).default(""),
   orderIndex: z.number().int().nonnegative().default(0)
 });

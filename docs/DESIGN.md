@@ -201,6 +201,41 @@ Difficulty badges: easy = emerald, medium = amber, hard = red. All use the `bg-{
 
 10. **Animation is subtle.** Entrance animations are 700ms ease-out max. Hover effects are `transition` with `-translate-y-0.5` lift. No gratuitous animation.
 
+## Domain error handling
+
+> Domain queries throw `NotFoundError` (or another `HttpError`) when the caller's intent is "fetch this known entity". They return `T | null` **only** when absence is a valid business state -- e.g. `findActiveSession`, `findByInviteCode`, toggle helpers, "does user X already have assessment Y".
+
+Throwing is the default because every `get*` / `load*` / `fetch*` / `require*` call site either renders an entity or aborts the request, and hand-rolling `if (!x) error(404)` at every boundary is exactly the kind of silent-failure surface this rule exists to eliminate. With one central convention the SvelteKit `handleLoad` wrapper maps domain `HttpError`s to the correct 4xx response, and form actions / API routes can stay focused on business logic.
+
+Legitimate nullable patterns (the only cases where `T | null` is still allowed):
+
+- Toggle helpers where "nothing to flip" is a valid no-op (`toggleUserDisabled`, `toggleAnnouncementPin`, `toggleAnnouncementPublish`).
+- "Already in target state" no-ops (`unfreezeContest` returning `null` when the contest is not frozen).
+- Unique-key finders whose "not found" case is a normal business outcome (`contestRepo.findByInviteCode` and similar `find*` helpers in `packages/db`).
+- Any `find*` helper whose contract is "lookup that may legitimately miss".
+
+Supporting infrastructure:
+
+- [`packages/domain/src/shared/require.ts`](../packages/domain/src/shared/require.ts) -- pure "exists-else-throw" helpers (`requireProblem`, `requireContest`, `requireCourse`, `requireUser`, `requireCourseAssessment`).
+- [`apps/web/src/lib/server/shared/load-wrapper.ts`](../apps/web/src/lib/server/shared/load-wrapper.ts) -- `handleLoad()` wraps `+page.server.ts` / `+layout.server.ts` loaders so thrown `HttpError`s turn into the correct SvelteKit `error(status, message)` response.
+
+Example -- a load function composed from a throwing query:
+
+```ts
+// apps/web/src/routes/(app)/problems/[id]/+page.server.ts
+import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { getProblemPageData } from "@nojv/domain/problem/queries";
+
+export const load = handleLoad(async ({ params, locals }) => {
+  // getProblemPageData throws NotFoundError when the problem is missing;
+  // handleLoad converts that into a SvelteKit 404 for us.
+  const data = await getProblemPageData(params.id, locals.locale);
+  return { problem: data };
+});
+```
+
+The convention is enforced by [`tooling/scripts/check-query-returns.mjs`](../tooling/scripts/check-query-returns.mjs), wired into `pnpm lint` and `pnpm ci:verify`. The guard scans `packages/domain/src/**/queries.ts` for exported `get*` / `load*` / `fetch*` / `require*` functions that fall back to `return null`. Escape hatch: annotate the declaration with a leading `// intentional-nullable: <why>` comment. Only use it for cases that match the legitimate patterns listed above.
+
 ## Related Docs
 
 - [Frontend Surface](FRONTEND.md) -- routes, runtime boundaries, auth flow
