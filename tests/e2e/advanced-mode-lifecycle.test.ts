@@ -186,9 +186,7 @@ test.describe("Advanced Mode Lifecycle", () => {
         problemId: advancedProblemId,
         language: "python",
         sourceCode: "print('hello')\n",
-        sourceFiles: [
-          { path: "README.md", content: "# advanced-mode e2e upload\n" }
-        ]
+        sourceFiles: [{ path: "README.md", content: "# advanced-mode e2e upload\n" }]
       }
     });
     if (!createRes.ok()) {

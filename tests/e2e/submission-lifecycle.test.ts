@@ -249,15 +249,17 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     // the native form, then trigger the onValueChange callback through the
     // component's internal state by evaluating on the page.
     await page.evaluate(() => {
-      const trigger = document.querySelector<HTMLButtonElement>(
-        '[data-slot="select-trigger"]'
-      );
+      const trigger = document.querySelector<HTMLButtonElement>('[data-slot="select-trigger"]');
       // Find the visibility trigger (the second one — first is difficulty)
-      const triggers = [...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')];
+      const triggers = [
+        ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')
+      ];
       const visTrigger = triggers.find((t) => /private/i.test(t.textContent ?? ""));
       if (!visTrigger) throw new Error("Visibility trigger not found");
       // The hidden input sibling stores the form value
-      const hiddenInput = visTrigger.parentElement?.querySelector<HTMLInputElement>('input[type="hidden"], input[name="visibility"]');
+      const hiddenInput = visTrigger.parentElement?.querySelector<HTMLInputElement>(
+        'input[type="hidden"], input[name="visibility"]'
+      );
       if (hiddenInput) {
         hiddenInput.value = "public";
         hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -403,11 +405,14 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await context.close();
   });
 
-  // The /submissions page is currently an empty-state placeholder — it does
-  // not render the authenticated user's submission history yet. Skip until
-  // the page is implemented; `apps/web/src/routes/(app)/submissions/+page.svelte`
-  // is the single source of truth for that work.
-  test.skip("submission appears in the student's submissions page", () => {
-    // requires global submissions list implementation
+  test("submission appears in the student's submissions page", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+
+    await page.goto("/submissions");
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByText(PROBLEM_TITLE).first()).toBeVisible({ timeout: 10_000 });
+
+    await context.close();
   });
 });
