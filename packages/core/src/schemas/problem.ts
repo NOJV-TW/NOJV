@@ -151,12 +151,12 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
-  output: z.string().max(200_000),
-  input: z.string().max(200_000)
+  output: z.string().max(1_000_000),
+  input: z.string().max(1_000_000)
 });
 
 export const problemJudgeTestcaseSchema = z.object({
-  output: z.string().max(200_000).optional(),
+  output: z.string().max(1_000_000).optional(),
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), z.string()).optional(),
   input: z.string().max(200_000),

@@ -176,10 +176,10 @@
 <div class="space-y-6">
   <!-- Runtime -->
   <section class="rounded-xl border border-border-subtle p-4">
-    <h3 class="text-body-sm font-semibold">Runtime</h3>
+    <h3 class="text-body-sm font-semibold">{m.admin_runtime()}</h3>
     <div class="mt-3 grid gap-3 md:grid-cols-2">
       <label class="text-caption text-muted-foreground">
-        <span>Time limit (ms)</span>
+        <span>{m.admin_timeLimitMs()}</span>
         <input
           class={inputClassName}
           type="number"
@@ -189,7 +189,7 @@
         />
       </label>
       <label class="text-caption text-muted-foreground">
-        <span>Memory limit (MB)</span>
+        <span>{m.admin_memoryLimitMb()}</span>
         <input
           class={inputClassName}
           type="number"
@@ -202,17 +202,17 @@
 
     <div class="mt-4">
       <div class="flex items-center justify-between">
-        <span class="text-caption font-semibold text-muted-foreground">Environment variables</span>
+        <span class="text-caption font-semibold text-muted-foreground">{m.admin_envVars()}</span>
         <button
           type="button"
           class="text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
           onclick={addEnvRow}
         >
-          + Add
+          {m.admin_envAdd()}
         </button>
       </div>
       {#if envRows.length === 0}
-        <p class="mt-2 text-caption text-muted-foreground">None configured.</p>
+        <p class="mt-2 text-caption text-muted-foreground">{m.admin_envNone()}</p>
       {:else}
         <div class="mt-2 space-y-2">
           {#each envRows as row, i (`env-${i}`)}
@@ -233,7 +233,7 @@
                 type="button"
                 class="rounded border border-border px-2 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive"
                 onclick={() => removeEnvRow(i)}
-                aria-label="Remove env var"
+                aria-label={m.admin_envRemove()}
               >
                 &times;
               </button>
@@ -246,7 +246,7 @@
 
   <!-- Allowed languages -->
   <section class="rounded-xl border border-border-subtle p-4">
-    <h3 class="text-body-sm font-semibold">Allowed languages</h3>
+    <h3 class="text-body-sm font-semibold">{m.admin_allowedLanguages()}</h3>
     <div class="mt-3 flex flex-wrap gap-2">
       {#each supportedLanguages as lang (lang)}
         <label class="flex items-center gap-2 rounded-full border border-border px-3 py-1 text-caption">
@@ -265,7 +265,7 @@
   <!-- Files per language -->
   <section class="rounded-xl border border-border-subtle p-4">
     <div class="flex items-center justify-between">
-      <h3 class="text-body-sm font-semibold">Files</h3>
+      <h3 class="text-body-sm font-semibold">{m.admin_files()}</h3>
       <select
         class="{inputClassName} w-auto text-caption"
         value={activeLang}
@@ -302,7 +302,7 @@
         <div
           class="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle p-6 text-body-sm text-muted-foreground"
         >
-          No files for {activeLang}. Click "+ Add" to create one.
+          {m.admin_noFilesForLang({ language: activeLang })}
         </div>
       {/if}
     </div>
@@ -316,12 +316,12 @@
       disabled={saving}
       onclick={() => void handleSave()}
     >
-      {saving ? "Saving..." : "Save workspace"}
+      {saving ? m.admin_savingWorkspace() : m.admin_saveWorkspace()}
     </button>
     {#if saveMessage === "saved"}
-      <span class="text-body-sm text-success">Saved</span>
+      <span class="text-body-sm text-success">{m.admin_saved()}</span>
     {:else if saveMessage === "error"}
-      <span class="text-body-sm text-destructive">Save failed</span>
+      <span class="text-body-sm text-destructive">{m.admin_saveFailed()}</span>
     {:else if saveMessage !== ""}
       <span class="text-body-sm text-destructive">{saveMessage}</span>
     {/if}

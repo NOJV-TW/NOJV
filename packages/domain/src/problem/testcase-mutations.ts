@@ -1,10 +1,13 @@
 import { runTransaction, testcaseRepo, testcaseSetRepo } from "@nojv/db";
 import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
+import { ConflictError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 
 import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
+
+const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
@@ -15,6 +18,15 @@ export async function createProblemTestcaseSetRecord(
     const problem = await requireProblem(tx, problemId);
 
     assertProblemOwnership(problem, actor);
+
+    const existingCount = await tx.testcaseSet.count({
+      where: { problemId: problem.id }
+    });
+    if (existingCount >= MAX_TESTCASE_SETS_PER_PROBLEM) {
+      throw new ConflictError(
+        `A problem can have at most ${String(MAX_TESTCASE_SETS_PER_PROBLEM)} testcase sets.`
+      );
+    }
 
     // TestcaseSet has @@unique([problemId, ordinal]) + ordinal defaults to 0,
     // so every call without an explicit ordinal would collide. Compute the

@@ -1,7 +1,6 @@
 <script lang="ts">
   import JSZip from "jszip";
   import { invalidateAll } from "$app/navigation";
-  import { Plus } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import TestcaseSetCard from "$lib/components/problem/testcase/TestcaseSetCard.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
@@ -29,20 +28,11 @@
 
   let { testcaseSets, problemId }: Props = $props();
 
-  const pillButton =
-    "inline-flex rounded-full border border-border px-4 py-2 text-body-sm font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent";
   const smallInputClassName =
     "w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
 
-  // Derived sets
-  let sampleSets = $derived(testcaseSets.filter((s) => s.weight === 0));
   let subtaskSets = $derived(testcaseSets.filter((s) => s.weight > 0));
 
-  // Add new set form
-  let showAddForm = $state(false);
-  let newSetName = $state("");
-  let newSetWeight = $state(0);
-  let saving = $state(false);
   let error = $state<string | null>(null);
 
   // ZIP upload state
@@ -56,34 +46,11 @@
 
   let totalPoints = $derived(subtasks.reduce((sum, s) => sum + s.points, 0));
 
-  async function addNewSet() {
-    if (!newSetName.trim()) return;
-    saving = true;
-    error = null;
-    try {
-      await postProblemAction(problemId, "createTestcaseSet", {
-        data: JSON.stringify({
-          name: newSetName.trim(),
-          weight: newSetWeight,
-          cases: [{ input: "", output: "" }]
-        })
-      });
-      newSetName = "";
-      newSetWeight = 0;
-      showAddForm = false;
-      await invalidateAll();
-    } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to create testcase set.";
-    } finally {
-      saving = false;
-    }
-  }
-
   const MAX_ZIP_SIZE = 50 * 1024 * 1024; // 50 MB
 
   async function handleZipUpload(file: File) {
     if (file.size > MAX_ZIP_SIZE) {
-      error = `ZIP file too large (${Math.round(file.size / 1024 / 1024)}MB). Maximum is 50MB.`;
+      error = m.testcases_zipTooLarge({ size: Math.round(file.size / 1024 / 1024) });
       return;
     }
     try {
@@ -108,7 +75,7 @@
       zipFileName = file.name;
       error = null;
     } catch {
-      error = "Failed to parse ZIP file.";
+      error = m.testcases_zipParseError();
     }
   }
 
@@ -160,7 +127,7 @@
       zipFileName = null;
       await invalidateAll();
     } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to upload subtasks.";
+      error = e instanceof Error ? e.message : m.testcases_uploadFailed();
     } finally {
       uploadSaving = false;
     }
@@ -168,26 +135,6 @@
 </script>
 
 <div class="space-y-6">
-  <!-- Sample sets (weight=0) -->
-  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
-    <div class="mb-4">
-      <p class="text-body-sm font-bold">{m.testcases_sampleCases()}</p>
-      <p class="mt-1 text-caption text-muted-foreground">
-        {m.testcases_sampleCasesHint()}
-      </p>
-    </div>
-
-    {#if sampleSets.length === 0}
-      <p class="text-body-sm text-muted-foreground">{m.testcases_noSampleSets()}</p>
-    {:else}
-      <div class="space-y-3">
-        {#each sampleSets as set (set.id)}
-          <TestcaseSetCard {set} {problemId} />
-        {/each}
-      </div>
-    {/if}
-  </section>
-
   <!-- Subtask sets (weight>0) -->
   <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <div class="mb-4">
@@ -208,67 +155,11 @@
     {/if}
   </section>
 
-  <!-- Add new set -->
-  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
-    <p class="text-body-sm font-bold">{m.testcases_authorTestcases()}</p>
-    <p class="mt-1 text-caption text-muted-foreground">
-      {m.testcases_authorTestcasesSubtitle()}
-    </p>
-
-    {#if showAddForm}
-      <div class="mt-4 space-y-3">
-        <div class="flex flex-wrap items-end gap-3">
-          <label class="grid gap-1">
-            <span class="text-caption font-medium text-muted-foreground">{m.testcases_setName()}</span>
-            <input
-              class="rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
-              bind:value={newSetName}
-              placeholder="e.g. Examples, Subtask 1"
-            />
-          </label>
-          <label class="grid gap-1">
-            <span class="text-caption font-medium text-muted-foreground">{m.testcases_weight()} <HelpTooltip text={m.admin_helpSetWeight()} /></span>
-            <input
-              class="w-20 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
-              type="number"
-              min="0"
-              bind:value={newSetWeight}
-            />
-          </label>
-        </div>
-        <div class="flex gap-2">
-          <button
-            class="rounded-full bg-primary px-5 py-2.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
-            onclick={addNewSet}
-            disabled={saving || !newSetName.trim()}
-            type="button"
-          >
-            {saving ? m.testcases_saving() : m.testcases_createButton()}
-          </button>
-          <button
-            class="rounded-full border border-border px-5 py-2.5 text-body-sm font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5"
-            onclick={() => (showAddForm = false)}
-            type="button"
-          >
-            {m.common_cancel()}
-          </button>
-        </div>
-      </div>
-    {:else}
-      <button
-        class="mt-3 inline-flex items-center gap-2 {pillButton}"
-        onclick={() => (showAddForm = true)}
-        type="button"
-      >
-        <Plus class="h-4 w-4" />
-        {m.testcases_createButton()}
-      </button>
-    {/if}
-  </section>
-
   <!-- ZIP upload section -->
   <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
-    <p class="text-body-sm font-bold">{m.testcases_uploadZip()}</p>
+    <p class="text-body-sm font-bold">
+      {m.testcases_uploadZip()} <HelpTooltip text={m.testcases_zipFormatHelp()} />
+    </p>
     <p class="mt-1 text-caption text-muted-foreground">
       {m.testcases_uploadZipHint()}
     </p>

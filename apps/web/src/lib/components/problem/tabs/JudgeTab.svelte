@@ -127,7 +127,7 @@
             : strategy === "proportional"
               ? "proportional"
               : "minimum";
-        return `${s.name}(${String(s.weight)}pts, ${label})`;
+        return `${s.name}(${String(s.weight)}${m.admin_pts()}, ${label})`;
       });
     return parts.join(" + ");
   });
@@ -136,9 +136,9 @@
 <div class="space-y-4">
   <!-- ─── Judge Type ───────────────────────── -->
   <div class="rounded-xl border border-border-subtle p-4">
-    <h3 class="text-body-sm font-semibold">Judge type</h3>
+    <h3 class="text-body-sm font-semibold">{m.admin_judgeType()}</h3>
     <p class="mt-0.5 text-caption text-muted-foreground">
-      How each testcase is evaluated.
+      {m.admin_judgeTypeHint()}
     </p>
 
     <div class="mt-3 flex gap-4">
@@ -151,7 +151,7 @@
           checked={judgeType === "standard"}
           onchange={() => (judgeType = "standard")}
         />
-        <span>Standard (stdin/stdout diff)</span>
+        <span>{m.admin_judgeStandard()}</span>
       </label>
       <label class="flex items-center gap-2 text-body-sm">
         <input
@@ -162,7 +162,7 @@
           checked={judgeType === "checker"}
           onchange={() => (judgeType = "checker")}
         />
-        <span>Checker script</span>
+        <span>{m.admin_judgeChecker()}</span>
       </label>
       <label class="flex items-center gap-2 text-body-sm">
         <input
@@ -173,7 +173,7 @@
           checked={judgeType === "interactive"}
           onchange={() => (judgeType = "interactive")}
         />
-        <span>Interactive</span>
+        <span>{m.admin_judgeInteractive()}</span>
       </label>
     </div>
 
@@ -181,7 +181,7 @@
     {#if judgeType === "standard"}
       <div class="mt-4 space-y-3">
         <label class="text-caption text-muted-foreground">
-          <span>Compare mode</span>
+          <span>{m.admin_compareMode()}</span>
           <select
             class={inputClassName}
             value={compareMode}
@@ -189,18 +189,18 @@
               compareMode = (e.target as HTMLSelectElement).value as CompareMode;
             }}
           >
-            <option value="exact">Exact diff</option>
-            <option value="ignore_whitespace">Ignore whitespace</option>
-            <option value="ignore_case">Ignore case</option>
-            <option value="float">Float tolerance</option>
-            <option value="regex_filter">Regex line filter</option>
+            <option value="exact">{m.admin_compareModeExact()}</option>
+            <option value="ignore_whitespace">{m.admin_compareModeIgnoreWhitespace()}</option>
+            <option value="ignore_case">{m.admin_compareModeIgnoreCase()}</option>
+            <option value="float">{m.admin_compareModeFloat()}</option>
+            <option value="regex_filter">{m.admin_compareModeRegexFilter()}</option>
           </select>
         </label>
 
         {#if compareMode === "float"}
           <div class="grid gap-3 md:grid-cols-2">
             <label class="text-caption text-muted-foreground">
-              <span>Absolute tolerance</span>
+              <span>{m.admin_absoluteTolerance()}</span>
               <input
                 class={inputClassName}
                 type="number"
@@ -209,7 +209,7 @@
               />
             </label>
             <label class="text-caption text-muted-foreground">
-              <span>Relative tolerance</span>
+              <span>{m.admin_relativeTolerance()}</span>
               <input
                 class={inputClassName}
                 type="number"
@@ -220,7 +220,7 @@
           </div>
         {:else if compareMode === "regex_filter"}
           <label class="text-caption text-muted-foreground">
-            <span>Ignore lines matching (one regex per line)</span>
+            <span>{m.admin_ignoreLinesLabel()}</span>
             <textarea
               class="{inputClassName} min-h-20 font-mono text-caption"
               placeholder={"^Please enter.*\n^> .*"}
@@ -232,7 +232,7 @@
     {:else if judgeType === "checker"}
       <div class="mt-4 space-y-3">
         <label class="text-caption text-muted-foreground">
-          <span>Language</span>
+          <span>{m.admin_scriptLanguage()}</span>
           <select
             class={inputClassName}
             value={checkerLanguage}
@@ -258,7 +258,7 @@
     {:else if judgeType === "interactive"}
       <div class="mt-4 space-y-3">
         <label class="text-caption text-muted-foreground">
-          <span>Interactor language</span>
+          <span>{m.admin_interactorLanguage()}</span>
           <select
             class={inputClassName}
             value={interactorLanguage}
@@ -286,14 +286,14 @@
 
   <!-- ─── Subtask Scoring ───────────────────── -->
   <div class="rounded-xl border border-border-subtle p-4">
-    <h3 class="text-body-sm font-semibold">Subtask scoring</h3>
+    <h3 class="text-body-sm font-semibold">{m.admin_subtaskScoring()}</h3>
     <p class="mt-0.5 text-caption text-muted-foreground">
-      How each graded set contributes to the final score.
+      {m.admin_subtaskScoringHint()}
     </p>
 
     {#if testcaseSets.filter((s) => s.weight > 0).length === 0}
       <p class="mt-3 text-body-sm text-muted-foreground">
-        No graded testcase sets yet. Create one in the Testcases tab.
+        {m.admin_noGradedSets()}
       </p>
     {:else}
       <div class="mt-3 space-y-2">
@@ -301,7 +301,7 @@
           <div class="flex items-center gap-3 rounded-lg border border-border-subtle px-3 py-2">
             <span class="text-body-sm font-medium">{set.name}</span>
             <span class="rounded-full bg-primary/10 px-2 py-0.5 text-caption font-medium text-primary tabular-nums">
-              {set.weight} pts
+              {set.weight} {m.admin_pts()}
             </span>
             <select
               class="{inputClassName} mt-0 ml-auto w-40"
@@ -316,9 +316,9 @@
                 };
               }}
             >
-              <option value="all_or_nothing">All-or-nothing</option>
-              <option value="proportional">Proportional</option>
-              <option value="minimum">Minimum</option>
+              <option value="all_or_nothing">{m.admin_scoringAllOrNothing()}</option>
+              <option value="proportional">{m.admin_scoringProportional()}</option>
+              <option value="minimum">{m.admin_scoringMinimum()}</option>
             </select>
           </div>
         {/each}
@@ -326,7 +326,7 @@
 
       {#if formulaPreview}
         <div class="mt-3 rounded-lg bg-muted/50 px-3 py-2">
-          <span class="text-caption text-muted-foreground">Total score = </span>
+          <span class="text-caption text-muted-foreground">{m.admin_totalScoreLabel()}</span>
           <span class="text-caption font-mono">{formulaPreview}</span>
         </div>
       {/if}

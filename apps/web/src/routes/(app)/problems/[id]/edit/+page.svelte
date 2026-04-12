@@ -92,13 +92,13 @@
   }
 </script>
 
-<div class="mx-auto max-w-4xl space-y-6">
+<div class="space-y-6">
   <div class="flex items-center gap-3">
     <h1 class="font-display text-title-lg">
       {data.problem.title === "Untitled Problem" ? m.admin_createProblem() : data.problem.title}
     </h1>
     {#if data.problem.status === "draft"}
-      <Badge variant="warning" size="md">Draft</Badge>
+      <Badge variant="warning" size="md">{m.admin_draftBadge()}</Badge>
     {/if}
     {#if data.problem.status === "draft"}
       <Button

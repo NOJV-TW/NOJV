@@ -130,7 +130,7 @@
     </span>
 
     <span class="text-caption text-muted-foreground tabular-nums">
-      {set.weight} pts
+      {set.weight} {m.admin_pts()}
     </span>
 
     <div class="ml-auto flex items-center gap-2">
@@ -138,7 +138,7 @@
         class="rounded-full border border-border p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
         onclick={startEditSet}
         type="button"
-        title="Edit set"
+        title={m.testcases_editSet()}
       >
         <Pencil class="size-3.5" />
       </button>
@@ -146,7 +146,7 @@
         class="rounded-full border border-border p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
         onclick={() => (confirmDelete = true)}
         type="button"
-        title="Delete set"
+        title={m.testcases_deleteSet()}
       >
         <Trash2 class="size-3.5" />
       </button>
@@ -301,7 +301,7 @@
                   class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
                   onclick={() => startEditTestcase(tc)}
                   type="button"
-                  title="Edit testcase"
+                  title={m.testcases_editTestcase()}
                 >
                   <Pencil class="size-3" />
                 </button>
@@ -309,7 +309,7 @@
                   class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
                   onclick={() => (confirmDeleteTestcaseId = tc.id)}
                   type="button"
-                  title="Delete testcase"
+                  title={m.testcases_deleteTestcase()}
                 >
                   <Trash2 class="size-3" />
                 </button>

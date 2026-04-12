@@ -76,7 +76,7 @@
 <header
   class="sticky top-6 z-[var(--z-sticky)] rounded-2xl border border-border bg-[color:var(--color-panel)]/85 px-5 py-3 shadow-rest backdrop-blur-md animate-[fade-up_700ms_var(--ease-out-soft)_both] sm:px-6"
 >
-  <div class="flex flex-wrap items-center gap-3">
+  <div class="flex flex-wrap items-center gap-6">
     <a
       class="font-display text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"
@@ -85,7 +85,7 @@
     </a>
 
     {#if navItems.length > 0}
-      <nav class="flex flex-wrap items-center gap-1 text-body-sm font-medium">
+      <nav class="flex flex-wrap items-center gap-4 text-body-sm font-medium">
         {#each navItems as item (item.href)}
           <a
             class={cn(

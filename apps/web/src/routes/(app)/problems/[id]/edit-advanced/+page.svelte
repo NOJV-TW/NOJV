@@ -4,6 +4,7 @@
   import ContainerContractSection from "$lib/components/problem/advanced/ContainerContractSection.svelte";
   import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { m } from "$lib/paraglide/messages.js";
   import { LinkButton } from "$lib/components/ui/button";
   import type { ProblemImageSource } from "@nojv/core";
 
@@ -42,13 +43,13 @@
       memoryLimitMb: payload.memoryLimitMb,
     });
     toasts.add({
-      message: ok ? "Image config saved" : "Failed to save image config",
+      message: ok ? m.admin_imageConfigSaved() : m.admin_imageConfigFailed(),
       type: ok ? "success" : "error",
     });
   }
 </script>
 
-<div class="mx-auto max-w-4xl space-y-6">
+<div class="space-y-6">
   <header class="flex items-center gap-3">
     <h1 class="font-display text-title-lg">
       {data.problem.title}
@@ -56,24 +57,20 @@
     <h2
       class="inline-flex items-center rounded-full border border-info/25 bg-info/15 px-2.5 py-1 text-caption font-medium text-info"
     >
-      Advanced mode
+      {m.admin_advancedMode()}
     </h2>
     <LinkButton
       class="ml-auto"
       href={`/problems/${data.problem.id}/edit`}
     >
-      ← Back to standard editor
+      {m.admin_backToStandard()}
     </LinkButton>
   </header>
 
   <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
-    <h3 class="text-title-sm font-semibold">Statement</h3>
+    <h3 class="text-title-sm font-semibold">{m.admin_statementSection()}</h3>
     <p class="mt-1 text-body-sm text-muted-foreground">
-      題目標題、敘述、tag 在
-      <a class="underline" href={`/problems/${data.problem.id}/edit`}>
-        standard editor
-      </a>
-      編輯。
+      {@html m.admin_advancedStatementHint({ link: `<a class="underline" href="/problems/${data.problem.id}/edit">${m.admin_standardEditor()}</a>` })}
     </p>
     <article class="prose mt-4 max-w-none text-body-sm dark:prose-invert">
       <MarkdownRenderer content={data.problem.statement ?? ""} />

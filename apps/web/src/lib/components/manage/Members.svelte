@@ -24,6 +24,7 @@
   let { courseSlug, courseTitle, form: formData, members }: Props = $props();
 
   const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => formData), {
+    resetForm: false,
     invalidateAll: true
   });
 </script>
