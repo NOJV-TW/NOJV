@@ -148,6 +148,13 @@
     {#if data.problem.status === "draft"}
       <Badge variant="warning" size="md">{m.admin_draftBadge()}</Badge>
     {/if}
+    {#if isAdvanced}
+      <h2
+        class="inline-flex items-center rounded-full border border-info/25 bg-info/15 px-2.5 py-1 text-caption font-medium text-info"
+      >
+        {m.admin_advancedMode()}
+      </h2>
+    {/if}
     {#if data.problem.status === "draft"}
       <Button
         class="ml-auto"
@@ -161,40 +168,61 @@
     {/if}
   </div>
 
-  <ProblemSections
-    bind:activeSection
-    showPublish={data.problem.status === "draft"}
-    showConvertToAdvanced={data.problem.type !== "special_env"}
-    {canPublish}
-    {publishing}
-    {basicInfoComplete}
-    testcaseCount={data.testcaseSets.length}
-    bind:dirty
-    onpublish={handlePublishClick}
-  >
-    {#snippet basic()}
-      <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
-    {/snippet}
+  {#if isAdvanced}
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <BasicInfoTab formData={data.form} problemId={data.problem.id} />
+    </section>
 
-    {#snippet workspace()}
-      <WorkspaceSection
-        initial={workspaceInitial}
-        ondirtychange={(d) => dirty = d}
-        onsave={handleWorkspaceSave}
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <ContainerContractSection />
+    </section>
+
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <ImageSection
+        problemId={data.problem.id}
+        bind:imageRef
+        bind:imageSource
+        bind:timeLimitMs={advancedTimeLimitMs}
+        bind:memoryLimitMb={advancedMemoryLimitMb}
+        onsave={saveImage}
       />
-    {/snippet}
+    </section>
+  {:else}
+    <ProblemSections
+      bind:activeSection
+      showPublish={data.problem.status === "draft"}
+      showConvertToAdvanced
+      {canPublish}
+      {publishing}
+      {basicInfoComplete}
+      testcaseCount={data.testcaseSets.length}
+      bind:dirty
+      onpublish={handlePublishClick}
+    >
+      {#snippet basic()}
+        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
+      {/snippet}
 
-    {#snippet testcase()}
-      <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
-    {/snippet}
+      {#snippet workspace()}
+        <WorkspaceSection
+          initial={workspaceInitial}
+          ondirtychange={(d) => dirty = d}
+          onsave={handleWorkspaceSave}
+        />
+      {/snippet}
 
-    {#snippet judge()}
-      <JudgeTab
-        problem={data.problem}
-        ondirtychange={(d) => dirty = d}
-      />
-    {/snippet}
-  </ProblemSections>
+      {#snippet testcase()}
+        <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
+      {/snippet}
+
+      {#snippet judge()}
+        <JudgeTab
+          problem={data.problem}
+          ondirtychange={(d) => dirty = d}
+        />
+      {/snippet}
+    </ProblemSections>
+  {/if}
 
   <ConfirmDialog
     bind:open={showDeleteConfirm}

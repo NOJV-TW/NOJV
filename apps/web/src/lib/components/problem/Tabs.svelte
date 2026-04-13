@@ -28,10 +28,9 @@
       });
       if (!res.ok) throw new Error("Failed to create problem");
       const body = (await res.json()) as { id: string; mode: "standard" | "advanced" };
-      const targetPath = body.mode === "advanced"
-        ? `/problems/${body.id}/edit-advanced`
-        : `/problems/${body.id}/edit`;
-      await goto(targetPath);
+      // Both modes use the same /edit route; the page detects problem.type
+      // and renders either the tabbed standard layout or the advanced sections.
+      await goto(`/problems/${body.id}/edit`);
     } finally {
       creating = false;
     }

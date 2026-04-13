@@ -70,14 +70,14 @@ test.describe("Advanced Mode Lifecycle", () => {
     await context.close();
   });
 
-  test("edit-advanced page renders and accepts a registry image ref", async ({ browser }) => {
+  test("edit page renders the advanced layout for special_env problems and accepts a registry image ref", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    // Hitting /edit (standard editor) on an advanced problem would redirect
-    // to /edit-advanced via the +page.server.ts guard in edit-advanced. We
-    // go straight to the advanced editor instead.
-    await page.goto(`/problems/${advancedProblemId}/edit-advanced`);
+    // Both modes share the same /edit route — the page detects problem.type
+    // and renders the advanced sections (BasicInfoTab + ContainerContract +
+    // ImageSection) instead of the standard tabbed layout.
+    await page.goto(`/problems/${advancedProblemId}/edit`);
     await expect(page.getByRole("heading", { name: /advanced mode/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /judge image/i })).toBeVisible();
 
@@ -86,7 +86,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     // through the action keeps the assertion on the server-side contract.
     const saveResult = await postFormAction(
       page,
-      `/problems/${advancedProblemId}/edit-advanced?/updateImage`,
+      `/problems/${advancedProblemId}/edit?/updateImage`,
       {
         data: JSON.stringify({
           ref: REGISTRY_REF,
@@ -106,7 +106,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    await page.goto(`/problems/${advancedProblemId}/edit-advanced`);
+    await page.goto(`/problems/${advancedProblemId}/edit`);
     // Registry radio is the default when imageSource === "registry"; the
     // bound input reflects the persisted value.
     const refInput = page.locator(`input[placeholder*="ghcr.io"]`);

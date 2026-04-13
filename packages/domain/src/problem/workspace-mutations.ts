@@ -1,5 +1,5 @@
 import { problemRepo, problemWorkspaceFileRepo, runTransaction, type Prisma } from "@nojv/db";
-import type { Language } from "@nojv/core";
+import type { Language, ProblemType } from "@nojv/core";
 import { entryFileNameFor } from "@nojv/core";
 
 import { ConflictError, ValidationError } from "../shared/errors";
@@ -14,6 +14,7 @@ export interface UpdateWorkspacePayload {
     env: Record<string, string>;
   };
   allowedLanguages?: Language[];
+  type?: ProblemType;
   files: {
     language: Language;
     path: string;
@@ -61,6 +62,28 @@ export async function updateProblemWorkspace(
     }
   }
 
+  // Multi-file invariant: every allowed language MUST ship an editable
+  // main file. Full-source problems can leave the workspace empty —
+  // templates are just a UX nicety there.
+  if (
+    payload.type === "multi_file" &&
+    payload.allowedLanguages &&
+    payload.allowedLanguages.length > 0
+  ) {
+    const entryByLanguage = new Set<string>();
+    for (const file of payload.files) {
+      if (file.visibility === "editable" && file.path === entryFileNameFor(file.language)) {
+        entryByLanguage.add(file.language);
+      }
+    }
+    const missing = payload.allowedLanguages.filter((lang) => !entryByLanguage.has(lang));
+    if (missing.length > 0) {
+      throw new ValidationError(
+        `Multi-file problems require an editable main file for every allowed language. Missing: ${missing.join(", ")}.`
+      );
+    }
+  }
+
   // Aggregate byte totals per language. Using Buffer.byteLength for an
   // accurate UTF-8 byte count — JS `.length` counts UTF-16 code units,
   // which under-counts multi-byte characters.
@@ -97,20 +120,29 @@ export async function updateProblemWorkspace(
       await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
     }
 
-    // Merge runtime into judgeConfig.runtime. Keep other judgeConfig
-    // keys intact so the caller can save workspace without clobbering
-    // the judge settings.
+    // Merge runtime into judgeConfig.runtime + persist type. Keep other
+    // judgeConfig keys intact so the caller can save workspace without
+    // clobbering the judge settings.
+    const updateData: Prisma.ProblemUpdateInput = {};
     if (payload.runtime) {
       const currentConfig = (problem.judgeConfig as Record<string, unknown> | null) ?? {};
-      const nextConfig = {
+      updateData.judgeConfig = {
         ...currentConfig,
         runtime: payload.runtime
-      };
-      await problemRepo.withTx(tx).update(problem.id, {
-        judgeConfig: nextConfig as Prisma.InputJsonValue,
-        memoryLimitMb: payload.runtime.memoryLimitMb,
-        timeLimitMs: payload.runtime.timeLimitMs
-      });
+      } as Prisma.InputJsonValue;
+      updateData.memoryLimitMb = payload.runtime.memoryLimitMb;
+      updateData.timeLimitMs = payload.runtime.timeLimitMs;
+    }
+    if (payload.type && payload.type !== problem.type) {
+      if (payload.type === "special_env") {
+        throw new ValidationError(
+          "Cannot switch to special_env via workspace update. Use convertToAdvanced instead."
+        );
+      }
+      updateData.type = payload.type;
+    }
+    if (Object.keys(updateData).length > 0) {
+      await problemRepo.withTx(tx).update(problem.id, updateData);
     }
 
     return { id: problem.id, fileCount: payload.files.length };
