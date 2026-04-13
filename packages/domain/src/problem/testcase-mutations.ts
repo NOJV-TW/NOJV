@@ -1,10 +1,18 @@
-import { runTransaction, testcaseRepo, testcaseSetRepo } from "@nojv/db";
+import { randomUUID } from "node:crypto";
+
+import { runTransaction, testcaseRepo, testcaseSetRepo, type Prisma } from "@nojv/db";
 import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
 import { ConflictError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 
+import {
+  bestEffortDeleteTestcaseBlobs,
+  overwriteTestcaseField,
+  writeTestcaseBlobs,
+  type TestcaseBlobKeys
+} from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
@@ -14,9 +22,32 @@ export async function createProblemTestcaseSetRecord(
   problemId: string,
   payload: ProblemTestcaseSetCreate
 ) {
+  // 1. Pre-allocate testcase ids so we can compute stable S3 keys, then
+  //    upload the blobs OUTSIDE the DB transaction. Upload failure throws
+  //    here with zero side effects (no DB rows, no orphan blobs because
+  //    PutObject is the only operation that ran).
+  interface PreparedCase {
+    id: string;
+    blobKeys: TestcaseBlobKeys;
+  }
+  const prepared: PreparedCase[] = await Promise.all(
+    payload.cases.map(async (tc) => {
+      const id = randomUUID();
+      const blobKeys = await writeTestcaseBlobs({
+        problemId,
+        testcaseId: id,
+        input: tc.input,
+        output: tc.output
+      });
+      return { id, blobKeys };
+    })
+  );
+
+  // 2. Now the transaction: ownership check, set creation, and createMany.
+  //    The S3 objects already exist; if this transaction rolls back the
+  //    blobs become orphans (tolerable per design).
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
-
     assertProblemOwnership(problem, actor);
 
     const existingCount = await tx.testcaseSet.count({
@@ -44,14 +75,20 @@ export async function createProblemTestcaseSetRecord(
       ordinal: nextOrdinal
     });
 
-    await testcaseRepo.withTx(tx).createMany(
-      payload.cases.map((testcase, index) => ({
-        output: testcase.output,
+    const rows: Prisma.TestcaseCreateManyInput[] = prepared.map((entry, index) => {
+      const row: Prisma.TestcaseCreateManyInput = {
+        id: entry.id,
         ordinal: index + 1,
-        input: testcase.input,
-        testcaseSetId: testcaseSet.id
-      }))
-    );
+        testcaseSetId: testcaseSet.id,
+        inputKey: entry.blobKeys.inputKey
+      };
+      if (entry.blobKeys.outputKey !== null) row.outputKey = entry.blobKeys.outputKey;
+      if (entry.blobKeys.inputFileKeys !== null) {
+        row.inputFileKeys = entry.blobKeys.inputFileKeys as Prisma.InputJsonValue;
+      }
+      return row;
+    });
+    await testcaseRepo.withTx(tx).createMany(rows);
 
     return {
       caseCount: payload.cases.length,
@@ -80,12 +117,25 @@ export async function deleteTestcaseSetRecord(
   problemId: string,
   setId: string
 ) {
-  return runTransaction(async (tx) => {
+  // Fetch the set's testcase ids first so we know which S3 prefixes to
+  // sweep after the DB delete commits. Each testcase has a stable prefix
+  // under `problems/{problemId}/testcases/{testcaseId}/` — sweeping the
+  // set in one shot would also work, but per-testcase keeps the cleanup
+  // surgical and matches the per-row deletion that `deleteTestcase`
+  // already does.
+  const existing = await testcaseSetRepo.findById(setId);
+  const testcaseIds = existing?.testcases.map((tc) => tc.id) ?? [];
+
+  await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    return testcaseSetRepo.delete(setId);
+    await testcaseSetRepo.delete(setId);
   });
+
+  // DB committed — best-effort S3 cleanup. Failure here only leaves
+  // orphan objects, which the design accepts.
+  await Promise.all(testcaseIds.map((id) => bestEffortDeleteTestcaseBlobs(problemId, id)));
 }
 
 export async function updateTestcaseRecord(
@@ -94,12 +144,26 @@ export async function updateTestcaseRecord(
   testcaseId: string,
   payload: TestcaseUpdate
 ) {
-  return runTransaction(async (tx) => {
+  // Authorize first so unauthorised callers can't trigger S3 traffic.
+  await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
-
-    return testcaseRepo.update(testcaseId, stripUndefined(payload));
   });
+
+  // Pure content edit: the row's key columns already point at the
+  // correct S3 objects (keys are stable for the lifetime of the row),
+  // so we just overwrite the blobs in place — no DB UPDATE required.
+  // Touch only the fields that were explicitly provided.
+  const writes: Promise<unknown>[] = [];
+  if (payload.input !== undefined) {
+    writes.push(overwriteTestcaseField(problemId, testcaseId, "input", payload.input));
+  }
+  if (payload.output !== undefined) {
+    writes.push(overwriteTestcaseField(problemId, testcaseId, "output", payload.output));
+  }
+  await Promise.all(writes);
+
+  return { id: testcaseId };
 }
 
 export async function deleteTestcaseRecord(
@@ -107,10 +171,13 @@ export async function deleteTestcaseRecord(
   problemId: string,
   testcaseId: string
 ) {
-  return runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
 
-    return testcaseRepo.delete(testcaseId);
+    await testcaseRepo.delete(testcaseId);
   });
+
+  // DB committed — best-effort S3 cleanup.
+  await bestEffortDeleteTestcaseBlobs(problemId, testcaseId);
 }

@@ -21,6 +21,28 @@ const {
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull")
 }));
 
+vi.mock("@nojv/storage", () => {
+  // Lazy stub: domain code only uses these primitives. We don't care about
+  // the actual values here — `updateProblemWorkspace` writes blobs before
+  // INSERT and the test only asserts the DB-side effects.
+  return {
+    createStorageClient: vi.fn(() => ({})),
+    putText: vi.fn(() => Promise.resolve()),
+    getText: vi.fn(() => Promise.resolve("")),
+    deleteBlob: vi.fn(() => Promise.resolve()),
+    deleteBlobsByPrefix: vi.fn(() => Promise.resolve()),
+    testcaseInputKey: (problemId: string, testcaseId: string) =>
+      `problems/${problemId}/testcases/${testcaseId}/input`,
+    testcaseOutputKey: (problemId: string, testcaseId: string) =>
+      `problems/${problemId}/testcases/${testcaseId}/output`,
+    testcaseInputFileKey: (problemId: string, testcaseId: string, filename: string) =>
+      `problems/${problemId}/testcases/${testcaseId}/files/${filename}`,
+    workspaceFileKey: (problemId: string, fileId: string) =>
+      `problems/${problemId}/workspace/${fileId}`,
+    problemPrefix: (problemId: string) => `problems/${problemId}/`
+  };
+});
+
 vi.mock("@nojv/db", () => {
   const withTx = {
     create: problemCreate,

@@ -14,6 +14,7 @@ import type {
   WorkspaceFileVisibility
 } from "@nojv/core";
 
+import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
 import { NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
 
@@ -84,18 +85,36 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     type: "standard" as const
   };
 
-  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
-    id: ts.id,
-    name: ts.name,
-    testcases: ts.testcases.map((testcase) => ({
-      output: testcase.output ?? undefined,
-      id: testcase.id,
-      inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-      input: testcase.input,
-      weight: ts.weight
-    })),
-    weight: ts.weight
-  }));
+  // Hydrate every testcase set's blobs in parallel. Each testcase row
+  // carries S3 keys (inputKey / outputKey / inputFileKeys) which we read
+  // back as in-memory strings here so the rest of the pipeline (worker,
+  // sandbox-runner) sees the same shape it always has.
+  const testcaseSets: TestcaseSetGroup[] = await Promise.all(
+    problem.testcaseSets.map(async (ts) => {
+      const testcases = await Promise.all(
+        ts.testcases.map(async (testcase): Promise<ProblemJudgeTestcase> => {
+          const blobs = await readTestcaseBlobs({
+            inputKey: testcase.inputKey,
+            outputKey: testcase.outputKey,
+            inputFileKeys: (testcase.inputFileKeys as Record<string, string> | null) ?? null
+          });
+          return {
+            id: testcase.id,
+            input: blobs.input,
+            ...(blobs.output !== undefined ? { output: blobs.output } : {}),
+            ...(blobs.inputFiles !== undefined ? { inputFiles: blobs.inputFiles } : {}),
+            weight: ts.weight
+          };
+        })
+      );
+      return {
+        id: ts.id,
+        name: ts.name,
+        testcases,
+        weight: ts.weight
+      };
+    })
+  );
 
   const samples = collectSamples(problem);
 
@@ -111,12 +130,19 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy])
   );
 
-  const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
-    content: f.content,
-    language: f.language,
-    path: f.path,
-    visibility: f.visibility as WorkspaceFileVisibility
-  }));
+  // Hydrate every workspace file's content from S3 in parallel. Same
+  // shape as before — downstream consumers (worker, judge.ts) read
+  // `f.content` directly.
+  const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
+    problem.workspaceFiles.map(
+      async (f): Promise<WorkspaceFileEntry> => ({
+        content: await readWorkspaceFileBlob(f.contentKey),
+        language: f.language,
+        path: f.path,
+        visibility: f.visibility as WorkspaceFileVisibility
+      })
+    )
+  );
 
   const assessment = submission.courseAssessment;
 

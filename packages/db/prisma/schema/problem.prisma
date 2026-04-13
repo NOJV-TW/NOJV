@@ -134,9 +134,15 @@ model Testcase {
   id            String      @id @default(cuid())
   testcaseSetId String
   ordinal       Int
-  input         String      @db.Text
-  output        String?     @db.Text
-  inputFiles    Json?
+  /// S3 object key for the input blob. Stable for the lifetime of the row;
+  /// content is overwritten in place on edit. See packages/storage/src/keys.ts.
+  inputKey      String
+  /// S3 object key for the expected output blob. Null for problems that do
+  /// not declare an expected output (e.g. interactive judges).
+  outputKey     String?
+  /// `{ filename: s3Key }` map for auxiliary input files that the program
+  /// can read at judge time. Null when the testcase has no aux files.
+  inputFileKeys Json?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   testcaseSet   TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
@@ -145,17 +151,20 @@ model Testcase {
 }
 
 model ProblemWorkspaceFile {
-  id              String                  @id @default(cuid())
-  problemId       String
-  language        SupportedLanguage
-  path            String
-  content         String                  @db.Text
-  visibility      WorkspaceFileVisibility
-  description     String                  @default("") @db.Text
-  orderIndex      Int                     @default(0)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  problem         Problem                 @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  id          String                  @id @default(cuid())
+  problemId   String
+  language    SupportedLanguage
+  path        String
+  /// S3 object key for this workspace file's content. Stable for the lifetime
+  /// of the row; content is overwritten in place on edit. See
+  /// packages/storage/src/keys.ts.
+  contentKey  String
+  visibility  WorkspaceFileVisibility
+  description String                  @default("") @db.Text
+  orderIndex  Int                     @default(0)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  problem     Problem                 @relation(fields: [problemId], references: [id], onDelete: Cascade)
 
   @@unique([problemId, language, path])
   @@index([problemId, language])

@@ -22,6 +22,7 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
 import { problemWorkspaceFileRepo, testcaseSetRepo, SubtaskScoringStrategy } from "@nojv/db";
+import { createStorageClient, getText } from "@nojv/storage";
 
 const {
   getProblemPageData,
@@ -59,11 +60,56 @@ export const load: PageServerLoad = handleLoad(
       redirect(302, `/problems/${params.id}`);
     }
 
-    const [problem, testcaseSets, workspaceFiles] = await Promise.all([
+    const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
       getProblemPageData(params.id),
       getProblemTestcaseSets(params.id),
       problemWorkspaceFileRepo.findByProblemId(params.id)
     ]);
+
+    // Hydrate every testcase + workspace blob from S3 in parallel. The
+    // edit page is not a hot path; the extra round trip is fine.
+    const storage = createStorageClient();
+
+    const testcaseSets = await Promise.all(
+      rawTestcaseSets.map(async (set) => {
+        const testcases = await Promise.all(
+          set.testcases.map(async (tc) => {
+            const [inputText, outputText] = await Promise.all([
+              getText(storage, tc.inputKey),
+              tc.outputKey ? getText(storage, tc.outputKey) : Promise.resolve(null)
+            ]);
+            return {
+              id: tc.id,
+              ordinal: tc.ordinal,
+              input: inputText,
+              output: outputText
+            };
+          })
+        );
+        return {
+          id: set.id,
+          name: set.name,
+          description: set.description,
+          weight: set.weight,
+          ordinal: set.ordinal,
+          scoringStrategy: set.scoringStrategy,
+          testcases
+        };
+      })
+    );
+
+    const workspaceFiles = await Promise.all(
+      rawWorkspaceFiles.map(async (f) => ({
+        id: f.id,
+        problemId: f.problemId,
+        language: f.language,
+        path: f.path,
+        content: await getText(storage, f.contentKey),
+        visibility: f.visibility,
+        description: f.description,
+        orderIndex: f.orderIndex
+      }))
+    );
 
     // For special_env problems include advancedImageRef/advancedImageSource so
     // problemCreateSchema's superRefine passes — BasicInfoTab never binds those
