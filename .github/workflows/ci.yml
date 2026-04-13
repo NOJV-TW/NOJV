@@ -59,6 +59,12 @@ jobs:
         with:
           go-version: "1.22.x"
 
+      # Seed validator imports @nojv/storage at module load time (via
+      # packages/db/prisma/seeds/problems.ts), so its dist/index.mjs must
+      # exist before `db:seed:validate` runs — otherwise ERR_MODULE_NOT_FOUND.
+      - name: Build @nojv/storage for seed validator
+        run: pnpm --filter @nojv/storage build
+
       - name: Validate problem seed definitions (dry-run)
         run: pnpm db:seed:validate
 
