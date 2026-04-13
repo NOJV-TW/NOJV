@@ -41,8 +41,8 @@ services:
     image: dxflrs/garage:v1.0.1
     restart: unless-stopped
     ports:
-      - "3900:3900"  # S3 API
-      - "3903:3903"  # Admin API (health, metrics, cluster mgmt)
+      - "3900:3900" # S3 API
+      - "3903:3903" # Admin API (health, metrics, cluster mgmt)
     volumes:
       - ./.garage/meta:/var/lib/garage/meta
       - ./.garage/data:/var/lib/garage/data

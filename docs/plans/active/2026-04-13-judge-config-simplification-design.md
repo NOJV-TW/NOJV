@@ -132,7 +132,7 @@ A small **總分公式預覽** strip below the subtask list (moved from the Judg
 
 Three radio buttons (standard / checker / interactive) remain. Below them:
 
-- **Standard branch:** the entire `compareMode` select + float tolerance grid + regex textarea **deleted**. Replaced by a one-line note: *"輸出將套用標準 OJ 正規化：CRLF→LF、每行去尾空白、尾端空白行忽略。如需浮點容差或自訂比對，請改用 Checker。"*
+- **Standard branch:** the entire `compareMode` select + float tolerance grid + regex textarea **deleted**. Replaced by a one-line note: _"輸出將套用標準 OJ 正規化：CRLF→LF、每行去尾空白、尾端空白行忽略。如需浮點容差或自訂比對，請改用 Checker。"_
 - **Checker / Interactive branches:** language select (Python / C++ only), Monaco editor, plus a new **collapsible documentation panel** above the editor (see next section).
 - **Subtask Scoring section:** entire `<div>` with `formulaPreview`, `subtaskStrategies` state, and `set` iteration **deleted**.
 - `buildJudgeConfig` returns `{ type, runtime, [checkerScript, checkerLanguage] | [interactorScript, interactorLanguage] }` — no `compare`, no `scoring`.
@@ -149,12 +149,12 @@ Add: `admin_standardNormalizationHint`, `admin_checkerHelpTitle`, `admin_checker
 
 ### Prior art surveyed
 
-| OJ | Checker API |
-|---|---|
-| Codeforces / Polygon | C++ `testlib.h` — `registerTestlibCmd(argc, argv)`, `inf/ouf/ans.readInt()`, `quitf(_ok/_wa, "...")`, `quitp(points, "...")` |
-| DMOJ | Python — user defines `def check(process_output, judge_output, judge_input=None, **kwargs):` returning `CheckerResult(True, points, feedback)` |
-| DOMjudge / Kattis | Any language — exit code 42 = AC, 43 = WA, feedback to fd 3 |
-| UOJ / LOJ | C++ `testlib.h` |
+| OJ                   | Checker API                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Codeforces / Polygon | C++ `testlib.h` — `registerTestlibCmd(argc, argv)`, `inf/ouf/ans.readInt()`, `quitf(_ok/_wa, "...")`, `quitp(points, "...")`                   |
+| DMOJ                 | Python — user defines `def check(process_output, judge_output, judge_input=None, **kwargs):` returning `CheckerResult(True, points, feedback)` |
+| DOMjudge / Kattis    | Any language — exit code 42 = AC, 43 = WA, feedback to fd 3                                                                                    |
+| UOJ / LOJ            | C++ `testlib.h`                                                                                                                                |
 
 The `testlib.h` ecosystem is the de facto standard for C++. DMOJ's "just write a function" model is the cleanest for Python.
 
@@ -236,16 +236,16 @@ The panel is a `<details>` element above the Monaco editor. Title: "如何撰寫
 
 > Sandbox 會以下列方式呼叫你的腳本（C++ 透過 `testlib.h` 自動處理；Python 已注入下列變數與輔助函式）：
 >
-> | 變數 | 內容 |
-> |---|---|
-> | `judge_input` | 測資輸入內容 |
-> | `judge_output` | 標準答案內容 |
+> | 變數             | 內容         |
+> | ---------------- | ------------ |
+> | `judge_input`    | 測資輸入內容 |
+> | `judge_output`   | 標準答案內容 |
 > | `process_output` | 學生輸出內容 |
 >
-> | 函式 | 行為 |
-> |---|---|
-> | `accept(feedback="")` | 此測資 AC，回饋顯示給學生 |
-> | `reject(feedback="")` | 此測資 WA |
+> | 函式                          | 行為                                                          |
+> | ----------------------------- | ------------------------------------------------------------- |
+> | `accept(feedback="")`         | 此測資 AC，回饋顯示給學生                                     |
+> | `reject(feedback="")`         | 此測資 WA                                                     |
 > | `partial(score, feedback="")` | 部分分數 (0–100)，搭配 `MINIMUM` 或 `PROPORTIONAL` 子任務策略 |
 >
 > Checker 超時上限 30 秒。掛掉或逾時記為 SE，不影響學生判決。
@@ -255,6 +255,7 @@ Then a runnable Python example (浮點比對) and a runnable C++ example (token 
 **Interactor panel:**
 
 > Sandbox 會把學生程式與 interactor 雙向接管道：
+>
 > ```
 > 學生 stdout ──▶ interactor stdin
 > interactor stdout ──▶ 學生 stdin
@@ -262,11 +263,11 @@ Then a runnable Python example (浮點比對) and a runnable C++ example (token 
 >
 > Python 已注入：
 >
-> | 函式 | 行為 |
-> |---|---|
-> | `read()` | 讀學生送來的一行（自動去掉 `\n`，學生中止時自動 reject） |
-> | `write(msg)` | 寫一行給學生（已自動 flush） |
-> | `accept` / `reject` / `partial` | 同 checker，但 score 寫到 stderr 第 1 行 |
+> | 函式                            | 行為                                                     |
+> | ------------------------------- | -------------------------------------------------------- |
+> | `read()`                        | 讀學生送來的一行（自動去掉 `\n`，學生中止時自動 reject） |
+> | `write(msg)`                    | 寫一行給學生（已自動 flush）                             |
+> | `accept` / `reject` / `partial` | 同 checker，但 score 寫到 stderr 第 1 行                 |
 >
 > C++ 用 `registerInteraction(argc, argv)` + `cout`/`cin`，記得 `cout << flush` 後再讀。
 >
