@@ -1,3 +1,13 @@
+import { randomUUID } from "node:crypto";
+
+import {
+  createStorageClient,
+  putText,
+  testcaseInputKey,
+  testcaseOutputKey,
+  workspaceFileKey
+} from "@nojv/storage";
+
 import type { Prisma, PrismaClient } from "../../generated/prisma/client";
 
 const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
@@ -154,6 +164,11 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
 }
 
 export async function seedProblems(prisma: PrismaClient, teacherId: string) {
+  // Single S3 client shared across every blob upload below. The seed
+  // script writes testcase + workspace blobs through the same storage
+  // primitives the production domain layer uses (no parallel impl).
+  const storage = createStorageClient();
+
   const problemDefs: SeedProblemDef[] = [
     {
       authorId: teacherId,
@@ -1054,21 +1069,38 @@ if __name__ == "__main__":
           }
         });
 
-        // Delete existing testcases and re-create for idempotency
+        // Delete existing testcases and re-create for idempotency. The
+        // matching S3 blobs from a previous run, if any, are overwritten
+        // below since each new testcase gets a fresh id (and thus a
+        // fresh S3 key). Old objects become orphans — fine for seed.
         await prisma.testcase.deleteMany({
           where: { testcaseSetId: testcaseSet.id }
         });
 
-        for (const [caseIndex, tc] of setDef.cases.entries()) {
-          await prisma.testcase.create({
-            data: {
-              output: tc.output,
+        // S3 first, single createMany after — same write order as the
+        // production domain mutation.
+        const testcaseIds = setDef.cases.map(() => randomUUID());
+        await Promise.all(
+          setDef.cases.flatMap((tc, caseIndex) => {
+            const id = testcaseIds[caseIndex]!;
+            return [
+              putText(storage, testcaseInputKey(problem.id, id), tc.input),
+              putText(storage, testcaseOutputKey(problem.id, id), tc.output)
+            ];
+          })
+        );
+        await prisma.testcase.createMany({
+          data: setDef.cases.map((_tc, caseIndex) => {
+            const id = testcaseIds[caseIndex]!;
+            return {
+              id,
               ordinal: caseIndex + 1,
-              input: tc.input,
-              testcaseSetId: testcaseSet.id
-            }
-          });
-        }
+              testcaseSetId: testcaseSet.id,
+              inputKey: testcaseInputKey(problem.id, id),
+              outputKey: testcaseOutputKey(problem.id, id)
+            };
+          })
+        });
       }
     }
 
@@ -1077,12 +1109,21 @@ if __name__ == "__main__":
       await prisma.problemWorkspaceFile.deleteMany({
         where: { problemId: problem.id }
       });
+      // S3 first, then createMany — same flow as production. Orphan
+      // blobs from previous seed runs (if any) are tolerable.
+      const fileIds = def.workspaceFiles.map(() => randomUUID());
+      await Promise.all(
+        def.workspaceFiles.map((wf, i) =>
+          putText(storage, workspaceFileKey(problem.id, fileIds[i]!), wf.content)
+        )
+      );
       await prisma.problemWorkspaceFile.createMany({
-        data: def.workspaceFiles.map((wf) => ({
+        data: def.workspaceFiles.map((wf, i) => ({
+          id: fileIds[i]!,
           problemId: problem.id,
           language: wf.language,
           path: wf.path,
-          content: wf.content,
+          contentKey: workspaceFileKey(problem.id, fileIds[i]!),
           visibility: wf.visibility,
           description: wf.description ?? "",
           orderIndex: wf.orderIndex ?? 0

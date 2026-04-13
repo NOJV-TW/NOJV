@@ -1,5 +1,6 @@
 <script lang="ts">
   import { inputClassName } from "$lib/utils";
+  import { m } from "$lib/paraglide/messages.js";
   import type { ProblemImageSource } from "@nojv/core";
 
   interface Props {
@@ -86,15 +87,15 @@
 
 <section class="space-y-6">
   <header class="space-y-1">
-    <h3 class="text-body-lg font-semibold">Judge image</h3>
+    <h3 class="text-body-lg font-semibold">{m.admin_judgeImage()}</h3>
     <p class="text-body-sm text-muted-foreground">
-      提供一個 Docker image,容器內部必須自行 bundle 測資與評分邏輯。
+      {m.admin_judgeImageHint()}
     </p>
   </header>
 
   <!-- Source picker -->
   <div class="space-y-3">
-    <span class="text-body-sm font-medium">Source</span>
+    <span class="text-body-sm font-medium">{m.admin_imageSource()}</span>
     <div class="flex gap-3">
       <label class="flex items-center gap-2 text-body-sm">
         <input
@@ -104,7 +105,7 @@
           checked={imageSource === "registry"}
           onchange={() => (imageSource = "registry")}
         />
-        Registry
+        {m.admin_imageSourceRegistry()}
       </label>
       <label class="flex items-center gap-2 text-body-sm">
         <input
@@ -114,23 +115,22 @@
           checked={imageSource === "tarball"}
           onchange={() => (imageSource = "tarball")}
         />
-        Tarball upload
+        {m.admin_imageSourceTarball()}
       </label>
     </div>
   </div>
 
   {#if imageSource === "registry"}
     <label class="block text-body-sm">
-      <span class="text-body-sm font-medium">Image reference</span>
+      <span class="text-body-sm font-medium">{m.admin_imageRef()}</span>
       <input
         class={inputClassName}
         bind:value={imageRef}
-        placeholder="ghcr.io/your-org/your-judge:tag"
+        placeholder={m.admin_imageRefPlaceholder()}
         spellcheck="false"
       />
       <p class="mt-2 text-caption text-muted-foreground">
-        e.g. <code>ghcr.io/your-org/your-judge:tag</code> — worker 會在評分時
-        嘗試 pull。
+        {@html m.admin_imageRefHint({ example: '<code>ghcr.io/your-org/your-judge:tag</code>' })}
       </p>
     </label>
   {:else}
@@ -163,11 +163,11 @@
       >
         <p class="font-medium">
           {uploading
-            ? "Uploading…"
-            : (uploadedFileName ?? "Drop a docker tarball here, or click to browse")}
+            ? m.admin_tarballUploading()
+            : (uploadedFileName ?? m.admin_tarballDropHint())}
         </p>
         <p class="mt-1 text-caption text-muted-foreground">
-          Build with <code>docker save your-image:tag -o judge.tar</code>
+          {@html m.admin_tarballBuildHint({ command: '<code>docker save your-image:tag -o judge.tar</code>' })}
         </p>
         <input
           id={`tarball-${problemId}`}
@@ -187,7 +187,7 @@
   <!-- Resource limits (total-per-invocation for advanced mode) -->
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm">
-      <span class="text-body-sm font-medium">總執行時間 (ms)</span>
+      <span class="text-body-sm font-medium">{m.admin_totalTimeLimitMs()}</span>
       <input
         type="number"
         class={inputClassName}
@@ -196,11 +196,11 @@
         bind:value={timeLimitMs}
       />
       <p class="mt-1 text-caption text-muted-foreground">
-        整個容器的總預算(非 per-testcase)。
+        {m.admin_totalTimeLimitHint()}
       </p>
     </label>
     <label class="text-body-sm">
-      <span class="text-body-sm font-medium">記憶體上限 (MB)</span>
+      <span class="text-body-sm font-medium">{m.admin_memoryLimitMb()}</span>
       <input
         type="number"
         class={inputClassName}
@@ -218,7 +218,7 @@
       disabled={saving}
       onclick={save}
     >
-      {saving ? "Saving…" : "Save image config"}
+      {saving ? m.admin_savingImage() : m.admin_saveImageConfig()}
     </button>
   </div>
 </section>

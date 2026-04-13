@@ -1,8 +1,7 @@
 import { submissionRepo } from "@nojv/db";
-import type { Prisma } from "@nojv/db";
+import type { Prisma, SubtaskScoringStrategy } from "@nojv/db";
 import type {
   AdjustmentRules,
-  Compare,
   JudgeConfig,
   JudgeType,
   ProblemImageSource,
@@ -15,6 +14,7 @@ import type {
   WorkspaceFileVisibility
 } from "@nojv/core";
 
+import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
 import { NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
 
@@ -32,7 +32,7 @@ export interface WorkspaceFileEntry {
   visibility: WorkspaceFileVisibility;
 }
 
-export type SubtaskStrategyMap = Record<string, "all_or_nothing" | "proportional" | "minimum">;
+export type SubtaskStrategyMap = Record<string, SubtaskScoringStrategy>;
 
 export interface AdjustmentContext {
   assessmentAdjustmentRules: AdjustmentRules | null;
@@ -52,7 +52,6 @@ export interface AdvancedModeContext {
 export interface SubmissionJudgeContext {
   adjustment: AdjustmentContext;
   checkerScript: string | null;
-  compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
   runtime: Runtime;
@@ -86,18 +85,36 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     type: "standard" as const
   };
 
-  const testcaseSets: TestcaseSetGroup[] = problem.testcaseSets.map((ts) => ({
-    id: ts.id,
-    name: ts.name,
-    testcases: ts.testcases.map((testcase) => ({
-      output: testcase.output ?? undefined,
-      id: testcase.id,
-      inputFiles: (testcase.inputFiles as Record<string, string> | null) ?? undefined,
-      input: testcase.input,
-      weight: ts.weight
-    })),
-    weight: ts.weight
-  }));
+  // Hydrate every testcase set's blobs in parallel. Each testcase row
+  // carries S3 keys (inputKey / outputKey / inputFileKeys) which we read
+  // back as in-memory strings here so the rest of the pipeline (worker,
+  // sandbox-runner) sees the same shape it always has.
+  const testcaseSets: TestcaseSetGroup[] = await Promise.all(
+    problem.testcaseSets.map(async (ts) => {
+      const testcases = await Promise.all(
+        ts.testcases.map(async (testcase): Promise<ProblemJudgeTestcase> => {
+          const blobs = await readTestcaseBlobs({
+            inputKey: testcase.inputKey,
+            outputKey: testcase.outputKey,
+            inputFileKeys: (testcase.inputFileKeys as Record<string, string> | null) ?? null
+          });
+          return {
+            id: testcase.id,
+            input: blobs.input,
+            ...(blobs.output !== undefined ? { output: blobs.output } : {}),
+            ...(blobs.inputFiles !== undefined ? { inputFiles: blobs.inputFiles } : {}),
+            weight: ts.weight
+          };
+        })
+      );
+      return {
+        id: ts.id,
+        name: ts.name,
+        testcases,
+        weight: ts.weight
+      };
+    })
+  );
 
   const samples = collectSamples(problem);
 
@@ -109,15 +126,23 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     timeLimitMs: problem.timeLimitMs
   };
 
-  const subtaskStrategies: SubtaskStrategyMap =
-    (judgeConfig.scoring?.subtaskStrategies as SubtaskStrategyMap | undefined) ?? {};
+  const subtaskStrategies: SubtaskStrategyMap = Object.fromEntries(
+    problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy])
+  );
 
-  const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
-    content: f.content,
-    language: f.language,
-    path: f.path,
-    visibility: f.visibility as WorkspaceFileVisibility
-  }));
+  // Hydrate every workspace file's content from S3 in parallel. Same
+  // shape as before — downstream consumers (worker, judge.ts) read
+  // `f.content` directly.
+  const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
+    problem.workspaceFiles.map(
+      async (f): Promise<WorkspaceFileEntry> => ({
+        content: await readWorkspaceFileBlob(f.contentKey),
+        language: f.language,
+        path: f.path,
+        visibility: f.visibility as WorkspaceFileVisibility
+      })
+    )
+  );
 
   const assessment = submission.courseAssessment;
 
@@ -149,7 +174,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   return {
     adjustment,
     checkerScript: judgeConfig.checkerScript ?? null,
-    compare: judgeConfig.compare ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
     runtime,

@@ -20,6 +20,7 @@ import { NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 
+import { bestEffortDeleteProblemBlobs } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
 export interface CreateProblemDefinitionInput {
@@ -85,7 +86,13 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   assertProblemOwnership(problem, actor);
-  return problemRepo.delete(problemId);
+
+  // DB delete first — Prisma cascade handles every child row (testcase
+  // sets, testcases, workspace files). Then best-effort sweep the entire
+  // S3 prefix; failure here only leaves orphan objects.
+  const deleted = await problemRepo.delete(problemId);
+  await bestEffortDeleteProblemBlobs(problemId);
+  return deleted;
 }
 
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {

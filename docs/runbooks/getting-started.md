@@ -39,7 +39,10 @@ Edit `.env` with your values. For local development, the defaults work out of th
 
 ## 3. Start Infrastructure
 
+Garage stores its data in `./.garage/` under the repo root. Create the directories first so the container can mount them:
+
 ```bash
+mkdir -p .garage/meta .garage/data
 docker compose up -d
 ```
 
@@ -47,6 +50,7 @@ This starts:
 
 - PostgreSQL 18 on port 5432
 - Redis 8 on port 6379
+- Garage (S3-compatible storage) on ports 3900 (S3 API) and 3903 (admin API)
 - Temporal Server on port 7233
 - Temporal UI on port 8080
 
@@ -55,6 +59,14 @@ Wait for health checks to pass:
 ```bash
 docker compose ps  # All services should show "healthy"
 ```
+
+Then provision the Garage bucket + access key (idempotent — safe to re-run):
+
+```bash
+./scripts/bootstrap-garage.sh
+```
+
+The script prints the generated `S3_ACCESS_KEY` / `S3_SECRET_KEY`. Paste them into your `.env` (replacing the placeholder values).
 
 ## 4. Prepare Database
 
@@ -186,7 +198,7 @@ sudo usermod -aG docker $USER
 
 ### Port conflicts
 
-If ports 5432, 6379, 7233, or 8080 are in use:
+If ports 3900, 3903, 5432, 6379, 7233, or 8080 are in use:
 
 ```bash
 # Check what's using the port

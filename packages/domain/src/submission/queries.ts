@@ -26,6 +26,25 @@ export async function getSubmissionForUser(
   return submission;
 }
 
+export async function listUserSubmissions(userId: string) {
+  const submissions = await submissionRepo.listByUser({ userId });
+
+  return submissions.map((s) => {
+    const language = languageSchema.parse(s.language);
+
+    return {
+      createdAt: s.createdAt.toISOString(),
+      id: s.id,
+      language,
+      problemId: s.problem.id,
+      problemTitle: s.problem.title,
+      runtimeMs: s.runtimeMs,
+      score: s.score,
+      status: s.status
+    };
+  });
+}
+
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,

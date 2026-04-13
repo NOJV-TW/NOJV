@@ -1,9 +1,31 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import * as path from "node:path";
-import { sourceFileNames } from "@nojv/core";
+import { fileURLToPath } from "node:url";
+import { sourceFileNames, type JudgeScriptLanguage } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
 import { createBoundedBuffer, pathExists } from "./utils.js";
+
+// Wrapper assets live at `apps/sandbox-runner/assets/wrappers/` in source
+// and at `<runtime-prefix>/assets/wrappers/` in the built sandbox image
+// (the Dockerfile copies `apps/sandbox-runner/assets/` next to `dist/`).
+// Resolving as `<thisDir>/../assets/wrappers/<file>` works for both:
+//   - src layout: <repo>/apps/sandbox-runner/src/compiler.ts → ../assets/...
+//   - dist layout: /runner/compiler.js → /assets/wrappers/... (when the
+//     runtime prefix is `/runner` and assets are mounted at `/assets`).
+const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
+const WRAPPERS_DIR = path.resolve(COMPILER_DIR, "../assets/wrappers");
+
+function loadWrapper(file: string): string {
+  return readFileSync(path.join(WRAPPERS_DIR, file), "utf-8");
+}
+
+// Cached at module load — wrapper content is static and small.
+const PYTHON_CHECKER_WRAPPER = loadWrapper("python-checker.py");
+const PYTHON_INTERACTOR_WRAPPER = loadWrapper("python-interactor.py");
+
+export type ScriptMode = "checker" | "interactor";
 
 export type CompileResult =
   | { success: true; runCommand: string[] }
@@ -82,44 +104,42 @@ export async function compile(
   }
 }
 
+/**
+ * Compile (or prepare) a checker / interactor script. Only Python and C++
+ * are supported — the schema enforces this at the edge.
+ *
+ * Python: the user-supplied source is concatenated after a fixed wrapper
+ * that exposes `judge_input`, `judge_output`, `process_output` (checker)
+ * or `judge_input`, `read`, `write` (interactor) plus `accept` / `reject`
+ * / `partial` helpers. The wrapped file is written next to the original
+ * and run via `python3`.
+ *
+ * C++: compiled with `g++ -O2 -std=c++20`. `testlib.h` is installed
+ * globally in the sandbox image (`/usr/include/testlib.h`) so user code
+ * can `#include "testlib.h"` directly without extra include paths.
+ */
 export async function compileChecker(
   scriptPath: string,
-  language: string,
+  language: JudgeScriptLanguage,
   workDir: string,
-  outputName: string = "checker"
+  mode: ScriptMode
 ): Promise<CompileResult> {
-  if (language === "python" || language === "python3") {
-    return { success: true, runCommand: ["python3", scriptPath] };
+  if (language === "python") {
+    const userSource = await fs.readFile(scriptPath, "utf-8");
+    const wrapper =
+      mode === "checker" ? PYTHON_CHECKER_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
+    const wrappedPath = path.join(workDir, `${mode}.py`);
+    await fs.writeFile(wrappedPath, `${wrapper}${userSource}`, "utf-8");
+    return { success: true, runCommand: ["python3", wrappedPath] };
   }
 
-  const outPath = path.join(workDir, outputName);
-
-  if (language === "c") {
-    return compileWithCommand(
-      ["gcc", "-O2", "-std=c17", "-o", outPath, scriptPath],
-      [outPath],
-      workDir
-    );
-  }
-
-  if (language === "cpp") {
-    return compileWithCommand(
-      ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
-      [outPath],
-      workDir
-    );
-  }
-
-  if (language === "go") {
-    return compileWithCommand(["go", "build", "-o", outPath, scriptPath], [outPath], workDir);
-  }
-
-  if (language === "rust") {
-    return compileWithCommand(["rustc", "-O", "-o", outPath, scriptPath], [outPath], workDir);
-  }
-
-  // Fallback: assume interpreted (Python)
-  return { success: true, runCommand: ["python3", scriptPath] };
+  // language === "cpp"
+  const outPath = path.join(workDir, mode);
+  return compileWithCommand(
+    ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
+    [outPath],
+    workDir
+  );
 }
 
 function compileWithCommand(
