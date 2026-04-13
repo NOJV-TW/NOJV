@@ -7,8 +7,7 @@ import { getClient } from "./client";
 const JUDGE_TASK_QUEUE = "judge" as const;
 const PLATFORM_TASK_QUEUE = "platform" as const;
 
-// Workflow input types mirror packages/temporal/src/types.ts; the duplication
-// keeps this package decoupled from the worker-side dependency graph.
+// Mirrored from packages/temporal/src/types.ts to keep this package decoupled.
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionDraft;

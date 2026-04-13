@@ -10,8 +10,6 @@ import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
 
-// --- Executor injection (set by worker at startup) ---
-
 let _executor: SandboxExecutor | undefined;
 
 export function setExecutor(executor: SandboxExecutor): void {
@@ -23,13 +21,9 @@ function getExecutor(): SandboxExecutor {
   return _executor;
 }
 
-// --- Re-export types from domain ---
-
 export type CompletedSubmission = submissionDomain.CompletedSubmission;
 export type SubmissionJudgeContext = submissionDomain.SubmissionJudgeContext;
 export type TestcaseSetGroup = submissionDomain.TestcaseSetGroup;
-
-// --- Activities ---
 
 export async function fetchJudgeContext(
   submissionId: string
@@ -37,8 +31,7 @@ export async function fetchJudgeContext(
   return submissionDomain.getJudgeContext(submissionId);
 }
 
-// Student files may override only `editable` workspace files; readonly/hidden
-// teacher files always win on path collision.
+// Student files may override only `editable` paths; readonly/hidden teacher files win.
 function mergeSandboxSources(
   draft: SubmissionDraft,
   judgeContext: submissionDomain.SubmissionJudgeContext
@@ -50,7 +43,6 @@ function mergeSandboxSources(
   const langFiles = judgeContext.workspaceFiles.filter((f) => f.language === draft.language);
 
   if (langFiles.length === 0) {
-    // No workspace files configured — single-file submission path.
     return {
       sourceCode: draft.sourceCode,
       ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {})
@@ -58,13 +50,10 @@ function mergeSandboxSources(
   }
 
   const merged = new Map<string, string>();
-
-  // Start with all workspace files (teacher-provided content).
   for (const wf of langFiles) {
     merged.set(wf.path, wf.content);
   }
 
-  // Overlay student sourceFiles, but only for editable paths.
   const editablePaths = new Set(
     langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path)
   );
@@ -74,14 +63,10 @@ function mergeSandboxSources(
       if (editablePaths.has(f.path)) {
         merged.set(f.path, f.content);
       }
-      // Non-editable student files are ignored (teacher version wins).
     }
   }
 
-  // Workspace-mode convention: the entry file is ALWAYS `main.<ext>`,
-  // ignoring any client-provided `draft.entryFile`. Keeps the server
-  // authoritative and matches the admin UI invariant that every enabled
-  // language ships exactly one editable `main.<ext>`.
+  // Entry file is always `main.<ext>`; `draft.entryFile` is ignored by design.
   const mainPath = entryFileNameFor(draft.language);
   if (draft.sourceCode && editablePaths.has(mainPath)) {
     merged.set(mainPath, draft.sourceCode);
@@ -108,12 +93,6 @@ export async function executeSandbox(
 
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
-  // Starter code + teacher assets flow through ProblemWorkspaceFile /
-  // mergeSandboxSources. Sample path: either the student-supplied run
-  // cases (from the editor bottom panel — ephemeral, never persisted)
-  // or, when absent, Problem.samples directly. Graded path: iterate
-  // testcase sets. Advanced-mode problems always bundle their own
-  // testcases inside the TA image.
   const useSamples = draft.sampleOnly === true;
   const useAdvanced =
     judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
@@ -121,10 +100,7 @@ export async function executeSandbox(
     useSamples && !useAdvanced && draft.runCases !== undefined && draft.runCases.length > 0;
 
   const testcasesForSandbox = hasRunCases
-    ? // `draft.runCases` is validated at the API edge
-      // (submissionDraftSchema), so we can rely on the cap/size limits
-      // having already been enforced before this runs.
-      draft.runCases!.map((tc, i) => ({
+    ? draft.runCases!.map((tc, i) => ({
         index: i,
         input: tc.input,
         ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),
@@ -140,9 +116,7 @@ export async function executeSandbox(
           isSample: true
         }))
       : useAdvanced
-        ? // Advanced-mode TA images bundle their own testcases; the
-          // system hands over student files + resource limits only.
-          []
+        ? [] // advanced: TA image bundles testcases
         : judgeContext.testcaseSets.flatMap((ts) =>
             ts.testcases.map((tc, i) => ({
               index: i,
@@ -157,9 +131,6 @@ export async function executeSandbox(
 
   const sources = mergeSandboxSources(draft, judgeContext);
 
-  // Build the advanced-mode payload when applicable. In the v2 contract
-  // the TA image bundles its own testcases; the system only hands over
-  // student files + resource limits.
   let advancedPayload: SandboxRequest["advanced"] | undefined;
   if (judgeContext.problemType === "special_env" && judgeContext.advanced) {
     const ctx = judgeContext.advanced;
@@ -197,8 +168,6 @@ export async function executeSandbox(
 
   const result = await executor.execute(request);
 
-  // Sample runs don't apply scoring/adjustments — they're for student
-  // feedback only and never go to final grades.
   if (useSamples) {
     const mapped = submissionDomain.mapResult(result, [], judgeContext);
     mapped.score = 0;

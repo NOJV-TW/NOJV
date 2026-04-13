@@ -1,16 +1,3 @@
-/**
- * Thin wrapper around `@nojv/storage` for testcase + workspace blobs.
- *
- * Owns a lazily-constructed S3 client so domain mutations don't have to
- * thread one through every call. Tests `vi.mock("@nojv/storage", ...)`
- * the underlying module to stub out network IO entirely.
- *
- * Best-effort cleanup helpers (`*Cleanup`) catch + warn on failure rather
- * than rethrowing — DB has already committed by the time they run, so
- * failing them would surface a "delete failed" error to the user even
- * though the user-visible state is correct. Orphan S3 objects are a
- * tolerable cost per the design doc (2026-04-13 testcase blob storage).
- */
 import {
   createStorageClient,
   deleteBlob,
@@ -24,8 +11,7 @@ import {
   workspaceFileKey
 } from "@nojv/storage";
 
-// Inferred type of the storage client, avoiding a direct dep on
-// @aws-sdk/client-s3 in @nojv/domain (the AWS SDK lives under @nojv/storage).
+// Inferred to avoid pulling @aws-sdk/client-s3 into @nojv/domain.
 type StorageClient = ReturnType<typeof createStorageClient>;
 
 let cachedClient: StorageClient | null = null;
@@ -49,11 +35,7 @@ export interface TestcaseBlobKeys {
   inputFileKeys: Record<string, string> | null;
 }
 
-/**
- * Uploads input / output / aux files for a single testcase in parallel.
- * Returns the key columns to persist on the row. Caller MUST run this
- * BEFORE the DB INSERT so a failed S3 upload short-circuits the write.
- */
+/** MUST run before the DB INSERT so a failed upload short-circuits the write. */
 export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<TestcaseBlobKeys> {
   const client = getClient();
   const inputKey = testcaseInputKey(input.problemId, input.testcaseId);
@@ -86,11 +68,6 @@ export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<Tes
   return { inputKey, outputKey, inputFileKeys };
 }
 
-/**
- * Reads a testcase's input / expected output / aux files from S3 in parallel.
- * Returns the in-memory shape that judge-context callers used to read directly
- * from the DB row.
- */
 export async function readTestcaseBlobs(row: {
   inputKey: string;
   outputKey: string | null;
@@ -124,11 +101,7 @@ export async function readTestcaseBlobs(row: {
   return { input, output, inputFiles };
 }
 
-/**
- * Overwrites a single field (input or output) of a testcase in place.
- * Keys are stable for the lifetime of the row, so no DB UPDATE is needed
- * — we just put the new bytes at the existing key.
- */
+/** Keys are stable for the row's lifetime, so no DB UPDATE is needed. */
 export async function overwriteTestcaseField(
   problemId: string,
   testcaseId: string,
@@ -142,13 +115,7 @@ export async function overwriteTestcaseField(
   await putText(getClient(), key, content);
 }
 
-/**
- * Best-effort delete of every S3 object that backs a problem. Used by
- * `deleteProblem`. DB cascade has already removed every row by the time
- * this runs; an S3 failure here only leaves orphan objects, which the
- * design accepts. This sweeps the entire `problems/{id}/` prefix and so
- * also removes markdown images and advanced-mode tarballs.
- */
+/** Sweeps the entire `problems/{id}/` prefix; tolerates orphan objects on failure. */
 export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<void> {
   try {
     await deleteBlobsByPrefix(getClient(), problemPrefix(problemId));
@@ -160,12 +127,7 @@ export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<v
   }
 }
 
-/**
- * Best-effort delete of just the testcase + workspace blobs for a problem,
- * preserving any unrelated objects (markdown images, advanced-mode
- * tarballs). Used by the standard → advanced conversion path which drops
- * the standard-mode payloads but keeps everything else.
- */
+/** Clears testcase + workspace blobs only; keeps markdown images and tarballs. */
 export async function bestEffortDeleteProblemStandardBlobs(problemId: string): Promise<void> {
   const client = getClient();
   const prefixes = [`problems/${problemId}/testcases/`, `problems/${problemId}/workspace/`];
@@ -181,11 +143,6 @@ export async function bestEffortDeleteProblemStandardBlobs(problemId: string): P
   }
 }
 
-/**
- * Best-effort delete of every S3 object backing a single testcase. The key
- * layout puts input / output / aux files all under the testcase id prefix,
- * so a single prefix delete is enough.
- */
 export async function bestEffortDeleteTestcaseBlobs(
   problemId: string,
   testcaseId: string
@@ -200,9 +157,6 @@ export async function bestEffortDeleteTestcaseBlobs(
   }
 }
 
-/**
- * Best-effort delete of a single workspace-file blob.
- */
 export async function bestEffortDeleteWorkspaceBlob(
   problemId: string,
   fileId: string
@@ -217,10 +171,7 @@ export async function bestEffortDeleteWorkspaceBlob(
   }
 }
 
-/**
- * Writes a single workspace file's content to S3. Returns the key that
- * goes on the DB row. Caller MUST run this BEFORE the DB INSERT.
- */
+/** MUST run before the DB INSERT. Returns the key to persist on the row. */
 export async function writeWorkspaceFileBlob(
   problemId: string,
   fileId: string,
@@ -231,9 +182,6 @@ export async function writeWorkspaceFileBlob(
   return key;
 }
 
-/**
- * Reads a single workspace file's content from S3.
- */
 export async function readWorkspaceFileBlob(contentKey: string): Promise<string> {
   return getText(getClient(), contentKey);
 }

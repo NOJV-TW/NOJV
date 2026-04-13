@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import { submissionDraftSchema } from "./schemas/submission";
 
-// --- SSE events ---
-
 export const SSE_SUBMISSION_VERDICT = "submission:verdict" as const;
 export const SSE_CONTEST_STARTING = "contest:starting" as const;
 export const SSE_CONTEST_ENDING = "contest:ending" as const;
@@ -38,16 +36,12 @@ export type ContestEndingEvent = z.infer<typeof contestEndingEventSchema>;
 export type AssignmentDeadlineEvent = z.infer<typeof assignmentDeadlineEventSchema>;
 export type SSEEvent = z.infer<typeof sseEventSchema>;
 
-// --- Job schemas ---
-
 export const submissionJudgeJobSchema = z.object({
   draft: submissionDraftSchema,
   submissionId: z.string().trim().min(1)
 });
 
 export type SubmissionJudgeJob = z.infer<typeof submissionJudgeJobSchema>;
-
-// --- Redis connection ---
 
 interface RedisConnectionOptions {
   host: string;

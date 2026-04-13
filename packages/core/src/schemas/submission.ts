@@ -20,8 +20,7 @@ const sourceFileSchema = z.object({
   content: z.string().max(500_000)
 });
 
-// Problem IDs are persisted DB identifiers (e.g. "problem_noisy-oracle-hunt"),
-// so they must allow underscores in addition to slug-like characters.
+// Problem IDs use underscores (e.g. "problem_noisy-oracle-hunt"), not just slug chars.
 const problemIdentifierSchema = z
   .string()
   .trim()
@@ -29,15 +28,8 @@ const problemIdentifierSchema = z
   .max(128, "validation_tooLong")
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
-// Run cases are an ephemeral Run-mode input: the student types a short
-// list of stdin/expected-stdout pairs into the editor bottom panel and
-// the Run button replaces the DB sample set with them for that one
-// invocation. They are NEVER persisted and NEVER allowed on Submit —
-// mixing student-authored input into a graded run would break the
-// grading contract. The name `runCases` avoids collision with the DB
-// `Testcase` / `TestcaseSet` models, which are teacher-owned graded
-// data. Caps mirror `problemSampleSchema` (200_000 chars per field) so
-// the two paths have the same upper bound.
+// runCases are ephemeral student-authored Run-mode inputs — never persisted
+// and never allowed on Submit (would break the grading contract).
 const MAX_RUN_CASES = 10;
 const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
@@ -69,11 +61,7 @@ export const submissionDraftSchema = z
     }
   );
 
-// Output caps are defense-in-depth against a compromised or modified
-// sandbox-runner. The runner's `createBoundedBuffer` already caps the
-// raw child-process stream at 16 MB, so a well-behaved runner never gets
-// close to these limits. Per-field caps stop a bad runner from
-// overflowing downstream storage/rendering.
+// Defense-in-depth against a compromised sandbox-runner (runner already caps at 16 MB).
 const MAX_CASE_STDOUT_BYTES = 1_000_000; // 1 MB per testcase
 const MAX_CASE_STDERR_BYTES = 100_000; // 100 KB per testcase
 const MAX_SUBTASK_LABEL_LEN = 200;
@@ -92,10 +80,7 @@ export const subtaskCaseResultSchema = z.object({
   ordinal: z.number().int(),
   runtimeMs: z.number().int().nonnegative(),
   testcaseId: z.string(),
-  // Sandbox-layer verdicts ("AC" / "WA" / "TLE" / ...) not the DB enum
-  // — the conversion to `submissionVerdictSchema` happens in the judge
-  // activity's verdictMap. Capped at 16 chars to prevent a malicious
-  // runner from sending arbitrary-length labels.
+  // Sandbox verdict string ("AC"/"WA"/...); mapped to DB enum in judge activity.
   verdict: z.string().max(16)
 });
 

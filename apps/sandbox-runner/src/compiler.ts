@@ -126,8 +126,7 @@ export async function compileChecker(
 ): Promise<CompileResult> {
   if (language === "python") {
     const userSource = await fs.readFile(scriptPath, "utf-8");
-    const wrapper =
-      mode === "checker" ? PYTHON_CHECKER_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
+    const wrapper = mode === "checker" ? PYTHON_CHECKER_WRAPPER : PYTHON_INTERACTOR_WRAPPER;
     const wrappedPath = path.join(workDir, `${mode}.py`);
     await fs.writeFile(wrappedPath, `${wrapper}${userSource}`, "utf-8");
     return { success: true, runCommand: ["python3", wrappedPath] };

@@ -70,7 +70,9 @@ test.describe("Advanced Mode Lifecycle", () => {
     await context.close();
   });
 
-  test("edit page renders the advanced layout for special_env problems and accepts a registry image ref", async ({ browser }) => {
+  test("edit page renders the advanced layout for special_env problems and accepts a registry image ref", async ({
+    browser
+  }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 

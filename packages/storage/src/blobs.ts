@@ -15,11 +15,14 @@ const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const DELETE_BATCH_SIZE = 1000;
 
 export async function putText(client: S3Client, key: string, content: string): Promise<void> {
+  // Explicit Buffer + ContentLength silences the AWS SDK unknown-length warning.
+  const body = Buffer.from(content, "utf-8");
   await client.send(
     new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      Body: content,
+      Body: body,
+      ContentLength: body.byteLength,
       ContentType: TEXT_CONTENT_TYPE
     })
   );
@@ -86,6 +89,8 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
       );
     }
 
-    continuationToken = listResponse.IsTruncated ? listResponse.NextContinuationToken : undefined;
+    continuationToken = listResponse.IsTruncated
+      ? listResponse.NextContinuationToken
+      : undefined;
   } while (continuationToken);
 }
