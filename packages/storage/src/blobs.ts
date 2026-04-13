@@ -15,11 +15,17 @@ const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const DELETE_BATCH_SIZE = 1000;
 
 export async function putText(client: S3Client, key: string, content: string): Promise<void> {
+  // Convert to Buffer and pass ContentLength explicitly so the AWS SDK
+  // doesn't treat the body as a stream of unknown length (which triggers
+  // "Consider using Upload instead from @aws-sdk/lib-storage" warnings
+  // on stderr for every put).
+  const body = Buffer.from(content, "utf-8");
   await client.send(
     new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      Body: content,
+      Body: body,
+      ContentLength: body.byteLength,
       ContentType: TEXT_CONTENT_TYPE
     })
   );
