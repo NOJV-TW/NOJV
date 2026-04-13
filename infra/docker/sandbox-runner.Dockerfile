@@ -23,6 +23,14 @@ RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust \
   && chown -R sandbox:sandbox /runner /workspace /tmp /home/sandbox
 
 COPY --from=builder /build/apps/sandbox-runner/dist/ /runner/
+# Python wrapper assets must travel with the runner. compiler.ts resolves
+# them at `<dirname-of-compiler.js>/../assets/wrappers/...`, so with
+# compiler.js at /runner/compiler.js the wrappers must live at
+# /assets/wrappers/.
+COPY apps/sandbox-runner/assets/wrappers/ /assets/wrappers/
+# Vendored Codeforces testlib.h — installed globally so g++ can resolve
+# `#include "testlib.h"` from any working directory.
+COPY apps/sandbox-runner/assets/testlib/testlib.h /usr/include/testlib.h
 
 ENV HOME="/tmp"
 WORKDIR /workspace

@@ -26,6 +26,35 @@ vi.mock("$app/environment", () => ({
   building: false
 }));
 
+// Stub @nojv/storage so domain code can resolve `getText` without an S3
+// backend. The fake `getText` returns the key it was called with so the
+// content assertions below can use known values via `contentKey`.
+vi.mock("@nojv/storage", () => {
+  const blobStore = new Map<string, string>();
+  return {
+    createStorageClient: () => ({}),
+    getText: vi.fn((_client: unknown, key: string) =>
+      Promise.resolve(blobStore.get(key) ?? "")
+    ),
+    putText: vi.fn((_client: unknown, key: string, content: string) => {
+      blobStore.set(key, content);
+      return Promise.resolve();
+    }),
+    deleteBlob: vi.fn(() => Promise.resolve()),
+    deleteBlobsByPrefix: vi.fn(() => Promise.resolve()),
+    testcaseInputKey: (problemId: string, testcaseId: string) =>
+      `problems/${problemId}/testcases/${testcaseId}/input`,
+    testcaseOutputKey: (problemId: string, testcaseId: string) =>
+      `problems/${problemId}/testcases/${testcaseId}/output`,
+    testcaseInputFileKey: (problemId: string, testcaseId: string, filename: string) =>
+      `problems/${problemId}/testcases/${testcaseId}/files/${filename}`,
+    workspaceFileKey: (problemId: string, fileId: string) =>
+      `problems/${problemId}/workspace/${fileId}`,
+    problemPrefix: (problemId: string) => `problems/${problemId}/`,
+    __blobStore: blobStore
+  };
+});
+
 vi.mock("@nojv/db", () => ({
   problemRepo: {
     count: countProblems,
@@ -241,6 +270,24 @@ describe("DB-backed read model", () => {
   });
 
   it("exposes hidden workspace files as metadata-only (blank content) and uses editable ones for starter code", async () => {
+    // Pre-populate the fake S3 store so the read path can `getText` the
+    // workspace contents using the keys the rows point at.
+    const storage = (await import("@nojv/storage")) as unknown as {
+      __blobStore: Map<string, string>;
+    };
+    storage.__blobStore.set(
+      "problems/prob_blanks/workspace/file_solution",
+      "int solve() { return 42; }\n"
+    );
+    storage.__blobStore.set(
+      "problems/prob_blanks/workspace/file_helpers",
+      "#pragma once\nint solve();\n"
+    );
+    storage.__blobStore.set(
+      "problems/prob_blanks/workspace/file_grader",
+      "// server-only test harness\n"
+    );
+
     findDetailById.mockResolvedValue({
       _count: { submissions: 0 },
       author: { username: "teacher" },
@@ -263,7 +310,7 @@ describe("DB-backed read model", () => {
         {
           language: "cpp",
           path: "solution.cpp",
-          content: "int solve() { return 42; }\n",
+          contentKey: "problems/prob_blanks/workspace/file_solution",
           description: "Your solution goes here.",
           visibility: "editable",
           orderIndex: 0
@@ -271,7 +318,7 @@ describe("DB-backed read model", () => {
         {
           language: "cpp",
           path: "helpers.h",
-          content: "#pragma once\nint solve();\n",
+          contentKey: "problems/prob_blanks/workspace/file_helpers",
           description: "",
           visibility: "readonly",
           orderIndex: 1
@@ -279,7 +326,7 @@ describe("DB-backed read model", () => {
         {
           language: "cpp",
           path: "grader.cpp",
-          content: "// server-only test harness\n",
+          contentKey: "problems/prob_blanks/workspace/file_grader",
           description: "Hidden server-side grader.",
           visibility: "hidden",
           orderIndex: 2

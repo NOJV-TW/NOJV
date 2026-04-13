@@ -286,8 +286,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
         result = await judgeStandard(
           compileResult.runCommand,
           testcase,
-          config.limits.timeoutMs,
-          config.compare
+          config.limits.timeoutMs
         );
         break;
 

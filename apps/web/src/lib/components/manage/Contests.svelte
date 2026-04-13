@@ -122,6 +122,7 @@
     enhance
   } = superForm<typeof formData.data, FormMessage>(untrack(() => formData), {
     dataType: "json",
+    resetForm: false,
     invalidateAll: true
   });
 

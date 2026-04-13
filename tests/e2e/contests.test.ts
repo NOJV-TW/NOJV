@@ -39,10 +39,14 @@ test.describe("Contests", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     await page.goto("/contests");
-    // Type a non-matching query to verify filtering works
-    await page.getByRole("searchbox").fill("nonexistent-contest-xyz");
-    // The contest card should no longer be visible
-    await expect(page.getByText("Spring Qualifier 2026")).not.toBeVisible();
+    // Wait for the list to render before interacting with the search box.
+    await expect(page.getByText("Spring Qualifier 2026")).toBeVisible();
+    // Type a non-matching query to verify filtering works.
+    const searchbox = page.getByRole("searchbox");
+    await searchbox.fill("nonexistent-contest-xyz");
+    // Svelte 5's bind:value may update reactively on the next microtask;
+    // poll the heading for absence with generous timeout.
+    await expect(page.getByText("Spring Qualifier 2026")).not.toBeVisible({ timeout: 10_000 });
     await context.close();
   });
 });

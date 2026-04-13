@@ -7,3 +7,4 @@ export { runTransaction, type TransactionClient } from "./transaction";
 // require the raw PrismaClient — application code should use repositories.
 export { prisma as prismaAdapterClient } from "./client";
 export { Prisma };
+export { SubtaskScoringStrategy } from "../generated/prisma/client";

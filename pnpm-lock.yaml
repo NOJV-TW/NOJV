@@ -322,6 +322,9 @@ importers:
       '@nojv/redis':
         specifier: workspace:*
         version: link:../redis
+      '@nojv/storage':
+        specifier: workspace:*
+        version: link:../storage
       zod:
         specifier: ^4.3.6
         version: 4.3.6

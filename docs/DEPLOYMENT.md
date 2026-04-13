@@ -8,8 +8,7 @@
 | ------------- | ------------------------------ | ---------- | -------------------------------- |
 | postgres      | postgres:18-alpine             | 5432       | Database (app + Temporal)        |
 | redis         | redis:8-alpine                 | 6379       | Cache, pub/sub, scoreboard       |
-| minio         | minio/minio                    | 9000, 9001 | S3-compatible object storage     |
-| minio-init    | minio/mc                       | —          | Creates bucket + public policy   |
+| garage        | dxflrs/garage:v1.0.1           | 3900, 3903 | S3-compatible object storage     |
 | temporal      | temporalio/auto-setup:latest   | 7233       | Workflow engine                  |
 | temporal-ui   | temporalio/ui:latest           | 8080       | Workflow monitoring              |
 | web           | Custom (prod profile)          | 3000       | SvelteKit production build       |
@@ -88,16 +87,16 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Object Storage (S3-Compatible)
 
-| Variable        | Default                 | Purpose                              |
-| --------------- | ----------------------- | ------------------------------------ |
-| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)        |
-| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key                        |
-| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key                        |
-| `S3_BUCKET`     | `nojv`                  | Bucket name                          |
-| `S3_PUBLIC_URL` | (same as endpoint)      | Public URL for images (optional CDN) |
-| `S3_REGION`     | `auto`                  | S3 region                            |
+| Variable        | Default                 | Purpose                                         |
+| --------------- | ----------------------- | ----------------------------------------------- |
+| `S3_ENDPOINT`   | `http://localhost:3900` | S3 API endpoint (Garage local)                  |
+| `S3_ACCESS_KEY` | —                       | S3 access key (from bootstrap-garage.sh in dev) |
+| `S3_SECRET_KEY` | —                       | S3 secret key (from bootstrap-garage.sh in dev) |
+| `S3_BUCKET`     | `nojv`                  | Bucket name                                     |
+| `S3_PUBLIC_URL` | (same as endpoint)      | Public URL for images (optional CDN)            |
+| `S3_REGION`     | `auto`                  | S3 region                                       |
 
-Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2, or AWS S3 — change env vars only.
+Local dev uses Garage. Production can use GCS (S3-compatible mode), Cloudflare R2, or AWS S3 — change env vars only.
 
 ### Kubernetes (Production Only)
 
