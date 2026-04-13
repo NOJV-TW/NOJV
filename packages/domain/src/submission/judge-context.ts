@@ -85,10 +85,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     type: "standard" as const
   };
 
-  // Hydrate every testcase set's blobs in parallel. Each testcase row
-  // carries S3 keys (inputKey / outputKey / inputFileKeys) which we read
-  // back as in-memory strings here so the rest of the pipeline (worker,
-  // sandbox-runner) sees the same shape it always has.
   const testcaseSets: TestcaseSetGroup[] = await Promise.all(
     problem.testcaseSets.map(async (ts) => {
       const testcases = await Promise.all(
@@ -118,8 +114,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const samples = collectSamples(problem);
 
-  // Runtime: authoritative source is judgeConfig.runtime. Legacy problems
-  // fall back to Problem.timeLimitMs / memoryLimitMb.
+  // Legacy problems without judgeConfig.runtime fall back to Problem columns.
   const runtime: Runtime = judgeConfig.runtime ?? {
     env: {},
     memoryLimitMb: problem.memoryLimitMb,
@@ -130,9 +125,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy])
   );
 
-  // Hydrate every workspace file's content from S3 in parallel. Same
-  // shape as before — downstream consumers (worker, judge.ts) read
-  // `f.content` directly.
   const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
     problem.workspaceFiles.map(
       async (f): Promise<WorkspaceFileEntry> => ({
@@ -146,9 +138,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const assessment = submission.courseAssessment;
 
-  // Late-penalty rules live on the assessment only — contests no longer
-  // carry adjustmentRules. The contest endsAt is still a useful default
-  // due-by for fallback display.
+  // Adjustment rules are assessment-only; contest endsAt is a fallback due-by.
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
     assessmentAdjustmentRules: assessment?.adjustmentRules as AdjustmentRules | null,
@@ -156,8 +146,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     submittedAt: submission.createdAt
   };
 
-  // special_env: the TA image fully owns grading. The system only hands
-  // over the student files + resource limits; no testcase payload.
   const problemType = problem.type as ProblemType;
   const advanced: AdvancedModeContext | null =
     problemType === "special_env" && problem.advancedImageRef && problem.advancedImageSource
@@ -210,9 +198,6 @@ export async function completeJudge(
   submissionId: string,
   result: SubmissionResult
 ): Promise<CompletedSubmission> {
-  // verdictDetail is the sole source of truth for the full result blob:
-  // case-by-case results, subtask scores, compiler output — they all live
-  // inside it. There are no separate columns to keep in sync any more.
   const submission = await submissionRepo.complete(submissionId, {
     runtimeMs: result.runtimeMs,
     score: result.score,
@@ -242,8 +227,6 @@ export async function findForRejudge(input: {
     sampleOnly: false
   };
 
-  // Submission has direct contestId / courseAssessmentId columns now;
-  // no need to traverse contestParticipation.
   if (input.contestId) {
     where.contestId = input.contestId;
   }
