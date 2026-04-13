@@ -94,6 +94,7 @@
   let showCreateForm = $state(false);
 
   const { form, errors, submitting, message: formMessage, enhance } = superForm(untrack(() => data.form), {
+    resetForm: false,
     invalidateAll: true
   });
 </script>

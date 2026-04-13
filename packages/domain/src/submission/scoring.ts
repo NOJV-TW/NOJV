@@ -25,9 +25,9 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
 };
 
 // Subtask strategies:
-//   all_or_nothing  weight * (all cases passed ? 1 : 0)
-//   proportional    weight * (passed / total), passed iff every case passed
-//   minimum         accepted for schema compatibility but collapses to all_or_nothing;
+//   ALL_OR_NOTHING  weight * (all cases passed ? 1 : 0)
+//   PROPORTIONAL    weight * (passed / total), passed iff every case passed
+//   MINIMUM         accepted for schema compatibility but collapses to ALL_OR_NOTHING;
 //                   no partial-credit signal exists to take a minimum over today
 export function buildSubtaskResults(
   result: SandboxResult,
@@ -53,16 +53,16 @@ export function buildSubtaskResults(
     const passed = cases.filter((c) => c.verdict === "AC").length;
     const allPassed = total > 0 && passed === total;
 
-    const strategy = strategies[ts.id] ?? "all_or_nothing";
+    const strategy = strategies[ts.id] ?? "ALL_OR_NOTHING";
     let rawScore: number;
     if (total === 0) {
       rawScore = 0;
-    } else if (strategy === "proportional") {
+    } else if (strategy === "PROPORTIONAL") {
       rawScore = ts.weight * (passed / total);
-    } else if (strategy === "minimum") {
+    } else if (strategy === "MINIMUM") {
       rawScore = allPassed ? ts.weight : 0;
     } else {
-      // all_or_nothing default
+      // ALL_OR_NOTHING default
       rawScore = allPassed ? ts.weight : 0;
     }
 

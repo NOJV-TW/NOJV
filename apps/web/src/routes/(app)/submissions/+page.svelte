@@ -3,6 +3,9 @@
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/ui/Section.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { formatVerdictLabel, verdictColor } from "$lib/types";
+
+  let { data } = $props();
 </script>
 
 <Section>
@@ -11,17 +14,48 @@
     <p>{m.submissions_workspaceHint()}</p>
   {/snippet}
 
-  <EmptyState
-    variant="onboarding"
-    icon={Code2}
-    title={m.submissions_empty()}
-    description={m.submissions_emptyHint()}
-    actions={[
-      {
-        href: "/problems",
-        label: m.submissions_browseCta(),
-        variant: "default",
-      },
-    ]}
-  />
+  {#if data.submissions.length === 0}
+    <EmptyState
+      variant="onboarding"
+      icon={Code2}
+      title={m.submissions_empty()}
+      description={m.submissions_emptyHint()}
+      actions={[
+        {
+          href: "/problems",
+          label: m.submissions_browseCta(),
+          variant: "default"
+        }
+      ]}
+    />
+  {:else}
+    <div class="grid gap-2">
+      {#each data.submissions as sub (sub.id)}
+        {@const label = formatVerdictLabel(sub.status)}
+        <a
+          class="rounded-lg border border-border-subtle px-4 py-3 transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+          href="/problems/{sub.problemId}"
+        >
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="truncate text-body-sm font-semibold text-foreground">
+              {sub.problemTitle}
+            </span>
+            <span class="shrink-0 text-caption text-muted-foreground tabular-nums">
+              {new Date(sub.createdAt).toLocaleString()}
+            </span>
+          </div>
+          <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
+            <span class={verdictColor[sub.status] ?? "text-foreground"}>
+              {label}
+            </span>
+            <span>{sub.language}</span>
+            <span class="tabular-nums">{sub.score}/100</span>
+            {#if sub.runtimeMs && sub.runtimeMs > 0}
+              <span class="tabular-nums">{sub.runtimeMs} ms</span>
+            {/if}
+          </div>
+        </a>
+      {/each}
+    </div>
+  {/if}
 </Section>

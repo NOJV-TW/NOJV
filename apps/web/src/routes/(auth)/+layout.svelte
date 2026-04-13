@@ -9,7 +9,7 @@
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col px-4 sm:px-6 lg:px-8">
-  <div class="mx-auto w-full max-w-7xl pt-4">
+  <div class="mx-auto w-full max-w-screen-2xl pt-4">
     <Header />
   </div>
   <div class="flex flex-1 items-center justify-center py-10">

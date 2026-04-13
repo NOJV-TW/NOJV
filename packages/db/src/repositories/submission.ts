@@ -98,6 +98,26 @@ export const submissionRepo = {
     });
   },
 
+  listByUser(opts: { userId: string; take?: number }) {
+    return prisma.submission.findMany({
+      where: {
+        userId: opts.userId,
+        sampleOnly: false
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        runtimeMs: true,
+        problem: { select: problemMiniSelect }
+      },
+      take: opts.take ?? 50
+    });
+  },
+
   count(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.count({ where });
   },

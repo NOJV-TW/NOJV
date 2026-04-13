@@ -11,8 +11,9 @@
     inFlightProvider = provider;
     try {
       await authClient.signIn.social({ callbackURL: "/", provider });
-    } finally {
-      // Keep UX recoverable if redirect is blocked or request errors locally.
+      // Don't clear loading — browser is navigating to OAuth provider.
+    } catch {
+      // Recover if redirect was blocked or request errored locally.
       inFlightProvider = null;
     }
   }

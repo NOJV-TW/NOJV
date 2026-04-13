@@ -7,7 +7,7 @@
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary
   } from "$lib/types";
-  import { difficultyClass, formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
+  import { formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
@@ -222,24 +222,22 @@
     <div class="p-5">
       <h1 class="text-body-lg font-semibold leading-snug">{problem.title}</h1>
 
-      <div class="mt-3 flex flex-wrap items-center gap-1.5">
-        <span
-          class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-semibold capitalize {difficultyClass(problem.difficulty)}"
-        >
-          {problem.difficulty}
-        </span>
-        {#each problem.tags as tag (tag)}
-          <span
-            class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
-          >
-            {tag}
-          </span>
-        {/each}
-      </div>
+      {#if problem.tags.length > 0}
+        <div class="mt-3 flex flex-wrap items-center gap-1.5">
+          {#each problem.tags as tag (tag)}
+            <span
+              class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
+            >
+              {tag}
+            </span>
+          {/each}
+        </div>
+      {/if}
 
       <SpecialLabels
         problemType={problem.type}
         judgeType={problem.judgeType}
+        difficulty={problem.difficulty}
       />
 
       <div class="mt-5 text-body-sm leading-7 text-foreground">

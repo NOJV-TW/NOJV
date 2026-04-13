@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
+
   const dockerfileExample = `FROM python:3.12-slim
 WORKDIR /grader
 
@@ -60,35 +62,34 @@ OUTPUT.write_text(json.dumps({
 
 <section class="space-y-4">
   <header class="space-y-1">
-    <h3 class="text-body-lg font-semibold">Container contract</h3>
+    <h3 class="text-body-lg font-semibold">{m.admin_containerContract()}</h3>
     <p class="text-body-sm text-muted-foreground">
-      助教的 image 完全自治:測資、評分腳本都必須 bundle 進 image。系統只負責傳入學生檔案,
-      並讀取你寫出的結果。
+      {m.admin_containerContractHint()}
     </p>
   </header>
 
   <div class="grid gap-4 md:grid-cols-2">
     <div class="rounded-xl border border-border-subtle bg-muted/30 p-4 text-body-sm">
-      <p class="font-semibold">系統會傳入</p>
+      <p class="font-semibold">{m.admin_systemProvides()}</p>
       <ul class="mt-2 space-y-1 text-body-sm text-muted-foreground">
         <li>
           <code class="rounded bg-muted px-1 py-0.5 text-caption">/workspace/submission/</code>
-          ← 學生檔案 (read-write)
+          ← {m.admin_submissionFiles()}
         </li>
         <li>
           <code class="rounded bg-muted px-1 py-0.5 text-caption">/workspace/meta.json</code>
-          ← submissionId / language
+          ← {m.admin_metaJson()}
         </li>
         <li>env <code class="rounded bg-muted px-1 py-0.5 text-caption">SUBMISSION_ID</code></li>
         <li>env <code class="rounded bg-muted px-1 py-0.5 text-caption">LANGUAGE</code></li>
       </ul>
       <p class="mt-3 text-caption text-muted-foreground">
-        容器 <code>--network=none</code>,無網路存取。
+        {m.admin_noNetwork({ flag: '--network=none' })}
       </p>
     </div>
 
     <div class="rounded-xl border border-border-subtle bg-muted/30 p-4 text-body-sm">
-      <p class="font-semibold">你必須輸出</p>
+      <p class="font-semibold">{m.admin_mustOutput()}</p>
       <ul class="mt-2 space-y-1 text-body-sm text-muted-foreground">
         <li>
           <code class="rounded bg-muted px-1 py-0.5 text-caption">/workspace/output/result.json</code>
@@ -104,21 +105,20 @@ OUTPUT.write_text(json.dumps({
   ]
 }`}</pre>
       <p class="mt-3 text-caption text-muted-foreground">
-        Exit code 非 0 → runtime_error;缺 <code>result.json</code> 或格式錯誤
-        → 顯示為 SE。
+        {@html m.admin_exitCodeWarning({ file: '<code>result.json</code>' })}
       </p>
     </div>
   </div>
 
   <div class="space-y-3">
     <div class="flex items-center justify-between">
-      <p class="text-body-sm font-semibold">範例 Dockerfile</p>
+      <p class="text-body-sm font-semibold">{m.admin_exampleDockerfile()}</p>
       <button
         type="button"
         class="rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
         onclick={() => copy("dockerfile", dockerfileExample)}
       >
-        {copied === "dockerfile" ? "Copied" : "Copy"}
+        {copied === "dockerfile" ? m.common_copied() : m.common_copy()}
       </button>
     </div>
     <pre
@@ -127,13 +127,13 @@ OUTPUT.write_text(json.dumps({
 
   <div class="space-y-3">
     <div class="flex items-center justify-between">
-      <p class="text-body-sm font-semibold">範例 grader.py</p>
+      <p class="text-body-sm font-semibold">{m.admin_exampleGrader()}</p>
       <button
         type="button"
         class="rounded-full border border-border px-3 py-1 text-caption font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
         onclick={() => copy("grader", graderExample)}
       >
-        {copied === "grader" ? "Copied" : "Copy"}
+        {copied === "grader" ? m.common_copied() : m.common_copy()}
       </button>
     </div>
     <pre
