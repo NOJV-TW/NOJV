@@ -1,8 +1,7 @@
 import { submissionRepo } from "@nojv/db";
-import type { Prisma } from "@nojv/db";
+import type { Prisma, SubtaskScoringStrategy } from "@nojv/db";
 import type {
   AdjustmentRules,
-  Compare,
   JudgeConfig,
   JudgeType,
   ProblemImageSource,
@@ -32,7 +31,7 @@ export interface WorkspaceFileEntry {
   visibility: WorkspaceFileVisibility;
 }
 
-export type SubtaskStrategyMap = Record<string, "all_or_nothing" | "proportional" | "minimum">;
+export type SubtaskStrategyMap = Record<string, SubtaskScoringStrategy>;
 
 export interface AdjustmentContext {
   assessmentAdjustmentRules: AdjustmentRules | null;
@@ -52,7 +51,6 @@ export interface AdvancedModeContext {
 export interface SubmissionJudgeContext {
   adjustment: AdjustmentContext;
   checkerScript: string | null;
-  compare: Compare | null;
   interactorScript: string | null;
   judgeType: JudgeType;
   runtime: Runtime;
@@ -109,8 +107,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     timeLimitMs: problem.timeLimitMs
   };
 
-  const subtaskStrategies: SubtaskStrategyMap =
-    (judgeConfig.scoring?.subtaskStrategies as SubtaskStrategyMap | undefined) ?? {};
+  const subtaskStrategies: SubtaskStrategyMap = Object.fromEntries(
+    problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy])
+  );
 
   const workspaceFiles: WorkspaceFileEntry[] = problem.workspaceFiles.map((f) => ({
     content: f.content,
@@ -149,7 +148,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   return {
     adjustment,
     checkerScript: judgeConfig.checkerScript ?? null,
-    compare: judgeConfig.compare ?? null,
     interactorScript: judgeConfig.interactorScript ?? null,
     judgeType: judgeConfig.type,
     runtime,

@@ -18,6 +18,7 @@
     id: string;
     name: string;
     weight: number;
+    scoringStrategy: string;
     testcases: TestcaseData[];
   }
 
@@ -32,6 +33,17 @@
     "w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
 
   let subtaskSets = $derived(testcaseSets.filter((s) => s.weight > 0));
+
+  function strategyLabel(strategy: string): string {
+    switch (strategy) {
+      case "PROPORTIONAL":
+        return m.testcases_scoringStrategyProportional();
+      case "MINIMUM":
+        return m.testcases_scoringStrategyMinimum();
+      default:
+        return m.testcases_scoringStrategyAllOrNothing();
+    }
+  }
 
   let error = $state<string | null>(null);
 
@@ -151,6 +163,15 @@
         {#each subtaskSets as set (set.id)}
           <TestcaseSetCard {set} {problemId} />
         {/each}
+      </div>
+
+      <div class="mt-4 rounded-lg bg-muted/50 px-3 py-2">
+        <span class="text-caption text-muted-foreground">{m.testcases_totalScoreLabel()}: </span>
+        <span class="text-caption font-mono"
+          >{subtaskSets
+            .map((s) => `${s.name} (${String(s.weight)}pts, ${strategyLabel(s.scoringStrategy)})`)
+            .join(" + ")}</span
+        >
       </div>
     {/if}
   </section>

@@ -49,29 +49,43 @@ afterEach(async () => {
 // ─── Compiler Edge Cases ────────────────────────────────────────────
 
 describe("compiler edge cases", () => {
-  it("compileChecker with Python script", async () => {
-    const checkerSource = `import sys\nprint("checker works")\nsys.exit(0)`;
+  it("compileChecker with Python script prepends the wrapper", async () => {
+    const checkerSource = `print("checker works")\n`;
     const checkerFile = join(workDir, "checker.py");
     await writeFile(checkerFile, checkerSource);
 
     const result = await compileChecker(checkerFile, "python", workDir, "checker");
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.runCommand).toEqual(["python3", checkerFile]);
+      // The wrapped script lives at <workDir>/checker.py and is run by python3.
+      expect(result.runCommand[0]).toBe("python3");
+      expect(result.runCommand[1]).toBe(join(workDir, "checker.py"));
+      const { readFile } = await import("node:fs/promises");
+      const wrapped = await readFile(result.runCommand[1]!, "utf-8");
+      // Wrapper exposes the named globals expected by the checker protocol.
+      expect(wrapped).toContain("judge_input");
+      expect(wrapped).toContain("judge_output");
+      expect(wrapped).toContain("process_output");
+      // User code is appended after the wrapper.
+      expect(wrapped).toContain(checkerSource);
     }
   });
 
-  it("compileChecker with C program", async () => {
-    const checkerSource = `#include <stdio.h>
-int main() { printf("checker\\n"); return 0; }`;
-    const checkerFile = join(workDir, "checker.c");
-    await writeFile(checkerFile, checkerSource);
+  it("compileChecker with Python interactor uses the interactor wrapper", async () => {
+    const interactorSource = `write("hello")\n`;
+    const interactorFile = join(workDir, "interactor.py");
+    await writeFile(interactorFile, interactorSource);
 
-    const result = await compileChecker(checkerFile, "c", workDir, "checker");
-    if (isCompilerEnvironmentIssue(result)) return;
+    const result = await compileChecker(interactorFile, "python", workDir, "interactor");
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.runCommand[0]).toBe(join(workDir, "checker"));
+      expect(result.runCommand[1]).toBe(join(workDir, "interactor.py"));
+      const { readFile } = await import("node:fs/promises");
+      const wrapped = await readFile(result.runCommand[1]!, "utf-8");
+      // Interactor wrapper exposes read/write helpers.
+      expect(wrapped).toContain("def read():");
+      expect(wrapped).toContain("def write(msg):");
+      expect(wrapped).toContain(interactorSource);
     }
   });
 
@@ -89,55 +103,16 @@ int main() { std::cout << "checker" << std::endl; return 0; }`;
     }
   });
 
-  it("compileChecker with Go program", async () => {
-    const checkerSource = `package main
-import "fmt"
-func main() { fmt.Println("checker") }`;
-    const checkerFile = join(workDir, "checker.go");
-    await writeFile(checkerFile, checkerSource);
-
-    const result = await compileChecker(checkerFile, "go", workDir, "checker");
-    if (isCompilerEnvironmentIssue(result)) return;
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.runCommand[0]).toBe(join(workDir, "checker"));
-    }
-  }, 30_000);
-
-  it("compileChecker with Rust program", async () => {
-    const checkerSource = `fn main() { println!("checker"); }`;
-    const checkerFile = join(workDir, "checker.rs");
-    await writeFile(checkerFile, checkerSource);
-
-    const result = await compileChecker(checkerFile, "rust", workDir, "checker");
-    if (isCompilerEnvironmentIssue(result)) return;
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.runCommand[0]).toBe(join(workDir, "checker"));
-    }
-  }, 30_000);
-
-  it("compileChecker with invalid C code returns error", async () => {
-    const invalidSource = "not valid C code";
-    const checkerFile = join(workDir, "badchecker.c");
+  it("compileChecker with invalid C++ code returns error", async () => {
+    const invalidSource = "not valid C++ code";
+    const checkerFile = join(workDir, "badchecker.cpp");
     await writeFile(checkerFile, invalidSource);
 
-    const result = await compileChecker(checkerFile, "c", workDir, "checker");
+    const result = await compileChecker(checkerFile, "cpp", workDir, "checker");
     if (isCompilerEnvironmentIssue(result)) return;
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toBeTruthy();
-    }
-  });
-
-  it("compileChecker with unknown language defaults to Python", async () => {
-    const scriptFile = join(workDir, "script.txt");
-    await writeFile(scriptFile, "print('hello')");
-
-    const result = await compileChecker(scriptFile, "unknown", workDir, "script");
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.runCommand).toEqual(["python3", scriptFile]);
     }
   });
 

@@ -4,6 +4,7 @@
   import { ChevronDown, ChevronRight, Pencil, Trash2, Eye, EyeOff } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { postProblemAction } from "$lib/utils/actions";
+  import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
 
   interface TestcaseData {
     id: string;
@@ -17,12 +18,30 @@
       id: string;
       name: string;
       weight: number;
+      scoringStrategy: string;
       testcases: TestcaseData[];
     };
     problemId: string;
   }
 
   let { set, problemId }: Props = $props();
+
+  const SCORING_STRATEGIES = ["ALL_OR_NOTHING", "PROPORTIONAL", "MINIMUM"] as const;
+  type ScoringStrategy = (typeof SCORING_STRATEGIES)[number];
+
+  async function changeScoringStrategy(value: string) {
+    if (!SCORING_STRATEGIES.includes(value as ScoringStrategy)) return;
+    saving = true;
+    try {
+      await postProblemAction(problemId, "updateTestcaseSetScoring", {
+        setId: set.id,
+        strategy: value
+      });
+      await invalidateAll();
+    } finally {
+      saving = false;
+    }
+  }
 
   let expanded = $state(false);
   let editing = $state(false);
@@ -132,6 +151,21 @@
     <span class="text-caption text-muted-foreground tabular-nums">
       {set.weight} {m.admin_pts()}
     </span>
+
+    <label class="flex items-center gap-1 text-caption text-muted-foreground">
+      <span>{m.testcases_scoringStrategy()}</span>
+      <HelpTooltip text={m.testcases_scoringStrategyHint()} />
+      <select
+        class="ml-1 rounded-lg border border-border bg-[color:var(--color-panel)] px-2 py-1 text-caption"
+        value={set.scoringStrategy}
+        disabled={saving}
+        onchange={(e) => void changeScoringStrategy((e.target as HTMLSelectElement).value)}
+      >
+        <option value="ALL_OR_NOTHING">{m.testcases_scoringStrategyAllOrNothing()}</option>
+        <option value="PROPORTIONAL">{m.testcases_scoringStrategyProportional()}</option>
+        <option value="MINIMUM">{m.testcases_scoringStrategyMinimum()}</option>
+      </select>
+    </label>
 
     <div class="ml-auto flex items-center gap-2">
       <button

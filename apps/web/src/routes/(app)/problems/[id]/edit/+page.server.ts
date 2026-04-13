@@ -2,7 +2,9 @@ import { error, fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import {
   languageSchema,
   problemCreateSchema,
+  problemImageSourceSchema,
   problemTestcaseSetCreateSchema,
+  problemTypeSchema,
   problemWorkspaceFileSchema,
   runtimeSchema,
   testcaseSetUpdateSchema,
@@ -19,7 +21,7 @@ import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
-import { problemWorkspaceFileRepo } from "@nojv/db";
+import { problemWorkspaceFileRepo, testcaseSetRepo, SubtaskScoringStrategy } from "@nojv/db";
 
 const {
   getProblemPageData,
@@ -38,7 +40,17 @@ const {
 const updateWorkspaceSchema = z.object({
   runtime: runtimeSchema.optional(),
   allowedLanguages: z.array(languageSchema).optional(),
+  type: problemTypeSchema.optional(),
   files: z.array(problemWorkspaceFileSchema).max(50)
+});
+
+// Save payload: the image ref + source plus the time/memory limit columns.
+// Only used when problem.type === "special_env".
+const advancedImageSavePayloadSchema = z.object({
+  source: problemImageSourceSchema,
+  ref: z.string().min(1).max(500),
+  timeLimitMs: z.coerce.number().int().min(1_000).max(300_000).optional(),
+  memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional()
 });
 
 export const load: PageServerLoad = handleLoad(
@@ -53,6 +65,10 @@ export const load: PageServerLoad = handleLoad(
       problemWorkspaceFileRepo.findByProblemId(params.id)
     ]);
 
+    // For special_env problems include advancedImageRef/advancedImageSource so
+    // problemCreateSchema's superRefine passes — BasicInfoTab never binds those
+    // fields but they ride along in $form and get submitted.
+    const isAdvanced = problem.type === "special_env";
     const form = await superValidate(
       {
         difficulty: problem.difficulty,
@@ -67,12 +83,31 @@ export const load: PageServerLoad = handleLoad(
         timeLimitMs: problem.timeLimitMs,
         title: problem.title,
         type: problem.type satisfies ProblemType,
-        visibility: problem.visibility
+        visibility: problem.visibility,
+        ...(isAdvanced
+          ? {
+              advancedImageRef: problem.advancedImageRef ?? "",
+              advancedImageSource: problem.advancedImageSource ?? "registry"
+            }
+          : {})
       },
       zod4(problemCreateSchema)
     );
 
-    return { problem, form, testcaseSets, workspaceFiles };
+    return {
+      problem,
+      form,
+      testcaseSets,
+      workspaceFiles,
+      imageConfig: isAdvanced
+        ? {
+            source: problem.advancedImageSource ?? "registry",
+            ref: problem.advancedImageRef ?? "",
+            timeLimitMs: problem.timeLimitMs,
+            memoryLimitMb: problem.memoryLimitMb
+          }
+        : null
+    };
   }
 );
 
@@ -155,12 +190,26 @@ export const actions: Actions = {
   updateJudgeConfig: saveJudgeConfig,
   updateScoring: saveJudgeConfig,
 
+  updateTestcaseSetScoring: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    const setId = readStringField(formData.get("setId"), "setId");
+    const rawStrategy = readStringField(formData.get("strategy"), "strategy");
+    const validValues = Object.values(SubtaskScoringStrategy);
+    if (!validValues.includes(rawStrategy as SubtaskScoringStrategy)) {
+      error(400, "Invalid scoring strategy");
+    }
+    await problemDomain.assertProblemEditAccess(actor, problemId);
+    await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy as SubtaskScoringStrategy);
+    return { success: true };
+  }),
+
   updateWorkspace: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
     const data = parseJsonField(formData.get("data"), updateWorkspaceSchema);
     const result = await updateProblemWorkspace(actor, problemId, {
       ...(data.runtime ? { runtime: data.runtime } : {}),
       ...(data.allowedLanguages ? { allowedLanguages: data.allowedLanguages } : {}),
+      ...(data.type ? { type: data.type } : {}),
       files: data.files.map((f) => ({
         language: f.language,
         path: f.path,
@@ -192,12 +241,31 @@ export const actions: Actions = {
   // intentionally destructive — workspace files, testcase sets, samples,
   // and judge config are discarded. Requires an explicit `confirm=yes`
   // field on the POST body to guard against accidental submissions.
+  // The same /edit route renders the advanced layout when problem.type
+  // becomes "special_env", so we just reload the same URL after converting.
   convertToAdvanced: problemEditAction(async ({ actor, problemId, event }) => {
     const formData = await event.request.formData();
     if (formData.get("confirm") !== "yes") {
       return fail(400, { message: "Conversion not confirmed" });
     }
     await convertProblemToAdvancedMode(actor, problemId);
-    redirect(303, `/problems/${problemId}/edit-advanced`);
+    redirect(303, `/problems/${problemId}/edit`);
+  }),
+
+  updateImage: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    const data = parseJsonField(formData.get("data"), advancedImageSavePayloadSchema);
+    try {
+      await updateProblemRecord(actor, problemId, {
+        type: "special_env",
+        advancedImageRef: data.ref,
+        advancedImageSource: data.source,
+        ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
+        ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {})
+      });
+    } catch (err) {
+      return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
+    }
+    return { success: true };
   })
 };

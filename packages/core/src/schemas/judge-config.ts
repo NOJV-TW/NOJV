@@ -1,31 +1,11 @@
 import { z } from "zod";
 import { judgeTypeSchema } from "../types";
-import { subtaskScoringStrategySchema } from "../pipeline";
 
 // Authoritative judge configuration.
 
-export const judgeScriptLanguageSchema = z.enum(["bash", "python", "node", "c", "cpp"]);
+export const judgeScriptLanguageSchema = z.enum(["python", "cpp"]);
 
 export type JudgeScriptLanguage = z.infer<typeof judgeScriptLanguageSchema>;
-
-export const compareModeSchema = z.enum([
-  "exact",
-  "ignore_whitespace",
-  "ignore_case",
-  "float",
-  "regex_filter"
-]);
-
-export type CompareMode = z.infer<typeof compareModeSchema>;
-
-export const compareSchema = z.object({
-  mode: compareModeSchema.default("exact"),
-  floatAbsTol: z.number().min(0).optional(),
-  floatRelTol: z.number().min(0).optional(),
-  ignoreLinePatterns: z.array(z.string().max(1_000)).max(20).optional()
-});
-
-export type Compare = z.infer<typeof compareSchema>;
 
 export const runtimeSchema = z.object({
   timeLimitMs: z.coerce.number().int().min(100).max(30_000).default(1_000),
@@ -35,17 +15,8 @@ export const runtimeSchema = z.object({
 
 export type Runtime = z.infer<typeof runtimeSchema>;
 
-export const judgeScoringSchema = z.object({
-  subtaskStrategies: z.record(z.string(), subtaskScoringStrategySchema).default({})
-});
-
-export type JudgeScoring = z.infer<typeof judgeScoringSchema>;
-
 export const judgeConfigSchema = z.object({
   type: judgeTypeSchema.default("standard"),
-
-  // Standard judge: compare mode
-  compare: compareSchema.optional(),
 
   // Checker / interactive scripts
   checkerScript: z.string().max(200_000).optional(),
@@ -54,11 +25,7 @@ export const judgeConfigSchema = z.object({
   interactorLanguage: judgeScriptLanguageSchema.optional(),
 
   // Runtime: authoritative source for time/memory limits + env.
-  runtime: runtimeSchema.optional(),
-
-  // Scoring: subtask strategies only. Adjustment rules live on
-  // CourseAssessment / Contest.adjustmentRules.
-  scoring: judgeScoringSchema.optional()
+  runtime: runtimeSchema.optional()
 });
 
 export type JudgeConfig = z.infer<typeof judgeConfigSchema>;

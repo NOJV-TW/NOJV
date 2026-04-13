@@ -37,6 +37,12 @@ enum WorkspaceFileVisibility {
   hidden
 }
 
+enum SubtaskScoringStrategy {
+  ALL_OR_NOTHING
+  PROPORTIONAL
+  MINIMUM
+}
+
 model Problem {
   id         String            @id @default(cuid())
   title      String
@@ -103,20 +109,22 @@ model ProblemStatementI18n {
 }
 
 model TestcaseSet {
-  id          String     @id @default(cuid())
-  problemId   String
-  name        String
+  id              String                 @id @default(cuid())
+  problemId       String
+  name            String
   /// Describes the scope / constraints of this subset (e.g.
   /// "1 ≤ n ≤ 10^3, values distinct"). Shown to students on
   /// the problem page under the testcase section.
-  description String     @default("") @db.Text
-  weight      Int        @default(1)
+  description     String                 @default("") @db.Text
+  weight          Int                    @default(1)
   /// Display order controlled by the teacher.
-  ordinal     Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  problem     Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  testcases   Testcase[]
+  ordinal         Int                    @default(0)
+  /// How testcase results in this subtask are aggregated into a subtask score.
+  scoringStrategy SubtaskScoringStrategy @default(ALL_OR_NOTHING)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  problem         Problem                @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  testcases       Testcase[]
 
   @@unique([problemId, name])
   @@unique([problemId, ordinal])
