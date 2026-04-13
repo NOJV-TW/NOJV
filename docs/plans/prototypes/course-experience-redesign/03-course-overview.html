@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>03 — Course overview</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      .view-toggle {
+        position: fixed;
+        right: 1.5rem;
+        bottom: 1.5rem;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        padding: 0.25rem;
+        background: var(--panel-strong);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        box-shadow: var(--shadow-hover);
+        font-size: var(--text-body-sm);
+      }
+      .view-toggle button {
+        padding: 0.4375rem 0.875rem;
+        border-radius: var(--radius-full);
+        color: var(--muted-foreground);
+        font-weight: 500;
+      }
+      .view-toggle button.active {
+        background: var(--foreground);
+        color: var(--background);
+      }
+
+      .course-hero {
+        padding: 2rem 0 1.75rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .course-hero h1 {
+        font-family: var(--font-display);
+        font-size: var(--text-display);
+        font-weight: 400;
+        letter-spacing: -0.025em;
+        line-height: 1;
+      }
+      .course-hero .meta {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        margin-top: 0.875rem;
+        font-size: var(--text-body-sm);
+        color: var(--muted-foreground);
+      }
+      .course-hero .meta-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: var(--radius-full);
+        background: var(--muted-foreground);
+      }
+
+      .tab-bar {
+        position: sticky;
+        top: 60px;
+        z-index: 10;
+        background: rgba(251, 245, 237, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 2.5rem;
+      }
+
+      .announcement-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.125rem 0;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .announcement-row:last-child { border-bottom: none; }
+      .announcement-row .who {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 160px;
+      }
+      .announcement-row .who-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-full);
+        background: linear-gradient(135deg, #8a6142, #6d4c30);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--text-caption);
+        font-family: var(--font-display);
+        font-weight: 600;
+      }
+      .announcement-row .who-text {
+        font-size: var(--text-body-sm);
+        font-weight: 500;
+      }
+      .announcement-row .who-time {
+        font-size: var(--text-caption);
+        color: var(--muted-foreground);
+      }
+      .announcement-row .body {
+        flex: 1;
+      }
+      .announcement-row .body h4 {
+        font-family: var(--font-sans);
+        font-size: var(--text-body);
+        font-weight: 600;
+      }
+      .announcement-row .body p {
+        margin-top: 0.25rem;
+        font-size: var(--text-body-sm);
+        color: var(--muted-foreground);
+      }
+
+      /* Assignment row — no hw number prefix, full datetime */
+      .item-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1.125rem 1.375rem;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        transition: all var(--duration-fast) var(--ease-out-soft);
+        text-decoration: none;
+        color: inherit;
+      }
+      .item-row:hover {
+        transform: translateX(3px);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-rest);
+      }
+      .item-row.draft {
+        border-style: dashed;
+        background: transparent;
+      }
+      .item-row .title {
+        font-weight: 600;
+        letter-spacing: -0.005em;
+      }
+      .item-row .time-range {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        margin-top: 0.4375rem;
+        font-family: var(--font-mono);
+        font-size: var(--text-caption);
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+      }
+      .item-row .arrow-label {
+        opacity: 0.6;
+      }
+      .item-row .meta-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+        font-size: var(--text-caption);
+        color: var(--muted-foreground);
+      }
+      .item-row .meta-dot {
+        width: 3px;
+        height: 3px;
+        border-radius: var(--radius-full);
+        background: var(--muted-foreground);
+      }
+      .item-row .class-stats {
+        text-align: right;
+        font-size: var(--text-caption);
+        color: var(--muted-foreground);
+        font-variant-numeric: tabular-nums;
+      }
+      .item-row .class-stats .big {
+        display: block;
+        font-family: var(--font-display);
+        font-size: var(--text-body-lg);
+        color: var(--foreground);
+        font-weight: 500;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+      }
+      .section-head h2 {
+        font-family: var(--font-display);
+        font-size: var(--text-title);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+      }
+      .section-head h2 .icon-wrap {
+        color: var(--primary);
+      }
+
+      .link-all {
+        font-size: var(--text-body-sm);
+        color: var(--muted-foreground);
+        transition: color var(--duration-fast);
+      }
+      .link-all:hover { color: var(--foreground); }
+
+      .icon-btn {
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--panel);
+        color: var(--muted-foreground);
+        transition: all var(--duration-fast) var(--ease-out-soft);
+      }
+      .icon-btn:hover {
+        color: var(--foreground);
+        border-color: var(--border-strong);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="index.html" class="brand">
+          <span class="brand-mark"></span>
+          <span>NOJV</span>
+        </a>
+        <nav class="site-nav">
+          <a href="#">Dashboard</a>
+          <a href="#">Problems</a>
+          <a href="01-courses-listing.html" class="active">Courses</a>
+          <a href="14-assignments-top.html">Assignments</a>
+          <a href="15-exams-top.html">Exams</a>
+          <a href="#">Contests</a>
+        </nav>
+        <div class="site-header-spacer"></div>
+        <div class="header-actions">
+          <div class="locale-toggle">
+            <button>EN</button>
+            <button class="active">中</button>
+          </div>
+          <div class="avatar">T</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container" style="padding-bottom: 6rem">
+      <section class="course-hero animate-in">
+        <a href="01-courses-listing.html" class="breadcrumb">
+          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          Courses
+        </a>
+        <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
+          <div style="flex: 1">
+            <h1>作業系統實作</h1>
+            <div class="meta">
+              <span>72 名學生</span>
+              <span class="meta-dot"></span>
+              <span>授課：王老師</span>
+            </div>
+          </div>
+          <span class="teacher-badge">Teacher</span>
+        </div>
+      </section>
+
+      <div class="tab-bar">
+        <div class="tabs">
+          <div class="tab active">Overview</div>
+          <div class="tab"><a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a></div>
+          <div class="tab"><a href="08-exams-list.html">Exams <span class="tab-count">2</span></a></div>
+          <div class="tab"><a href="12-members.html">Members <span class="tab-count">72</span></a></div>
+          <div class="tab"><a href="13-settings.html">Settings</a></div>
+        </div>
+      </div>
+
+      <!-- Single-column stacked sections: Announcements → Assignments → Exams -->
+      <div class="stack-8">
+        <!-- 1. Announcements -->
+        <section class="animate-in animate-in-1">
+          <div class="section-head">
+            <h2>
+              <span class="icon-wrap">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 13v-2zM11.6 16.8a3 3 0 11-5.8-1.6" /></svg>
+              </span>
+              公告
+            </h2>
+            <button class="btn btn-outline btn-sm">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+              新公告
+            </button>
+          </div>
+
+          <div class="card card-lg" style="padding: 0.5rem 1.5rem">
+            <div class="announcement-row">
+              <div class="who">
+                <div class="who-avatar">王</div>
+                <div>
+                  <div class="who-text">王老師</div>
+                  <div class="who-time">2 天前 · 4/15 14:32</div>
+                </div>
+              </div>
+              <div class="body">
+                <h4>Lab 3 補充說明已上傳</h4>
+                <p>由於上週實驗課對 semaphore 的說明較快，我整理了一份補充講義放在課程首頁。下週課前請先看過。</p>
+              </div>
+              <button class="icon-btn" title="編輯 (教師)">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3l9-9z" /></svg>
+              </button>
+            </div>
+
+            <div class="announcement-row">
+              <div class="who">
+                <div class="who-avatar">王</div>
+                <div>
+                  <div class="who-text">王老師</div>
+                  <div class="who-time">5 天前 · 4/12 09:15</div>
+                </div>
+              </div>
+              <div class="body">
+                <h4>期中考範圍公告</h4>
+                <p>期中考範圍涵蓋 lecture 1-7，作業 HW1-HW4 的概念都會考。考試時間：下週三 14:00，地點：EC 122。</p>
+              </div>
+              <button class="icon-btn" title="編輯 (教師)">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3l9-9z" /></svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Assignments -->
+        <section class="animate-in animate-in-2">
+          <div class="section-head">
+            <h2>
+              <span class="icon-wrap">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 012 2v16a2 2 0 01-2 2H9a2 2 0 01-2-2V4a2 2 0 012-2zM12 6v6M9 9h6" /></svg>
+              </span>
+              作業
+            </h2>
+            <div class="flex gap-3">
+              <button class="btn btn-outline btn-sm">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                新作業
+              </button>
+              <a href="04-assignments-list.html" class="link-all">看全部 →</a>
+            </div>
+          </div>
+
+          <div class="stack-3">
+            <a href="07-assignment-detail-teacher.html" class="item-row">
+              <div>
+                <div class="title">Semaphore 與 Producer-Consumer</div>
+                <div class="time-range">
+                  <span>4/15 00:00</span>
+                  <span class="arrow-label">→</span>
+                  <span>4/22 23:59</span>
+                </div>
+                <div class="meta-row">
+                  <span>3 題</span>
+                  <span class="meta-dot"></span>
+                  <span class="badge badge-primary badge-dot">Open</span>
+                </div>
+              </div>
+              <div class="class-stats">
+                <span class="big">58/72</span>
+                submitted · avg 82
+              </div>
+              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            </a>
+
+            <a href="07-assignment-detail-teacher.html" class="item-row">
+              <div>
+                <div class="title">Virtual Memory 與 Page Table</div>
+                <div class="time-range">
+                  <span>4/23 00:00</span>
+                  <span class="arrow-label">→</span>
+                  <span>4/29 23:59</span>
+                </div>
+                <div class="meta-row">
+                  <span>4 題</span>
+                  <span class="meta-dot"></span>
+                  <span class="badge badge-info badge-dot">Upcoming</span>
+                </div>
+              </div>
+              <div class="class-stats">
+                <span class="big">—</span>
+                尚未開放
+              </div>
+              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            </a>
+
+            <a href="07-assignment-detail-teacher.html" class="item-row draft">
+              <div>
+                <div class="title">File System 實作</div>
+                <div class="time-range">
+                  <span style="opacity: 0.5">尚未發布 · 未設定時間</span>
+                </div>
+                <div class="meta-row">
+                  <span>2 題</span>
+                  <span class="meta-dot"></span>
+                  <span class="badge badge-muted">Draft · TA 可見</span>
+                </div>
+              </div>
+              <div class="class-stats">
+                <span class="big">—</span>
+                完成設定後發布
+              </div>
+              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            </a>
+          </div>
+        </section>
+
+        <!-- 3. Exams -->
+        <section class="animate-in animate-in-3">
+          <div class="section-head">
+            <h2>
+              <span class="icon-wrap">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4M17 3v4M3 9h18M5 7h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z" /></svg>
+              </span>
+              考試
+            </h2>
+            <div class="flex gap-3">
+              <button class="btn btn-outline btn-sm">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                新考試
+              </button>
+              <a href="08-exams-list.html" class="link-all">看全部 →</a>
+            </div>
+          </div>
+
+          <div class="stack-3">
+            <a href="10-exam-state-a.html" class="item-row">
+              <div>
+                <div class="title">Midterm — OS Fundamentals</div>
+                <div class="time-range">
+                  <span>4/23 14:00</span>
+                  <span class="arrow-label">→</span>
+                  <span>4/23 16:00</span>
+                  <span class="arrow-label">·</span>
+                  <span>120 分鐘</span>
+                </div>
+                <div class="meta-row">
+                  <span>7 題 · IOI 計分</span>
+                  <span class="meta-dot"></span>
+                  <span class="badge badge-info badge-dot">Upcoming</span>
+                </div>
+              </div>
+              <div class="class-stats">
+                <span class="big">42/72</span>
+                已註冊
+              </div>
+              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <!-- Floating view toggle (design-time annotation) -->
+      <div class="view-toggle">
+        <span style="padding: 0 0.625rem; font-size: var(--text-caption); color: var(--muted-foreground); font-family: var(--font-mono)">VIEW</span>
+        <button>Student</button>
+        <button class="active">Teacher</button>
+      </div>
+    </main>
+  </body>
+</html>
