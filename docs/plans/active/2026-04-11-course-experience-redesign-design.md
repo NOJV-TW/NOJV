@@ -1,8 +1,16 @@
 # 課程體驗重新設計 (Course Experience Redesign)
 
 **Date:** 2026-04-11
-**Status:** Draft — pending user review
+**Status:** Approved 2026-04-14 — implementation planning in progress
 **Scope:** Entire teacher + student course experience: `/courses`, course interior, assignments, exams, members, settings.
+
+## Implementation Status (2026-04-14 audit)
+
+- **Phase 0 — done.** Shipped independently as `2026-04-11-silent-failure-and-problemids-fix.md`: `FormError.svelte` + typed `FormMessage` in place; `problemIds` schema relaxed from `slugSchema` to `z.string().trim().min(1)` in both `course.ts:60` and `contest.ts:35`; all three forms (`Assessments.svelte`, `Contests.svelte`, `contests/create/+page.svelte`) render the banner on server errors.
+- **Phases 1–6 — not started.** `Course.slug`, `CourseAssessment.slug`, `Contest.slug` still present; `CourseJoinToken` model still present; no `ActiveExamSession` / `ExamSessionEvent`; no `User.handle`; `/courses/[slug]/manage/*` routes still live; `hooks.server.ts` has no exam session lock. Schema and route restructure all pending.
+- **Conflict with shipped `contest-hide-problems-and-tabs`**: that plan ships on top of the existing `contests/[slug]` route. Dropping the `Contest.slug` column in Phase 1 breaks it — Phase 1 must include a rename of the contest route segment from `[slug]` to `[contestId]` and update `listContestsForUser` / `canManageContest` consumers accordingly.
+
+A separate task-by-task implementation plan will be produced at `docs/plans/active/2026-04-14-course-experience-redesign.md`; this file stays as the authoritative design reference.
 
 ## 1. Motivation
 
