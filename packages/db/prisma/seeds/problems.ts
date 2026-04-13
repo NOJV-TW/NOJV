@@ -163,11 +163,22 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
   }
 }
 
-export async function seedProblems(prisma: PrismaClient, teacherId: string) {
-  // Single S3 client shared across every blob upload below. The seed
-  // script writes testcase + workspace blobs through the same storage
-  // primitives the production domain layer uses (no parallel impl).
-  const storage = createStorageClient();
+// Shape of the S3 client subset used by `putText`. Allowing injection lets
+// the dry-run validator stub S3 without requiring real S3 env vars.
+export type SeedStorageClient = { send: (command: unknown) => Promise<unknown> };
+
+export async function seedProblems(
+  prisma: PrismaClient,
+  teacherId: string,
+  storageOverride?: SeedStorageClient
+) {
+  // Single storage client shared across every blob upload below. The seed
+  // script writes testcase + workspace blobs through the same primitives
+  // the production domain layer uses (no parallel impl). Validator passes
+  // a no-op stub so it can run without S3 env vars.
+  const storage = (storageOverride ?? createStorageClient()) as ReturnType<
+    typeof createStorageClient
+  >;
 
   const problemDefs: SeedProblemDef[] = [
     {

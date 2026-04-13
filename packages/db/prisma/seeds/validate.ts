@@ -1,4 +1,4 @@
-import { seedProblems } from "./problems";
+import { seedProblems, type SeedStorageClient } from "./problems";
 
 function createMockPrisma() {
   const problemById = new Map<string, { id: string }>();
@@ -25,7 +25,8 @@ function createMockPrisma() {
     },
     testcase: {
       deleteMany: async () => ({ count: 0 }),
-      create: async () => ({})
+      create: async () => ({}),
+      createMany: async () => ({ count: 0 })
     },
     problemWorkspaceFile: {
       deleteMany: async () => ({ count: 0 }),
@@ -34,10 +35,17 @@ function createMockPrisma() {
   };
 }
 
+// No-op S3 stub: every `send()` just resolves, so `putText` appears to
+// succeed without making a real network call. The validator only cares
+// about schema/definition shape, not blob persistence.
+const stubStorage: SeedStorageClient = {
+  send: async () => ({})
+};
+
 async function main() {
   const prisma = createMockPrisma() as never;
 
-  await seedProblems(prisma, "seed_validation_teacher");
+  await seedProblems(prisma, "seed_validation_teacher", stubStorage);
 
   console.log("Seed dry-run validation succeeded.");
 }

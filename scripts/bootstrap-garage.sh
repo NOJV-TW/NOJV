@@ -17,7 +17,6 @@
 
 set -euo pipefail
 
-CONTAINER="${GARAGE_CONTAINER:-garage}"
 BUCKET="${GARAGE_BUCKET:-nojv}"
 KEY_NAME="${GARAGE_KEY_NAME:-nojv-dev}"
 ZONE="${GARAGE_ZONE:-dc1}"
@@ -36,33 +35,44 @@ require_cmd() {
 
 require_cmd docker
 
+# Resolve the container name. `docker compose` prefixes with the project
+# name (e.g. `nojv-garage-1`), so a hard-coded `garage` wouldn't match.
+# `docker compose ps -q garage` returns the ID of the running service,
+# which `docker exec` / `docker inspect` accept interchangeably.
+if [[ -n "${GARAGE_CONTAINER:-}" ]]; then
+  CONTAINER="$GARAGE_CONTAINER"
+else
+  CONTAINER="$(docker compose ps -q garage 2>/dev/null || true)"
+  if [[ -z "$CONTAINER" ]]; then
+    err "could not find a running 'garage' compose service. Run: docker compose up -d garage"
+    exit 1
+  fi
+fi
+
 garage_cli() {
   docker exec "$CONTAINER" /garage "$@"
 }
 
-wait_for_healthy() {
-  log "waiting for container '$CONTAINER' to be healthy..."
+wait_for_reachable() {
+  # Probe the Garage daemon via its own CLI rather than docker health
+  # status — the /health HTTP endpoint requires a configured layout, and
+  # `garage status` is the earliest signal that the daemon is answering.
+  log "waiting for container '$CONTAINER' to accept 'garage status'..."
   local tries=0
   local max_tries=30
   while (( tries < max_tries )); do
-    local status
-    status="$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null || echo "missing")"
-    case "$status" in
-      healthy)
-        log "container healthy"
-        return 0
-        ;;
-      missing)
-        err "container '$CONTAINER' not found. Run: docker compose up -d garage"
-        exit 1
-        ;;
-      *)
-        sleep 2
-        tries=$((tries + 1))
-        ;;
-    esac
+    if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+      err "container '$CONTAINER' not found. Run: docker compose up -d garage"
+      exit 1
+    fi
+    if garage_cli status >/dev/null 2>&1; then
+      log "daemon reachable"
+      return 0
+    fi
+    sleep 2
+    tries=$((tries + 1))
   done
-  err "container did not become healthy after $((max_tries * 2))s (last status: ${status:-unknown})"
+  err "daemon did not become reachable after $((max_tries * 2))s"
   exit 1
 }
 
@@ -132,7 +142,7 @@ ensure_grant() {
 }
 
 main() {
-  wait_for_healthy
+  wait_for_reachable
   ensure_layout
   ensure_bucket
   ensure_key

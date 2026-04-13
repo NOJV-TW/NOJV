@@ -11,18 +11,7 @@ import {
 
 import { judgeConfigSchema } from "./judge-config";
 
-// `ProblemType` is the single source of truth for "what shape is this
-// problem", persisted directly on the Problem table.
-//
-// - `full_source`   — single-file, student writes everything including main()
-// - `multi_file`    — teacher ships multiple files; student edits the designated ones in-browser
-// - `special_env`   — TA-provided Docker image owns the entire judging loop; student
-//                     uploads a tarball. No judge-method badge is displayed for this category.
-
-// 16 MB per field — post blob migration (2026-04-13), the cap enforces API
-// payload safety, not Postgres TEXT bounds. Testcase input/output and
-// workspace file content all live in S3 now, so the prior 200 KB / 1 MB
-// caps were vestigial.
+// 16 MB cap on blob-backed fields: API payload safety, not a storage bound.
 const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
 
 export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
@@ -80,13 +69,8 @@ export function entryFileNameFor(language: Language): string {
   return `${ENTRY_FILE_BASENAME}.${languageExtension(language)}`;
 }
 
-// Plain object schema — kept separate so `problemUpdateSchema` can
-// call `.partial()` on it. The `.superRefine()` that enforces
-// `special_env` ↔ image-config coherence is applied only on the
-// create path below, because it requires the full create payload to
-// be present. Partial-update payloads that only touch unrelated
-// fields would otherwise fail the refine; the same invariant is
-// re-checked in the domain mutation layer when the update lands.
+// Separate from `problemCreateSchema` so `problemUpdateSchema` can `.partial()` it;
+// the special_env/image-config refine runs only on create and in the mutation layer.
 const problemCreateObjectSchema = z.object({
   difficulty: problemDifficultySchema,
   inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),

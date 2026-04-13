@@ -41,14 +41,17 @@ services:
     image: dxflrs/garage:v1.0.1
     restart: unless-stopped
     ports:
-      - "3900:3900"  # S3 API
-      - "3903:3903"  # Admin API (health, metrics, cluster mgmt)
+      - "3900:3900" # S3 API
+      - "3903:3903" # Admin API (health, metrics, cluster mgmt)
     volumes:
       - ./.garage/meta:/var/lib/garage/meta
       - ./.garage/data:/var/lib/garage/data
       - ./infra/docker/garage.toml:/etc/garage.toml:ro
+    # The scratch-based Garage image has no wget/curl, and the /health
+    # endpoint requires a configured layout (chicken-and-egg with the
+    # bootstrap script). Probe the daemon via its own CLI instead.
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3903/health || exit 1"]
+      test: ["CMD", "/garage", "status"]
       interval: 10s
       timeout: 5s
       retries: 10
