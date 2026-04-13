@@ -1,5 +1,6 @@
 <script lang="ts">
   import { inputClassName, monoTextareaClassName } from "$lib/utils";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Sample {
     input: string;
@@ -35,9 +36,9 @@
 <div class="space-y-4">
   <div class="flex items-center justify-between">
     <div>
-      <h3 class="text-body-sm font-semibold">Sample I/O</h3>
+      <h3 class="text-body-sm font-semibold">{m.admin_sampleIO()}</h3>
       <p class="mt-0.5 text-caption text-muted-foreground">
-        Samples are shown to students on the problem page. They do not count toward grading.
+        {m.admin_sampleIOHint()}
       </p>
     </div>
     <span class="text-caption text-muted-foreground tabular-nums">{samples.length} / {MAX_SAMPLES}</span>
@@ -47,7 +48,7 @@
     <div
       class="rounded-lg border border-dashed border-border-subtle p-4 text-center text-body-sm text-muted-foreground"
     >
-      No samples yet. Add one to show students an example I/O pair.
+      {m.admin_noSamplesYet()}
     </div>
   {:else}
     <div class="space-y-3">
@@ -55,20 +56,20 @@
         <div class="rounded-lg border border-border-subtle p-3">
           <div class="flex items-center justify-between">
             <span class="text-caption font-semibold text-muted-foreground">
-              Sample {index + 1}
+              {m.admin_sampleNumber({ number: index + 1 })}
             </span>
             <button
               type="button"
               class="rounded text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive"
               onclick={() => removeSample(index)}
-              aria-label="Remove sample {index + 1}"
+              aria-label={m.admin_removeSample()}
             >
-              &times; Remove
+              &times; {m.admin_removeSample()}
             </button>
           </div>
           <div class="mt-2 grid gap-3 md:grid-cols-2">
             <label class="text-caption text-muted-foreground">
-              <span>Input</span>
+              <span>{m.admin_sampleInput()}</span>
               <textarea
                 class="{monoTextareaClassName} min-h-24"
                 value={sample.input}
@@ -76,7 +77,7 @@
               ></textarea>
             </label>
             <label class="text-caption text-muted-foreground">
-              <span>Output</span>
+              <span>{m.admin_sampleOutput()}</span>
               <textarea
                 class="{monoTextareaClassName} min-h-24"
                 value={sample.output}
@@ -95,6 +96,6 @@
     disabled={samples.length >= MAX_SAMPLES}
     onclick={addSample}
   >
-    + Add sample
+    {m.admin_addSample()}
   </button>
 </div>

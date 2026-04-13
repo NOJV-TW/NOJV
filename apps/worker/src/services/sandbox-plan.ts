@@ -36,7 +36,6 @@ export function buildSandboxConfigJson(
     ...(request.judgeConfig.interactorLanguage
       ? { interactorLanguage: request.judgeConfig.interactorLanguage }
       : {}),
-    ...(request.compare ? { compare: request.compare } : {}),
     ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
   };
 }

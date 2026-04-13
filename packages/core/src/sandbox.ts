@@ -1,4 +1,3 @@
-import type { Compare } from "./schemas/judge-config";
 import type { JudgeType, Language, ProblemType } from "./types";
 
 // --- Sandbox request ---
@@ -45,11 +44,6 @@ export interface SandboxRequest {
     checkerLanguage?: string;
     interactorLanguage?: string;
   };
-  /**
-   * Standard-judge compare mode config. When absent, the runner falls
-   * back to trimmed exact comparison.
-   */
-  compare?: Compare;
   limits: {
     timeoutMs: number;
     memoryMb: number;

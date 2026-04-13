@@ -1,18 +1,23 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import type { Language } from "@nojv/core";
+  import type { Language, ProblemImageSource } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import ProblemSections from "$lib/components/problem/ProblemSections.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
   import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";
   import WorkspaceSection from "$lib/components/problem/sections/WorkspaceSection.svelte";
+  import ImageSection from "$lib/components/problem/advanced/ImageSection.svelte";
+  import ContainerContractSection from "$lib/components/problem/advanced/ContainerContractSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import { toasts } from "$lib/stores/toast";
 
   let { data } = $props();
+
+  let isAdvanced = $derived(data.problem.type === "special_env");
 
   let activeSection = $state("basic");
   let publishing = $state(false);
@@ -20,6 +25,19 @@
   let showPublishConfirm = $state(false);
   let showDeleteConfirm = $state(false);
   let deleting = $state(false);
+
+  // Advanced-mode image config — only meaningful when isAdvanced is true.
+  // Initialised once via untrack so re-runs of `data` don't clobber edits.
+  let imageRef = $state<string>(untrack(() => data.imageConfig?.ref ?? ""));
+  let imageSource = $state<ProblemImageSource>(
+    untrack(() => data.imageConfig?.source ?? "registry")
+  );
+  let advancedTimeLimitMs = $state<number>(
+    untrack(() => data.imageConfig?.timeLimitMs ?? 30_000)
+  );
+  let advancedMemoryLimitMb = $state<number>(
+    untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024)
+  );
 
   // Publish requires: at least one testcase set
   let canPublish = $derived(
@@ -36,6 +54,7 @@
   // Build WorkspaceSection initial payload from loaded problem + files.
   // The workspace is a scratchpad the user edits before saving; capture the
   // initial values once via untrack() so re-runs of `data` don't discard edits.
+  // Only consumed by the standard layout below — advanced mode skips this.
   const workspaceInitial = untrack(() => {
     const runtime = (data.problem.judgeConfig?.runtime as
       | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
@@ -44,9 +63,15 @@
       memoryLimitMb: data.problem.memoryLimitMb,
       env: {}
     };
+    // WorkspaceSection only handles the two user-switchable code-edit modes;
+    // special_env routes to the advanced layout further down and never reads
+    // workspaceInitial.
+    const workspaceType: "full_source" | "multi_file" =
+      data.problem.type === "multi_file" ? "multi_file" : "full_source";
     return {
       runtime,
       allowedLanguages: [] as Language[],
+      type: workspaceType,
       files: data.workspaceFiles.map((f) => ({
         language: f.language as Language,
         path: f.path,
@@ -90,15 +115,45 @@
       publishing = false;
     });
   }
+
+  async function saveImage(payload: {
+    imageRef: string;
+    imageSource: ProblemImageSource;
+    timeLimitMs: number;
+    memoryLimitMb: number;
+  }) {
+    const fd = new FormData();
+    fd.append(
+      "data",
+      JSON.stringify({
+        ref: payload.imageRef,
+        source: payload.imageSource,
+        timeLimitMs: payload.timeLimitMs,
+        memoryLimitMb: payload.memoryLimitMb
+      })
+    );
+    const res = await fetch("?/updateImage", { method: "POST", body: fd });
+    toasts.add({
+      message: res.ok ? m.admin_imageConfigSaved() : m.admin_imageConfigFailed(),
+      type: res.ok ? "success" : "error"
+    });
+  }
 </script>
 
-<div class="mx-auto max-w-4xl space-y-6">
+<div class="space-y-6">
   <div class="flex items-center gap-3">
     <h1 class="font-display text-title-lg">
       {data.problem.title === "Untitled Problem" ? m.admin_createProblem() : data.problem.title}
     </h1>
     {#if data.problem.status === "draft"}
-      <Badge variant="warning" size="md">Draft</Badge>
+      <Badge variant="warning" size="md">{m.admin_draftBadge()}</Badge>
+    {/if}
+    {#if isAdvanced}
+      <h2
+        class="inline-flex items-center rounded-full border border-info/25 bg-info/15 px-2.5 py-1 text-caption font-medium text-info"
+      >
+        {m.admin_advancedMode()}
+      </h2>
     {/if}
     {#if data.problem.status === "draft"}
       <Button
@@ -113,41 +168,61 @@
     {/if}
   </div>
 
-  <ProblemSections
-    bind:activeSection
-    showPublish={data.problem.status === "draft"}
-    showConvertToAdvanced={data.problem.type !== "special_env"}
-    {canPublish}
-    {publishing}
-    {basicInfoComplete}
-    testcaseCount={data.testcaseSets.length}
-    bind:dirty
-    onpublish={handlePublishClick}
-  >
-    {#snippet basic()}
-      <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
-    {/snippet}
+  {#if isAdvanced}
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <BasicInfoTab formData={data.form} problemId={data.problem.id} />
+    </section>
 
-    {#snippet workspace()}
-      <WorkspaceSection
-        initial={workspaceInitial}
-        ondirtychange={(d) => dirty = d}
-        onsave={handleWorkspaceSave}
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <ContainerContractSection />
+    </section>
+
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <ImageSection
+        problemId={data.problem.id}
+        bind:imageRef
+        bind:imageSource
+        bind:timeLimitMs={advancedTimeLimitMs}
+        bind:memoryLimitMb={advancedMemoryLimitMb}
+        onsave={saveImage}
       />
-    {/snippet}
+    </section>
+  {:else}
+    <ProblemSections
+      bind:activeSection
+      showPublish={data.problem.status === "draft"}
+      showConvertToAdvanced
+      {canPublish}
+      {publishing}
+      {basicInfoComplete}
+      testcaseCount={data.testcaseSets.length}
+      bind:dirty
+      onpublish={handlePublishClick}
+    >
+      {#snippet basic()}
+        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
+      {/snippet}
 
-    {#snippet testcase()}
-      <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
-    {/snippet}
+      {#snippet workspace()}
+        <WorkspaceSection
+          initial={workspaceInitial}
+          ondirtychange={(d) => dirty = d}
+          onsave={handleWorkspaceSave}
+        />
+      {/snippet}
 
-    {#snippet judge()}
-      <JudgeTab
-        problem={data.problem}
-        testcaseSets={data.testcaseSets.map((s) => ({ id: s.id, name: s.name, weight: s.weight }))}
-        ondirtychange={(d) => dirty = d}
-      />
-    {/snippet}
-  </ProblemSections>
+      {#snippet testcase()}
+        <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
+      {/snippet}
+
+      {#snippet judge()}
+        <JudgeTab
+          problem={data.problem}
+          ondirtychange={(d) => dirty = d}
+        />
+      {/snippet}
+    </ProblemSections>
+  {/if}
 
   <ConfirmDialog
     bind:open={showDeleteConfirm}

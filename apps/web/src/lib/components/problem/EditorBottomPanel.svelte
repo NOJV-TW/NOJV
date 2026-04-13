@@ -91,9 +91,6 @@
         </p>
       {:else}
       <div>
-        <p class="mb-2 text-caption text-muted-foreground">
-          {m.editor_runCasesHelp()}
-        </p>
         <div class="flex items-center gap-1">
           {#each runCases as _, index (`tab-${index}`)}
             <button

@@ -24,7 +24,7 @@
 
   const { form, errors, submitting, tainted, message: formMessage, enhance } = superForm(
     untrack(() => formData),
-    { dataType: "json", onSubmit: () => { attempted = true; } }
+    { dataType: "json", resetForm: false, onSubmit: () => { attempted = true; } }
   );
 
   $effect(() => {

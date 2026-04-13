@@ -19,6 +19,12 @@ import { judgeConfigSchema } from "./judge-config";
 // - `special_env`   — TA-provided Docker image owns the entire judging loop; student
 //                     uploads a tarball. No judge-method badge is displayed for this category.
 
+// 16 MB per field — post blob migration (2026-04-13), the cap enforces API
+// payload safety, not Postgres TEXT bounds. Testcase input/output and
+// workspace file content all live in S3 now, so the prior 200 KB / 1 MB
+// caps were vestigial.
+const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
+
 export const problemImageSourceSchema = z.enum(["registry", "tarball"]);
 export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
 
@@ -46,7 +52,7 @@ export const problemWorkspaceFileSchema = z.object({
     .refine((p) => !p.startsWith("/") && !p.includes(".."), {
       message: "path must be relative and must not contain .."
     }),
-  content: z.string().max(200_000),
+  content: z.string().max(BLOB_FIELD_MAX_BYTES),
   visibility: workspaceFileVisibilitySchema,
   description: z.string().max(5_000).default(""),
   orderIndex: z.number().int().nonnegative().default(0)
@@ -151,15 +157,15 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
-  output: z.string().max(200_000),
-  input: z.string().max(200_000)
+  output: z.string().max(BLOB_FIELD_MAX_BYTES),
+  input: z.string().max(BLOB_FIELD_MAX_BYTES)
 });
 
 export const problemJudgeTestcaseSchema = z.object({
-  output: z.string().max(200_000).optional(),
+  output: z.string().max(BLOB_FIELD_MAX_BYTES).optional(),
   id: z.string().trim().min(1),
-  inputFiles: z.record(z.string(), z.string()).optional(),
-  input: z.string().max(200_000),
+  inputFiles: z.record(z.string(), z.string().max(BLOB_FIELD_MAX_BYTES)).optional(),
+  input: z.string().max(BLOB_FIELD_MAX_BYTES),
   weight: z.coerce.number().int().min(1).max(100)
 });
 

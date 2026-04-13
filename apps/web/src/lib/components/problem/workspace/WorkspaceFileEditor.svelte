@@ -29,17 +29,17 @@
 <div class="space-y-3">
   <div class="grid gap-3 md:grid-cols-[1fr_auto_auto]">
     <label class="text-caption text-muted-foreground">
-      <span>Path</span>
+      <span>{m.admin_filePath()}</span>
       <input
         class={inputClassName}
         type="text"
-        placeholder="main.c or include/header.h"
+        placeholder={m.admin_filePathPlaceholder()}
         value={file.path}
         oninput={(e) => update({ path: (e.target as HTMLInputElement).value })}
       />
     </label>
     <label class="text-caption text-muted-foreground">
-      <span>Visibility</span>
+      <span>{m.admin_fileVisibility()}</span>
       <select
         class="{inputClassName} mt-0"
         value={file.visibility}
@@ -48,9 +48,9 @@
           update({ visibility: v });
         }}
       >
-        <option value="editable">Editable</option>
-        <option value="readonly">Read-only</option>
-        <option value="hidden">Hidden</option>
+        <option value="editable">{m.admin_fileEditable()}</option>
+        <option value="readonly">{m.admin_fileReadonly()}</option>
+        <option value="hidden">{m.admin_fileHidden()}</option>
       </select>
     </label>
     <button
@@ -58,7 +58,7 @@
       class="self-end rounded-lg border border-border px-3 py-1.5 text-caption text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
       onclick={() => ondelete?.()}
     >
-      Delete
+      {m.common_delete()}
     </button>
   </div>
 

@@ -21,6 +21,8 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { pickProblemStatement } from "../shared/pick-problem-statement";
 
+import { readWorkspaceFileBlob } from "./blobs";
+
 export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
@@ -124,7 +126,7 @@ function buildStarterByLanguage(
   return result;
 }
 
-function mapPersistedProblemDetail(
+async function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
     title: string;
@@ -150,7 +152,7 @@ function mapPersistedProblemDetail(
     workspaceFiles?: {
       language: string;
       path: string;
-      content: string;
+      contentKey: string;
       visibility: string;
       orderIndex?: number;
       description?: string;
@@ -159,7 +161,7 @@ function mapPersistedProblemDetail(
   locale: string,
   totalSubmissions: number,
   acceptedCount: number
-): ProblemDetail {
+): Promise<ProblemDetail> {
   const tags = problem.tags ?? [];
   const localized = pickProblemStatement(problem.statements, locale, problem.title, "");
 
@@ -170,17 +172,23 @@ function mapPersistedProblemDetail(
   // SECURITY: hidden workspace files are kept in the list so the client can
   // render their metadata (path, language, description) but their `content`
   // is blanked out. Raw hidden content must never leave the server — the
-  // judge pipeline reads it from the DB directly at judging time.
-  const visibleWorkspaceFiles = (problem.workspaceFiles ?? []).map((f) => {
-    const visibility = f.visibility as "editable" | "readonly" | "hidden";
-    return {
-      language: f.language,
-      path: f.path,
-      content: visibility === "hidden" ? "" : f.content,
-      visibility,
-      description: f.description ?? ""
-    };
-  });
+  // judge pipeline reads it from S3 directly at judging time. We only fetch
+  // S3 content for non-hidden files, so we never even touch the bytes for
+  // hidden ones in this code path.
+  const rawFiles = problem.workspaceFiles ?? [];
+  const visibleWorkspaceFiles = await Promise.all(
+    rawFiles.map(async (f) => {
+      const visibility = f.visibility as "editable" | "readonly" | "hidden";
+      const content = visibility === "hidden" ? "" : await readWorkspaceFileBlob(f.contentKey);
+      return {
+        language: f.language,
+        path: f.path,
+        content,
+        visibility,
+        description: f.description ?? ""
+      };
+    })
+  );
 
   return {
     acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
@@ -194,7 +202,7 @@ function mapPersistedProblemDetail(
     outputFormat: localized.outputFormat,
     type: problem.type ?? "full_source",
     samples: buildProblemSamples(problem),
-    starterByLanguage: buildStarterByLanguage(problem.workspaceFiles ?? []),
+    starterByLanguage: buildStarterByLanguage(visibleWorkspaceFiles),
     statement: localized.statement,
     status: (problem.status as ProblemStatus | undefined) ?? "published",
     tags,
@@ -358,7 +366,7 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
     status: "accepted"
   });
 
-  return mapPersistedProblemDetail(
+  return await mapPersistedProblemDetail(
     persistedProblem,
     locale,
     persistedProblem._count.submissions,

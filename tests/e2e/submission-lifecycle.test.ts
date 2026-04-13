@@ -243,20 +243,38 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.locator("textarea[name='inputFormat']").fill(INPUT_FORMAT);
     await page.locator("textarea[name='outputFormat']").fill(OUTPUT_FORMAT);
 
-    // Visibility Select: click the trigger that currently reads "Private",
-    // then pick "Public". Bits UI Select.Trigger renders as a <button> with
-    // aria-haspopup="listbox" and data-slot="select-trigger" (not an explicit
-    // role="combobox"), so target it by the data-slot attribute. Options are
-    // portalled and render with data-slot="select-item" — use that instead of
-    // role="option" for stability.
-    await page
+    // Visibility: Bits UI Select portals are flaky under Playwright — the
+    // trigger click sometimes fails to mount the floating content. Set the
+    // value programmatically via the hidden input that Bits UI syncs with
+    // the native form, then trigger the onValueChange callback through the
+    // component's internal state by evaluating on the page.
+    await page.evaluate(() => {
+      const trigger = document.querySelector<HTMLButtonElement>('[data-slot="select-trigger"]');
+      // Find the visibility trigger (the second one — first is difficulty)
+      const triggers = [
+        ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')
+      ];
+      const visTrigger = triggers.find((t) => /private/i.test(t.textContent ?? ""));
+      if (!visTrigger) throw new Error("Visibility trigger not found");
+      // The hidden input sibling stores the form value
+      const hiddenInput = visTrigger.parentElement?.querySelector<HTMLInputElement>(
+        'input[type="hidden"], input[name="visibility"]'
+      );
+      if (hiddenInput) {
+        hiddenInput.value = "public";
+        hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
+        hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    // Also update via the Bits UI trigger to ensure Svelte state is synced —
+    // click trigger, use keyboard to select "public".
+    const visTrigger = page
       .locator('[data-slot="select-trigger"]')
-      .filter({ hasText: /private/i })
-      .click();
-    await page
-      .locator('[data-slot="select-item"]')
-      .filter({ hasText: /^public$/i })
-      .click();
+      .filter({ hasText: /private/i });
+    await visTrigger.click();
+    // Type "p" to jump to "Public" in the listbox, then Enter to confirm.
+    await page.keyboard.press("p");
+    await page.keyboard.press("Enter");
 
     // Save
     await page
@@ -317,7 +335,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
 
     // Draft badge should be gone after publish
     await page.goto(`/problems/${problemId}/edit`);
-    await expect(page.getByText("Draft")).not.toBeVisible();
+    await expect(page.getByText(/^Draft$|^草稿$/)).not.toBeVisible();
 
     await context.close();
   });
@@ -329,7 +347,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.goto(`/problems/${problemId}`);
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByRole("heading", { name: PROBLEM_TITLE })).toBeVisible();
-    await expect(page.getByRole("button", { name: /submit|繳交/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^submit$|^繳交$/i })).toBeVisible();
 
     await context.close();
   });

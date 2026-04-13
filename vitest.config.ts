@@ -9,7 +9,8 @@ const sharedAliases = {
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
   "@nojv/domain": path.resolve(__dirname, "packages/domain/src/index.ts"),
-  "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts")
+  "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts"),
+  "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts")
 };
 
 export default defineConfig({

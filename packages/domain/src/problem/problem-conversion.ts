@@ -9,6 +9,7 @@ import {
 import { ConflictError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 
+import { bestEffortDeleteProblemStandardBlobs } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
 // Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
@@ -45,4 +46,9 @@ export async function convertProblemToAdvancedMode(
       advancedImageSource: "registry"
     });
   });
+
+  // DB committed — best-effort sweep of testcase + workspace blobs only.
+  // Advanced-mode tarballs and markdown images live under different
+  // prefixes and are preserved.
+  await bestEffortDeleteProblemStandardBlobs(problemId);
 }

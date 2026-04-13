@@ -8,6 +8,8 @@
     problemType: ProblemType;
     /** Judge method. Ignored for `problemType === "special_env"`. */
     judgeType: string;
+    /** Optional difficulty level (easy / medium / hard). Shown in the full variant only. */
+    difficulty?: string;
     /** Compact variant (no titles, no tooltips) used in list cards. */
     compact?: boolean;
     /**
@@ -21,6 +23,7 @@
   let {
     problemType,
     judgeType,
+    difficulty,
     compact = false,
     which = "both"
   }: Props = $props();
@@ -66,6 +69,12 @@
     interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400"
   };
 
+  const difficultyColor: Record<string, string> = {
+    easy: "bg-success/15 text-success",
+    medium: "bg-warning/15 text-warning",
+    hard: "bg-destructive/15 text-destructive"
+  };
+
   let problemLabel = $derived(problemTypeLabel[problemType]());
   let problemHelp = $derived(problemTypeHelp[problemType]());
   let problemColor = $derived(problemTypeColor[problemType]);
@@ -104,8 +113,18 @@
   </span>
 {:else}
   <div
-    class="mt-3 grid gap-2 rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 sm:grid-cols-2 sm:gap-4"
+    class="mt-3 flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-border-subtle bg-muted/30 px-3 py-2"
   >
+    {#if difficulty}
+      <div class="flex items-center gap-2">
+        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+          {m.common_difficulty()}
+        </span>
+        <span class="rounded-full px-2.5 py-0.5 text-caption font-medium capitalize {difficultyColor[difficulty] ?? 'bg-muted text-muted-foreground'}">
+          {difficulty}
+        </span>
+      </div>
+    {/if}
     {#if showProblemType}
       <div class="flex items-center gap-2">
         <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
