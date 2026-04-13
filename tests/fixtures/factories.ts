@@ -1,7 +1,23 @@
 // tests/fixtures/factories.ts
+import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { submissionVerdicts } from "@nojv/core";
+import {
+  createStorageClient,
+  putText,
+  testcaseInputKey,
+  testcaseOutputKey,
+  workspaceFileKey
+} from "@nojv/storage";
 import { PrismaClient, type Prisma } from "../../packages/db/generated/prisma/client";
+
+// Lazy S3 client — one instance per process so parallel factories share
+// the same underlying HTTP agent pool.
+let cachedStorage: ReturnType<typeof createStorageClient> | null = null;
+function storage() {
+  cachedStorage ??= createStorageClient();
+  return cachedStorage;
+}
 
 type SubmissionVerdict = (typeof submissionVerdicts)[number];
 
@@ -116,12 +132,17 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     }
   });
 
+  const testcaseId = randomUUID();
+  const inputKey = testcaseInputKey(problem.id, testcaseId);
+  const outputKey = testcaseOutputKey(problem.id, testcaseId);
+  await Promise.all([putText(storage(), inputKey, "1 2"), putText(storage(), outputKey, "3")]);
   await testPrisma.testcase.create({
     data: {
+      id: testcaseId,
       testcaseSetId: testcaseSet.id,
       ordinal: 1,
-      input: "1 2",
-      output: "3"
+      inputKey,
+      outputKey
     }
   });
 
@@ -132,15 +153,20 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
 // Allows a test to attach editable/readonly/hidden files to an existing
 // problem. No existing test needs this by default; callers opt in.
 export async function createTestProblemWorkspaceFile(
-  overrides: Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput> & {
+  overrides: Omit<Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>, "contentKey"> & {
     problemId: string;
+    content?: string;
   }
 ) {
+  const fileId = randomUUID();
+  const contentKey = workspaceFileKey(overrides.problemId, fileId);
+  await putText(storage(), contentKey, overrides.content ?? "// starter\n");
   return testPrisma.problemWorkspaceFile.create({
     data: {
+      id: fileId,
       language: overrides.language ?? "cpp",
       path: overrides.path ?? "main.cpp",
-      content: overrides.content ?? "// starter\n",
+      contentKey,
       visibility: overrides.visibility ?? "editable",
       orderIndex: overrides.orderIndex ?? 0,
       problemId: overrides.problemId

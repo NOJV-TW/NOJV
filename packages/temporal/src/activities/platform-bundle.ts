@@ -1,7 +1,3 @@
-// Platform activity bundle — use when deploying platform worker as a microservice.
-// Includes contest/assessment lifecycle, plagiarism, and notification activities.
-// Does NOT require Docker/K8s access.
-
 export {
   getContestInfo,
   activateContest,

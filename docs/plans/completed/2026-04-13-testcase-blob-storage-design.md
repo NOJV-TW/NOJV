@@ -81,8 +81,7 @@ export const testcaseInputFileKey = (problemId: string, testcaseId: string, file
   `problems/${problemId}/testcases/${testcaseId}/files/${filename}`;
 export const workspaceFileKey = (problemId: string, fileId: string) =>
   `problems/${problemId}/workspace/${fileId}`;
-export const problemPrefix = (problemId: string) =>
-  `problems/${problemId}/`;
+export const problemPrefix = (problemId: string) => `problems/${problemId}/`;
 
 // packages/storage/src/blobs.ts
 export async function putText(client: S3Client, key: string, content: string): Promise<void>;
@@ -109,7 +108,7 @@ await Promise.all([
   output !== undefined ? putText(storage, outputKey!, output) : Promise.resolve(),
   ...Object.entries(inputFiles ?? {}).map(([name, content]) =>
     putText(storage, testcaseInputFileKey(problemId, id, name), content)
-  ),
+  )
 ]);
 
 // 2. 單一 INSERT（DB）
@@ -125,21 +124,21 @@ await prisma.testcase.create({
         ? Object.fromEntries(
             Object.keys(inputFiles).map((name) => [
               name,
-              testcaseInputFileKey(problemId, id, name),
+              testcaseInputFileKey(problemId, id, name)
             ])
           )
-        : null,
-  },
+        : null
+  }
 });
 ```
 
 **失敗矩陣**：
 
-| 狀況 | S3 | DB | 結果 |
-|---|---|---|---|
-| S3 失敗 | ✗ | — | 拋錯，零副作用 |
-| S3 OK，DB 失敗 | ✓ | ✗ | S3 orphan；下次重試用新 ID 不會撞 key，orphan 永遠孤立（無人指向） |
-| 都 OK | ✓ | ✓ | 正常 |
+| 狀況           | S3  | DB  | 結果                                                               |
+| -------------- | --- | --- | ------------------------------------------------------------------ |
+| S3 失敗        | ✗   | —   | 拋錯，零副作用                                                     |
+| S3 OK，DB 失敗 | ✓   | ✗   | S3 orphan；下次重試用新 ID 不會撞 key，orphan 永遠孤立（無人指向） |
+| 都 OK          | ✓   | ✓   | 正常                                                               |
 
 Orphan S3 object 的代價 = 幾 KB 儲存費，可容忍。
 
@@ -166,11 +165,11 @@ try {
 
 **失敗矩陣**：
 
-| 狀況 | DB | S3 | 結果 |
-|---|---|---|---|
-| DB 失敗 | ✗ | — | 拋錯，零副作用 |
-| DB OK，S3 失敗 | ✓ | ✗ | orphan S3 blob，無人指向，log warn |
-| 都 OK | ✓ | ✓ | 正常 |
+| 狀況           | DB  | S3  | 結果                               |
+| -------------- | --- | --- | ---------------------------------- |
+| DB 失敗        | ✗   | —   | 拋錯，零副作用                     |
+| DB OK，S3 失敗 | ✓   | ✗   | orphan S3 blob，無人指向，log warn |
+| 都 OK          | ✓   | ✓   | 正常                               |
 
 **不建 GC workflow**（YAGNI）。等實際在 S3 console 看到 orphan 累積再決定是否加 weekly Temporal sweep。
 
@@ -188,7 +187,7 @@ const [input, output, fileEntries] = await Promise.all([
     Object.entries((tc.inputFileKeys as Record<string, string> | null) ?? {}).map(
       async ([name, key]) => [name, await getText(storage, key)] as const
     )
-  ),
+  )
 ]);
 const inputFiles = Object.fromEntries(fileEntries);
 ```
@@ -221,8 +220,8 @@ const inputFiles = Object.fromEntries(fileEntries);
 garage:
   image: dxflrs/garage:v1.0.1
   ports:
-    - "3900:3900"  # S3 API
-    - "3903:3903"  # admin API (health + management)
+    - "3900:3900" # S3 API
+    - "3903:3903" # admin API (health + management)
   volumes:
     - ./.garage/meta:/var/lib/garage/meta
     - ./.garage/data:/var/lib/garage/data
