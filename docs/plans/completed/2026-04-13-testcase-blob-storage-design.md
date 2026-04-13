@@ -222,7 +222,7 @@ garage:
   image: dxflrs/garage:v1.0.1
   ports:
     - "3900:3900"  # S3 API
-    - "3902:3902"  # admin API
+    - "3903:3903"  # admin API (health + management)
   volumes:
     - ./.garage/meta:/var/lib/garage/meta
     - ./.garage/data:/var/lib/garage/data
