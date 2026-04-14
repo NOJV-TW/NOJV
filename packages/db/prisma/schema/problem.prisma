@@ -78,14 +78,15 @@ model Problem {
   updatedAt DateTime @updatedAt
 
   // Relations
-  author            User?                     @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-  statements        ProblemStatementI18n[]
-  testcaseSets      TestcaseSet[]
-  workspaceFiles    ProblemWorkspaceFile[]
-  submissions       Submission[]
-  contestLinks      ContestProblem[]
-  assessmentLinks   CourseAssessmentProblem[]
-  editorials        Editorial[]
+  author          User?                     @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  statements      ProblemStatementI18n[]
+  testcaseSets    TestcaseSet[]
+  workspaceFiles  ProblemWorkspaceFile[]
+  submissions     Submission[]
+  contestLinks    ContestProblem[]
+  examLinks       ExamProblem[]
+  assessmentLinks CourseAssessmentProblem[]
+  editorials      Editorial[]
 
   @@index([status, visibility, createdAt])
   @@index([authorId])

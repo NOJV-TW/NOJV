@@ -9,11 +9,6 @@ const contestListInclude = {
   _count: { select: { participations: true, problems: true } }
 } as const;
 
-const contestListWithCourseInclude = {
-  _count: { select: { participations: true, problems: true } },
-  course: { select: { id: true, title: true } }
-} as const;
-
 export const contestRepo = {
   findById(id: string) {
     return prisma.contest.findUnique({ where: { id } });
@@ -21,13 +16,6 @@ export const contestRepo = {
 
   findBySlug(slug: string) {
     return prisma.contest.findUnique({ where: { slug } });
-  },
-
-  findByIdWithCourse(id: string) {
-    return prisma.contest.findUnique({
-      where: { id },
-      select: { course: { select: { id: true } }, courseId: true, id: true }
-    });
   },
 
   findByIdOrThrow(id: string, select?: Prisma.ContestSelect) {
@@ -40,7 +28,7 @@ export const contestRepo = {
   findByInviteCode(inviteCode: string) {
     return prisma.contest.findUnique({
       where: { inviteCode },
-      select: { courseId: true, slug: true, visibility: true }
+      select: { slug: true, visibility: true }
     });
   },
 
@@ -55,41 +43,31 @@ export const contestRepo = {
     return prisma.contest.findMany({
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
-      where: {
-        courseId: null,
-        visibility: "published"
-      }
+      where: { visibility: "published" }
     });
   },
 
-  listByCourseId(courseId: string) {
+  /**
+   * Contests a user manages. Standalone contests only — course-role
+   * teaching rights live on `Exam` now.
+   */
+  listManagedForUser(userId: string) {
+    return prisma.contest.findMany({
+      include: contestListInclude,
+      orderBy: { updatedAt: "desc" },
+      where: { createdByUserId: userId }
+    });
+  },
+
+  /**
+   * Standalone published contests a user may participate in. No more
+   * course-embedded path — every published contest is participable.
+   */
+  listParticipable() {
     return prisma.contest.findMany({
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
-      where: {
-        courseId,
-        visibility: "published"
-      }
-    });
-  },
-
-  listManagedForUser(userId: string, managedCourseIds: string[]) {
-    const orClauses: Prisma.ContestWhereInput[] = [{ createdByUserId: userId }];
-    if (managedCourseIds.length > 0) orClauses.push({ courseId: { in: managedCourseIds } });
-    return prisma.contest.findMany({
-      include: contestListWithCourseInclude,
-      orderBy: { updatedAt: "desc" },
-      where: { OR: orClauses }
-    });
-  },
-
-  listParticipableForUser(studentCourseIds: string[]) {
-    const orClauses: Prisma.ContestWhereInput[] = [{ courseId: null }];
-    if (studentCourseIds.length > 0) orClauses.push({ courseId: { in: studentCourseIds } });
-    return prisma.contest.findMany({
-      include: contestListWithCourseInclude,
-      orderBy: { startsAt: "desc" },
-      where: { visibility: "published", OR: orClauses }
+      where: { visibility: "published" }
     });
   },
 
@@ -97,7 +75,6 @@ export const contestRepo = {
     return prisma.contest.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { id: true } },
         problems: {
           include: {
             problem: { select: problemMiniSelect }
@@ -113,7 +90,6 @@ export const contestRepo = {
     return prisma.contest.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { id: true } },
         participations: {
           where: { userId },
           take: 1
@@ -169,24 +145,6 @@ export const contestRepo = {
         startsAt: true
       },
       where: { id }
-    });
-  },
-
-  findPageLockedForUser(userId: string, now: Date) {
-    return prisma.contest.findFirst({
-      where: {
-        pageLockEnabled: true,
-        visibility: "published",
-        startsAt: { lte: now },
-        endsAt: { gte: now },
-        participations: {
-          some: { userId, status: "active" }
-        }
-      },
-      select: {
-        slug: true,
-        course: { select: { id: true } }
-      }
     });
   },
 

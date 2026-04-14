@@ -2,7 +2,9 @@
 // Course + homework assessment domain
 //
 // CourseAssessment is strictly for homework now (no IP lock, no
-// page lock, no scoreboard). Exams are Contests with courseId set.
+// page lock, no scoreboard). Exams live in their own `Exam` model
+// (see contest.prisma) and are the only course-embedded timed
+// scored activity that carries proctoring.
 // ═══════════════════════════════════════════════════════════════
 
 enum CourseRole {
@@ -32,7 +34,7 @@ model Course {
   owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships CourseMembership[]
   assessments CourseAssessment[]
-  contests    Contest[]
+  exams       Exam[]
   submissions Submission[]
 }
 

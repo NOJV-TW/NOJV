@@ -50,23 +50,26 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  sessions                     Session[]
-  accounts                     Account[]
-  schoolVerifications          SchoolVerificationToken[]
-  submissions                  Submission[]
-  contestParticipations        ContestParticipation[]
-  authoredProblems             Problem[]                 @relation("ProblemAuthor")
-  ownedCourses                 Course[]                  @relation("CourseOwner")
-  courseMemberships            CourseMembership[]        @relation("CourseMembershipUser")
-  createdMemberships           CourseMembership[]        @relation("CourseMembershipCreator")
-  createdCourseAssessments     CourseAssessment[]        @relation("CourseAssessmentCreator")
-  createdContests              Contest[]                 @relation("ContestCreator")
-  createdAnnouncements         Announcement[]            @relation("AnnouncementCreator")
-  triggeredContestPlagiarisms  Contest[]                 @relation("ContestPlagiarismTriggerer")
-  triggeredAssessmentPlagiarisms CourseAssessment[]      @relation("AssessmentPlagiarismTriggerer")
-  editorials                   Editorial[]
-  ipViolationLogs              IpViolationLog[]
-  dailyActivity                UserDailyActivity[]
+  sessions                       Session[]
+  accounts                       Account[]
+  schoolVerifications            SchoolVerificationToken[]
+  submissions                    Submission[]
+  contestParticipations          ContestParticipation[]
+  examParticipations             ExamParticipation[]       @relation("ExamParticipationUser")
+  authoredProblems               Problem[]                 @relation("ProblemAuthor")
+  ownedCourses                   Course[]                  @relation("CourseOwner")
+  courseMemberships              CourseMembership[]        @relation("CourseMembershipUser")
+  createdMemberships             CourseMembership[]        @relation("CourseMembershipCreator")
+  createdCourseAssessments       CourseAssessment[]        @relation("CourseAssessmentCreator")
+  createdContests                Contest[]                 @relation("ContestCreator")
+  createdExams                   Exam[]                    @relation("ExamCreator")
+  createdAnnouncements           Announcement[]            @relation("AnnouncementCreator")
+  triggeredContestPlagiarisms    Contest[]                 @relation("ContestPlagiarismTriggerer")
+  triggeredExamPlagiarisms       Exam[]                    @relation("ExamPlagiarismTriggerer")
+  triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
+  editorials                     Editorial[]
+  ipViolationLogs                IpViolationLog[]
+  dailyActivity                  UserDailyActivity[]
 }
 
 model Session {

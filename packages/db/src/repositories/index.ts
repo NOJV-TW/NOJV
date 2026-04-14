@@ -4,7 +4,12 @@ export { assessmentRepo, assessmentProblemRepo } from "./assessment";
 export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
 export { editorialRepo } from "./editorial";
-export { ipViolationLogRepo, contestParticipationIpRepo } from "./ip-violation";
+export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
+export {
+  ipViolationLogRepo,
+  contestParticipationIpRepo,
+  examParticipationIpRepo
+} from "./ip-violation";
 export {
   plagiarismRepo,
   type PlagiarismReportSummary,

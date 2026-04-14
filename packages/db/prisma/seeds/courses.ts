@@ -79,31 +79,31 @@ export async function seedCourses(
     }
   });
 
-  // Midterm is now a course-linked Contest (exams are contests)
-  const midterm = await prisma.contest.upsert({
+  // Midterm is now a course-embedded Exam (Task 1.4 of the 2026-04-14
+  // course experience redesign). Seeds use a stable id so existing
+  // test fixtures that reference the midterm row continue to resolve.
+  const midterm = await prisma.exam.upsert({
     create: {
       allowedLanguages: ["c", "cpp"],
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       endsAt: new Date("2026-04-02T12:00:00.000Z"),
       frozenBoard: false,
-      id: "contest_midterm-systems-lab",
+      id: "exam_midterm-systems-lab",
       ipWhitelistEnabled: true,
       ipWhitelist: ["140.112.0.0/16"],
       pageLockEnabled: true,
       scoreboardMode: "live",
-      slug: "midterm-systems-lab",
       startsAt: new Date("2026-04-02T09:00:00.000Z"),
-      summary:
-        "Exam-style contest with page lock, IP lock, live ranking, and restricted languages.",
-      title: "Midterm Systems Lab",
-      visibility: "published"
+      status: "published",
+      summary: "Exam with page lock, IP whitelist, live ranking, and restricted languages.",
+      title: "Midterm Systems Lab"
     },
     update: {},
-    where: { slug: "midterm-systems-lab" }
+    where: { id: "exam_midterm-systems-lab" }
   });
 
-  // Assessment problem links (hw1 only — midterm is now a contest)
+  // Assessment problem links (hw1 only — midterm is now an exam)
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemId: "problem_warmup-sum", ordinal: 1 },
     { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 }
@@ -133,10 +133,10 @@ export async function seedCourses(
     });
   }
 
-  // Midterm contest problem links
+  // Midterm exam problem links
   const midtermProblemLinks = [
-    { contestId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
-    { contestId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 }
+    { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
+    { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 }
   ];
 
   for (const link of midtermProblemLinks) {
@@ -144,9 +144,9 @@ export async function seedCourses(
       where: { id: link.problemId }
     });
 
-    await prisma.contestProblem.upsert({
+    await prisma.examProblem.upsert({
       create: {
-        contestId: link.contestId,
+        examId: link.examId,
         ordinal: link.ordinal,
         points: link.points,
         problemId: problem.id
@@ -156,46 +156,44 @@ export async function seedCourses(
         points: link.points
       },
       where: {
-        contestId_problemId: {
-          contestId: link.contestId,
+        examId_problemId: {
+          examId: link.examId,
           problemId: problem.id
         }
       }
     });
   }
 
-  // Upcoming demo contest — linked to the OS lab course. Used by the
-  // contest-hidden-problems e2e tests to verify that students see the
-  // placeholder and course teachers see the seeded problem title.
-  // startsAt is set far into the future so the hiding logic always fires
-  // during e2e runs regardless of clock drift.
-  const upcomingDemo = await prisma.contest.upsert({
+  // Upcoming demo exam — course-embedded. Used by e2e tests to verify
+  // that students see the placeholder and course teachers see the
+  // seeded problem title before the window opens. startsAt is far in
+  // the future so the hiding logic always fires regardless of clock.
+  const upcomingDemo = await prisma.exam.upsert({
     create: {
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       endsAt: new Date("2099-12-31T12:00:00.000Z"),
       frozenBoard: false,
-      id: "contest_upcoming-demo-contest",
-      scoreboardMode: "live",
-      slug: "upcoming-demo-contest",
+      id: "exam_upcoming-demo",
+      scoreboardMode: "hidden",
       startsAt: new Date("2099-12-31T09:00:00.000Z"),
-      summary: "Upcoming contest fixture used by e2e tests for problem hiding.",
-      title: "Upcoming Demo Contest",
-      visibility: "published"
+      status: "published",
+      summary: "Upcoming exam fixture used by e2e tests for problem hiding.",
+      title: "Upcoming Demo Exam"
     },
     update: {
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       endsAt: new Date("2099-12-31T12:00:00.000Z"),
       startsAt: new Date("2099-12-31T09:00:00.000Z"),
-      visibility: "published"
+      status: "published"
     },
-    where: { slug: "upcoming-demo-contest" }
+    where: { id: "exam_upcoming-demo" }
   });
 
-  await prisma.contestProblem.upsert({
+  await prisma.examProblem.upsert({
     create: {
-      contestId: upcomingDemo.id,
+      examId: upcomingDemo.id,
       ordinal: 1,
       points: 100,
       problemId: "problem_warmup-sum"
@@ -205,8 +203,8 @@ export async function seedCourses(
       points: 100
     },
     where: {
-      contestId_problemId: {
-        contestId: upcomingDemo.id,
+      examId_problemId: {
+        examId: upcomingDemo.id,
         problemId: "problem_warmup-sum"
       }
     }

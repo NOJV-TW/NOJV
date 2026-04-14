@@ -17,32 +17,13 @@ describe("contest queries (real DB)", () => {
   // --- listPublicContests ---
 
   describe("listPublicContests", () => {
-    it("returns published contests without a courseId", async () => {
+    it("returns published contests", async () => {
       await createTestContest({ visibility: "published", title: "Public Contest" });
       await createTestContest({ visibility: "draft", title: "Draft Contest" });
 
       const contests = await listPublicContests();
       expect(contests).toHaveLength(1);
       expect(contests[0]!.title).toBe("Public Contest");
-    });
-
-    it("excludes contests linked to a course", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const course = await testPrisma.course.create({
-        data: {
-          id: "course-for-contest",
-          title: "Test Course",
-          description: "Test",
-          ownerId: teacher.id
-        }
-      });
-
-      await createTestContest({ courseId: course.id, visibility: "published" });
-      await createTestContest({ visibility: "published", title: "Independent" });
-
-      const contests = await listPublicContests();
-      expect(contests).toHaveLength(1);
-      expect(contests[0]!.title).toBe("Independent");
     });
 
     it("returns empty array when no published contests exist", async () => {
