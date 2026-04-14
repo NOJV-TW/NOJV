@@ -21,8 +21,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const { courseSlug, target } = await resolvePlagiarismTarget(assessmentId, type);
-  const role = await getCoursePermissionRole(courseSlug, actor);
+  const { courseId, target } = await resolvePlagiarismTarget(assessmentId, type);
+  const role = await getCoursePermissionRole(courseId, actor);
 
   if (!role || !canManageCourse(role)) {
     throw new ForbiddenError("Only course staff can trigger plagiarism checks.");
@@ -45,8 +45,8 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const { courseSlug, target } = await resolvePlagiarismTarget(assessmentId, type);
-  const role = await getCoursePermissionRole(courseSlug, actor);
+  const { courseId, target } = await resolvePlagiarismTarget(assessmentId, type);
+  const role = await getCoursePermissionRole(courseId, actor);
 
   if (!role || !canManageCourse(role)) {
     throw new ForbiddenError("Only course staff can view plagiarism reports.");

@@ -1,23 +1,18 @@
-import { announcementRepo, assessmentRepo, courseRepo, problemRepo } from "@nojv/db";
-import type {
-  CourseJoinTokenKind,
-  CourseRole,
-  Language,
-  LocaleCode,
-  PlatformRole,
-  ProblemVisibility
-} from "@nojv/core";
-
-import { NotFoundError } from "../shared/errors";
-import { localizeProblem } from "../shared/pick-problem-statement";
+import {
+  announcementRepo,
+  assessmentRepo,
+  courseMembershipRepo,
+  courseRepo,
+  examRepo,
+  problemRepo
+} from "@nojv/db";
+import type { CourseRole, Language, PlatformRole } from "@nojv/core";
 
 export interface CourseMemberRecord {
   courseRole: CourseRole;
   displayName: string;
   email: string;
   username: string | null;
-  /** Null = teacher manually added this user without a join token. */
-  joinedTokenId: string | null;
   platformRole: PlatformRole;
   userId: string;
 }
@@ -35,196 +30,18 @@ export interface CourseAssessmentRecord {
   title: string;
 }
 
-export interface CourseProblemCatalogEntry {
-  authorUsername: string;
-  id: string;
-  /** Mirror of the localized title; the standalone column is gone. */
-  summary: string;
-  title: string;
-  visibility: ProblemVisibility;
+export async function findCourseWithMembership(courseId: string, userId: string) {
+  return courseRepo.findByIdWithUserMembership(courseId, userId);
 }
 
-export interface CoursePageData {
-  assessments: CourseAssessmentRecord[];
-  description: string;
-  joinChannels: {
-    kind: CourseJoinTokenKind;
-    label: string;
-    token: string;
-  }[];
-  locale: LocaleCode;
-  members: CourseMemberRecord[];
-  problemIds: string[];
-  slug: string;
-  title: string;
-}
-
-export interface CoursePageDetailData {
-  course: CoursePageData;
-  problems: CourseProblemCatalogEntry[];
-}
-
-function mapProblemShelfEntry(problem: {
-  author?: { username: string | null } | null;
-  id: string;
-  statements?: {
-    bodyMarkdown: string;
-    inputFormat?: string;
-    locale: string;
-    outputFormat?: string;
-    title: string;
-  }[];
-  title: string;
-  visibility: ProblemVisibility;
-}) {
-  const localized = localizeProblem(problem);
-
-  return {
-    authorUsername: problem.author?.username ?? "course_staff",
-    id: problem.id,
-    summary: localized.title,
-    title: localized.title,
-    visibility: problem.visibility
-  } satisfies CourseProblemCatalogEntry;
-}
-
-interface PersistedAssessmentProblemLink {
-  ordinal: number;
-  problem: {
-    author?: { username: string | null } | null;
-    id: string;
-    statements?: {
-      bodyMarkdown: string;
-      inputFormat?: string;
-      locale: string;
-      outputFormat?: string;
-      title: string;
-    }[];
-    title: string;
-    visibility: ProblemVisibility;
-  };
-}
-
-function mapAssessmentRecord(assessment: {
-  allowedLanguages: Language[];
-  closesAt: Date;
-  dueAt: Date | null;
-  id: string;
-  opensAt: Date;
-  problems: PersistedAssessmentProblemLink[];
-  slug: string;
-  summary: string;
-  title: string;
-}) {
-  const linkedProblems = assessment.problems;
-
-  return {
-    allowedLanguages: assessment.allowedLanguages,
-    closesAt: assessment.closesAt.toISOString(),
-    dueAt: assessment.dueAt?.toISOString() ?? null,
-    id: assessment.id,
-    opensAt: assessment.opensAt.toISOString(),
-    problemIds: [...linkedProblems]
-      .sort((left, right) => left.ordinal - right.ordinal)
-      .map((link) => link.problem.id),
-    slug: assessment.slug,
-    summary: assessment.summary,
-    title: assessment.title
-  } satisfies CourseAssessmentRecord;
-}
-
-function mapCourseMember(member: {
-  joinedTokenId: string | null;
-  role: "student" | "ta" | "teacher";
-  user: {
-    name: string;
-    email: string;
-    username: string | null;
-    platformRole: "admin" | "student" | "teacher";
-  };
-  userId: string;
-}) {
-  return {
-    courseRole: member.role,
-    displayName: member.user.name,
-    email: member.user.email,
-    username: member.user.username,
-    joinedTokenId: member.joinedTokenId,
-    platformRole: member.user.platformRole,
-    userId: member.userId
-  } satisfies CourseMemberRecord;
-}
-
-function mapPersistedCourse(course: {
-  assessments: {
-    allowedLanguages: Language[];
-    closesAt: Date;
-    dueAt: Date | null;
-    id: string;
-    opensAt: Date;
-    problems: PersistedAssessmentProblemLink[];
-    slug: string;
-    summary: string;
-    title: string;
-  }[];
-  description: string;
-  joinTokens: {
-    kind: "link" | "code";
-    label: string;
-    token: string;
-  }[];
-  locale: string;
-  memberships: {
-    joinedTokenId: string | null;
-    role: "student" | "ta" | "teacher";
-    user: {
-      name: string;
-      email: string;
-      username: string | null;
-      platformRole: "admin" | "student" | "teacher";
-    };
-    userId: string;
-  }[];
-  slug: string;
-  title: string;
-}): CoursePageDetailData {
-  const assessments = course.assessments.map(mapAssessmentRecord);
-  const members = course.memberships.map(mapCourseMember);
-
-  // A course's problem list is the distinct union of every problem
-  // attached to one of its assessments. Dedupe by problemId, first-wins
-  // by assessment order (which is `opensAt asc` from the repo).
-  const seen = new Set<string>();
-  const problems: CourseProblemCatalogEntry[] = [];
-  for (const assessment of course.assessments) {
-    for (const link of assessment.problems) {
-      if (seen.has(link.problem.id)) continue;
-      seen.add(link.problem.id);
-      problems.push(mapProblemShelfEntry(link.problem));
-    }
-  }
-
-  return {
-    course: {
-      assessments,
-      description: course.description,
-      joinChannels: course.joinTokens.map((token) => ({
-        kind: token.kind,
-        label: token.label,
-        token: token.token
-      })),
-      locale: course.locale as "en" | "zh-TW",
-      members,
-      problemIds: problems.map((problem) => problem.id),
-      slug: course.slug,
-      title: course.title
-    } satisfies CoursePageData,
-    problems
-  } satisfies CoursePageDetailData;
-}
-
-export async function findCourseWithMembership(courseSlug: string, userId: string) {
-  return courseRepo.findBySlugWithUserMembership(courseSlug, userId);
+/**
+ * Fetch a course with everything the `/courses/[courseId]` layout needs:
+ * the current user's membership row (if any), the owner display name for
+ * the hero, and published-count aggregates for the tab badges. Returns
+ * `null` if the course does not exist.
+ */
+export async function getCourseHeaderById(courseId: string, userId: string) {
+  return courseRepo.findByIdWithHeader(courseId, userId);
 }
 
 export async function listCourseCards(userId?: string) {
@@ -233,19 +50,113 @@ export async function listCourseCards(userId?: string) {
   return persistedCourses.map((course) => ({
     assessmentCount: course._count.assessments,
     memberCount: course._count.memberships,
-    slug: course.slug,
+    id: course.id,
     title: course.title
   }));
 }
 
-export async function getCoursePageData(slug: string): Promise<CoursePageDetailData> {
-  const persistedCourse = await courseRepo.findDetailBySlug(slug);
+/**
+ * Card shape surfaced by the /courses listing page. A card always knows:
+ *  - the viewer's role in the course (student / ta / teacher),
+ *  - batched counts of `studentCount`, `assignmentCount`, `examCount`,
+ *  - status bar counters split by role intent (students see "due /
+ *    upcoming", staff see "open / draft / exam").
+ */
+export interface CourseListingCard {
+  id: string;
+  title: string;
+  description: string;
+  ownerDisplayName: string;
+  role: CourseRole;
+  archived: boolean;
+  studentCount: number;
+  assignmentCount: number;
+  examCount: number;
+  openAssignments: number;
+  draftAssignments: number;
+  upcomingExams: number;
+  myDueCount: number;
+  myUpcomingCount: number;
+  myAllCaughtUp: boolean;
+}
 
-  if (!persistedCourse) {
-    throw new NotFoundError(`Course not found: ${slug}`);
+/**
+ * One-shot fetch for the /courses listing page. Returns the user's
+ * enrolled-as-student and managing-as-staff courses in a single batched
+ * round-trip set (memberships -> courses -> per-course aggregates). No
+ * N+1 — every aggregate query is keyed by `courseId in (...)`.
+ *
+ * `managing` includes both `teacher` and `ta` memberships. Inactive
+ * memberships are skipped at the membership layer.
+ */
+export async function listForUserWithCards(userId: string): Promise<{
+  enrolled: CourseListingCard[];
+  managing: CourseListingCard[];
+}> {
+  const memberships = await courseMembershipRepo.listActiveForUser(userId);
+  if (memberships.length === 0) return { enrolled: [], managing: [] };
+
+  const roleByCourseId = new Map<string, CourseRole>();
+  for (const m of memberships) {
+    roleByCourseId.set(m.courseId, m.role);
+  }
+  const courseIds = [...roleByCourseId.keys()];
+
+  const now = new Date();
+  const [courses, openGroups, draftGroups, upcomingExamGroups] = await Promise.all([
+    courseRepo.findManyForCards(courseIds),
+    assessmentRepo.groupOpenCountsByCourse(courseIds, now),
+    assessmentRepo.groupDraftCountsByCourse(courseIds),
+    examRepo.groupUpcomingCountsByCourse(courseIds, now)
+  ]);
+
+  const openByCourseId = new Map(openGroups.map((g) => [g.courseId, g._count._all]));
+  const draftByCourseId = new Map(draftGroups.map((g) => [g.courseId, g._count._all]));
+  const upcomingExamsByCourseId = new Map(
+    upcomingExamGroups.map((g) => [g.courseId, g._count._all])
+  );
+
+  const cards: CourseListingCard[] = courses.map((course) => {
+    const role = roleByCourseId.get(course.id) ?? "student";
+    const openAssignments = openByCourseId.get(course.id) ?? 0;
+    const draftAssignments = draftByCourseId.get(course.id) ?? 0;
+    const upcomingExams = upcomingExamsByCourseId.get(course.id) ?? 0;
+
+    // Student "due / upcoming" approximation — we count open assignments
+    // and upcoming exams, not per-user unsolved work. The prototype wants
+    // this to feel personal, but an accurate per-user query would require
+    // a submission aggregation at listing time. Defer until we have a
+    // real "my work" stats table.
+    const myDueCount = openAssignments;
+    const myUpcomingCount = upcomingExams;
+
+    return {
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      ownerDisplayName: course.owner.name,
+      role,
+      archived: false,
+      studentCount: course._count.memberships,
+      assignmentCount: course._count.assessments,
+      examCount: course._count.exams,
+      openAssignments,
+      draftAssignments,
+      upcomingExams,
+      myDueCount,
+      myUpcomingCount,
+      myAllCaughtUp: myDueCount === 0 && myUpcomingCount === 0
+    };
+  });
+
+  const enrolled: CourseListingCard[] = [];
+  const managing: CourseListingCard[] = [];
+  for (const card of cards) {
+    if (card.role === "student") enrolled.push(card);
+    else managing.push(card);
   }
 
-  return mapPersistedCourse(persistedCourse);
+  return { enrolled, managing };
 }
 
 export async function listUserAssessments(userId: string) {
@@ -253,7 +164,7 @@ export async function listUserAssessments(userId: string) {
 
   return assessments.map((a) => ({
     closesAt: a.closesAt.toISOString(),
-    courseSlug: a.course.slug,
+    courseId: a.course.id,
     courseTitle: a.course.title,
     dueAt: a.dueAt?.toISOString() ?? null,
     opensAt: a.opensAt.toISOString(),
@@ -282,7 +193,7 @@ export async function listUpcomingAssessments(userId: string) {
 
   return assessments.map((a) => ({
     closesAt: a.closesAt.toISOString(),
-    courseSlug: a.course.slug,
+    courseId: a.course.id,
     courseTitle: a.course.title,
     dueAt: a.dueAt?.toISOString() ?? null,
     opensAt: a.opensAt.toISOString(),
@@ -291,57 +202,13 @@ export async function listUpcomingAssessments(userId: string) {
   }));
 }
 
-export interface AssessmentDetailInput {
-  assessmentSlug: string;
-  courseData: CoursePageDetailData;
-  /** The authenticated user's ID, or null if anonymous */
-  userId: string | null;
-}
-
-export interface AssessmentDetailResult {
-  assessment: CourseAssessmentRecord;
-  course: CoursePageData;
-  problems: CourseProblemCatalogEntry[];
-}
-
-/**
- * Load assessment detail data. Homework assessments no longer have IP
- * lock or page lock — those moved to Contest exclusively. The function
- * is now a pure projection over course data, but kept Promise-shaped so
- * callers don't need to change.
- */
-// eslint-disable-next-line @typescript-eslint/require-await
-export async function loadAssessmentDetail(
-  input: AssessmentDetailInput
-): Promise<AssessmentDetailResult> {
-  const { assessmentSlug, courseData } = input;
-  const course = courseData.course;
-  const assessment = course.assessments.find((entry) => entry.slug === assessmentSlug);
-
-  if (!assessment) {
-    throw new NotFoundError("Assignment not found");
-  }
-
-  const problemsById = new Map(courseData.problems.map((problem) => [problem.id, problem]));
-
-  const problems = assessment.problemIds
-    .map((pid) => problemsById.get(pid))
-    .filter((p): p is NonNullable<typeof p> => p != null);
-
-  return {
-    assessment,
-    course,
-    problems
-  };
-}
-
-export async function getAssessmentContext(courseSlug: string, assessmentSlug: string) {
-  const assessment = await assessmentRepo.findPublishedContext(courseSlug, assessmentSlug);
+export async function getAssessmentContext(courseId: string, assessmentSlug: string) {
+  const assessment = await assessmentRepo.findPublishedContext(courseId, assessmentSlug);
 
   return assessment
     ? {
         allowedLanguages: assessment.allowedLanguages as Language[],
-        courseSlug: assessment.course.slug,
+        courseId: assessment.course.id,
         slug: assessment.slug
       }
     : null;

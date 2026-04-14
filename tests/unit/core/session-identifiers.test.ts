@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 interface EditorSessionIdentifierInput {
   assessmentSlug?: string | undefined;
   contestSlug?: string | undefined;
-  courseSlug?: string | undefined;
+  courseId?: string | undefined;
   problemId: string;
 }
 
@@ -29,10 +29,10 @@ function buildEditorSessionId(input: EditorSessionIdentifierInput) {
     return joinSessionSegments("editor", [input.problemId, "contest", input.contestSlug]);
   }
 
-  if (input.courseSlug && input.assessmentSlug) {
+  if (input.courseId && input.assessmentSlug) {
     return joinSessionSegments("editor", [
       input.problemId,
-      input.courseSlug,
+      input.courseId,
       input.assessmentSlug
     ]);
   }
@@ -54,9 +54,9 @@ describe("buildEditorSessionId", () => {
     expect(
       buildEditorSessionId({
         assessmentSlug: "hw1-process-trace",
-        courseSlug: "os-lab-spring-2026",
+        courseId: "course_os-lab-spring-2026",
         problemId: "process-log-parser"
       })
-    ).toBe("editor_process-log-parser_os-lab-spring-2026_hw1-process-trace");
+    ).toBe("editor_process-log-parser_course-os-lab-spring-2026_hw1-process-trace");
   });
 });

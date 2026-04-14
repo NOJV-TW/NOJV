@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>01 — Courses listing</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      .course-card {
+        display: flex;
+        flex-direction: column;
+        padding: 1.75rem;
+        background: var(--panel);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-2xl);
+        box-shadow: var(--shadow-rest);
+        cursor: pointer;
+        transition: all var(--duration-normal) var(--ease-out-soft);
+        position: relative;
+        overflow: hidden;
+      }
+      .course-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at top right, rgba(196, 104, 45, 0.08), transparent 50%);
+        opacity: 0;
+        transition: opacity var(--duration-normal) var(--ease-out-soft);
+        pointer-events: none;
+      }
+      .course-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+        border-color: var(--border-strong);
+      }
+      .course-card:hover::before {
+        opacity: 1;
+      }
+      .course-card .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.875rem;
+      }
+      .course-card .semester {
+        font-family: var(--font-mono);
+        font-size: var(--text-caption);
+        color: var(--muted-foreground);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .course-card h3 {
+        font-family: var(--font-display);
+        font-size: var(--text-title);
+        font-weight: 500;
+        letter-spacing: -0.015em;
+        line-height: 1.1;
+      }
+      .course-card .subtitle {
+        margin-top: 0.375rem;
+        font-size: var(--text-body-sm);
+        color: var(--muted-foreground);
+      }
+      .course-card .status-bar {
+        margin-top: 1.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border-subtle);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .course-card .arrow {
+        margin-left: auto;
+        color: var(--muted-foreground);
+        transition: transform var(--duration-fast) var(--ease-out-soft);
+      }
+      .course-card:hover .arrow {
+        transform: translateX(3px);
+        color: var(--primary);
+      }
+      .course-card.archived {
+        opacity: 0.62;
+      }
+      .course-card.archived:hover { opacity: 1; }
+
+      .empty-state {
+        padding: 3rem 2rem;
+        text-align: center;
+        border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius-xl);
+        background: rgba(255, 250, 244, 0.4);
+      }
+      .empty-state h4 {
+        font-family: var(--font-display);
+        font-size: var(--text-title);
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .empty-state p {
+        margin-top: 0.5rem;
+        color: var(--muted-foreground);
+        font-size: var(--text-body-sm);
+      }
+
+      .section-subheading {
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .section-subheading h3 {
+        font-family: var(--font-display);
+        font-size: var(--text-title);
+        font-weight: 400;
+        letter-spacing: -0.01em;
+        color: var(--muted-foreground);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a href="index.html" class="brand">
+          <span class="brand-mark"></span>
+          <span>NOJV</span>
+        </a>
+        <nav class="site-nav">
+          <a href="#">Dashboard</a>
+          <a href="#">Problems</a>
+          <a href="01-courses-listing.html" class="active">Courses</a>
+          <a href="14-assignments-top.html">Assignments</a>
+          <a href="15-exams-top.html">Exams</a>
+          <a href="#">Contests</a>
+        </nav>
+        <div class="site-header-spacer"></div>
+        <div class="header-actions">
+          <div class="locale-toggle">
+            <button>EN</button>
+            <button class="active">中</button>
+          </div>
+          <div class="avatar">T</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container" style="padding-bottom: 5rem">
+      <section class="page-head animate-in">
+        <p class="eyebrow">Spring 2026</p>
+        <h1 class="page-head-title font-display mt-2">Courses</h1>
+        <p class="page-head-subtitle">
+          所有你修的、你教的課程一覽。點選卡片進入課程首頁。
+        </p>
+      </section>
+
+      <!-- Tabs + create button row -->
+      <div class="flex items-center gap-4 mb-6 animate-in animate-in-1">
+        <div class="tabs" style="flex: 1">
+          <div class="tab">
+            自己的課程
+            <span class="tab-count">3</span>
+          </div>
+          <div class="tab active">
+            管理的課程
+            <span class="tab-count">5</span>
+          </div>
+        </div>
+        <button class="btn btn-primary">
+          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+          建立新課程
+        </button>
+      </div>
+
+      <!-- Filter chips -->
+      <div class="chip-group mb-6 animate-in animate-in-2">
+        <button class="chip active">Active <span class="chip-count">4</span></button>
+        <button class="chip">Archived <span class="chip-count">1</span></button>
+      </div>
+
+      <!-- Course grid — managing tab -->
+      <div class="grid grid-3 animate-in animate-in-3">
+        <a href="03-course-overview.html" class="course-card">
+          <div class="top">
+            <span class="semester">2026 Spring · CS 101</span>
+            <span class="teacher-badge">Teacher</span>
+          </div>
+          <h3>作業系統實作</h3>
+          <p class="subtitle">72 名學生 · 14 個作業 · 2 場期考</p>
+          <div class="status-bar">
+            <span class="badge badge-primary badge-dot">5 open</span>
+            <span class="badge badge-muted">2 draft</span>
+            <span class="badge badge-info">1 exam</span>
+            <span class="arrow">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+            </span>
+          </div>
+        </a>
+
+        <a href="03-course-overview.html" class="course-card">
+          <div class="top">
+            <span class="semester">2026 Spring · CS 205</span>
+            <span class="teacher-badge">Teacher</span>
+          </div>
+          <h3>資料結構與演算法</h3>
+          <p class="subtitle">118 名學生 · 8 個作業 · 3 場期考</p>
+          <div class="status-bar">
+            <span class="badge badge-primary badge-dot">3 open</span>
+            <span class="badge badge-success">5 graded</span>
+            <span class="arrow">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+            </span>
+          </div>
+        </a>
+
+        <a href="03-course-overview.html" class="course-card">
+          <div class="top">
+            <span class="semester">2026 Spring · CS 302</span>
+            <span class="badge badge-muted">TA</span>
+          </div>
+          <h3>計算機網路</h3>
+          <p class="subtitle">34 名學生 · 6 個作業 · 1 場期中考</p>
+          <div class="status-bar">
+            <span class="badge badge-primary badge-dot">1 open</span>
+            <span class="badge badge-warning badge-dot">1 upcoming</span>
+            <span class="arrow">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+            </span>
+          </div>
+        </a>
+
+        <a href="03-course-overview.html" class="course-card">
+          <div class="top">
+            <span class="semester">2026 Spring · CS 410</span>
+            <span class="teacher-badge">Teacher</span>
+          </div>
+          <h3>編譯器設計</h3>
+          <p class="subtitle">22 名學生 · 12 個作業 · 2 場期考</p>
+          <div class="status-bar">
+            <span class="badge badge-muted">所有作業已結束</span>
+            <span class="arrow">
+              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+            </span>
+          </div>
+        </a>
+      </div>
+
+      <div class="mt-6">
+        <a href="03-course-overview.html" class="course-card" style="display: grid; grid-template-columns: 1fr; max-width: 420px">
+          <div class="top">
+            <span class="semester">2025 Fall · CS 101</span>
+            <span class="badge badge-muted">Archived · Teacher</span>
+          </div>
+          <h3 style="color: var(--muted-foreground)">作業系統實作</h3>
+          <p class="subtitle">已封存 · 68 名學生 · 12 個作業 · 期末已結算</p>
+        </a>
+      </div>
+
+      <!-- Student variant preview — same card styling but different meta -->
+      <div class="section-subheading">
+        <h3>參考：學生視角（自己的課程 tab）</h3>
+        <p class="mt-2 text-body-sm text-muted">同樣的卡片骨架，role badge 改顯示身分，右下狀態換成「與我相關」的 due / upcoming 訊息。</p>
+
+        <div class="grid grid-3 mt-6">
+          <a href="03-course-overview.html" class="course-card">
+            <div class="top">
+              <span class="semester">2026 Spring · CS 101</span>
+              <span class="badge badge-muted">Student</span>
+            </div>
+            <h3>作業系統實作</h3>
+            <p class="subtitle">授課：王老師 · 72 名同學</p>
+            <div class="status-bar">
+              <span class="badge badge-warning badge-dot">3 assignments due</span>
+              <span class="badge badge-info">1 exam 下週</span>
+              <span class="arrow">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              </span>
+            </div>
+          </a>
+
+          <a href="03-course-overview.html" class="course-card">
+            <div class="top">
+              <span class="semester">2026 Spring · CS 205</span>
+              <span class="badge badge-muted">Student</span>
+            </div>
+            <h3>資料結構與演算法</h3>
+            <p class="subtitle">授課：陳老師 · 118 名同學</p>
+            <div class="status-bar">
+              <span class="badge badge-success badge-dot">All caught up</span>
+              <span class="arrow">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              </span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Empty state example -->
+      <div class="section-subheading">
+        <h3>參考：空狀態</h3>
+        <p class="mt-2 text-body-sm text-muted">tab 為空時顯示。Student tab 的空狀態不提供「建立」CTA。</p>
+
+        <div class="empty-state mt-6">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground); margin-bottom: 0.75rem">
+            <path d="M8 14v24a4 4 0 004 4h24a4 4 0 004-4V14" />
+            <path d="M4 10l20-6 20 6-20 6L4 10z" />
+            <path d="M16 20v8a8 4 0 0016 0v-8" />
+          </svg>
+          <h4>還沒有修課</h4>
+          <p>當你被加入課程時，這裡會顯示所有你修的課。</p>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

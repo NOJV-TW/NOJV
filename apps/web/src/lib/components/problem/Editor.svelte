@@ -24,7 +24,7 @@
     allowedLanguages?: Language[] | undefined;
     assessment?: {
       assessmentSlug: string;
-      courseSlug: string;
+      courseId: string;
     } | undefined;
     contestSlug?: string | undefined;
     onSubmissionComplete?: ((

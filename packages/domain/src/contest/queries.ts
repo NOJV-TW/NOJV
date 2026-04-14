@@ -1,17 +1,13 @@
-import { contestRepo, courseMembershipRepo, runTransaction } from "@nojv/db";
+import { contestRepo } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
 import { canManageContest } from "./permissions";
 
 export interface ContestListItem {
   allowedLanguages: Language[];
   endsAt: string;
   id: string;
-  ipBindingEnabled: boolean;
-  ipWhitelistEnabled: boolean;
-  pageLockEnabled: boolean;
   participantCount: number;
   problemCount: number;
   scoreboardMode: ScoreboardMode;
@@ -40,16 +36,10 @@ export interface ContestProblemSummary {
 
 export interface ContestDetailData {
   allowedLanguages: Language[];
-  courseSlug: string | null;
   endsAt: string;
   frozenAt: string | null;
   id: string;
-  ipBindingEnabled: boolean;
-  ipViolationMode: "block" | "notify";
-  ipWhitelist: string[];
-  ipWhitelistEnabled: boolean;
   isManager: boolean;
-  pageLockEnabled: boolean;
   participantCount: number;
   problems: ContestProblemSummary[] | null;
   problemsHidden: boolean;
@@ -80,9 +70,6 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
     allowedLanguages: c.allowedLanguages as Language[],
     endsAt: c.endsAt.toISOString(),
     id: c.id,
-    ipBindingEnabled: c.ipBindingEnabled,
-    ipWhitelistEnabled: c.ipWhitelistEnabled,
-    pageLockEnabled: c.pageLockEnabled,
     participantCount: c._count.participations,
     problemCount: c._count.problems,
     scoreboardMode: c.scoreboardMode as ScoreboardMode,
@@ -106,15 +93,9 @@ type ContestDetailBase = Omit<
 function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
   return {
     allowedLanguages: contest.allowedLanguages as Language[],
-    courseSlug: contest.course?.slug ?? null,
     endsAt: contest.endsAt.toISOString(),
     frozenAt: contest.frozenAt?.toISOString() ?? null,
     id: contest.id,
-    ipBindingEnabled: contest.ipBindingEnabled,
-    ipViolationMode: contest.ipViolationMode as "block" | "notify",
-    ipWhitelist: contest.ipWhitelist,
-    ipWhitelistEnabled: contest.ipWhitelistEnabled,
-    pageLockEnabled: contest.pageLockEnabled,
     participantCount: contest._count.participations,
     problems: contest.problems.map((cp) => ({
       id: cp.problem.id,
@@ -137,30 +118,17 @@ export async function listPublicContests(): Promise<ContestListItem[]> {
   return contests.map(mapContestListItem);
 }
 
-export async function listCourseContests(courseSlug: string): Promise<ContestListItem[]> {
-  const contests = await contestRepo.listByCourseSlug(courseSlug);
-  return contests.map(mapContestListItem);
-}
-
 export async function listContestsForUser(
   userId: string | null
 ): Promise<ContestListForUserResult> {
   if (userId === null) {
-    const rows = await contestRepo.listParticipableForUser([]);
+    const rows = await contestRepo.listParticipable();
     return { managed: [], participable: rows.map(mapContestListItem) };
   }
 
-  const memberships = await courseMembershipRepo.listActiveForUser(userId);
-  const teacherOrTaCourseIds = memberships
-    .filter((m) => m.role === "teacher" || m.role === "ta")
-    .map((m) => m.courseId);
-  const studentCourseIds = memberships
-    .filter((m) => m.role === "student")
-    .map((m) => m.courseId);
-
   const [managedRows, participableRows] = await Promise.all([
-    contestRepo.listManagedForUser(userId, teacherOrTaCourseIds),
-    contestRepo.listParticipableForUser(studentCourseIds)
+    contestRepo.listManagedForUser(userId),
+    contestRepo.listParticipable()
   ]);
 
   const managedIds = new Set(managedRows.map((c) => c.id));
@@ -183,15 +151,10 @@ export interface ContestDetailOptions {
 
 function resolveVisibility(
   userId: string | null,
-  contest: { createdByUserId: string | null; courseId: string | null; startsAt: Date },
-  memberships: Awaited<ReturnType<typeof courseMembershipRepo.listActiveForUser>>,
+  contest: { createdByUserId: string | null; startsAt: Date },
   now: Date
 ): { isManager: boolean; problemsHidden: boolean } {
-  const isManager = canManageContest(
-    userId,
-    { createdByUserId: contest.createdByUserId, courseId: contest.courseId },
-    memberships
-  );
+  const isManager = canManageContest(userId, { createdByUserId: contest.createdByUserId });
   return {
     isManager,
     problemsHidden: !isManager && now < contest.startsAt
@@ -202,22 +165,12 @@ export async function getContestDetail(
   contestSlug: string,
   options: ContestDetailOptions
 ): Promise<ContestDetailData> {
-  const [contest, memberships] = await Promise.all([
-    contestRepo.findDetailBySlug(contestSlug),
-    options.userId === null
-      ? Promise.resolve([])
-      : courseMembershipRepo.listActiveForUser(options.userId)
-  ]);
+  const contest = await contestRepo.findDetailBySlug(contestSlug);
   if (contest?.visibility !== "published") {
     throw new NotFoundError(`Contest not found: ${contestSlug}`);
   }
 
-  const { isManager, problemsHidden } = resolveVisibility(
-    options.userId,
-    contest,
-    memberships,
-    options.now
-  );
+  const { isManager, problemsHidden } = resolveVisibility(options.userId, contest, options.now);
 
   const base = mapContestDetail(contest);
   return {
@@ -233,20 +186,12 @@ export async function getContestWorkspaceData(
   userId: string,
   options: { now: Date }
 ): Promise<ContestWorkspaceData> {
-  const [contest, memberships] = await Promise.all([
-    contestRepo.findWorkspaceBySlug(contestSlug, userId),
-    courseMembershipRepo.listActiveForUser(userId)
-  ]);
+  const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
   if (contest?.visibility !== "published") {
     throw new NotFoundError(`Contest not found: ${contestSlug}`);
   }
 
-  const { isManager, problemsHidden } = resolveVisibility(
-    userId,
-    contest,
-    memberships,
-    options.now
-  );
+  const { isManager, problemsHidden } = resolveVisibility(userId, contest, options.now);
 
   const base = mapContestDetail(contest);
   const participation = contest.participations[0] ?? null;
@@ -281,34 +226,4 @@ export async function unfreezeContest(slug: string) {
   if (!contest) return null;
   await contestRepo.update(contest.id, { frozenAt: null });
   return { ok: true };
-}
-
-/**
- * Check IP lock for a contest detail page visit.
- * Returns the IP check result, or null if no participation exists.
- */
-export async function getContestParticipationForIpCheck(contestId: string, userId: string) {
-  return contestRepo.findParticipation(contestId, userId);
-}
-
-/**
- * Run IP lock check for a contest page visit inside a transaction.
- * Encapsulates the full transaction + checkIpLock call so the web layer
- * doesn't need to import `runTransaction` or know about `TransactionClient`.
- */
-export async function checkContestIpAccess(
-  config: {
-    ipWhitelistEnabled: boolean;
-    ipBindingEnabled: boolean;
-    ipWhitelist: string[];
-    ipViolationMode: string;
-  },
-  clientIp: string,
-  contestId: string,
-  userId: string,
-  participation: { id: string; boundIp: string | null } | null
-): Promise<IpCheckResult> {
-  return runTransaction(async (tx) => {
-    return checkIpLock(tx, config, clientIp, participation, { userId, contestId });
-  });
 }

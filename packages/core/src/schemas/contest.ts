@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   contestScoringModeSchema,
-  ipLockFields,
   isoDateTimeSchema,
   languageSchema,
   scoreboardModeSchema,
@@ -21,17 +20,15 @@ export const contestSessionSchema = z
     path: ["endsAt"]
   });
 
-// Contest schema — `maxAttempts` and `adjustmentRules` belong to
-// course homework assessments only; the contest form does not
-// collect them.
+// Contest schema — standalone, public/invite-only events only. No
+// courseId binding, no proctoring (page lock / IP whitelist / IP
+// binding — those live on Exam). No adjustment rules or attempt
+// caps — those belong to homework assessments.
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
-  courseSlug: slugSchema.optional(),
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
   inviteCode: z.string().trim().max(32).optional(),
-  ...ipLockFields,
-  pageLockEnabled: z.boolean().default(false),
   problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),

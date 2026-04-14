@@ -7,14 +7,16 @@
   import TrophyIcon from "@lucide/svelte/icons/trophy";
   import ClockIcon from "@lucide/svelte/icons/clock";
   import SettingsIcon from "@lucide/svelte/icons/settings";
-  import ShieldIcon from "@lucide/svelte/icons/shield";
   import CodeIcon from "@lucide/svelte/icons/code";
-  import LinkIcon from "@lucide/svelte/icons/link";
   import ListIcon from "@lucide/svelte/icons/list";
   import { Card } from "$lib/components/ui/card/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import FormError from "$lib/components/ui/FormError.svelte";
   import type { FormMessage } from "$lib/types/form-message";
+
+  // Proctoring (IP lock, IP binding, page lock) and course binding
+  // moved to the Exam create flow as part of the 2026-04-14 split.
+  // Contests are now always standalone public/invite-only events.
 
   let { data } = $props();
 
@@ -155,50 +157,6 @@
       />
     </div>
 
-    <!-- Security -->
-    <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-      <ShieldIcon class="h-4 w-4" />
-      <span>Security</span>
-    </div>
-    <div class="grid gap-4 sm:grid-cols-2">
-      <label class="flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" name="pageLockEnabled" bind:checked={$form.pageLockEnabled} />
-        {m.contestCreate_pageLock()}
-      </label>
-      <label class="flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" name="ipWhitelistEnabled" bind:checked={$form.ipWhitelistEnabled} />
-        IP Whitelist
-      </label>
-      <label class="flex items-center gap-2 text-sm font-medium">
-        <input type="checkbox" name="ipBindingEnabled" bind:checked={$form.ipBindingEnabled} />
-        IP Binding
-      </label>
-    </div>
-    {#if $form.ipWhitelistEnabled}
-      <div>
-        <textarea
-          class="{inputClassName} min-h-24 resize-y"
-          name="ipWhitelistText"
-          bind:value={$form.ipWhitelistText}
-          placeholder="CIDR ranges, one per line&#10;e.g. 140.112.0.0/16&#10;     192.168.1.0/24"
-          rows="3"
-        ></textarea>
-      </div>
-    {/if}
-    {#if $form.ipWhitelistEnabled || $form.ipBindingEnabled}
-      <div class="flex items-center gap-4 text-sm">
-        <span class="text-muted-foreground">When IP violation occurs:</span>
-        <label class="flex items-center gap-1.5">
-          <input type="radio" name="ipViolationMode" value="block" bind:group={$form.ipViolationMode} />
-          Block
-        </label>
-        <label class="flex items-center gap-1.5">
-          <input type="radio" name="ipViolationMode" value="notify" bind:group={$form.ipViolationMode} />
-          Notify only
-        </label>
-      </div>
-    {/if}
-
     <div>
       <label class="text-sm font-medium" for="inviteCode">{m.contestCreate_inviteCode()}</label>
       <input
@@ -236,28 +194,6 @@
       </div>
       {#if $errors.allowedLanguages}<p class="mt-1 text-xs text-red-600">{$errors.allowedLanguages}</p>{/if}
     </div>
-
-    <!-- Bind to course -->
-    {#if data.canBindCourse}
-      <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        <LinkIcon class="h-4 w-4" />
-        <span>{m.contestCreate_bindCourse()}</span>
-      </div>
-      <div>
-        <input
-          class={inputClassName}
-          id="courseSlug"
-          name="courseSlug"
-          type="text"
-          placeholder={m.contestCreate_bindCoursePlaceholder()}
-          bind:value={$form.courseSlug}
-        />
-        {#if $errors.courseSlug}<p class="mt-1 text-xs text-red-600">{$errors.courseSlug}</p>{/if}
-        <p class="mt-1 text-xs text-muted-foreground">
-          {m.contestCreate_bindCourseHint()}
-        </p>
-      </div>
-    {/if}
 
     <!-- Problems -->
     <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">

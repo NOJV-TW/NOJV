@@ -7,7 +7,6 @@ const {
   count: countProblems,
   groupAcceptedByProblem,
   countSubmissions,
-  findDetailBySlugCourse,
   countCourses
 } = vi.hoisted(() => ({
   listWithCounts: vi.fn(),
@@ -16,7 +15,6 @@ const {
   count: vi.fn(),
   groupAcceptedByProblem: vi.fn(),
   countSubmissions: vi.fn(),
-  findDetailBySlugCourse: vi.fn(),
   countCourses: vi.fn()
 }));
 
@@ -72,8 +70,7 @@ vi.mock("@nojv/db", () => ({
     groupByProblemAndStatus: vi.fn().mockResolvedValue([])
   },
   courseRepo: {
-    count: countCourses,
-    findDetailBySlug: findDetailBySlugCourse
+    count: countCourses
   },
   announcementRepo: {
     listPublished: vi.fn().mockResolvedValue([])
@@ -87,7 +84,7 @@ vi.mock("@nojv/db", () => ({
 import { courseDomain, problemDomain } from "@nojv/domain";
 
 const { listProblemCards, getProblemPageData } = problemDomain;
-const { getCoursePageData, getDashboardStats } = courseDomain;
+const { getDashboardStats } = courseDomain;
 
 describe("DB-backed read model", () => {
   beforeEach(() => {
@@ -98,7 +95,6 @@ describe("DB-backed read model", () => {
     countPublic.mockResolvedValue(0);
     groupAcceptedByProblem.mockResolvedValue([]);
     countSubmissions.mockResolvedValue(0);
-    findDetailBySlugCourse.mockResolvedValue(null);
     countCourses.mockResolvedValue(0);
   });
 
@@ -128,95 +124,6 @@ describe("DB-backed read model", () => {
         type: "full_source",
         totalSubmissions: 2
       })
-    );
-  });
-
-  it("returns persisted course detail data for dynamic course pages", async () => {
-    // Course problems are projected from assessment links
-    // (`CourseAssessmentProblem`), so the full problem payload lives on
-    // `assessments[i].problems[j].problem`.
-    findDetailBySlugCourse.mockResolvedValue({
-      assessments: [
-        {
-          allowedLanguages: [],
-          closesAt: new Date("2026-03-25T15:00:00.000Z"),
-          dueAt: new Date("2026-03-23T15:00:00.000Z"),
-          id: "assess_1",
-          opensAt: new Date("2026-03-17T09:00:00.000Z"),
-          problems: [
-            {
-              ordinal: 1,
-              problem: {
-                author: {
-                  username: "teacher_amelia"
-                },
-                id: "prob_compiler_intro",
-                statements: [
-                  {
-                    bodyMarkdown: "Write a recursive descent parser.",
-                    locale: "zh-TW",
-                    title: "Compiler Intro"
-                  }
-                ],
-                title: "Compiler Intro",
-                visibility: "public"
-              }
-            }
-          ],
-          slug: "hw1-parser",
-          summary: "First compiler assignment.",
-          title: "Homework 1"
-        }
-      ],
-      description: "Compiler construction course.",
-      joinTokens: [
-        {
-          kind: "code",
-          label: "Course code",
-          token: "COMPILER2026"
-        }
-      ],
-      locale: "zh-TW",
-      memberships: [
-        {
-          joinedTokenId: null,
-          role: "teacher",
-          user: {
-            name: "Amelia Chen",
-            email: "amelia@nojv.local",
-            username: "teacher_amelia",
-            platformRole: "teacher"
-          },
-          userId: "usr_teacher_amelia"
-        }
-      ],
-      slug: "compiler-design-2026",
-      title: "Compiler Design"
-    });
-
-    const detail = await getCoursePageData("compiler-design-2026");
-
-    expect(detail?.course.title).toBe("Compiler Design");
-    expect(detail?.course.assessments).toHaveLength(1);
-    expect(detail?.course.assessments[0]).toEqual(
-      expect.objectContaining({
-        slug: "hw1-parser",
-        summary: "First compiler assignment."
-      })
-    );
-    expect(detail?.problems[0]).toEqual(
-      expect.objectContaining({
-        id: "prob_compiler_intro",
-        title: "Compiler Intro"
-      })
-    );
-  });
-
-  it("throws NotFoundError when a course slug is not found", async () => {
-    findDetailBySlugCourse.mockResolvedValue(null);
-
-    await expect(getCoursePageData("nonexistent-course")).rejects.toThrow(
-      "Course not found: nonexistent-course"
     );
   });
 

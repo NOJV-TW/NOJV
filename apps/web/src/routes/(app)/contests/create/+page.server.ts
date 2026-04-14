@@ -11,11 +11,9 @@ import { contestDomain } from "@nojv/domain";
 const { createContestRecord, contestFormSchema } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
-  const actor = requireAuth(event);
-  const canBindCourse = actor.platformRole === "admin" || actor.platformRole === "teacher";
-
+  requireAuth(event);
   const form = await superValidate(zod4(contestFormSchema));
-  return { canBindCourse, form };
+  return { form };
 };
 
 export const actions = {
@@ -29,28 +27,13 @@ export const actions = {
     if (!form.valid) return fail(400, { form });
 
     try {
-      const {
-        problemIdsText,
-        ipWhitelistText,
-        startsAt,
-        endsAt,
-        frozenAt,
-        courseSlug,
-        inviteCode,
-        ...rest
-      } = form.data;
-      const canBindCourse = actor.platformRole === "admin" || actor.platformRole === "teacher";
+      const { problemIdsText, startsAt, endsAt, frozenAt, inviteCode, ...rest } = form.data;
 
       const payload = contestCreateSchema.parse({
         ...rest,
-        courseSlug: canBindCourse ? courseSlug : undefined,
         inviteCode: inviteCode ?? undefined,
         endsAt: new Date(endsAt).toISOString(),
         frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
-        ipWhitelist: ipWhitelistText
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
         problemIds: problemIdsText
           .split(",")
           .map((s) => s.trim())
