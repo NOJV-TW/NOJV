@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { contestDomain } from "@nojv/domain";
+import { scoring } from "@nojv/domain";
 
-const { computeIcpcProblemPenalty } = contestDomain;
+const { computeIcpcProblemPenalty } = scoring;
 
 const CONTEST_START = new Date("2026-04-10T10:00:00Z");
 const PENALTY_PER_WRONG_SEC = 20 * 60;

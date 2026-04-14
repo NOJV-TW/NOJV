@@ -1,3 +1,9 @@
+/**
+ * Entity-agnostic types and helpers shared by ICPC and IOI scoreboard
+ * builders. No contest/exam vocabulary lives here — both consumers pass in
+ * a neutral `TimedSession` shape (see `./icpc.ts` and `./ioi.ts`).
+ */
+
 export interface ProblemScore {
   problemId: string;
   score: number;
@@ -25,22 +31,6 @@ export interface ScoreboardProblem {
   points: number;
 }
 
-export interface ContestRow {
-  id: string;
-  startsAt: Date;
-  endsAt: Date;
-  scoringMode: string;
-  scoreboardMode: string;
-  frozenAt: Date | null;
-  frozenBoard: boolean;
-  problems: {
-    problemId: string;
-    ordinal: number;
-    points: number;
-    problem: { id: string; title: string };
-  }[];
-}
-
 export interface SubmissionRow {
   createdAt: Date;
   problemId: string;
@@ -52,6 +42,18 @@ export interface SubmissionRow {
 export interface ParticipantRow {
   userId: string;
   user: { username: string | null; displayUsername: string | null; name: string };
+}
+
+/**
+ * Neutral "timed session" shape that both Contest and Exam satisfy. The
+ * scoreboard builders only need these three fields — anything else is
+ * orchestration-layer concern.
+ */
+export interface TimedSession {
+  id: string;
+  startsAt: Date;
+  endsAt: Date;
+  frozenAt: Date | null;
 }
 
 export function secondsSince(base: Date, later: Date): number {

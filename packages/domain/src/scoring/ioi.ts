@@ -5,22 +5,22 @@ import {
   secondsSince,
   sortByScoreThenPenalty,
   splitFrozenVisible,
-  type ContestRow,
   type ParticipantRow,
   type ProblemScore,
   type ScoreboardEntry,
   type ScoreboardProblem,
-  type SubmissionRow
+  type SubmissionRow,
+  type TimedSession
 } from "./rank-util";
 
 export function buildIoiScoreboard(
-  contest: ContestRow,
+  session: TimedSession,
   participants: ParticipantRow[],
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
   showFrozen: boolean
 ): ScoreboardEntry[] {
-  const frozenAt = contest.frozenAt;
+  const frozenAt = session.frozenAt;
 
   // Track first full-score per problem (global). Submissions are sorted by
   // createdAt asc, so the first full score seen is the global first.
@@ -52,13 +52,13 @@ export function buildIoiScoreboard(
       for (const sub of visibleSubs) {
         if (sub.score > bestScore) {
           bestScore = sub.score;
-          const subTime = secondsSince(contest.startsAt, sub.createdAt);
+          const subTime = secondsSince(session.startsAt, sub.createdAt);
           if (subTime > lastImprovementTime) {
             lastImprovementTime = subTime;
           }
         }
         if (sub.score >= prob.points && firstAcTime == null) {
-          firstAcTime = secondsSince(contest.startsAt, sub.createdAt);
+          firstAcTime = secondsSince(session.startsAt, sub.createdAt);
         }
       }
 
