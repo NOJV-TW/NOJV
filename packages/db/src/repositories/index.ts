@@ -3,6 +3,7 @@ export { announcementTranslationRepo } from "./announcement-translation";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
 export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
+export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
 export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
