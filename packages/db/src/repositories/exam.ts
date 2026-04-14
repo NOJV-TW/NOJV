@@ -57,6 +57,26 @@ export const examRepo = {
     });
   },
 
+  /**
+   * Full roster of exams for the course exams list page. Unlike
+   * `listForCourseOverview` this does not multiply the take — the
+   * caller passes the final cap (domain layer uses 50). Status
+   * filtering happens in the domain layer because
+   * "running"/"upcoming"/"ended" are derived from `startsAt`/`endsAt`
+   * at query time, not stored columns.
+   */
+  listForCourse(courseId: string, includeDrafts: boolean, take: number) {
+    return prisma.exam.findMany({
+      include: examListInclude,
+      orderBy: { startsAt: "desc" },
+      where: {
+        courseId,
+        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+      },
+      take
+    });
+  },
+
   listManagedForUser(userId: string, managedCourseIds: string[]) {
     const orClauses: Prisma.ExamWhereInput[] = [{ createdByUserId: userId }];
     if (managedCourseIds.length > 0) orClauses.push({ courseId: { in: managedCourseIds } });
