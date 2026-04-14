@@ -123,6 +123,188 @@ export async function listExamsForCourse(courseId: string): Promise<ExamListItem
   return exams.map(mapExamListItem);
 }
 
+// ── Course exams list page ──────────────────────────────────────────────
+
+export type ExamStatusFilter = "all" | "upcoming" | "running" | "ended" | "draft";
+
+export type ExamRowStatus = "draft" | "upcoming" | "running" | "ended";
+
+export interface ExamProctoring {
+  pageLock: boolean;
+  ipBinding: boolean;
+  ipWhitelist: boolean;
+}
+
+export interface ExamListRow {
+  id: string;
+  title: string;
+  status: ExamRowStatus;
+  /** ISO strings; null when status === "draft". */
+  startsAt: string | null;
+  endsAt: string | null;
+  /** Duration in minutes (null for draft rows with no window). */
+  durationMinutes: number | null;
+  scoringMode: "problem_count" | "point_sum";
+  problemCount: number;
+  proctoring: ExamProctoring;
+  /** Participation count — null for students (only managers see it). */
+  registeredCount: number | null;
+  /** Active-student total for the course — set in the loader. Null = unknown. */
+  totalStudents: number | null;
+  /**
+   * Best-effort class stats for teacher/TA. Null until the per-exam
+   * submission aggregation query lands — matches the Task 3.2 approximation
+   * convention used by assignments.
+   */
+  classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
+  /**
+   * Best-effort personal status for student viewer. Null for now
+   * (same reason as classStats — no "my work" aggregation table yet).
+   */
+  myStatus: { solved: number; total: number } | null;
+}
+
+export interface ExamListCounts {
+  all: number;
+  upcoming: number;
+  running: number;
+  ended: number;
+  /** Null when the viewer is not a manager. */
+  draft: number | null;
+}
+
+export interface ExamListResult {
+  rows: ExamListRow[];
+  counts: ExamListCounts;
+}
+
+export interface ListForCourseOptions {
+  status: ExamStatusFilter;
+  /** `true` for teacher/TA viewers — includes draft rows in the unfiltered set. */
+  includeDrafts: boolean;
+  forUserId: string;
+  limit: number;
+  now?: Date;
+}
+
+type ExamListRawRow = Awaited<ReturnType<typeof examRepo.listForCourse>>[number];
+
+function rankExamRow(
+  status: ExamRowStatus,
+  row: { startsAt: Date; endsAt: Date },
+  now: Date
+): number {
+  // Lower = higher priority.
+  //  0 running  -> closest to ending first
+  //  1 upcoming -> nearest start first
+  //  2 draft    -> grouped at the bottom
+  //  3 ended    -> most recent ended first
+  if (status === "running") return row.endsAt.getTime() - now.getTime();
+  if (status === "upcoming")
+    return 1_000_000_000_000 + (row.startsAt.getTime() - now.getTime());
+  if (status === "draft") return 2_000_000_000_000;
+  return 3_000_000_000_000 - row.endsAt.getTime();
+}
+
+function mapExamRow(
+  raw: ExamListRawRow,
+  includeManagerData: boolean,
+  now: Date
+): { row: ExamListRow; rank: number } {
+  let status: ExamRowStatus;
+  if (raw.status === "draft") {
+    status = "draft";
+  } else if (raw.startsAt > now) {
+    status = "upcoming";
+  } else if (raw.endsAt <= now) {
+    status = "ended";
+  } else {
+    status = "running";
+  }
+
+  const durationMs = raw.endsAt.getTime() - raw.startsAt.getTime();
+  const durationMinutes =
+    Number.isFinite(durationMs) && durationMs > 0 ? Math.round(durationMs / 60_000) : null;
+
+  const row: ExamListRow = {
+    id: raw.id,
+    title: raw.title,
+    status,
+    startsAt: status === "draft" ? null : raw.startsAt.toISOString(),
+    endsAt: status === "draft" ? null : raw.endsAt.toISOString(),
+    durationMinutes: status === "draft" ? null : durationMinutes,
+    scoringMode: raw.scoringMode as "problem_count" | "point_sum",
+    problemCount: raw._count.problems,
+    proctoring: {
+      pageLock: raw.pageLockEnabled,
+      ipBinding: raw.ipBindingEnabled,
+      ipWhitelist: raw.ipWhitelistEnabled
+    },
+    registeredCount: includeManagerData ? raw._count.participations : null,
+    totalStudents: null,
+    // TODO(course-exams-list): compute class stats (answered users / avg
+    // score) once the per-exam submission aggregation query lands. See
+    // Task 3.2 approximation convention used by assignments.
+    classStats: null,
+    // TODO(course-exams-list): per-user completed counter requires a
+    // "my work" stats table; see Task 3.2 for the convention.
+    myStatus: null
+  };
+
+  return {
+    row,
+    rank: rankExamRow(status, { startsAt: raw.startsAt, endsAt: raw.endsAt }, now)
+  };
+}
+
+/**
+ * Full exams list for the course exams page. Returns the filtered
+ * rows plus per-status counts derived from the same fetch — the counts
+ * drive the filter chip badges in the UI.
+ *
+ * Status is computed in-memory from `startsAt`/`endsAt`, so filtering
+ * + counting also happen in-memory. For courses with more than ~50
+ * exams the counts will underreport — acceptable for the current
+ * scale.
+ */
+export async function listForCourse(
+  courseId: string,
+  options: ListForCourseOptions
+): Promise<ExamListResult> {
+  const now = options.now ?? new Date();
+  const raws = await examRepo.listForCourse(courseId, options.includeDrafts, options.limit);
+
+  const mapped = raws.map((r) => mapExamRow(r, options.includeDrafts, now));
+
+  const counts: ExamListCounts = {
+    all: 0,
+    upcoming: 0,
+    running: 0,
+    ended: 0,
+    draft: options.includeDrafts ? 0 : null
+  };
+  for (const entry of mapped) {
+    const s = entry.row.status;
+    counts.all += 1;
+    if (s === "upcoming") counts.upcoming += 1;
+    else if (s === "running") counts.running += 1;
+    else if (s === "ended") counts.ended += 1;
+    else if (counts.draft !== null) counts.draft += 1;
+  }
+
+  const filtered =
+    options.status === "all"
+      ? mapped
+      : mapped.filter((entry) => entry.row.status === options.status);
+
+  filtered.sort((a, b) => a.rank - b.rank);
+
+  return {
+    rows: filtered.slice(0, options.limit).map((entry) => entry.row),
+    counts
+  };
+}
+
 export async function listManagedExamsForUser(userId: string): Promise<ExamListItem[]> {
   const memberships = await courseMembershipRepo.listActiveForUser(userId);
   const teacherOrTaCourseIds = memberships
