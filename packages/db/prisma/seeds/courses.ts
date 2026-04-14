@@ -47,7 +47,12 @@ export async function seedCourses(
   }
 
   // Course assessments. Homework no longer has IP lock, page lock, or
-  // a scoreboard — those are exam concerns and live on Contest now.
+  // a scoreboard — those are exam concerns and live on Exam now.
+  //
+  // Three seeded assignments to cover the Task 1.2/1.7 surface:
+  //   hw1  — published, flat_late_penalty adjustment rule (Task 1.2)
+  //   hw2  — published, maxAttemptsPerDay=3 (Task 1.7)
+  //   hw3  — draft with no linked problems (prototype 05 TA-collab)
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],
@@ -79,34 +84,91 @@ export async function seedCourses(
     }
   });
 
+  const hw2 = await prisma.courseAssessment.upsert({
+    create: {
+      allowedLanguages: ["c", "cpp"],
+      closesAt: new Date("2026-04-30T15:00:00.000Z"),
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      dueAt: new Date("2026-04-28T15:00:00.000Z"),
+      opensAt: new Date("2026-04-16T09:00:00.000Z"),
+      slug: "hw2-signal-handling",
+      status: "published",
+      summary:
+        "Second homework exercising the per-day attempt limit — three submissions per UTC day.",
+      title: "Homework 2: Signal Handling",
+      // Task 1.7: per-UTC-day attempt cap. Counter resets at midnight.
+      maxAttemptsPerDay: 3
+    },
+    update: {},
+    where: {
+      courseId_slug: {
+        courseId: osLabCourse.id,
+        slug: "hw2-signal-handling"
+      }
+    }
+  });
+
+  // Draft assignment with no problems yet — mirrors prototype 05's
+  // "TA is still wiring things up" scenario. Discoverable to TAs in
+  // the manage pane but hidden from students until published.
+  await prisma.courseAssessment.upsert({
+    create: {
+      allowedLanguages: [],
+      closesAt: new Date("2026-05-30T15:00:00.000Z"),
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      opensAt: new Date("2026-05-20T09:00:00.000Z"),
+      slug: "hw3-scheduler-draft",
+      status: "draft",
+      summary: "Placeholder homework for TA collaboration — no problems linked yet.",
+      title: "Homework 3: Scheduler (draft)"
+    },
+    update: {},
+    where: {
+      courseId_slug: {
+        courseId: osLabCourse.id,
+        slug: "hw3-scheduler-draft"
+      }
+    }
+  });
+
   // Midterm is now a course-embedded Exam (Task 1.4 of the 2026-04-14
   // course experience redesign). Seeds use a stable id so existing
   // test fixtures that reference the midterm row continue to resolve.
+  // Configured as an upcoming proctored exam exercising the full
+  // proctoring surface: page lock, IP whitelist, IP binding, and
+  // hidden scoreboard mode.
   const midterm = await prisma.exam.upsert({
     create: {
       allowedLanguages: ["c", "cpp"],
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
-      endsAt: new Date("2026-04-02T12:00:00.000Z"),
+      startsAt: new Date("2026-04-18T09:00:00.000Z"),
+      endsAt: new Date("2026-04-18T11:00:00.000Z"),
       frozenBoard: false,
       id: "exam_midterm-systems-lab",
+      pageLockEnabled: true,
       ipWhitelistEnabled: true,
       ipWhitelist: ["140.112.0.0/16"],
-      pageLockEnabled: true,
-      scoreboardMode: "live",
-      startsAt: new Date("2026-04-02T09:00:00.000Z"),
+      ipBindingEnabled: true,
+      ipViolationMode: "block",
+      scoreboardMode: "hidden",
       status: "published",
-      summary: "Exam with page lock, IP whitelist, live ranking, and restricted languages.",
+      summary:
+        "Upcoming proctored midterm: page lock, IP whitelist + binding, hidden scoreboard, restricted languages.",
       title: "Midterm Systems Lab"
     },
     update: {},
     where: { id: "exam_midterm-systems-lab" }
   });
 
-  // Assessment problem links (hw1 only — midterm is now an exam)
+  // Assessment problem links. hw1 and hw2 get problems; hw3 is draft
+  // and stays empty to mirror the TA-collab state.
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemId: "problem_warmup-sum", ordinal: 1 },
-    { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 }
+    { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 },
+    { assessmentId: hw2.id, problemId: "problem_add-two-numbers", ordinal: 1 }
   ];
 
   for (const link of assessmentProblemLinks) {
@@ -133,10 +195,11 @@ export async function seedCourses(
     });
   }
 
-  // Midterm exam problem links
+  // Midterm exam problem links — 3 problems per course redesign task 1.8.
   const midtermProblemLinks = [
     { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
-    { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 }
+    { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 },
+    { examId: midterm.id, problemId: "problem_memory-leak-forensics", ordinal: 3, points: 100 }
   ];
 
   for (const link of midtermProblemLinks) {
