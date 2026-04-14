@@ -26,6 +26,17 @@ export const examSessionRepo = {
   },
 
   /**
+   * Every in-progress (`endedAt IS NULL`) session for an exam. Used
+   * by the Temporal `examAutoCloseWorkflow` to enumerate sessions
+   * that need closing when `exam.endsAt` passes.
+   */
+  findAllActiveForExam(examId: string) {
+    return prisma.activeExamSession.findMany({
+      where: { examId, endedAt: null }
+    });
+  },
+
+  /**
    * Start a session for (userId, examId). Upserts against the
    * `(userId, examId)` unique: if a row already exists and has not
    * ended, return it untouched so concurrent starts are idempotent.

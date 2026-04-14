@@ -210,6 +210,26 @@ export async function heartbeat(userId: string, examId: string) {
 }
 
 /**
+ * Auto-close every active session for `examId`. Called by the
+ * Temporal `examAutoCloseWorkflow` when `exam.endsAt` passes.
+ *
+ * Each closed session gets `releaseReason = "time_up"` and an
+ * `auto_close` audit event. Returns the number of sessions closed
+ * so the activity can log it.
+ *
+ * Idempotent: re-running on an exam with no remaining active
+ * sessions is a no-op (`{ closed: 0 }`).
+ */
+export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
+  const active = await examSessionRepo.findAllActiveForExam(examId);
+  for (const session of active) {
+    await examSessionRepo.endSession({ sessionId: session.id, reason: "time_up" });
+    await examSessionRepo.recordEvent({ sessionId: session.id, eventType: "auto_close" });
+  }
+  return { closed: active.length };
+}
+
+/**
  * Used by the Phase 4 `hooks.server.ts` lock. Returns the active
  * session + its exam + the exam's course, or `null` if the user is
  * not currently in an exam.
