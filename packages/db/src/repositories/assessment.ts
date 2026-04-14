@@ -89,6 +89,30 @@ export const assessmentRepo = {
     });
   },
 
+  /**
+   * Rows the course overview needs for each recent/upcoming/open
+   * assignment. Includes problem count and is scoped to a single
+   * course. `includeDrafts = true` returns draft rows at the end so
+   * managers can see work-in-progress; students get `false`.
+   *
+   * Ordering is left to the domain layer (urgency-based sort) — we
+   * fetch a generous superset here and let the caller trim to `limit`.
+   */
+  listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
+    return prisma.courseAssessment.findMany({
+      include: {
+        _count: { select: { problems: true } }
+      },
+      orderBy: { opensAt: "desc" },
+      where: {
+        courseId,
+        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+      },
+      // fetch a superset so the domain sort + trim still has room
+      take: take * 3
+    });
+  },
+
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {

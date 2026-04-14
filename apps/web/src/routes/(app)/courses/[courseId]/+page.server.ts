@@ -1,5 +1,52 @@
-import type { PageServerLoad } from "./$types";
+import type { PageServerLoad, PageServerLoadEvent } from "./$types";
+import { courseDomain } from "@nojv/domain";
+import { requireAuth } from "$lib/server/auth";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-export const load: PageServerLoad = () => {
-  return {};
-};
+const {
+  listRecentAnnouncementsForCourse,
+  listAssignmentOverviewForCourse,
+  listExamOverviewForCourse
+} = courseDomain;
+
+const OVERVIEW_LIMIT = 5;
+
+export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  const actor = requireAuth(event);
+  const parent = await event.parent();
+  const { course, isManager, counts } = parent;
+  const now = new Date();
+
+  const [announcements, assignments, exams] = await Promise.all([
+    listRecentAnnouncementsForCourse(course.id, OVERVIEW_LIMIT),
+    listAssignmentOverviewForCourse(course.id, {
+      limit: OVERVIEW_LIMIT,
+      isManager,
+      forUserId: actor.userId,
+      now
+    }),
+    listExamOverviewForCourse(course.id, {
+      limit: OVERVIEW_LIMIT,
+      isManager,
+      forUserId: actor.userId,
+      now
+    })
+  ]);
+
+  // Teacher rows want a `{registered}/{totalStudents}` fraction. The
+  // layout loader already exposes the course student count via
+  // `counts.members`; fold it onto each exam row here so the template
+  // doesn't have to reach for it.
+  const totalStudents = counts.members;
+  const examsWithClassTotals = exams.map((exam) => ({
+    ...exam,
+    totalStudents
+  }));
+
+  return {
+    announcements,
+    assignments,
+    exams: examsWithClassTotals,
+    totalStudents
+  };
+});

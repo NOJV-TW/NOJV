@@ -15,6 +15,30 @@ export const announcementRepo = {
     });
   },
 
+  /**
+   * Recent published announcements with the author preview needed by
+   * the course overview announcement row (avatar + name + timestamp).
+   * The Announcement model is currently global (no courseId column), so
+   * this method returns the most recent global announcements — the
+   * `courseId` parameter on the domain helper is forward-compatible for
+   * when per-course announcements land.
+   */
+  listRecentWithAuthor(take: number) {
+    const now = new Date();
+    return prisma.announcement.findMany({
+      where: {
+        status: "published",
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+      },
+      orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+      include: {
+        translations: true,
+        createdBy: { select: { id: true, name: true } }
+      },
+      take
+    });
+  },
+
   listAll() {
     return prisma.announcement.findMany({
       orderBy: { createdAt: "desc" },

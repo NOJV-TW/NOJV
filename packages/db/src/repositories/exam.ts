@@ -40,6 +40,23 @@ export const examRepo = {
     });
   },
 
+  /**
+   * Course overview exam rows: upcoming + running first, then closed.
+   * Managers see drafts too. Sort is finalised in the domain layer;
+   * we fetch a generous superset keyed only by status + course.
+   */
+  listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
+    return prisma.exam.findMany({
+      include: examListInclude,
+      orderBy: { startsAt: "desc" },
+      where: {
+        courseId,
+        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+      },
+      take: take * 3
+    });
+  },
+
   listManagedForUser(userId: string, managedCourseIds: string[]) {
     const orClauses: Prisma.ExamWhereInput[] = [{ createdByUserId: userId }];
     if (managedCourseIds.length > 0) orClauses.push({ courseId: { in: managedCourseIds } });
