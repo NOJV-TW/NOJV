@@ -1,63 +1,36 @@
-import { contestParticipationRepo, submissionRepo } from "@nojv/db";
+import { contestRepo, contestParticipationRepo, submissionRepo } from "@nojv/db";
+import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
 
-export const ICPC_PENALTY_PER_WRONG_SEC = 20 * 60;
+import { NotFoundError } from "../shared/errors";
+import {
+  buildScoreboard,
+  buildScoreboardChartSeries,
+  computeIcpcProblemPenalty,
+  type ParticipantRow,
+  type ScoreboardEntry,
+  type ScoreboardProblem,
+  type SubmissionRow,
+  type TimedSession
+} from "../scoring";
 
-interface IcpcScoringSubmission {
-  status: string;
-  createdAt: Date;
+export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
+
+export interface ScoreboardData {
+  entries: ScoreboardEntry[];
+  problems: ScoreboardProblem[];
+  scoringMode: ContestScoringMode;
+  scoreboardMode: ScoreboardMode;
+  frozenAt: string | null;
+  isFrozen: boolean;
 }
 
-export interface IcpcProblemResult {
-  solved: boolean;
-  wrongAttempts: number;
-  firstAcTimeSec: number | null;
-  penaltySeconds: number;
-}
-
-// Pure helper: compute the ICPC verdict + penalty for ONE (participant, problem)
-// pair from that participant's ordered submissions to that problem. The
-// outer caller aggregates across problems.
-//
-// Shared by BOTH paths — the DB-write path in updateContestScores and the
-// display-read path in scoreboard.ts::buildIcpcScoreboard. Keeping one
-// function prevents the two from drifting apart (historical bug: round 12
-// fixed the scoring path, round 16 then had to fix the scoreboard path
-// with the same change).
-//
-// In-progress statuses (queued/compiling/running) are skipped — they aren't
-// verdicts yet. The next recalc picks them up once judging completes.
-// `firstAcTimeSec` is clamped to [0, ∞) for the pathological case of a
-// submission timestamp before the contest start.
-export function computeIcpcProblemPenalty(
-  submissions: readonly IcpcScoringSubmission[],
-  contestStartsAt: Date
-): IcpcProblemResult {
-  let wrongAttempts = 0;
-  for (const sub of submissions) {
-    if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
-      continue;
-    }
-    if (sub.status === "accepted") {
-      const firstAcTimeSec = Math.max(
-        0,
-        Math.floor((sub.createdAt.getTime() - contestStartsAt.getTime()) / 1000)
-      );
-      return {
-        solved: true,
-        wrongAttempts,
-        firstAcTimeSec,
-        penaltySeconds: firstAcTimeSec + wrongAttempts * ICPC_PENALTY_PER_WRONG_SEC
-      };
-    }
-    wrongAttempts++;
-  }
-  return {
-    solved: false,
-    wrongAttempts,
-    firstAcTimeSec: null,
-    penaltySeconds: 0
-  };
+export interface ChartData {
+  series: {
+    userId: string;
+    username: string;
+    points: { time: number; score: number }[];
+  }[];
 }
 
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
@@ -125,4 +98,154 @@ export async function updateContestScores(contestParticipationId: string): Promi
 
     await scoreboard.updateScoreboard(contest.id, participation.id, totalScore);
   }
+}
+
+export async function getScoreboard(
+  contestSlug: string,
+  options?: { unfrozen?: boolean; isPrivileged?: boolean }
+): Promise<ScoreboardData> {
+  const contest = await contestRepo.findForScoreboard(contestSlug);
+
+  if (!contest || contest.visibility === "draft") {
+    throw new NotFoundError("Contest not found.");
+  }
+
+  const now = new Date();
+  const scoreboardMode = contest.scoreboardMode as ScoreboardMode;
+  const showFrozen =
+    !options?.unfrozen &&
+    (scoreboardMode === "frozen" ||
+      (contest.frozenBoard && contest.frozenAt != null && now > contest.frozenAt));
+
+  const problems: ScoreboardProblem[] = contest.problems.map((cp) => ({
+    id: cp.problemId,
+    ordinal: cp.ordinal,
+    points: cp.points,
+    title: cp.problem.title
+  }));
+
+  const scoringMode = contest.scoringMode as ContestScoringMode;
+
+  // When scoreboardMode is "hidden", only privileged users can see entries
+  if (scoreboardMode === "hidden" && !options?.isPrivileged) {
+    return {
+      entries: [],
+      frozenAt: contest.frozenAt?.toISOString() ?? null,
+      isFrozen: false,
+      problems,
+      scoreboardMode,
+      scoringMode
+    };
+  }
+
+  if (contest.participations.length === 0) {
+    return {
+      entries: [],
+      frozenAt: contest.frozenAt?.toISOString() ?? null,
+      isFrozen: showFrozen,
+      problems,
+      scoreboardMode,
+      scoringMode
+    };
+  }
+
+  // Fetch all non-sample submissions for this contest
+  const participationIds = contest.participations.map((p) => p.id);
+  const allSubmissions = await submissionRepo.findForContestScoreboard(participationIds);
+
+  const submissions: SubmissionRow[] = allSubmissions.map((s) => ({
+    createdAt: s.createdAt,
+    problemId: s.problemId,
+    score: s.score,
+    status: s.status,
+    userId: s.contestParticipation?.userId ?? ""
+  }));
+
+  const participants: ParticipantRow[] = contest.participations;
+
+  const session: TimedSession = {
+    id: contest.id,
+    startsAt: contest.startsAt,
+    endsAt: contest.endsAt,
+    frozenAt: contest.frozenAt
+  };
+
+  const entries = buildScoreboard(
+    session,
+    scoringMode,
+    participants,
+    submissions,
+    problems,
+    showFrozen
+  );
+
+  return {
+    entries,
+    frozenAt: contest.frozenAt?.toISOString() ?? null,
+    isFrozen: showFrozen,
+    problems,
+    scoreboardMode,
+    scoringMode
+  };
+}
+
+export async function getScoreboardChart(
+  contestSlug: string,
+  topN: number
+): Promise<ChartData> {
+  // Get the scoreboard to determine top N
+  const scoreboardData = await getScoreboard(contestSlug, { unfrozen: false });
+
+  const topEntries = scoreboardData.entries.slice(0, topN);
+  if (topEntries.length === 0) {
+    return { series: [] };
+  }
+
+  const topUserIds = new Set(topEntries.map((e) => e.userId));
+
+  // Reuse problem points from scoreboard instead of re-fetching contest
+  const pointsMap = new Map(scoreboardData.problems.map((p) => [p.id, p.points]));
+
+  // Fetch only startsAt and participations for top users
+  const contest = await contestRepo.findForChart(contestSlug, [...topUserIds]);
+
+  if (!contest) return { series: [] };
+
+  const participationUserMap = new Map(contest.participations.map((p) => [p.id, p.userId]));
+
+  const participationIds = contest.participations.map((p) => p.id);
+  const submissions = await submissionRepo.findForContestChart(participationIds);
+
+  // Group submissions by userId so the pure builder doesn't need to know
+  // about contestParticipationId plumbing. `contest.participations` is
+  // already filtered to the top users, so every submission maps to one
+  // of them.
+  const submissionsByUser = new Map<string, SubmissionRow[]>();
+  for (const sub of submissions) {
+    const userId = participationUserMap.get(sub.contestParticipationId ?? "");
+    if (!userId) continue;
+    const row: SubmissionRow = {
+      createdAt: sub.createdAt,
+      problemId: sub.problemId,
+      score: sub.score,
+      status: sub.status,
+      userId
+    };
+    const existing = submissionsByUser.get(userId);
+    if (existing) existing.push(row);
+    else submissionsByUser.set(userId, [row]);
+  }
+
+  const usernameMap = new Map(topEntries.map((e) => [e.userId, e.username]));
+
+  const series = buildScoreboardChartSeries(
+    contest.startsAt,
+    scoreboardData.scoringMode,
+    [...topUserIds],
+    submissionsByUser,
+    usernameMap,
+    pointsMap
+  );
+
+  return { series };
 }

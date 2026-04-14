@@ -19,6 +19,11 @@ async function attachProblem(contestId: string, ordinal: number, points: number)
   return problem;
 }
 
+// Standalone contest visibility only. Exam visibility gating lives
+// in the Exam domain tests after the 2026-04-14 split; course
+// teacher/TA can no longer "see through" a contest that doesn't
+// carry a courseId.
+
 describe("getContestDetail visibility gating", () => {
   it("hides problems for a stranger before startsAt", async () => {
     const contest = await createTestContest({
@@ -35,9 +40,9 @@ describe("getContestDetail visibility gating", () => {
     });
 
     expect(result).not.toBeNull();
-    expect(result!.problemsHidden).toBe(true);
-    expect(result!.problems).toBeNull();
-    expect(result!.isManager).toBe(false);
+    expect(result.problemsHidden).toBe(true);
+    expect(result.problems).toBeNull();
+    expect(result.isManager).toBe(false);
   });
 
   it("reveals problems for the contest creator before startsAt", async () => {
@@ -55,42 +60,9 @@ describe("getContestDetail visibility gating", () => {
       now: new Date("2026-01-01T00:00:00Z")
     });
 
-    expect(result!.problemsHidden).toBe(false);
-    expect(result!.problems).toHaveLength(1);
-    expect(result!.isManager).toBe(true);
-  });
-
-  it("reveals problems to a course teacher before startsAt", async () => {
-    const teacher = await createTestUser();
-    const course = await testPrisma.course.create({
-      data: {
-        id: "course-visibility",
-        slug: "course-visibility",
-        title: "Visibility Course",
-        description: "",
-        locale: "en",
-        visibility: "listed",
-        ownerId: teacher.id
-      }
-    });
-    await testPrisma.courseMembership.create({
-      data: { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" }
-    });
-    const contest = await createTestContest({
-      visibility: "published",
-      courseId: course.id,
-      startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
-    });
-    await attachProblem(contest.id, 1, 100);
-
-    const result = await getContestDetail(contest.slug, {
-      userId: teacher.id,
-      now: new Date("2026-01-01T00:00:00Z")
-    });
-
-    expect(result!.problemsHidden).toBe(false);
-    expect(result!.isManager).toBe(true);
+    expect(result.problemsHidden).toBe(false);
+    expect(result.problems).toHaveLength(1);
+    expect(result.isManager).toBe(true);
   });
 
   it("reveals problems to all viewers once the contest is active", async () => {
@@ -107,8 +79,8 @@ describe("getContestDetail visibility gating", () => {
       now: new Date("2026-01-01T00:00:00Z")
     });
 
-    expect(result!.problemsHidden).toBe(false);
-    expect(result!.problems).toHaveLength(1);
+    expect(result.problemsHidden).toBe(false);
+    expect(result.problems).toHaveLength(1);
   });
 
   it("accepts unauthenticated callers (userId: null) and hides before start", async () => {
@@ -124,7 +96,7 @@ describe("getContestDetail visibility gating", () => {
       now: new Date("2026-01-01T00:00:00Z")
     });
 
-    expect(result!.problemsHidden).toBe(true);
-    expect(result!.problems).toBeNull();
+    expect(result.problemsHidden).toBe(true);
+    expect(result.problems).toBeNull();
   });
 });

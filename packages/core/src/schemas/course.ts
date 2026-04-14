@@ -1,35 +1,31 @@
 import { z } from "zod";
 
-import {
-  courseJoinTokenKindSchema,
-  courseRoleSchema,
-  isoDateTimeSchema,
-  languageSchema,
-  localeCodeSchema,
-  slugSchema
-} from "../types";
+import { courseRoleSchema, isoDateTimeSchema, languageSchema, slugSchema } from "../types";
 import { adjustmentRulesSchema } from "./assessment-adjustments";
 
+// Course creation takes only title + description. The post-redesign create
+// flow no longer exposes slug / visibility / locale / semester to users;
+// the new URL key is the cuid primary key.
 export const courseCreateSchema = z.object({
   description: z.string().trim().min(8).max(2_000),
-  locale: localeCodeSchema.default("zh-TW"),
-  slug: slugSchema,
   title: z.string().trim().min(3).max(120)
 });
 
-export const courseJoinRequestSchema = z.object({
-  courseSlug: slugSchema,
-  joinTokenKind: courseJoinTokenKindSchema,
-  joinToken: z.string().trim().min(4).max(128)
+// Course update shares the same shape as create. The settings page only
+// surfaces title + description; defaults / visibility cards in prototype 13
+// are placeholders until schema columns land.
+export const courseUpdateSchema = z.object({
+  description: z.string().trim().min(8).max(2_000),
+  title: z.string().trim().min(3).max(120)
 });
 
 export const courseProblemAttachSchema = z.object({
-  courseSlug: slugSchema,
+  courseId: z.string().trim().min(1),
   problemId: slugSchema
 });
 
 export const manualCourseEnrollmentSchema = z.object({
-  courseSlug: slugSchema,
+  courseId: z.string().trim().min(1),
   displayName: z.string().trim().min(2).max(120),
   email: z.email(),
   username: z
@@ -41,9 +37,11 @@ export const manualCourseEnrollmentSchema = z.object({
   role: courseRoleSchema.default("student")
 });
 
+// Assessments are identified by (courseId, assessmentSlug). The slug
+// carrier used to be the course slug; now it's the course cuid.
 export const assessmentContextSchema = z.object({
   assessmentSlug: slugSchema,
-  courseSlug: slugSchema
+  courseId: z.string().trim().min(1)
 });
 
 // Homework assessment: no scoreboard, no IP lock, no page lock
@@ -53,9 +51,9 @@ export const courseAssessmentCreateSchema = z
     adjustmentRules: adjustmentRulesSchema.optional(),
     allowedLanguages: z.array(languageSchema).max(8).default([]),
     closesAt: isoDateTimeSchema,
-    courseSlug: slugSchema,
+    courseId: z.string().trim().min(1),
     dueAt: isoDateTimeSchema.optional(),
-    maxAttempts: z.coerce.number().int().min(1).max(999).nullish(),
+    maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
     problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
     slug: slugSchema,
@@ -96,6 +94,6 @@ export const courseAssessmentCreateSchema = z
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
-export type CourseJoinRequest = z.infer<typeof courseJoinRequestSchema>;
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
+export type CourseUpdate = z.infer<typeof courseUpdateSchema>;
 export type ManualCourseEnrollment = z.infer<typeof manualCourseEnrollmentSchema>;

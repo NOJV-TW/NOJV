@@ -9,25 +9,7 @@ import {
 
 import { courseDomain } from "@nojv/domain";
 
-const { listCourseCards, getCoursePageData, getDashboardStats, joinCourseRecord } =
-  courseDomain;
-import { ForbiddenError, type CompletedActorContext } from "$lib/server/auth";
-
-function makeActor(user: {
-  id: string;
-  email: string;
-  name: string;
-  username: string | null;
-  platformRole: string;
-}): CompletedActorContext {
-  return {
-    displayName: user.name,
-    email: user.email,
-    username: user.username ?? user.id,
-    platformRole: user.platformRole as "admin" | "teacher" | "student",
-    userId: user.id
-  };
-}
+const { listCourseCards, listForUserWithCards, getDashboardStats } = courseDomain;
 
 describe("course queries (real DB)", () => {
   // --- listCourseCards ---
@@ -52,8 +34,7 @@ describe("course queries (real DB)", () => {
           userId: student.id,
           role: "student",
           status: "active",
-          joinedAt: new Date(),
-          joinedTokenId: null
+          joinedAt: new Date()
         }
       });
 
@@ -72,8 +53,7 @@ describe("course queries (real DB)", () => {
           userId: student.id,
           role: "student",
           status: "removed",
-          joinedAt: new Date(),
-          joinedTokenId: null
+          joinedAt: new Date()
         }
       });
 
@@ -92,8 +72,7 @@ describe("course queries (real DB)", () => {
           userId: teacher.id,
           role: "teacher",
           status: "active",
-          joinedAt: new Date(),
-          joinedTokenId: null
+          joinedAt: new Date()
         }
       });
 
@@ -119,93 +98,163 @@ describe("course queries (real DB)", () => {
     });
   });
 
-  // --- getCoursePageData ---
+  // --- listForUserWithCards ---
 
-  describe("getCoursePageData", () => {
-    it("throws NotFoundError for nonexistent slug", async () => {
-      await expect(getCoursePageData("nonexistent")).rejects.toThrow(
-        "Course not found: nonexistent"
-      );
-    });
+  describe("listForUserWithCards", () => {
+    it("splits memberships into enrolled (student) and managing (teacher/ta)", async () => {
+      const user = await createTestUser();
 
-    it("returns course detail with members and problems", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const course = await createTestCourse({
-        slug: "cs101",
-        title: "CS 101",
-        ownerId: teacher.id
+      const studentCourse = await createTestCourse({ title: "As Student" });
+      const teacherCourse = await createTestCourse({ title: "As Teacher" });
+      const taCourse = await createTestCourse({ title: "As TA" });
+
+      await testPrisma.courseMembership.createMany({
+        data: [
+          { courseId: studentCourse.id, userId: user.id, role: "student", status: "active" },
+          { courseId: teacherCourse.id, userId: user.id, role: "teacher", status: "active" },
+          { courseId: taCourse.id, userId: user.id, role: "ta", status: "active" }
+        ]
       });
 
-      // Add teacher membership
+      const { enrolled, managing } = await listForUserWithCards(user.id);
+
+      expect(enrolled).toHaveLength(1);
+      expect(enrolled[0]!.title).toBe("As Student");
+      expect(enrolled[0]!.role).toBe("student");
+
+      expect(managing).toHaveLength(2);
+      const managingTitles = managing.map((c) => c.title).sort();
+      expect(managingTitles).toEqual(["As TA", "As Teacher"]);
+    });
+
+    it("ignores removed memberships", async () => {
+      const user = await createTestUser();
+      const course = await createTestCourse();
+      await testPrisma.courseMembership.create({
+        data: {
+          courseId: course.id,
+          userId: user.id,
+          role: "student",
+          status: "removed"
+        }
+      });
+
+      const { enrolled, managing } = await listForUserWithCards(user.id);
+      expect(enrolled).toHaveLength(0);
+      expect(managing).toHaveLength(0);
+    });
+
+    it("returns empty arrays for a user with no memberships", async () => {
+      const user = await createTestUser();
+      const { enrolled, managing } = await listForUserWithCards(user.id);
+      expect(enrolled).toEqual([]);
+      expect(managing).toEqual([]);
+    });
+
+    it("computes batched status counters per course", async () => {
+      const teacher = await createTestUser({ platformRole: "teacher" });
+      const course = await createTestCourse({ ownerId: teacher.id });
+
       await testPrisma.courseMembership.create({
         data: {
           courseId: course.id,
           userId: teacher.id,
           role: "teacher",
-          status: "active",
-          joinedAt: new Date(),
-          joinedTokenId: null
+          status: "active"
         }
       });
 
-      // Add a problem to the course via an assessment link (the standalone
-      // CourseProblem library table was removed — problems now reach the
-      // course read model through CourseAssessmentProblem).
-      const problem = await createTestProblem({ authorId: teacher.id });
-      const assessment = await testPrisma.courseAssessment.create({
+      const now = Date.now();
+
+      // Open assignment: opensAt <= now <= closesAt.
+      await testPrisma.courseAssessment.create({
         data: {
           courseId: course.id,
           createdByUserId: teacher.id,
-          title: "Intro HW",
-          slug: "intro-hw",
-          summary: "Intro",
-          opensAt: new Date("2026-01-01"),
-          dueAt: new Date("2026-06-01"),
-          closesAt: new Date("2026-06-01"),
-          status: "published"
-        }
-      });
-      await testPrisma.courseAssessmentProblem.create({
-        data: {
-          assessmentId: assessment.id,
-          problemId: problem.id,
-          ordinal: 1,
-          points: 100
+          title: "Open HW",
+          slug: "hw-open",
+          summary: "open",
+          status: "published",
+          opensAt: new Date(now - 60_000),
+          dueAt: new Date(now + 86_400_000),
+          closesAt: new Date(now + 86_400_000)
         }
       });
 
-      const data = await getCoursePageData("cs101");
-      expect(data).not.toBeNull();
-      expect(data!.course.title).toBe("CS 101");
-      expect(data!.course.slug).toBe("cs101");
-      expect(data!.course.members).toHaveLength(1);
-      expect(data!.course.members[0]!.courseRole).toBe("teacher");
-      expect(data!.problems).toHaveLength(1);
-      expect(data!.problems[0]!.slug).toBe(problem.slug);
+      // Draft assignment.
+      await testPrisma.courseAssessment.create({
+        data: {
+          courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "Draft HW",
+          slug: "hw-draft",
+          summary: "draft",
+          status: "draft",
+          opensAt: new Date(now),
+          closesAt: new Date(now + 86_400_000)
+        }
+      });
+
+      // Upcoming exam.
+      await testPrisma.exam.create({
+        data: {
+          courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "Midterm",
+          summary: "upcoming exam",
+          status: "published",
+          startsAt: new Date(now + 3_600_000),
+          endsAt: new Date(now + 3_600_000 * 2)
+        }
+      });
+
+      const { managing } = await listForUserWithCards(teacher.id);
+      expect(managing).toHaveLength(1);
+      const card = managing[0]!;
+      expect(card.role).toBe("teacher");
+      expect(card.ownerDisplayName).toBe(teacher.name);
+      expect(card.openAssignments).toBe(1);
+      expect(card.draftAssignments).toBe(1);
+      expect(card.upcomingExams).toBe(1);
+      expect(card.assignmentCount).toBe(1); // only `published`
+      expect(card.examCount).toBe(1);
     });
 
-    it("returns join channels from join tokens", async () => {
+    it("student cards mirror open work into myDueCount and myUpcomingCount", async () => {
       const teacher = await createTestUser({ platformRole: "teacher" });
-      const course = await createTestCourse({
-        slug: "join-test",
-        ownerId: teacher.id
-      });
+      const student = await createTestUser();
+      const course = await createTestCourse({ ownerId: teacher.id });
 
-      await testPrisma.courseJoinToken.create({
+      await testPrisma.courseMembership.create({
         data: {
           courseId: course.id,
-          createdByUserId: teacher.id,
-          label: "Code",
-          kind: "code",
-          token: "ABC123"
+          userId: student.id,
+          role: "student",
+          status: "active"
         }
       });
 
-      const data = await getCoursePageData("join-test");
-      expect(data).not.toBeNull();
-      expect(data!.course.joinChannels).toHaveLength(1);
-      expect(data!.course.joinChannels[0]!.token).toBe("ABC123");
-      expect(data!.course.joinChannels[0]!.kind).toBe("code");
+      const now = Date.now();
+      await testPrisma.courseAssessment.create({
+        data: {
+          courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "HW 1",
+          slug: "hw-1",
+          summary: "open",
+          status: "published",
+          opensAt: new Date(now - 60_000),
+          closesAt: new Date(now + 86_400_000)
+        }
+      });
+
+      const { enrolled } = await listForUserWithCards(student.id);
+      expect(enrolled).toHaveLength(1);
+      const card = enrolled[0]!;
+      expect(card.role).toBe("student");
+      expect(card.myDueCount).toBe(1);
+      expect(card.myUpcomingCount).toBe(0);
+      expect(card.myAllCaughtUp).toBe(false);
     });
   });
 
@@ -227,164 +276,6 @@ describe("course queries (real DB)", () => {
       const stats = await getDashboardStats();
       expect(stats.problems).toBe(0);
       expect(stats.courses).toBe(0);
-    });
-  });
-
-  // --- joinCourseRecord ---
-
-  describe("joinCourseRecord", () => {
-    it("allows a user to join with a valid join code", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const student = await createTestUser({ platformRole: "student" });
-      const course = await createTestCourse({
-        slug: "join-course",
-        ownerId: teacher.id
-      });
-
-      await testPrisma.courseJoinToken.create({
-        data: {
-          courseId: course.id,
-          createdByUserId: teacher.id,
-          label: "Code",
-          kind: "code",
-          token: "JOINME"
-        }
-      });
-
-      const actor = makeActor(student);
-      const membership = await joinCourseRecord(actor, {
-        courseSlug: "join-course",
-        joinTokenKind: "code",
-        joinToken: "JOINME"
-      });
-
-      expect(membership.userId).toBe(student.id);
-      expect(membership.role).toBe("student");
-      expect(membership.status).toBe("active");
-    });
-
-    it("rejects join with invalid token", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const student = await createTestUser({ platformRole: "student" });
-      await createTestCourse({ slug: "reject-join", ownerId: teacher.id });
-
-      const actor = makeActor(student);
-
-      await expect(
-        joinCourseRecord(actor, {
-          courseSlug: "reject-join",
-          joinTokenKind: "code",
-          joinToken: "WRONG"
-        })
-      ).rejects.toThrow(ForbiddenError);
-    });
-
-    it("rejects join with expired token", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const student = await createTestUser({ platformRole: "student" });
-      const course = await createTestCourse({
-        slug: "expired-join",
-        ownerId: teacher.id
-      });
-
-      await testPrisma.courseJoinToken.create({
-        data: {
-          courseId: course.id,
-          createdByUserId: teacher.id,
-          label: "Expired",
-          kind: "code",
-          token: "EXPIRED",
-          expiresAt: new Date("2020-01-01")
-        }
-      });
-
-      const actor = makeActor(student);
-      await expect(
-        joinCourseRecord(actor, {
-          courseSlug: "expired-join",
-          joinTokenKind: "code",
-          joinToken: "EXPIRED"
-        })
-      ).rejects.toThrow(ForbiddenError);
-    });
-
-    it("returns existing membership if user is already active", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const student = await createTestUser({ platformRole: "student" });
-      const course = await createTestCourse({
-        slug: "already-member",
-        ownerId: teacher.id
-      });
-
-      await testPrisma.courseJoinToken.create({
-        data: {
-          courseId: course.id,
-          createdByUserId: teacher.id,
-          label: "Code",
-          kind: "code",
-          token: "DOUBLE"
-        }
-      });
-
-      // Pre-create active membership
-      await testPrisma.courseMembership.create({
-        data: {
-          courseId: course.id,
-          userId: student.id,
-          role: "student",
-          status: "active",
-          joinedAt: new Date(),
-          joinedTokenId: null
-        }
-      });
-
-      const actor = makeActor(student);
-      const membership = await joinCourseRecord(actor, {
-        courseSlug: "already-member",
-        joinTokenKind: "code",
-        joinToken: "DOUBLE"
-      });
-
-      expect(membership.status).toBe("active");
-
-      // Should still be exactly 1 membership
-      const count = await testPrisma.courseMembership.count({
-        where: { courseId: course.id, userId: student.id }
-      });
-      expect(count).toBe(1);
-    });
-
-    it("increments usage count on join token after successful join", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const student = await createTestUser({ platformRole: "student" });
-      const course = await createTestCourse({
-        slug: "usage-count",
-        ownerId: teacher.id
-      });
-
-      const token = await testPrisma.courseJoinToken.create({
-        data: {
-          courseId: course.id,
-          createdByUserId: teacher.id,
-          label: "Code",
-          kind: "code",
-          token: "COUNT"
-        }
-      });
-
-      expect(token.usageCount).toBe(0);
-
-      const actor = makeActor(student);
-      await joinCourseRecord(actor, {
-        courseSlug: "usage-count",
-        joinTokenKind: "code",
-        joinToken: "COUNT"
-      });
-
-      const updated = await testPrisma.courseJoinToken.findUnique({
-        where: { id: token.id }
-      });
-      expect(updated!.usageCount).toBe(1);
     });
   });
 });

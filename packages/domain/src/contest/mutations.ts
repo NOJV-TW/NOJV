@@ -4,7 +4,6 @@ import {
   contestParticipationRepo,
   contestProblemRepo,
   contestRepo,
-  courseMembershipRepo,
   problemRepo,
   runTransaction,
   submissionRepo,
@@ -17,7 +16,7 @@ import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
-import { requireContest, requireCourse, requireUser } from "../shared/require";
+import { requireContest, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
 
@@ -81,16 +80,6 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
-  if (contest.courseId) {
-    const membership = await courseMembershipRepo
-      .withTx(tx)
-      .findByComposite(contest.courseId, userId);
-
-    if (membership?.status !== "active") {
-      throw new ForbiddenError("You must be enrolled in the course to participate.");
-    }
-  }
-
   const participation = await contestParticipationRepo.withTx(tx).upsert(
     contest.id,
     userId,
@@ -151,31 +140,16 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     await requireUser(tx, actor.userId);
 
-    // Students cannot bind contests to courses (enforced at route level too)
-    if (payload.courseSlug && actor.platformRole === "student") {
-      throw new ForbiddenError("Students cannot bind contests to courses.");
-    }
-
-    const courseId = payload.courseSlug
-      ? (await requireCourse(tx, payload.courseSlug)).id
-      : null;
-
-    // Use user-provided invite code, or auto-generate for public contests
-    const inviteCode =
-      payload.inviteCode ?? (courseId ? null : crypto.randomBytes(4).toString("hex"));
+    // Auto-generate an invite code when one isn't supplied; standalone
+    // contests always need one to share out of band.
+    const inviteCode = payload.inviteCode ?? crypto.randomBytes(4).toString("hex");
 
     const contest = await contestRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
-      courseId,
       inviteCode,
       createdByUserId: actor.userId,
       endsAt: new Date(payload.endsAt),
       frozenAt: payload.frozenAt ? new Date(payload.frozenAt) : null,
-      ipBindingEnabled: payload.ipBindingEnabled,
-      ipViolationMode: payload.ipViolationMode,
-      ipWhitelist: payload.ipWhitelist,
-      ipWhitelistEnabled: payload.ipWhitelistEnabled,
-      pageLockEnabled: payload.pageLockEnabled,
       scoreboardMode: payload.scoreboardMode,
       scoringMode: payload.scoringMode,
       slug: payload.slug,
@@ -205,39 +179,29 @@ export async function updateContestRecord(
   return runTransaction(async (tx) => {
     const contest = await requireContest(tx, contestSlug);
 
+    if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin") {
+      throw new ForbiddenError("You do not have permission to edit this contest.");
+    }
+
     const updateData: Prisma.ContestUncheckedUpdateInput = stripUndefined({
       title: payload.title,
       summary: payload.summary,
       scoringMode: payload.scoringMode,
       submitCooldownSec: payload.submitCooldownSec,
       allowedLanguages: payload.allowedLanguages,
-      ipWhitelistEnabled: payload.ipWhitelistEnabled,
-      ipBindingEnabled: payload.ipBindingEnabled,
-      ipWhitelist: payload.ipWhitelist,
-      ipViolationMode: payload.ipViolationMode,
-      pageLockEnabled: payload.pageLockEnabled,
       scoreboardMode: payload.scoreboardMode
     });
 
-    // Fields that need transformation or null-coalescing.
     if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
     if (payload.endsAt !== undefined) updateData.endsAt = new Date(payload.endsAt);
     if (payload.frozenAt !== undefined) {
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
-    }
-    if (payload.courseSlug !== undefined) {
-      updateData.courseId = payload.courseSlug
-        ? (await requireCourse(tx, payload.courseSlug)).id
-        : null;
     }
 
     if (Object.keys(updateData).length > 0) {
       await contestRepo.withTx(tx).update(contest.id, updateData);
     }
 
-    // Replace problems if provided. Re-check the workspace invariant
-    // against either the new allowedLanguages (if set) or the contest's
-    // current value.
     if (payload.problemIds !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
