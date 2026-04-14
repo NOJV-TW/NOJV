@@ -136,6 +136,7 @@ export function mapResult(
   if (adjustmentRules && adjustmentRules.length > 0) {
     const adjusted = applyAdjustmentRules({
       dueAt: judgeContext.adjustment.dueAt,
+      finalDay: judgeContext.adjustment.finalDay,
       rawScore: score,
       rules: adjustmentRules,
       runtimeMs,

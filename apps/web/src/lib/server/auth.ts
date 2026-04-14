@@ -94,11 +94,11 @@ export function resolveCoursePermissionRole(input: {
   return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
 }
 
-export async function resolveCoursePermission(courseSlug: string, actor: ActorContext) {
-  const course = await courseDomain.findCourseWithMembership(courseSlug, actor.userId);
+export async function resolveCoursePermission(courseId: string, actor: ActorContext) {
+  const course = await courseDomain.findCourseWithMembership(courseId, actor.userId);
 
   if (!course) {
-    throw new NotFoundError(`Course not found: ${courseSlug}`);
+    throw new NotFoundError(`Course not found: ${courseId}`);
   }
 
   const membership = course.memberships[0] ?? null;
@@ -112,8 +112,8 @@ export async function resolveCoursePermission(courseSlug: string, actor: ActorCo
   };
 }
 
-export async function getCoursePermissionRole(courseSlug: string, actor: ActorContext) {
-  const { role } = await resolveCoursePermission(courseSlug, actor);
+export async function getCoursePermissionRole(courseId: string, actor: ActorContext) {
+  const { role } = await resolveCoursePermission(courseId, actor);
   return role;
 }
 

@@ -28,7 +28,7 @@ import {
 
 export interface SubmissionAssessmentContext {
   assessmentSlug: string;
-  courseSlug: string;
+  courseId: string;
 }
 
 export interface SubmissionWorkspaceFilePayload {

@@ -1,6 +1,6 @@
 import {
   assessmentRepo,
-  contestRepo,
+  examRepo,
   plagiarismRepo,
   assessmentProblemRepo,
   submissionRepo,
@@ -30,14 +30,14 @@ export async function fetchSubmissionsForCheck(
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 
-// Plagiarism state is inlined on `Contest` / `CourseAssessment` as six
+// Plagiarism state is inlined on `Exam` / `CourseAssessment` as six
 // `plagiarism*` columns — the parent id IS the report identity.
 async function writePlagiarismFields(
   target: PlagiarismTarget,
-  input: Parameters<typeof plagiarismRepo.upsertForContest>[1]
+  input: Parameters<typeof plagiarismRepo.upsertForExam>[1]
 ): Promise<void> {
-  if (target.type === "contest") {
-    await plagiarismRepo.upsertForContest(target.id, input);
+  if (target.type === "exam") {
+    await plagiarismRepo.upsertForExam(target.id, input);
   } else {
     await plagiarismRepo.upsertForAssessment(target.id, input);
   }
@@ -72,7 +72,7 @@ export async function markReportFailed(target: PlagiarismTarget): Promise<void> 
 
 export interface ResolvedPlagiarismTarget {
   target: PlagiarismTarget;
-  courseSlug: string;
+  courseId: string;
 }
 
 export class PlagiarismNotFoundError extends Error {
@@ -90,27 +90,25 @@ export class PlagiarismForbiddenError extends Error {
 }
 
 /**
- * Resolve the plagiarism target (course assessment or contest) from the assessmentId param.
+ * Resolve the plagiarism target (course assessment or exam) from the assessmentId param.
+ * The `type` query param is `"exam"` for exam targets (historically
+ * `"contest"`; both values are accepted for backwards compat until
+ * the Phase 3 UI swap lands).
  */
 export async function resolvePlagiarismTarget(
   assessmentId: string,
   type: string | null
 ): Promise<ResolvedPlagiarismTarget> {
-  if (type === "contest") {
-    const contest = await contestRepo.findByIdWithCourseSlug(assessmentId);
-    if (!contest) throw new PlagiarismNotFoundError("Contest not found.");
-    if (!contest.courseId || !contest.course) {
-      throw new PlagiarismForbiddenError(
-        "Plagiarism checks are only available for course-linked contests."
-      );
-    }
-    return { courseSlug: contest.course.slug, target: { id: contest.id, type: "contest" } };
+  if (type === "exam" || type === "contest") {
+    const exam = await examRepo.findByIdWithCourse(assessmentId);
+    if (!exam) throw new PlagiarismNotFoundError("Exam not found.");
+    return { courseId: exam.courseId, target: { id: exam.id, type: "exam" } };
   }
 
-  const assessment = await assessmentRepo.findByIdWithCourseSlug(assessmentId);
+  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
   if (!assessment) throw new PlagiarismNotFoundError("Assessment not found.");
   return {
-    courseSlug: assessment.course.slug,
+    courseId: assessment.course.id,
     target: { id: assessment.id, type: "courseAssessment" }
   };
 }
@@ -148,7 +146,7 @@ export async function findPlagiarismReport(
   if (target.type === "courseAssessment") {
     return plagiarismRepo.findByAssessmentId(target.id);
   }
-  return plagiarismRepo.findByContestId(target.id);
+  return plagiarismRepo.findByExamId(target.id);
 }
 
 export async function getPlagiarismSourceCode(

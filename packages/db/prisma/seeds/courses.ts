@@ -9,76 +9,29 @@ export async function seedCourses(
   const osLabCourse = await prisma.course.upsert({
     create: {
       description:
-        "A course-managed OJ space for systems programming. Teachers own the course, TAs manage operations, and students join by shareable link or short code.",
+        "A course-managed OJ space for systems programming. Teachers own the course, TAs manage operations, and students are bulk-added by teacher-paste handles.",
       id: "course_os-lab-spring-2026",
-      locale: "zh-TW",
       ownerId: teacher.id,
-      slug: "os-lab-spring-2026",
-      title: "Operating Systems Lab",
-      visibility: "invite_only"
+      title: "Operating Systems Lab"
     },
     update: {},
-    where: { slug: "os-lab-spring-2026" }
+    where: { id: "course_os-lab-spring-2026" }
   });
 
-  // Course join tokens (created first so memberships can reference them)
-  const joinTokens = [
-    {
-      courseId: osLabCourse.id,
-      createdByUserId: teacher.id,
-      label: "Course QR",
-      kind: "link" as const,
-      token: "oslab-qr-2026"
-    },
-    {
-      courseId: osLabCourse.id,
-      createdByUserId: teacher.id,
-      label: "Course code",
-      kind: "code" as const,
-      token: "OSLAB2026"
-    }
-  ];
-
-  const tokenRecords: Record<string, { id: string }> = {};
-  for (const jt of joinTokens) {
-    const record = await prisma.courseJoinToken.upsert({
-      create: jt,
-      update: {},
-      where: { token: jt.token }
-    });
-    tokenRecords[jt.token] = record;
-  }
-
-  // Course memberships. Teacher + TA were manually added (joinedTokenId
-  // null), student joined via the OSLAB2026 short code.
+  // Course memberships. Everyone is added by the teacher now that the
+  // join-token flow has been removed.
   const osLabMemberships = [
-    {
-      courseId: osLabCourse.id,
-      userId: teacher.id,
-      role: "teacher" as const,
-      joinedTokenId: null as string | null
-    },
-    {
-      courseId: osLabCourse.id,
-      userId: taStudent.id,
-      role: "ta" as const,
-      joinedTokenId: null as string | null
-    },
-    {
-      courseId: osLabCourse.id,
-      userId: student.id,
-      role: "student" as const,
-      joinedTokenId: tokenRecords["OSLAB2026"]?.id ?? null
-    }
+    { userId: teacher.id, role: "teacher" as const },
+    { userId: taStudent.id, role: "ta" as const },
+    { userId: student.id, role: "student" as const }
   ];
 
   for (const mem of osLabMemberships) {
     await prisma.courseMembership.upsert({
       create: {
         addedByUserId: mem.role === "teacher" ? mem.userId : teacher.id,
-        courseId: mem.courseId,
+        courseId: osLabCourse.id,
         joinedAt: new Date(),
-        joinedTokenId: mem.joinedTokenId,
         role: mem.role,
         status: "active",
         userId: mem.userId
@@ -86,7 +39,7 @@ export async function seedCourses(
       update: {},
       where: {
         courseId_userId: {
-          courseId: mem.courseId,
+          courseId: osLabCourse.id,
           userId: mem.userId
         }
       }
@@ -94,7 +47,12 @@ export async function seedCourses(
   }
 
   // Course assessments. Homework no longer has IP lock, page lock, or
-  // a scoreboard — those are exam concerns and live on Contest now.
+  // a scoreboard — those are exam concerns and live on Exam now.
+  //
+  // Three seeded assignments to cover the Task 1.2/1.7 surface:
+  //   hw1  — published, flat_late_penalty adjustment rule (Task 1.2)
+  //   hw2  — published, maxAttemptsPerDay=3 (Task 1.7)
+  //   hw3  — draft with no linked problems (prototype 05 TA-collab)
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],
@@ -108,11 +66,12 @@ export async function seedCourses(
       summary:
         "Coursework-oriented assignment with a visible deadline and a private systems problem.",
       title: "Homework 1: Process Trace",
-      // Demo late-penalty decay: score halves every 48 hours past due.
+      // Demo flat late penalty: submissions after `dueAt` take a 20% hit.
       adjustmentRules: [
         {
-          type: "late_penalty_decay",
-          halfLifeHours: 48
+          type: "flat_late_penalty",
+          penaltyPct: 20,
+          startFrom: "due"
         }
       ]
     },
@@ -125,34 +84,91 @@ export async function seedCourses(
     }
   });
 
-  // Midterm is now a course-linked Contest (exams are contests)
-  const midterm = await prisma.contest.upsert({
+  const hw2 = await prisma.courseAssessment.upsert({
+    create: {
+      allowedLanguages: ["c", "cpp"],
+      closesAt: new Date("2026-04-30T15:00:00.000Z"),
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      dueAt: new Date("2026-04-28T15:00:00.000Z"),
+      opensAt: new Date("2026-04-16T09:00:00.000Z"),
+      slug: "hw2-signal-handling",
+      status: "published",
+      summary:
+        "Second homework exercising the per-day attempt limit — three submissions per UTC day.",
+      title: "Homework 2: Signal Handling",
+      // Task 1.7: per-UTC-day attempt cap. Counter resets at midnight.
+      maxAttemptsPerDay: 3
+    },
+    update: {},
+    where: {
+      courseId_slug: {
+        courseId: osLabCourse.id,
+        slug: "hw2-signal-handling"
+      }
+    }
+  });
+
+  // Draft assignment with no problems yet — mirrors prototype 05's
+  // "TA is still wiring things up" scenario. Discoverable to TAs in
+  // the manage pane but hidden from students until published.
+  await prisma.courseAssessment.upsert({
+    create: {
+      allowedLanguages: [],
+      closesAt: new Date("2026-05-30T15:00:00.000Z"),
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      opensAt: new Date("2026-05-20T09:00:00.000Z"),
+      slug: "hw3-scheduler-draft",
+      status: "draft",
+      summary: "Placeholder homework for TA collaboration — no problems linked yet.",
+      title: "Homework 3: Scheduler (draft)"
+    },
+    update: {},
+    where: {
+      courseId_slug: {
+        courseId: osLabCourse.id,
+        slug: "hw3-scheduler-draft"
+      }
+    }
+  });
+
+  // Midterm is now a course-embedded Exam (Task 1.4 of the 2026-04-14
+  // course experience redesign). Seeds use a stable id so existing
+  // test fixtures that reference the midterm row continue to resolve.
+  // Configured as an upcoming proctored exam exercising the full
+  // proctoring surface: page lock, IP whitelist, IP binding, and
+  // hidden scoreboard mode.
+  const midterm = await prisma.exam.upsert({
     create: {
       allowedLanguages: ["c", "cpp"],
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
-      endsAt: new Date("2026-04-02T12:00:00.000Z"),
+      startsAt: new Date("2026-04-18T09:00:00.000Z"),
+      endsAt: new Date("2026-04-18T11:00:00.000Z"),
       frozenBoard: false,
-      id: "contest_midterm-systems-lab",
+      id: "exam_midterm-systems-lab",
+      pageLockEnabled: true,
       ipWhitelistEnabled: true,
       ipWhitelist: ["140.112.0.0/16"],
-      pageLockEnabled: true,
-      scoreboardMode: "live",
-      slug: "midterm-systems-lab",
-      startsAt: new Date("2026-04-02T09:00:00.000Z"),
+      ipBindingEnabled: true,
+      ipViolationMode: "block",
+      scoreboardMode: "hidden",
+      status: "published",
       summary:
-        "Exam-style contest with page lock, IP lock, live ranking, and restricted languages.",
-      title: "Midterm Systems Lab",
-      visibility: "published"
+        "Upcoming proctored midterm: page lock, IP whitelist + binding, hidden scoreboard, restricted languages.",
+      title: "Midterm Systems Lab"
     },
     update: {},
-    where: { slug: "midterm-systems-lab" }
+    where: { id: "exam_midterm-systems-lab" }
   });
 
-  // Assessment problem links (hw1 only — midterm is now a contest)
+  // Assessment problem links. hw1 and hw2 get problems; hw3 is draft
+  // and stays empty to mirror the TA-collab state.
   const assessmentProblemLinks = [
     { assessmentId: hw1.id, problemId: "problem_warmup-sum", ordinal: 1 },
-    { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 }
+    { assessmentId: hw1.id, problemId: "problem_process-log-parser", ordinal: 2 },
+    { assessmentId: hw2.id, problemId: "problem_add-two-numbers", ordinal: 1 }
   ];
 
   for (const link of assessmentProblemLinks) {
@@ -179,10 +195,11 @@ export async function seedCourses(
     });
   }
 
-  // Midterm contest problem links
+  // Midterm exam problem links — 3 problems per course redesign task 1.8.
   const midtermProblemLinks = [
-    { contestId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
-    { contestId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 }
+    { examId: midterm.id, problemId: "problem_graph-docking", ordinal: 1, points: 100 },
+    { examId: midterm.id, problemId: "problem_fork-bomb-safeguard", ordinal: 2, points: 100 },
+    { examId: midterm.id, problemId: "problem_memory-leak-forensics", ordinal: 3, points: 100 }
   ];
 
   for (const link of midtermProblemLinks) {
@@ -190,9 +207,9 @@ export async function seedCourses(
       where: { id: link.problemId }
     });
 
-    await prisma.contestProblem.upsert({
+    await prisma.examProblem.upsert({
       create: {
-        contestId: link.contestId,
+        examId: link.examId,
         ordinal: link.ordinal,
         points: link.points,
         problemId: problem.id
@@ -202,46 +219,44 @@ export async function seedCourses(
         points: link.points
       },
       where: {
-        contestId_problemId: {
-          contestId: link.contestId,
+        examId_problemId: {
+          examId: link.examId,
           problemId: problem.id
         }
       }
     });
   }
 
-  // Upcoming demo contest — linked to the OS lab course. Used by the
-  // contest-hidden-problems e2e tests to verify that students see the
-  // placeholder and course teachers see the seeded problem title.
-  // startsAt is set far into the future so the hiding logic always fires
-  // during e2e runs regardless of clock drift.
-  const upcomingDemo = await prisma.contest.upsert({
+  // Upcoming demo exam — course-embedded. Used by e2e tests to verify
+  // that students see the placeholder and course teachers see the
+  // seeded problem title before the window opens. startsAt is far in
+  // the future so the hiding logic always fires regardless of clock.
+  const upcomingDemo = await prisma.exam.upsert({
     create: {
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       endsAt: new Date("2099-12-31T12:00:00.000Z"),
       frozenBoard: false,
-      id: "contest_upcoming-demo-contest",
-      scoreboardMode: "live",
-      slug: "upcoming-demo-contest",
+      id: "exam_upcoming-demo",
+      scoreboardMode: "hidden",
       startsAt: new Date("2099-12-31T09:00:00.000Z"),
-      summary: "Upcoming contest fixture used by e2e tests for problem hiding.",
-      title: "Upcoming Demo Contest",
-      visibility: "published"
+      status: "published",
+      summary: "Upcoming exam fixture used by e2e tests for problem hiding.",
+      title: "Upcoming Demo Exam"
     },
     update: {
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       endsAt: new Date("2099-12-31T12:00:00.000Z"),
       startsAt: new Date("2099-12-31T09:00:00.000Z"),
-      visibility: "published"
+      status: "published"
     },
-    where: { slug: "upcoming-demo-contest" }
+    where: { id: "exam_upcoming-demo" }
   });
 
-  await prisma.contestProblem.upsert({
+  await prisma.examProblem.upsert({
     create: {
-      contestId: upcomingDemo.id,
+      examId: upcomingDemo.id,
       ordinal: 1,
       points: 100,
       problemId: "problem_warmup-sum"
@@ -251,12 +266,12 @@ export async function seedCourses(
       points: 100
     },
     where: {
-      contestId_problemId: {
-        contestId: upcomingDemo.id,
+      examId_problemId: {
+        examId: upcomingDemo.id,
         problemId: "problem_warmup-sum"
       }
     }
   });
 
-  console.log(`  Courses: 1 upserted with memberships, join tokens, problems, and assessments`);
+  console.log(`  Courses: 1 upserted with memberships and problem-linked assessments`);
 }

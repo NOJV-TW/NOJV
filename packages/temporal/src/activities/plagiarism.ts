@@ -15,7 +15,7 @@ interface MossResult {
   url: string;
 }
 
-type PlagiarismTargetType = "courseAssessment" | "contest";
+type PlagiarismTargetType = "courseAssessment" | "exam";
 
 // --- Helpers ---
 

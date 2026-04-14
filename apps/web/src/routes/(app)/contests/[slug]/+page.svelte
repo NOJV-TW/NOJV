@@ -115,19 +115,10 @@
     </Card>
   </div>
 
-  <!-- Contest settings -->
+  <!-- Contest settings (standalone contests have no proctoring) -->
   <div class="flex flex-wrap gap-2">
     {#if contest.submitCooldownSec > 0}
       <Badge variant="muted">{m.contests_cooldownLabel()}: {contest.submitCooldownSec}s</Badge>
-    {/if}
-    {#if contest.pageLockEnabled}
-      <Badge variant="warning">{m.contests_pageLock()}</Badge>
-    {/if}
-    {#if contest.ipWhitelistEnabled}
-      <Badge variant="warning">{m.contests_ipWhitelist()}</Badge>
-    {/if}
-    {#if contest.ipBindingEnabled}
-      <Badge variant="warning">{m.contests_ipBinding()}</Badge>
     {/if}
     <Badge variant="muted">{m.contestDetail_scoreboard()}: {contest.scoreboardMode}</Badge>
     {#if contest.allowedLanguages.length > 0}

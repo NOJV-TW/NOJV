@@ -8,7 +8,6 @@ import { entryFileNameFor, type SubmissionDraft } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError } from "../shared/errors";
-import { checkIpLock } from "../shared/ip-utils";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssessment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
@@ -32,7 +31,7 @@ export async function createQueuedSubmissionRecord(
       payload.assessment
         ? requireCourseAssessment(
             tx,
-            payload.assessment.courseSlug,
+            payload.assessment.courseId,
             payload.assessment.assessmentSlug
           )
         : null,
@@ -93,22 +92,11 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // ── IP lock recheck (contests only — assessments no longer have IP lock) ──
-    if (contestResult && contestParticipation) {
-      const { contest } = contestResult;
-      if (contest.ipWhitelistEnabled || contest.ipBindingEnabled) {
-        const ipResult = await checkIpLock(
-          tx,
-          contest,
-          clientIp,
-          { id: contestParticipation.id, boundIp: contestParticipation.boundIp },
-          { userId: user.id, contestId: contest.id }
-        );
-        if (!ipResult.allowed) {
-          throw new ForbiddenError("IP address not allowed for this contest");
-        }
-      }
-    }
+    // IP lock used to re-check here for contest submissions. After the
+    // 2026-04-14 split, contests dropped proctoring entirely and exams
+    // own all IP gating. Exam submissions will re-check IP through the
+    // exam domain pipeline (Phase 2/3 wires that in).
+    void clientIp;
 
     // Enforce submit cooldown for contest submissions (not sampleOnly runs)
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {
@@ -121,22 +109,25 @@ export async function createQueuedSubmissionRecord(
       );
     }
 
-    // Enforce attempt limit for assignment submissions (not sampleOnly runs)
+    // Enforce per-day attempt limit for assignment submissions (not
+    // sampleOnly runs). The boundary is UTC midnight — deterministic and
+    // independent of server timezone. A submission made at exactly
+    // 00:00:00 UTC counts toward the new day (gte start-of-day).
     if (courseContext?.assessment && !payload.sampleOnly) {
-      const { maxAttempts } = courseContext.assessment;
+      const { maxAttemptsPerDay } = courseContext.assessment;
 
-      if (maxAttempts != null) {
-        const attemptCount = await submissionRepo.withTx(tx).count({
-          courseAssessmentId: courseContext.assessment.id,
-          problemId: problem.id,
-          sampleOnly: false,
-          userId: user.id
-        });
+      if (maxAttemptsPerDay != null) {
+        const now = new Date();
+        const startOfDayUtc = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+        );
 
-        if (attemptCount >= maxAttempts) {
-          throw new ConflictError(
-            `Attempt limit reached (${String(maxAttempts)}/${String(maxAttempts)}).`
-          );
+        const todayCount = await submissionRepo
+          .withTx(tx)
+          .countForUserAndAssessmentSince(user.id, courseContext.assessment.id, startOfDayUtc);
+
+        if (todayCount >= maxAttemptsPerDay) {
+          throw new ConflictError("每日提交次數已達上限，請明天再試");
         }
       }
     }

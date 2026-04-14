@@ -11,7 +11,7 @@ import {
 import { problemDomain, courseDomain } from "@nojv/domain";
 
 const { listProblemCards, getProblemPageData } = problemDomain;
-const { getCoursePageData, listCourseCards } = courseDomain;
+const { listCourseCards } = courseDomain;
 
 describe("read model (real DB)", () => {
   // --- listProblemCards ---
@@ -190,79 +190,18 @@ describe("read model (real DB)", () => {
     });
   });
 
-  // --- getCoursePageData (read model) ---
-
-  describe("getCoursePageData (read model)", () => {
-    it("returns course with assessments and their problem slugs", async () => {
-      const teacher = await createTestUser({ platformRole: "teacher" });
-      const course = await createTestCourse({
-        slug: "read-model-course",
-        ownerId: teacher.id
-      });
-      const problem = await createTestProblem({ authorId: teacher.id });
-
-      // Add membership
-      await testPrisma.courseMembership.create({
-        data: {
-          courseId: course.id,
-          userId: teacher.id,
-          role: "teacher",
-          status: "active",
-          joinedAt: new Date(),
-          joinedTokenId: null
-        }
-      });
-
-      // Add assessment with linked problem (problem is surfaced on the
-      // course read model via CourseAssessmentProblem now that the old
-      // CourseProblem library table has been removed).
-
-      const assessment = await testPrisma.courseAssessment.create({
-        data: {
-          courseId: course.id,
-          createdByUserId: teacher.id,
-          title: "Midterm",
-          slug: "midterm",
-          summary: "Midterm exam",
-          opensAt: new Date("2026-01-01"),
-          dueAt: new Date("2026-06-01"),
-          closesAt: new Date("2026-06-01"),
-          status: "published"
-        }
-      });
-
-      await testPrisma.courseAssessmentProblem.create({
-        data: {
-          assessmentId: assessment.id,
-          problemId: problem.id,
-          ordinal: 1,
-          points: 100
-        }
-      });
-
-      const data = await getCoursePageData("read-model-course");
-      expect(data).not.toBeNull();
-      expect(data!.course.slug).toBe("read-model-course");
-      expect(data!.course.assessments).toHaveLength(1);
-      expect(data!.course.assessments[0]!.title).toBe("Midterm");
-      expect(data!.course.assessments[0]!.problemIds).toContain(problem.id);
-      expect(data!.course.members).toHaveLength(1);
-      expect(data!.problems).toHaveLength(1);
-    });
-  });
-
   // --- listCourseCards (read model) ---
 
   describe("listCourseCards (read model)", () => {
-    it("returns cards with slug and title", async () => {
-      await createTestCourse({ slug: "rm-course-1", title: "Read Model 1" });
-      await createTestCourse({ slug: "rm-course-2", title: "Read Model 2" });
+    it("returns cards keyed by course id", async () => {
+      const a = await createTestCourse({ title: "Read Model 1" });
+      const b = await createTestCourse({ title: "Read Model 2" });
 
       const cards = await listCourseCards();
       expect(cards).toHaveLength(2);
-      const slugs = cards.map((c) => c.slug);
-      expect(slugs).toContain("rm-course-1");
-      expect(slugs).toContain("rm-course-2");
+      const ids = cards.map((c) => c.id);
+      expect(ids).toContain(a.id);
+      expect(ids).toContain(b.id);
     });
   });
 });

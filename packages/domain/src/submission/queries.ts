@@ -48,13 +48,13 @@ export async function listUserSubmissions(userId: string) {
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,
-  assessmentFilter?: { assessmentSlug: string; courseSlug: string }
+  assessmentFilter?: { assessmentSlug: string; courseId: string }
 ) {
   const problemP = problemRepo.findById(problemId);
 
   const assessmentP = assessmentFilter
     ? assessmentRepo.findByCourseAndSlug(
-        assessmentFilter.courseSlug,
+        assessmentFilter.courseId,
         assessmentFilter.assessmentSlug
       )
     : null;

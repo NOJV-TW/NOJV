@@ -1,5 +1,6 @@
 import {
   contestParticipationIpRepo,
+  examParticipationIpRepo,
   ipViolationLogRepo,
   type TransactionClient
 } from "@nojv/db";
@@ -71,12 +72,23 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
+/**
+ * The scope of an IP lock check. Standalone contests use the legacy
+ * `ContestParticipation.boundIp` path (backward-compat); exams use
+ * `ExamParticipation.ipPin`. Violation logs go to `IpViolationLog`
+ * which now only references `examId` — violations on standalone
+ * contests are NOT logged (contests don't have proctoring).
+ */
+export type IpLockScope =
+  | { kind: "contest"; contestId: string }
+  | { kind: "exam"; examId: string };
+
 export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,
   clientIp: string,
   participation: { boundIp: string | null; id: string } | null,
-  context: { userId: string; contestId: string }
+  context: { userId: string; scope: IpLockScope }
 ): Promise<IpCheckResult> {
   // Whitelist check — when enabled, an empty list denies all (fail-closed).
   if (config.ipWhitelistEnabled) {
@@ -84,14 +96,16 @@ export async function checkIpLock(
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "whitelist" };
       }
-      // notify mode: log violation, allow access
-      await ipViolationLogRepo.withTx(tx).create({
-        actualIp: clientIp,
-        contestId: context.contestId,
-        expectedIp: config.ipWhitelist.join(", "),
-        userId: context.userId,
-        violationType: "whitelist"
-      });
+      // notify mode: log violation, allow access. Only exams log.
+      if (context.scope.kind === "exam") {
+        await ipViolationLogRepo.withTx(tx).create({
+          actualIp: clientIp,
+          examId: context.scope.examId,
+          expectedIp: config.ipWhitelist.join(", "),
+          userId: context.userId,
+          violationType: "whitelist"
+        });
+      }
     }
   }
 
@@ -99,19 +113,25 @@ export async function checkIpLock(
   if (config.ipBindingEnabled && participation) {
     if (!participation.boundIp) {
       // First visit: bind IP
-      await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
+      if (context.scope.kind === "exam") {
+        await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
+      } else {
+        await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
+      }
     } else if (participation.boundIp !== clientIp) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "binding" };
       }
-      // notify mode: log violation, allow access
-      await ipViolationLogRepo.withTx(tx).create({
-        actualIp: clientIp,
-        contestId: context.contestId,
-        expectedIp: participation.boundIp,
-        userId: context.userId,
-        violationType: "binding"
-      });
+      // notify mode: log violation, allow access.
+      if (context.scope.kind === "exam") {
+        await ipViolationLogRepo.withTx(tx).create({
+          actualIp: clientIp,
+          examId: context.scope.examId,
+          expectedIp: participation.boundIp,
+          userId: context.userId,
+          violationType: "binding"
+        });
+      }
     }
   }
 

@@ -30,10 +30,18 @@ export interface AssessmentLifecycleInput {
   assessmentId: string;
 }
 
+export interface ExamAutoCloseInput {
+  examId: string;
+  // ISO-8601 string. Workflow code wraps it in `new Date(...)` to
+  // compute the sleep duration. Passing a string (not a Date) keeps
+  // the Temporal payload deterministic across SDK serializers.
+  endsAt: string;
+}
+
 // `(targetType, targetId)` is the plagiarism report identity (state is inline on the target row).
 export interface PlagiarismCheckInput {
   targetId: string;
-  targetType: "courseAssessment" | "contest";
+  targetType: "courseAssessment" | "exam";
   triggeredById: string;
 }
 

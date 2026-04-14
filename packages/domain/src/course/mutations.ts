@@ -1,22 +1,23 @@
 import {
   assessmentProblemRepo,
   assessmentRepo,
-  courseJoinTokenRepo,
   courseMembershipRepo,
   courseRepo,
   problemRepo,
   runTransaction,
-  type Prisma
+  type Prisma,
+  type TransactionClient
 } from "@nojv/db";
 import type {
   CourseAssessmentCreate,
   CourseCreate,
-  CourseJoinRequest,
+  CourseUpdate,
   ManualCourseEnrollment
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 import {
@@ -24,25 +25,45 @@ import {
   assertProblemHasWorkspaceForLanguages
 } from "../problem/helpers";
 
+/**
+ * Verify that `actor` can manage `courseId`. Platform admins always pass;
+ * teachers / TAs pass only when they hold an active membership on the
+ * course. Throws `ForbiddenError` otherwise.
+ *
+ * Callers from `+page.server.ts` load bodies will already have run the
+ * layout guard, but mutations need their own defensive check so that
+ * form-post handlers never rely on trusted loader state.
+ */
+async function assertCourseManager(
+  tx: TransactionClient,
+  actor: ActorContext,
+  courseId: string
+) {
+  if (actor.platformRole === "admin") return;
+
+  const membership = await courseMembershipRepo
+    .withTx(tx)
+    .findByComposite(courseId, actor.userId);
+  const effectiveRole = resolveEffectiveCourseRole(
+    actor.platformRole,
+    membership?.role ?? null
+  );
+  if (!canManageCourse(effectiveRole) || membership?.status !== "active") {
+    throw new ForbiddenError("You do not have permission to manage this course.");
+  }
+}
+
 export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
   return runTransaction(async (tx) => {
-    const existing = await courseRepo.withTx(tx).findBySlug(payload.slug);
-
-    if (existing) {
-      throw new ConflictError(`Course slug already exists: ${payload.slug}`);
-    }
-
     const owner = await ensureUser(tx, actor.userId, actor);
     const course = await courseRepo.withTx(tx).create({
       description: payload.description,
-      locale: payload.locale,
       ownerId: owner.id,
-      slug: payload.slug,
-      title: payload.title,
-      visibility: "invite_only"
+      title: payload.title
     });
 
-    // Owner is added as a teacher with no join token (manual add).
+    // Owner is added as a teacher. No join-token path anymore — Phase 5
+    // introduces a teacher-paste handle bulk-add flow instead.
     await courseMembershipRepo.withTx(tx).create({
       addedByUserId: owner.id,
       courseId: course.id,
@@ -52,84 +73,7 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
       userId: owner.id
     });
 
-    const linkToken = `${payload.slug}-link`;
-    const codeToken = payload.slug.replaceAll(/-/g, "").toUpperCase().slice(0, 10);
-
-    const joinTokens = await Promise.all([
-      courseJoinTokenRepo.withTx(tx).create({
-        courseId: course.id,
-        createdByUserId: owner.id,
-        kind: "link",
-        label: "Course link",
-        token: linkToken
-      }),
-      courseJoinTokenRepo.withTx(tx).create({
-        courseId: course.id,
-        createdByUserId: owner.id,
-        kind: "code",
-        label: "Course code",
-        token: codeToken
-      })
-    ]);
-
-    return {
-      course,
-      joinTokens
-    };
-  });
-}
-
-export async function joinCourseRecord(actor: ActorContext, payload: CourseJoinRequest) {
-  return runTransaction(async (tx) => {
-    const user = await ensureUser(tx, actor.userId, actor);
-    const course = await requireCourse(tx, payload.courseSlug);
-    const [existingMembership, joinToken] = await Promise.all([
-      courseMembershipRepo.withTx(tx).findByComposite(course.id, user.id),
-      courseJoinTokenRepo
-        .withTx(tx)
-        .findByToken(course.id, payload.joinTokenKind, payload.joinToken)
-    ]);
-
-    if (!joinToken) {
-      throw new ForbiddenError("Course join token is invalid.");
-    }
-
-    if (joinToken.expiresAt && joinToken.expiresAt < new Date()) {
-      throw new ForbiddenError("Course join token has expired.");
-    }
-
-    if (existingMembership?.status === "active") {
-      return existingMembership;
-    }
-
-    // Atomic increment-and-check to prevent concurrent joins from over-running maxUses.
-    // The Prisma `update` with `increment` is a single SQL UPDATE; if this tx later
-    // throws, the increment rolls back together with the membership upsert.
-    const updatedToken = await courseJoinTokenRepo.withTx(tx).incrementUsage(joinToken.id);
-    if (updatedToken.maxUses !== null && updatedToken.usageCount > updatedToken.maxUses) {
-      throw new ForbiddenError("Course join token has reached its maximum usage.");
-    }
-
-    const membership = await courseMembershipRepo.withTx(tx).upsert(
-      course.id,
-      user.id,
-      {
-        courseId: course.id,
-        joinedAt: new Date(),
-        joinedTokenId: joinToken.id,
-        role: "student",
-        status: "active",
-        userId: user.id
-      },
-      {
-        joinedAt: new Date(),
-        joinedTokenId: joinToken.id,
-        role: "student",
-        status: "active"
-      }
-    );
-
-    return membership;
+    return { course };
   });
 }
 
@@ -138,7 +82,7 @@ export async function manuallyEnrollCourseMember(
   payload: ManualCourseEnrollment
 ) {
   return runTransaction(async (tx) => {
-    const course = await requireCourse(tx, payload.courseSlug);
+    const course = await requireCourse(tx, payload.courseId);
     const manager = await ensureUser(tx, actor.userId, actor);
     const user = await ensureUser(tx, `usr_${payload.username}`, {
       displayName: payload.displayName,
@@ -154,8 +98,6 @@ export async function manuallyEnrollCourseMember(
         addedByUserId: manager.id,
         courseId: course.id,
         joinedAt: new Date(),
-        // Manual add → no join token
-        joinedTokenId: null,
         role: payload.role,
         status: "active",
         userId: user.id
@@ -163,7 +105,6 @@ export async function manuallyEnrollCourseMember(
       {
         addedByUserId: manager.id,
         joinedAt: new Date(),
-        joinedTokenId: null,
         role: payload.role,
         status: "active"
       }
@@ -176,7 +117,7 @@ export async function createCourseAssessmentRecord(
   payload: CourseAssessmentCreate
 ) {
   return runTransaction(async (tx) => {
-    const course = await requireCourse(tx, payload.courseSlug);
+    const course = await requireCourse(tx, payload.courseId);
     const creator = await ensureUser(tx, actor.userId, actor);
     const existing = await assessmentRepo.withTx(tx).findByComposite(course.id, payload.slug);
 
@@ -239,5 +180,30 @@ export async function createCourseAssessmentRecord(
     );
 
     return assessment;
+  });
+}
+
+export async function updateCourse(
+  actor: ActorContext,
+  courseId: string,
+  payload: CourseUpdate
+) {
+  return runTransaction(async (tx) => {
+    await requireCourse(tx, courseId);
+    await assertCourseManager(tx, actor, courseId);
+
+    return courseRepo.withTx(tx).update(courseId, {
+      description: payload.description,
+      title: payload.title
+    });
+  });
+}
+
+export async function deleteCourse(actor: ActorContext, courseId: string) {
+  return runTransaction(async (tx) => {
+    await requireCourse(tx, courseId);
+    await assertCourseManager(tx, actor, courseId);
+
+    return courseRepo.withTx(tx).delete(courseId);
   });
 }
