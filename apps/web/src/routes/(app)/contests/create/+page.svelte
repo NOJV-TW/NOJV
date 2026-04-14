@@ -246,13 +246,13 @@
       <div>
         <input
           class={inputClassName}
-          id="courseSlug"
-          name="courseSlug"
+          id="courseId"
+          name="courseId"
           type="text"
           placeholder={m.contestCreate_bindCoursePlaceholder()}
-          bind:value={$form.courseSlug}
+          bind:value={$form.courseId}
         />
-        {#if $errors.courseSlug}<p class="mt-1 text-xs text-red-600">{$errors.courseSlug}</p>{/if}
+        {#if $errors.courseId}<p class="mt-1 text-xs text-red-600">{$errors.courseId}</p>{/if}
         <p class="mt-1 text-xs text-muted-foreground">
           {m.contestCreate_bindCourseHint()}
         </p>

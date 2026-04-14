@@ -29,7 +29,7 @@ export const load: PageServerLoad = async (event) => {
     hottestAssessments: {
       assessmentSlug: string;
       assessmentTitle: string;
-      courseSlug: string;
+      courseId: string;
       courseTitle: string;
       submissionCount: number;
       acceptedRate: number;
@@ -37,8 +37,8 @@ export const load: PageServerLoad = async (event) => {
   } | null = null;
 
   if (actor && isStaff && courses.length > 0) {
-    const courseSlugs = courses.map((course) => course.slug);
-    const overview = await getTeacherOverview(courseSlugs);
+    const courseIds = courses.map((course) => course.id);
+    const overview = await getTeacherOverview(courseIds);
 
     teacherOverview = {
       managedCourses: courses.length,

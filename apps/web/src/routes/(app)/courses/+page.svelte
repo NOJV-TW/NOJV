@@ -167,16 +167,16 @@
               </tr>
             </thead>
             <tbody>
-              {#each data.teacherOverview.hottestAssessments as row (row.courseSlug + row.assessmentSlug)}
+              {#each data.teacherOverview.hottestAssessments as row (row.courseId + row.assessmentSlug)}
                 <tr class="border-b border-border last:border-b-0">
                   <td class="px-3 py-2">
-                    <a class="font-medium hover:underline" href="/courses/{row.courseSlug}">{row.courseTitle}</a>
+                    <a class="font-medium hover:underline" href="/courses/{row.courseId}">{row.courseTitle}</a>
                   </td>
                   <td class="px-3 py-2">{row.assessmentTitle}</td>
                   <td class="px-3 py-2 text-center">{row.submissionCount}</td>
                   <td class="px-3 py-2 text-center">{row.acceptedRate}%</td>
                   <td class="px-3 py-2 text-xs">
-                    <a class="text-primary hover:underline" href="/courses/{row.courseSlug}/manage/progress?assessment={row.assessmentSlug}">
+                    <a class="text-primary hover:underline" href="/courses/{row.courseId}/manage/progress?assessment={row.assessmentSlug}">
                       {t("openAnalytics")}
                     </a>
                   </td>
@@ -215,19 +215,6 @@
           {#if $errors.title}<span class="text-body-sm text-destructive">{$errors.title}</span>{/if}
         </div>
         <div>
-          <label class="text-body-sm font-medium" for="course-slug">{m.admin_slug()}</label>
-          <input
-            class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
-            id="course-slug"
-            name="slug"
-            bind:value={$form.slug}
-            pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
-            placeholder="my-course"
-            required
-          />
-          {#if $errors.slug}<span class="text-body-sm text-destructive">{$errors.slug}</span>{/if}
-        </div>
-        <div>
           <label class="text-body-sm font-medium" for="course-description">{m.admin_description()}</label>
           <textarea
             class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
@@ -238,18 +225,6 @@
             required
           ></textarea>
           {#if $errors.description}<span class="text-body-sm text-destructive">{$errors.description}</span>{/if}
-        </div>
-        <div>
-          <label class="text-body-sm font-medium" for="course-locale">{m.admin_locale()}</label>
-          <select
-            class="mt-2 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-3 text-body-sm"
-            id="course-locale"
-            name="locale"
-            bind:value={$form.locale}
-          >
-            <option value="zh-TW">zh-TW</option>
-            <option value="en">en</option>
-          </select>
         </div>
         <Button type="submit" disabled={$submitting} loading={$submitting} class="w-fit">
           {$submitting ? m.common_creating() : m.admin_createCourseButton()}
@@ -271,7 +246,7 @@
     />
   {:else}
     <section class="grid gap-4 lg:grid-cols-2">
-      {#each data.courses as course (course.slug)}
+      {#each data.courses as course (course.id)}
         <article
           class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover"
         >
@@ -281,7 +256,8 @@
                 {m.courseDetail_course()}
               </p>
               <h3 class="mt-2 text-title font-semibold">
-                <a href="/courses/{course.slug}" class="hover:underline">{course.title}</a>
+                <!-- TODO(phase-2): point to the new /courses/[courseId] tree once scaffolded (Task 2.1). -->
+                <a href="/courses/{course.id}" class="hover:underline">{course.title}</a>
               </h3>
             </div>
             <Badge variant="outline">{m.courseDetail_rbacEnabled()}</Badge>
@@ -300,13 +276,13 @@
           {#if canCreate}
             <div class="mt-4 flex flex-wrap gap-3 text-body-sm">
               <span class="text-muted-foreground">{t("staffShortcuts")}:</span>
-              <a class="text-primary hover:underline" href="/courses/{course.slug}/manage">
+              <a class="text-primary hover:underline" href="/courses/{course.id}/manage">
                 {t("dashboard")}
               </a>
-              <a class="text-primary hover:underline" href="/courses/{course.slug}/manage/assessments">
+              <a class="text-primary hover:underline" href="/courses/{course.id}/manage/assessments">
                 {t("assessments")}
               </a>
-              <a class="text-primary hover:underline" href="/courses/{course.slug}/manage/progress">
+              <a class="text-primary hover:underline" href="/courses/{course.id}/manage/progress">
                 {t("progress")}
               </a>
             </div>

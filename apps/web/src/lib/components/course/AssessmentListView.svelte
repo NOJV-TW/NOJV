@@ -7,7 +7,7 @@
   import { Badge } from "$lib/components/ui/badge";
 
   interface AssessmentItem {
-    courseSlug: string;
+    courseId: string;
     courseTitle: string;
     /** Soft deadline; null = no late penalty configured. */
     dueAt: string | null;
@@ -51,10 +51,10 @@
     />
   {:else}
     <section class="grid gap-4">
-      {#each items as a (`${a.courseSlug}-${a.slug}`)}
+      {#each items as a (`${a.courseId}-${a.slug}`)}
         <a
           class="rounded-2xl border border-border bg-[color:var(--color-panel)] backdrop-blur-sm grid gap-4 px-5 py-5 sm:grid-cols-[1.4fr_0.6fr_0.6fr_0.4fr] sm:items-center shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:shadow-hover motion-safe:hover:-translate-y-0.5"
-          href={assessmentPath(a.courseSlug, a.slug)}
+          href={assessmentPath(a.courseId, a.slug)}
         >
           <div>
             <p class="text-body-sm text-muted-foreground">{a.courseTitle}</p>

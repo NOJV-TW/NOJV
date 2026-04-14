@@ -40,7 +40,7 @@ export interface ContestProblemSummary {
 
 export interface ContestDetailData {
   allowedLanguages: Language[];
-  courseSlug: string | null;
+  courseId: string | null;
   endsAt: string;
   frozenAt: string | null;
   id: string;
@@ -106,7 +106,7 @@ type ContestDetailBase = Omit<
 function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
   return {
     allowedLanguages: contest.allowedLanguages as Language[],
-    courseSlug: contest.course?.slug ?? null,
+    courseId: contest.course?.id ?? null,
     endsAt: contest.endsAt.toISOString(),
     frozenAt: contest.frozenAt?.toISOString() ?? null,
     id: contest.id,
@@ -137,8 +137,8 @@ export async function listPublicContests(): Promise<ContestListItem[]> {
   return contests.map(mapContestListItem);
 }
 
-export async function listCourseContests(courseSlug: string): Promise<ContestListItem[]> {
-  const contests = await contestRepo.listByCourseSlug(courseSlug);
+export async function listCourseContests(courseId: string): Promise<ContestListItem[]> {
+  const contests = await contestRepo.listByCourseId(courseId);
   return contests.map(mapContestListItem);
 }
 

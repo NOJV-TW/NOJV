@@ -1,20 +1,12 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { CourseJoinTokenKind } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
 export const courseRepo = {
-  findBySlug(slug: string) {
-    return prisma.course.findUnique({ where: { slug } });
-  },
-
-  findIdBySlug(slug: string) {
-    return prisma.course.findUnique({
-      where: { slug },
-      select: { id: true }
-    });
+  findById(id: string) {
+    return prisma.course.findUnique({ where: { id } });
   },
 
   listCards(userId?: string) {
@@ -40,32 +32,9 @@ export const courseRepo = {
     });
   },
 
-  findDetailBySlug(slug: string) {
+  findByIdWithUserMembership(id: string, userId: string) {
     return prisma.course.findUnique({
-      include: {
-        assessments: {
-          include: {
-            problems: {
-              include: { problem: true },
-              orderBy: { ordinal: "asc" }
-            }
-          },
-          orderBy: { opensAt: "asc" }
-        },
-        joinTokens: { orderBy: { createdAt: "asc" } },
-        memberships: {
-          include: { user: true },
-          orderBy: { createdAt: "asc" },
-          where: { status: "active" }
-        }
-      },
-      where: { slug }
-    });
-  },
-
-  findBySlugWithUserMembership(slug: string, userId: string) {
-    return prisma.course.findUnique({
-      where: { slug },
+      where: { id },
       include: {
         memberships: {
           where: { userId },
@@ -81,8 +50,8 @@ export const courseRepo = {
 
   withTx(tx: TxClient) {
     return {
-      findBySlug(slug: string) {
-        return tx.course.findUnique({ where: { slug } });
+      findById(id: string) {
+        return tx.course.findUnique({ where: { id } });
       },
 
       create(data: Prisma.CourseUncheckedCreateInput) {
@@ -93,20 +62,20 @@ export const courseRepo = {
 };
 
 export const courseMembershipRepo = {
-  countStudents(courseSlugs: string[]) {
+  countStudents(courseIds: string[]) {
     return prisma.courseMembership.count({
       where: {
-        course: { slug: { in: courseSlugs } },
+        courseId: { in: courseIds },
         role: "student",
         status: "active"
       }
     });
   },
 
-  countActiveAssessments(courseSlugs: string[], now: Date) {
+  countActiveAssessments(courseIds: string[], now: Date) {
     return prisma.courseAssessment.count({
       where: {
-        course: { slug: { in: courseSlugs } },
+        courseId: { in: courseIds },
         status: "published",
         opensAt: { lte: now },
         closesAt: { gte: now }
@@ -154,29 +123,6 @@ export const courseMembershipRepo = {
           create: createData,
           update: updateData,
           where: { courseId_userId: { courseId, userId } }
-        });
-      }
-    };
-  }
-};
-
-export const courseJoinTokenRepo = {
-  withTx(tx: TxClient) {
-    return {
-      findByToken(courseId: string, kind: CourseJoinTokenKind, token: string) {
-        return tx.courseJoinToken.findFirst({
-          where: { courseId, kind, token }
-        });
-      },
-
-      create(data: Prisma.CourseJoinTokenUncheckedCreateInput) {
-        return tx.courseJoinToken.create({ data });
-      },
-
-      incrementUsage(id: string) {
-        return tx.courseJoinToken.update({
-          data: { usageCount: { increment: 1 } },
-          where: { id }
         });
       }
     };

@@ -11,7 +11,6 @@ const TABLES = [
   "ContestProblem",
   "CourseAssessmentProblem",
   "CourseAssessment",
-  "CourseJoinToken",
   "CourseMembership",
   "Course",
   "Contest",

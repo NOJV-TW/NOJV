@@ -59,7 +59,6 @@ model User {
   ownedCourses                 Course[]                  @relation("CourseOwner")
   courseMemberships            CourseMembership[]        @relation("CourseMembershipUser")
   createdMemberships           CourseMembership[]        @relation("CourseMembershipCreator")
-  createdJoinTokens            CourseJoinToken[]         @relation("CourseJoinTokenCreator")
   createdCourseAssessments     CourseAssessment[]        @relation("CourseAssessmentCreator")
   createdContests              Contest[]                 @relation("ContestCreator")
   createdAnnouncements         Announcement[]            @relation("AnnouncementCreator")
