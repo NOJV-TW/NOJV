@@ -50,6 +50,25 @@ export const examRepo = {
     });
   },
 
+  /**
+   * Batched count of published exams that have not yet ended, grouped
+   * by course. Feeds the /courses listing card status bar ("N upcoming
+   * exam" / "N exam").
+   */
+  groupUpcomingCountsByCourse(courseIds: string[], now: Date) {
+    if (courseIds.length === 0)
+      return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
+    return prisma.exam.groupBy({
+      by: ["courseId"],
+      where: {
+        courseId: { in: courseIds },
+        status: "published",
+        endsAt: { gte: now }
+      },
+      _count: { _all: true }
+    });
+  },
+
   findDetailById(id: string) {
     return prisma.exam.findUnique({
       include: {
