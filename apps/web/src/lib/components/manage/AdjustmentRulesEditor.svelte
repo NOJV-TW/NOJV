@@ -11,14 +11,14 @@
   type RuleType = AdjustmentRule["type"];
 
   const defaultsByType: Record<RuleType, AdjustmentRule> = {
-    late_penalty_fixed: { type: "late_penalty_fixed", perUnit: "day", amount: 10, maxDeduction: 50 },
-    late_penalty_decay: { type: "late_penalty_decay", halfLifeHours: 48 },
     time_bonus: { type: "time_bonus", maxBonusPercent: 10, baselineMs: 1000 },
-    memory_penalty: { type: "memory_penalty", thresholdMb: 128, maxDeduction: 20 }
+    flat_late_penalty: { type: "flat_late_penalty", penaltyPct: 20, startFrom: "due" },
+    daily_late_penalty: { type: "daily_late_penalty", perDayPct: 10, startFrom: "due" },
+    final_day_zero: { type: "final_day_zero" }
   };
 
   function addRule() {
-    rules = [...rules, defaultsByType.late_penalty_fixed];
+    rules = [...rules, defaultsByType.flat_late_penalty];
   }
 
   function removeRule(index: number) {
@@ -68,10 +68,10 @@
               onchange={(e) =>
                 changeRuleType(index, (e.target as HTMLSelectElement).value as RuleType)}
             >
-              <option value="late_penalty_fixed">Late penalty (fixed)</option>
-              <option value="late_penalty_decay">Late penalty (decay)</option>
+              <option value="flat_late_penalty">Flat late penalty</option>
+              <option value="daily_late_penalty">Daily late penalty</option>
+              <option value="final_day_zero">Final day zero</option>
               <option value="time_bonus">Time bonus</option>
-              <option value="memory_penalty">Memory penalty</option>
             </select>
             <button
               type="button"
@@ -83,22 +83,8 @@
             </button>
           </div>
 
-          {#if rule.type === "late_penalty_fixed"}
+          {#if rule.type === "flat_late_penalty"}
             <div class="flex flex-wrap items-center gap-3 text-caption">
-              <label class="text-muted-foreground">
-                Per
-                <select
-                  class="{inputClassName} mt-0 inline-block w-auto"
-                  value={rule.perUnit}
-                  onchange={(e) =>
-                    updateRule(index, {
-                      perUnit: (e.target as HTMLSelectElement).value as "day" | "week"
-                    })}
-                >
-                  <option value="day">Day</option>
-                  <option value="week">Week</option>
-                </select>
-              </label>
               <label class="text-muted-foreground">
                 Deduct
                 <input
@@ -106,46 +92,67 @@
                   type="number"
                   min="0"
                   max="100"
-                  value={rule.amount}
+                  value={rule.penaltyPct}
                   oninput={(e) =>
                     updateRule(index, {
-                      amount: Number((e.target as HTMLInputElement).value) || 0
+                      penaltyPct: Number((e.target as HTMLInputElement).value) || 0
                     })}
                 />
-                pts
+                %
               </label>
               <label class="text-muted-foreground">
-                Max
+                Starting from
+                <select
+                  class="{inputClassName} mt-0 inline-block w-auto"
+                  value={rule.startFrom}
+                  onchange={(e) =>
+                    updateRule(index, {
+                      startFrom: (e.target as HTMLSelectElement).value as "due" | "final_day"
+                    })}
+                >
+                  <option value="due">Due date</option>
+                  <option value="final_day">Final day</option>
+                </select>
+              </label>
+            </div>
+          {:else if rule.type === "daily_late_penalty"}
+            <div class="flex flex-wrap items-center gap-3 text-caption">
+              <label class="text-muted-foreground">
+                Per day
                 <input
                   class="{inputClassName} mt-0 inline-block w-20"
                   type="number"
                   min="0"
                   max="100"
-                  value={rule.maxDeduction}
+                  value={rule.perDayPct}
                   oninput={(e) =>
                     updateRule(index, {
-                      maxDeduction: Number((e.target as HTMLInputElement).value) || 0
+                      perDayPct: Number((e.target as HTMLInputElement).value) || 0
                     })}
                 />
-                pts
+                %
+              </label>
+              <label class="text-muted-foreground">
+                Starting from
+                <select
+                  class="{inputClassName} mt-0 inline-block w-auto"
+                  value={rule.startFrom}
+                  onchange={(e) =>
+                    updateRule(index, {
+                      startFrom: (e.target as HTMLSelectElement).value as "due" | "final_day"
+                    })}
+                >
+                  <option value="due">Due date</option>
+                  <option value="final_day">Final day</option>
+                </select>
               </label>
             </div>
-          {:else if rule.type === "late_penalty_decay"}
-            <label class="text-caption text-muted-foreground">
-              Half-life (hours)
-              <input
-                class="{inputClassName} mt-0 inline-block w-24"
-                type="number"
-                min="1"
-                max="8760"
-                value={rule.halfLifeHours}
-                oninput={(e) =>
-                  updateRule(index, {
-                    halfLifeHours: Number((e.target as HTMLInputElement).value) || 48
-                  })}
-              />
-            </label>
-          {:else if rule.type === "time_bonus"}
+          {:else if rule.type === "final_day_zero"}
+            <p class="text-caption text-muted-foreground">
+              Any submission strictly after the assessment's final day
+              (closesAt) is worth 0.
+            </p>
+          {:else}
             <div class="flex flex-wrap items-center gap-3 text-caption">
               <label class="text-muted-foreground">
                 Max bonus
@@ -175,38 +182,6 @@
                     })}
                 />
                 ms
-              </label>
-            </div>
-          {:else}
-            <div class="flex flex-wrap items-center gap-3 text-caption">
-              <label class="text-muted-foreground">
-                Memory threshold
-                <input
-                  class="{inputClassName} mt-0 inline-block w-24"
-                  type="number"
-                  min="0"
-                  value={rule.thresholdMb}
-                  oninput={(e) =>
-                    updateRule(index, {
-                      thresholdMb: Number((e.target as HTMLInputElement).value) || 0
-                    })}
-                />
-                MB
-              </label>
-              <label class="text-muted-foreground">
-                Max deduct
-                <input
-                  class="{inputClassName} mt-0 inline-block w-20"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={rule.maxDeduction}
-                  oninput={(e) =>
-                    updateRule(index, {
-                      maxDeduction: Number((e.target as HTMLInputElement).value) || 0
-                    })}
-                />
-                pts
               </label>
             </div>
           {/if}

@@ -108,11 +108,12 @@ export async function seedCourses(
       summary:
         "Coursework-oriented assignment with a visible deadline and a private systems problem.",
       title: "Homework 1: Process Trace",
-      // Demo late-penalty decay: score halves every 48 hours past due.
+      // Demo flat late penalty: submissions after `dueAt` take a 20% hit.
       adjustmentRules: [
         {
-          type: "late_penalty_decay",
-          halfLifeHours: 48
+          type: "flat_late_penalty",
+          penaltyPct: 20,
+          startFrom: "due"
         }
       ]
     },
