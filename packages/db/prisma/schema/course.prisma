@@ -72,8 +72,9 @@ model CourseAssessment {
   /// Hard close — no submissions accepted after this timestamp.
   closesAt DateTime
 
-  /// Per-problem attempt limit. Null = unlimited.
-  maxAttempts      Int?
+  /// Per-UTC-day attempt cap for (user, assessment). Null = unlimited.
+  /// Enforced at submit time in packages/domain/src/submission/mutations.ts.
+  maxAttemptsPerDay Int?
   /// Empty array = all languages allowed. Adding a problem is
   /// application-gated: every listed language must have an editable
   /// main.<ext> workspace file on the problem.
