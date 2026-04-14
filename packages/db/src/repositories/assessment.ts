@@ -113,6 +113,28 @@ export const assessmentRepo = {
     });
   },
 
+  /**
+   * Full roster of assignments for the course list page. Unlike
+   * `listForCourseOverview` this does not pre-trim — the caller is
+   * expected to cap via `take` (the domain layer passes 50 for the
+   * list page). Status filtering is handled in the domain layer
+   * because "open" / "upcoming" / "closed" are derived from
+   * `opensAt`/`closesAt` at query time, not stored columns.
+   */
+  listForCourse(courseId: string, includeDrafts: boolean, take: number) {
+    return prisma.courseAssessment.findMany({
+      include: {
+        _count: { select: { problems: true } }
+      },
+      orderBy: { opensAt: "desc" },
+      where: {
+        courseId,
+        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+      },
+      take
+    });
+  },
+
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
