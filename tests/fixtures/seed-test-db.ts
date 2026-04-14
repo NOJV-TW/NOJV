@@ -9,6 +9,8 @@ const TABLES = [
   "Submission",
   "ContestParticipation",
   "ContestProblem",
+  "ExamSessionEvent",
+  "ActiveExamSession",
   "ExamParticipation",
   "ExamProblem",
   "CourseAssessmentProblem",

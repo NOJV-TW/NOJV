@@ -67,6 +67,23 @@ enum IpViolationType {
   binding
 }
 
+/// Why a student's exam session ended — drives the Phase 4 lock.
+enum ExamSessionReleaseReason {
+  submitted
+  time_up
+  released_by_instructor
+}
+
+/// Append-only audit log event types for ActiveExamSession.
+enum ExamSessionEventType {
+  enter
+  leave
+  visibility_lost
+  release
+  auto_close
+  heartbeat
+}
+
 /// Standalone contest — public / invite-only competition with no
 /// course binding. Proctoring (page lock, IP lock) is NOT available
 /// on contests; those controls live on `Exam`.
@@ -196,6 +213,7 @@ model Exam {
   participations        ExamParticipation[]
   submissions           Submission[]
   ipViolationLogs       IpViolationLog[]
+  activeSessions        ActiveExamSession[]
 
   @@index([courseId])
   @@index([courseId, status])
@@ -254,4 +272,47 @@ model IpViolationLog {
 
   @@index([examId, createdAt])
   @@index([userId, createdAt])
+}
+
+/// One row per student per active exam. Drives the Phase 4 exam lock
+/// in hooks.server.ts: while `endedAt IS NULL` the student is routed
+/// back to the exam landing page on every navigation. `ipPin` is a
+/// snapshot of the client IP at session start and is consumed by the
+/// Phase 4 IP binding check (the `Exam.ipPin` on `ExamParticipation`
+/// is the legacy fallback kept for now).
+model ActiveExamSession {
+  id              String                    @id @default(cuid())
+  userId          String
+  examId          String
+  startedAt       DateTime                  @default(now())
+  endedAt         DateTime?
+  releaseReason   ExamSessionReleaseReason?
+  ipPin           String?
+  lastHeartbeatAt DateTime                  @default(now())
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  user   User               @relation("ActiveExamSessionUser", fields: [userId], references: [id], onDelete: Cascade)
+  exam   Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
+  events ExamSessionEvent[]
+
+  @@unique([userId, examId])
+  @@index([examId, endedAt])
+  @@index([userId, endedAt])
+}
+
+/// Append-only audit log for exam session lifecycle events. One row
+/// per {enter, leave, visibility_lost, release, auto_close, heartbeat}
+/// observation against an ActiveExamSession. `metadata` is a free-form
+/// Json blob — callers in Phase 4 / Phase 6 decide the shape.
+model ExamSessionEvent {
+  id         String               @id @default(cuid())
+  sessionId  String
+  eventType  ExamSessionEventType
+  occurredAt DateTime             @default(now())
+  metadata   Json?
+
+  session ActiveExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, occurredAt])
 }

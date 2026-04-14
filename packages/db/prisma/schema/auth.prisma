@@ -70,6 +70,7 @@ model User {
   editorials                     Editorial[]
   ipViolationLogs                IpViolationLog[]
   dailyActivity                  UserDailyActivity[]
+  activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
 }
 
 model Session {
