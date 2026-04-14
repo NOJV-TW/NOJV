@@ -400,6 +400,21 @@ export const submissionRepo = {
         return tx.submission.count({ where });
       },
 
+      countForUserAndAssessmentSince(
+        userId: string,
+        courseAssessmentId: string,
+        sinceTime: Date
+      ) {
+        return tx.submission.count({
+          where: {
+            userId,
+            courseAssessmentId,
+            sampleOnly: false,
+            createdAt: { gte: sinceTime }
+          }
+        });
+      },
+
       findMostRecent(where: Prisma.SubmissionWhereInput, select?: Prisma.SubmissionSelect) {
         return tx.submission.findFirst({
           where,

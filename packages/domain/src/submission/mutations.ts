@@ -121,22 +121,25 @@ export async function createQueuedSubmissionRecord(
       );
     }
 
-    // Enforce attempt limit for assignment submissions (not sampleOnly runs)
+    // Enforce per-day attempt limit for assignment submissions (not
+    // sampleOnly runs). The boundary is UTC midnight — deterministic and
+    // independent of server timezone. A submission made at exactly
+    // 00:00:00 UTC counts toward the new day (gte start-of-day).
     if (courseContext?.assessment && !payload.sampleOnly) {
-      const { maxAttempts } = courseContext.assessment;
+      const { maxAttemptsPerDay } = courseContext.assessment;
 
-      if (maxAttempts != null) {
-        const attemptCount = await submissionRepo.withTx(tx).count({
-          courseAssessmentId: courseContext.assessment.id,
-          problemId: problem.id,
-          sampleOnly: false,
-          userId: user.id
-        });
+      if (maxAttemptsPerDay != null) {
+        const now = new Date();
+        const startOfDayUtc = new Date(
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+        );
 
-        if (attemptCount >= maxAttempts) {
-          throw new ConflictError(
-            `Attempt limit reached (${String(maxAttempts)}/${String(maxAttempts)}).`
-          );
+        const todayCount = await submissionRepo
+          .withTx(tx)
+          .countForUserAndAssessmentSince(user.id, courseContext.assessment.id, startOfDayUtc);
+
+        if (todayCount >= maxAttemptsPerDay) {
+          throw new ConflictError("每日提交次數已達上限，請明天再試");
         }
       }
     }
