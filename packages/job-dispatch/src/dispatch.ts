@@ -29,7 +29,7 @@ export interface AssessmentLifecycleInput {
 
 export interface PlagiarismCheckInput {
   targetId: string;
-  targetType: "courseAssessment" | "contest";
+  targetType: "courseAssessment" | "exam";
   triggeredById: string;
 }
 

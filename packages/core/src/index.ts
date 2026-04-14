@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./schemas/problem";
 export * from "./schemas/course";
 export * from "./schemas/contest";
+export * from "./schemas/exam";
 export * from "./schemas/submission";
 export * from "./schemas/judge-config";
 export * from "./schemas/assessment-adjustments";

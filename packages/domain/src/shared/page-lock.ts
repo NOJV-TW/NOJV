@@ -1,28 +1,28 @@
-import { contestRepo } from "@nojv/db";
+import { examRepo } from "@nojv/db";
 
 /**
- * Page-lock context for a user. Only contests can page-lock now —
- * homework assessments no longer have a page-lock setting (that was an
- * exam-only concern that lives on Contest).
+ * Page-lock context for a user. Only exams can page-lock now —
+ * standalone contests dropped proctoring as part of the 2026-04-14
+ * split (Contest <-> Exam).
  */
 export interface PageLockedContext {
-  type: "contest";
-  contestSlug: string;
+  type: "exam";
+  examId: string;
 }
 
 /**
- * Check if user is currently locked to an active contest. Returns the
+ * Check if user is currently locked to an active exam. Returns the
  * locked context if found, null otherwise.
  */
 export async function getPageLockedContext(userId: string): Promise<PageLockedContext | null> {
   const now = new Date();
 
-  const contest = await contestRepo.findPageLockedForUser(userId, now);
+  const exam = await examRepo.findPageLockedForUser(userId, now);
 
-  if (contest) {
+  if (exam) {
     return {
-      type: "contest",
-      contestSlug: contest.slug
+      type: "exam",
+      examId: exam.id
     };
   }
 

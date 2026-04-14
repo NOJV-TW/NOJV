@@ -8,7 +8,6 @@ import { entryFileNameFor, type SubmissionDraft } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError } from "../shared/errors";
-import { checkIpLock } from "../shared/ip-utils";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssessment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
@@ -93,22 +92,11 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // ── IP lock recheck (contests only — assessments no longer have IP lock) ──
-    if (contestResult && contestParticipation) {
-      const { contest } = contestResult;
-      if (contest.ipWhitelistEnabled || contest.ipBindingEnabled) {
-        const ipResult = await checkIpLock(
-          tx,
-          contest,
-          clientIp,
-          { id: contestParticipation.id, boundIp: contestParticipation.boundIp },
-          { userId: user.id, contestId: contest.id }
-        );
-        if (!ipResult.allowed) {
-          throw new ForbiddenError("IP address not allowed for this contest");
-        }
-      }
-    }
+    // IP lock used to re-check here for contest submissions. After the
+    // 2026-04-14 split, contests dropped proctoring entirely and exams
+    // own all IP gating. Exam submissions will re-check IP through the
+    // exam domain pipeline (Phase 2/3 wires that in).
+    void clientIp;
 
     // Enforce submit cooldown for contest submissions (not sampleOnly runs)
     if (contestResult && !payload.sampleOnly && contestResult.contest.submitCooldownSec > 0) {

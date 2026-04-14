@@ -1,11 +1,14 @@
 export * from "./shared";
 export { canManageContest } from "./contest/permissions";
 export type { ContestPermissionInput, CourseMembershipRow } from "./contest/permissions";
+export { canManageExam } from "./exam/permissions";
+export type { ExamPermissionInput } from "./exam/permissions";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as assessmentDomain from "./assessment";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
+export * as examDomain from "./exam";
 export * as plagiarismDomain from "./plagiarism";
 export * as problemDomain from "./problem";
 export * as scoring from "./scoring";

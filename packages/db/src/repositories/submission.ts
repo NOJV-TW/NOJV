@@ -163,6 +163,42 @@ export const submissionRepo = {
     });
   },
 
+  listByContest(opts: { contestId: string; take?: number }) {
+    return prisma.submission.findMany({
+      where: { contestId: opts.contestId, sampleOnly: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        runtimeMs: true,
+        problem: { select: problemMiniSelect },
+        user: { select: { id: true, name: true, username: true } }
+      },
+      take: opts.take ?? 100
+    });
+  },
+
+  listByExam(opts: { examId: string; take?: number }) {
+    return prisma.submission.findMany({
+      where: { examId: opts.examId, sampleOnly: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        runtimeMs: true,
+        problem: { select: problemMiniSelect },
+        user: { select: { id: true, name: true, username: true } }
+      },
+      take: opts.take ?? 100
+    });
+  },
+
   findForContestScoreboard(participationIds: string[]) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },

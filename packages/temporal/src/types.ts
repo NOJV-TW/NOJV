@@ -33,7 +33,7 @@ export interface AssessmentLifecycleInput {
 // `(targetType, targetId)` is the plagiarism report identity (state is inline on the target row).
 export interface PlagiarismCheckInput {
   targetId: string;
-  targetType: "courseAssessment" | "contest";
+  targetType: "courseAssessment" | "exam";
   triggeredById: string;
 }
 

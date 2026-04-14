@@ -2,9 +2,11 @@ import type { CourseRole, CourseMembershipStatus } from "@nojv/core";
 
 export interface ContestPermissionInput {
   createdByUserId: string | null;
-  courseId: string | null;
 }
 
+// Re-exported for call sites that still reason about course
+// memberships via the shared shape. The exam permission module uses
+// the same alias so the frontend can import one type.
 export interface CourseMembershipRow {
   courseId: string;
   role: CourseRole;
@@ -13,24 +15,16 @@ export interface CourseMembershipRow {
 
 /**
  * True when the user may edit the contest, preview problems before start,
- * and see draft/archived versions. Used by detail page, problem solve page,
- * and the list page tab classifier.
+ * and see draft/archived versions.
  *
- * Pure — callers must fetch memberships and pass them in. This lets the
- * list page batch-resolve permissions for many contests without N+1.
+ * Contests are standalone — the course-role branch moved to
+ * `canManageExam`. Only the creator (or platform admin, handled at a
+ * higher layer) may manage a contest now.
  */
 export function canManageContest(
   userId: string | null,
-  contest: ContestPermissionInput,
-  courseMemberships: CourseMembershipRow[]
+  contest: ContestPermissionInput
 ): boolean {
   if (userId === null) return false;
-  if (contest.createdByUserId === userId) return true;
-  if (contest.courseId === null) return false;
-  return courseMemberships.some(
-    (m) =>
-      m.courseId === contest.courseId &&
-      m.status === "active" &&
-      (m.role === "teacher" || m.role === "ta")
-  );
+  return contest.createdByUserId === userId;
 }

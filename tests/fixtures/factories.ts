@@ -174,7 +174,7 @@ export async function createTestProblemWorkspaceFile(
   });
 }
 
-// --- Contest ---
+// --- Contest (standalone, no course binding) ---
 export async function createTestContest(
   overrides: Partial<Prisma.ContestUncheckedCreateInput> = {}
 ) {
@@ -186,6 +186,26 @@ export async function createTestContest(
       title: overrides.title ?? `Test Contest ${id}`,
       summary: overrides.summary ?? "A test contest",
       visibility: overrides.visibility ?? "published",
+      startsAt: overrides.startsAt ?? new Date("2026-01-01T00:00:00Z"),
+      endsAt: overrides.endsAt ?? new Date("2026-12-31T23:59:59Z"),
+      ...overrides
+    }
+  });
+}
+
+// --- Exam (course-embedded) ---
+export async function createTestExam(
+  overrides: Omit<Partial<Prisma.ExamUncheckedCreateInput>, "courseId"> & {
+    courseId: string;
+  }
+) {
+  const id = uid();
+  return testPrisma.exam.create({
+    data: {
+      id,
+      title: overrides.title ?? `Test Exam ${id}`,
+      summary: overrides.summary ?? "A test exam",
+      status: overrides.status ?? "published",
       startsAt: overrides.startsAt ?? new Date("2026-01-01T00:00:00Z"),
       endsAt: overrides.endsAt ?? new Date("2026-12-31T23:59:59Z"),
       ...overrides

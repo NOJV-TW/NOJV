@@ -87,14 +87,18 @@ function setSecurityHeaders(response: Response): void {
   }
 }
 
-function isContestAllowed(
+// Exams are identified by id (no slug) and live under a course route.
+// Phase 3 will build the dedicated `/courses/[courseId]/exams/[examId]`
+// page; for now the page lock just redirects to that path and allows
+// traffic that is already on it or is hitting a problem with an
+// `exam=<id>` query param.
+function isExamAllowed(
   pathname: string,
   searchParams: URLSearchParams,
   ctx: PageLockedContext
 ): boolean {
-  if (pathname.startsWith(`/contests/${ctx.contestSlug}`)) return true;
-  if (pathname.startsWith("/problems/") && searchParams.get("contest") === ctx.contestSlug)
-    return true;
+  if (pathname.includes(`/exams/${ctx.examId}`)) return true;
+  if (pathname.startsWith("/problems/") && searchParams.get("exam") === ctx.examId) return true;
   return false;
 }
 
@@ -172,8 +176,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (event.locals.sessionUser) {
     if (!isPageLockExempt(cleanPath)) {
       const lockCtx = await getCachedPageLockContext(event.locals.sessionUser.id);
-      if (lockCtx && !isContestAllowed(cleanPath, event.url.searchParams, lockCtx)) {
-        redirect(302, `/contests/${lockCtx.contestSlug}`);
+      if (lockCtx && !isExamAllowed(cleanPath, event.url.searchParams, lockCtx)) {
+        redirect(302, `/exams/${lockCtx.examId}`);
       }
     }
   }
