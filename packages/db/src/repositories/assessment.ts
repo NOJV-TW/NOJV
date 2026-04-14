@@ -56,6 +56,39 @@ export const assessmentRepo = {
     });
   },
 
+  /**
+   * Batched open / draft counts per course. Returns one row per course
+   * that has at least one matching assessment — courses with zero fall
+   * out and must be merged in as 0 by the caller.
+   */
+  groupOpenCountsByCourse(courseIds: string[], now: Date) {
+    if (courseIds.length === 0)
+      return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
+    return prisma.courseAssessment.groupBy({
+      by: ["courseId"],
+      where: {
+        courseId: { in: courseIds },
+        status: "published",
+        opensAt: { lte: now },
+        closesAt: { gte: now }
+      },
+      _count: { _all: true }
+    });
+  },
+
+  groupDraftCountsByCourse(courseIds: string[]) {
+    if (courseIds.length === 0)
+      return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
+    return prisma.courseAssessment.groupBy({
+      by: ["courseId"],
+      where: {
+        courseId: { in: courseIds },
+        status: "draft"
+      },
+      _count: { _all: true }
+    });
+  },
+
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {

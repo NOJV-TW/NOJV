@@ -1,4 +1,11 @@
-import { announcementRepo, assessmentRepo, courseRepo, problemRepo } from "@nojv/db";
+import {
+  announcementRepo,
+  assessmentRepo,
+  courseMembershipRepo,
+  courseRepo,
+  examRepo,
+  problemRepo
+} from "@nojv/db";
 import type { CourseRole, Language, PlatformRole } from "@nojv/core";
 
 export interface CourseMemberRecord {
@@ -46,6 +53,110 @@ export async function listCourseCards(userId?: string) {
     id: course.id,
     title: course.title
   }));
+}
+
+/**
+ * Card shape surfaced by the /courses listing page. A card always knows:
+ *  - the viewer's role in the course (student / ta / teacher),
+ *  - batched counts of `studentCount`, `assignmentCount`, `examCount`,
+ *  - status bar counters split by role intent (students see "due /
+ *    upcoming", staff see "open / draft / exam").
+ */
+export interface CourseListingCard {
+  id: string;
+  title: string;
+  description: string;
+  ownerDisplayName: string;
+  role: CourseRole;
+  archived: boolean;
+  studentCount: number;
+  assignmentCount: number;
+  examCount: number;
+  openAssignments: number;
+  draftAssignments: number;
+  upcomingExams: number;
+  myDueCount: number;
+  myUpcomingCount: number;
+  myAllCaughtUp: boolean;
+}
+
+/**
+ * One-shot fetch for the /courses listing page. Returns the user's
+ * enrolled-as-student and managing-as-staff courses in a single batched
+ * round-trip set (memberships -> courses -> per-course aggregates). No
+ * N+1 — every aggregate query is keyed by `courseId in (...)`.
+ *
+ * `managing` includes both `teacher` and `ta` memberships. Inactive
+ * memberships are skipped at the membership layer.
+ */
+export async function listForUserWithCards(userId: string): Promise<{
+  enrolled: CourseListingCard[];
+  managing: CourseListingCard[];
+}> {
+  const memberships = await courseMembershipRepo.listActiveForUser(userId);
+  if (memberships.length === 0) return { enrolled: [], managing: [] };
+
+  const roleByCourseId = new Map<string, CourseRole>();
+  for (const m of memberships) {
+    roleByCourseId.set(m.courseId, m.role);
+  }
+  const courseIds = [...roleByCourseId.keys()];
+
+  const now = new Date();
+  const [courses, openGroups, draftGroups, upcomingExamGroups] = await Promise.all([
+    courseRepo.findManyForCards(courseIds),
+    assessmentRepo.groupOpenCountsByCourse(courseIds, now),
+    assessmentRepo.groupDraftCountsByCourse(courseIds),
+    examRepo.groupUpcomingCountsByCourse(courseIds, now)
+  ]);
+
+  const openByCourseId = new Map(openGroups.map((g) => [g.courseId, g._count._all]));
+  const draftByCourseId = new Map(draftGroups.map((g) => [g.courseId, g._count._all]));
+  const upcomingExamsByCourseId = new Map(
+    upcomingExamGroups.map((g) => [g.courseId, g._count._all])
+  );
+
+  const cards: CourseListingCard[] = courses.map((course) => {
+    const role = roleByCourseId.get(course.id) ?? "student";
+    const openAssignments = openByCourseId.get(course.id) ?? 0;
+    const draftAssignments = draftByCourseId.get(course.id) ?? 0;
+    const upcomingExams = upcomingExamsByCourseId.get(course.id) ?? 0;
+
+    // Student "due / upcoming" approximation — we count open assignments
+    // and upcoming exams, not per-user unsolved work. The prototype wants
+    // this to feel personal, but an accurate per-user query would require
+    // a submission aggregation at listing time. Defer until we have a
+    // real "my work" stats table.
+    const myDueCount = openAssignments;
+    const myUpcomingCount = upcomingExams;
+
+    return {
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      ownerDisplayName: course.owner.name,
+      role,
+      archived: false,
+      studentCount: course._count.memberships,
+      assignmentCount: course._count.assessments,
+      examCount: course._count.exams,
+      openAssignments,
+      draftAssignments,
+      upcomingExams,
+      myDueCount,
+      myUpcomingCount,
+      myAllCaughtUp: myDueCount === 0 && myUpcomingCount === 0
+    };
+  });
+
+  const enrolled: CourseListingCard[] = [];
+  const managing: CourseListingCard[] = [];
+  for (const card of cards) {
+    if (card.role === "student") enrolled.push(card);
+    else managing.push(card);
+  }
+
+  return { enrolled, managing };
 }
 
 export async function listUserAssessments(userId: string) {
