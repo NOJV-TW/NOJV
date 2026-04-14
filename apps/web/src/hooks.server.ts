@@ -1,10 +1,16 @@
 import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
+import { examDomain } from "@nojv/domain";
 
 import { getAuth } from "$lib/auth";
 import { createLogger } from "$lib/server/logger";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import { getPageLockedContext, type PageLockedContext } from "$lib/server/page-lock";
+import {
+  getActiveExamContext,
+  isAllowedPathForExam,
+  type ActiveExamContext
+} from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 
@@ -13,6 +19,7 @@ getWebEnv();
 
 const processLogger = createLogger("process");
 const errorLogger = createLogger("handle-error");
+const examLockLogger = createLogger("exam-lock");
 
 process.on("unhandledRejection", (reason) => {
   processLogger.warn("Unhandled promise rejection", {
@@ -126,6 +133,38 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
   return context;
 }
 
+/**
+ * In-memory cache for the exam session lock. Mirrors `pageLockCache`
+ * (30s TTL, bounded FIFO/LRU). Reading `ActiveExamSession` on every
+ * request is too expensive; a student cannot enter a new exam inside
+ * a 30-second window, so stale "no exam" entries are harmless and
+ * stale "in exam" entries just delay a freshly-released user from
+ * leaving the exam by at most one TTL.
+ */
+const examContextCache = new Map<
+  string,
+  { context: ActiveExamContext | null; expiresAt: number }
+>();
+const EXAM_CONTEXT_CACHE_TTL = 30_000;
+const EXAM_CONTEXT_CACHE_MAX = 10_000;
+
+async function getCachedActiveExamContext(userId: string): Promise<ActiveExamContext | null> {
+  const now = Date.now();
+  const cached = examContextCache.get(userId);
+  if (cached && cached.expiresAt > now) return cached.context;
+
+  const context = await getActiveExamContext(userId);
+
+  examContextCache.delete(userId);
+  if (examContextCache.size >= EXAM_CONTEXT_CACHE_MAX) {
+    const oldestKey = examContextCache.keys().next().value;
+    if (oldestKey != null) examContextCache.delete(oldestKey);
+  }
+  examContextCache.set(userId, { context, expiresAt: now + EXAM_CONTEXT_CACHE_TTL });
+
+  return context;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
   const cleanPath = stripLocalePrefix(event.url.pathname);
 
@@ -179,6 +218,54 @@ export const handle: Handle = async ({ event, resolve }) => {
       if (lockCtx && !isExamAllowed(cleanPath, event.url.searchParams, lockCtx)) {
         redirect(302, `/exams/${lockCtx.examId}`);
       }
+    }
+  }
+
+  // Exam session lock (Phase 4 §4.7 State B): once a student has an
+  // active exam session, every non-exam navigation bounces back to the
+  // exam's first problem page and is logged as a `visibility_lost`
+  // event. Must run after session fetch but before the paraglide
+  // middleware so the redirect target is a base-locale path.
+  //
+  // Failure mode: if the DB lookup throws (outage, stale cache, etc.),
+  // log and fail open — the student must not be blocked from the site
+  // because the lock subsystem is degraded.
+  if (event.locals.sessionUser) {
+    const sessionUser = event.locals.sessionUser;
+    let examCtx: ActiveExamContext | null = null;
+    try {
+      examCtx = await getCachedActiveExamContext(sessionUser.id);
+    } catch (err) {
+      examLockLogger.warn("getActiveExamContext failed — failing open", {
+        userId: sessionUser.id,
+        err: err instanceof Error ? err.message : String(err)
+      });
+    }
+
+    if (examCtx && !isAllowedPathForExam(cleanPath, examCtx)) {
+      try {
+        await examDomain.session.recordEvent(
+          {
+            displayName: sessionUser.name,
+            email: sessionUser.email,
+            username: sessionUser.username ?? "",
+            platformRole: sessionUser.platformRole,
+            userId: sessionUser.id
+          },
+          {
+            examId: examCtx.exam.id,
+            eventType: "visibility_lost",
+            metadata: { attemptedPath: cleanPath }
+          }
+        );
+      } catch (err) {
+        examLockLogger.warn("recordEvent(visibility_lost) failed", {
+          userId: sessionUser.id,
+          examId: examCtx.exam.id,
+          err: err instanceof Error ? err.message : String(err)
+        });
+      }
+      redirect(307, `/courses/${examCtx.course.id}/exams/${examCtx.exam.id}/problems/0`);
     }
   }
 
