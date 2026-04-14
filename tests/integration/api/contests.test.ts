@@ -31,11 +31,8 @@ describe("contest queries (real DB)", () => {
       const course = await testPrisma.course.create({
         data: {
           id: "course-for-contest",
-          slug: "course-for-contest",
           title: "Test Course",
           description: "Test",
-          locale: "en",
-          visibility: "listed",
           ownerId: teacher.id
         }
       });

@@ -207,11 +207,8 @@ export async function createTestCourse(
   return testPrisma.course.create({
     data: {
       id,
-      slug: overrides.slug ?? `test-course-${id}`,
       title: overrides.title ?? `Test Course ${id}`,
       description: overrides.description ?? "A test course",
-      locale: overrides.locale ?? "en",
-      visibility: overrides.visibility ?? "listed",
       ...overrides,
       ownerId
     }

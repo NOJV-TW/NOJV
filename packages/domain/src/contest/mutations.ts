@@ -152,13 +152,11 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
     await requireUser(tx, actor.userId);
 
     // Students cannot bind contests to courses (enforced at route level too)
-    if (payload.courseSlug && actor.platformRole === "student") {
+    if (payload.courseId && actor.platformRole === "student") {
       throw new ForbiddenError("Students cannot bind contests to courses.");
     }
 
-    const courseId = payload.courseSlug
-      ? (await requireCourse(tx, payload.courseSlug)).id
-      : null;
+    const courseId = payload.courseId ? (await requireCourse(tx, payload.courseId)).id : null;
 
     // Use user-provided invite code, or auto-generate for public contests
     const inviteCode =
@@ -225,9 +223,9 @@ export async function updateContestRecord(
     if (payload.frozenAt !== undefined) {
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     }
-    if (payload.courseSlug !== undefined) {
-      updateData.courseId = payload.courseSlug
-        ? (await requireCourse(tx, payload.courseSlug)).id
+    if (payload.courseId !== undefined) {
+      updateData.courseId = payload.courseId
+        ? (await requireCourse(tx, payload.courseId)).id
         : null;
     }
 

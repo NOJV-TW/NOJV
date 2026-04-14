@@ -32,7 +32,7 @@ export async function createQueuedSubmissionRecord(
       payload.assessment
         ? requireCourseAssessment(
             tx,
-            payload.assessment.courseSlug,
+            payload.assessment.courseId,
             payload.assessment.assessmentSlug
           )
         : null,

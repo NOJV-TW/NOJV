@@ -65,11 +65,8 @@ describe("getContestDetail visibility gating", () => {
     const course = await testPrisma.course.create({
       data: {
         id: "course-visibility",
-        slug: "course-visibility",
         title: "Visibility Course",
         description: "",
-        locale: "en",
-        visibility: "listed",
         ownerId: teacher.id
       }
     });

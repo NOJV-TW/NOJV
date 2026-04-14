@@ -72,7 +72,7 @@ export async function markReportFailed(target: PlagiarismTarget): Promise<void> 
 
 export interface ResolvedPlagiarismTarget {
   target: PlagiarismTarget;
-  courseSlug: string;
+  courseId: string;
 }
 
 export class PlagiarismNotFoundError extends Error {
@@ -97,20 +97,20 @@ export async function resolvePlagiarismTarget(
   type: string | null
 ): Promise<ResolvedPlagiarismTarget> {
   if (type === "contest") {
-    const contest = await contestRepo.findByIdWithCourseSlug(assessmentId);
+    const contest = await contestRepo.findByIdWithCourse(assessmentId);
     if (!contest) throw new PlagiarismNotFoundError("Contest not found.");
     if (!contest.courseId || !contest.course) {
       throw new PlagiarismForbiddenError(
         "Plagiarism checks are only available for course-linked contests."
       );
     }
-    return { courseSlug: contest.course.slug, target: { id: contest.id, type: "contest" } };
+    return { courseId: contest.course.id, target: { id: contest.id, type: "contest" } };
   }
 
-  const assessment = await assessmentRepo.findByIdWithCourseSlug(assessmentId);
+  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
   if (!assessment) throw new PlagiarismNotFoundError("Assessment not found.");
   return {
-    courseSlug: assessment.course.slug,
+    courseId: assessment.course.id,
     target: { id: assessment.id, type: "courseAssessment" }
   };
 }

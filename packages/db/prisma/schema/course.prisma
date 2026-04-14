@@ -5,12 +5,6 @@
 // page lock, no scoreboard). Exams are Contests with courseId set.
 // ═══════════════════════════════════════════════════════════════
 
-enum CourseVisibility {
-  invite_only
-  listed
-  archived
-}
-
 enum CourseRole {
   teacher
   ta
@@ -22,11 +16,6 @@ enum CourseMembershipStatus {
   removed // Soft-delete preserving audit trail
 }
 
-enum CourseJoinTokenKind {
-  link // A shareable URL; QR codes are just a rendering of this
-  code // Short human-readable code typed by the student
-}
-
 enum CourseAssessmentStatus {
   draft
   published
@@ -35,17 +24,13 @@ enum CourseAssessmentStatus {
 
 model Course {
   id          String             @id @default(cuid())
-  slug        String             @unique
   title       String
   description String             @db.Text
-  locale      String             @default("zh-TW")
-  visibility  CourseVisibility   @default(invite_only)
   ownerId     String
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships CourseMembership[]
-  joinTokens  CourseJoinToken[]
   assessments CourseAssessment[]
   contests    Contest[]
   submissions Submission[]
@@ -57,8 +42,6 @@ model CourseMembership {
   userId        String
   role          CourseRole
   status        CourseMembershipStatus @default(active)
-  /// Null = teacher manually added this student without a token.
-  joinedTokenId String?
   addedByUserId String?
   joinedAt      DateTime               @default(now())
   removedAt     DateTime?
@@ -66,32 +49,11 @@ model CourseMembership {
   updatedAt     DateTime               @updatedAt
   course        Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
   user          User                   @relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
-  joinedToken   CourseJoinToken?       @relation(fields: [joinedTokenId], references: [id], onDelete: SetNull)
   addedBy       User?                  @relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([courseId, userId])
   @@index([courseId, role, status])
   @@index([userId, status])
-}
-
-model CourseJoinToken {
-  id              String              @id @default(cuid())
-  courseId        String
-  kind            CourseJoinTokenKind
-  token           String              @unique
-  label           String
-  createdByUserId String
-  expiresAt       DateTime?
-  maxUses         Int?
-  usageCount      Int                 @default(0)
-  revokedAt       DateTime?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  course          Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdBy       User                @relation("CourseJoinTokenCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  memberships     CourseMembership[]
-
-  @@index([courseId, kind])
 }
 
 model CourseAssessment {

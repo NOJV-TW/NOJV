@@ -35,7 +35,7 @@ export const actions = {
         startsAt,
         endsAt,
         frozenAt,
-        courseSlug,
+        courseId,
         inviteCode,
         ...rest
       } = form.data;
@@ -43,7 +43,7 @@ export const actions = {
 
       const payload = contestCreateSchema.parse({
         ...rest,
-        courseSlug: canBindCourse ? courseSlug : undefined,
+        courseId: canBindCourse ? courseId : undefined,
         inviteCode: inviteCode ?? undefined,
         endsAt: new Date(endsAt).toISOString(),
         frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,

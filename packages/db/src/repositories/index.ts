@@ -2,7 +2,7 @@ export { announcementRepo } from "./announcement";
 export { announcementTranslationRepo } from "./announcement-translation";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
 export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
-export { courseRepo, courseMembershipRepo, courseJoinTokenRepo } from "./course";
+export { courseRepo, courseMembershipRepo } from "./course";
 export { editorialRepo } from "./editorial";
 export { ipViolationLogRepo, contestParticipationIpRepo } from "./ip-violation";
 export {

@@ -6,32 +6,32 @@ import { problemMiniSelect, problemPreviewSelect } from "./selects";
 type TxClient = TransactionClient;
 
 export const assessmentRepo = {
-  findByIdWithCourseSlug(id: string) {
+  findByIdWithCourseId(id: string) {
     return prisma.courseAssessment.findUnique({
       where: { id },
-      include: { course: { select: { slug: true } } }
+      include: { course: { select: { id: true } } }
     });
   },
 
-  findByCourseAndSlug(courseSlug: string, assessmentSlug: string) {
+  findByCourseAndSlug(courseId: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       where: {
         slug: assessmentSlug,
-        course: { slug: courseSlug }
+        courseId
       },
       select: { id: true }
     });
   },
 
-  findPublishedContext(courseSlug: string, assessmentSlug: string) {
+  findPublishedContext(courseId: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       select: {
         allowedLanguages: true,
-        course: { select: { slug: true } },
+        course: { select: { id: true } },
         slug: true
       },
       where: {
-        course: { slug: courseSlug },
+        courseId,
         slug: assessmentSlug,
         status: "published"
       }
@@ -42,7 +42,7 @@ export const assessmentRepo = {
     return prisma.courseAssessment.findMany({
       include: {
         _count: { select: { problems: true } },
-        course: { select: { slug: true, title: true } }
+        course: { select: { id: true, title: true } }
       },
       orderBy: { opensAt: "desc" },
       where: {
@@ -59,7 +59,7 @@ export const assessmentRepo = {
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
-        course: { select: { slug: true, title: true } }
+        course: { select: { id: true, title: true } }
       },
       orderBy: { opensAt: "asc" },
       where: {
@@ -102,41 +102,6 @@ export const assessmentRepo = {
     });
   },
 
-  listByCourseSlug(courseSlug: string) {
-    return prisma.courseAssessment.findMany({
-      where: {
-        course: { slug: courseSlug },
-        status: "published"
-      },
-      orderBy: { opensAt: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        opensAt: true,
-        dueAt: true,
-        closesAt: true,
-        _count: { select: { problems: true } }
-      }
-    });
-  },
-
-  findWithProblemDetails(courseId: string, assessmentSlug: string) {
-    return prisma.courseAssessment.findFirst({
-      where: { courseId, slug: assessmentSlug, status: "published" },
-      select: {
-        id: true,
-        problems: {
-          select: {
-            problemId: true,
-            problem: { select: problemPreviewSelect }
-          },
-          orderBy: { ordinal: "asc" }
-        }
-      }
-    });
-  },
-
   count() {
     return prisma.courseAssessment.count();
   },
@@ -168,26 +133,6 @@ export const assessmentProblemRepo = {
     return prisma.courseAssessmentProblem.findMany({
       where: { assessmentId },
       include: { problem: { select: problemMiniSelect } }
-    });
-  },
-
-  // Distinct union of every problem assigned to any published assessment
-  // of a course. Replaces a 1+N pattern (listByCourseSlug → findWithProblems
-  // per assessment) used by the course-wide progress matrix.
-  listDistinctByCourseSlug(courseSlug: string) {
-    return prisma.courseAssessmentProblem.findMany({
-      where: {
-        assessment: {
-          course: { slug: courseSlug },
-          status: "published"
-        }
-      },
-      distinct: ["problemId"],
-      select: {
-        problemId: true,
-        problem: { select: problemPreviewSelect }
-      },
-      orderBy: { ordinal: "asc" }
     });
   },
 

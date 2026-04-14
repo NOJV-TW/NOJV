@@ -11,7 +11,7 @@ const contestListInclude = {
 
 const contestListWithCourseInclude = {
   _count: { select: { participations: true, problems: true } },
-  course: { select: { slug: true, title: true } }
+  course: { select: { id: true, title: true } }
 } as const;
 
 export const contestRepo = {
@@ -23,10 +23,10 @@ export const contestRepo = {
     return prisma.contest.findUnique({ where: { slug } });
   },
 
-  findByIdWithCourseSlug(id: string) {
+  findByIdWithCourse(id: string) {
     return prisma.contest.findUnique({
       where: { id },
-      select: { course: { select: { slug: true } }, courseId: true, id: true }
+      select: { course: { select: { id: true } }, courseId: true, id: true }
     });
   },
 
@@ -62,12 +62,12 @@ export const contestRepo = {
     });
   },
 
-  listByCourseSlug(courseSlug: string) {
+  listByCourseId(courseId: string) {
     return prisma.contest.findMany({
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
       where: {
-        course: { slug: courseSlug },
+        courseId,
         visibility: "published"
       }
     });
@@ -97,7 +97,7 @@ export const contestRepo = {
     return prisma.contest.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { slug: true } },
+        course: { select: { id: true } },
         problems: {
           include: {
             problem: { select: problemMiniSelect }
@@ -113,7 +113,7 @@ export const contestRepo = {
     return prisma.contest.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { slug: true } },
+        course: { select: { id: true } },
         participations: {
           where: { userId },
           take: 1
@@ -185,7 +185,7 @@ export const contestRepo = {
       },
       select: {
         slug: true,
-        course: { select: { slug: true } }
+        course: { select: { id: true } }
       }
     });
   },

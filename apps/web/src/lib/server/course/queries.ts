@@ -1,51 +1,8 @@
 import { courseDomain } from "@nojv/domain";
 
-const { loadAssessmentDetail, listUserAssessments } = courseDomain;
-type CoursePageDetailData = courseDomain.CoursePageDetailData;
+const { listUserAssessments } = courseDomain;
 
-import {
-  assessmentPresentation,
-  deriveAssessmentWindowState,
-  windowStateColorClass
-} from "$lib/types";
-
-export function createAssessmentDetailLoader() {
-  return async ({
-    params,
-    parent,
-    locals
-  }: {
-    locals: App.Locals;
-    params: { assessmentSlug: string; slug: string };
-    parent: () => Promise<{ courseData: CoursePageDetailData }>;
-    request: Request;
-  }) => {
-    const { assessmentSlug } = params;
-    const { courseData } = await parent();
-    const userId = locals.user?.id ?? null;
-
-    const { assessment, course, problems } = await loadAssessmentDetail({
-      assessmentSlug,
-      courseData,
-      userId
-    });
-
-    const presentation = assessmentPresentation;
-    const windowState = deriveAssessmentWindowState({
-      closesAt: assessment.closesAt,
-      dueAt: assessment.dueAt,
-      opensAt: assessment.opensAt
-    });
-
-    return {
-      assessment,
-      course,
-      presentation,
-      problems,
-      windowState
-    };
-  };
-}
+import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
 
 export function createAssessmentListLoader() {
   return async ({ locals }: { locals: App.Locals }) => {

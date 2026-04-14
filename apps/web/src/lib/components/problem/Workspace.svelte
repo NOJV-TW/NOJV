@@ -9,7 +9,7 @@
     allowedLanguages?: Language[] | undefined;
     assessment?: {
       assessmentSlug: string;
-      courseSlug: string;
+      courseId: string;
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     contestSlug?: string | undefined;

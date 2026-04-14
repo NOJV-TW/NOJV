@@ -12,7 +12,7 @@ export const load: PageServerLoad = handleLoad(
   async ({ locals, params, url }: PageServerLoadEvent) => {
     const { id } = params;
     const userId = locals.user?.id ?? null;
-    const course = url.searchParams.get("course");
+    const courseId = url.searchParams.get("course");
     const assessment = url.searchParams.get("assessment");
     const contest = url.searchParams.get("contest");
 
@@ -21,7 +21,7 @@ export const load: PageServerLoad = handleLoad(
       await Promise.all([
         getProblemPageData(id),
         getProblemTestcaseSets(id),
-        course && assessment ? getAssessmentContext(course, assessment) : null,
+        courseId && assessment ? getAssessmentContext(courseId, assessment) : null,
         contest ? getContestAllowedLanguages(contest) : null
       ]);
 
@@ -38,7 +38,7 @@ export const load: PageServerLoad = handleLoad(
 
     const backLink = assessmentContext
       ? {
-          href: assessmentPath(assessmentContext.courseSlug, assessmentContext.slug),
+          href: assessmentPath(assessmentContext.courseId, assessmentContext.slug),
           type: "assignment" as const
         }
       : undefined;
@@ -46,7 +46,7 @@ export const load: PageServerLoad = handleLoad(
     const assessmentProp = assessmentContext
       ? {
           assessmentSlug: assessmentContext.slug,
-          courseSlug: assessmentContext.courseSlug
+          courseId: assessmentContext.courseId
         }
       : undefined;
 
@@ -61,7 +61,7 @@ export const load: PageServerLoad = handleLoad(
           assessmentContext
             ? {
                 assessmentSlug: assessmentContext.slug,
-                courseSlug: assessmentContext.courseSlug
+                courseId: assessmentContext.courseId
               }
             : undefined
         )

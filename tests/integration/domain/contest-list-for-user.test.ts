@@ -9,16 +9,13 @@ const { listContestsForUser } = contestDomain;
 async function createCourseWithMember(
   role: "teacher" | "ta" | "student",
   userId: string,
-  slug: string
+  idSuffix: string
 ) {
   const course = await testPrisma.course.create({
     data: {
-      id: slug,
-      slug,
-      title: `Course ${slug}`,
+      id: idSuffix,
+      title: `Course ${idSuffix}`,
       description: "",
-      locale: "en",
-      visibility: "listed",
       ownerId: userId
     }
   });

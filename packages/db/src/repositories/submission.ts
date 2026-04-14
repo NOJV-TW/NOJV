@@ -319,30 +319,12 @@ export const submissionRepo = {
     });
   },
 
-  findByCourseAndAssessments(courseSlug: string, assessmentIds: string[]) {
-    return prisma.submission.findMany({
-      where: {
-        course: { slug: courseSlug },
-        sampleOnly: false,
-        courseAssessmentId: { in: assessmentIds }
-      },
-      select: {
-        courseAssessmentId: true,
-        userId: true,
-        status: true,
-        score: true,
-        problemId: true,
-        createdAt: true
-      }
-    });
-  },
-
-  findByCourseSlugsWith7dStats(courseSlugs: string[], from: Date) {
+  findByCourseIdsWith7dStats(courseIds: string[], from: Date) {
     return prisma.submission.findMany({
       where: {
         sampleOnly: false,
         createdAt: { gte: from },
-        course: { slug: { in: courseSlugs } },
+        courseId: { in: courseIds },
         courseAssessmentId: { not: null }
       },
       select: {
@@ -352,7 +334,7 @@ export const submissionRepo = {
           select: {
             slug: true,
             title: true,
-            course: { select: { slug: true, title: true } }
+            course: { select: { id: true, title: true } }
           }
         }
       }

@@ -26,7 +26,7 @@ export const contestSessionSchema = z
 // collect them.
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
-  courseSlug: slugSchema.optional(),
+  courseId: z.string().trim().min(1).optional(),
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
   inviteCode: z.string().trim().max(32).optional(),

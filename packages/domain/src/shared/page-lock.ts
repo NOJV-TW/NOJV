@@ -8,7 +8,6 @@ import { contestRepo } from "@nojv/db";
 export interface PageLockedContext {
   type: "contest";
   contestSlug: string;
-  courseSlug: string | null;
 }
 
 /**
@@ -23,8 +22,7 @@ export async function getPageLockedContext(userId: string): Promise<PageLockedCo
   if (contest) {
     return {
       type: "contest",
-      contestSlug: contest.slug,
-      courseSlug: contest.course?.slug ?? null
+      contestSlug: contest.slug
     };
   }
 
