@@ -44,6 +44,26 @@ export const courseRepo = {
     });
   },
 
+  findByIdWithHeader(id: string, userId: string) {
+    return prisma.course.findUnique({
+      where: { id },
+      include: {
+        owner: { select: { name: true } },
+        memberships: {
+          where: { userId },
+          take: 1
+        },
+        _count: {
+          select: {
+            memberships: { where: { role: "student", status: "active" } },
+            assessments: { where: { status: "published" } },
+            exams: { where: { status: "published" } }
+          }
+        }
+      }
+    });
+  },
+
   count() {
     return prisma.course.count();
   },

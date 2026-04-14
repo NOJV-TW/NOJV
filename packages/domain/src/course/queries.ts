@@ -27,6 +27,16 @@ export async function findCourseWithMembership(courseId: string, userId: string)
   return courseRepo.findByIdWithUserMembership(courseId, userId);
 }
 
+/**
+ * Fetch a course with everything the `/courses/[courseId]` layout needs:
+ * the current user's membership row (if any), the owner display name for
+ * the hero, and published-count aggregates for the tab badges. Returns
+ * `null` if the course does not exist.
+ */
+export async function getCourseHeaderById(courseId: string, userId: string) {
+  return courseRepo.findByIdWithHeader(courseId, userId);
+}
+
 export async function listCourseCards(userId?: string) {
   const persistedCourses = await courseRepo.listCards(userId);
 
