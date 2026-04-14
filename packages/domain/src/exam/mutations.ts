@@ -11,6 +11,7 @@ import {
 } from "@nojv/db";
 import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
 
+import { dispatchExamAutoClose } from "@nojv/job-dispatch";
 import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -139,7 +140,7 @@ export async function checkExamSubmitCooldown(
 }
 
 export async function createExamRecord(actor: ActorContext, payload: ExamCreate) {
-  return runTransaction(async (tx) => {
+  const exam = await runTransaction(async (tx) => {
     await requireUser(tx, actor.userId);
     const course = await requireCourse(tx, payload.courseId);
 
@@ -156,7 +157,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       }
     }
 
-    const exam = await examRepo.withTx(tx).create({
+    const created = await examRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
       courseId: course.id,
       createdByUserId: actor.userId,
@@ -178,13 +179,23 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
 
     await resolveAndAttachExamProblems(
       tx,
-      exam.id,
+      created.id,
       payload.problemIds,
       payload.allowedLanguages
     );
 
-    return exam;
+    return created;
   });
+
+  // Schedule the durable timer that auto-closes every active session
+  // for this exam at `endsAt`. Fires AFTER commit so a rolled-back
+  // creation never leaves a phantom workflow behind.
+  await dispatchExamAutoClose({
+    examId: exam.id,
+    endsAt: exam.endsAt.toISOString()
+  });
+
+  return exam;
 }
 
 export async function updateExamRecord(
