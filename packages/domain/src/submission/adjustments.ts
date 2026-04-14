@@ -3,9 +3,11 @@ import type { AdjustmentRule, AdjustmentRules } from "@nojv/core";
 export interface AdjustmentInputs {
   rules: AdjustmentRules | null;
   submittedAt: Date;
+  /** Soft deadline — used as `startFrom: "due"` anchor. */
   dueAt: Date | null;
+  /** Hard close of the assessment — used as `startFrom: "final_day"` anchor and by `final_day_zero`. */
+  finalDay: Date | null;
   runtimeMs: number;
-  memoryKb?: number;
   rawScore: number;
 }
 
@@ -14,7 +16,7 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   score: number;
   adjustments: { rule: AdjustmentRule["type"]; delta: number }[];
 } {
-  const { rules, submittedAt, dueAt, runtimeMs, memoryKb, rawScore } = inputs;
+  const { rules, submittedAt, dueAt, finalDay, runtimeMs, rawScore } = inputs;
   if (!rules || rules.length === 0) {
     return { score: clampScore(rawScore), adjustments: [] };
   }
@@ -24,38 +26,50 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
 
   for (const rule of rules) {
     const before = score;
-    if (rule.type === "late_penalty_fixed") {
-      if (dueAt && submittedAt > dueAt) {
-        const msLate = submittedAt.getTime() - dueAt.getTime();
-        const units =
-          rule.perUnit === "day"
-            ? Math.ceil(msLate / (24 * 60 * 60 * 1000))
-            : Math.ceil(msLate / (7 * 24 * 60 * 60 * 1000));
-        const deduction = Math.min(units * rule.amount, rule.maxDeduction);
-        score = score - deduction;
-      }
-    } else if (rule.type === "late_penalty_decay") {
-      if (dueAt && submittedAt > dueAt && rule.halfLifeHours > 0) {
-        const hoursLate = (submittedAt.getTime() - dueAt.getTime()) / (60 * 60 * 1000);
-        const decay = Math.pow(0.5, hoursLate / rule.halfLifeHours);
-        score = score * decay;
-      }
-    } else if (rule.type === "time_bonus") {
+
+    if (rule.type === "time_bonus") {
+      // Linearly scale: full bonus at runtimeMs = 0, no bonus at runtimeMs >= baselineMs.
+      // Unchanged from the pre-redesign behavior. The baselineMs > 0 guard avoids a
+      // divide-by-zero that would produce NaN and wipe the score.
       if (rule.baselineMs > 0 && runtimeMs >= 0) {
-        // Linearly scale: 0 bonus at baselineMs, full bonus at 0ms.
         const ratio = Math.max(0, 1 - runtimeMs / rule.baselineMs);
         const bonus = ratio * rule.maxBonusPercent;
         score = score + bonus;
       }
-    } else {
-      // rule.type === "memory_penalty"
-      if (memoryKb !== undefined && memoryKb > 0) {
-        const memoryMb = memoryKb / 1024;
-        if (memoryMb > rule.thresholdMb) {
-          score = score - rule.maxDeduction;
+    } else if (rule.type === "flat_late_penalty") {
+      // One-shot percentage deduction. Applied once if the submission arrives
+      // after the configured anchor, regardless of how late. Clamped at 0 by
+      // the per-step clamp below.
+      const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
+      if (anchor && submittedAt > anchor) {
+        score = score * (1 - rule.penaltyPct / 100);
+      }
+    } else if (rule.type === "daily_late_penalty") {
+      // Linear per-day deduction. `daysLate` is the number of full 24-hour
+      // windows past the anchor; a submission inside the first day is on time
+      // (daysLate = 0 → no penalty). Penalty greater than 100% drives the
+      // score to 0 via `Math.max(0, …)`.
+      const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
+      if (anchor && submittedAt > anchor) {
+        const msLate = submittedAt.getTime() - anchor.getTime();
+        const daysLate = Math.floor(msLate / (24 * 60 * 60 * 1000));
+        if (daysLate >= 1) {
+          const multiplier = Math.max(0, 1 - (daysLate * rule.perDayPct) / 100);
+          score = score * multiplier;
         }
       }
+    } else {
+      // rule.type === "final_day_zero"
+      // Hard gate: any submission strictly after the final day is worth 0. If
+      // the assessment has no `closesAt` anchor in context, skip with a warning
+      // rather than silently zero everything.
+      if (!finalDay) {
+        warnMissingAnchor(rule.type, "final_day");
+      } else if (submittedAt > finalDay) {
+        score = 0;
+      }
     }
+
     score = clampScore(score);
     if (score !== before) {
       log.push({ rule: rule.type, delta: score - before });
@@ -63,6 +77,41 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   }
 
   return { score, adjustments: log };
+}
+
+/**
+ * Resolve the timestamp anchor requested by a rule. Returns `null` (and logs
+ * once per missing anchor kind) when the assessment context did not supply
+ * the requested field — callers should then skip the rule.
+ */
+function resolveAnchor(
+  startFrom: "due" | "final_day",
+  dueAt: Date | null,
+  finalDay: Date | null,
+  ruleType: AdjustmentRule["type"]
+): Date | null {
+  if (startFrom === "due") {
+    if (!dueAt) {
+      warnMissingAnchor(ruleType, "due");
+      return null;
+    }
+    return dueAt;
+  }
+  if (!finalDay) {
+    warnMissingAnchor(ruleType, "final_day");
+    return null;
+  }
+  return finalDay;
+}
+
+const warnedAnchors = new Set<string>();
+function warnMissingAnchor(ruleType: AdjustmentRule["type"], anchor: "due" | "final_day") {
+  const key = `${ruleType}:${anchor}`;
+  if (warnedAnchors.has(key)) return;
+  warnedAnchors.add(key);
+  console.warn(
+    `[adjustments] rule "${ruleType}" requested missing anchor "${anchor}" — skipping this rule for affected submissions`
+  );
 }
 
 function clampScore(s: number): number {

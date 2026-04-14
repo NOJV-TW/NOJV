@@ -45,7 +45,7 @@ export const submissionRepo = {
           }
         },
         courseAssessment: {
-          select: { adjustmentRules: true, dueAt: true, opensAt: true }
+          select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true }
         },
         problem: {
           include: {
