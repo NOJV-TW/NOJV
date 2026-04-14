@@ -1,0 +1,164 @@
+import { describe, expect, it } from "vitest";
+
+import { examSessionRepo } from "@nojv/db";
+
+import {
+  createTestCourse,
+  createTestExam,
+  createTestUser,
+  testPrisma
+} from "../../fixtures/factories";
+
+describe("examSessionRepo (real DB)", () => {
+  it("round-trips: start → record events → end → list events in order", async () => {
+    const user = await createTestUser();
+    const course = await createTestCourse();
+    const exam = await createTestExam({ courseId: course.id });
+
+    // Start a session.
+    const started = await examSessionRepo.startSession({
+      userId: user.id,
+      examId: exam.id,
+      ipPin: "10.0.0.1"
+    });
+    expect(started.endedAt).toBeNull();
+    expect(started.ipPin).toBe("10.0.0.1");
+
+    // Append the enter event + a few audit events out-of-order in
+    // wall-clock terms, then assert the list-by-occurredAt ordering.
+    await examSessionRepo.recordEvent({
+      sessionId: started.id,
+      eventType: "enter"
+    });
+    await examSessionRepo.recordEvent({
+      sessionId: started.id,
+      eventType: "visibility_lost",
+      metadata: { durationMs: 1200 }
+    });
+    await examSessionRepo.recordEvent({
+      sessionId: started.id,
+      eventType: "heartbeat"
+    });
+
+    // End the session.
+    const ended = await examSessionRepo.endSession({
+      sessionId: started.id,
+      reason: "submitted"
+    });
+    expect(ended.endedAt).not.toBeNull();
+    expect(ended.releaseReason).toBe("submitted");
+
+    await examSessionRepo.recordEvent({
+      sessionId: started.id,
+      eventType: "release",
+      metadata: { reason: "submitted" }
+    });
+
+    const events = await examSessionRepo.listEventsForSession(started.id);
+    // Each event above has a monotonically-later default `occurredAt`
+    // timestamp (Postgres CURRENT_TIMESTAMP). The 4 inserts in order
+    // should come back in the same order.
+    expect(events.map((e) => e.eventType)).toEqual([
+      "enter",
+      "visibility_lost",
+      "heartbeat",
+      "release"
+    ]);
+    expect(events[1]!.metadata).toEqual({ durationMs: 1200 });
+    expect(events[3]!.metadata).toEqual({ reason: "submitted" });
+  });
+
+  it("findActiveForUser returns the unended session and null after end", async () => {
+    const user = await createTestUser();
+    const course = await createTestCourse();
+    const exam = await createTestExam({ courseId: course.id });
+
+    expect(await examSessionRepo.findActiveForUser(user.id)).toBeNull();
+
+    const started = await examSessionRepo.startSession({
+      userId: user.id,
+      examId: exam.id
+    });
+
+    const active = await examSessionRepo.findActiveForUser(user.id);
+    expect(active?.id).toBe(started.id);
+
+    await examSessionRepo.endSession({
+      sessionId: started.id,
+      reason: "time_up"
+    });
+
+    expect(await examSessionRepo.findActiveForUser(user.id)).toBeNull();
+  });
+
+  it("startSession is idempotent against the (userId, examId) unique and returns the same row", async () => {
+    const user = await createTestUser();
+    const course = await createTestCourse();
+    const exam = await createTestExam({ courseId: course.id });
+
+    const first = await examSessionRepo.startSession({
+      userId: user.id,
+      examId: exam.id,
+      ipPin: "10.0.0.1"
+    });
+    const second = await examSessionRepo.startSession({
+      userId: user.id,
+      examId: exam.id,
+      ipPin: "10.0.0.2"
+    });
+
+    expect(second.id).toBe(first.id);
+    // Second start on an unended row leaves ipPin untouched.
+    expect(second.ipPin).toBe("10.0.0.1");
+
+    const rows = await testPrisma.activeExamSession.findMany({
+      where: { userId: user.id, examId: exam.id }
+    });
+    expect(rows).toHaveLength(1);
+  });
+
+  it("updateHeartbeat touches lastHeartbeatAt but not endedAt", async () => {
+    const user = await createTestUser();
+    const course = await createTestCourse();
+    const exam = await createTestExam({ courseId: course.id });
+
+    const started = await examSessionRepo.startSession({
+      userId: user.id,
+      examId: exam.id
+    });
+    const firstBeat = started.lastHeartbeatAt;
+
+    // Sleep 5ms so the TIMESTAMP(3) column has room to change.
+    await new Promise((r) => setTimeout(r, 5));
+    const updated = await examSessionRepo.updateHeartbeat(started.id);
+
+    expect(updated.lastHeartbeatAt.getTime()).toBeGreaterThanOrEqual(firstBeat.getTime());
+    expect(updated.endedAt).toBeNull();
+  });
+
+  it("cascade-deletes sessions and events when the parent exam is removed", async () => {
+    const user = await createTestUser();
+    const course = await createTestCourse();
+    const exam = await createTestExam({ courseId: course.id });
+
+    const started = await examSessionRepo.startSession({
+      userId: user.id,
+      examId: exam.id
+    });
+    await examSessionRepo.recordEvent({ sessionId: started.id, eventType: "enter" });
+    await examSessionRepo.recordEvent({ sessionId: started.id, eventType: "heartbeat" });
+
+    // Sanity: rows exist.
+    expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(1);
+    expect(await testPrisma.examSessionEvent.count({ where: { sessionId: started.id } })).toBe(
+      2
+    );
+
+    await testPrisma.exam.delete({ where: { id: exam.id } });
+
+    expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(0);
+    expect(await testPrisma.examSessionEvent.count({ where: { sessionId: started.id } })).toBe(
+      0
+    );
+  });
+});

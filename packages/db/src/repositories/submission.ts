@@ -45,7 +45,7 @@ export const submissionRepo = {
           }
         },
         courseAssessment: {
-          select: { adjustmentRules: true, dueAt: true, opensAt: true }
+          select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true }
         },
         problem: {
           include: {
@@ -160,6 +160,42 @@ export const submissionRepo = {
         sampleOnly: false,
         userId
       }
+    });
+  },
+
+  listByContest(opts: { contestId: string; take?: number }) {
+    return prisma.submission.findMany({
+      where: { contestId: opts.contestId, sampleOnly: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        runtimeMs: true,
+        problem: { select: problemMiniSelect },
+        user: { select: { id: true, name: true, username: true } }
+      },
+      take: opts.take ?? 100
+    });
+  },
+
+  listByExam(opts: { examId: string; take?: number }) {
+    return prisma.submission.findMany({
+      where: { examId: opts.examId, sampleOnly: false },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        runtimeMs: true,
+        problem: { select: problemMiniSelect },
+        user: { select: { id: true, name: true, username: true } }
+      },
+      take: opts.take ?? 100
     });
   },
 
@@ -319,30 +355,12 @@ export const submissionRepo = {
     });
   },
 
-  findByCourseAndAssessments(courseSlug: string, assessmentIds: string[]) {
-    return prisma.submission.findMany({
-      where: {
-        course: { slug: courseSlug },
-        sampleOnly: false,
-        courseAssessmentId: { in: assessmentIds }
-      },
-      select: {
-        courseAssessmentId: true,
-        userId: true,
-        status: true,
-        score: true,
-        problemId: true,
-        createdAt: true
-      }
-    });
-  },
-
-  findByCourseSlugsWith7dStats(courseSlugs: string[], from: Date) {
+  findByCourseIdsWith7dStats(courseIds: string[], from: Date) {
     return prisma.submission.findMany({
       where: {
         sampleOnly: false,
         createdAt: { gte: from },
-        course: { slug: { in: courseSlugs } },
+        courseId: { in: courseIds },
         courseAssessmentId: { not: null }
       },
       select: {
@@ -352,7 +370,7 @@ export const submissionRepo = {
           select: {
             slug: true,
             title: true,
-            course: { select: { slug: true, title: true } }
+            course: { select: { id: true, title: true } }
           }
         }
       }
@@ -416,6 +434,21 @@ export const submissionRepo = {
 
       count(where: Prisma.SubmissionWhereInput) {
         return tx.submission.count({ where });
+      },
+
+      countForUserAndAssessmentSince(
+        userId: string,
+        courseAssessmentId: string,
+        sinceTime: Date
+      ) {
+        return tx.submission.count({
+          where: {
+            userId,
+            courseAssessmentId,
+            sampleOnly: false,
+            createdAt: { gte: sinceTime }
+          }
+        });
       },
 
       findMostRecent(where: Prisma.SubmissionWhereInput, select?: Prisma.SubmissionSelect) {

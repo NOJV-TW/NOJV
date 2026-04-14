@@ -70,6 +70,19 @@ function toContestUpdate(input: PlagiarismUpsertInput): Prisma.ContestUncheckedU
   return data;
 }
 
+function toExamUpdate(input: PlagiarismUpsertInput): Prisma.ExamUncheckedUpdateInput {
+  const data: Prisma.ExamUncheckedUpdateInput = {};
+  if (input.status !== undefined) data.plagiarismStatus = input.status;
+  if (input.results !== undefined) {
+    data.plagiarismResults = input.results ?? Prisma.JsonNull;
+  }
+  if (input.mossReportUrl !== undefined) data.plagiarismMossReportUrl = input.mossReportUrl;
+  if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
+  if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
+  if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
+  return data;
+}
+
 function toAssessmentUpdate(
   input: PlagiarismUpsertInput
 ): Prisma.CourseAssessmentUncheckedUpdateInput {
@@ -103,6 +116,14 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
+  async findByExamId(examId: string): Promise<PlagiarismReportSummary | null> {
+    const row = await prisma.exam.findUnique({
+      where: { id: examId },
+      select: plagiarismSelect
+    });
+    return toSummary(row);
+  },
+
   async findByAssessmentId(
     courseAssessmentId: string
   ): Promise<PlagiarismReportSummary | null> {
@@ -121,6 +142,14 @@ export const plagiarismRepo = {
     });
   },
 
+  upsertForExam(examId: string, input: PlagiarismUpsertInput) {
+    return prisma.exam.update({
+      where: { id: examId },
+      data: toExamUpdate(input),
+      select: plagiarismSelect
+    });
+  },
+
   upsertForAssessment(courseAssessmentId: string, input: PlagiarismUpsertInput) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
@@ -133,6 +162,13 @@ export const plagiarismRepo = {
     return prisma.contest.update({
       where: { id: contestId },
       data: toContestUpdate(clearInput)
+    });
+  },
+
+  clearForExam(examId: string) {
+    return prisma.exam.update({
+      where: { id: examId },
+      data: toExamUpdate(clearInput)
     });
   },
 

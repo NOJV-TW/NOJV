@@ -18,6 +18,19 @@ enum PlatformRole {
   student
 }
 
+/// Tri-state user lifecycle flag. `disabled: Boolean` is retained as an
+/// admin-visible soft-lock and stays the source of truth for
+/// sign-in checks via better-auth. `status` adds the third
+/// `pending_first_login` state used by the placeholder-user mechanism
+/// (spec §5.3): teachers bulk-paste course-member handles, unknown
+/// handles become `User` rows in `pending_first_login` so the student
+/// can auto-merge into that row on first OAuth login.
+enum UserStatus {
+  active
+  disabled
+  pending_first_login
+}
+
 model User {
   // Core (better-auth)
   id              String  @id @default(cuid())
@@ -31,29 +44,33 @@ model User {
   // additionalFields (ours)
   platformRole PlatformRole @default(student)
   disabled     Boolean      @default(false)
+  status       UserStatus   @default(active)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  sessions                     Session[]
-  accounts                     Account[]
-  schoolVerifications          SchoolVerificationToken[]
-  submissions                  Submission[]
-  contestParticipations        ContestParticipation[]
-  authoredProblems             Problem[]                 @relation("ProblemAuthor")
-  ownedCourses                 Course[]                  @relation("CourseOwner")
-  courseMemberships            CourseMembership[]        @relation("CourseMembershipUser")
-  createdMemberships           CourseMembership[]        @relation("CourseMembershipCreator")
-  createdJoinTokens            CourseJoinToken[]         @relation("CourseJoinTokenCreator")
-  createdCourseAssessments     CourseAssessment[]        @relation("CourseAssessmentCreator")
-  createdContests              Contest[]                 @relation("ContestCreator")
-  createdAnnouncements         Announcement[]            @relation("AnnouncementCreator")
-  triggeredContestPlagiarisms  Contest[]                 @relation("ContestPlagiarismTriggerer")
-  triggeredAssessmentPlagiarisms CourseAssessment[]      @relation("AssessmentPlagiarismTriggerer")
-  editorials                   Editorial[]
-  ipViolationLogs              IpViolationLog[]
-  dailyActivity                UserDailyActivity[]
+  sessions                       Session[]
+  accounts                       Account[]
+  schoolVerifications            SchoolVerificationToken[]
+  submissions                    Submission[]
+  contestParticipations          ContestParticipation[]
+  examParticipations             ExamParticipation[]       @relation("ExamParticipationUser")
+  authoredProblems               Problem[]                 @relation("ProblemAuthor")
+  ownedCourses                   Course[]                  @relation("CourseOwner")
+  courseMemberships              CourseMembership[]        @relation("CourseMembershipUser")
+  createdMemberships             CourseMembership[]        @relation("CourseMembershipCreator")
+  createdCourseAssessments       CourseAssessment[]        @relation("CourseAssessmentCreator")
+  createdContests                Contest[]                 @relation("ContestCreator")
+  createdExams                   Exam[]                    @relation("ExamCreator")
+  createdAnnouncements           Announcement[]            @relation("AnnouncementCreator")
+  triggeredContestPlagiarisms    Contest[]                 @relation("ContestPlagiarismTriggerer")
+  triggeredExamPlagiarisms       Exam[]                    @relation("ExamPlagiarismTriggerer")
+  triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
+  editorials                     Editorial[]
+  ipViolationLogs                IpViolationLog[]
+  dailyActivity                  UserDailyActivity[]
+  activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
 }
 
 model Session {

@@ -37,6 +37,8 @@ export type SubtaskStrategyMap = Record<string, SubtaskScoringStrategy>;
 export interface AdjustmentContext {
   assessmentAdjustmentRules: AdjustmentRules | null;
   dueAt: Date | null;
+  /** Hard close of the owning assessment — used by `flat_late_penalty` / `daily_late_penalty` (`startFrom: "final_day"`) and by `final_day_zero`. */
+  finalDay: Date | null;
   submittedAt: Date;
 }
 
@@ -143,6 +145,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   const adjustment: AdjustmentContext = {
     assessmentAdjustmentRules: assessment?.adjustmentRules as AdjustmentRules | null,
     dueAt: assessment?.dueAt ?? contestEnd,
+    finalDay: assessment?.closesAt ?? contestEnd,
     submittedAt: submission.createdAt
   };
 

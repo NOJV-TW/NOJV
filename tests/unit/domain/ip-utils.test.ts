@@ -12,13 +12,21 @@ vi.mock("@nojv/db", () => ({
   },
   contestParticipationIpRepo: {
     withTx: () => ({ updateBoundIp: vi.fn() })
+  },
+  examParticipationIpRepo: {
+    withTx: () => ({ updateIpPin: vi.fn() })
   }
 }));
 
 import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
 
 const fakeTx = {} as never;
-const fakeContext = { userId: "usr_test", contestId: "con_test" };
+// checkIpLock now takes a typed scope — tests exercise the exam path
+// since violations are only logged on exams after the 2026-04-14 split.
+const fakeContext = {
+  userId: "usr_test",
+  scope: { kind: "exam" as const, examId: "exm_test" }
+};
 
 describe("isIpInCidr", () => {
   it("matches an IP inside a /24 range", () => {

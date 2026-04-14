@@ -1,0 +1,174 @@
+import { fail } from "@sveltejs/kit";
+import { message, superValidate } from "sveltekit-superforms";
+import { zod4 } from "sveltekit-superforms/adapters";
+import { z } from "zod";
+import { canManageCourse, courseDomain } from "@nojv/domain";
+
+import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
+import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { classifyError } from "$lib/server/shared/handle-action-error";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import type { FormMessage } from "$lib/types/form-message";
+
+const {
+  listMembersForCourse,
+  bulkAddByHandle,
+  changeMemberRole,
+  removeMember,
+  parseHandleInput
+} = courseDomain;
+
+// Schemas kept local: these are wire-level contracts between this
+// route and its form actions. They never leave the web app, so they
+// don't belong in @nojv/core.
+const HANDLE_BLOCK_MAX = 16_000;
+
+const bulkAddSchema = z.object({
+  handles: z.string().trim().min(1).max(HANDLE_BLOCK_MAX),
+  role: z.enum(["student", "ta"])
+});
+
+const changeRoleSchema = z.object({
+  userId: z.string().trim().min(1),
+  role: z.enum(["student", "ta", "teacher"])
+});
+
+const removeSchema = z.object({
+  userId: z.string().trim().min(1)
+});
+
+export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  const parent = await event.parent();
+  const { course, isManager } = parent;
+
+  const [members, bulkAddForm] = await Promise.all([
+    listMembersForCourse(course.id),
+    superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema))
+  ]);
+
+  // Hide email from student viewers — it's a teacher-only column in
+  // the prototype. Active-only filter mirrors the visual UI (removed
+  // rows live on the server for audit but aren't rendered).
+  const visibleMembers = members
+    .filter((member) => member.status === "active")
+    .map((member) => ({
+      userId: member.userId,
+      name: member.name,
+      username: member.username,
+      email: isManager ? member.email : null,
+      role: member.role,
+      isPlaceholder: member.isPlaceholder,
+      joinedAt: member.joinedAt
+    }));
+
+  return {
+    members: visibleMembers,
+    bulkAddForm
+  };
+});
+
+export const actions = {
+  bulkAdd: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    // Re-check permission inside the action — `event.parent()` is not
+    // available from form actions, so we hit the domain helper
+    // directly. Layout already hid the panel for non-managers; this
+    // is the defensive backstop for direct POSTs.
+    const role = await getCoursePermissionRole(event.params.courseId, actor);
+    if (!canManageCourse(role)) {
+      return fail(403, { error: "Forbidden" });
+    }
+
+    const form = await superValidate(event, zod4(bulkAddSchema));
+    if (!form.valid) return fail(400, { form });
+
+    const handles = parseHandleInput(form.data.handles);
+    if (handles.length === 0) {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: "No valid handles in input." },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const result = await bulkAddByHandle(actor, event.params.courseId, {
+        handles,
+        role: form.data.role
+      });
+      return message<FormMessage>(form, {
+        kind: "success",
+        text: `Added ${String(result.added)} members (${String(result.placeholdersCreated)} new placeholders, ${String(result.skipped)} skipped)`
+      });
+    } catch (err) {
+      const classified = classifyError(err);
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 }
+      );
+    }
+  },
+
+  changeRole: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const role = await getCoursePermissionRole(event.params.courseId, actor);
+    if (!canManageCourse(role)) {
+      return fail(403, { error: "Forbidden" });
+    }
+
+    const form = await event.request.formData();
+    const parsed = changeRoleSchema.safeParse({
+      userId: form.get("userId"),
+      role: form.get("role")
+    });
+    if (!parsed.success) {
+      return fail(400, { error: "Invalid role change request" });
+    }
+
+    try {
+      await changeMemberRole(
+        actor,
+        event.params.courseId,
+        parsed.data.userId,
+        parsed.data.role
+      );
+      return { success: true };
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+  },
+
+  remove: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const role = await getCoursePermissionRole(event.params.courseId, actor);
+    if (!canManageCourse(role)) {
+      return fail(403, { error: "Forbidden" });
+    }
+
+    const form = await event.request.formData();
+    const parsed = removeSchema.safeParse({ userId: form.get("userId") });
+    if (!parsed.success) {
+      return fail(400, { error: "Invalid remove request" });
+    }
+
+    try {
+      await removeMember(actor, event.params.courseId, parsed.data.userId);
+      return { success: true };
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+  }
+} satisfies Actions;

@@ -12,12 +12,15 @@ export interface PlagiarismResults {
   pairs: SimilarityPair[];
 }
 
+// Plagiarism checks run on course homework assessments and course
+// exams. Standalone contests no longer support plagiarism — the
+// MOSS workflow was always tied to course membership.
 export type PlagiarismTarget =
   | { type: "courseAssessment"; id: string }
-  | { type: "contest"; id: string };
+  | { type: "exam"; id: string };
 
 export function plagiarismTargetFilter(target: PlagiarismTarget) {
   return target.type === "courseAssessment"
     ? { courseAssessmentId: target.id }
-    : { contestId: target.id };
+    : { examId: target.id };
 }
