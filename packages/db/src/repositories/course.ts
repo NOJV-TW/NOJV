@@ -99,6 +99,14 @@ export const courseRepo = {
 
       create(data: Prisma.CourseUncheckedCreateInput) {
         return tx.course.create({ data });
+      },
+
+      update(id: string, data: Prisma.CourseUncheckedUpdateInput) {
+        return tx.course.update({ where: { id }, data });
+      },
+
+      delete(id: string) {
+        return tx.course.delete({ where: { id } });
       }
     };
   }
