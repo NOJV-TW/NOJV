@@ -135,6 +135,39 @@ export const assessmentRepo = {
     });
   },
 
+  /**
+   * Cross-course roster for the top-level /assignments page. A single
+   * findMany pulls published assessments from every course in
+   * `allCourseIds` AND draft assessments from every course in
+   * `managerCourseIds` (the subset where the user is teacher/TA).
+   * Each row carries `course { id, title }` so the UI can render the
+   * course tag without a second round-trip.
+   *
+   * Status filtering (open / upcoming / closed) is derived in the
+   * domain layer from `opensAt`/`closesAt` — same convention as
+   * `listForCourse`.
+   */
+  listAcrossCourses(allCourseIds: string[], managerCourseIds: string[], take: number) {
+    // Prisma accepts `in: []` and returns an empty result set, so we
+    // can hand a single findMany both the published-for-all and draft-
+    // for-manager clauses without an early return (which would
+    // collapse the inferred include payload type at the call site).
+    return prisma.courseAssessment.findMany({
+      include: {
+        _count: { select: { problems: true } },
+        course: { select: { id: true, title: true } }
+      },
+      orderBy: { opensAt: "desc" },
+      where: {
+        OR: [
+          { courseId: { in: allCourseIds }, status: "published" },
+          { courseId: { in: managerCourseIds }, status: "draft" }
+        ]
+      },
+      take
+    });
+  },
+
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
