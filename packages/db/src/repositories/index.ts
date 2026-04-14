@@ -5,6 +5,7 @@ export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./con
 export { courseRepo, courseMembershipRepo } from "./course";
 export { editorialRepo } from "./editorial";
 export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
+export { examSessionRepo } from "./exam-session";
 export {
   ipViolationLogRepo,
   contestParticipationIpRepo,
