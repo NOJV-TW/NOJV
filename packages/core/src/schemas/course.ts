@@ -11,6 +11,14 @@ export const courseCreateSchema = z.object({
   title: z.string().trim().min(3).max(120)
 });
 
+// Course update shares the same shape as create. The settings page only
+// surfaces title + description; defaults / visibility cards in prototype 13
+// are placeholders until schema columns land.
+export const courseUpdateSchema = z.object({
+  description: z.string().trim().min(8).max(2_000),
+  title: z.string().trim().min(3).max(120)
+});
+
 export const courseProblemAttachSchema = z.object({
   courseId: z.string().trim().min(1),
   problemId: slugSchema
@@ -87,4 +95,5 @@ export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
+export type CourseUpdate = z.infer<typeof courseUpdateSchema>;
 export type ManualCourseEnrollment = z.infer<typeof manualCourseEnrollmentSchema>;

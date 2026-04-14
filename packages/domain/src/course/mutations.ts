@@ -5,18 +5,53 @@ import {
   courseRepo,
   problemRepo,
   runTransaction,
-  type Prisma
+  type Prisma,
+  type TransactionClient
 } from "@nojv/db";
-import type { CourseAssessmentCreate, CourseCreate, ManualCourseEnrollment } from "@nojv/core";
+import type {
+  CourseAssessmentCreate,
+  CourseCreate,
+  CourseUpdate,
+  ManualCourseEnrollment
+} from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, NotFoundError } from "../shared/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages
 } from "../problem/helpers";
+
+/**
+ * Verify that `actor` can manage `courseId`. Platform admins always pass;
+ * teachers / TAs pass only when they hold an active membership on the
+ * course. Throws `ForbiddenError` otherwise.
+ *
+ * Callers from `+page.server.ts` load bodies will already have run the
+ * layout guard, but mutations need their own defensive check so that
+ * form-post handlers never rely on trusted loader state.
+ */
+async function assertCourseManager(
+  tx: TransactionClient,
+  actor: ActorContext,
+  courseId: string
+) {
+  if (actor.platformRole === "admin") return;
+
+  const membership = await courseMembershipRepo
+    .withTx(tx)
+    .findByComposite(courseId, actor.userId);
+  const effectiveRole = resolveEffectiveCourseRole(
+    actor.platformRole,
+    membership?.role ?? null
+  );
+  if (!canManageCourse(effectiveRole) || membership?.status !== "active") {
+    throw new ForbiddenError("You do not have permission to manage this course.");
+  }
+}
 
 export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
   return runTransaction(async (tx) => {
@@ -145,5 +180,30 @@ export async function createCourseAssessmentRecord(
     );
 
     return assessment;
+  });
+}
+
+export async function updateCourse(
+  actor: ActorContext,
+  courseId: string,
+  payload: CourseUpdate
+) {
+  return runTransaction(async (tx) => {
+    await requireCourse(tx, courseId);
+    await assertCourseManager(tx, actor, courseId);
+
+    return courseRepo.withTx(tx).update(courseId, {
+      description: payload.description,
+      title: payload.title
+    });
+  });
+}
+
+export async function deleteCourse(actor: ActorContext, courseId: string) {
+  return runTransaction(async (tx) => {
+    await requireCourse(tx, courseId);
+    await assertCourseManager(tx, actor, courseId);
+
+    return courseRepo.withTx(tx).delete(courseId);
   });
 }
