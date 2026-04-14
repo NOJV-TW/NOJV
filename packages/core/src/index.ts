@@ -6,5 +6,6 @@ export * from "./schemas/submission";
 export * from "./schemas/judge-config";
 export * from "./schemas/assessment-adjustments";
 export * from "./schemas/advanced-mode";
+export * from "./schemas/user";
 export * from "./queue";
 export * from "./sandbox";
