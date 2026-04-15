@@ -12,14 +12,14 @@ import {
   type TimedSession
 } from "./rank-util";
 
-export const ICPC_PENALTY_PER_WRONG_SEC = 20 * 60;
+export const PROBLEM_COUNT_PENALTY_PER_WRONG_SEC = 20 * 60;
 
-interface IcpcScoringSubmission {
+interface ProblemCountScoringSubmission {
   status: string;
   createdAt: Date;
 }
 
-export interface IcpcProblemResult {
+export interface ProblemCountResult {
   solved: boolean;
   wrongAttempts: number;
   firstAcTimeSec: number | null;
@@ -31,7 +31,7 @@ export interface IcpcProblemResult {
 // outer caller aggregates across problems.
 //
 // Shared by BOTH paths — the DB-write path in updateContestScores and the
-// display-read path in buildIcpcScoreboard below. Keeping one function
+// display-read path in buildProblemCountScoreboard below. Keeping one function
 // prevents the two from drifting apart (historical bug: round 12 fixed the
 // scoring path, round 16 then had to fix the scoreboard path with the same
 // change).
@@ -40,10 +40,10 @@ export interface IcpcProblemResult {
 // verdicts yet. The next recalc picks them up once judging completes.
 // `firstAcTimeSec` is clamped to [0, ∞) for the pathological case of a
 // submission timestamp before the session start.
-export function computeIcpcProblemPenalty(
-  submissions: readonly IcpcScoringSubmission[],
+export function computeProblemCountPenalty(
+  submissions: readonly ProblemCountScoringSubmission[],
   sessionStartsAt: Date
-): IcpcProblemResult {
+): ProblemCountResult {
   let wrongAttempts = 0;
   for (const sub of submissions) {
     if (sub.status === "queued" || sub.status === "compiling" || sub.status === "running") {
@@ -58,7 +58,7 @@ export function computeIcpcProblemPenalty(
         solved: true,
         wrongAttempts,
         firstAcTimeSec,
-        penaltySeconds: firstAcTimeSec + wrongAttempts * ICPC_PENALTY_PER_WRONG_SEC
+        penaltySeconds: firstAcTimeSec + wrongAttempts * PROBLEM_COUNT_PENALTY_PER_WRONG_SEC
       };
     }
     wrongAttempts++;
@@ -71,7 +71,7 @@ export function computeIcpcProblemPenalty(
   };
 }
 
-export function buildIcpcScoreboard(
+export function buildProblemCountScoreboard(
   session: TimedSession,
   participants: ParticipantRow[],
   submissions: SubmissionRow[],
@@ -104,7 +104,7 @@ export function buildIcpcScoreboard(
 
       // Single source of truth for ICPC per-problem penalty. Shared with
       // the DB-write path in updateContestScores so the two can't drift.
-      const result = computeIcpcProblemPenalty(visibleSubs, session.startsAt);
+      const result = computeProblemCountPenalty(visibleSubs, session.startsAt);
       const score = result.solved ? prob.points : 0;
       if (result.solved) {
         totalScore += prob.points;

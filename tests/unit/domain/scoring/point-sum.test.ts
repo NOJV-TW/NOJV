@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { scoring } from "@nojv/domain";
 
-const { buildIoiScoreboard } = scoring;
+const { buildPointSumScoreboard } = scoring;
 
 const SESSION_START = new Date("2026-04-10T10:00:00Z");
 const SESSION_END = new Date("2026-04-10T13:00:00Z");
@@ -41,14 +41,14 @@ function mkSub(
   };
 }
 
-describe("buildIoiScoreboard", () => {
+describe("buildPointSumScoreboard", () => {
   it("returns empty entries when there are no participants", () => {
-    const board = buildIoiScoreboard(session, [], [], [mkProblem("P1", 1)], false);
+    const board = buildPointSumScoreboard(session, [], [], [mkProblem("P1", 1)], false);
     expect(board).toEqual([]);
   });
 
   it("assigns rank 1 to the only participant with zero submissions", () => {
-    const board = buildIoiScoreboard(
+    const board = buildPointSumScoreboard(
       session,
       [mkParticipant("u1")],
       [],
@@ -71,7 +71,7 @@ describe("buildIoiScoreboard", () => {
       mkSub("u1", "P1", 70, 15, "wrong_answer"),
       mkSub("u1", "P1", 50, 25, "wrong_answer")
     ];
-    const board = buildIoiScoreboard(
+    const board = buildPointSumScoreboard(
       session,
       [mkParticipant("u1")],
       submissions,
@@ -99,7 +99,7 @@ describe("buildIoiScoreboard", () => {
       mkSub("leader", "P1", 100, 30),
       mkSub("leader", "P2", 100, 60)
     ];
-    const board = buildIoiScoreboard(session, participants, submissions, problems, false);
+    const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     // Order in the array reflects the comparator: higher score first,
     // then lower last-improvement time as a display-side tie-breaker.
     expect(board.map((e) => e.userId)).toEqual(["leader", "fast", "slow"]);
@@ -119,7 +119,7 @@ describe("buildIoiScoreboard", () => {
       mkSub("b", "P1", 50, 20),
       mkSub("c", "P1", 80, 10)
     ];
-    const board = buildIoiScoreboard(session, participants, submissions, problems, false);
+    const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     expect(board.map((e) => [e.userId, e.rank, e.totalScore])).toEqual([
       ["c", 1, 80],
       ["a", 2, 50],
@@ -136,7 +136,7 @@ describe("buildIoiScoreboard", () => {
       mkSub("late", "P2", 100, 15),
       mkSub("early", "P2", 100, 20)
     ];
-    const board = buildIoiScoreboard(session, participants, submissions, problems, false);
+    const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     const early = board.find((e) => e.userId === "early")!;
     const late = board.find((e) => e.userId === "late")!;
     expect(early.isFirstBlood).toEqual([true, false]);
@@ -147,7 +147,7 @@ describe("buildIoiScoreboard", () => {
     const problems = [mkProblem("P1", 1, 100)];
     const participants = [mkParticipant("u1")];
     const submissions = [mkSub("u1", "P1", 99, 5, "wrong_answer")];
-    const board = buildIoiScoreboard(session, participants, submissions, problems, false);
+    const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     expect(board[0]!.isFirstBlood[0]).toBe(false);
   });
 
@@ -160,7 +160,13 @@ describe("buildIoiScoreboard", () => {
       mkSub("u1", "P1", 50, 10, "wrong_answer"),
       mkSub("u1", "P1", 90, 40, "wrong_answer")
     ];
-    const board = buildIoiScoreboard(sessionFrozen, participants, submissions, problems, true);
+    const board = buildPointSumScoreboard(
+      sessionFrozen,
+      participants,
+      submissions,
+      problems,
+      true
+    );
     const cell = board[0]!.problems[0]!;
     expect(cell.score).toBe(50);
     expect(cell.isFrozen).toBe(true);
@@ -176,7 +182,13 @@ describe("buildIoiScoreboard", () => {
       mkSub("u1", "P1", 50, 10, "wrong_answer"),
       mkSub("u1", "P1", 90, 40, "wrong_answer")
     ];
-    const board = buildIoiScoreboard(sessionFrozen, participants, submissions, problems, false);
+    const board = buildPointSumScoreboard(
+      sessionFrozen,
+      participants,
+      submissions,
+      problems,
+      false
+    );
     const cell = board[0]!.problems[0]!;
     expect(cell.score).toBe(90);
     expect(cell.isFrozen).toBe(false);
@@ -189,7 +201,13 @@ describe("buildIoiScoreboard", () => {
         user: { username: "u1", displayUsername: "DisplayName", name: "Real Name" }
       }
     ];
-    const board = buildIoiScoreboard(session, participants, [], [mkProblem("P1", 1)], false);
+    const board = buildPointSumScoreboard(
+      session,
+      participants,
+      [],
+      [mkProblem("P1", 1)],
+      false
+    );
     expect(board[0]!.username).toBe("DisplayName");
     expect(board[0]!.displayName).toBe("Real Name");
   });

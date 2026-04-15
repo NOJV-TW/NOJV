@@ -1,5 +1,5 @@
-import { buildIcpcScoreboard } from "./icpc";
-import { buildIoiScoreboard } from "./ioi";
+import { buildProblemCountScoreboard } from "./problem-count";
+import { buildPointSumScoreboard } from "./point-sum";
 import {
   secondsSince,
   type ParticipantRow,
@@ -30,8 +30,8 @@ export function buildScoreboard(
   showFrozen: boolean
 ): ScoreboardEntry[] {
   return scoringMode === "problem_count"
-    ? buildIcpcScoreboard(session, participants, submissions, problems, showFrozen)
-    : buildIoiScoreboard(session, participants, submissions, problems, showFrozen);
+    ? buildProblemCountScoreboard(session, participants, submissions, problems, showFrozen)
+    : buildPointSumScoreboard(session, participants, submissions, problems, showFrozen);
 }
 
 export interface ChartSeriesPoint {

@@ -266,7 +266,7 @@ export interface ExamOverviewRow {
   /** Duration in minutes. Null when draft has no window. */
   durationMinutes: number | null;
   problemCount: number;
-  scoringMode: "point_sum" | "icpc";
+  scoringMode: "point_sum" | "problem_count";
   /** Registered participation count for teacher view. */
   registeredCount: number | null;
   /** Total active students in the course — set in the loader. Null = unknown. */
@@ -315,7 +315,7 @@ export async function listExamOverviewForCourse(
       endsAt: row.endsAt.toISOString(),
       durationMinutes,
       problemCount: row._count.problems,
-      scoringMode: row.scoringMode as "point_sum" | "icpc",
+      scoringMode: row.scoringMode as "point_sum" | "problem_count",
       registeredCount: options.isManager ? row._count.participations : null,
       totalStudents: null
     };

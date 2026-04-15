@@ -6,7 +6,7 @@ import { NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
   buildScoreboardChartSeries,
-  computeIcpcProblemPenalty,
+  computeProblemCountPenalty,
   type ParticipantRow,
   type ScoreboardEntry,
   type ScoreboardProblem,
@@ -69,7 +69,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
     }
 
     for (const [, problemSubs] of byProblem) {
-      const { solved, penaltySeconds } = computeIcpcProblemPenalty(problemSubs, exam.startsAt);
+      const { solved, penaltySeconds } = computeProblemCountPenalty(problemSubs, exam.startsAt);
       if (solved) {
         solvedCount++;
         totalPenalty += penaltySeconds;
@@ -81,10 +81,9 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
       score: solvedCount
     });
 
-    const icpcScore = solvedCount * 1e9 - totalPenalty;
-    await scoreboard.updateScoreboard(exam.id, participation.id, icpcScore);
+    const packedScore = solvedCount * 1e9 - totalPenalty;
+    await scoreboard.updateScoreboard(exam.id, participation.id, packedScore);
   } else {
-    // IOI scoring
     const bestByProblem = new Map<string, number>();
     for (const sub of allSubmissions) {
       if (!examProblems.has(sub.problemId)) continue;
