@@ -32,13 +32,6 @@ export const ipViolationLogRepo = {
 
 // Exam binding uses `ExamParticipation.ipPin` on a different path entirely.
 export const contestParticipationIpRepo = {
-  updateBoundIp(id: string, ip: string) {
-    return prisma.contestParticipation.update({
-      where: { id },
-      data: { boundIp: ip }
-    });
-  },
-
   withTx(tx: TxClient) {
     return {
       updateBoundIp(id: string, ip: string) {
@@ -52,13 +45,6 @@ export const contestParticipationIpRepo = {
 };
 
 export const examParticipationIpRepo = {
-  updateIpPin(id: string, ip: string) {
-    return prisma.examParticipation.update({
-      where: { id },
-      data: { ipPin: ip }
-    });
-  },
-
   withTx(tx: TxClient) {
     return {
       updateIpPin(id: string, ip: string) {

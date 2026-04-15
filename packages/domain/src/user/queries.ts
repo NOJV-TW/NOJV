@@ -38,10 +38,6 @@ export async function listUsersPaginated(params: UserSearchParams) {
   return { users, totalCount, page, totalPages: Math.max(1, Math.ceil(totalCount / take)) };
 }
 
-export function countUsers() {
-  return userRepo.count();
-}
-
 export async function updateUserRole(userId: string, role: "admin" | "teacher" | "student") {
   return userRepo.update(userId, { platformRole: role });
 }

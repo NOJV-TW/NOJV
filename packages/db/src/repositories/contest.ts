@@ -1,7 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect } from "./selects";
+import { problemMiniSelect, userScoreboardSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -107,7 +107,7 @@ export const contestRepo = {
         },
         participations: {
           include: {
-            user: { select: { displayUsername: true, username: true, name: true } }
+            user: { select: userScoreboardSelect }
           },
           where: { status: { in: ["active", "submitted"] } }
         }

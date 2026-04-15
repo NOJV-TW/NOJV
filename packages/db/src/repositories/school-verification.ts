@@ -1,8 +1,5 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { TransactionClient } from "../transaction";
-
-type TxClient = TransactionClient;
 
 export const schoolVerificationTokenRepo = {
   create(data: Prisma.SchoolVerificationTokenUncheckedCreateInput) {
@@ -23,17 +20,5 @@ export const schoolVerificationTokenRepo = {
     return prisma.schoolVerificationToken.deleteMany({
       where: { expiresAt: { lt: now } }
     });
-  },
-
-  withTx(tx: TxClient) {
-    return {
-      create(data: Prisma.SchoolVerificationTokenUncheckedCreateInput) {
-        return tx.schoolVerificationToken.create({ data });
-      },
-
-      delete(token: string) {
-        return tx.schoolVerificationToken.delete({ where: { token } });
-      }
-    };
   }
 };

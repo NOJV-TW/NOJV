@@ -111,6 +111,3 @@ export function canCreateCourse(platformRole: PlatformRole) {
 }
 
 export const isCourseStaff = canManageCourse;
-export const canManageCourseMembership = canManageCourse;
-export const canPublishAssessment = canManageCourse;
-export const canViewManagePanel = canManageCourse;

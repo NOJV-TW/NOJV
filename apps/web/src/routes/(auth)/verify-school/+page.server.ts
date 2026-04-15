@@ -1,8 +1,8 @@
-import { verificationDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/domain";
 
 import type { PageServerLoad } from "./$types";
 
-const { processSchoolVerification } = verificationDomain;
+const { processSchoolVerification } = userDomain;
 
 export const load: PageServerLoad = async ({ url }) => {
   const token = url.searchParams.get("token");

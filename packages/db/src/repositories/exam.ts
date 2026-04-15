@@ -1,13 +1,19 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect } from "./selects";
+import {
+  courseMiniSelect,
+  problemMiniSelect,
+  problemTeacherMiniSelect,
+  userMiniSelect,
+  userScoreboardSelect
+} from "./selects";
 
 type TxClient = TransactionClient;
 
 const examListInclude = {
   _count: { select: { participations: true, problems: true } },
-  course: { select: { id: true, title: true } }
+  course: { select: courseMiniSelect }
 } as const;
 
 export const examRepo = {
@@ -94,7 +100,7 @@ export const examRepo = {
     return prisma.exam.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { id: true, title: true } },
+        course: { select: courseMiniSelect },
         problems: {
           include: {
             problem: { select: problemMiniSelect }
@@ -111,10 +117,10 @@ export const examRepo = {
     return prisma.exam.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { id: true, title: true } },
+        course: { select: courseMiniSelect },
         problems: {
           include: {
-            problem: { select: { id: true, title: true, difficulty: true } }
+            problem: { select: problemTeacherMiniSelect }
           },
           orderBy: { ordinal: "asc" }
         }
@@ -127,7 +133,7 @@ export const examRepo = {
     return prisma.exam.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: { id: true, title: true } },
+        course: { select: courseMiniSelect },
         participations: {
           where: { userId },
           take: 1
@@ -152,7 +158,7 @@ export const examRepo = {
         },
         participations: {
           include: {
-            user: { select: { displayUsername: true, username: true, name: true } }
+            user: { select: userScoreboardSelect }
           },
           where: { status: { in: ["active", "submitted"] } }
         }
@@ -260,13 +266,7 @@ export const examParticipationRepo = {
     return prisma.examParticipation.findMany({
       where: { examId },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            username: true
-          }
-        }
+        user: { select: userMiniSelect }
       },
       orderBy: [{ status: "asc" }, { registeredAt: "asc" }]
     });

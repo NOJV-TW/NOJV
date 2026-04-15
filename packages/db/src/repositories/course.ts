@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { userPublicSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -134,7 +135,7 @@ export const courseMembershipRepo = {
       where: { courseId, role: "student", status: "active" },
       select: {
         userId: true,
-        user: { select: { username: true, name: true } }
+        user: { select: userPublicSelect }
       },
       orderBy: { user: { username: "asc" } }
     });
