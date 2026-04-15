@@ -122,6 +122,29 @@ export const examRepo = {
     });
   },
 
+  /**
+   * Detail fetch for the exam registration page (Phase 3 task 3.11).
+   * Includes problem `difficulty` so the teacher problems list can
+   * colour-code rows; `findDetailById` only includes `problemMiniSelect`
+   * which omits it, and we don't want to widen the shared select for
+   * every caller.
+   */
+  findDetailForRegistrationPage(id: string) {
+    return prisma.exam.findUnique({
+      include: {
+        _count: { select: { participations: true } },
+        course: { select: { id: true, title: true } },
+        problems: {
+          include: {
+            problem: { select: { id: true, title: true, difficulty: true } }
+          },
+          orderBy: { ordinal: "asc" }
+        }
+      },
+      where: { id }
+    });
+  },
+
   findWorkspaceById(examId: string, userId: string) {
     return prisma.exam.findUnique({
       include: {
@@ -255,6 +278,27 @@ export const examProblemRepo = {
 };
 
 export const examParticipationRepo = {
+  /**
+   * Roster of registered participants for an exam. Drives the teacher
+   * roster panel on the registration page (prototype 10). Returns one
+   * row per participation joined with the user's display fields.
+   */
+  listForExamWithUser(examId: string) {
+    return prisma.examParticipation.findMany({
+      where: { examId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true
+          }
+        }
+      },
+      orderBy: [{ status: "asc" }, { registeredAt: "asc" }]
+    });
+  },
+
   findByIdWithExam(id: string) {
     return prisma.examParticipation.findUnique({
       include: {
