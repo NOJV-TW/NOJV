@@ -35,7 +35,9 @@
         box-shadow: var(--shadow-rest);
         transform: translateX(3px);
       }
-      .assignment-card:hover::before { background: var(--primary); }
+      .assignment-card:hover::before {
+        background: var(--primary);
+      }
 
       .course-tag {
         display: inline-flex;
@@ -74,7 +76,9 @@
         color: var(--muted-foreground);
         font-variant-numeric: tabular-nums;
       }
-      .time-range .sep { opacity: 0.5; }
+      .time-range .sep {
+        opacity: 0.5;
+      }
 
       .meta-row {
         display: flex;
@@ -175,7 +179,19 @@
           <button class="chip">Closed <span class="chip-count">3</span></button>
         </div>
         <div class="text-caption text-muted">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display: inline; vertical-align: -2px"><circle cx="8" cy="8" r="6" /><path d="M8 5v3l2 2" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="display: inline; vertical-align: -2px"
+          >
+            <circle cx="8" cy="8" r="6" />
+            <path d="M8 5v3l2 2" />
+          </svg>
           排序：最近要截止
         </div>
       </div>
@@ -204,7 +220,17 @@
             <div class="progress-ring" style="--p: 75"><span>75</span></div>
             <button class="btn btn-primary">
               Continue
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </button>
           </div>
         </a>
@@ -230,9 +256,7 @@
           </div>
           <div class="right">
             <div class="progress-ring" style="--p: 60"><span>60</span></div>
-            <button class="btn btn-outline">
-              Continue
-            </button>
+            <button class="btn btn-outline">Continue</button>
           </div>
         </a>
 
@@ -259,7 +283,17 @@
             <div class="progress-ring" style="--p: 0"><span>—</span></div>
             <button class="btn btn-outline">
               Start
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </button>
           </div>
         </a>
@@ -285,7 +319,9 @@
           </div>
           <div class="right">
             <div class="progress-ring" style="--p: 0"><span>—</span></div>
-            <button class="btn btn-outline" disabled style="opacity: 0.5; cursor: not-allowed">尚未開放</button>
+            <button class="btn btn-outline" disabled style="opacity: 0.5; cursor: not-allowed">
+              尚未開放
+            </button>
           </div>
         </a>
 
@@ -319,13 +355,28 @@
       <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px dashed var(--border)">
         <p class="eyebrow mb-4">參考：空狀態（不在任何課程時）</p>
         <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground); margin-bottom: 0.75rem">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="color: var(--muted-foreground); margin-bottom: 0.75rem"
+          >
             <path d="M18 8h12a2 2 0 012 2v28a2 2 0 01-2 2H18a2 2 0 01-2-2V10a2 2 0 012-2z" />
             <path d="M22 14h4M22 20h10M22 26h10M22 32h6" />
           </svg>
           <h4 class="font-display text-title weight-500">還沒有任何作業</h4>
           <p class="text-body-sm text-muted mt-2">等你被加入課程後，所有作業會在這裡匯總。</p>
-          <a href="01-courses-listing.html" class="btn btn-outline mt-4" style="display: inline-flex">看看我的課程</a>
+          <a
+            href="01-courses-listing.html"
+            class="btn btn-outline mt-4"
+            style="display: inline-flex"
+            >看看我的課程</a
+          >
         </div>
       </div>
     </main>

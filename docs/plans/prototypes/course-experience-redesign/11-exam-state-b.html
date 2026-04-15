@@ -187,7 +187,9 @@
         margin-bottom: 0.1875rem;
         transition: all var(--duration-fast);
       }
-      .psv-nav-item:hover { background: var(--muted); }
+      .psv-nav-item:hover {
+        background: var(--muted);
+      }
       .psv-nav-item.active {
         background: var(--panel-strong);
         border-color: var(--primary);
@@ -228,8 +230,12 @@
         font-size: var(--text-caption);
         color: var(--muted-foreground);
       }
-      .psv-nav-item.ac .score { color: var(--success); }
-      .psv-nav-item.partial .score { color: var(--destructive); }
+      .psv-nav-item.ac .score {
+        color: var(--success);
+      }
+      .psv-nav-item.partial .score {
+        color: var(--destructive);
+      }
 
       /* ── Middle: statement + editor (split vertical) ── */
       .psv-main {
@@ -291,7 +297,10 @@
         font-size: var(--text-body-sm);
         line-height: var(--leading-relaxed);
       }
-      .statement-body ul { padding-left: 1.25rem; margin: 0.5rem 0; }
+      .statement-body ul {
+        padding-left: 1.25rem;
+        margin: 0.5rem 0;
+      }
       .statement-body code {
         background: rgba(31, 25, 22, 0.06);
         padding: 0.0625rem 0.3125rem;
@@ -372,10 +381,19 @@
         line-height: 1.5;
         white-space: pre;
       }
-      .editor-area .kw { color: #d4834a; }
-      .editor-area .fn { color: #7bb09c; }
-      .editor-area .cm { color: rgba(245, 237, 228, 0.4); font-style: italic; }
-      .editor-area .st { color: #c2c373; }
+      .editor-area .kw {
+        color: #d4834a;
+      }
+      .editor-area .fn {
+        color: #7bb09c;
+      }
+      .editor-area .cm {
+        color: rgba(245, 237, 228, 0.4);
+        font-style: italic;
+      }
+      .editor-area .st {
+        color: #c2c373;
+      }
       .editor-area .ln {
         display: inline-block;
         width: 2.5em;
@@ -408,13 +426,17 @@
         color: #f5ede4;
         transition: all var(--duration-fast);
       }
-      .btn-dark:hover { background: rgba(245, 237, 228, 0.14); }
+      .btn-dark:hover {
+        background: rgba(245, 237, 228, 0.14);
+      }
       .btn-dark-primary {
         background: var(--primary);
         color: white;
         border-color: var(--primary);
       }
-      .btn-dark-primary:hover { background: var(--primary-hover); }
+      .btn-dark-primary:hover {
+        background: var(--primary-hover);
+      }
 
       /* ── Right: submissions panel (exam-scoped) ── */
       .psv-side {
@@ -463,7 +485,9 @@
         cursor: pointer;
         transition: all var(--duration-fast);
       }
-      .sub-row:hover { border-color: var(--border-strong); }
+      .sub-row:hover {
+        border-color: var(--border-strong);
+      }
       .sub-row .top {
         display: flex;
         justify-content: space-between;
@@ -474,9 +498,15 @@
         color: var(--muted-foreground);
         font-weight: 400;
       }
-      .sub-row .verdict.ac { color: var(--success); }
-      .sub-row .verdict.wa { color: var(--destructive); }
-      .sub-row .verdict.tle { color: var(--warning); }
+      .sub-row .verdict.ac {
+        color: var(--success);
+      }
+      .sub-row .verdict.wa {
+        color: var(--destructive);
+      }
+      .sub-row .verdict.tle {
+        color: var(--warning);
+      }
       .sub-row .body {
         margin-top: 0.25rem;
         color: var(--muted-foreground);
@@ -490,7 +520,18 @@
       <header class="exam-strip">
         <div class="left">
           <div class="lock">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="5" y="11" width="14" height="10" rx="2" />
+              <path d="M8 11V8a4 4 0 018 0v3" />
+            </svg>
           </div>
           <div class="exam-meta">
             <div class="label">Midterm · OS 實作</div>
@@ -511,7 +552,17 @@
             <code>140.112.30.47</code>
           </div>
           <button class="submit-end-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 3l10 10M13 3L3 13" />
+            </svg>
             Submit &amp; end exam
           </button>
         </div>
@@ -569,7 +620,14 @@
             <div class="psv-main-tab active">Statement</div>
             <div class="psv-main-tab">Constraints</div>
             <div class="psv-main-tab">Sample I/O</div>
-            <div class="psv-main-tab">Hints <span class="badge badge-muted" style="margin-left: 0.25rem; padding: 0 0.375rem; font-size: 10px">0</span></div>
+            <div class="psv-main-tab">
+              Hints
+              <span
+                class="badge badge-muted"
+                style="margin-left: 0.25rem; padding: 0 0.375rem; font-size: 10px"
+                >0</span
+              >
+            </div>
           </div>
 
           <div class="statement-body">
@@ -584,27 +642,40 @@
               <span>Memory 256 MB</span>
             </div>
 
-            <p class="mt-5">實作一個 time-sliced Round Robin scheduler。給定一組 process 以及 time quantum，請模擬 scheduler 的執行順序並輸出每個 process 的完成時間。</p>
+            <p class="mt-5">
+              實作一個 time-sliced Round Robin scheduler。給定一組 process 以及 time
+              quantum，請模擬 scheduler 的執行順序並輸出每個 process 的完成時間。
+            </p>
 
             <h2>Input</h2>
-            <p>第一行包含兩個整數 <code>n</code> 和 <code>q</code>，分別代表 process 數量與 time quantum。接下來 <code>n</code> 行每行兩個整數 <code>arrival_i</code> 與 <code>burst_i</code>。</p>
+            <p>
+              第一行包含兩個整數 <code>n</code> 和 <code>q</code>，分別代表 process 數量與 time
+              quantum。接下來 <code>n</code> 行每行兩個整數 <code>arrival_i</code> 與
+              <code>burst_i</code>。
+            </p>
 
             <h2>Output</h2>
-            <p>輸出 <code>n</code> 行，第 <code>i</code> 行為 process <code>i</code> 的完成時間。</p>
+            <p>
+              輸出 <code>n</code> 行，第 <code>i</code> 行為 process <code>i</code> 的完成時間。
+            </p>
 
             <div class="io-grid">
               <div class="io-block">
                 <div class="label">Sample Input</div>
-                <pre>3 2
+                <pre>
+3 2
 0 5
 1 3
-2 4</pre>
+2 4</pre
+                >
               </div>
               <div class="io-block">
                 <div class="label">Sample Output</div>
-                <pre>10
+                <pre>
+10
 8
-12</pre>
+12</pre
+                >
               </div>
             </div>
 
@@ -622,9 +693,13 @@
             <div class="editor-tab-bar">
               <span class="editor-lang">C++</span>
               <span class="editor-file">solution.cpp</span>
-              <span style="margin-left: auto; color: rgba(245, 237, 228, 0.4)">Auto-saved · 12s ago</span>
+              <span style="margin-left: auto; color: rgba(245, 237, 228, 0.4)"
+                >Auto-saved · 12s ago</span
+              >
             </div>
-            <pre class="editor-area"><span class="ln">  1</span><span class="cm">// Round Robin scheduler</span>
+            <pre
+              class="editor-area"
+            ><span class="ln">  1</span><span class="cm">// Round Robin scheduler</span>
 <span class="ln">  2</span><span class="kw">#include</span> <span class="st">&lt;bits/stdc++.h&gt;</span>
 <span class="ln">  3</span><span class="kw">using namespace</span> std;
 <span class="ln">  4</span>
@@ -644,12 +719,20 @@
             <div class="editor-footer">
               <span class="status">Ln 12, Col 22 · UTF-8 · LF</span>
               <button class="btn-dark">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l3 3 7-7" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 8l3 3 7-7" />
+                </svg>
                 Run
               </button>
-              <button class="btn-dark btn-dark-primary">
-                送出本題
-              </button>
+              <button class="btn-dark btn-dark-primary">送出本題</button>
             </div>
           </div>
         </div>
@@ -659,7 +742,19 @@
           <div class="psv-side-head">
             <h3>提交紀錄</h3>
             <span class="scope-pill">
-              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1" /><path d="M5 7V5a3 3 0 016 0v2" /></svg>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="7" width="10" height="7" rx="1" />
+                <path d="M5 7V5a3 3 0 016 0v2" />
+              </svg>
               僅顯示本次考試 · 2 筆
             </span>
           </div>
@@ -680,8 +775,21 @@
               <div class="body">Compile error</div>
             </div>
 
-            <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(255, 250, 244, 0.5); border: 1px dashed var(--border); border-radius: var(--radius-md); font-size: var(--text-caption); color: var(--muted-foreground); line-height: var(--leading-relaxed)">
-              <strong style="color: var(--foreground); font-weight: 600">為什麼只看到 2 筆？</strong><br />
+            <div
+              style="
+                margin-top: 1rem;
+                padding: 0.75rem;
+                background: rgba(255, 250, 244, 0.5);
+                border: 1px dashed var(--border);
+                border-radius: var(--radius-md);
+                font-size: var(--text-caption);
+                color: var(--muted-foreground);
+                line-height: var(--leading-relaxed);
+              "
+            >
+              <strong style="color: var(--foreground); font-weight: 600"
+                >為什麼只看到 2 筆？</strong
+              ><br />
               考試模式下，提交紀錄只顯示本次考試。你在其他練習 / 作業上的提交不會出現。這是
               server-side 的 scope 限制，不是前端過濾。
             </div>

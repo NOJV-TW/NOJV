@@ -33,9 +33,13 @@
         background: var(--muted-foreground);
       }
 
-      .sub-tab-bar { margin: 1.75rem 0 2rem; }
+      .sub-tab-bar {
+        margin: 1.75rem 0 2rem;
+      }
 
-      .panel-wrap { position: relative; }
+      .panel-wrap {
+        position: relative;
+      }
 
       .panel-label {
         position: absolute;
@@ -62,7 +66,9 @@
         backdrop-filter: blur(10px);
         margin-top: 3rem;
       }
-      .panel:first-of-type { margin-top: 0; }
+      .panel:first-of-type {
+        margin-top: 0;
+      }
 
       /* ═══ Problems tab ═══ */
       .problem-card {
@@ -140,7 +146,8 @@
         border-spacing: 0;
         font-variant-numeric: tabular-nums;
       }
-      .matrix th, .matrix td {
+      .matrix th,
+      .matrix td {
         padding: 0.875rem 0.75rem;
         text-align: center;
         vertical-align: middle;
@@ -195,8 +202,13 @@
       .matrix th.action-col {
         min-width: 72px;
       }
-      .matrix th:last-child, .matrix td:last-child { border-right: none; }
-      .matrix tbody tr:last-child td { border-bottom: none; }
+      .matrix th:last-child,
+      .matrix td:last-child {
+        border-right: none;
+      }
+      .matrix tbody tr:last-child td {
+        border-bottom: none;
+      }
 
       .matrix td.student-col {
         text-align: left;
@@ -248,7 +260,13 @@
         font-weight: 600;
       }
       .matrix td.cell.empty {
-        background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(79, 52, 35, 0.04) 4px, rgba(79, 52, 35, 0.04) 8px);
+        background: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 4px,
+          rgba(79, 52, 35, 0.04) 4px,
+          rgba(79, 52, 35, 0.04) 8px
+        );
         color: var(--muted-foreground);
       }
       .matrix td.cell .attempts {
@@ -300,10 +318,24 @@
         border-radius: var(--radius-xs);
         border: 1px solid var(--border-subtle);
       }
-      .legend-swatch.ac { background: rgba(77, 141, 91, 0.14); }
-      .legend-swatch.partial { background: rgba(184, 55, 42, 0.1); }
-      .legend-swatch.zero { background: rgba(184, 55, 42, 0.18); }
-      .legend-swatch.empty { background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(79, 52, 35, 0.04) 3px, rgba(79, 52, 35, 0.04) 6px); }
+      .legend-swatch.ac {
+        background: rgba(77, 141, 91, 0.14);
+      }
+      .legend-swatch.partial {
+        background: rgba(184, 55, 42, 0.1);
+      }
+      .legend-swatch.zero {
+        background: rgba(184, 55, 42, 0.18);
+      }
+      .legend-swatch.empty {
+        background: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 3px,
+          rgba(79, 52, 35, 0.04) 3px,
+          rgba(79, 52, 35, 0.04) 6px
+        );
+      }
 
       /* ═══ Plagiarism ═══ */
       .plag-summary-row {
@@ -362,9 +394,15 @@
         transition: opacity var(--duration-fast);
         background: linear-gradient(180deg, var(--muted-foreground), var(--border));
       }
-      .histogram-bar.warn { background: linear-gradient(180deg, var(--warning), rgba(182, 124, 31, 0.4)); }
-      .histogram-bar.danger { background: linear-gradient(180deg, var(--destructive), rgba(184, 55, 42, 0.4)); }
-      .histogram-bar:hover { filter: brightness(1.1); }
+      .histogram-bar.warn {
+        background: linear-gradient(180deg, var(--warning), rgba(182, 124, 31, 0.4));
+      }
+      .histogram-bar.danger {
+        background: linear-gradient(180deg, var(--destructive), rgba(184, 55, 42, 0.4));
+      }
+      .histogram-bar:hover {
+        filter: brightness(1.1);
+      }
       .histogram-bar .count {
         position: absolute;
         top: -1rem;
@@ -417,9 +455,18 @@
         letter-spacing: -0.03em;
         min-width: 100px;
       }
-      .plag-pair-card.high .plag-similarity { color: var(--destructive); }
-      .plag-pair-card.medium .plag-similarity { color: var(--warning); }
-      .plag-similarity .pct { font-size: 0.5em; vertical-align: 0.4em; color: var(--muted-foreground); font-weight: 400; }
+      .plag-pair-card.high .plag-similarity {
+        color: var(--destructive);
+      }
+      .plag-pair-card.medium .plag-similarity {
+        color: var(--warning);
+      }
+      .plag-similarity .pct {
+        font-size: 0.5em;
+        vertical-align: 0.4em;
+        color: var(--muted-foreground);
+        font-weight: 400;
+      }
 
       .plag-people {
         display: flex;
@@ -427,7 +474,9 @@
         gap: 0.75rem;
         font-size: var(--text-body);
       }
-      .plag-people .person .name { font-weight: 600; }
+      .plag-people .person .name {
+        font-weight: 600;
+      }
       .plag-people .person .handle {
         display: block;
         font-family: var(--font-mono);
@@ -507,12 +556,25 @@
         white-space: pre;
         overflow-x: auto;
       }
-      .diff-col:first-child { border-right: 1px solid rgba(245, 237, 228, 0.08); }
-      .diff-col .ln { color: rgba(245, 237, 228, 0.3); margin-right: 0.75rem; }
-      .diff-col .match { background: rgba(184, 55, 42, 0.22); }
-      .diff-col .kw { color: #d4834a; }
-      .diff-col .cm { color: rgba(245, 237, 228, 0.5); }
-      .diff-col .st { color: #c2c373; }
+      .diff-col:first-child {
+        border-right: 1px solid rgba(245, 237, 228, 0.08);
+      }
+      .diff-col .ln {
+        color: rgba(245, 237, 228, 0.3);
+        margin-right: 0.75rem;
+      }
+      .diff-col .match {
+        background: rgba(184, 55, 42, 0.22);
+      }
+      .diff-col .kw {
+        color: #d4834a;
+      }
+      .diff-col .cm {
+        color: rgba(245, 237, 228, 0.5);
+      }
+      .diff-col .st {
+        color: #c2c373;
+      }
 
       /* ═══ Settings ═══ */
       .danger-zone {
@@ -535,7 +597,9 @@
         padding: 0.875rem 0;
         border-top: 1px solid rgba(184, 55, 42, 0.18);
       }
-      .danger-row:first-of-type { border-top: none; }
+      .danger-row:first-of-type {
+        border-top: none;
+      }
     </style>
   </head>
   <body>
@@ -567,7 +631,17 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="assignment-hero animate-in">
         <a href="04-assignments-list.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作 / Assignments
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
@@ -590,18 +664,23 @@
       <div class="sub-tab-bar animate-in animate-in-1">
         <div class="sub-tabs">
           <button class="sub-tab">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h10v10H3z" /><path d="M3 7h10M7 3v10" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 3h10v10H3z" />
+              <path d="M3 7h10M7 3v10" />
+            </svg>
             Problems
           </button>
-          <button class="sub-tab active">
-            提交總表 <span class="tab-count">72</span>
-          </button>
-          <button class="sub-tab">
-            抄襲 <span class="tab-count">14</span>
-          </button>
-          <button class="sub-tab">
-            設定
-          </button>
+          <button class="sub-tab active">提交總表 <span class="tab-count">72</span></button>
+          <button class="sub-tab">抄襲 <span class="tab-count">14</span></button>
+          <button class="sub-tab">設定</button>
         </div>
       </div>
 
@@ -662,7 +741,9 @@
           <div class="flex items-baseline justify-between mb-4">
             <div>
               <h2 class="font-display text-title weight-500">每題得分矩陣</h2>
-              <p class="text-caption text-muted mt-1">每個 cell 是該學生該題的最高分。點 cell 跳到該題的提交列表。</p>
+              <p class="text-caption text-muted mt-1">
+                每個 cell 是該學生該題的最高分。點 cell 跳到該題的提交列表。
+              </p>
             </div>
             <span class="text-caption text-muted">72 名學生 · 3 題 · 最高 300 分</span>
           </div>
@@ -683,13 +764,34 @@
             </select>
             <div class="input-wrap" style="flex: 1; max-width: 260px">
               <span class="input-icon">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5" /><path d="M11 11l3 3" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M11 11l3 3" />
+                </svg>
               </span>
               <input class="input" type="text" placeholder="搜尋 handle / 姓名" />
             </div>
             <span style="flex: 1"></span>
             <button class="btn btn-outline btn-sm">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h12M4 8h8M6 13h4" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M2 3h12M4 8h8M6 13h4" />
+              </svg>
               匯出 CSV
             </button>
           </div>
@@ -699,9 +801,15 @@
               <thead>
                 <tr>
                   <th class="student-col">學生</th>
-                  <th class="problem-col"><span class="letter">A</span><span class="p-max">max 100</span></th>
-                  <th class="problem-col"><span class="letter">B</span><span class="p-max">max 100</span></th>
-                  <th class="problem-col"><span class="letter">C</span><span class="p-max">max 100</span></th>
+                  <th class="problem-col">
+                    <span class="letter">A</span><span class="p-max">max 100</span>
+                  </th>
+                  <th class="problem-col">
+                    <span class="letter">B</span><span class="p-max">max 100</span>
+                  </th>
+                  <th class="problem-col">
+                    <span class="letter">C</span><span class="p-max">max 100</span>
+                  </th>
                   <th class="total-col">總分</th>
                   <th class="action-col"></th>
                 </tr>
@@ -712,10 +820,18 @@
                     <div class="name">林怡君</div>
                     <div class="handle">b11902024</div>
                   </td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">2 次</span></td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">3 次</span></td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">4 次</span></td>
-                  <td class="total-col">300<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">2 次</span>
+                  </td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">3 次</span>
+                  </td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">4 次</span>
+                  </td>
+                  <td class="total-col">
+                    300<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
                 <tr>
@@ -723,10 +839,14 @@
                     <div class="name">陳冠宇</div>
                     <div class="handle">b11902001</div>
                   </td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">3 次</span></td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">3 次</span>
+                  </td>
                   <td class="cell partial">60<span class="attempts">2 次</span></td>
                   <td class="cell empty">—</td>
-                  <td class="total-col">160<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="total-col">
+                    160<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
                 <tr>
@@ -734,10 +854,14 @@
                     <div class="name">王博翔</div>
                     <div class="handle">b11902077</div>
                   </td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">1 次</span></td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">1 次</span>
+                  </td>
                   <td class="cell partial">60<span class="attempts">4 次</span></td>
                   <td class="cell zero">0<span class="attempts">2 次</span></td>
-                  <td class="total-col">160<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="total-col">
+                    160<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
                 <tr>
@@ -748,7 +872,9 @@
                   <td class="cell partial">75<span class="attempts">5 次</span></td>
                   <td class="cell partial">60<span class="attempts">3 次</span></td>
                   <td class="cell empty">—</td>
-                  <td class="total-col">135<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="total-col">
+                    135<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
                 <tr>
@@ -756,10 +882,14 @@
                     <div class="name">張庭豪</div>
                     <div class="handle">b11902188</div>
                   </td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">2 次</span></td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">2 次</span>
+                  </td>
                   <td class="cell empty">—</td>
                   <td class="cell empty">—</td>
-                  <td class="total-col">100<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="total-col">
+                    100<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
                 <tr>
@@ -767,10 +897,14 @@
                     <div class="name">李家豪</div>
                     <div class="handle">b11902112</div>
                   </td>
-                  <td class="cell ac">100<span class="check">✓</span><span class="attempts">4 次</span></td>
+                  <td class="cell ac">
+                    100<span class="check">✓</span><span class="attempts">4 次</span>
+                  </td>
                   <td class="cell partial">45<span class="attempts">6 次</span></td>
                   <td class="cell empty">—</td>
-                  <td class="total-col">145<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="total-col">
+                    145<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
                 <tr>
@@ -781,7 +915,9 @@
                   <td class="cell empty">—</td>
                   <td class="cell empty">—</td>
                   <td class="cell empty">—</td>
-                  <td class="total-col">0<span class="slash"> / </span><span class="total">300</span></td>
+                  <td class="total-col">
+                    0<span class="slash"> / </span><span class="total">300</span>
+                  </td>
                   <td class="action-col"><a href="#">View →</a></td>
                 </tr>
               </tbody>
@@ -791,7 +927,9 @@
           <div class="matrix-legend">
             <span class="legend-item"><span class="legend-swatch ac"></span>AC (滿分)</span>
             <span class="legend-item"><span class="legend-swatch partial"></span>部分得分</span>
-            <span class="legend-item"><span class="legend-swatch zero"></span>0 分（有嘗試）</span>
+            <span class="legend-item"
+              ><span class="legend-swatch zero"></span>0 分（有嘗試）</span
+            >
             <span class="legend-item"><span class="legend-swatch empty"></span>未提交</span>
           </div>
 
@@ -812,15 +950,37 @@
           <div class="flex items-baseline justify-between mb-4">
             <div>
               <h2 class="font-display text-title weight-500">抄襲掃描報告</h2>
-              <p class="text-caption text-muted mt-1">最近一次 MOSS 掃描：4/17 08:42（4 小時前）</p>
+              <p class="text-caption text-muted mt-1">
+                最近一次 MOSS 掃描：4/17 08:42（4 小時前）
+              </p>
             </div>
             <div class="flex gap-2">
               <button class="btn btn-outline btn-sm">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8l4-4M2 8l4 4M2 8h12" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M2 8l4-4M2 8l4 4M2 8h12" />
+                </svg>
                 下載完整報告
               </button>
               <button class="btn btn-outline btn-sm">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 11-2-4M13 3v4h-4" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M13 8a5 5 0 11-2-4M13 3v4h-4" />
+                </svg>
                 重新掃描
               </button>
             </div>
@@ -843,7 +1003,9 @@
               </div>
             </div>
             <div>
-              <p class="text-caption text-muted" style="text-align: right">掃描範圍：C · Readers-Writers</p>
+              <p class="text-caption text-muted" style="text-align: right">
+                掃描範圍：C · Readers-Writers
+              </p>
               <button class="btn btn-outline btn-sm mt-2">切換題目</button>
             </div>
           </div>
@@ -860,11 +1022,21 @@
               <div class="histogram-bar" style="height: 10%"><span class="count">0</span></div>
               <div class="histogram-bar" style="height: 20%"><span class="count">1</span></div>
               <div class="histogram-bar" style="height: 40%"><span class="count">2</span></div>
-              <div class="histogram-bar warn" style="height: 60%"><span class="count">3</span></div>
-              <div class="histogram-bar warn" style="height: 80%"><span class="count">4</span></div>
-              <div class="histogram-bar danger" style="height: 30%"><span class="count">1</span></div>
-              <div class="histogram-bar danger" style="height: 60%"><span class="count">2</span></div>
-              <div class="histogram-bar danger" style="height: 20%"><span class="count">1</span></div>
+              <div class="histogram-bar warn" style="height: 60%">
+                <span class="count">3</span>
+              </div>
+              <div class="histogram-bar warn" style="height: 80%">
+                <span class="count">4</span>
+              </div>
+              <div class="histogram-bar danger" style="height: 30%">
+                <span class="count">1</span>
+              </div>
+              <div class="histogram-bar danger" style="height: 60%">
+                <span class="count">2</span>
+              </div>
+              <div class="histogram-bar danger" style="height: 20%">
+                <span class="count">1</span>
+              </div>
             </div>
             <div class="histogram-labels">
               <span>0-10</span>
@@ -924,26 +1096,40 @@
                 <span>王博翔 / solution.c · line 18</span>
               </div>
               <div class="diff-body">
-                <div class="diff-col"><span class="ln">12</span><span class="match"><span class="kw">void</span> producer(<span class="kw">int</span> id) {</span>
-<span class="ln">13</span><span class="match">  <span class="kw">while</span>(1) {</span>
-<span class="ln">14</span><span class="match">    sem_wait(&amp;empty);</span>
-<span class="ln">15</span><span class="match">    sem_wait(&amp;mutex);</span>
-<span class="ln">16</span><span class="match">    buf[in] = produce();</span>
-<span class="ln">17</span><span class="match">    in = (in + 1) % N;</span>
-<span class="ln">18</span><span class="match">    sem_post(&amp;mutex);</span>
-<span class="ln">19</span><span class="match">    sem_post(&amp;full);</span>
-<span class="ln">20</span><span class="match">  }</span>
-<span class="ln">21</span><span class="match">}</span></div>
-                <div class="diff-col"><span class="ln">18</span><span class="match"><span class="kw">void</span> producer(<span class="kw">int</span> id) {</span>
-<span class="ln">19</span><span class="match">  <span class="kw">while</span>(1) {</span>
-<span class="ln">20</span><span class="match">    sem_wait(&amp;empty);</span>
-<span class="ln">21</span><span class="match">    sem_wait(&amp;mutex);</span>
-<span class="ln">22</span><span class="match">    buf[in] = produce();</span>
-<span class="ln">23</span><span class="match">    in = (in + 1) % N;</span>
-<span class="ln">24</span><span class="match">    sem_post(&amp;mutex);</span>
-<span class="ln">25</span><span class="match">    sem_post(&amp;full);</span>
-<span class="ln">26</span><span class="match">  }</span>
-<span class="ln">27</span><span class="match">}</span></div>
+                <div class="diff-col">
+                  <span class="ln">12</span
+                  ><span class="match"
+                    ><span class="kw">void</span> producer(<span class="kw">int</span> id)
+                    {</span
+                  >
+                  <span class="ln">13</span
+                  ><span class="match"> <span class="kw">while</span>(1) {</span>
+                  <span class="ln">14</span><span class="match"> sem_wait(&amp;empty);</span>
+                  <span class="ln">15</span><span class="match"> sem_wait(&amp;mutex);</span>
+                  <span class="ln">16</span><span class="match"> buf[in] = produce();</span>
+                  <span class="ln">17</span><span class="match"> in = (in + 1) % N;</span>
+                  <span class="ln">18</span><span class="match"> sem_post(&amp;mutex);</span>
+                  <span class="ln">19</span><span class="match"> sem_post(&amp;full);</span>
+                  <span class="ln">20</span><span class="match"> }</span>
+                  <span class="ln">21</span><span class="match">}</span>
+                </div>
+                <div class="diff-col">
+                  <span class="ln">18</span
+                  ><span class="match"
+                    ><span class="kw">void</span> producer(<span class="kw">int</span> id)
+                    {</span
+                  >
+                  <span class="ln">19</span
+                  ><span class="match"> <span class="kw">while</span>(1) {</span>
+                  <span class="ln">20</span><span class="match"> sem_wait(&amp;empty);</span>
+                  <span class="ln">21</span><span class="match"> sem_wait(&amp;mutex);</span>
+                  <span class="ln">22</span><span class="match"> buf[in] = produce();</span>
+                  <span class="ln">23</span><span class="match"> in = (in + 1) % N;</span>
+                  <span class="ln">24</span><span class="match"> sem_post(&amp;mutex);</span>
+                  <span class="ln">25</span><span class="match"> sem_post(&amp;full);</span>
+                  <span class="ln">26</span><span class="match"> }</span>
+                  <span class="ln">27</span><span class="match">}</span>
+                </div>
               </div>
             </div>
           </div>

@@ -14,12 +14,7 @@ import {
 } from "@nojv/core";
 import { canManageCourse, examDomain, problemDomain } from "@nojv/domain";
 
-import type {
-  Actions,
-  PageServerLoad,
-  PageServerLoadEvent,
-  RequestEvent
-} from "./$types";
+import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
@@ -107,10 +102,7 @@ function toIsoOrEmpty(local: string): string {
   return date.toISOString();
 }
 
-function buildCreatePayload(
-  form: ExamFormData,
-  status: ExamPublishStatus
-): ExamCreate {
+function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): ExamCreate {
   return examCreateSchema.parse({
     allowedLanguages: form.allowedLanguages,
     courseId: form.courseId,
@@ -143,10 +135,7 @@ async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
     return fail(403, { error: "Forbidden" });
   }
 
-  const form = await superValidate<ExamFormData, FormMessage>(
-    event,
-    zod4(examFormSchema)
-  );
+  const form = await superValidate<ExamFormData, FormMessage>(event, zod4(examFormSchema));
   if (!form.valid) {
     return fail(400, { form });
   }

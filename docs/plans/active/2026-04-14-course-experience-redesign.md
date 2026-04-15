@@ -98,15 +98,15 @@ tests/
 
 ## Phase overview
 
-| Phase | What | Depends on | Estimated | Parallel-safe |
-| ----- | ---- | ---------- | --------- | ------------- |
-| 0     | (Already shipped — `2026-04-11-silent-failure-and-problemids-fix.md`) | — | — | — |
-| 1     | Schema + DB (split Contest/Exam, drop slugs, CourseJoinToken, add session tables, handle column, adjustment-rules shape) | — | 3-4 days | Tasks 1.1–1.4 in parallel; 1.5 depends on 1.1–1.4 |
-| 2     | Route scaffolding with 308 redirects from old paths | 1 | 1 day | 2.1–2.3 parallel, 2.4 depends on all |
-| 3     | UI ports per prototype + shared ProblemSolveView | 2 | 5-8 days | Most tasks parallel after 3.1 (base layouts) |
-| 4     | Exam session lock hook + release + audit | 2 + 3.10–3.11 | 2-3 days | Sequential within phase |
-| 5     | Members rework: bulk handle paste + placeholder user + auth attach hook | 1 | 1-2 days | Sequential |
-| 6     | Cleanup: drop `/manage/*`, per-card locale toggles, dead code, contest gate removal | 1–5 all green | 1 day | Independent |
+| Phase | What                                                                                                                     | Depends on    | Estimated | Parallel-safe                                     |
+| ----- | ------------------------------------------------------------------------------------------------------------------------ | ------------- | --------- | ------------------------------------------------- |
+| 0     | (Already shipped — `2026-04-11-silent-failure-and-problemids-fix.md`)                                                    | —             | —         | —                                                 |
+| 1     | Schema + DB (split Contest/Exam, drop slugs, CourseJoinToken, add session tables, handle column, adjustment-rules shape) | —             | 3-4 days  | Tasks 1.1–1.4 in parallel; 1.5 depends on 1.1–1.4 |
+| 2     | Route scaffolding with 308 redirects from old paths                                                                      | 1             | 1 day     | 2.1–2.3 parallel, 2.4 depends on all              |
+| 3     | UI ports per prototype + shared ProblemSolveView                                                                         | 2             | 5-8 days  | Most tasks parallel after 3.1 (base layouts)      |
+| 4     | Exam session lock hook + release + audit                                                                                 | 2 + 3.10–3.11 | 2-3 days  | Sequential within phase                           |
+| 5     | Members rework: bulk handle paste + placeholder user + auth attach hook                                                  | 1             | 1-2 days  | Sequential                                        |
+| 6     | Cleanup: drop `/manage/*`, per-card locale toggles, dead code, contest gate removal                                      | 1–5 all green | 1 day     | Independent                                       |
 
 Total estimate: **14-22 working days**. With subagent parallelization on Phase 3, wall-clock can compress by ~30%.
 
@@ -121,6 +121,7 @@ Total estimate: **14-22 working days**. With subagent parallelization on Phase 3
 **Dependencies:** independent — can start immediately.
 
 **Files:**
+
 - Create: `packages/domain/src/scoring/icpc.ts`
 - Create: `packages/domain/src/scoring/ioi.ts`
 - Create: `packages/domain/src/scoring/rank-util.ts`
@@ -136,6 +137,7 @@ Total estimate: **14-22 working days**. With subagent parallelization on Phase 3
 - Modify: `tests/unit/domain/scoring-*.test.ts` (existing contest scoring tests) — update imports
 
 **Steps:**
+
 1. Read `packages/domain/src/contest/icpc-scoring.ts`, `ioi-scoring.ts`, `rank-util.ts`, `scoreboard-builder.ts`. Identify which functions are pure (no contest-specific types) vs which accept contest shape.
 2. Create the new files under `packages/domain/src/scoring/`. Parameterise any function that accepted `Contest` to accept a neutral `TimedSession` shape: `{ id: string; startsAt: Date; endsAt: Date; frozenAt: Date | null }`. For subtask strategies, accept the strategy map directly — do not take the whole contest row.
 3. Delete the original files in `contest/` and re-point `contest/scoring.ts` to import from `scoring/`. Keep `contest/scoring.ts` as a thin orchestration layer that fetches contest data and calls the shared algorithms.
@@ -143,11 +145,13 @@ Total estimate: **14-22 working days**. With subagent parallelization on Phase 3
 5. Update `tests/unit/domain/scoring-*.test.ts` imports — move test files to `tests/unit/domain/scoring/*.test.ts` and add new unit tests that verify scoring still produces the same output for fixture data.
 
 **Verification:**
+
 ```bash
 pnpm -w typecheck
 pnpm -w lint
 pnpm test:unit -- scoring
 ```
+
 All existing contest scoring tests should still pass against the hoisted algorithms. 0 new warnings.
 
 **Commit:** `refactor(domain): hoist scoring algorithms to neutral module`
@@ -161,12 +165,14 @@ All existing contest scoring tests should still pass against the hoisted algorit
 **Dependencies:** independent.
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/adjustment-rules.ts` (create if missing — check `packages/core/src/schemas/course.ts` and `contest.ts` for current location)
 - Modify: `packages/domain/src/submission/adjustments.ts` — rewrite `applyAdjustmentRules`
 - Modify: `packages/db/prisma/seed.ts` — any seed data using `half_life` variant
 - Modify: `tests/unit/domain/adjustments.test.ts` — replace half-life tests with flat/daily/final-day tests
 
 **New rule types (Zod discriminated union):**
+
 ```ts
 export const adjustmentRuleSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("time_bonus"), maxBonus: z.number().min(0).max(100), ... }),
@@ -177,6 +183,7 @@ export const adjustmentRuleSchema = z.discriminatedUnion("type", [
 ```
 
 **Steps:**
+
 1. Look at current `adjustments.ts` and identify which variants exist. Write down the mapping (old → new).
 2. Update the Zod schema. Remove `late_penalty_decay` variant entirely.
 3. Rewrite `applyAdjustmentRules` to handle the three new late-penalty modes. `final_day_zero` returns 0 if `now > finalDay`; otherwise returns the original score.
@@ -185,6 +192,7 @@ export const adjustmentRuleSchema = z.discriminatedUnion("type", [
 6. Rewrite the unit tests.
 
 **Verification:**
+
 ```bash
 pnpm -w typecheck
 pnpm test:unit -- adjustments
@@ -201,6 +209,7 @@ pnpm test:unit -- adjustments
 **Dependencies:** 1.2 must be merged because seed rewrites touch adjustmentRules at the same time.
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/course.prisma` — drop `Course.slug`, `Course.visibility`, `Course.locale` columns; drop `CourseVisibility` enum; drop `CourseJoinToken` model and all relations; drop `CourseMembership.joinedTokenId` field; drop `CourseJoinTokenKind` enum
 - Modify: `packages/db/prisma/schema/auth.prisma` — remove `createdJoinTokens` relation from `User`
 - Create: `packages/db/prisma/migrations/20260414000000_drop_course_slug_visibility_locale_jointoken/migration.sql`
@@ -213,6 +222,7 @@ pnpm test:unit -- adjustments
 - Modify: any `apps/web` route or component importing the removed symbols — expect many compile errors, let typechecker point them out
 
 **Migration SQL:**
+
 ```sql
 -- Drop FK dependencies first
 ALTER TABLE "CourseMembership" DROP COLUMN IF EXISTS "joinedTokenId";
@@ -227,6 +237,7 @@ DROP TYPE IF EXISTS "CourseVisibility";
 ```
 
 **Steps:**
+
 1. Run `grep -rn "CourseJoinToken\|course\.slug\|course\.visibility\|course\.locale" packages apps tests` to enumerate every consumer. Write the list into the commit message so nothing is missed.
 2. Update the Prisma schema first. `pnpm db:generate` and observe the typescript errors across the tree — those are your checklist.
 3. Delete `course-join-token.ts` repository and its index re-export.
@@ -238,6 +249,7 @@ DROP TYPE IF EXISTS "CourseVisibility";
 9. Run `pnpm db:push` in a test DB; observe that existing course rows survive without errors.
 
 **Verification:**
+
 ```bash
 pnpm db:generate
 pnpm -w typecheck     # must pass
@@ -256,6 +268,7 @@ pnpm -w test:unit     # should pass existing unit tests (may need to delete test
 **Dependencies:** 1.1 (shared scoring module) must be in place so `exam/scoring.ts` and `contest/scoring.ts` both import from `scoring/`.
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/contest.prisma` — shrink `Contest` (drop `courseId`, keep `slug` which standalone contests still use, drop `ipWhitelistEnabled/ipBindingEnabled/ipViolationMode/ipWhitelist/pageLockEnabled` proctoring fields); add `Exam` / `ExamProblem` / `ExamParticipation` models; update `IpViolationLog` to reference Exam instead of Contest; update `Submission` to have both `examId?` and `contestId?` with CHECK constraint
 - Create: `packages/db/prisma/migrations/20260414010000_split_contest_into_exam_and_contest/migration.sql`
 - Create: `packages/db/src/repositories/exam.ts` (mirror of contest.ts but scoped to Exam and always courseId-bound)
@@ -272,6 +285,7 @@ pnpm -w test:unit     # should pass existing unit tests (may need to delete test
 - Create: `packages/core/src/schemas/exam.ts` — new schema with mandatory `courseId`, proctoring fields
 
 **Schema outline (see spec §5.4 for full fields):**
+
 ```prisma
 enum ExamStatus { draft published archived }
 enum ExamScoringMode { problem_count point_sum }
@@ -335,6 +349,7 @@ model ExamParticipation {
 ```
 
 **Shrunk Contest:**
+
 ```prisma
 model Contest {
   id                String   @id @default(cuid())
@@ -372,6 +387,7 @@ enum ContestStatus { draft published archived }
 ```
 
 **Submission split:**
+
 ```prisma
 model Submission {
   // existing fields...
@@ -387,6 +403,7 @@ model Submission {
 ```
 
 **Data migration order (critical):**
+
 ```sql
 BEGIN;
 
@@ -458,6 +475,7 @@ COMMIT;
 ```
 
 **Steps:**
+
 1. Read current `contest.prisma` end-to-end. List all consumers of `Contest.courseId` and proctoring fields: `grep -rn "contest\.courseId\|courseId.*contest\|contest\.ipWhitelist\|contest\.pageLock" packages apps`.
 2. Extract `ContestParticipation` shape and clone it to `ExamParticipation` with minor differences: participation status enum same, but FK to Exam; no `inviteCode` concept.
 3. Write the new `Exam*` models. Keep `Contest` model in the same file but heavily reduced.
@@ -470,6 +488,7 @@ COMMIT;
 10. Run `pnpm db:generate`, fix all the resulting typescript errors across the tree. There will be many.
 
 **Verification:**
+
 ```bash
 pnpm db:generate
 pnpm -w typecheck     # must pass — expect 30-50 errors on first attempt
@@ -490,6 +509,7 @@ pnpm test:integration        # especially the submission/scoreboard integration 
 **Dependencies:** independent of 1.1–1.4.
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/auth.prisma` — add `handle String? @unique` to `User`; add `UserStatus` enum if not present with `pending_first_login` value
 - Create: `packages/db/prisma/migrations/20260414020000_add_user_handle_and_placeholder/migration.sql`
 - Modify: `packages/db/src/repositories/user.ts` — add `findByHandle(handle)`, `createPlaceholder(handle, addedByUserId)`, `attachPlaceholderToAuth(handle, authAccount)` helpers
@@ -497,6 +517,7 @@ pnpm test:integration        # especially the submission/scoreboard integration 
 - Modify: `apps/web/src/lib/auth.ts` (better-auth config) — add `onBeforeCreateUser` hook that checks for existing placeholder by handle and merges instead of creating new
 
 **Migration SQL:**
+
 ```sql
 -- Enum adjustment if needed
 DO $$ BEGIN
@@ -513,6 +534,7 @@ CREATE UNIQUE INDEX "User_handle_key" ON "User"("handle") WHERE "handle" IS NOT 
 ```
 
 **Steps:**
+
 1. Read `packages/db/prisma/schema/auth.prisma` — check if `User.status` exists. If not, add it with `UserStatus` enum. If yes, add the `pending_first_login` value.
 2. Add `handle` column. Partial unique index so existing users without handles don't fail.
 3. Write repository helpers. `createPlaceholder` inserts `{ handle, status: 'pending_first_login', email: null, password: null }`.
@@ -520,6 +542,7 @@ CREATE UNIQUE INDEX "User_handle_key" ON "User"("handle") WHERE "handle" IS NOT 
 5. Write unit tests for `findByHandle`, `createPlaceholder`. Integration test the auth attach flow with a mocked OAuth callback.
 
 **Verification:**
+
 ```bash
 pnpm -w typecheck
 pnpm test:unit -- user
@@ -537,12 +560,14 @@ pnpm test:integration -- auth
 **Dependencies:** 1.4 (Exam table must exist).
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/contest.prisma` — add `ActiveExamSession` and `ExamSessionEvent` models
 - Create: `packages/db/prisma/migrations/20260414030000_add_active_exam_session_tables/migration.sql`
 - Create: `packages/db/src/repositories/exam-session.ts` — CRUD + heartbeat update
 - Create: `packages/domain/src/exam/session.ts` — `startSession`, `endSession(reason)`, `recordEvent`
 
 **Schema:**
+
 ```prisma
 enum ExamSessionReleaseReason { submitted time_up released_by_instructor }
 enum ExamSessionEventType { enter leave visibility_lost release auto_close heartbeat }
@@ -578,12 +603,14 @@ model ExamSessionEvent {
 ```
 
 **Steps:**
+
 1. Add models to `contest.prisma` (same file where Exam lives).
 2. Generate migration.
 3. Write repository + domain helpers.
 4. Write unit tests for session lifecycle.
 
 **Verification:**
+
 ```bash
 pnpm db:generate
 pnpm -w typecheck
@@ -601,12 +628,14 @@ pnpm test:unit -- exam-session
 **Dependencies:** 1.3 (schema must have attempt field on CourseAssessment).
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/course.prisma` — rename `CourseAssessment.maxAttempts Int?` to `CourseAssessment.maxAttemptsPerDay Int?` OR keep `maxAttempts` name and document semantic change
 - Modify: `packages/domain/src/submission/mutations.ts` — in the submit path, query `COUNT(*)` from Submission where `userId + courseAssessmentId + createdAt >= start_of_day_local` and compare to `maxAttemptsPerDay`
 - Create: `packages/core/src/schemas/course.ts` — field rename
 - Migration to rename column
 
 **Steps:**
+
 1. Decide: rename to `maxAttemptsPerDay` (semantic clarity) vs keep `maxAttempts` (migration-free). I recommend rename — it's 1 migration and future code is unambiguous.
 2. Rename column via migration: `ALTER TABLE "CourseAssessment" RENAME COLUMN "maxAttempts" TO "maxAttemptsPerDay"`.
 3. Rewrite the attempt check in `submission/mutations.ts`:
@@ -614,7 +643,9 @@ pnpm test:unit -- exam-session
    if (assessment.maxAttemptsPerDay != null) {
      const startOfDay = startOfToday(); // utc or local? use UTC for simplicity
      const todayCount = await submissionRepo.countForUserAndAssessmentSince(
-       userId, assessmentId, startOfDay
+       userId,
+       assessmentId,
+       startOfDay
      );
      if (todayCount >= assessment.maxAttemptsPerDay) {
        throw new ConflictError("每日提交次數已達上限，請明天再試");
@@ -625,6 +656,7 @@ pnpm test:unit -- exam-session
 5. Unit test: create assessment with limit 3, submit 3 times same day → 4th throws; roll over to next day fakeTimer → submission allowed.
 
 **Verification:**
+
 ```bash
 pnpm -w typecheck
 pnpm test:unit -- submission-mutations
@@ -639,9 +671,11 @@ pnpm test:unit -- submission-mutations
 **Dependencies:** 1.2, 1.3, 1.4, 1.5, 1.6, 1.7 all merged.
 
 **Files:**
+
 - Modify: `packages/db/prisma/seed.ts`
 
 **Steps:**
+
 1. Drop every `slug`, `visibility`, `locale` mention from course seeds.
 2. Drop every `joinToken` seed.
 3. Rename `maxAttempts` → `maxAttemptsPerDay`.
@@ -651,6 +685,7 @@ pnpm test:unit -- submission-mutations
 7. Validate: `pnpm db:push && pnpm db:seed` runs cleanly.
 
 **Verification:**
+
 ```bash
 pnpm db:push
 pnpm db:seed
@@ -669,6 +704,7 @@ pnpm test:integration -- seed
 **Dependencies:** Phase 1 complete.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/+layout.server.ts`
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/+layout.svelte` — sticky tab bar matching Prototype 03
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/+page.svelte` — Overview content container (to be filled in Task 3.3)
@@ -685,12 +721,14 @@ pnpm test:integration -- seed
 - Create: `apps/web/src/routes/(app)/exams/+page.svelte` (stub — Prototype 15 placeholder)
 
 **Steps:**
+
 1. Create the skeleton files with minimal content (just enough for the build to succeed — a breadcrumb and a "TODO" marker).
 2. Wire the `+layout.server.ts` to fetch the course by `params.courseId` via the new `course/queries.ts#getCourseById`.
 3. The layout must determine whether the current user has management role (via domain `canManageCourse(actor, course, memberships)`) and expose it as `data.isManager`.
 4. Tab bar reads `$page.url.pathname` to highlight active tab. Settings tab only shown when `isManager`.
 
 **Verification:**
+
 ```bash
 pnpm -w typecheck
 pnpm --filter @nojv/web dev    # visit /courses/[someCuid] and verify layout renders
@@ -705,11 +743,13 @@ pnpm --filter @nojv/web dev    # visit /courses/[someCuid] and verify layout ren
 **Dependencies:** 2.1.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[slug]/+page.server.ts` — resolve slug → cuid via `findCourseByLegacySlugRedirect` (temporary helper), then `redirect(308, /courses/${courseId})`
 - Same pattern for: `[slug]/manage/+page.server.ts`, `[slug]/manage/members/+page.server.ts`, `[slug]/manage/assessments/+page.server.ts`, `[slug]/manage/progress/+page.server.ts`, `[slug]/manage/plagiarism/[assessmentSlug]/+page.server.ts`
 - For `[slug]/join/[token]/+page.server.ts` — redirect to `/courses` with a flash message saying "Join links are deprecated; ask your teacher to add you by handle."
 
 **Wait:** In Task 1.3 we dropped `Course.slug` column entirely. So these redirects can't actually look up slug → cuid. Options:
+
 - (a) **No redirects** — legacy URLs 404 since there's no way to map them. Acceptable if production has no real external links to course pages (they're auth-gated anyway).
 - (b) Keep a one-shot **`courseSlugRedirects` table** populated at migration time mapping old slugs → cuid, use it as a lookup. Drop the table after 30 days.
 
@@ -718,10 +758,12 @@ Recommend **(a) no redirects** — the course pages are auth-gated, no one has b
 So the actual task is: **delete the old `[slug]` route tree entirely.**
 
 **Updated files:**
+
 - Delete: `apps/web/src/routes/(app)/courses/[slug]/` entire subtree
 - Verify no imports reference the deleted paths (`grep -rn "courses/\\[slug\\]"`).
 
 **Verification:**
+
 ```bash
 pnpm -w typecheck
 pnpm -w lint
@@ -736,6 +778,7 @@ pnpm -w lint
 **Dependencies:** 2.1. Independent of 2.2.
 
 **Files:**
+
 - If any path still references `[assessmentSlug]`, rename it to `[assignmentId]`.
 - Delete `/courses/[slug]/join/[token]` route tree (should be gone from 2.2 already — verify).
 
@@ -752,6 +795,7 @@ pnpm -w lint
 **Dependencies:** Phase 2 complete.
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/course/CourseTabBar.svelte` — the sticky tab strip used by every `/courses/[id]/*` page
 - Create: `apps/web/src/lib/components/course/CourseHero.svelte` — course title + breadcrumb + teacher badge
 - Create: `apps/web/src/lib/components/course/CourseTagPill.svelte` — small course tag used in cross-course listing pages
@@ -760,6 +804,7 @@ pnpm -w lint
 - Create: `apps/web/src/lib/components/course/LatePenaltyRuleBuilder.svelte` — the rule picker UI (Prototype 02/05/13)
 
 **Steps:**
+
 1. Build each component, driven by props. No data fetching.
 2. Write storybook-ish test routes under `apps/web/src/routes/(dev)/ui-test/` if helpful, but not required.
 
@@ -776,11 +821,13 @@ pnpm -w lint
 **Dependencies:** 3.1.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/+page.server.ts` — load two lists via `courseDomain.listEnrolledForUser(userId)` and `courseDomain.listManagedForUser(userId)`
 - Modify: `apps/web/src/routes/(app)/courses/+page.svelte` — ported layout
 - New paraglide keys as needed
 
 **Steps:**
+
 1. Loader: single call to `courseDomain.listForUser(userId)` returning `{ enrolled: Course[], managing: Course[] }`. Push the tab split into the domain layer.
 2. The template reads `data.enrolled` and `data.managing` and renders two chip-switched tab contents. Filter state (`?tab=enrolled|managing`, `?archived=true|false`) is URL-sync via `$page.url.searchParams`.
 3. Card hover and status chips match prototype. For teacher variant show counts of open/draft assignments and upcoming exams (requires extra aggregation in loader — consider one extra batched query to `assignmentRepo.countsPerCourse(courseIds)` and `examRepo.countsPerCourse(courseIds)`).
@@ -788,10 +835,12 @@ pnpm -w lint
 5. Keep all strings in paraglide messages.
 
 **Verification:**
+
 ```bash
 pnpm --filter @nojv/web check
 pnpm test:unit -- course-list
 ```
+
 Manual test: browse `/courses` as student and as teacher; confirm tabs, chips, and card density match the prototype.
 
 **Commit:** `feat(web): port courses listing page (prototype 01)`
@@ -805,10 +854,12 @@ Manual test: browse `/courses` as student and as teacher; confirm tabs, chips, a
 **Dependencies:** 3.1.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/new/+page.server.ts` — superform loader + create action
 - Create: `apps/web/src/routes/(app)/courses/new/+page.svelte`
 
 **Steps:**
+
 1. Use `sveltekit-superforms` with the new `courseCreateSchema` (no slug, no visibility, no locale).
 2. Form cards: Basics (title + description), Default policies (allowed languages pill group, late penalty rule builder from 3.1).
 3. Add info banner explaining placeholder user mechanism (text from prototype).
@@ -816,10 +867,12 @@ Manual test: browse `/courses` as student and as teacher; confirm tabs, chips, a
 5. Only `/courses/new` route should require `platformRole in [teacher, admin]`. Enforce in +page.server.ts load().
 
 **Verification:**
+
 ```bash
 pnpm --filter @nojv/web check
 pnpm test:integration -- courses-create
 ```
+
 Manual: create a course as teacher; confirm no slug/visibility fields.
 
 **Commit:** `feat(web): port create course form (prototype 02)`
@@ -833,10 +886,12 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Dependencies:** 3.1 (tab bar + hero).
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/+page.server.ts` — fetch announcements (5 latest), upcoming+open assignments (max 5), upcoming exams (max 5)
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/+page.svelte` — single-column stacked layout
 
 **Steps:**
+
 1. Fetch three lists via domain: announcements, assignments, exams.
 2. Single-column layout exactly matching prototype: Announcements → Assignments → Exams, each with its own section header + "+ 新 X" button shown only when `data.isManager`.
 3. Assignment/exam rows show full datetime (`4/15 00:00 → 4/22 23:59`), no HW number prefix.
@@ -853,6 +908,7 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Prototype:** `04-assignments-list.html`.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/assignments/+page.server.ts`
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/assignments/+page.svelte`
 
@@ -867,11 +923,13 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Prototype:** `05-assignments-new.html`.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/assignments/new/+page.server.ts`
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/assignments/new/+page.svelte`
 - Create: `apps/web/src/lib/components/course/ProblemPicker.svelte` (search + dropdown + selected list with drag reorder)
 
 **Key details:**
+
 - Problem list min 0 max unbounded.
 - `maxAttemptsPerDay` field (Task 1.7).
 - Late penalty rule builder reused.
@@ -887,10 +945,12 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Prototype:** `06-assignment-detail-student.html`.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/assignments/[assignmentId]/+page.server.ts`
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/assignments/[assignmentId]/+page.svelte`
 
 **Visual details:**
+
 - AC row → `bg-success/10` equivalent
 - Partial row → `bg-destructive/10`
 - No status pills, no score estimation footer
@@ -905,6 +965,7 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Prototype:** `07-assignment-detail-teacher.html`. Biggest UI task.
 
 **Files:**
+
 - Same page as 3.7, but conditionally render teacher view when `data.isManager`
 - Create: `apps/web/src/lib/components/course/assignment/ProblemsSubtab.svelte`
 - Create: `apps/web/src/lib/components/course/assignment/SubmissionsMatrixSubtab.svelte` — matrix view
@@ -912,6 +973,7 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 - Create: `apps/web/src/lib/components/course/assignment/SettingsSubtab.svelte` — reused create-assignment form pre-filled
 
 **Matrix view details:**
+
 - Rows: all students enrolled in course
 - Columns: A/B/C… based on assignment problems
 - Cells: per-student per-problem best score with color coding
@@ -921,6 +983,7 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 - Exportable as CSV (server action)
 
 **Plagiarism details:**
+
 - Histogram rendered from `plagiarismResults` JSON (build a simple CSS bar chart like prototype; no chart library dependency)
 - Pair cards listed high → low similarity
 - Top pair auto-expanded with side-by-side inline code diff (use `<CodeDiff />` component — build if missing)
@@ -934,11 +997,13 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Prototypes:** 08, 09, 10.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/exams/+page.{server.ts,svelte}` (list)
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/exams/new/+page.{server.ts,svelte}`
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/exams/[examId]/+page.{server.ts,svelte}` (State A)
 
 **Steps:**
+
 - List page mirrors prototype 08: date-block card, proctor icon row, live pulse on running.
 - Create page mirrors prototype 09: reuses the create-assignment form scaffold + adds Proctoring + Scoring cards.
 - State A mirrors prototype 10: countdown card, proctor info row, sub-tabs (Problems | 提交 | 設定), roster side panel.
@@ -954,19 +1019,22 @@ Manual: create a course as teacher; confirm no slug/visibility fields.
 **Dependencies:** 3.9.
 
 **Files:**
+
 - Read: current `apps/web/src/routes/(app)/problems/[id]/+page.svelte`
 - Create: `apps/web/src/lib/components/problem/ProblemSolveView.svelte`
 - Modify: `apps/web/src/routes/(app)/problems/[id]/+page.svelte` — now a thin wrapper around ProblemSolveView with `mode="practice"`
 - The exam mode consumer is Task 3.11
 
 **Component props:**
+
 ```ts
 type Props = {
   mode: "practice" | "exam";
   problem: ProblemData;
-  submissions: Submission[];   // already scoped by the loader — component does NOT filter
+  submissions: Submission[]; // already scoped by the loader — component does NOT filter
   siblingProblems?: ProblemSummary[]; // for exam mode left rail; null in practice
-  examContext?: {              // exam-only overlay
+  examContext?: {
+    // exam-only overlay
     examId: string;
     examTitle: string;
     countdownMs: number;
@@ -989,10 +1057,12 @@ type Props = {
 **Dependencies:** 3.10.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/exams/[examId]/problems/[idx]/+page.server.ts`
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/exams/[examId]/problems/[idx]/+page.svelte`
 
 **Loader scope (critical):**
+
 ```ts
 export const load: PageServerLoad = async (event) => {
   const { courseId, examId, idx } = event.params;
@@ -1008,7 +1078,9 @@ export const load: PageServerLoad = async (event) => {
 
   // 3. Fetch ONLY submissions for this user + this exam + this problem
   const submissions = await submissionDomain.listForUserExamProblem(
-    actor.userId, examId, current.problemId
+    actor.userId,
+    examId,
+    current.problemId
   );
 
   return {
@@ -1040,6 +1112,7 @@ export const load: PageServerLoad = async (event) => {
 **Prototype:** `12-members.html`.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/members/+page.{server.ts,svelte}`
 - Create: `apps/web/src/lib/components/course/BulkHandleAddPanel.svelte`
 
@@ -1054,6 +1127,7 @@ export const load: PageServerLoad = async (event) => {
 **Prototype:** `13-settings.html`.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/courses/[courseId]/settings/+page.{server.ts,svelte}`
 
 Matches prototype: Course info card, Default policies card (including the rule builder), Visibility (archived toggle), Danger zone.
@@ -1067,6 +1141,7 @@ Matches prototype: Course info card, Default policies card (including the rule b
 **Prototype:** `14-assignments-top.html`.
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/assignments/+page.{server.ts,svelte}` (existing file — replace)
 
 **Loader:** `assignmentDomain.listForUserAcrossCourses(userId, { status, sort })` — joins CourseMembership to find all courses user is in, then unions their assignments.
@@ -1080,6 +1155,7 @@ Matches prototype: Course info card, Default policies card (including the rule b
 **Prototype:** `15-exams-top.html`.
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/exams/+page.{server.ts,svelte}`
 
 Same as 3.14 pattern but for exams. Running exams get the big "Enter exam" CTA if the user hasn't yet entered.
@@ -1095,10 +1171,12 @@ Same as 3.14 pattern but for exams. Running exams get the big "Enter exam" CTA i
 **Dependencies:** 1.6 (session tables), 3.11 (exam route exists).
 
 **Files:**
+
 - Modify: `apps/web/src/hooks.server.ts`
 - Create: `apps/web/src/lib/server/exam-lock.ts` — helper `getActiveExamContext(userId)` and `isAllowedPathForExam(pathname, examContext)`
 
 **Logic:**
+
 ```ts
 // After session fetch, before resolve:
 if (event.locals.sessionUser) {
@@ -1121,6 +1199,7 @@ if (event.locals.sessionUser) {
 ### Task 4.2: Release endpoint + audit
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/exam-session/release/+server.ts` — POST accepting `{ examId, reason: "submitted" | "time_up" | "released_by_instructor" }`, authz-gated
 - Modify: `packages/domain/src/exam/session.ts` — `endSession` writes to `ActiveExamSession.endedAt` and `releaseReason`, then emits `ExamSessionEvent`
 
@@ -1131,6 +1210,7 @@ if (event.locals.sessionUser) {
 ### Task 4.3: Client-side confinement
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/exams/[examId]/problems/[idx]/+page.svelte` — add `beforeunload` listener that posts to release endpoint; add popstate handler that redirects back into exam on back button
 
 **Commit:** `feat(web): client-side exam confinement handlers`
@@ -1140,6 +1220,7 @@ if (event.locals.sessionUser) {
 ### Task 4.4: Worker auto-close on time-up
 
 **Files:**
+
 - Create or modify: `apps/worker/src/workflows/exam-auto-close.ts` — Temporal workflow that sleeps until `exam.endsAt`, then ends all active sessions
 
 **Commit:** `feat(worker): auto-close exam sessions at time-up`
@@ -1151,6 +1232,7 @@ if (event.locals.sessionUser) {
 ### Task 5.1: Bulk handle parser
 
 **Files:**
+
 - Create: `packages/domain/src/course/members.ts` — `parseHandleInput(raw: string): string[]`, `bulkAddMembers(actor, courseId, handles, role)` returns `{ added, placeholdersCreated, skipped }`
 - Unit test cases in `tests/unit/domain/course-members.test.ts`
 
@@ -1161,6 +1243,7 @@ if (event.locals.sessionUser) {
 ### Task 5.2: Better-auth attach hook
 
 **Files:**
+
 - Modify: `apps/web/src/lib/auth.ts` (or wherever better-auth is configured)
 
 **Commit:** `feat(auth): attach placeholder user on first OAuth login by handle`
@@ -1172,6 +1255,7 @@ if (event.locals.sessionUser) {
 ### Task 6.1: Contest create gate removal
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/create/+page.server.ts` — remove `platformRole in [teacher, admin]` check; keep authenticated check only
 - Modify: `packages/domain/src/contest/permissions.ts` — any `canCreateContest(platformRole)` helper — change to always true for authenticated users
 
@@ -1179,9 +1263,10 @@ if (event.locals.sessionUser) {
 
 ---
 
-### Task 6.2: Delete legacy /manage/* and per-card language toggles
+### Task 6.2: Delete legacy /manage/\* and per-card language toggles
 
 **Files:**
+
 - Already gone from Phase 2.2, verify nothing references
 - Delete `apps/web/src/lib/components/manage/` directory
 - Remove `SystemTextToggle.svelte` and any remaining per-card locale switchers (the single header switcher is the source of truth)
@@ -1193,6 +1278,7 @@ if (event.locals.sessionUser) {
 ### Task 6.3: Remove unused i18n strings
 
 **Files:**
+
 - Run paraglide check for orphan keys after all UI is ported
 - Delete obsolete `admin_*` keys that belong to removed pages
 
@@ -1203,6 +1289,7 @@ if (event.locals.sessionUser) {
 ### Task 6.4: Dead code and imports
 
 **Files:**
+
 - `pnpm --filter @nojv/web check` — must be 0 errors 0 warnings
 - `pnpm lint` — must pass
 - Run a quick orphan scan: `find apps/web/src -name "*.svelte" -o -name "*.ts" | xargs grep -L import` (heuristic)
@@ -1221,6 +1308,7 @@ pnpm -w test:unit
 pnpm -w test:integration
 pnpm -w build
 ```
+
 All green. If any fail, open a new task to fix.
 
 **Commit:** `chore: final verification`

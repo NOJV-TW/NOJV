@@ -507,9 +507,9 @@ describe("examDomain.session — heartbeat throttle", () => {
     });
     // Note: no startSession call.
 
-    await expect(
-      session.heartbeatWithThrottle(actor.userId, exam.id)
-    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(session.heartbeatWithThrottle(actor.userId, exam.id)).rejects.toBeInstanceOf(
+      NotFoundError
+    );
   });
 
   it("throws NotFoundError after the session has already been ended", async () => {
@@ -523,8 +523,8 @@ describe("examDomain.session — heartbeat throttle", () => {
     await session.startSessionWithGate(actor, { examId: exam.id });
     await session.endSession(actor, { examId: exam.id, reason: "submitted" });
 
-    await expect(
-      session.heartbeatWithThrottle(actor.userId, exam.id)
-    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(session.heartbeatWithThrottle(actor.userId, exam.id)).rejects.toBeInstanceOf(
+      NotFoundError
+    );
   });
 });

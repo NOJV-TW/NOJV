@@ -24,7 +24,11 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at top right, rgba(196, 104, 45, 0.08), transparent 50%);
+        background: radial-gradient(
+          circle at top right,
+          rgba(196, 104, 45, 0.08),
+          transparent 50%
+        );
         opacity: 0;
         transition: opacity var(--duration-normal) var(--ease-out-soft);
         pointer-events: none;
@@ -83,7 +87,9 @@
       .course-card.archived {
         opacity: 0.62;
       }
-      .course-card.archived:hover { opacity: 1; }
+      .course-card.archived:hover {
+        opacity: 1;
+      }
 
       .empty-state {
         padding: 3rem 2rem;
@@ -149,9 +155,7 @@
       <section class="page-head animate-in">
         <p class="eyebrow">Spring 2026</p>
         <h1 class="page-head-title font-display mt-2">Courses</h1>
-        <p class="page-head-subtitle">
-          所有你修的、你教的課程一覽。點選卡片進入課程首頁。
-        </p>
+        <p class="page-head-subtitle">所有你修的、你教的課程一覽。點選卡片進入課程首頁。</p>
       </section>
 
       <!-- Tabs + create button row -->
@@ -167,7 +171,17 @@
           </div>
         </div>
         <button class="btn btn-primary">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M8 3.5v9M3.5 8h9" />
+          </svg>
           建立新課程
         </button>
       </div>
@@ -192,7 +206,17 @@
             <span class="badge badge-muted">2 draft</span>
             <span class="badge badge-info">1 exam</span>
             <span class="arrow">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </span>
           </div>
         </a>
@@ -208,7 +232,17 @@
             <span class="badge badge-primary badge-dot">3 open</span>
             <span class="badge badge-success">5 graded</span>
             <span class="arrow">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </span>
           </div>
         </a>
@@ -224,7 +258,17 @@
             <span class="badge badge-primary badge-dot">1 open</span>
             <span class="badge badge-warning badge-dot">1 upcoming</span>
             <span class="arrow">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </span>
           </div>
         </a>
@@ -239,14 +283,28 @@
           <div class="status-bar">
             <span class="badge badge-muted">所有作業已結束</span>
             <span class="arrow">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </span>
           </div>
         </a>
       </div>
 
       <div class="mt-6">
-        <a href="03-course-overview.html" class="course-card" style="display: grid; grid-template-columns: 1fr; max-width: 420px">
+        <a
+          href="03-course-overview.html"
+          class="course-card"
+          style="display: grid; grid-template-columns: 1fr; max-width: 420px"
+        >
           <div class="top">
             <span class="semester">2025 Fall · CS 101</span>
             <span class="badge badge-muted">Archived · Teacher</span>
@@ -259,7 +317,10 @@
       <!-- Student variant preview — same card styling but different meta -->
       <div class="section-subheading">
         <h3>參考：學生視角（自己的課程 tab）</h3>
-        <p class="mt-2 text-body-sm text-muted">同樣的卡片骨架，role badge 改顯示身分，右下狀態換成「與我相關」的 due / upcoming 訊息。</p>
+        <p class="mt-2 text-body-sm text-muted">
+          同樣的卡片骨架，role badge 改顯示身分，右下狀態換成「與我相關」的 due / upcoming
+          訊息。
+        </p>
 
         <div class="grid grid-3 mt-6">
           <a href="03-course-overview.html" class="course-card">
@@ -273,7 +334,17 @@
               <span class="badge badge-warning badge-dot">3 assignments due</span>
               <span class="badge badge-info">1 exam 下週</span>
               <span class="arrow">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 3l5 5-5 5" />
+                </svg>
               </span>
             </div>
           </a>
@@ -288,7 +359,17 @@
             <div class="status-bar">
               <span class="badge badge-success badge-dot">All caught up</span>
               <span class="arrow">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 3l5 5-5 5" />
+                </svg>
               </span>
             </div>
           </a>
@@ -298,10 +379,22 @@
       <!-- Empty state example -->
       <div class="section-subheading">
         <h3>參考：空狀態</h3>
-        <p class="mt-2 text-body-sm text-muted">tab 為空時顯示。Student tab 的空狀態不提供「建立」CTA。</p>
+        <p class="mt-2 text-body-sm text-muted">
+          tab 為空時顯示。Student tab 的空狀態不提供「建立」CTA。
+        </p>
 
         <div class="empty-state mt-6">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground); margin-bottom: 0.75rem">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="color: var(--muted-foreground); margin-bottom: 0.75rem"
+          >
             <path d="M8 14v24a4 4 0 004 4h24a4 4 0 004-4V14" />
             <path d="M4 10l20-6 20 6-20 6L4 10z" />
             <path d="M16 20v8a8 4 0 0016 0v-8" />

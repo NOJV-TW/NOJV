@@ -19,9 +19,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         isManager: true
       }),
       buildSubmissionsMatrix(course.id, assessmentId),
-      findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(
-        () => null
-      )
+      findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(() => null)
     ]);
 
     return {

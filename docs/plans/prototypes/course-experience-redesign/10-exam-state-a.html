@@ -98,8 +98,17 @@
         animation: btn-glow 3s ease-in-out infinite;
       }
       @keyframes btn-glow {
-        0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 4px 12px rgba(196, 104, 45, 0.3); }
-        50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 4px 24px rgba(196, 104, 45, 0.55); }
+        0%,
+        100% {
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.24),
+            0 4px 12px rgba(196, 104, 45, 0.3);
+        }
+        50% {
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.24),
+            0 4px 24px rgba(196, 104, 45, 0.55);
+        }
       }
 
       /* Proctor info row */
@@ -139,7 +148,9 @@
         letter-spacing: -0.005em;
       }
 
-      .sub-tab-bar { margin: 2rem 0; }
+      .sub-tab-bar {
+        margin: 2rem 0;
+      }
 
       .panel {
         padding: 1.875rem;
@@ -157,7 +168,9 @@
         padding: 0.625rem 0.75rem;
         border-bottom: 1px solid var(--border-subtle);
       }
-      .roster-row:last-child { border-bottom: none; }
+      .roster-row:last-child {
+        border-bottom: none;
+      }
 
       .roster-row .who {
         font-size: var(--text-body-sm);
@@ -174,9 +187,15 @@
         height: 8px;
         border-radius: var(--radius-full);
       }
-      .status-circle.registered { background: var(--info); }
-      .status-circle.pending { background: var(--muted-foreground); }
-      .status-circle.ip-violation { background: var(--destructive); }
+      .status-circle.registered {
+        background: var(--info);
+      }
+      .status-circle.pending {
+        background: var(--muted-foreground);
+      }
+      .status-circle.ip-violation {
+        background: var(--destructive);
+      }
     </style>
   </head>
   <body>
@@ -208,7 +227,17 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="exam-hero animate-in">
         <a href="08-exams-list.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作 / Exams
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
@@ -231,16 +260,21 @@
         <div class="countdown-card animate-in animate-in-1">
           <div>
             <div class="label">距離開始</div>
-            <div class="big tabular">5<span style="font-size: 0.5em; color: var(--muted-foreground)"> 天</span> 14<span style="font-size: 0.5em; color: var(--muted-foreground)"> 時</span> 32<span style="font-size: 0.5em; color: var(--muted-foreground)"> 分</span></div>
+            <div class="big tabular">
+              5<span style="font-size: 0.5em; color: var(--muted-foreground)"> 天</span> 14<span
+                style="font-size: 0.5em; color: var(--muted-foreground)"
+              >
+                時</span
+              >
+              32<span style="font-size: 0.5em; color: var(--muted-foreground)"> 分</span>
+            </div>
             <div class="sub">
               開始時間：<span class="weight-600 text-fg">2026-04-23 週三 14:00</span><br />
               建議考前 10 分鐘就位並確認網路可連線。
             </div>
           </div>
           <div class="start-button">
-            <button class="start-btn-lg">
-              Start exam
-            </button>
+            <button class="start-btn-lg">Start exam</button>
             <span class="text-caption text-muted">尚未開放</span>
           </div>
         </div>
@@ -248,7 +282,18 @@
         <div class="proctor-info">
           <div class="proctor-item">
             <span class="icon-box">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M8 11V8a4 4 0 018 0v3" />
+              </svg>
             </span>
             <div>
               <div class="label">分頁鎖</div>
@@ -257,7 +302,19 @@
           </div>
           <div class="proctor-item">
             <span class="icon-box">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
+                />
+              </svg>
             </span>
             <div>
               <div class="label">IP 綁定</div>
@@ -266,7 +323,18 @@
           </div>
           <div class="proctor-item">
             <span class="icon-box">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-4z" /><path d="M9 12l2 2 4-4" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 2l8 4v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-4z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
             </span>
             <div>
               <div class="label">IP 白名單</div>
@@ -274,8 +342,23 @@
             </div>
           </div>
           <div class="proctor-item">
-            <span class="icon-box" style="background: var(--muted); color: var(--muted-foreground)">
-              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
+            <span
+              class="icon-box"
+              style="background: var(--muted); color: var(--muted-foreground)"
+            >
+              <svg
+                class="icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z"
+                />
+              </svg>
             </span>
             <div>
               <div class="label">已註冊</div>
@@ -288,15 +371,22 @@
       <div class="sub-tab-bar animate-in animate-in-2">
         <div class="sub-tabs">
           <button class="sub-tab active">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h10v10H3z" /><path d="M3 7h10M7 3v10" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 3h10v10H3z" />
+              <path d="M3 7h10M7 3v10" />
+            </svg>
             Problems
           </button>
-          <button class="sub-tab">
-            提交 <span class="tab-count">—</span>
-          </button>
-          <button class="sub-tab">
-            設定
-          </button>
+          <button class="sub-tab">提交 <span class="tab-count">—</span></button>
+          <button class="sub-tab">設定</button>
         </div>
       </div>
 
@@ -304,13 +394,19 @@
         <div class="panel animate-in animate-in-3">
           <div class="flex items-center justify-between mb-4">
             <h2 class="font-display text-title weight-500">題目列表</h2>
-            <span class="text-caption text-muted">學生在考試中才看得到內容。這裡只顯示教師檢視。</span>
+            <span class="text-caption text-muted"
+              >學生在考試中才看得到內容。這裡只顯示教師檢視。</span
+            >
           </div>
 
           <div class="stack-3">
             <div class="row">
               <div class="flex items-center gap-3">
-                <span class="font-display text-title-sm weight-500" style="min-width: 28px; text-align: center; color: var(--muted-foreground)">A</span>
+                <span
+                  class="font-display text-title-sm weight-500"
+                  style="min-width: 28px; text-align: center; color: var(--muted-foreground)"
+                  >A</span
+                >
                 <div>
                   <div class="weight-600">Shell Pipeline 實作</div>
                   <div class="text-caption text-muted mt-1">Easy · 100 分 · problem_os_m1</div>
@@ -320,20 +416,32 @@
             </div>
             <div class="row">
               <div class="flex items-center gap-3">
-                <span class="font-display text-title-sm weight-500" style="min-width: 28px; text-align: center; color: var(--muted-foreground)">B</span>
+                <span
+                  class="font-display text-title-sm weight-500"
+                  style="min-width: 28px; text-align: center; color: var(--muted-foreground)"
+                  >B</span
+                >
                 <div>
                   <div class="weight-600">Thread Pool Scheduler</div>
-                  <div class="text-caption text-muted mt-1">Medium · 150 分 · problem_os_m2</div>
+                  <div class="text-caption text-muted mt-1">
+                    Medium · 150 分 · problem_os_m2
+                  </div>
                 </div>
               </div>
               <a href="#" class="btn btn-outline btn-sm">預覽 →</a>
             </div>
             <div class="row">
               <div class="flex items-center gap-3">
-                <span class="font-display text-title-sm weight-500" style="min-width: 28px; text-align: center; color: var(--muted-foreground)">C</span>
+                <span
+                  class="font-display text-title-sm weight-500"
+                  style="min-width: 28px; text-align: center; color: var(--muted-foreground)"
+                  >C</span
+                >
                 <div>
                   <div class="weight-600">Page Fault 處理</div>
-                  <div class="text-caption text-muted mt-1">Medium · 150 分 · problem_os_m3</div>
+                  <div class="text-caption text-muted mt-1">
+                    Medium · 150 分 · problem_os_m3
+                  </div>
                 </div>
               </div>
               <a href="#" class="btn btn-outline btn-sm">預覽 →</a>
@@ -379,12 +487,19 @@
               <button class="icon-btn btn-ghost" style="width: 24px; height: 24px"></button>
             </div>
           </div>
-          <button class="btn btn-outline btn-sm mt-4" style="width: 100%">發送提醒給未註冊學生</button>
+          <button class="btn btn-outline btn-sm mt-4" style="width: 100%">
+            發送提醒給未註冊學生
+          </button>
         </div>
       </div>
 
-      <p class="mt-8 text-caption text-muted" style="text-align: center; max-width: 60ch; margin-left: auto; margin-right: auto">
-        學生視角：相同 hero + countdown card，但 <strong>無 sub-tabs</strong>、<strong>無註冊名單</strong>。倒數結束時 Start 按鈕亮起（animated glow），點擊後進入 State B 全螢幕考試模式。
+      <p
+        class="mt-8 text-caption text-muted"
+        style="text-align: center; max-width: 60ch; margin-left: auto; margin-right: auto"
+      >
+        學生視角：相同 hero + countdown card，但
+        <strong>無 sub-tabs</strong>、<strong>無註冊名單</strong>。倒數結束時 Start
+        按鈕亮起（animated glow），點擊後進入 State B 全螢幕考試模式。
       </p>
     </main>
   </body>
