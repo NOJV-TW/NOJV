@@ -7,7 +7,7 @@
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import SystemTextToggle, {
     type UiLang
-  } from "$lib/components/manage/SystemTextToggle.svelte";
+  } from "$lib/components/admin/SystemTextToggle.svelte";
   import FilterBar from "$lib/components/admin/users/FilterBar.svelte";
   import UsersTable from "$lib/components/admin/users/UsersTable.svelte";
   import Pagination from "$lib/components/admin/users/Pagination.svelte";
