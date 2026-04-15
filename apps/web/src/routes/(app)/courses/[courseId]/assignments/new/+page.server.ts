@@ -1,0 +1,67 @@
+import { courseAssignmentFormSchema } from "@nojv/core";
+import { courseDomain, problemDomain } from "@nojv/domain";
+import { fail, redirect, type RequestEvent } from "@sveltejs/kit";
+import { message, superValidate } from "sveltekit-superforms";
+import { zod4 } from "sveltekit-superforms/adapters";
+
+import type { Actions, PageServerLoad } from "./$types";
+import { requireAuth } from "$lib/server/auth";
+import { classifyError } from "$lib/server/shared/handle-action-error";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+
+const { createCourseAssessmentRecord } = courseDomain;
+const { listEditableProblems } = problemDomain;
+
+export const load: PageServerLoad = async (event) => {
+  const actor = requireAuth(event);
+  const parent = await event.parent();
+  const { course, isManager } = parent;
+  if (!isManager) {
+    redirect(302, `/courses/${course.id}/assignments`);
+  }
+
+  const form = await superValidate(
+    {
+      courseId: course.id,
+      status: "draft"
+    },
+    zod4(courseAssignmentFormSchema)
+  );
+
+  const candidateProblems = await listEditableProblems(actor.userId);
+
+  return { form, candidateProblems };
+};
+
+// Shared between the two form actions. Both draft and publish share
+// everything except the final `status` that gets persisted. Manager
+// permission is (re-)verified inside `createCourseAssessmentRecord`
+// because `event.parent()` is not available to form actions — see
+// members/+page.server.ts for the same pattern.
+async function submitAssignment(event: RequestEvent, status: "draft" | "published") {
+  const limited = await consumeFormRateLimit(event);
+  if (limited) return limited;
+
+  const actor = requireAuth(event);
+  const courseId = event.params.courseId ?? "";
+
+  const form = await superValidate(event, zod4(courseAssignmentFormSchema));
+  if (!form.valid) return fail(400, { form });
+
+  try {
+    await createCourseAssessmentRecord(actor, courseId, {
+      ...form.data,
+      status
+    });
+  } catch (err) {
+    const classified = classifyError(err);
+    return message(form, { kind: "error", text: classified.message }, { status: 400 });
+  }
+
+  redirect(303, `/courses/${courseId}/assignments`);
+}
+
+export const actions = {
+  saveDraft: (event) => submitAssignment(event, "draft"),
+  publish: (event) => submitAssignment(event, "published")
+} satisfies Actions;

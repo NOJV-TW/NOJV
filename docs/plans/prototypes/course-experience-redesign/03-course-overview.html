@@ -75,7 +75,9 @@
         padding: 1.125rem 0;
         border-bottom: 1px solid var(--border-subtle);
       }
-      .announcement-row:last-child { border-bottom: none; }
+      .announcement-row:last-child {
+        border-bottom: none;
+      }
       .announcement-row .who {
         flex-shrink: 0;
         display: flex;
@@ -210,7 +212,9 @@
         color: var(--muted-foreground);
         transition: color var(--duration-fast);
       }
-      .link-all:hover { color: var(--foreground); }
+      .link-all:hover {
+        color: var(--foreground);
+      }
 
       .icon-btn {
         width: 30px;
@@ -259,7 +263,17 @@
     <main class="container" style="padding-bottom: 6rem">
       <section class="course-hero animate-in">
         <a href="01-courses-listing.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           Courses
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
@@ -278,9 +292,15 @@
       <div class="tab-bar">
         <div class="tabs">
           <div class="tab active">Overview</div>
-          <div class="tab"><a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a></div>
-          <div class="tab"><a href="08-exams-list.html">Exams <span class="tab-count">2</span></a></div>
-          <div class="tab"><a href="12-members.html">Members <span class="tab-count">72</span></a></div>
+          <div class="tab">
+            <a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a>
+          </div>
+          <div class="tab">
+            <a href="08-exams-list.html">Exams <span class="tab-count">2</span></a>
+          </div>
+          <div class="tab">
+            <a href="12-members.html">Members <span class="tab-count">72</span></a>
+          </div>
           <div class="tab"><a href="13-settings.html">Settings</a></div>
         </div>
       </div>
@@ -292,12 +312,32 @@
           <div class="section-head">
             <h2>
               <span class="icon-wrap">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 13v-2zM11.6 16.8a3 3 0 11-5.8-1.6" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 11l18-5v12L3 13v-2zM11.6 16.8a3 3 0 11-5.8-1.6" />
+                </svg>
               </span>
               公告
             </h2>
             <button class="btn btn-outline btn-sm">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 3.5v9M3.5 8h9" />
+              </svg>
               新公告
             </button>
           </div>
@@ -313,10 +353,23 @@
               </div>
               <div class="body">
                 <h4>Lab 3 補充說明已上傳</h4>
-                <p>由於上週實驗課對 semaphore 的說明較快，我整理了一份補充講義放在課程首頁。下週課前請先看過。</p>
+                <p>
+                  由於上週實驗課對 semaphore
+                  的說明較快，我整理了一份補充講義放在課程首頁。下週課前請先看過。
+                </p>
               </div>
               <button class="icon-btn" title="編輯 (教師)">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3l9-9z" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M11 2l3 3-9 9H2v-3l9-9z" />
+                </svg>
               </button>
             </div>
 
@@ -330,10 +383,23 @@
               </div>
               <div class="body">
                 <h4>期中考範圍公告</h4>
-                <p>期中考範圍涵蓋 lecture 1-7，作業 HW1-HW4 的概念都會考。考試時間：下週三 14:00，地點：EC 122。</p>
+                <p>
+                  期中考範圍涵蓋 lecture 1-7，作業 HW1-HW4 的概念都會考。考試時間：下週三
+                  14:00，地點：EC 122。
+                </p>
               </div>
               <button class="icon-btn" title="編輯 (教師)">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3l9-9z" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M11 2l3 3-9 9H2v-3l9-9z" />
+                </svg>
               </button>
             </div>
           </div>
@@ -344,13 +410,35 @@
           <div class="section-head">
             <h2>
               <span class="icon-wrap">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a2 2 0 012 2v16a2 2 0 01-2 2H9a2 2 0 01-2-2V4a2 2 0 012-2zM12 6v6M9 9h6" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M9 2h6a2 2 0 012 2v16a2 2 0 01-2 2H9a2 2 0 01-2-2V4a2 2 0 012-2zM12 6v6M9 9h6"
+                  />
+                </svg>
               </span>
               作業
             </h2>
             <div class="flex gap-3">
               <button class="btn btn-outline btn-sm">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M8 3.5v9M3.5 8h9" />
+                </svg>
                 新作業
               </button>
               <a href="04-assignments-list.html" class="link-all">看全部 →</a>
@@ -376,7 +464,18 @@
                 <span class="big">58/72</span>
                 submitted · avg 82
               </div>
-              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon icon-lg"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="color: var(--muted-foreground)"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </a>
 
             <a href="07-assignment-detail-teacher.html" class="item-row">
@@ -397,7 +496,18 @@
                 <span class="big">—</span>
                 尚未開放
               </div>
-              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon icon-lg"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="color: var(--muted-foreground)"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </a>
 
             <a href="07-assignment-detail-teacher.html" class="item-row draft">
@@ -416,7 +526,18 @@
                 <span class="big">—</span>
                 完成設定後發布
               </div>
-              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon icon-lg"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="color: var(--muted-foreground)"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </a>
           </div>
         </section>
@@ -426,13 +547,35 @@
           <div class="section-head">
             <h2>
               <span class="icon-wrap">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v4M17 3v4M3 9h18M5 7h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M7 3v4M17 3v4M3 9h18M5 7h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"
+                  />
+                </svg>
               </span>
               考試
             </h2>
             <div class="flex gap-3">
               <button class="btn btn-outline btn-sm">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M8 3.5v9M3.5 8h9" />
+                </svg>
                 新考試
               </button>
               <a href="08-exams-list.html" class="link-all">看全部 →</a>
@@ -460,7 +603,18 @@
                 <span class="big">42/72</span>
                 已註冊
               </div>
-              <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+              <svg
+                class="icon icon-lg"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="color: var(--muted-foreground)"
+              >
+                <path d="M5 3l5 5-5 5" />
+              </svg>
             </a>
           </div>
         </section>
@@ -468,7 +622,15 @@
 
       <!-- Floating view toggle (design-time annotation) -->
       <div class="view-toggle">
-        <span style="padding: 0 0.625rem; font-size: var(--text-caption); color: var(--muted-foreground); font-family: var(--font-mono)">VIEW</span>
+        <span
+          style="
+            padding: 0 0.625rem;
+            font-size: var(--text-caption);
+            color: var(--muted-foreground);
+            font-family: var(--font-mono);
+          "
+          >VIEW</span
+        >
         <button>Student</button>
         <button class="active">Teacher</button>
       </div>

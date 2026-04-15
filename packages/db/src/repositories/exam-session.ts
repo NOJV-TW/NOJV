@@ -149,6 +149,23 @@ export const examSessionRepo = {
     });
   },
 
+  /**
+   * Most recent event of a given type for a session, or `null`. Used by
+   * the heartbeat endpoint to throttle audit-log writes — if the last
+   * heartbeat event is younger than the throttle window, the next ping
+   * still bumps `lastHeartbeatAt` on the row but skips appending a new
+   * event row.
+   */
+  findLatestEventOfType(
+    sessionId: string,
+    eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat"
+  ) {
+    return prisma.examSessionEvent.findFirst({
+      where: { sessionId, eventType },
+      orderBy: { occurredAt: "desc" }
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       findActiveForUser(userId: string) {
@@ -176,6 +193,22 @@ export const examSessionRepo = {
 
       recordEvent(data: Prisma.ExamSessionEventUncheckedCreateInput) {
         return tx.examSessionEvent.create({ data });
+      },
+
+      findLatestEventOfType(
+        sessionId: string,
+        eventType:
+          | "enter"
+          | "leave"
+          | "visibility_lost"
+          | "release"
+          | "auto_close"
+          | "heartbeat"
+      ) {
+        return tx.examSessionEvent.findFirst({
+          where: { sessionId, eventType },
+          orderBy: { occurredAt: "desc" }
+        });
       }
     };
   }
