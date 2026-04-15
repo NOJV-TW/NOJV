@@ -68,17 +68,7 @@ function deriveStatus(
   return "running";
 }
 
-/**
- * Loader helper for the exam registration page (prototype 10 — State A).
- *
- * Returns null when the exam does not exist OR when the viewer should
- * not see it (draft + not manager). Returning null lets the caller
- * convert to a 404 without leaking which case it was.
- *
- * The roster is only fetched for managers — students never see who
- * else registered, and we don't want to pay the query for the student
- * path.
- */
+// Returns null when the exam is missing OR the viewer shouldn't see it — caller converts to 404 without leaking.
 export async function getExamDetailPage(
   examId: string,
   options: GetExamDetailPageOptions

@@ -29,15 +29,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  /**
-   * Student "Start exam" entry point. The real release/start endpoint
-   * is owned by Phase 4 task 4.2 — until that lands we return a 501
-   * with a stable shape so the page can render a placeholder banner
-   * without breaking the form. Once the API endpoint exists this
-   * action will simply forward to it (or redirect to
-   * `/courses/[courseId]/exams/[examId]/problems/0` once the session
-   * row is created).
-   */
+  // TODO: forward to the real start endpoint once Phase 4 task 4.2 lands.
   startExam: (event) => {
     requireAuth(event);
     return fail(501, {

@@ -26,20 +26,7 @@ export interface ProblemCountResult {
   penaltySeconds: number;
 }
 
-// Pure helper: compute the ICPC verdict + penalty for ONE (participant, problem)
-// pair from that participant's ordered submissions to that problem. The
-// outer caller aggregates across problems.
-//
-// Shared by BOTH paths — the DB-write path in updateContestScores and the
-// display-read path in buildProblemCountScoreboard below. Keeping one function
-// prevents the two from drifting apart (historical bug: round 12 fixed the
-// scoring path, round 16 then had to fix the scoreboard path with the same
-// change).
-//
-// In-progress statuses (queued/compiling/running) are skipped — they aren't
-// verdicts yet. The next recalc picks them up once judging completes.
-// `firstAcTimeSec` is clamped to [0, ∞) for the pathological case of a
-// submission timestamp before the session start.
+// Single source of truth for ICPC per-problem penalty; shared with the DB-write path.
 export function computeProblemCountPenalty(
   submissions: readonly ProblemCountScoringSubmission[],
   sessionStartsAt: Date

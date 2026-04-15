@@ -5,16 +5,7 @@
 
   let { data } = $props();
 
-  /**
-   * Client-side exam confinement handlers. The server-side
-   * hooks.server.ts exam-lock hook (Task 4.1) is the authoritative
-   * gate; these are defense-in-depth UX affordances so an active
-   * exam participant cannot accidentally navigate away via browser
-   * back button or close the tab without a warning.
-   *
-   * Real release only happens through the /api/exam-session/end
-   * endpoint, triggered by the in-page "Submit & end exam" button.
-   */
+  // Defense-in-depth UX: hooks.server.ts is the real gate; real release runs through /api/exam-session/end.
   $effect(() => {
     if (typeof window === "undefined") return;
 

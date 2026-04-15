@@ -14,10 +14,6 @@
   import FormError from "$lib/components/ui/FormError.svelte";
   import type { FormMessage } from "$lib/types/form-message";
 
-  // Proctoring (IP lock, IP binding, page lock) and course binding
-  // moved to the Exam create flow as part of the 2026-04-14 split.
-  // Contests are now always standalone public/invite-only events.
-
   let { data } = $props();
 
   const { form, errors, enhance, message: formMessage } = superForm<typeof data.form.data, FormMessage>(untrack(() => data.form), {

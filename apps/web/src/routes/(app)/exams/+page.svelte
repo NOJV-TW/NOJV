@@ -38,9 +38,6 @@
     { value: "ended", label: m.examsTop_filterEnded(), count: counts.ended }
   ]);
 
-  // Compact "Apr 17" / "15:00" parts for the date block. Uses Latin
-  // month abbrevs to match the prototype — the rest of the row uses
-  // localised paraglide copy.
   const MONTHS = [
     "Jan",
     "Feb",
@@ -78,11 +75,6 @@
     };
   }
 
-  /**
-   * Right-side hint for running/upcoming. Returns `null` for ended.
-   * Running -> "{minutes} min" remaining (rounded down).
-   * Upcoming -> "{days} days remaining" (rounded up to next day).
-   */
   function rightHint(
     status: "running" | "upcoming" | "ended",
     startIso: string,

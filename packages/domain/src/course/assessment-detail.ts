@@ -2,12 +2,6 @@ import { assessmentRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
 
-/**
- * Assignment detail shape consumed by the per-assignment page
- * (prototypes 06 + 07). Shared between the student view and the
- * teacher sub-tabs — which fields are populated depends on the
- * `isManager` flag passed to `getAssignmentDetail`.
- */
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
 export interface AssignmentDetailProblem {
@@ -20,10 +14,7 @@ export interface AssignmentDetailProblem {
   difficulty: "easy" | "medium" | "hard";
   /** Max points for this problem within this assignment. */
   points: number;
-  /**
-   * Student-facing personal stats. Null when the viewer is a manager
-   * (teacher/TA) OR when the assignment has no published problems yet.
-   */
+  // Null for managers OR when the assignment has no published problems.
   myStatus: {
     bestScore: number | null;
     attempts: number;
@@ -58,10 +49,7 @@ export interface AssignmentDetail {
   totalPoints: number;
   problemCount: number;
   problems: AssignmentDetailProblem[];
-  /**
-   * Compact submission log for the student view (last 10). Null for the
-   * teacher view — the manager UI shows the per-problem matrix instead.
-   */
+  // Null for managers — teacher UI shows the per-problem matrix instead.
   myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null;
 }
 
@@ -73,8 +61,6 @@ export interface GetAssignmentDetailOptions {
 
 function letterFor(ordinal: number): string {
   if (ordinal < 1) return String(ordinal);
-  // A = ordinal 1. Past Z (ordinal 26) wraps to AA / AB / ... which is
-  // fine for the rare >26-problem case — Excel-style column labels.
   let n = ordinal;
   let label = "";
   while (n > 0) {
@@ -95,17 +81,6 @@ function deriveStatus(
   return "open";
 }
 
-/**
- * Load the full assignment detail shape for the per-assignment page.
- * Scoped to a course id so the caller (loader) is guaranteed ownership
- * alignment with its parent layout data.
- *
- * For student viewers this also issues two extra reads: a
- * `groupByUserAndProblem` for best-score/attempt stats across all
- * problems in the assignment, and a recent-submissions log capped at
- * 10 entries. For manager viewers both extras are skipped — the
- * teacher view pivots into the submissions matrix instead.
- */
 export async function getAssignmentDetail(
   courseId: string,
   assessmentId: string,
@@ -167,10 +142,6 @@ export async function getAssignmentDetail(
       });
     }
 
-    // Per-problem last submission timestamp (cheap: scan the recent log first,
-    // fall back to a targeted `findFirst` only if the student has more than
-    // 10 submissions AND we're missing a problem). The `recent` log is
-    // normally sufficient for the student view's meta line.
     const lastByProblem = new Map<string, string>();
     for (const s of recent) {
       if (!lastByProblem.has(s.problemId)) {

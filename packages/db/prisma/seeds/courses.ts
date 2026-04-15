@@ -46,13 +46,6 @@ export async function seedCourses(
     });
   }
 
-  // Course assessments. Homework no longer has IP lock, page lock, or
-  // a scoreboard — those are exam concerns and live on Exam now.
-  //
-  // Three seeded assignments to cover the Task 1.2/1.7 surface:
-  //   hw1  — published, flat_late_penalty adjustment rule (Task 1.2)
-  //   hw2  — published, maxAttemptsPerDay=3 (Task 1.7)
-  //   hw3  — draft with no linked problems (prototype 05 TA-collab)
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],
@@ -109,9 +102,6 @@ export async function seedCourses(
     }
   });
 
-  // Draft assignment with no problems yet — mirrors prototype 05's
-  // "TA is still wiring things up" scenario. Discoverable to TAs in
-  // the manage pane but hidden from students until published.
   await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: [],
@@ -133,12 +123,6 @@ export async function seedCourses(
     }
   });
 
-  // Midterm is now a course-embedded Exam (Task 1.4 of the 2026-04-14
-  // course experience redesign). Seeds use a stable id so existing
-  // test fixtures that reference the midterm row continue to resolve.
-  // Configured as an upcoming proctored exam exercising the full
-  // proctoring surface: page lock, IP whitelist, IP binding, and
-  // hidden scoreboard mode.
   const midterm = await prisma.exam.upsert({
     create: {
       allowedLanguages: ["c", "cpp"],
@@ -227,10 +211,7 @@ export async function seedCourses(
     });
   }
 
-  // Upcoming demo exam — course-embedded. Used by e2e tests to verify
-  // that students see the placeholder and course teachers see the
-  // seeded problem title before the window opens. startsAt is far in
-  // the future so the hiding logic always fires regardless of clock.
+  // startsAt is far in the future so the hiding logic always fires regardless of clock.
   const upcomingDemo = await prisma.exam.upsert({
     create: {
       courseId: osLabCourse.id,

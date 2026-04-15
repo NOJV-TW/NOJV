@@ -53,10 +53,6 @@
     }
   }
 
-  /**
-   * Urgency hint rendered in the meta row. Same pattern as the per-
-   * course assignments page but phrased from a cross-course POV.
-   */
   function urgencyHint(
     status: "draft" | "upcoming" | "open" | "closed",
     opensAt: string | null,

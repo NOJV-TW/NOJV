@@ -215,10 +215,7 @@ export async function getScoreboardChart(
   const participationIds = contest.participations.map((p) => p.id);
   const submissions = await submissionRepo.findForContestChart(participationIds);
 
-  // Group submissions by userId so the pure builder doesn't need to know
-  // about contestParticipationId plumbing. `contest.participations` is
-  // already filtered to the top users, so every submission maps to one
-  // of them.
+  // Keep the pure builder unaware of contestParticipationId plumbing.
   const submissionsByUser = new Map<string, SubmissionRow[]>();
   for (const sub of submissions) {
     const userId = participationUserMap.get(sub.contestParticipationId ?? "");

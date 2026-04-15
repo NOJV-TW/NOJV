@@ -1,14 +1,4 @@
 <script lang="ts" module>
-  /**
-   * Page-level chrome for the exam mode problem view — renders the
-   * orange strip that replaces the site navbar when a student has
-   * an active exam session. The strip is intentionally kept as a
-   * route-level layer instead of living inside `ProblemSolveView`
-   * so practice mode never loads this component.
-   *
-   * All data comes from the loader (`+page.server.ts`) as immutable
-   * props; the only client state is the countdown tick.
-   */
   export interface ExamTopStripContext {
     examId: string;
     courseId: string;
@@ -33,9 +23,6 @@
 
   let { context }: Props = $props();
 
-  // Client tick — server sends the absolute `endsAt` instant and the
-  // client diff-computes each second. Using one setInterval + one
-  // `$state` reactive value keeps this cheap.
   let now = $state(Date.now());
   let ending = $state(false);
 

@@ -189,11 +189,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     return created;
   });
 
-  // Schedule the durable timer that auto-closes every active session
-  // for this exam at `endsAt`. Fires AFTER commit so a rolled-back
-  // creation never leaves a phantom workflow behind. Drafts skip
-  // scheduling — the timer is (re)established when the draft is
-  // published via `updateExamRecord` / an explicit publish action.
+  // Fires after commit so a rolled-back creation never leaves a phantom workflow behind.
   if (exam.status === "published") {
     await dispatchExamAutoClose({
       examId: exam.id,

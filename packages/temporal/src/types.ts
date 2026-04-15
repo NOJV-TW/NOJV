@@ -32,9 +32,7 @@ export interface AssessmentLifecycleInput {
 
 export interface ExamAutoCloseInput {
   examId: string;
-  // ISO-8601 string. Workflow code wraps it in `new Date(...)` to
-  // compute the sleep duration. Passing a string (not a Date) keeps
-  // the Temporal payload deterministic across SDK serializers.
+  // Passed as a string so the Temporal payload is deterministic across SDK serializers.
   endsAt: string;
 }
 

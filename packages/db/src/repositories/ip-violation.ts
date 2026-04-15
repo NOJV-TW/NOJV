@@ -4,9 +4,7 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-// IP violations are only logged on exams — standalone contests and
-// homework assessments have no proctoring gates. The old repo
-// accepted contestId; it now accepts examId.
+// IP violations are only logged on exams; contests and assessments have no proctoring gates.
 export const ipViolationLogRepo = {
   create(data: Prisma.IpViolationLogUncheckedCreateInput) {
     return prisma.ipViolationLog.create({ data });
@@ -32,9 +30,7 @@ export const ipViolationLogRepo = {
   }
 };
 
-// Legacy contest participation IP repo is kept so standalone contests
-// can still bind IPs via ContestParticipation.boundIp. Exam binding
-// uses `ExamParticipation.ipPin` on a different path entirely.
+// Exam binding uses `ExamParticipation.ipPin` on a different path entirely.
 export const contestParticipationIpRepo = {
   updateBoundIp(id: string, ip: string) {
     return prisma.contestParticipation.update({

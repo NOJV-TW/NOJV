@@ -20,12 +20,6 @@ export async function createQueuedSubmissionRecord(
   clientIp: string
 ) {
   return runTransaction(async (tx) => {
-    // The problem lookup, the (optional) course-assessment lookup, and
-    // the user upsert are independent — each only needs tx + params.
-    // Run them in parallel to cut two round-trips off the submission
-    // hot path. Concurrent queries inside a Prisma interactive
-    // transaction are supported here (see contest/course mutations
-    // for other examples).
     const [problem, courseContext, user] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
@@ -92,10 +86,7 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // IP lock used to re-check here for contest submissions. After the
-    // 2026-04-14 split, contests dropped proctoring entirely and exams
-    // own all IP gating. Exam submissions will re-check IP through the
-    // exam domain pipeline (Phase 2/3 wires that in).
+    // Exams own all IP gating; contest submissions no longer re-check.
     void clientIp;
 
     // Enforce submit cooldown for contest submissions (not sampleOnly runs)
@@ -109,10 +100,7 @@ export async function createQueuedSubmissionRecord(
       );
     }
 
-    // Enforce per-day attempt limit for assignment submissions (not
-    // sampleOnly runs). The boundary is UTC midnight — deterministic and
-    // independent of server timezone. A submission made at exactly
-    // 00:00:00 UTC counts toward the new day (gte start-of-day).
+    // UTC midnight boundary: 00:00:00 UTC counts toward the new day (gte start-of-day).
     if (courseContext?.assessment && !payload.sampleOnly) {
       const { maxAttemptsPerDay } = courseContext.assessment;
 

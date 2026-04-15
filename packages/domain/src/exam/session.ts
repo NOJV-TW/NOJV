@@ -9,20 +9,6 @@ import {
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shared/errors";
 
-/**
- * Exam session lifecycle helpers.
- *
- * The Phase 4 hook uses `getActiveSessionContext` to detect "is this
- * student currently in an exam?" and reroute them back to the exam
- * landing page on every navigation. `startSession` and `endSession`
- * are the two mutation points; `recordEvent` and `heartbeat` are
- * lightweight append-only helpers.
- *
- * Access checks (actor must be enrolled in the exam's course and the
- * exam must be published + active) live here so every entry point
- * goes through the same gate.
- */
-
 export type ExamSessionReleaseReason = "submitted" | "time_up" | "released_by_instructor";
 
 export type ExamSessionEventType =
@@ -51,10 +37,6 @@ export interface ActiveSessionContext {
   };
 }
 
-/**
- * Assert that `userId` is an active member of the course the exam
- * belongs to. Used by every mutation in this module.
- */
 async function assertEnrolledInExamCourse(
   tx: Prisma.TransactionClient,
   userId: string,
@@ -76,11 +58,7 @@ async function assertEnrolledInExamCourse(
   return exam;
 }
 
-/**
- * Begin (or re-enter) an exam session for `actor`. Idempotent: if the
- * actor already has an unended session for this exam, returns it
- * without creating a new enter event.
- */
+// Idempotent: if the actor already has an unended session for this exam, returns it without a new enter event.
 export async function startSession(
   actor: ActorContext,
   { examId, ipPin }: { examId: string; ipPin?: string | null }
@@ -117,11 +95,6 @@ export async function startSession(
   });
 }
 
-/**
- * End the actor's session for `examId`. Writes `endedAt` +
- * `releaseReason` and appends a `release` event. Throws
- * `NotFoundError` if no session exists.
- */
 export async function endSession(
   actor: ActorContext,
   { examId, reason }: { examId: string; reason: ExamSessionReleaseReason }
@@ -150,11 +123,7 @@ export async function endSession(
   });
 }
 
-/**
- * Append an audit-log event to the actor's current session for
- * `examId`. Does NOT touch the session row itself — callers wanting
- * to update `lastHeartbeatAt` should use `heartbeat` instead.
- */
+// Does NOT touch the session row itself — use `heartbeat` to update `lastHeartbeatAt`.
 export async function recordEvent(
   actor: ActorContext,
   {
@@ -184,12 +153,6 @@ export async function recordEvent(
   });
 }
 
-/**
- * Update `lastHeartbeatAt` and append a `heartbeat` event.
- * Deliberately lighter-weight than `recordEvent` — the Phase 4
- * client pings this on a short interval, so the two writes are
- * batched into a single transaction.
- */
 export async function heartbeat(userId: string, examId: string) {
   return runTransaction(async (tx) => {
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(userId, examId);
@@ -209,17 +172,7 @@ export async function heartbeat(userId: string, examId: string) {
   });
 }
 
-/**
- * Auto-close every active session for `examId`. Called by the
- * Temporal `examAutoCloseWorkflow` when `exam.endsAt` passes.
- *
- * Each closed session gets `releaseReason = "time_up"` and an
- * `auto_close` audit event. Returns the number of sessions closed
- * so the activity can log it.
- *
- * Idempotent: re-running on an exam with no remaining active
- * sessions is a no-op (`{ closed: 0 }`).
- */
+// Idempotent: re-running on an exam with no active sessions is a no-op.
 export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
   const active = await examSessionRepo.findAllActiveForExam(examId);
   for (const session of active) {
@@ -229,11 +182,6 @@ export async function autoCloseForExam(examId: string): Promise<{ closed: number
   return { closed: active.length };
 }
 
-/**
- * Used by the Phase 4 `hooks.server.ts` lock. Returns the active
- * session + its exam + the exam's course, or `null` if the user is
- * not currently in an exam.
- */
 export async function getActiveSessionContext(
   userId: string
 ): Promise<ActiveSessionContext | null> {
@@ -265,17 +213,7 @@ export async function getActiveSessionContext(
   };
 }
 
-/**
- * Assert that `userId` has an active (non-ended) session for the
- * given `examId`. Used by the Phase 3 problem/workspace loaders as
- * defense in depth — Phase 4.1's `hooks.server.ts` gate should have
- * already redirected any user without an active session to the exam
- * landing, but loaders don't trust that.
- *
- * Throws `ForbiddenError` if the user has no active session for this
- * exam (including the case where a session exists but has already
- * ended). Returns the active session row on success.
- */
+// Defense-in-depth: loaders don't trust that `hooks.server.ts` already redirected users without an active session.
 export async function requireActiveSessionForUserExam(userId: string, examId: string) {
   const session = await examSessionRepo.findActiveForUser(userId);
   if (session?.examId !== examId || session.endedAt !== null) {
@@ -290,21 +228,7 @@ export const START_GRACE_MS = 5 * 60 * 1000;
 /** Default heartbeat audit-event throttle: one event per minute per session. */
 export const HEARTBEAT_EVENT_THROTTLE_MS = 60 * 1000;
 
-/**
- * Endpoint-facing wrapper around `startSession` used by
- * `POST /api/exam-session/start`. Adds three gates that the bare
- * `startSession` does not enforce:
- *
- *   1. Exam status must be `published` (404 otherwise).
- *   2. `now` must be within `[startsAt - grace, endsAt)` (410 otherwise).
- *   3. The user must not already have an active session on a DIFFERENT
- *      exam (409 otherwise) — sessions are mutually exclusive globally
- *      because Phase 4.1's hook would otherwise redirect-loop the user.
- *
- * Idempotent for the (user, exam) pair: a second call returns the
- * existing session without recording a new `enter` event. The
- * `created` flag tells the caller whether to reply 201 or 200.
- */
+// Sessions are mutually exclusive globally — a different active exam blocks start (hook would otherwise redirect-loop).
 export interface StartSessionResult {
   session: {
     id: string;
@@ -333,27 +257,18 @@ export async function startSessionWithGate(
   const now = options.now ?? new Date();
   const grace = options.gracePeriodMs ?? START_GRACE_MS;
 
-  // Step 1: load the exam outside the transaction so we can fail fast
-  // before consuming a connection. The exam is read again inside the
-  // transaction below by `assertEnrolledInExamCourse` for consistency.
   const exam = await examRepo.findById(options.examId);
   if (exam?.status !== "published") {
     throw new NotFoundError(`Exam not found: ${options.examId}`);
   }
 
   if (now.getTime() < exam.startsAt.getTime() - grace) {
-    // Status 410 Gone is the closest fit for "exam time window is closed".
-    // (404 would be misleading — the exam exists, just not open yet.)
     throw new HttpError("Exam has not started yet.", 410);
   }
   if (now.getTime() >= exam.endsAt.getTime()) {
     throw new HttpError("Exam has ended.", 410);
   }
 
-  // Step 2: cross-exam mutual exclusion. If the user has an unended
-  // session on a *different* exam, refuse to start this one. The
-  // single-exam idempotent case is handled inside `startSession` —
-  // here we only block conflicting concurrent exams.
   const existingActive = await examSessionRepo.findActiveForUser(actor.userId);
   if (existingActive && existingActive.examId !== options.examId) {
     throw new ConflictError("You already have an active session on a different exam.");
@@ -378,18 +293,6 @@ export async function startSessionWithGate(
   };
 }
 
-/**
- * Instructor-initiated session release. Closes the session belonging
- * to `targetUserId` for the given `examId`, regardless of who the
- * caller is — but the caller must be a teacher or TA of the exam's
- * course. Records a `release` event with metadata
- * `{ reason: "released_by_instructor", endedByUserId }`.
- *
- * Used by `POST /api/exam-session/end` when `reason` is
- * `released_by_instructor`. Throws:
- *   - `NotFoundError` if no active session exists for the target.
- *   - `ForbiddenError` if the caller is not staff of the exam's course.
- */
 export async function releaseSessionAsInstructor(
   actor: ActorContext,
   { examId, targetUserId }: { examId: string; targetUserId: string }
@@ -433,19 +336,7 @@ export async function releaseSessionAsInstructor(
   });
 }
 
-/**
- * Endpoint-facing wrapper around `heartbeat` that throttles the audit
- * event write while still bumping `lastHeartbeatAt` on every call.
- *
- * The Phase 4 client pings on a 15-30s interval, so writing a row
- * per ping would flood `ExamSessionEvent`. This helper:
- *   - Always updates `ActiveExamSession.lastHeartbeatAt`.
- *   - Only inserts a `heartbeat` event if the most recent heartbeat
- *     event for this session is older than `throttleMs` (default 60s).
- *
- * Returns `{ session, recordedEvent }` so the caller can include the
- * fresh heartbeat timestamp in its response.
- */
+// Always bumps `lastHeartbeatAt`; throttles the audit-event insert to avoid flooding `ExamSessionEvent`.
 export async function heartbeatWithThrottle(
   userId: string,
   examId: string,

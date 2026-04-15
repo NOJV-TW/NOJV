@@ -47,10 +47,7 @@ export const contestRepo = {
     });
   },
 
-  /**
-   * Contests a user manages. Standalone contests only — course-role
-   * teaching rights live on `Exam` now.
-   */
+  // Standalone contests only; course-role teaching rights live on `Exam`.
   listManagedForUser(userId: string) {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -59,10 +56,6 @@ export const contestRepo = {
     });
   },
 
-  /**
-   * Standalone published contests a user may participate in. No more
-   * course-embedded path — every published contest is participable.
-   */
   listParticipable() {
     return prisma.contest.findMany({
       include: contestListInclude,

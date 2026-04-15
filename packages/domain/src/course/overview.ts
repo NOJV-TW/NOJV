@@ -1,17 +1,7 @@
 import { announcementRepo, assessmentRepo, examRepo } from "@nojv/db";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
-/**
- * Announcement row shape consumed by the course overview page. Title
- * and body are picked from the first translation matching the default
- * locale (with a fallback to the first row). Author info is included
- * for the avatar + name rendering.
- *
- * NOTE: the underlying Announcement model is currently global (no
- * `courseId` column). `listRecentForCourse` accepts `courseId` for
- * forward compatibility; today it returns the most recent global
- * announcements.
- */
+// Announcement model is currently global: `courseId` is accepted for forward compatibility but ignored.
 export interface OverviewAnnouncement {
   id: string;
   title: string;
@@ -63,17 +53,9 @@ export interface AssignmentOverviewRow {
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
-  /**
-   * Best-effort class stats for teacher/TA. Currently always null
-   * with a TODO — the per-assessment submission aggregation query
-   * does not yet exist and the approximation convention (Task 3.2)
-   * says to stub with null and render a simpler meta row.
-   */
+  // TODO(course-overview): requires per-assessment submission aggregation that does not yet exist.
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
-  /**
-   * Best-effort personal progress for student viewer. Same approximation
-   * convention as `classStats` — null until we have a "my work" stats table.
-   */
+  // TODO(course-overview): requires a "my work" stats table.
   myStatus: { solved: number; total: number } | null;
 }
 
@@ -89,11 +71,7 @@ function rankAssignment(
   row: { opensAt: Date | null; closesAt: Date | null },
   now: Date
 ): number {
-  // Lower = higher priority. Ranks:
-  //  0 open              -> sorted by closesAt asc (most urgent first)
-  //  1 upcoming          -> sorted by opensAt asc
-  //  2 draft             -> preserved opensAt desc
-  //  3 closed            -> most recent first
+  // Lower rank = higher priority. Bands: open (closesAt asc), upcoming, draft, closed (most recent first).
   if (status === "open") return row.closesAt ? row.closesAt.getTime() - now.getTime() : 0;
   if (status === "upcoming")
     return 1_000_000_000_000 + (row.opensAt ? row.opensAt.getTime() - now.getTime() : 0);
@@ -135,12 +113,7 @@ function mapAssessmentToOverviewRow(
     opensAt: status === "draft" ? null : row.opensAt.toISOString(),
     closesAt: status === "draft" ? null : row.closesAt.toISOString(),
     problemCount: row._count.problems,
-    // TODO(course-overview): compute class stats (submitted users /
-    // total active students / avg score) once the per-assessment
-    // submission aggregation query lands. See Task 3.2 approximation.
     classStats: null,
-    // TODO(course-overview): per-user solved counter requires a
-    // "my work" stats table; see Task 3.2 for the convention.
     myStatus: null
   };
   return {
@@ -193,17 +166,7 @@ export interface ListAssignmentsForCourseOptions {
   now?: Date;
 }
 
-/**
- * Full assignments list for the course list page. Returns the
- * filtered rows plus per-status counts derived from the same fetch
- * — the counts drive the filter chip badges in the UI.
- *
- * Status is computed in-memory from `opensAt`/`closesAt` (no stored
- * column), so filtering + counting also happen in-memory. We fetch
- * `limit * 3` rows as a superset buffer and cap the returned slice
- * at `limit`. For courses with more than ~150 assessments the counts
- * will underreport — acceptable for the current scale.
- */
+// Fetches `limit * 3` superset and caps; for courses with more than ~150 assessments chip counts will underreport.
 export async function listAssignmentsForCourse(
   courseId: string,
   options: ListAssignmentsForCourseOptions
@@ -228,9 +191,6 @@ export async function listAssignmentsForCourse(
     const s = entry.row.status;
     if (s === "draft") {
       if (counts.draft !== null) counts.draft += 1;
-      // Drafts are hidden from the `all` count for non-managers (they
-      // never appear in mapped at all), and included in `all` for
-      // managers — matching the prototype's chip counts.
       counts.all += 1;
       continue;
     }

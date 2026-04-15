@@ -8,23 +8,12 @@ import {
   scoreboardModeSchema
 } from "../types";
 
-// `draft` — visible to course teachers/TAs only, no auto-close workflow.
-// `published` — visible to enrolled students, schedules the auto-close
-// timer so sessions hard-stop at `endsAt`.
+// `published` schedules the auto-close workflow so sessions hard-stop at `endsAt`.
 export const examPublishStatuses = ["draft", "published"] as const;
 export const examPublishStatusSchema = z.enum(examPublishStatuses);
 export type ExamPublishStatus = z.infer<typeof examPublishStatusSchema>;
 
-// Exam is always course-embedded — `courseId` is mandatory. Proctoring
-// fields (page lock, IP whitelist, IP binding) live here, not on Contest.
-// Exam reuses the shared contest scoring mode enum (problem_count /
-// point_sum) since the scoring layer is now hoisted to `@nojv/domain`'s
-// `scoring/` module.
-//
-// `problemIds` may be empty and `summary` is optional — the Create Exam
-// flow supports "save draft" so a teacher can stub out a shell and let a
-// TA fill in problems / description later. The UI/domain layer enforces
-// stricter rules on the publish path if needed.
+// `problemIds` and `summary` are relaxed for draft save — publish path tightens in the domain layer.
 const examCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseId: z.string().trim().min(1),
