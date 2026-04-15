@@ -5,10 +5,6 @@ import { NotFoundError } from "../shared/errors";
 import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
 import { canManageExam } from "./permissions";
 
-// Exam reuses ContestScoringMode from @nojv/core — the scoring
-// algorithms (ICPC / IOI) are identical; Prisma separates the enums
-// at the type level so queries.ts maps between them.
-
 export interface ExamListItem {
   allowedLanguages: Language[];
   courseId: string;
@@ -151,16 +147,9 @@ export interface ExamListRow {
   registeredCount: number | null;
   /** Active-student total for the course — set in the loader. Null = unknown. */
   totalStudents: number | null;
-  /**
-   * Best-effort class stats for teacher/TA. Null until the per-exam
-   * submission aggregation query lands — matches the Task 3.2 approximation
-   * convention used by assignments.
-   */
+  // TODO(course-exams-list): requires per-exam submission aggregation.
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
-  /**
-   * Best-effort personal status for student viewer. Null for now
-   * (same reason as classStats — no "my work" aggregation table yet).
-   */
+  // TODO(course-exams-list): requires the "my work" stats table.
   myStatus: { solved: number; total: number } | null;
 }
 
@@ -194,11 +183,7 @@ function rankExamRow(
   row: { startsAt: Date; endsAt: Date },
   now: Date
 ): number {
-  // Lower = higher priority.
-  //  0 running  -> closest to ending first
-  //  1 upcoming -> nearest start first
-  //  2 draft    -> grouped at the bottom
-  //  3 ended    -> most recent ended first
+  // Lower rank = higher priority: running, upcoming, draft, ended.
   if (status === "running") return row.endsAt.getTime() - now.getTime();
   if (status === "upcoming")
     return 1_000_000_000_000 + (row.startsAt.getTime() - now.getTime());
@@ -242,12 +227,7 @@ function mapExamRow(
     },
     registeredCount: includeManagerData ? raw._count.participations : null,
     totalStudents: null,
-    // TODO(course-exams-list): compute class stats (answered users / avg
-    // score) once the per-exam submission aggregation query lands. See
-    // Task 3.2 approximation convention used by assignments.
     classStats: null,
-    // TODO(course-exams-list): per-user completed counter requires a
-    // "my work" stats table; see Task 3.2 for the convention.
     myStatus: null
   };
 
@@ -257,16 +237,7 @@ function mapExamRow(
   };
 }
 
-/**
- * Full exams list for the course exams page. Returns the filtered
- * rows plus per-status counts derived from the same fetch — the counts
- * drive the filter chip badges in the UI.
- *
- * Status is computed in-memory from `startsAt`/`endsAt`, so filtering
- * + counting also happen in-memory. For courses with more than ~50
- * exams the counts will underreport — acceptable for the current
- * scale.
- */
+// For courses with more than ~50 exams the chip counts will underreport — acceptable at current scale.
 export async function listForCourse(
   courseId: string,
   options: ListForCourseOptions
@@ -367,9 +338,6 @@ export async function getExamDetail(
   };
 }
 
-/**
- * Run IP lock check for an exam detail page visit inside a transaction.
- */
 export async function checkExamIpAccess(
   config: {
     ipWhitelistEnabled: boolean;

@@ -91,9 +91,6 @@
     document.addEventListener("mouseup", onUp);
   }
 
-  // ── Upload + submission state ─────────────────────────────────────────────
-  // Soft caps for client-side validation. The schema also enforces
-  // sourceFiles.length <= 200 and content <= 500_000 bytes per file.
   const MAX_FILES = 200;
   const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MB aggregate
   // Plain source extensions that are wrapped as a single-file submission.
@@ -235,13 +232,7 @@
     pollAbortController = new AbortController();
     const { signal } = pollAbortController;
 
-    // The submission schema requires:
-    //   - `language` ∈ supportedLanguages (no "plaintext")
-    //   - `sourceCode` trimmed & non-empty
-    // Advanced mode doesn't actually use either — the TA image owns
-    // execution — so we send a neutral placeholder language ("cpp") and a
-    // short marker sourceCode. The worker still merges sourceFiles into
-    // /workspace/submission/ via runAdvancedContainer.
+    // Advanced mode ignores `language`/`sourceCode` at the worker boundary; placeholders satisfy the wire schema.
     const placeholderLanguage: Language = "cpp";
     const placeholderSource = "// advanced-mode upload";
 

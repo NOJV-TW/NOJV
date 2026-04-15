@@ -4,45 +4,21 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-/**
- * Thin CRUD around `ActiveExamSession` + `ExamSessionEvent`.
- *
- * The domain layer (`@nojv/domain/exam/session`) is where access
- * checks and event-recording orchestration live — this repo only
- * knows about rows.
- */
 export const examSessionRepo = {
-  /**
-   * The single in-progress (`endedAt IS NULL`) session for a user,
-   * if any. In practice there is at most one such row total per user
-   * because Phase 4 enforces "one active exam at a time", but the
-   * query filter on `endedAt` is what makes that safe — the unique
-   * index is `(userId, examId)`, which allows historical ended rows.
-   */
+  // Unique index is `(userId, examId)`; the `endedAt: null` filter is what makes "one active" safe.
   findActiveForUser(userId: string) {
     return prisma.activeExamSession.findFirst({
       where: { userId, endedAt: null }
     });
   },
 
-  /**
-   * Every in-progress (`endedAt IS NULL`) session for an exam. Used
-   * by the Temporal `examAutoCloseWorkflow` to enumerate sessions
-   * that need closing when `exam.endsAt` passes.
-   */
   findAllActiveForExam(examId: string) {
     return prisma.activeExamSession.findMany({
       where: { examId, endedAt: null }
     });
   },
 
-  /**
-   * Start a session for (userId, examId). Upserts against the
-   * `(userId, examId)` unique: if a row already exists and has not
-   * ended, return it untouched so concurrent starts are idempotent.
-   * If the row exists but already ended, re-open it by clearing
-   * `endedAt` / `releaseReason` and bumping `startedAt`.
-   */
+  // Idempotent: an unended row is returned untouched; an ended row is reopened by clearing `endedAt`.
   async startSession({
     userId,
     examId,
@@ -85,10 +61,6 @@ export const examSessionRepo = {
     });
   },
 
-  /**
-   * Mark a session ended. Idempotent — calling twice keeps the
-   * earliest `endedAt` by checking the current state first.
-   */
   async endSession({
     sessionId,
     reason
@@ -105,12 +77,7 @@ export const examSessionRepo = {
     });
   },
 
-  /**
-   * Bump `lastHeartbeatAt` without touching `endedAt` or `releaseReason`.
-   * Callers in the domain layer also append a `heartbeat` event so the
-   * audit log preserves the raw pings; this method only updates the
-   * session row.
-   */
+  // Only updates the row; callers append the `heartbeat` audit event separately.
   updateHeartbeat(sessionId: string) {
     return prisma.activeExamSession.update({
       where: { id: sessionId },
@@ -118,9 +85,6 @@ export const examSessionRepo = {
     });
   },
 
-  /**
-   * Append-only event insert. `metadata` is passed through as-is.
-   */
   recordEvent({
     sessionId,
     eventType,
@@ -139,9 +103,6 @@ export const examSessionRepo = {
     });
   },
 
-  /**
-   * Full event history for a session, oldest first.
-   */
   listEventsForSession(sessionId: string) {
     return prisma.examSessionEvent.findMany({
       where: { sessionId },
@@ -149,13 +110,6 @@ export const examSessionRepo = {
     });
   },
 
-  /**
-   * Most recent event of a given type for a session, or `null`. Used by
-   * the heartbeat endpoint to throttle audit-log writes — if the last
-   * heartbeat event is younger than the throttle window, the next ping
-   * still bumps `lastHeartbeatAt` on the row but skips appending a new
-   * event row.
-   */
   findLatestEventOfType(
     sessionId: string,
     eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat"

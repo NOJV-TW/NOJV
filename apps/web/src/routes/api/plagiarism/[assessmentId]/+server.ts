@@ -66,9 +66,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     return json({ sourceCode });
   }
 
-  // PlagiarismReport is 1:1 with its parent now — at most one row per
-  // contest / assessment. We still return an array in the response so
-  // existing clients (which poll `reports[0]`) keep working.
+  // Report is 1:1 with its parent, but the response is still an array so `reports[0]` clients keep working.
   const report = await findPlagiarismReport(target);
 
   return json({ reports: report ? [report] : [] });

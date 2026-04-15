@@ -15,14 +15,7 @@ export const announcementRepo = {
     });
   },
 
-  /**
-   * Recent published announcements with the author preview needed by
-   * the course overview announcement row (avatar + name + timestamp).
-   * The Announcement model is currently global (no courseId column), so
-   * this method returns the most recent global announcements — the
-   * `courseId` parameter on the domain helper is forward-compatible for
-   * when per-course announcements land.
-   */
+  // Announcement model is currently global (no `courseId`); returns most-recent global rows.
   listRecentWithAuthor(take: number) {
     const now = new Date();
     return prisma.announcement.findMany({

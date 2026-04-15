@@ -53,12 +53,7 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { id: "usr_student" }
   });
 
-  // Placeholder user exercising the Task 1.5 bulk-handle flow. Teachers
-  // paste handles; unknown handles become `pending_first_login` rows
-  // with a synthetic email that `attachPlaceholderToAuth` later
-  // replaces on the student's first OAuth login. Kept out of any
-  // CourseMembership so the `b11902999` handle is claimable by a real
-  // login without going through the merge path.
+  // Kept out of any CourseMembership so the handle is claimable by a real login without the merge path.
   const placeholderUsername = "b11902999";
   const placeholder = await prisma.user.upsert({
     create: {
@@ -75,9 +70,6 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { id: "usr_placeholder_b11902999" }
   });
 
-  // Credentialed users (placeholder is intentionally NOT in this list
-  // — it has no Account row and cannot sign in until a real OAuth
-  // signup attaches to it via `attachPlaceholderToAuth`).
   const credentialedUsers = [admin, teacher, taStudent, student];
 
   for (const u of credentialedUsers) {

@@ -40,11 +40,7 @@ export const examRepo = {
     });
   },
 
-  /**
-   * Course overview exam rows: upcoming + running first, then closed.
-   * Managers see drafts too. Sort is finalised in the domain layer;
-   * we fetch a generous superset keyed only by status + course.
-   */
+  // Returns a 3x superset; domain layer finalises the sort and trims to `take`.
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.exam.findMany({
       include: examListInclude,
@@ -57,14 +53,7 @@ export const examRepo = {
     });
   },
 
-  /**
-   * Full roster of exams for the course exams list page. Unlike
-   * `listForCourseOverview` this does not multiply the take — the
-   * caller passes the final cap (domain layer uses 50). Status
-   * filtering happens in the domain layer because
-   * "running"/"upcoming"/"ended" are derived from `startsAt`/`endsAt`
-   * at query time, not stored columns.
-   */
+  // running/upcoming/ended status is derived from `startsAt`/`endsAt` in the domain layer.
   listForCourse(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.exam.findMany({
       include: examListInclude,
@@ -87,11 +76,6 @@ export const examRepo = {
     });
   },
 
-  /**
-   * Batched count of published exams that have not yet ended, grouped
-   * by course. Feeds the /courses listing card status bar ("N upcoming
-   * exam" / "N exam").
-   */
   groupUpcomingCountsByCourse(courseIds: string[], now: Date) {
     if (courseIds.length === 0)
       return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
@@ -122,13 +106,7 @@ export const examRepo = {
     });
   },
 
-  /**
-   * Detail fetch for the exam registration page (Phase 3 task 3.11).
-   * Includes problem `difficulty` so the teacher problems list can
-   * colour-code rows; `findDetailById` only includes `problemMiniSelect`
-   * which omits it, and we don't want to widen the shared select for
-   * every caller.
-   */
+  // Includes problem `difficulty` for the teacher problems list; `findDetailById`'s mini select omits it.
   findDetailForRegistrationPage(id: string) {
     return prisma.exam.findUnique({
       include: {
@@ -278,11 +256,6 @@ export const examProblemRepo = {
 };
 
 export const examParticipationRepo = {
-  /**
-   * Roster of registered participants for an exam. Drives the teacher
-   * roster panel on the registration page (prototype 10). Returns one
-   * row per participation joined with the user's display fields.
-   */
   listForExamWithUser(examId: string) {
     return prisma.examParticipation.findMany({
       where: { examId },

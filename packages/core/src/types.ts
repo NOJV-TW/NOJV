@@ -88,9 +88,6 @@ export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
 export type ProblemType = z.infer<typeof problemTypeSchema>;
-// `SubmissionMode` is not a Prisma enum — the concept (practice /
-// contest / assignment flow) is carried as a pure TS type for UI
-// display and domain logic.
 export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
@@ -105,9 +102,6 @@ export const ipViolationTypes = ["whitelist", "binding"] as const;
 export const ipViolationTypeSchema = z.enum(ipViolationTypes);
 export type IpViolationType = z.infer<typeof ipViolationTypeSchema>;
 
-// CIDR strings cap at 50 chars (~39 for IPv6 /128 + margin), 1000 entries
-// per list is more than any reasonable deployment. 50 KB text cap covers
-// the same count even with generous formatting.
 const MAX_CIDR_LEN = 50;
 const MAX_WHITELIST_ENTRIES = 1000;
 const MAX_WHITELIST_TEXT_LEN = 50_000;

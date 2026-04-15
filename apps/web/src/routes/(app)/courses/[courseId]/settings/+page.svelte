@@ -31,10 +31,7 @@
   const courseTitle = $derived(data.form.data.title);
   const canDelete = $derived(typedConfirmation === courseTitle && courseTitle.length > 0);
 
-  // Narrow the ActionData union to only the fields the danger zone sends
-  // back so the template can refer to `form?.error` without TS complaints.
-  // `updateInfo` returns `{ form }` and has no overlap with the danger-zone
-  // fail payloads, so route via `unknown` to force the cast.
+  // `updateInfo` returns `{ form }` with no overlap to danger-zone fails — route via `unknown` to narrow.
   type DangerFormResult = { error?: string } | null;
   const dangerResult = $derived(form as unknown as DangerFormResult);
 

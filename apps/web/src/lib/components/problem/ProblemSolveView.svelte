@@ -8,11 +8,6 @@
   import AdvancedModeWorkspace from "./advanced/AdvancedModeWorkspace.svelte";
   import ProblemWorkspace from "./Workspace.svelte";
 
-  /**
-   * Optional sibling-problem entry for the exam-mode left rail. The component
-   * renders whatever the loader gives it — it does NOT fetch siblings on its
-   * own and it does NOT filter them.
-   */
   export interface ProblemSolveSibling {
     id: string;
     /** Display letter, e.g. "A", "B", "C" — assigned by the loader. */
@@ -27,12 +22,6 @@
     href: string;
   }
 
-  /**
-   * Exam context surfaced to the page-level chrome (header strip, etc.). The
-   * shared component accepts the prop for forward-compat with Task 3.13 but
-   * does NOT render the strip itself — that lives at the route level so the
-   * practice page can stay free of exam UI.
-   */
   export interface ProblemSolveExamContext {
     examId: string;
     courseId: string;
@@ -43,27 +32,11 @@
   }
 
   interface Props {
-    /**
-     * Visual mode toggle. `practice` (the only mode used today) renders the
-     * familiar 2-pane workspace. `exam` adds an optional sibling-problem
-     * rail on the left and hides practice-only affordances. The mode prop is
-     * a UI hint ONLY — it MUST NOT be used as a security boundary. All data
-     * scoping (which submissions are visible, which problem can be loaded)
-     * belongs to the loader.
-     */
+    // `mode` is a UI hint ONLY — it MUST NOT be used as a security boundary; the loader owns all data scoping.
     mode: "practice" | "exam";
     problem: ProblemDetail;
-    /**
-     * Submission history for the current user on this problem, ALREADY
-     * scoped by the loader. The component renders whatever it's given; it
-     * never re-filters by exam / contest / assessment.
-     */
     submissions?: ProblemSubmissionEntry[];
     testcaseSets?: ProblemTestcaseSetSummary[];
-    /**
-     * Caller passes the intersection of (problem.allowed, exam.allowed) — we
-     * don't compute it here because the loader already knows the constraints.
-     */
     allowedLanguages?: Language[] | undefined;
     assessment?:
       | {
@@ -89,8 +62,6 @@
     backLink,
     contestSlug,
     siblingProblems,
-    // Accepted for forward-compat with the exam route (Task 3.13). The
-    // component itself does not render the exam strip — see note above.
     examContext: _examContext
   }: Props = $props();
 

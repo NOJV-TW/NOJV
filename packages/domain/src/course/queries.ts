@@ -34,12 +34,6 @@ export async function findCourseWithMembership(courseId: string, userId: string)
   return courseRepo.findByIdWithUserMembership(courseId, userId);
 }
 
-/**
- * Fetch a course with everything the `/courses/[courseId]` layout needs:
- * the current user's membership row (if any), the owner display name for
- * the hero, and published-count aggregates for the tab badges. Returns
- * `null` if the course does not exist.
- */
 export async function getCourseHeaderById(courseId: string, userId: string) {
   return courseRepo.findByIdWithHeader(courseId, userId);
 }
@@ -55,13 +49,6 @@ export async function listCourseCards(userId?: string) {
   }));
 }
 
-/**
- * Card shape surfaced by the /courses listing page. A card always knows:
- *  - the viewer's role in the course (student / ta / teacher),
- *  - batched counts of `studentCount`, `assignmentCount`, `examCount`,
- *  - status bar counters split by role intent (students see "due /
- *    upcoming", staff see "open / draft / exam").
- */
 export interface CourseListingCard {
   id: string;
   title: string;
@@ -80,15 +67,7 @@ export interface CourseListingCard {
   myAllCaughtUp: boolean;
 }
 
-/**
- * One-shot fetch for the /courses listing page. Returns the user's
- * enrolled-as-student and managing-as-staff courses in a single batched
- * round-trip set (memberships -> courses -> per-course aggregates). No
- * N+1 — every aggregate query is keyed by `courseId in (...)`.
- *
- * `managing` includes both `teacher` and `ta` memberships. Inactive
- * memberships are skipped at the membership layer.
- */
+// `managing` includes teacher + ta memberships; inactive memberships are already filtered upstream.
 export async function listForUserWithCards(userId: string): Promise<{
   enrolled: CourseListingCard[];
   managing: CourseListingCard[];
@@ -122,11 +101,7 @@ export async function listForUserWithCards(userId: string): Promise<{
     const draftAssignments = draftByCourseId.get(course.id) ?? 0;
     const upcomingExams = upcomingExamsByCourseId.get(course.id) ?? 0;
 
-    // Student "due / upcoming" approximation — we count open assignments
-    // and upcoming exams, not per-user unsolved work. The prototype wants
-    // this to feel personal, but an accurate per-user query would require
-    // a submission aggregation at listing time. Defer until we have a
-    // real "my work" stats table.
+    // Student "due / upcoming" approximation: counts open-assignments / upcoming-exams, not per-user unsolved work.
     const myDueCount = openAssignments;
     const myUpcomingCount = upcomingExams;
 

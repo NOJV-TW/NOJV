@@ -21,9 +21,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     redirect(302, `/courses/${course.id}`);
   }
 
-  // The layout loader's course shape doesn't include `description`, so
-  // we refetch with the membership include. This also gives us the raw
-  // row used to prefill the edit form.
   const fullCourse = await findCourseWithMembership(course.id, actor.userId);
   if (!fullCourse) {
     redirect(302, `/courses/${course.id}`);
@@ -69,10 +66,6 @@ export const actions = {
     if (limited) return limited;
 
     requireAuth(event);
-
-    // Copy-course belongs to a future task; the danger-zone button is
-    // wired to this action so the UI can show the unavailable banner
-    // using a real SvelteKit form response instead of client-only state.
     return fail(501, { error: "copy_unavailable" });
   },
 
@@ -83,9 +76,7 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    // Refetch the course row to compare against the typed confirmation.
-    // Trusting a client-sent hidden title field would defeat the point
-    // of the confirmation step.
+    // Compare typed confirmation against the server-side row — a hidden form field would defeat the check.
     const course = await findCourseWithMembership(courseId, actor.userId);
     if (!course) {
       return fail(404, { error: "not_found" });

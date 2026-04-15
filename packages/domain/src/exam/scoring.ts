@@ -16,11 +16,7 @@ import {
 
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
 
-// Exam scoring reuses the shared `scoring/` module (ICPC + IOI
-// algorithms) — it's the same code path as `contest/scoring.ts`, just
-// wired to the Exam row shape. The Redis scoreboard namespace is
-// shared (cuid IDs cannot collide).
-
+// Cuid IDs cannot collide, so Exam and Contest share the Redis scoreboard namespace.
 export interface ExamScoreboardData {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];

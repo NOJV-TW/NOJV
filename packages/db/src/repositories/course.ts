@@ -64,11 +64,6 @@ export const courseRepo = {
     });
   },
 
-  /**
-   * Batched fetch for the /courses listing page. Pulls every course the
-   * given IDs point at, with owner display name + a per-course `_count`
-   * block covering the counters the course card needs.
-   */
   findManyForCards(courseIds: string[]) {
     if (courseIds.length === 0) return Promise.resolve([]);
     return prisma.course.findMany({

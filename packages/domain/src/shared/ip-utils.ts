@@ -72,13 +72,7 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
-/**
- * The scope of an IP lock check. Standalone contests use the legacy
- * `ContestParticipation.boundIp` path (backward-compat); exams use
- * `ExamParticipation.ipPin`. Violation logs go to `IpViolationLog`
- * which now only references `examId` — violations on standalone
- * contests are NOT logged (contests don't have proctoring).
- */
+// Contest violations are NOT logged — contests don't have proctoring; `IpViolationLog` only references `examId`.
 export type IpLockScope =
   | { kind: "contest"; contestId: string }
   | { kind: "exam"; examId: string };

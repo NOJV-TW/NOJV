@@ -44,10 +44,7 @@
     return options;
   });
 
-  // Month labels are deliberately English 3-char uppercase to match the
-  // prototype's date-block aesthetic (tabular feel, compact width). We
-  // don't route these through paraglide — they're visual glyphs, not
-  // translatable copy.
+  // Visual glyphs, not translatable copy.
   const MONTH_LABELS = [
     "Jan",
     "Feb",
@@ -107,11 +104,6 @@
     return Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 60_000));
   }
 
-  /**
-   * Rough "upcoming" hint: "Opens in N days" when > 24h, "X hours left"
-   * otherwise. Shown on upcoming rows where the countdown block is not
-   * rendered.
-   */
   function upcomingHint(startsAt: string | null): string | null {
     if (!startsAt) return null;
     const msUntil = new Date(startsAt).getTime() - Date.now();

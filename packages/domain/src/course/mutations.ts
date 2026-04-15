@@ -25,15 +25,7 @@ import {
   assertProblemHasWorkspaceForLanguages
 } from "../problem/helpers";
 
-/**
- * Verify that `actor` can manage `courseId`. Platform admins always pass;
- * teachers / TAs pass only when they hold an active membership on the
- * course. Throws `ForbiddenError` otherwise.
- *
- * Callers from `+page.server.ts` load bodies will already have run the
- * layout guard, but mutations need their own defensive check so that
- * form-post handlers never rely on trusted loader state.
- */
+// Defensive re-check so form-post handlers never rely on trusted loader state.
 async function assertCourseManager(
   tx: TransactionClient,
   actor: ActorContext,
@@ -112,13 +104,7 @@ export async function manuallyEnrollCourseMember(
   });
 }
 
-/**
- * Deterministic, URL-safe slug derived from the title plus a short
- * timestamp suffix to avoid collisions inside the same course. The
- * (courseId, slug) composite index still enforces uniqueness — the
- * suffix just means two teachers typing the same title a minute apart
- * both succeed instead of one bouncing with a conflict.
- */
+// Suffix reduces collisions when two teachers type the same title; `(courseId, slug)` still enforces uniqueness.
 function generateAssignmentSlug(title: string): string {
   const base = title
     .toLowerCase()
@@ -157,9 +143,6 @@ export async function createCourseAssessmentRecord(
       );
     }
 
-    // adjustmentRules is a zero-or-one array: the form carries a single
-    // late-penalty choice (null | rule) and we translate to the array
-    // shape the JSON column expects.
     const adjustmentRules = payload.latePenalty ? [payload.latePenalty] : [];
 
     const assessment = await assessmentRepo.withTx(tx).create({

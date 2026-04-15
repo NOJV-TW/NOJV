@@ -63,11 +63,7 @@
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
 
-  // Run cases owned here so the Run handler can forward them to the
-  // submission service. Seeded from `problem.samples` on first render;
-  // students mutate them via `EditorBottomPanel` (bindable). Special-env
-  // problems skip this entirely — the TA image owns the testcase
-  // format, so the panel shows a read-only notice instead.
+  // Special-env problems skip student-owned cases — the TA image owns the testcase format.
   let panelRunCases = $state<{ input: string; expectedOutput: string }[]>(
     initialProblem.samples.map((s) => ({ input: s.input, expectedOutput: s.output }))
   );
@@ -81,15 +77,9 @@
     } catch {}
   });
 
-  // ── Workspace-file state ──
-  // `problem.workspaceFiles` includes `editable`, `readonly`, and `hidden`
-  // files. Hidden files arrive with `content: ""` from the domain layer —
-  // raw content never leaves the server — but their metadata (path,
-  // description) is still shown to the student.
+  // Hidden workspace files arrive with `content: ""` — raw content never leaves the server.
   type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 
-  // Per-file drafts keyed by `${language}::${path}`. Editable files are
-  // mutable in-place; readonly files keep their original content.
   function workspaceDraftKey(lang: string, path: string): string {
     return `${lang}::${path}`;
   }
@@ -106,9 +96,7 @@
   let isWorkspaceMode = $derived(workspaceFilesForLanguage.length > 0);
   let selectedWorkspaceIndex = $state(0);
 
-  // When the language changes (or the file list otherwise changes), reset
-  // selection. Prefer `main.<ext>` if the problem has it as an editable
-  // file; otherwise fall back to the first editable file, then to index 0.
+  // Reset selection on language change: prefer `main.<ext>` as editable, fall back to first editable, then 0.
   $effect(() => {
     void language;
     const files = workspaceFilesForLanguage;
@@ -153,8 +141,6 @@
     pollAbortController?.abort();
   });
 
-  // ── Resizable bottom panel ──
-  // The horizontal FILES-panel split lives inside `StudentWorkspaceView`.
   let bottomPanelHeight = $state(260);
   let outerContainer: HTMLDivElement = $state(null!);
 
@@ -181,9 +167,6 @@
     document.addEventListener("mouseup", onUp);
   }
 
-  // ── Submission helpers ──
-  // Collect the full set of non-hidden workspace files for the current
-  // language, merging each editable file's latest draft back on top.
   function currentWorkspaceFiles(): SubmissionWorkspaceFilePayload[] {
     return workspaceFilesForLanguage
       .filter((f) => f.visibility !== "hidden")
@@ -196,16 +179,9 @@
       }));
   }
 
-  // Materialize the panel's current run cases into the wire shape for
-  // a Run dispatch. Only called when `sampleOnly && !isSpecialEnv`; on
-  // Submit or special-env problems we return undefined and the server
-  // uses the graded set (Submit) or TA-bundled testcases (special env).
   function runCasesForRequest(): { input: string; expectedOutput?: string }[] | undefined {
     if (isSpecialEnv) return undefined;
-    // Pass through exactly what's in the panel (even empty strings) so
-    // the sandbox-runner sees the same bytes the student typed. An
-    // undefined `expectedOutput` means "don't compare, just echo
-    // stdout"; we preserve that distinction here.
+    // `expectedOutput: undefined` means "don't compare, just echo stdout"; preserve that distinction.
     return panelRunCases.map((tc) => {
       const mapped: { input: string; expectedOutput?: string } = { input: tc.input };
       if (tc.expectedOutput !== "") mapped.expectedOutput = tc.expectedOutput;
@@ -220,11 +196,7 @@
     const runCases = sampleOnly ? runCasesForRequest() : undefined;
 
     if (isWorkspaceMode) {
-      // Workspace-file mode: send the current contents of every visible
-      // file so the server can merge them with hidden files when building
-      // the judge context. `sourceCode` is the first editable file's
-      // draft — kept alongside `sourceFiles` for callers that still
-      // expect a single blob.
+      // `sourceCode` is the first editable file's draft — kept alongside `sourceFiles` for legacy single-blob callers.
       const files = currentWorkspaceFiles();
       const firstEditable =
         workspaceFilesForLanguage.find((f) => f.visibility === "editable") ??
@@ -290,10 +262,6 @@
       if (result) {
         let sourceForCallback: string;
         if (isWorkspaceMode) {
-          // Mirror the submission payload: concatenate every visible file
-          // with a path marker so the submissions pane has a useful
-          // preview. Hidden files are skipped — their `content` is `""`
-          // on the client.
           sourceForCallback = currentWorkspaceFiles()
             .map((f) => `// --- ${f.path} ---\n${f.content}`)
             .join("\n\n");

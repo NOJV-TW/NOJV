@@ -6,9 +6,7 @@ import {
 } from "@nojv/core";
 import { z } from "zod";
 
-// Contest form schema — standalone contests only. No courseId, no
-// proctoring (those live on Exam now), no `maxAttempts` /
-// `adjustmentRules` (those are homework-assessment concerns).
+// Standalone contests only: no courseId, no proctoring, no attempt caps / adjustment rules.
 export const contestFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: z.string().min(1),

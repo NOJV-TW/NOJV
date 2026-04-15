@@ -11,18 +11,7 @@ const bodySchema = z.object({
   examId: z.string().min(1)
 });
 
-/**
- * POST /api/exam-session/start
- *
- * Begin (or re-enter) an exam session for the calling user. Idempotent:
- * a second call for the same exam returns the existing session with a
- * 200, while a fresh start returns 201. The domain helper enforces
- * enrolment + exam-window + cross-exam mutual exclusion, and maps to:
- *   - 403 ForbiddenError  → not enrolled in the exam's course
- *   - 404 NotFoundError   → exam missing or not published
- *   - 410 HttpError       → exam not started (grace exceeded) / ended
- *   - 409 ConflictError   → another exam already active
- */
+// Idempotent: re-entering an existing session returns 200; a fresh start returns 201.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

@@ -11,18 +11,7 @@ const bodySchema = z.object({
   examId: z.string().min(1)
 });
 
-/**
- * POST /api/exam-session/heartbeat
- *
- * Refresh `lastHeartbeatAt` on the caller's active session for the
- * given exam. The audit-log `heartbeat` event is rate-limited to one
- * per minute per session by `heartbeatWithThrottle`, so a 15-30s
- * client interval will not flood `ExamSessionEvent`.
- *
- * Returns 204 No Content if the caller has no active session for the
- * exam — the client treats this as "you've been released, redirect
- * upstream", which is preferable to a noisy 404.
- */
+// Returns 204 when the caller has no active session so the client can treat it as "released".
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

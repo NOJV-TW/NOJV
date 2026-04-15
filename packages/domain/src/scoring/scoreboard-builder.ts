@@ -9,18 +9,9 @@ import {
   type TimedSession
 } from "./rank-util";
 
-/**
- * Scoring mode accepted by the shared builder. "problem_count" runs ICPC
- * rules; anything else runs IOI rules. Consumers pass their own string
- * enum value through unchanged.
- */
+// "problem_count" runs ICPC rules; anything else runs IOI rules.
 export type ScoringMode = "problem_count" | (string & {});
 
-/**
- * Pure scoreboard builder: dispatches to ICPC or IOI based on `scoringMode`
- * and returns ranked entries. Takes all inputs as plain values so both
- * Contest and Exam orchestrators can call it with their own fetched data.
- */
 export function buildScoreboard(
   session: TimedSession,
   scoringMode: ScoringMode,
@@ -45,12 +36,6 @@ export interface ChartSeries {
   points: ChartSeriesPoint[];
 }
 
-/**
- * Pure chart-series builder: given a session start, scoring mode, and the
- * already-grouped user→submissions map, produce cumulative score-over-time
- * traces for each top user. Consumers decide how to fetch the top user IDs
- * and how to resolve display usernames; this function only transforms.
- */
 export function buildScoreboardChartSeries(
   sessionStartsAt: Date,
   scoringMode: ScoringMode,
