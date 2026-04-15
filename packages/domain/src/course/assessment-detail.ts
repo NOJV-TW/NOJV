@@ -159,10 +159,7 @@ export async function getAssignmentDetail(
       })
     ]);
 
-    const statsByProblem = new Map<
-      string,
-      { bestScore: number; attempts: number }
-    >();
+    const statsByProblem = new Map<string, { bestScore: number; attempts: number }>();
     for (const g of grouped) {
       statsByProblem.set(g.problemId, {
         bestScore: g._max.score ?? 0,
@@ -207,13 +204,15 @@ export async function getAssignmentDetail(
     const problemLookup = new Map(
       problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }])
     );
-    myRecentSubmissions = (recent as {
-      id: string;
-      problemId: string;
-      status: string;
-      score: number;
-      createdAt: Date;
-    }[]).map((s) => {
+    myRecentSubmissions = (
+      recent as {
+        id: string;
+        problemId: string;
+        status: string;
+        score: number;
+        createdAt: Date;
+      }[]
+    ).map((s) => {
       const p = problemLookup.get(s.problemId);
       return {
         id: s.id,

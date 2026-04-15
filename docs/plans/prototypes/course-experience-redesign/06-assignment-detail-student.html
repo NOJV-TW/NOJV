@@ -116,9 +116,15 @@
         letter-spacing: 0.1em;
         text-transform: uppercase;
       }
-      .problem-row .difficulty.easy { color: var(--success); }
-      .problem-row .difficulty.medium { color: var(--warning); }
-      .problem-row .difficulty.hard { color: var(--destructive); }
+      .problem-row .difficulty.easy {
+        color: var(--success);
+      }
+      .problem-row .difficulty.medium {
+        color: var(--warning);
+      }
+      .problem-row .difficulty.hard {
+        color: var(--destructive);
+      }
 
       .problem-row .points {
         font-family: var(--font-display);
@@ -157,12 +163,27 @@
         padding: 0.75rem 1.25rem;
         border-bottom: 1px solid var(--border-subtle);
       }
-      .submission-log .log-row:last-child { border-bottom: none; }
-      .submission-log .log-row:hover { background: rgba(255, 255, 255, 0.5); }
-      .log-row .time { color: var(--muted-foreground); }
-      .log-row .verdict.ac { color: var(--success); font-weight: 600; }
-      .log-row .verdict.wa { color: var(--destructive); font-weight: 600; }
-      .log-row .verdict.tle { color: var(--warning); font-weight: 600; }
+      .submission-log .log-row:last-child {
+        border-bottom: none;
+      }
+      .submission-log .log-row:hover {
+        background: rgba(255, 255, 255, 0.5);
+      }
+      .log-row .time {
+        color: var(--muted-foreground);
+      }
+      .log-row .verdict.ac {
+        color: var(--success);
+        font-weight: 600;
+      }
+      .log-row .verdict.wa {
+        color: var(--destructive);
+        font-weight: 600;
+      }
+      .log-row .verdict.tle {
+        color: var(--warning);
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -194,7 +215,17 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="assignment-hero animate-in">
         <a href="04-assignments-list.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作 / Assignments
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
@@ -231,8 +262,21 @@
                 <span>3 次提交</span>
               </div>
             </div>
-            <div class="points"><span class="tabular">100</span><span class="total"> / 100</span></div>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <div class="points">
+              <span class="tabular">100</span><span class="total"> / 100</span>
+            </div>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </a>
 
           <!-- Partial AC: light red row -->
@@ -246,8 +290,21 @@
                 <span>2 次提交</span>
               </div>
             </div>
-            <div class="points"><span class="tabular">60</span><span class="total"> / 100</span></div>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <div class="points">
+              <span class="tabular">60</span><span class="total"> / 100</span>
+            </div>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </a>
 
           <!-- Not started: default row -->
@@ -260,15 +317,30 @@
                 <span>尚未提交</span>
               </div>
             </div>
-            <div class="points"><span class="tabular">0</span><span class="total"> / 100</span></div>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <div class="points">
+              <span class="tabular">0</span><span class="total"> / 100</span>
+            </div>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </a>
         </div>
       </section>
 
       <section class="submission-history animate-in animate-in-2">
         <h3>我的提交紀錄</h3>
-        <p class="text-body-sm text-muted mt-1 mb-4">本次作業的提交快速摘要。點任一題進去看詳細。</p>
+        <p class="text-body-sm text-muted mt-1 mb-4">
+          本次作業的提交快速摘要。點任一題進去看詳細。
+        </p>
 
         <div class="submission-log">
           <div class="log-row">
@@ -276,28 +348,72 @@
             <span>B · Multi-Producer Multi-Consumer</span>
             <span class="verdict wa">WA</span>
             <span>60 / 100</span>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
           <div class="log-row">
             <span class="time">4/17 14:32</span>
             <span>A · Bounded Buffer with Mutex</span>
             <span class="verdict ac">AC</span>
             <span>100 / 100</span>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
           <div class="log-row">
             <span class="time">4/17 14:05</span>
             <span>A · Bounded Buffer with Mutex</span>
             <span class="verdict wa">WA</span>
             <span>75 / 100</span>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
           <div class="log-row">
             <span class="time">4/16 20:11</span>
             <span>B · Multi-Producer Multi-Consumer</span>
             <span class="verdict tle">TLE</span>
             <span>40 / 100</span>
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
         </div>
       </section>

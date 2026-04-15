@@ -40,10 +40,19 @@
         width: 4px;
         background: transparent;
       }
-      .exam-card.upcoming::before { background: var(--info); }
-      .exam-card.running::before { background: var(--primary); }
-      .exam-card.ended::before { background: var(--muted-foreground); }
-      .exam-card.draft::before { background: var(--muted-foreground); opacity: 0.4; }
+      .exam-card.upcoming::before {
+        background: var(--info);
+      }
+      .exam-card.running::before {
+        background: var(--primary);
+      }
+      .exam-card.ended::before {
+        background: var(--muted-foreground);
+      }
+      .exam-card.draft::before {
+        background: var(--muted-foreground);
+        opacity: 0.4;
+      }
 
       .exam-card:hover {
         border-color: var(--border-strong);
@@ -175,8 +184,13 @@
         animation: pulse-dot 2s ease-in-out infinite;
       }
       @keyframes pulse-dot {
-        0%, 100% { box-shadow: 0 0 0 4px rgba(196, 104, 45, 0.2); }
-        50% { box-shadow: 0 0 0 8px rgba(196, 104, 45, 0); }
+        0%,
+        100% {
+          box-shadow: 0 0 0 4px rgba(196, 104, 45, 0.2);
+        }
+        50% {
+          box-shadow: 0 0 0 8px rgba(196, 104, 45, 0);
+        }
       }
 
       .countdown-tall {
@@ -221,11 +235,26 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="course-hero" style="padding: 2rem 0 1.75rem">
         <a href="03-course-overview.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
-          <h1 class="font-display" style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em">考試</h1>
+          <h1
+            class="font-display"
+            style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em"
+          >
+            考試
+          </h1>
           <span class="teacher-badge">Teacher</span>
         </div>
       </section>
@@ -233,9 +262,13 @@
       <div class="tab-bar">
         <div class="tabs">
           <div class="tab"><a href="03-course-overview.html">Overview</a></div>
-          <div class="tab"><a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a></div>
+          <div class="tab">
+            <a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a>
+          </div>
           <div class="tab active">Exams <span class="tab-count">2</span></div>
-          <div class="tab"><a href="12-members.html">Members <span class="tab-count">72</span></a></div>
+          <div class="tab">
+            <a href="12-members.html">Members <span class="tab-count">72</span></a>
+          </div>
           <div class="tab"><a href="13-settings.html">Settings</a></div>
         </div>
       </div>
@@ -249,7 +282,17 @@
           <button class="chip">Draft <span class="chip-count">1</span></button>
         </div>
         <button class="btn btn-primary">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M8 3.5v9M3.5 8h9" />
+          </svg>
           新考試
         </button>
       </div>
@@ -257,7 +300,10 @@
       <div class="row-list animate-in animate-in-2">
         <!-- Running exam — most prominent -->
         <a href="10-exam-state-a.html" class="exam-card running">
-          <div class="date-block" style="background: rgba(196, 104, 45, 0.08); border-color: rgba(196, 104, 45, 0.28)">
+          <div
+            class="date-block"
+            style="background: rgba(196, 104, 45, 0.08); border-color: rgba(196, 104, 45, 0.28)"
+          >
             <div class="month">Apr</div>
             <div class="day">17</div>
             <div class="time">15:00</div>
@@ -274,21 +320,52 @@
               <span class="meta-dot"></span>
               <div class="proctor-icons">
                 <span class="proctor-icon active" title="頁面鎖">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1" /><path d="M5 7V5a3 3 0 016 0v2" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="3" y="7" width="10" height="7" rx="1" />
+                    <path d="M5 7V5a3 3 0 016 0v2" />
+                  </svg>
                 </span>
                 <span class="proctor-icon active" title="IP 白名單">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l5 3v4.5c0 3-2 5-5 5.5-3-0.5-5-2.5-5-5.5V5l5-3z" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8 2l5 3v4.5c0 3-2 5-5 5.5-3-0.5-5-2.5-5-5.5V5l5-3z" />
+                  </svg>
                 </span>
                 <span class="proctor-icon" title="IP 綁定（未啟用）">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l-1 1a2.83 2.83 0 01-4-4l2-2a2.83 2.83 0 014 0M10 7l1-1a2.83 2.83 0 014 4l-2 2a2.83 2.83 0 01-4 0" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M6 9l-1 1a2.83 2.83 0 01-4-4l2-2a2.83 2.83 0 014 0M10 7l1-1a2.83 2.83 0 014 4l-2 2a2.83 2.83 0 01-4 0"
+                    />
+                  </svg>
                 </span>
               </div>
             </div>
           </div>
           <div class="right">
-            <div class="countdown-tall">
-              38<span class="unit"> min left</span>
-            </div>
+            <div class="countdown-tall">38<span class="unit"> min left</span></div>
             <div class="class-stats">
               <span class="big">68/72</span>
               已進入
@@ -314,13 +391,46 @@
               <span class="meta-dot"></span>
               <div class="proctor-icons">
                 <span class="proctor-icon active" title="頁面鎖">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1" /><path d="M5 7V5a3 3 0 016 0v2" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <rect x="3" y="7" width="10" height="7" rx="1" />
+                    <path d="M5 7V5a3 3 0 016 0v2" />
+                  </svg>
                 </span>
                 <span class="proctor-icon active" title="IP 綁定">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l-1 1a2.83 2.83 0 01-4-4l2-2a2.83 2.83 0 014 0M10 7l1-1a2.83 2.83 0 014 4l-2 2a2.83 2.83 0 01-4 0" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M6 9l-1 1a2.83 2.83 0 01-4-4l2-2a2.83 2.83 0 014 0M10 7l1-1a2.83 2.83 0 014 4l-2 2a2.83 2.83 0 01-4 0"
+                    />
+                  </svg>
                 </span>
                 <span class="proctor-icon active" title="IP 白名單">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l5 3v4.5c0 3-2 5-5 5.5-3-0.5-5-2.5-5-5.5V5l5-3z" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8 2l5 3v4.5c0 3-2 5-5 5.5-3-0.5-5-2.5-5-5.5V5l5-3z" />
+                  </svg>
                 </span>
               </div>
             </div>
