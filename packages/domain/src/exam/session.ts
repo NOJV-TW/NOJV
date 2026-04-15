@@ -278,7 +278,7 @@ export async function getActiveSessionContext(
  */
 export async function requireActiveSessionForUserExam(userId: string, examId: string) {
   const session = await examSessionRepo.findActiveForUser(userId);
-  if (!session || session.examId !== examId || session.endedAt !== null) {
+  if (session?.examId !== examId || session.endedAt !== null) {
     throw new ForbiddenError("No active exam session for this exam.");
   }
   return session;
@@ -337,7 +337,7 @@ export async function startSessionWithGate(
   // before consuming a connection. The exam is read again inside the
   // transaction below by `assertEnrolledInExamCourse` for consistency.
   const exam = await examRepo.findById(options.examId);
-  if (!exam || exam.status !== "published") {
+  if (exam?.status !== "published") {
     throw new NotFoundError(`Exam not found: ${options.examId}`);
   }
 
@@ -411,7 +411,7 @@ export async function releaseSessionAsInstructor(
     }
 
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(targetUserId, examId);
-    if (!session || session.endedAt !== null) {
+    if (session?.endedAt !== null) {
       throw new NotFoundError("No active exam session to release.");
     }
 
@@ -456,7 +456,7 @@ export async function heartbeatWithThrottle(
 
   return runTransaction(async (tx) => {
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(userId, examId);
-    if (!session || session.endedAt !== null) {
+    if (session?.endedAt !== null) {
       throw new NotFoundError("No active exam session to heartbeat.");
     }
 

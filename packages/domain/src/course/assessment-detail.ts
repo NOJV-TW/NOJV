@@ -207,13 +207,13 @@ export async function getAssignmentDetail(
     const problemLookup = new Map(
       problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }])
     );
-    myRecentSubmissions = (recent as Array<{
+    myRecentSubmissions = (recent as {
       id: string;
       problemId: string;
       status: string;
       score: number;
       createdAt: Date;
-    }>).map((s) => {
+    }[]).map((s) => {
       const p = problemLookup.get(s.problemId);
       return {
         id: s.id,

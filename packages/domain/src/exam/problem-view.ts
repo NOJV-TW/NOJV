@@ -79,7 +79,7 @@ export async function getExamProblemView(options: {
   actorUserId: string;
 }): Promise<ExamProblemView | null> {
   const exam = await examRepo.findDetailById(options.examId);
-  if (!exam || exam.status !== "published") {
+  if (exam?.status !== "published") {
     throw new NotFoundError(`Exam not found: ${options.examId}`);
   }
 

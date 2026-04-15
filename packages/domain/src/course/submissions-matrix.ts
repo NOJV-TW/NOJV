@@ -148,8 +148,8 @@ export async function buildSubmissionsMatrix(
     const total = cells.reduce((sum, c) => sum + (c.score ?? 0), 0);
     return {
       userId: student.userId,
-      displayName: student.user.name ?? student.user.username ?? student.userId,
-      handle: student.user.username ?? "",
+      displayName: student.user.name,
+      handle: student.user.username,
       cells,
       total
     };
