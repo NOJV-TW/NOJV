@@ -36,14 +36,18 @@
         box-shadow: var(--shadow-rest);
         transform: translateX(3px);
       }
-      .assignment-card:hover::before { background: var(--primary); }
+      .assignment-card:hover::before {
+        background: var(--primary);
+      }
 
       .assignment-card.draft {
         border-style: dashed;
         border-color: var(--border-strong);
         background: transparent;
       }
-      .assignment-card.draft::before { background: var(--muted-foreground); }
+      .assignment-card.draft::before {
+        background: var(--muted-foreground);
+      }
 
       .assignment-card h3 {
         font-family: var(--font-sans);
@@ -62,7 +66,9 @@
         color: var(--muted-foreground);
         font-variant-numeric: tabular-nums;
       }
-      .time-range .sep { opacity: 0.5; }
+      .time-range .sep {
+        opacity: 0.5;
+      }
 
       .meta-row {
         display: flex;
@@ -105,8 +111,7 @@
         width: 44px;
         height: 44px;
         border-radius: var(--radius-full);
-        background:
-          conic-gradient(var(--primary) calc(var(--p) * 1%), var(--border) 0);
+        background: conic-gradient(var(--primary) calc(var(--p) * 1%), var(--border) 0);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -172,11 +177,26 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="course-hero" style="padding: 2rem 0 1.75rem">
         <a href="03-course-overview.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
-          <h1 class="font-display" style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em">作業</h1>
+          <h1
+            class="font-display"
+            style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em"
+          >
+            作業
+          </h1>
           <span class="teacher-badge">Teacher</span>
         </div>
       </section>
@@ -185,8 +205,12 @@
         <div class="tabs">
           <div class="tab"><a href="03-course-overview.html">Overview</a></div>
           <div class="tab active">Assignments <span class="tab-count">14</span></div>
-          <div class="tab"><a href="08-exams-list.html">Exams <span class="tab-count">2</span></a></div>
-          <div class="tab"><a href="12-members.html">Members <span class="tab-count">72</span></a></div>
+          <div class="tab">
+            <a href="08-exams-list.html">Exams <span class="tab-count">2</span></a>
+          </div>
+          <div class="tab">
+            <a href="12-members.html">Members <span class="tab-count">72</span></a>
+          </div>
           <div class="tab"><a href="13-settings.html">Settings</a></div>
         </div>
       </div>
@@ -200,7 +224,17 @@
           <button class="chip">Draft <span class="chip-count">2</span></button>
         </div>
         <button class="btn btn-primary">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M8 3.5v9M3.5 8h9" />
+          </svg>
           新作業
         </button>
       </div>
@@ -228,7 +262,18 @@
               <span class="big">58/72</span>
               submitted · avg 82
             </div>
-            <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon icon-lg"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
         </a>
 
@@ -253,7 +298,18 @@
               <span class="big">71/72</span>
               submitted · avg 87
             </div>
-            <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon icon-lg"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
         </a>
 
@@ -276,7 +332,18 @@
               <span class="big">—</span>
               尚未開放
             </div>
-            <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon icon-lg"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
         </a>
 
@@ -299,7 +366,18 @@
               <span class="big">—</span>
               教師 / TA 可見
             </div>
-            <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon icon-lg"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
         </a>
 
@@ -322,7 +400,18 @@
               <span class="big">72/72</span>
               submitted · avg 91
             </div>
-            <svg class="icon icon-lg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><path d="M5 3l5 5-5 5" /></svg>
+            <svg
+              class="icon icon-lg"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="color: var(--muted-foreground)"
+            >
+              <path d="M5 3l5 5-5 5" />
+            </svg>
           </div>
         </a>
       </div>
@@ -330,7 +419,9 @@
       <!-- Student variant -->
       <div class="variant-section">
         <p class="eyebrow">參考：學生視角</p>
-        <p class="text-body-sm text-muted mb-4">同一批作業，學生看到的資訊是個人進度 + 主要行動按鈕，沒有 class stats 也看不到 Draft。</p>
+        <p class="text-body-sm text-muted mb-4">
+          同一批作業，學生看到的資訊是個人進度 + 主要行動按鈕，沒有 class stats 也看不到 Draft。
+        </p>
 
         <div class="row-list">
           <a href="06-assignment-detail-student.html" class="assignment-card">
@@ -351,7 +442,17 @@
               <div class="progress-ring" style="--p: 60"><span>60</span></div>
               <button class="btn btn-primary">
                 Continue
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l5 5-5 5" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 3l5 5-5 5" />
+                </svg>
               </button>
             </div>
           </a>
@@ -392,7 +493,11 @@
             </div>
             <div class="right">
               <div class="progress-ring" style="--p: 0"><span>—</span></div>
-              <button class="btn btn-outline" disabled style="opacity: 0.5; cursor: not-allowed">
+              <button
+                class="btn btn-outline"
+                disabled
+                style="opacity: 0.5; cursor: not-allowed"
+              >
                 尚未開放
               </button>
             </div>

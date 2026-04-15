@@ -48,12 +48,16 @@
         background: rgba(255, 250, 244, 0.4);
         box-shadow: none;
       }
-      .form-card.abbreviated .form-card-head { margin-bottom: 0; }
+      .form-card.abbreviated .form-card-head {
+        margin-bottom: 0;
+      }
       .form-card.abbreviated .form-card-head .num {
         background: var(--muted);
         color: var(--muted-foreground);
       }
-      .form-card.abbreviated h3 { color: var(--muted-foreground); }
+      .form-card.abbreviated h3 {
+        color: var(--muted-foreground);
+      }
 
       .form-grid-2 {
         display: grid;
@@ -189,12 +193,23 @@
     <main class="container container-narrow" style="padding-bottom: 6rem">
       <section class="page-head animate-in">
         <a href="08-exams-list.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           Exams
         </a>
         <h1 class="page-head-title font-display">建立新考試</h1>
         <p class="page-head-subtitle">
-          考試跟作業共用相同表單骨架，多了 <strong>防作弊（Proctoring）</strong>與<strong>計分（Scoring）</strong>兩張卡。
+          考試跟作業共用相同表單骨架，多了
+          <strong>防作弊（Proctoring）</strong>與<strong>計分（Scoring）</strong>兩張卡。
         </p>
       </section>
 
@@ -224,13 +239,27 @@
             <!-- Page lock ON -->
             <div class="toggle-row on">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 018 0v3" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <rect x="5" y="11" width="14" height="10" rx="2" />
+                  <path d="M8 11V8a4 4 0 018 0v3" />
+                </svg>
               </div>
               <div class="body">
                 <div class="title">分頁鎖</div>
                 <div class="desc">
-                  學生按下「Start exam」後，整個分頁鎖定在考試頁面。離開考試路徑（切其他頁、點 side nav）會自動 307 redirect 回考試。交卷、時間到、或老師手動釋放才解鎖。<br />
-                  <em class="text-warning">無法阻止學生開新分頁 / 新視窗——那是人工監考的責任。</em>
+                  學生按下「Start exam」後，整個分頁鎖定在考試頁面。離開考試路徑（切其他頁、點
+                  side nav）會自動 307 redirect 回考試。交卷、時間到、或老師手動釋放才解鎖。<br />
+                  <em class="text-warning"
+                    >無法阻止學生開新分頁 / 新視窗——那是人工監考的責任。</em
+                  >
                 </div>
               </div>
               <div class="switch on"></div>
@@ -239,16 +268,35 @@
             <!-- IP binding ON -->
             <div class="toggle-row on">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
+                  />
+                </svg>
               </div>
               <div class="body">
                 <div class="title">IP 綁定（首次登入）</div>
-                <div class="desc">第一次看到的 IP 被記錄為這位學生的「考試 IP」，之後用不同 IP 提交會被擋下。適合教室內監考場景。</div>
+                <div class="desc">
+                  第一次看到的 IP 被記錄為這位學生的「考試 IP」，之後用不同 IP
+                  提交會被擋下。適合教室內監考場景。
+                </div>
                 <div class="nested-field">
                   <div class="form-label mb-2">違規處理方式</div>
                   <div class="flex gap-4">
-                    <label class="radio"><input type="radio" name="violation" checked />阻擋提交</label>
-                    <label class="radio"><input type="radio" name="violation" />只通知老師（不擋）</label>
+                    <label class="radio"
+                      ><input type="radio" name="violation" checked />阻擋提交</label
+                    >
+                    <label class="radio"
+                      ><input type="radio" name="violation" />只通知老師（不擋）</label
+                    >
                   </div>
                 </div>
               </div>
@@ -258,16 +306,33 @@
             <!-- IP whitelist ON -->
             <div class="toggle-row on">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-4z" /><path d="M9 12l2 2 4-4" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 2l8 4v6c0 5-4 8-8 9-4-1-8-4-8-9V6l8-4z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
               </div>
               <div class="body">
                 <div class="title">IP 白名單</div>
-                <div class="desc">只允許指定網段的連線進行考試。離開校園網路就進不來。<span class="text-warning">空白名單將完全禁止進入——這是刻意的 fail-closed 設計。</span></div>
+                <div class="desc">
+                  只允許指定網段的連線進行考試。離開校園網路就進不來。<span class="text-warning"
+                    >空白名單將完全禁止進入——這是刻意的 fail-closed 設計。</span
+                  >
+                </div>
                 <div class="nested-field">
                   <div class="form-label mb-2">允許的 CIDR 範圍（一行一個）</div>
-                  <textarea class="textarea cidr-input" rows="3">140.112.0.0/16
+                  <textarea class="textarea cidr-input" rows="3">
+140.112.0.0/16
 140.113.0.0/16
-192.168.1.0/24</textarea>
+192.168.1.0/24</textarea
+                  >
                 </div>
               </div>
               <div class="switch on"></div>
@@ -308,7 +373,9 @@
               <div class="form-row">
                 <label class="form-label">凍結時間</label>
                 <input class="input" type="datetime-local" value="2026-04-23T15:30" />
-                <p class="form-hint">到此時間後，排行榜停止更新（但後台仍記錄）。通常設在結束前 30 分鐘。</p>
+                <p class="form-hint">
+                  到此時間後，排行榜停止更新（但後台仍記錄）。通常設在結束前 30 分鐘。
+                </p>
               </div>
               <div class="form-row">
                 <label class="form-label">提交冷卻</label>

@@ -133,26 +133,29 @@
     <main class="container" style="padding-bottom: 5rem">
       <section class="hero animate-in">
         <p class="eyebrow">Design Prototype · 2026-04-14</p>
-        <h1 class="mt-4 font-display">
-          Course Experience<br /><em>Redesign</em>
-        </h1>
+        <h1 class="mt-4 font-display">Course Experience<br /><em>Redesign</em></h1>
         <div class="hero-meta">
           <span>15 screens · 1 aesthetic</span>
           <span>Spec: <code>2026-04-11-course-experience-redesign-design.md</code></span>
           <span>Branch: <code>course-experience-redesign</code></span>
         </div>
         <p class="mt-6 text-body-lg text-muted" style="max-width: 60ch">
-          Flat, visual reference for every route the course redesign touches. Open each
-          file directly in a browser — no build step. Shared tokens live in
-          <code style="font-family: var(--font-mono); font-size: var(--text-caption)">shared.css</code>
-          and mirror <code style="font-family: var(--font-mono); font-size: var(--text-caption)">apps/web/src/app.css</code>.
+          Flat, visual reference for every route the course redesign touches. Open each file
+          directly in a browser — no build step. Shared tokens live in
+          <code style="font-family: var(--font-mono); font-size: var(--text-caption)"
+            >shared.css</code
+          >
+          and mirror
+          <code style="font-family: var(--font-mono); font-size: var(--text-caption)"
+            >apps/web/src/app.css</code
+          >.
         </p>
         <div class="legend">
-          <strong>How to use these.</strong> Each prototype is visual-only: click/hover
-          states are decorative and forms don't submit. The point is to lock in
-          typography, spacing, card density, and teacher/student variation <em>before</em>
-          writing the Svelte implementation. When executing the plan, each UI task
-          references the prototype file it maps to.
+          <strong>How to use these.</strong> Each prototype is visual-only: click/hover states
+          are decorative and forms don't submit. The point is to lock in typography, spacing,
+          card density, and teacher/student variation <em>before</em>
+          writing the Svelte implementation. When executing the plan, each UI task references
+          the prototype file it maps to.
         </div>
       </section>
 
@@ -164,14 +167,20 @@
             <span class="proto-number">01</span>
             <span class="proto-route">/courses</span>
             <div class="proto-title">Courses listing</div>
-            <p class="proto-desc">Two tabs — enrolled vs managing. Active/Archived filter chips. Role-aware card variants. Empty state included.</p>
+            <p class="proto-desc">
+              Two tabs — enrolled vs managing. Active/Archived filter chips. Role-aware card
+              variants. Empty state included.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="02-courses-new.html" class="proto-card animate-in animate-in-2">
             <span class="proto-number">02</span>
             <span class="proto-route">/courses/new</span>
             <div class="proto-title">Create course</div>
-            <p class="proto-desc">Two cards only — basics + default policies. No slug/semester/visibility. Late penalty as rule builder with custom %. No draft button.</p>
+            <p class="proto-desc">
+              Two cards only — basics + default policies. No slug/semester/visibility. Late
+              penalty as rule builder with custom %. No draft button.
+            </p>
             <div class="proto-thumb"></div>
           </a>
         </div>
@@ -185,14 +194,20 @@
             <span class="proto-number">14</span>
             <span class="proto-route">/assignments</span>
             <div class="proto-title">Assignments (top-level)</div>
-            <p class="proto-desc">All assignments across all my courses. Course tag per row. No create button, no Draft filter. Sorted by urgency.</p>
+            <p class="proto-desc">
+              All assignments across all my courses. Course tag per row. No create button, no
+              Draft filter. Sorted by urgency.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="15-exams-top.html" class="proto-card animate-in animate-in-2">
             <span class="proto-number">15</span>
             <span class="proto-route">/exams</span>
             <div class="proto-title">Exams (top-level)</div>
-            <p class="proto-desc">All exams across my courses. Running exams get live pulse + enter button. Course tag per row. No create affordance.</p>
+            <p class="proto-desc">
+              All exams across my courses. Running exams get live pulse + enter button. Course
+              tag per row. No create affordance.
+            </p>
             <div class="proto-thumb"></div>
           </a>
         </div>
@@ -206,21 +221,30 @@
             <span class="proto-number">03</span>
             <span class="proto-route">/courses/[courseId]</span>
             <div class="proto-title">Overview tab</div>
-            <p class="proto-desc">Single-column stack: Announcements → Assignments → Exams. Full datetime on time ranges. Draft rows visible to teacher/TA.</p>
+            <p class="proto-desc">
+              Single-column stack: Announcements → Assignments → Exams. Full datetime on time
+              ranges. Draft rows visible to teacher/TA.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="12-members.html" class="proto-card animate-in animate-in-2">
             <span class="proto-number">12</span>
             <span class="proto-route">/courses/[courseId]/members</span>
             <div class="proto-title">Members</div>
-            <p class="proto-desc">Bulk handle paste panel (teacher only). Role chips, search, roster rows with email/role controls. Placeholder user rows shown for unregistered.</p>
+            <p class="proto-desc">
+              Bulk handle paste panel (teacher only). Role chips, search, roster rows with
+              email/role controls. Placeholder user rows shown for unregistered.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="13-settings.html" class="proto-card animate-in animate-in-3">
             <span class="proto-number">13</span>
             <span class="proto-route">/courses/[courseId]/settings</span>
             <div class="proto-title">Settings</div>
-            <p class="proto-desc">Stacked cards: course info, default policies, visibility, danger zone (delete with typed confirmation).</p>
+            <p class="proto-desc">
+              Stacked cards: course info, default policies, visibility, danger zone (delete with
+              typed confirmation).
+            </p>
             <div class="proto-thumb"></div>
           </a>
         </div>
@@ -234,28 +258,46 @@
             <span class="proto-number">04</span>
             <span class="proto-route">/courses/[courseId]/assignments</span>
             <div class="proto-title">Assignments list</div>
-            <p class="proto-desc">All/Open/Upcoming/Closed + Draft for teacher. No HW number prefix. Full datetime. Class stats right side. Draft rows dashed + visible to TA.</p>
+            <p class="proto-desc">
+              All/Open/Upcoming/Closed + Draft for teacher. No HW number prefix. Full datetime.
+              Class stats right side. Draft rows dashed + visible to TA.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="05-assignments-new.html" class="proto-card animate-in animate-in-2">
             <span class="proto-number">05</span>
             <span class="proto-route">/courses/[courseId]/assignments/new</span>
             <div class="proto-title">Create assignment</div>
-            <p class="proto-desc">Basics / Problems / Schedule / Advanced. No upper bound on problems — can save empty draft for TAs to fill. Per-day attempts. Late penalty rule builder.</p>
+            <p class="proto-desc">
+              Basics / Problems / Schedule / Advanced. No upper bound on problems — can save
+              empty draft for TAs to fill. Per-day attempts. Late penalty rule builder.
+            </p>
             <div class="proto-thumb"></div>
           </a>
-          <a href="06-assignment-detail-student.html" class="proto-card animate-in animate-in-3">
+          <a
+            href="06-assignment-detail-student.html"
+            class="proto-card animate-in animate-in-3"
+          >
             <span class="proto-number">06</span>
             <span class="proto-route">/courses/[courseId]/assignments/[id]</span>
             <div class="proto-title">Assignment detail — student</div>
-            <p class="proto-desc">Problem list with AC→light green row, partial→light red row. No status pills, no score estimation. Running submission log.</p>
+            <p class="proto-desc">
+              Problem list with AC→light green row, partial→light red row. No status pills, no
+              score estimation. Running submission log.
+            </p>
             <div class="proto-thumb"></div>
           </a>
-          <a href="07-assignment-detail-teacher.html" class="proto-card animate-in animate-in-4">
+          <a
+            href="07-assignment-detail-teacher.html"
+            class="proto-card animate-in animate-in-4"
+          >
             <span class="proto-number">07</span>
             <span class="proto-route">/courses/[courseId]/assignments/[id]</span>
             <div class="proto-title">Assignment detail — teacher</div>
-            <p class="proto-desc">Sub-tab strip: Problems | 提交 | 抄襲 | 設定. Each tab prototyped. Plagiarism right-drawer diff sketch.</p>
+            <p class="proto-desc">
+              Sub-tab strip: Problems | 提交 | 抄襲 | 設定. Each tab prototyped. Plagiarism
+              right-drawer diff sketch.
+            </p>
             <div class="proto-thumb"></div>
           </a>
         </div>
@@ -269,35 +311,61 @@
             <span class="proto-number">08</span>
             <span class="proto-route">/courses/[courseId]/exams</span>
             <div class="proto-title">Exams list</div>
-            <p class="proto-desc">Upcoming/Running/Ended/Draft chips. Date block left side. Proctor icons inline. Live pulse for running.</p>
+            <p class="proto-desc">
+              Upcoming/Running/Ended/Draft chips. Date block left side. Proctor icons inline.
+              Live pulse for running.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="09-exams-new.html" class="proto-card animate-in animate-in-2">
             <span class="proto-number">09</span>
             <span class="proto-route">/courses/[courseId]/exams/new</span>
             <div class="proto-title">Create exam</div>
-            <p class="proto-desc">Assignment form + Proctoring card (page lock / IP binding / whitelist) + Scoring card (ICPC/IOI, freeze, cooldown).</p>
+            <p class="proto-desc">
+              Assignment form + Proctoring card (page lock / IP binding / whitelist) + Scoring
+              card (ICPC/IOI, freeze, cooldown).
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="10-exam-state-a.html" class="proto-card animate-in animate-in-3">
             <span class="proto-number">10</span>
             <span class="proto-route">/courses/[courseId]/exams/[id]</span>
             <div class="proto-title">Exam — registration view (State A)</div>
-            <p class="proto-desc">Pre-start: schedule, proctoring summary, registered count. Student Start button disabled until start. Teacher sub-tabs visible.</p>
+            <p class="proto-desc">
+              Pre-start: schedule, proctoring summary, registered count. Student Start button
+              disabled until start. Teacher sub-tabs visible.
+            </p>
             <div class="proto-thumb"></div>
           </a>
           <a href="11-exam-state-b.html" class="proto-card animate-in animate-in-4">
             <span class="proto-number">11</span>
             <span class="proto-route">/courses/[courseId]/exams/[id]/problems/[idx]</span>
             <div class="proto-title">Exam mode — problem view</div>
-            <p class="proto-desc">Uses same ProblemSolveView layout as /problems/[id]. Site nav replaced by exam strip (lock + countdown + exit). Submissions panel filtered to this exam only.</p>
-            <div class="proto-thumb" style="background: linear-gradient(135deg, rgba(196, 104, 45, 0.18), #f4ebdd)"></div>
+            <p class="proto-desc">
+              Uses same ProblemSolveView layout as /problems/[id]. Site nav replaced by exam
+              strip (lock + countdown + exit). Submissions panel filtered to this exam only.
+            </p>
+            <div
+              class="proto-thumb"
+              style="background: linear-gradient(135deg, rgba(196, 104, 45, 0.18), #f4ebdd)"
+            ></div>
           </a>
         </div>
       </section>
 
-      <footer class="mt-12" style="padding-top: 2rem; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: var(--text-caption)">
-        Produced 2026-04-14 · referencing <code style="font-family: var(--font-mono)">docs/plans/active/2026-04-11-course-experience-redesign-design.md</code>
+      <footer
+        class="mt-12"
+        style="
+          padding-top: 2rem;
+          border-top: 1px solid var(--border);
+          color: var(--muted-foreground);
+          font-size: var(--text-caption);
+        "
+      >
+        Produced 2026-04-14 · referencing
+        <code style="font-family: var(--font-mono)"
+          >docs/plans/active/2026-04-11-course-experience-redesign-design.md</code
+        >
       </footer>
     </main>
   </body>

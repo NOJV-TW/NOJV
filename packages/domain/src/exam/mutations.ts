@@ -171,29 +171,35 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       scoreboardMode: payload.scoreboardMode,
       scoringMode: payload.scoringMode,
       startsAt: new Date(payload.startsAt),
-      status: "published",
+      status: payload.status,
       submitCooldownSec: payload.submitCooldownSec,
-      summary: payload.summary,
+      summary: payload.summary ?? "",
       title: payload.title
     });
 
-    await resolveAndAttachExamProblems(
-      tx,
-      created.id,
-      payload.problemIds,
-      payload.allowedLanguages
-    );
+    if (payload.problemIds.length > 0) {
+      await resolveAndAttachExamProblems(
+        tx,
+        created.id,
+        payload.problemIds,
+        payload.allowedLanguages
+      );
+    }
 
     return created;
   });
 
   // Schedule the durable timer that auto-closes every active session
   // for this exam at `endsAt`. Fires AFTER commit so a rolled-back
-  // creation never leaves a phantom workflow behind.
-  await dispatchExamAutoClose({
-    examId: exam.id,
-    endsAt: exam.endsAt.toISOString()
-  });
+  // creation never leaves a phantom workflow behind. Drafts skip
+  // scheduling — the timer is (re)established when the draft is
+  // published via `updateExamRecord` / an explicit publish action.
+  if (exam.status === "published") {
+    await dispatchExamAutoClose({
+      examId: exam.id,
+      endsAt: exam.endsAt.toISOString()
+    });
+  }
 
   return exam;
 }
