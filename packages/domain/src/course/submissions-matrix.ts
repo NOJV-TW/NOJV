@@ -149,7 +149,7 @@ export async function buildSubmissionsMatrix(
     return {
       userId: student.userId,
       displayName: student.user.name,
-      handle: student.user.username,
+      handle: student.user.username ?? "",
       cells,
       total
     };
