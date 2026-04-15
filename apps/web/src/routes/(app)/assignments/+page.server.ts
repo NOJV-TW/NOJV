@@ -20,7 +20,7 @@ function parseStatusFilter(raw: string | null): AssignmentsTopStatusFilter {
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
-  const currentFilter = parseStatusFilter(event.url.searchParams.get("status"));
+  const currentFilter = parseStatusFilter(event.url.searchParams.get("tab"));
 
   const { rows, counts, hasNoCourses } = await listAssignmentsAcrossCoursesForUser(
     actor.userId,

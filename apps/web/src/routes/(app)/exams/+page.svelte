@@ -1,42 +1,26 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { ChevronRight, Info } from "@lucide/svelte";
+  import { ChevronRight } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
-  import FilterChips from "$lib/components/common/FilterChips.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const { exams, counts, currentFilter } = $derived(data);
 
-  function setFilter(next: string) {
+  function setTab(next: string) {
     const url = new URL(page.url);
-    if (next === "all") url.searchParams.delete("status");
-    else url.searchParams.set("status", next);
+    if (next === "all") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
     goto(`?${url.searchParams.toString()}`, {
       keepFocus: true,
       replaceState: true,
       noScroll: true
     });
   }
-
-  const filterOptions = $derived([
-    { value: "all", label: m.examsTop_filterAll(), count: counts.all },
-    {
-      value: "running",
-      label: m.examsTop_filterRunning(),
-      count: counts.running
-    },
-    {
-      value: "upcoming",
-      label: m.examsTop_filterUpcoming(),
-      count: counts.upcoming
-    },
-    { value: "ended", label: m.examsTop_filterEnded(), count: counts.ended }
-  ]);
 
   const MONTHS = [
     "Jan",
@@ -104,21 +88,38 @@
 <div class="pb-24">
   <!-- Page head -->
   <header class="animate-in mb-8">
-    <p class="text-caption font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-      {m.examsTop_eyebrow()}
-    </p>
-    <h1 class="font-display mt-2 text-display font-medium tracking-[-0.02em]">
-      {m.examsTop_title()}
+    <h1 class="font-display text-display font-medium tracking-[-0.02em]">
+      {m.navigation_exams()}
     </h1>
     <p class="mt-2 text-body text-muted-foreground">
       {m.examsTop_subtitle()}
     </p>
   </header>
 
-  <!-- Filter chips -->
-  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-4">
-    <div class="flex-1">
-      <FilterChips value={currentFilter} onChange={setFilter} options={filterOptions} />
+  <!-- Tab row -->
+  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
+    <div role="tablist" aria-label={m.navigation_exams()} class="flex flex-1 items-center gap-1">
+      {#each [{ key: "all", label: m.examsTop_filterAll(), count: counts.all }, { key: "running", label: m.examsTop_filterRunning(), count: counts.running }, { key: "upcoming", label: m.examsTop_filterUpcoming(), count: counts.upcoming }, { key: "ended", label: m.examsTop_filterEnded(), count: counts.ended }] as tab (tab.key)}
+        {@const isActive = tab.key === currentFilter}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isActive}
+          onclick={() => setTab(tab.key)}
+          class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'}"
+        >
+          <span>{tab.label}</span>
+          <span
+            class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground'}"
+          >
+            {tab.count}
+          </span>
+        </button>
+      {/each}
     </div>
   </div>
 
@@ -263,18 +264,6 @@
     </div>
   {/if}
 
-  <!-- Info note -->
-  <div
-    class="animate-in animate-in-3 mt-6 flex gap-3 rounded-md border border-info/25 border-l-[4px] border-l-info bg-info/[0.06] px-4 py-3 text-body-sm leading-snug text-muted-foreground"
-  >
-    <Info class="mt-0.5 h-5 w-5 shrink-0 text-info" aria-hidden="true" />
-    <div>
-      {m.examsTop_infoBody()}
-      <a href="/contests" class="font-medium text-primary hover:underline"
-        >{m.examsTop_infoLinkContests()}</a
-      >
-    </div>
-  </div>
 </div>
 
 <style>

@@ -20,7 +20,7 @@ function parseStatusFilter(raw: string | null): ExamAcrossStatusFilter {
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
-  const currentFilter = parseStatusFilter(event.url.searchParams.get("status"));
+  const currentFilter = parseStatusFilter(event.url.searchParams.get("tab"));
 
   const { rows, counts } = await listExamsAcrossCoursesForUser(actor.userId, {
     status: currentFilter

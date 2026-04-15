@@ -5,7 +5,6 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
-  import FilterChips from "$lib/components/common/FilterChips.svelte";
   import TeacherBadge from "$lib/components/common/TeacherBadge.svelte";
   import type { PageData } from "./$types";
 
@@ -13,11 +12,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  // URL-synced tab + archived state ----------------------------------------
   const activeTab = $derived<TabKey>(deriveTab(page.url.searchParams.get("tab")));
-  const archivedFilter = $derived<"active" | "archived">(
-    page.url.searchParams.get("archived") === "true" ? "archived" : "active"
-  );
 
   function deriveTab(raw: string | null): TabKey {
     if (raw === "managing") return "managing";
@@ -30,44 +25,12 @@
     goto(`?${url.searchParams.toString()}`, { keepFocus: true, replaceState: true, noScroll: true });
   }
 
-  function setArchivedFilter(next: string) {
-    const url = new URL(page.url);
-    if (next === "archived") url.searchParams.set("archived", "true");
-    else url.searchParams.delete("archived");
-    goto(`?${url.searchParams.toString()}`, { keepFocus: true, replaceState: true, noScroll: true });
-  }
-
-  // Derived lists ----------------------------------------------------------
-  const enrolledActive = $derived(data.enrolled.filter((c) => !c.archived));
-  const enrolledArchived = $derived(data.enrolled.filter((c) => c.archived));
-  const managingActive = $derived(data.managing.filter((c) => !c.archived));
-  const managingArchived = $derived(data.managing.filter((c) => c.archived));
-
-  const visibleCourses = $derived(
-    activeTab === "enrolled"
-      ? archivedFilter === "archived"
-        ? enrolledArchived
-        : enrolledActive
-      : archivedFilter === "archived"
-        ? managingArchived
-        : managingActive
-  );
-
-  const enrolledActiveCount = $derived(enrolledActive.length);
-  const enrolledArchivedCount = $derived(enrolledArchived.length);
-  const managingActiveCount = $derived(managingActive.length);
-  const managingArchivedCount = $derived(managingArchived.length);
+  const visibleCourses = $derived(activeTab === "enrolled" ? data.enrolled : data.managing);
 
   const tabCounts = $derived({
     enrolled: data.enrolled.length,
     managing: data.managing.length
   });
-
-  const chipCounts = $derived(
-    activeTab === "enrolled"
-      ? { active: enrolledActiveCount, archived: enrolledArchivedCount }
-      : { active: managingActiveCount, archived: managingArchivedCount }
-  );
 
   const showCreateButton = $derived(data.canCreate && activeTab === "managing");
 
@@ -78,24 +41,18 @@
   }
 </script>
 
-<div class="mx-auto w-full max-w-6xl px-6 pb-20">
-  <!-- Page head -->
-  <section class="animate-in mb-8">
-    <h1 class="font-display text-display font-medium tracking-tight">
+<div class="pb-24">
+  <header class="animate-in mb-8">
+    <h1 class="font-display text-display font-medium tracking-[-0.02em]">
       {m.navigation_courses()}
     </h1>
-    <p class="mt-2 max-w-2xl text-body-sm text-muted-foreground">
+    <p class="mt-2 text-body text-muted-foreground">
       {m.courses_subtitle()}
     </p>
-  </section>
+  </header>
 
-  <!-- Tabs + create button -->
-  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4">
-    <div
-      role="tablist"
-      aria-label={m.courses_tabsLabel()}
-      class="flex flex-1 items-center gap-1 border-b border-border"
-    >
+  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
+    <div role="tablist" aria-label="Course tabs" class="flex flex-1 items-center gap-1">
       {#each [{ key: "enrolled" as const, label: m.courses_tabEnrolled(), count: tabCounts.enrolled }, { key: "managing" as const, label: m.courses_tabManaging(), count: tabCounts.managing }] as tab (tab.key)}
         {@const isActive = tab.key === activeTab}
         <button
@@ -127,24 +84,10 @@
     {/if}
   </div>
 
-  <!-- Filter chips -->
-  <div class="animate-in animate-in-2 mb-6">
-    <FilterChips
-      ariaLabel={m.courses_filtersLabel()}
-      value={archivedFilter}
-      onChange={setArchivedFilter}
-      options={[
-        { value: "active", label: m.courses_filterActive(), count: chipCounts.active },
-        { value: "archived", label: m.courses_filterArchived(), count: chipCounts.archived }
-      ]}
-    />
-  </div>
-
-  <!-- Course grid -->
   {#if visibleCourses.length === 0}
     {#if activeTab === "enrolled"}
       <div
-        class="animate-in animate-in-3 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+        class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60">
           <GraduationCap class="h-7 w-7 text-muted-foreground/70" />
@@ -156,7 +99,7 @@
       </div>
     {:else}
       <div
-        class="animate-in animate-in-3 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+        class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60">
           <BookOpen class="h-7 w-7 text-muted-foreground/70" />
@@ -176,7 +119,7 @@
       </div>
     {/if}
   {:else}
-    <div class="animate-in animate-in-3 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div class="animate-in animate-in-2 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {#each visibleCourses as course (course.id)}
         <a
           href={`/courses/${course.id}`}
