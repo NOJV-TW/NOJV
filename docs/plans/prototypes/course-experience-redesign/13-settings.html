@@ -61,7 +61,9 @@
         padding: 1rem 0;
         border-bottom: 1px solid var(--border-subtle);
       }
-      .field-row:last-child { border-bottom: none; }
+      .field-row:last-child {
+        border-bottom: none;
+      }
       .field-row > .name {
         font-weight: 500;
         letter-spacing: -0.005em;
@@ -104,7 +106,9 @@
         cursor: pointer;
         transition: all var(--duration-fast);
       }
-      .late-option:hover { border-color: var(--border-strong); }
+      .late-option:hover {
+        border-color: var(--border-strong);
+      }
       .late-option.selected {
         border-color: var(--primary);
         background: rgba(196, 104, 45, 0.04);
@@ -132,7 +136,10 @@
         gap: 0.5rem;
         align-items: center;
       }
-      .late-option.selected .params { display: flex; flex-wrap: wrap; }
+      .late-option.selected .params {
+        display: flex;
+        flex-wrap: wrap;
+      }
       .param-input {
         width: 68px;
         padding: 0.3125rem 0.5rem;
@@ -173,7 +180,9 @@
         background: var(--primary);
         border-color: var(--primary);
       }
-      .switch.on::after { transform: translateX(18px); }
+      .switch.on::after {
+        transform: translateX(18px);
+      }
 
       /* Danger zone */
       .danger-card {
@@ -198,7 +207,9 @@
         padding: 1.25rem 0;
         border-bottom: 1px solid rgba(184, 55, 42, 0.18);
       }
-      .danger-row:last-child { border-bottom: none; }
+      .danger-row:last-child {
+        border-bottom: none;
+      }
       .danger-row h3 {
         font-family: var(--font-sans);
         font-size: var(--text-body-lg);
@@ -264,11 +275,26 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="course-hero" style="padding: 2rem 0 1.75rem">
         <a href="03-course-overview.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
-          <h1 class="font-display" style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em">設定</h1>
+          <h1
+            class="font-display"
+            style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em"
+          >
+            設定
+          </h1>
           <span class="teacher-badge">Teacher</span>
         </div>
       </section>
@@ -276,9 +302,15 @@
       <div class="tab-bar">
         <div class="tabs">
           <div class="tab"><a href="03-course-overview.html">Overview</a></div>
-          <div class="tab"><a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a></div>
-          <div class="tab"><a href="08-exams-list.html">Exams <span class="tab-count">2</span></a></div>
-          <div class="tab"><a href="12-members.html">Members <span class="tab-count">74</span></a></div>
+          <div class="tab">
+            <a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a>
+          </div>
+          <div class="tab">
+            <a href="08-exams-list.html">Exams <span class="tab-count">2</span></a>
+          </div>
+          <div class="tab">
+            <a href="12-members.html">Members <span class="tab-count">74</span></a>
+          </div>
           <div class="tab active">Settings</div>
         </div>
       </div>
@@ -289,7 +321,18 @@
           <section class="settings-card animate-in animate-in-1">
             <div class="settings-card-head">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" /><path d="M4 9h16M9 4v16" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 4h16v16H4z" />
+                  <path d="M4 9h16M9 4v16" />
+                </svg>
               </div>
               <div>
                 <h2>課程資訊</h2>
@@ -311,7 +354,9 @@
                   簡述
                   <span class="sub">出現在課程列表與首頁</span>
                 </div>
-                <textarea class="textarea" rows="2">本學期將從 system call、process、memory 管理一路實作到 scheduler 與 file system。</textarea>
+                <textarea class="textarea" rows="2">
+本學期將從 system call、process、memory 管理一路實作到 scheduler 與 file system。</textarea
+                >
               </div>
             </div>
           </section>
@@ -320,7 +365,17 @@
           <section class="settings-card animate-in animate-in-2">
             <div class="settings-card-head">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-6 4 2 7-6-4-6 4 2-7-6-4h7l3-7z" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 2l3 7h7l-6 4 2 7-6-4-6 4 2-7-6-4h7l3-7z" />
+                </svg>
               </div>
               <div>
                 <h2>預設政策</h2>
@@ -397,7 +452,18 @@
           <section class="settings-card animate-in animate-in-3">
             <div class="settings-card-head">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
               </div>
               <div>
                 <h2>可見性</h2>
@@ -408,10 +474,14 @@
             <div class="field-row">
               <div class="name">
                 已封存
-                <span class="sub">封存後學生仍可看到歷史紀錄但無法再提交。顯示在列表的「Archived」篩選下。</span>
+                <span class="sub"
+                  >封存後學生仍可看到歷史紀錄但無法再提交。顯示在列表的「Archived」篩選下。</span
+                >
               </div>
               <div class="flex items-center gap-3">
-                <span class="text-body-sm text-muted">目前：<span class="text-fg weight-500">進行中</span></span>
+                <span class="text-body-sm text-muted"
+                  >目前：<span class="text-fg weight-500">進行中</span></span
+                >
                 <div class="switch"></div>
               </div>
             </div>
@@ -421,7 +491,19 @@
           <section class="danger-card animate-in animate-in-4">
             <div class="settings-card-head">
               <div class="icon-box">
-                <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" /></svg>
+                <svg
+                  class="icon icon-lg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"
+                  />
+                </svg>
               </div>
               <div>
                 <h2>危險區</h2>
@@ -450,7 +532,17 @@
                 </div>
               </div>
               <button class="btn btn-destructive-outline" style="align-self: flex-start">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h10M6 5V3h4v2M5 5l1 9h4l1-9M7 8v4M9 8v4" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 5h10M6 5V3h4v2M5 5l1 9h4l1-9M7 8v4M9 8v4" />
+                </svg>
                 永久刪除
               </button>
             </div>

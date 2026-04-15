@@ -89,7 +89,9 @@
         cursor: pointer;
         transition: background var(--duration-fast);
       }
-      .problem-result:hover { background: var(--muted); }
+      .problem-result:hover {
+        background: var(--muted);
+      }
       .problem-result .tag {
         font-family: var(--font-mono);
         font-size: var(--text-caption);
@@ -107,9 +109,15 @@
         letter-spacing: 0.08em;
         font-weight: 600;
       }
-      .problem-result .difficulty.easy { color: var(--success); }
-      .problem-result .difficulty.medium { color: var(--warning); }
-      .problem-result .difficulty.hard { color: var(--destructive); }
+      .problem-result .difficulty.easy {
+        color: var(--success);
+      }
+      .problem-result .difficulty.medium {
+        color: var(--warning);
+      }
+      .problem-result .difficulty.hard {
+        color: var(--destructive);
+      }
       .problem-result .add {
         width: 24px;
         height: 24px;
@@ -155,7 +163,9 @@
         color: var(--muted-foreground);
         cursor: grab;
       }
-      .drag-handle:hover { color: var(--foreground); }
+      .drag-handle:hover {
+        color: var(--foreground);
+      }
       .selected-row .order-num {
         font-family: var(--font-display);
         font-size: var(--text-title-sm);
@@ -182,7 +192,10 @@
         border-radius: var(--radius-sm);
         color: var(--muted-foreground);
       }
-      .remove-btn:hover { color: var(--destructive); background: rgba(184, 55, 42, 0.08); }
+      .remove-btn:hover {
+        color: var(--destructive);
+        background: rgba(184, 55, 42, 0.08);
+      }
 
       /* Empty problem state — key change: allow zero problems */
       .empty-problems-option {
@@ -198,8 +211,15 @@
         color: var(--muted-foreground);
         line-height: var(--leading-relaxed);
       }
-      .empty-problems-option svg { color: var(--info); flex-shrink: 0; margin-top: 0.125rem; }
-      .empty-problems-option strong { color: var(--foreground); font-weight: 600; }
+      .empty-problems-option svg {
+        color: var(--info);
+        flex-shrink: 0;
+        margin-top: 0.125rem;
+      }
+      .empty-problems-option strong {
+        color: var(--foreground);
+        font-weight: 600;
+      }
 
       /* Late penalty rule builder */
       .late-rule {
@@ -219,7 +239,9 @@
         cursor: pointer;
         transition: all var(--duration-fast) var(--ease-out-soft);
       }
-      .late-option:hover { border-color: var(--border-strong); }
+      .late-option:hover {
+        border-color: var(--border-strong);
+      }
       .late-option.selected {
         border-color: var(--primary);
         background: rgba(196, 104, 45, 0.04);
@@ -249,7 +271,9 @@
         align-items: center;
         flex-wrap: wrap;
       }
-      .late-option.selected .params { display: flex; }
+      .late-option.selected .params {
+        display: flex;
+      }
       .param-input {
         width: 72px;
         padding: 0.3125rem 0.5rem;
@@ -273,7 +297,9 @@
       .advanced-toggle .chev {
         transition: transform var(--duration-fast);
       }
-      .advanced-toggle.open .chev { transform: rotate(90deg); }
+      .advanced-toggle.open .chev {
+        transform: rotate(90deg);
+      }
 
       .advanced-body {
         margin-top: 1.5rem;
@@ -343,7 +369,17 @@
     <main class="container container-narrow" style="padding-bottom: 6rem">
       <section class="page-head animate-in">
         <a href="04-assignments-list.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           Assignments
         </a>
         <h1 class="page-head-title font-display">建立新作業</h1>
@@ -368,7 +404,12 @@
               標題
               <span class="required">*</span>
             </label>
-            <input class="input" type="text" value="HW 7 — File System 實作" placeholder="例：HW 3 Context Switch" />
+            <input
+              class="input"
+              type="text"
+              value="HW 7 — File System 實作"
+              placeholder="例：HW 3 Context Switch"
+            />
             <p class="form-hint">學生看到的名稱。</p>
           </div>
         </div>
@@ -385,8 +426,23 @@
 
           <div class="problem-picker">
             <div class="problem-picker-search">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--muted-foreground)"><circle cx="7" cy="7" r="5" /><path d="M11 11l3 3" /></svg>
-              <input type="text" placeholder="搜尋題目名稱或 tag（file-system, inode, block...）" />
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                style="color: var(--muted-foreground)"
+              >
+                <circle cx="7" cy="7" r="5" />
+                <path d="M11 11l3 3" />
+              </svg>
+              <input
+                type="text"
+                placeholder="搜尋題目名稱或 tag（file-system, inode, block...）"
+              />
               <span class="text-caption text-muted">找到 8 題</span>
             </div>
             <div class="problem-picker-results">
@@ -395,7 +451,17 @@
                 <span class="title">Simple File Allocator</span>
                 <span class="difficulty medium">Medium</span>
                 <span class="add">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8 3.5v9M3.5 8h9" />
+                  </svg>
                 </span>
               </div>
               <div class="problem-result">
@@ -403,7 +469,17 @@
                 <span class="title">Inode Bitmap 管理</span>
                 <span class="difficulty hard">Hard</span>
                 <span class="add">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8 3.5v9M3.5 8h9" />
+                  </svg>
                 </span>
               </div>
               <div class="problem-result">
@@ -411,7 +487,17 @@
                 <span class="title">Directory Tree 遍歷</span>
                 <span class="difficulty medium">Medium</span>
                 <span class="add">
-                  <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5v9M3.5 8h9" /></svg>
+                  <svg
+                    class="icon"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M8 3.5v9M3.5 8h9" />
+                  </svg>
                 </span>
               </div>
             </div>
@@ -425,42 +511,102 @@
 
             <div class="selected-row">
               <span class="drag-handle">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" />
+                </svg>
               </span>
               <span class="order-num">1</span>
               <div>
                 <div class="title">Simple File Allocator</div>
                 <div class="problem-id">problem_fs_01</div>
               </div>
-              <span class="difficulty medium text-warning text-micro weight-600" style="letter-spacing: 0.08em; text-transform: uppercase">Medium</span>
+              <span
+                class="difficulty medium text-warning text-micro weight-600"
+                style="letter-spacing: 0.08em; text-transform: uppercase"
+                >Medium</span
+              >
               <span class="badge badge-muted">100 分</span>
               <button class="remove-btn">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
               </button>
             </div>
 
             <div class="selected-row">
               <span class="drag-handle">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M6 4h.01M10 4h.01M6 8h.01M10 8h.01M6 12h.01M10 12h.01" />
+                </svg>
               </span>
               <span class="order-num">2</span>
               <div>
                 <div class="title">Inode Bitmap 管理</div>
                 <div class="problem-id">problem_fs_04</div>
               </div>
-              <span class="difficulty hard text-destructive text-micro weight-600" style="letter-spacing: 0.08em; text-transform: uppercase">Hard</span>
+              <span
+                class="difficulty hard text-destructive text-micro weight-600"
+                style="letter-spacing: 0.08em; text-transform: uppercase"
+                >Hard</span
+              >
               <span class="badge badge-muted">150 分</span>
               <button class="remove-btn">
-                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+                <svg
+                  class="icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
               </button>
             </div>
           </div>
 
           <div class="empty-problems-option">
-            <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+            <svg
+              class="icon icon-lg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
             <div>
               <strong>可以先建空作業。</strong>
-              題目留空也能先存為草稿，之後讓 TA 在 Draft 狀態下協作補題目。發布前 TA / 老師都能看到並編輯。學生看不到 Draft 作業。
+              題目留空也能先存為草稿，之後讓 TA 在 Draft 狀態下協作補題目。發布前 TA /
+              老師都能看到並編輯。學生看不到 Draft 作業。
             </div>
           </div>
         </div>
@@ -495,7 +641,17 @@
         <div class="form-card">
           <button type="button" class="advanced-toggle open">
             <span class="chev">
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l5 4-5 4" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M6 4l5 4-5 4" />
+              </svg>
             </span>
             <div>
               <h3 class="font-display text-title-sm weight-500">進階設定</h3>
@@ -518,8 +674,16 @@
 
             <div class="form-row">
               <label class="form-label">每日最多嘗試次數</label>
-              <input class="input" type="number" value="" placeholder="留空表示無限制" style="max-width: 200px" />
-              <p class="form-hint">每日凌晨 0:00 重置計數。達到次數後當天不能再提交，隔天可繼續。留空 = 無限制。</p>
+              <input
+                class="input"
+                type="number"
+                value=""
+                placeholder="留空表示無限制"
+                style="max-width: 200px"
+              />
+              <p class="form-hint">
+                每日凌晨 0:00 重置計數。達到次數後當天不能再提交，隔天可繼續。留空 = 無限制。
+              </p>
             </div>
 
             <div class="form-row">
