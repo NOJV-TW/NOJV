@@ -214,6 +214,46 @@ export const assessmentRepo = {
     });
   },
 
+  /**
+   * Full assignment detail for the per-assignment page. Scoped to a
+   * course id so the caller doesn't have to cross-check ownership
+   * after the fetch. Returns the assessment plus its ordered problem
+   * list (with difficulty + per-assessment points) — the shape
+   * consumed by `getAssignmentDetail` in `@nojv/domain`.
+   */
+  findDetailById(courseId: string, assessmentId: string) {
+    return prisma.courseAssessment.findFirst({
+      where: { id: assessmentId, courseId },
+      select: {
+        id: true,
+        courseId: true,
+        slug: true,
+        title: true,
+        summary: true,
+        status: true,
+        opensAt: true,
+        dueAt: true,
+        closesAt: true,
+        maxAttemptsPerDay: true,
+        allowedLanguages: true,
+        problems: {
+          orderBy: { ordinal: "asc" },
+          select: {
+            ordinal: true,
+            points: true,
+            problem: {
+              select: {
+                id: true,
+                title: true,
+                difficulty: true
+              }
+            }
+          }
+        }
+      }
+    });
+  },
+
   count() {
     return prisma.courseAssessment.count();
   },

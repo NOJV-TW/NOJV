@@ -17,7 +17,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/problems/[id]/edit`                                | Problem editor (admin/teacher)                                                |
 | `/submissions`                                       | User submission history                                                       |
 | `/contests`                                          | Contest listing, invite code join                                             |
-| `/contests/create`                                   | Contest creation (admin/teacher)                                              |
+| `/contests/create`                                   | Contest creation (any authenticated user)                                     |
 | `/contests/[slug]`                                   | Contest detail and problem list                                               |
 | `/contests/[slug]/problems/[problemId]`              | Contest problem workspace                                                     |
 | `/contests/[slug]/scoreboard`                        | Real-time scoreboard (ICPC/IOI)                                               |

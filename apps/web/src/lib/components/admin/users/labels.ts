@@ -1,4 +1,4 @@
-import type { UiLang } from "$lib/components/manage/SystemTextToggle.svelte";
+import type { UiLang } from "$lib/components/admin/SystemTextToggle.svelte";
 
 export type { UiLang };
 

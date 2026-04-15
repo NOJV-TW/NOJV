@@ -30,7 +30,11 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: radial-gradient(circle at top right, rgba(196, 104, 45, 0.06), transparent 50%);
+        background: radial-gradient(
+          circle at top right,
+          rgba(196, 104, 45, 0.06),
+          transparent 50%
+        );
         pointer-events: none;
       }
 
@@ -84,8 +88,16 @@
         border: 1px solid var(--border);
         border-radius: var(--radius-full);
       }
-      .parse-pill.existing { color: var(--success); border-color: rgba(77, 141, 91, 0.3); background: rgba(77, 141, 91, 0.06); }
-      .parse-pill.new { color: var(--primary); border-color: rgba(196, 104, 45, 0.32); background: rgba(196, 104, 45, 0.08); }
+      .parse-pill.existing {
+        color: var(--success);
+        border-color: rgba(77, 141, 91, 0.3);
+        background: rgba(77, 141, 91, 0.06);
+      }
+      .parse-pill.new {
+        color: var(--primary);
+        border-color: rgba(196, 104, 45, 0.32);
+        background: rgba(196, 104, 45, 0.08);
+      }
 
       .roster-toolbar {
         display: flex;
@@ -138,8 +150,12 @@
         border-bottom: 1px solid var(--border-subtle);
         transition: background var(--duration-fast);
       }
-      .roster-row:last-child { border-bottom: none; }
-      .roster-row:hover { background: rgba(196, 104, 45, 0.03); }
+      .roster-row:last-child {
+        border-bottom: none;
+      }
+      .roster-row:hover {
+        background: rgba(196, 104, 45, 0.03);
+      }
 
       .roster-row .member-avatar {
         width: 38px;
@@ -162,7 +178,10 @@
         font-weight: 600;
         letter-spacing: -0.005em;
       }
-      .roster-row .name.placeholder { color: var(--muted-foreground); font-weight: 400; }
+      .roster-row .name.placeholder {
+        color: var(--muted-foreground);
+        font-weight: 400;
+      }
       .roster-row .handle {
         font-family: var(--font-mono);
         font-size: var(--text-caption);
@@ -193,7 +212,10 @@
         border-radius: var(--radius-sm);
         transition: color var(--duration-fast);
       }
-      .roster-row .remove-btn:hover { color: var(--destructive); background: rgba(184, 55, 42, 0.08); }
+      .roster-row .remove-btn:hover {
+        color: var(--destructive);
+        background: rgba(184, 55, 42, 0.08);
+      }
     </style>
   </head>
   <body>
@@ -225,11 +247,26 @@
     <main class="container container-wide" style="padding-bottom: 6rem">
       <section class="course-hero" style="padding: 2rem 0 1.75rem">
         <a href="03-course-overview.html" class="breadcrumb">
-          <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 3l-5 5 5 5" /></svg>
+          <svg
+            class="icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M11 3l-5 5 5 5" />
+          </svg>
           作業系統實作
         </a>
         <div class="flex items-center justify-between gap-4" style="flex-wrap: wrap">
-          <h1 class="font-display" style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em">成員</h1>
+          <h1
+            class="font-display"
+            style="font-size: var(--text-display); font-weight: 400; letter-spacing: -0.025em"
+          >
+            成員
+          </h1>
           <span class="teacher-badge">Teacher</span>
         </div>
       </section>
@@ -237,8 +274,12 @@
       <div class="tab-bar">
         <div class="tabs">
           <div class="tab"><a href="03-course-overview.html">Overview</a></div>
-          <div class="tab"><a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a></div>
-          <div class="tab"><a href="08-exams-list.html">Exams <span class="tab-count">2</span></a></div>
+          <div class="tab">
+            <a href="04-assignments-list.html">Assignments <span class="tab-count">14</span></a>
+          </div>
+          <div class="tab">
+            <a href="08-exams-list.html">Exams <span class="tab-count">2</span></a>
+          </div>
           <div class="tab active">Members <span class="tab-count">74</span></div>
           <div class="tab"><a href="13-settings.html">Settings</a></div>
         </div>
@@ -247,26 +288,54 @@
       <!-- Add panel (teacher only) — expanded -->
       <section class="add-panel animate-in animate-in-1" style="position: relative">
         <h3>
-          <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary)"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 11a4 4 0 100-8 4 4 0 000 8zM20 8v6M23 11h-6" /></svg>
+          <svg
+            class="icon icon-lg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            style="color: var(--primary)"
+          >
+            <path
+              d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 11a4 4 0 100-8 4 4 0 000 8zM20 8v6M23 11h-6"
+            />
+          </svg>
           加入成員
         </h3>
         <p class="head-desc">
-          貼上 handle 清單（一行一個，或用逗號分隔）。系統會自動解析成對應學生。找不到的會建立 placeholder，等他們第一次 OAuth 登入時自動 attach 身分。
+          貼上 handle 清單（一行一個，或用逗號分隔）。系統會自動解析成對應學生。找不到的會建立
+          placeholder，等他們第一次 OAuth 登入時自動 attach 身分。
         </p>
 
-        <div class="mt-5" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; position: relative">
+        <div
+          class="mt-5"
+          style="
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.25rem;
+            position: relative;
+          "
+        >
           <div>
             <label class="form-label">Handles</label>
-            <textarea class="handle-textarea mt-2">b11902001
+            <textarea class="handle-textarea mt-2">
+b11902001
 b11902024
 b11902077
 b11902103
 b11902188, b11902205
 newcomer2026
-another_new_handle</textarea>
+another_new_handle</textarea
+            >
 
             <div class="parse-preview">
-              <span class="text-caption text-muted weight-600" style="width: 100%; margin-bottom: 0.25rem">解析後（7 個 handles）：</span>
+              <span
+                class="text-caption text-muted weight-600"
+                style="width: 100%; margin-bottom: 0.25rem"
+                >解析後（7 個 handles）：</span
+              >
               <span class="parse-pill existing">b11902001 ✓</span>
               <span class="parse-pill existing">b11902024 ✓</span>
               <span class="parse-pill existing">b11902077 ✓</span>
@@ -282,18 +351,40 @@ another_new_handle</textarea>
             <div class="form-row">
               <label class="form-label">身分</label>
               <div class="stack-2">
-                <label class="radio" style="padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); cursor: pointer">
+                <label
+                  class="radio"
+                  style="
+                    padding: 0.625rem 0.875rem;
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius-sm);
+                    background: var(--panel);
+                    cursor: pointer;
+                  "
+                >
                   <input type="radio" name="add-role" checked />
                   <div>
                     <div class="weight-500 text-body-sm">Student</div>
-                    <div class="text-caption text-muted" style="margin-top: 0.125rem">可做題、交作業</div>
+                    <div class="text-caption text-muted" style="margin-top: 0.125rem">
+                      可做題、交作業
+                    </div>
                   </div>
                 </label>
-                <label class="radio" style="padding: 0.625rem 0.875rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); cursor: pointer">
+                <label
+                  class="radio"
+                  style="
+                    padding: 0.625rem 0.875rem;
+                    border: 1px solid var(--border);
+                    border-radius: var(--radius-sm);
+                    background: var(--panel);
+                    cursor: pointer;
+                  "
+                >
                   <input type="radio" name="add-role" />
                   <div>
                     <div class="weight-500 text-body-sm">Teaching Assistant</div>
-                    <div class="text-caption text-muted" style="margin-top: 0.125rem">可編輯作業、看 stats</div>
+                    <div class="text-caption text-muted" style="margin-top: 0.125rem">
+                      可編輯作業、看 stats
+                    </div>
                   </div>
                 </label>
               </div>
@@ -301,7 +392,17 @@ another_new_handle</textarea>
 
             <button class="btn btn-primary" style="width: 100%; justify-content: center">
               確認加入 7 位成員
-              <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l3 3 7-7" /></svg>
+              <svg
+                class="icon"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 8l3 3 7-7" />
+              </svg>
             </button>
             <p class="form-hint" style="text-align: center">不會寄信、不會產生加入連結</p>
           </div>
@@ -317,7 +418,19 @@ another_new_handle</textarea>
           <button class="chip">Students <span class="chip-count">71</span></button>
         </div>
         <div class="roster-search">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5" /><path d="M11 11l3 3" /></svg>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="7" cy="7" r="5" />
+            <path d="M11 11l3 3" />
+          </svg>
           <input type="text" placeholder="搜尋 handle 或姓名" />
         </div>
       </div>
@@ -350,7 +463,17 @@ another_new_handle</textarea>
             <option>Student</option>
           </select>
           <button class="remove-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
           </button>
         </div>
 
@@ -368,7 +491,17 @@ another_new_handle</textarea>
             <option>Student</option>
           </select>
           <button class="remove-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
           </button>
         </div>
 
@@ -386,7 +519,17 @@ another_new_handle</textarea>
             <option>TA</option>
           </select>
           <button class="remove-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
           </button>
         </div>
 
@@ -403,7 +546,17 @@ another_new_handle</textarea>
             <option>TA</option>
           </select>
           <button class="remove-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
           </button>
         </div>
 
@@ -420,7 +573,17 @@ another_new_handle</textarea>
             <option>Student</option>
           </select>
           <button class="remove-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
           </button>
         </div>
 
@@ -436,13 +599,24 @@ another_new_handle</textarea>
             <option>Student</option>
           </select>
           <button class="remove-btn">
-            <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <svg
+              class="icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
           </button>
         </div>
       </div>
 
       <p class="mt-4 text-caption text-muted" style="text-align: center">
-        Placeholder 列的外觀刻意弱化（avatar 用問號 + 名字留白），讓老師一眼看出「這些人還沒進來過」。
+        Placeholder 列的外觀刻意弱化（avatar 用問號 +
+        名字留白），讓老師一眼看出「這些人還沒進來過」。
       </p>
     </main>
   </body>
