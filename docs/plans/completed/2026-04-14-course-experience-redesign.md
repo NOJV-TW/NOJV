@@ -1373,13 +1373,13 @@ spec's intent in every phase.
    handler. The plan never dictated a URL path, so this is a naming
    preference rather than a deviation.
 
-## Minor test-coverage follow-ups (non-blocking)
+## Minor test-coverage follow-ups
 
-- Task 1.1 relocated `icpc.test.ts` to `tests/unit/domain/scoring/` but
+All closed as of 2026-04-16.
+
+- ~~Task 1.1 relocated `icpc.test.ts` to `tests/unit/domain/scoring/` but
   did not add `ioi.test.ts` / `scoreboard-builder.test.ts` at that
-  location. IOI and scoreboard behavior is still covered indirectly by
-  `tests/integration/api/contests.test.ts`,
-  `tests/integration/redis/scoreboard.test.ts`, and
-  `tests/unit/core/contest-schemas.test.ts`, so the 96-test integration
-  suite protects the feature — the gap is only at the unit-level pivot.
-  Worth revisiting in a future quality pass.
+  location.~~ Both files landed in commit `029b3bd`. 23 new unit tests
+  cover `buildIoiScoreboard`, `buildScoreboard` dispatcher, and
+  `buildScoreboardChartSeries` for ICPC and IOI modes. Full unit suite
+  is now 36 files / 278 tests.
