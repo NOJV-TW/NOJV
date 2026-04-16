@@ -14,10 +14,6 @@
   import FormError from "$lib/components/ui/FormError.svelte";
   import type { FormMessage } from "$lib/types/form-message";
 
-  // Proctoring (IP lock, IP binding, page lock) and course binding
-  // moved to the Exam create flow as part of the 2026-04-14 split.
-  // Contests are now always standalone public/invite-only events.
-
   let { data } = $props();
 
   const { form, errors, enhance, message: formMessage } = superForm<typeof data.form.data, FormMessage>(untrack(() => data.form), {
@@ -118,8 +114,8 @@
     <div>
       <label class="text-sm font-medium" for="scoringMode">{m.contestCreate_scoringMode()}</label>
       <select class={inputClassName} id="scoringMode" name="scoringMode" bind:value={$form.scoringMode}>
-        <option value="problem_count">Problem count (ICPC-style, penalty tiebreaker)</option>
-        <option value="point_sum">Point sum (IOI-style, partial credit)</option>
+        <option value="problem_count">{m.contestCreate_scoringModeProblemCount()}</option>
+        <option value="point_sum">{m.contestCreate_scoringModePointSum()}</option>
       </select>
     </div>
 
@@ -142,7 +138,7 @@
       <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
         <option value="live">{m.contestDetail_live()}</option>
         <option value="frozen">{m.contestDetail_frozen()}</option>
-        <option value="hidden">Hidden</option>
+        <option value="hidden">{m.contestCreate_scoreboardModeHidden()}</option>
       </select>
     </div>
 

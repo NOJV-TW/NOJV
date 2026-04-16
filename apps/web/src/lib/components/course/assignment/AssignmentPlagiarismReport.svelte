@@ -1,10 +1,4 @@
 <script lang="ts" module>
-  /**
-   * Plagiarism report shape rendered by prototype 07 sub-tab 3. The
-   * route loader hands us a decoded result blob keyed off the MOSS
-   * `SimilarityPair` schema. We tolerate shape drift — missing fields
-   * just degrade the pair card gracefully.
-   */
   export interface PlagiarismReportPair {
     userId1: string;
     userId2: string;

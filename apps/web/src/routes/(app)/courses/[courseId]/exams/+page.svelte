@@ -6,6 +6,7 @@
   import Link2 from "@lucide/svelte/icons/link-2";
   import Shield from "@lucide/svelte/icons/shield";
   import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import FilterChips from "$lib/components/common/FilterChips.svelte";
@@ -44,24 +45,9 @@
     return options;
   });
 
-  // Month labels are deliberately English 3-char uppercase to match the
-  // prototype's date-block aesthetic (tabular feel, compact width). We
-  // don't route these through paraglide — they're visual glyphs, not
-  // translatable copy.
-  const MONTH_LABELS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec"
-  ] as const;
+  const monthFormatter = $derived(
+    new Intl.DateTimeFormat(getLocale(), { month: "short" })
+  );
 
   function pad2(n: number): string {
     return n < 10 ? `0${String(n)}` : String(n);
@@ -77,7 +63,7 @@
     }
     const d = new Date(iso);
     return {
-      month: MONTH_LABELS[d.getMonth()] ?? "—",
+      month: monthFormatter.format(d),
       day: pad2(d.getDate()),
       time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     };
@@ -107,11 +93,6 @@
     return Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 60_000));
   }
 
-  /**
-   * Rough "upcoming" hint: "Opens in N days" when > 24h, "X hours left"
-   * otherwise. Shown on upcoming rows where the countdown block is not
-   * rendered.
-   */
   function upcomingHint(startsAt: string | null): string | null {
     if (!startsAt) return null;
     const msUntil = new Date(startsAt).getTime() - Date.now();
@@ -123,7 +104,9 @@
   }
 
   function scoringLabel(mode: "problem_count" | "point_sum"): string {
-    return mode === "problem_count" ? m.examsList_scoringIcpc() : m.examsList_scoringIoi();
+    return mode === "problem_count"
+      ? m.examsList_scoringProblemCount()
+      : m.examsList_scoringPointSum();
   }
 
   function proctorTitle(

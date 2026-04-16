@@ -1,9 +1,3 @@
-/**
- * Entity-agnostic types and helpers shared by ICPC and IOI scoreboard
- * builders. No contest/exam vocabulary lives here — both consumers pass in
- * a neutral `TimedSession` shape (see `./icpc.ts` and `./ioi.ts`).
- */
-
 export interface ProblemScore {
   problemId: string;
   score: number;
@@ -44,11 +38,6 @@ export interface ParticipantRow {
   user: { username: string | null; displayUsername: string | null; name: string };
 }
 
-/**
- * Neutral "timed session" shape that both Contest and Exam satisfy. The
- * scoreboard builders only need these three fields — anything else is
- * orchestration-layer concern.
- */
 export interface TimedSession {
   id: string;
   startsAt: Date;
@@ -77,11 +66,6 @@ export function resolveDisplayUsername(user: ParticipantRow["user"]): string {
   return user.displayUsername ?? user.username ?? user.name;
 }
 
-/**
- * Assigns dense ranks to a pre-sorted scoreboard. Entries that the `isTied`
- * predicate considers equal to the previous entry share the previous entry's
- * rank; otherwise they get `index + 1`.
- */
 export function assignRanks(
   entries: ScoreboardEntry[],
   isTied: (a: ScoreboardEntry, b: ScoreboardEntry) => boolean
@@ -94,13 +78,7 @@ export function assignRanks(
   }
 }
 
-/**
- * Splits a user's submissions for one problem into the portion visible on the
- * scoreboard and derives whether the cell is frozen. ICPC and IOI scoring
- * share this rule exactly: when `showFrozen` is active and a freeze time is
- * set, hide anything submitted after the freeze; the cell is "frozen" when
- * the user has at least one post-freeze submission.
- */
+// Cell is "frozen" when the user has at least one post-freeze submission and `showFrozen` is active.
 export function splitFrozenVisible(
   probSubs: SubmissionRow[],
   frozenAt: Date | null,
@@ -121,11 +99,7 @@ export function splitFrozenVisible(
   return { isFrozen: hasFrozen, visibleSubs };
 }
 
-/**
- * Shared scoreboard comparator: higher `totalScore` first, ties broken by
- * lower `totalPenalty`. ICPC uses seconds-of-penalty; IOI reuses the slot as
- * `lastImprovementTime`. The ordering rule is identical.
- */
+// IOI reuses `totalPenalty` as `lastImprovementTime` — both sort order rules are identical.
 export function sortByScoreThenPenalty(entries: ScoreboardEntry[]): void {
   entries.sort((a, b) => {
     if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;

@@ -13,7 +13,7 @@ import {
   type TimedSession
 } from "./rank-util";
 
-export function buildIoiScoreboard(
+export function buildPointSumScoreboard(
   session: TimedSession,
   participants: ParticipantRow[],
   submissions: SubmissionRow[],

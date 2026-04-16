@@ -18,7 +18,12 @@
           { href: "/dashboard", label: m.navigation_dashboard() },
           { href: "/problems", label: m.navigation_problems() },
           { href: "/courses", label: m.navigation_courses() },
-          { href: "/assignments", label: m.navigation_assignments() },
+          ...(user.platformRole === "student"
+            ? [
+                { href: "/assignments", label: m.navigation_assignments() },
+                { href: "/exams", label: m.navigation_exams() }
+              ]
+            : []),
           { href: "/contests", label: m.navigation_contests() },
           ...(user.platformRole === "admin"
             ? [{ href: "/admin", label: m.navigation_admin() }]
@@ -50,6 +55,13 @@
         description: m.shortcuts_goProblems(),
         category: "navigation",
         handler: () => goto("/problems")
+      }),
+      shortcuts.register({
+        id: "nav-exams",
+        keys: [["G"], ["E"]],
+        description: m.shortcuts_goExams(),
+        category: "navigation",
+        handler: () => goto("/exams")
       }),
       shortcuts.register({
         id: "nav-contests",

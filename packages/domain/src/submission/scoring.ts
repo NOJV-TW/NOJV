@@ -24,11 +24,7 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error"
 };
 
-// Subtask strategies:
-//   ALL_OR_NOTHING  weight * (all cases passed ? 1 : 0)
-//   PROPORTIONAL    weight * (passed / total), passed iff every case passed
-//   MINIMUM         accepted for schema compatibility but collapses to ALL_OR_NOTHING;
-//                   no partial-credit signal exists to take a minimum over today
+// `MINIMUM` collapses to `ALL_OR_NOTHING` — no partial-credit signal exists to take a minimum over today.
 export function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],

@@ -19,9 +19,6 @@ const {
   parseHandleInput
 } = courseDomain;
 
-// Schemas kept local: these are wire-level contracts between this
-// route and its form actions. They never leave the web app, so they
-// don't belong in @nojv/core.
 const HANDLE_BLOCK_MAX = 16_000;
 
 const bulkAddSchema = z.object({
@@ -47,11 +44,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema))
   ]);
 
-  // Hide email from student viewers — it's a teacher-only column in
-  // the prototype. Active-only filter mirrors the visual UI (removed
-  // rows live on the server for audit but aren't rendered).
+  // Active-only filter mirrors the UI; removed rows live on the server for audit.
+  // Placeholders are only exposed to managers — leaking placeholder usernames to
+  // peers lets any student claim a pre-invited TA/teacher handle via the
+  // self-service rename flow and inherit the course membership.
   const visibleMembers = members
     .filter((member) => member.status === "active")
+    .filter((member) => isManager || !member.isPlaceholder)
     .map((member) => ({
       userId: member.userId,
       name: member.name,
@@ -74,10 +73,7 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    // Re-check permission inside the action — `event.parent()` is not
-    // available from form actions, so we hit the domain helper
-    // directly. Layout already hid the panel for non-managers; this
-    // is the defensive backstop for direct POSTs.
+    // Defensive backstop for direct POSTs: `event.parent()` is unavailable in form actions.
     const role = await getCoursePermissionRole(event.params.courseId, actor);
     if (!canManageCourse(role)) {
       return fail(403, { error: "Forbidden" });

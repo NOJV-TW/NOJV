@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma, SubtaskScoringStrategy } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { problemMiniSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -116,7 +117,7 @@ export const problemRepo = {
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
-      select: { id: true, title: true }
+      select: problemMiniSelect
     });
   },
 

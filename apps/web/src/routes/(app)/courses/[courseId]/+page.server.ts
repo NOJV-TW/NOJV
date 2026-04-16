@@ -33,10 +33,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     })
   ]);
 
-  // Teacher rows want a `{registered}/{totalStudents}` fraction. The
-  // layout loader already exposes the course student count via
-  // `counts.members`; fold it onto each exam row here so the template
-  // doesn't have to reach for it.
   const totalStudents = counts.members;
   const examsWithClassTotals = exams.map((exam) => ({
     ...exam,

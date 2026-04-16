@@ -1,10 +1,3 @@
-/**
- * Small client-side datetime formatters used by the course overview
- * rows. The prototype pattern is compact zero-padded `M/D HH:mm` for
- * mono-tabular alignment — localised month/day pieces aren't worth
- * the loss of column alignment on the row.
- */
-
 function pad2(n: number): string {
   return n < 10 ? `0${String(n)}` : String(n);
 }
@@ -15,11 +8,6 @@ function formatPart(date: Date): string {
   return `${month}/${day} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
-/**
- * Render a compact `M/D HH:mm → M/D HH:mm` range string for an
- * assignment or exam row. `start` and `end` may be strings (ISO from
- * the loader) or already-parsed `Date`s.
- */
 export function formatTimeRangeCompact(start: string | Date, end: string | Date): string {
   const s = typeof start === "string" ? new Date(start) : start;
   const e = typeof end === "string" ? new Date(end) : end;
@@ -32,12 +20,6 @@ export function formatDateTimeCompact(value: string | Date): string {
   return formatPart(d);
 }
 
-/**
- * Approximate "N days/hours/minutes ago" relative-time string. Keeps
- * the copy short enough to live inside a meta row without wrapping.
- * English fallback; CJK locales get their own paraglide strings when
- * needed — this is a pragmatic helper, not a full i18n library.
- */
 export function formatRelativeFromNow(value: string | Date, now: Date = new Date()): string {
   const d = typeof value === "string" ? new Date(value) : value;
   const diffMs = now.getTime() - d.getTime();

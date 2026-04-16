@@ -16,4 +16,4 @@ export * as submissionDomain from "./submission";
 export * as userDomain from "./user";
 export { aggregateByTag } from "./user/analytics-helpers";
 export type { TagAcCount } from "./user/analytics-helpers";
-export * as verificationDomain from "./verification";
+export { isReservedUsername } from "./user/reserved-username";

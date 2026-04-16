@@ -6,7 +6,7 @@ import { NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
   buildScoreboardChartSeries,
-  computeIcpcProblemPenalty,
+  computeProblemCountPenalty,
   type ParticipantRow,
   type ScoreboardEntry,
   type ScoreboardProblem,
@@ -58,7 +58,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
     }
 
     for (const [, problemSubs] of byProblem) {
-      const { solved, penaltySeconds } = computeIcpcProblemPenalty(
+      const { solved, penaltySeconds } = computeProblemCountPenalty(
         problemSubs,
         contest.startsAt
       );
@@ -73,10 +73,9 @@ export async function updateContestScores(contestParticipationId: string): Promi
       score: solvedCount
     });
 
-    const icpcScore = solvedCount * 1e9 - totalPenalty;
-    await scoreboard.updateScoreboard(contest.id, participation.id, icpcScore);
+    const packedScore = solvedCount * 1e9 - totalPenalty;
+    await scoreboard.updateScoreboard(contest.id, participation.id, packedScore);
   } else {
-    // IOI scoring
     const bestByProblem = new Map<string, number>();
     for (const sub of allSubmissions) {
       if (!contestProblems.has(sub.problemId)) continue;
@@ -216,10 +215,7 @@ export async function getScoreboardChart(
   const participationIds = contest.participations.map((p) => p.id);
   const submissions = await submissionRepo.findForContestChart(participationIds);
 
-  // Group submissions by userId so the pure builder doesn't need to know
-  // about contestParticipationId plumbing. `contest.participations` is
-  // already filtered to the top users, so every submission maps to one
-  // of them.
+  // Keep the pure builder unaware of contestParticipationId plumbing.
   const submissionsByUser = new Map<string, SubmissionRow[]>();
   for (const sub of submissions) {
     const userId = participationUserMap.get(sub.contestParticipationId ?? "");

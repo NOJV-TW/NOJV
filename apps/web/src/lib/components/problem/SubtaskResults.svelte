@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SubtaskResultItem } from "@nojv/core";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     subtaskResults: SubtaskResultItem[];
@@ -35,7 +36,7 @@
 
 <div class="space-y-3">
   <div class="flex items-baseline gap-2">
-    <span class="text-body-sm font-semibold text-foreground">Score:</span>
+    <span class="text-body-sm font-semibold text-foreground">{m.subtask_score()}</span>
     <span
       class="text-body-lg font-bold tabular-nums {passedWeight === totalWeight
         ? 'text-success'
@@ -69,7 +70,7 @@
             ? 'bg-success/15 text-success'
             : 'bg-destructive/15 text-destructive'}"
         >
-          {subtask.passed ? "PASSED" : "FAILED"}
+          {subtask.passed ? m.subtask_passed() : m.subtask_failed()}
         </span>
       </button>
 
@@ -80,7 +81,7 @@
               {@const isLast = ci === subtask.cases.length - 1}
               <div class="flex items-center gap-2 text-caption">
                 <span class="text-muted-foreground">{isLast ? "└─" : "├─"}</span>
-                <span class="w-12 tabular-nums text-muted-foreground">Case {caseResult.ordinal}</span>
+                <span class="w-12 tabular-nums text-muted-foreground">{m.subtask_caseLabel({ ordinal: caseResult.ordinal })}</span>
                 <span
                   class="rounded px-1.5 py-0.5 font-medium {badgeColor(caseResult.verdict)}"
                 >

@@ -89,12 +89,7 @@ export class PlagiarismForbiddenError extends Error {
   }
 }
 
-/**
- * Resolve the plagiarism target (course assessment or exam) from the assessmentId param.
- * The `type` query param is `"exam"` for exam targets (historically
- * `"contest"`; both values are accepted for backwards compat until
- * the Phase 3 UI swap lands).
- */
+// `type` accepts both "exam" and legacy "contest" for backwards compat.
 export async function resolvePlagiarismTarget(
   assessmentId: string,
   type: string | null
@@ -125,10 +120,6 @@ export async function createPlagiarismReport(
     mossReportUrl: null,
     completedAt: null
   });
-  // The upsert helper returns the parent row's six columns but the shape
-  // differs from `PlagiarismReportSummary`, so re-read through the typed
-  // `findBy*` to get the canonical summary (and to satisfy the non-null
-  // contract — we just wrote a non-null status).
   const summary = await findPlagiarismReport(target);
   if (!summary) {
     throw new Error("Failed to persist plagiarism report state.");
@@ -136,10 +127,6 @@ export async function createPlagiarismReport(
   return summary;
 }
 
-/**
- * Look up the single existing plagiarism report for a target, if any.
- * Returns `null` when MOSS has never been run.
- */
 export async function findPlagiarismReport(
   target: PlagiarismTarget
 ): Promise<PlagiarismReportSummary | null> {
@@ -176,9 +163,6 @@ export async function listAssessmentPlagiarismReports(
   return report ? [report] : [];
 }
 
-/**
- * Get assessment problems with details (plagiarism manage page).
- */
 export async function getAssessmentProblemMap(assessmentId: string) {
   const assessmentProblems = await assessmentProblemRepo.findByAssessmentId(assessmentId);
   return Object.fromEntries(

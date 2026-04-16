@@ -33,9 +33,7 @@
     }
   );
 
-  // Client-side parse preview. No AJAX — we just re-run the same split
-  // rule the server uses so the teacher can see what the server will
-  // do. Existence check is server-side only; all pills render neutral.
+  // Client re-runs the same split rule for preview; existence check is server-side only.
   const previewHandles = $derived.by(() => {
     const raw = $form.handles ?? "";
     const seen = new Set<string>();

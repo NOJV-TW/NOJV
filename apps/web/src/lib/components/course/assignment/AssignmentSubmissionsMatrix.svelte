@@ -116,7 +116,7 @@
     <select
       class="h-9 min-w-[140px] rounded-md border border-border bg-[color:var(--color-panel)] px-3 text-body-sm text-foreground"
       disabled
-      title="Role filter — placeholder, matrix currently shows only students"
+      title={m.matrix_roleFilterTooltip()}
     >
       <option value="all">{m.assignmentDetail_matrixFilterAll()}</option>
       <option value="students">{m.assignmentDetail_matrixFilterStudents()}</option>

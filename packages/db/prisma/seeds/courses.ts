@@ -6,6 +6,10 @@ export async function seedCourses(
 ) {
   const { teacher, taStudent, student } = users;
 
+  // Real OAuth-registered user (student handle `41047025s`) — enroll into the OS Lab course
+  // if present. Skipped on a fresh DB without the real login.
+  const studentNtnu = await prisma.user.findUnique({ where: { username: "41047025s" } });
+
   const osLabCourse = await prisma.course.upsert({
     create: {
       description:
@@ -20,11 +24,16 @@ export async function seedCourses(
 
   // Course memberships. Everyone is added by the teacher now that the
   // join-token flow has been removed.
-  const osLabMemberships = [
-    { userId: teacher.id, role: "teacher" as const },
-    { userId: taStudent.id, role: "ta" as const },
-    { userId: student.id, role: "student" as const }
+  const osLabMemberships: Array<{ userId: string; role: "teacher" | "ta" | "student" }> = [
+    { userId: teacher.id, role: "teacher" },
+    { userId: taStudent.id, role: "ta" },
+    { userId: student.id, role: "student" }
   ];
+  if (studentNtnu) {
+    osLabMemberships.push({ userId: studentNtnu.id, role: "student" });
+  } else {
+    console.log(`  Skipped enrolling 41047025s — user not present in DB`);
+  }
 
   for (const mem of osLabMemberships) {
     await prisma.courseMembership.upsert({
@@ -46,13 +55,6 @@ export async function seedCourses(
     });
   }
 
-  // Course assessments. Homework no longer has IP lock, page lock, or
-  // a scoreboard — those are exam concerns and live on Exam now.
-  //
-  // Three seeded assignments to cover the Task 1.2/1.7 surface:
-  //   hw1  — published, flat_late_penalty adjustment rule (Task 1.2)
-  //   hw2  — published, maxAttemptsPerDay=3 (Task 1.7)
-  //   hw3  — draft with no linked problems (prototype 05 TA-collab)
   const hw1 = await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],
@@ -109,9 +111,6 @@ export async function seedCourses(
     }
   });
 
-  // Draft assignment with no problems yet — mirrors prototype 05's
-  // "TA is still wiring things up" scenario. Discoverable to TAs in
-  // the manage pane but hidden from students until published.
   await prisma.courseAssessment.upsert({
     create: {
       allowedLanguages: [],
@@ -133,12 +132,6 @@ export async function seedCourses(
     }
   });
 
-  // Midterm is now a course-embedded Exam (Task 1.4 of the 2026-04-14
-  // course experience redesign). Seeds use a stable id so existing
-  // test fixtures that reference the midterm row continue to resolve.
-  // Configured as an upcoming proctored exam exercising the full
-  // proctoring surface: page lock, IP whitelist, IP binding, and
-  // hidden scoreboard mode.
   const midterm = await prisma.exam.upsert({
     create: {
       allowedLanguages: ["c", "cpp"],
@@ -227,10 +220,7 @@ export async function seedCourses(
     });
   }
 
-  // Upcoming demo exam — course-embedded. Used by e2e tests to verify
-  // that students see the placeholder and course teachers see the
-  // seeded problem title before the window opens. startsAt is far in
-  // the future so the hiding logic always fires regardless of clock.
+  // startsAt is far in the future so the hiding logic always fires regardless of clock.
   const upcomingDemo = await prisma.exam.upsert({
     create: {
       courseId: osLabCourse.id,

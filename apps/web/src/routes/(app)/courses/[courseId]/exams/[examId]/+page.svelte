@@ -99,8 +99,8 @@
 
   function scoringLabel(mode: typeof detail.scoringMode): string {
     return mode === "problem_count"
-      ? m.examDetail_scoringIcpc()
-      : m.examDetail_scoringIoi();
+      ? m.examDetail_scoringProblemCount()
+      : m.examDetail_scoringPointSum();
   }
 
   function difficultyLabel(d: "easy" | "medium" | "hard"): string {
@@ -109,9 +109,6 @@
     return m.examDetail_difficultyMedium();
   }
 
-  // Three sub-tabs are visual-only on this page — they describe what
-  // the page WILL be in future tasks (Submissions / Settings tabs are
-  // owned by 3.13 and 3.x). State A is "Problems" by definition.
   type SubTab = "problems" | "submissions" | "settings";
   const activeTab = $derived<SubTab>("problems");
 
@@ -516,9 +513,6 @@
 </div>
 
 <style>
-  /* Countdown card — gradient + ring matched to prototype 10. The
-     base palette tokens come from Tailwind so colour-mode toggles
-     stay consistent. */
   .countdown-card {
     background:
       linear-gradient(

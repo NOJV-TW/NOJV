@@ -60,6 +60,15 @@ export const load: PageServerLoad = handleLoad(
       redirect(302, `/problems/${params.id}`);
     }
 
+    // Ownership gate BEFORE loading testcase I/O or workspace file
+    // content from S3 — actions used to be the only authz layer, but
+    // the load handler itself streams raw testcases + solution-template
+    // file bodies to the client, which should only ever reach the author
+    // or an admin. Without this, any logged-in user could GET this page
+    // for somebody else's problem and exfiltrate hidden testcases.
+    const actor = requireAuth({ locals, params } as RequestEvent);
+    await problemDomain.assertProblemEditAccess(actor, params.id);
+
     const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
       getProblemPageData(params.id),
       getProblemTestcaseSets(params.id),

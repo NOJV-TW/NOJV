@@ -1,8 +1,8 @@
-export { ensureUser, type EnsureUserInput } from "./mutations";
+export { ensureUser, renameName, renameUsername, type EnsureUserInput } from "./mutations";
+export { isReservedUsername } from "./reserved-username";
 export { updateUserStats } from "./stats";
 export {
   listUsersPaginated,
-  countUsers,
   updateUserRole,
   toggleUserDisabled,
   getDashboardView,
@@ -11,3 +11,9 @@ export {
 } from "./queries";
 export { aggregateByTag } from "./analytics-helpers";
 export type { TagAcCount } from "./analytics-helpers";
+export {
+  initiateSchoolVerification,
+  processSchoolVerification,
+  type InitiateVerificationResult,
+  type VerifySchoolResult
+} from "./verification";
