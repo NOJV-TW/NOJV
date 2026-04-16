@@ -153,7 +153,12 @@
           {@const href =
             isActive || data.contest.isManager
               ? `/contests/${data.contest.slug}/problems/${p.id}`
-              : null}
+              : hasEnded
+                ? // Once the contest has ended, problems become ordinary
+                  // practice — strip contest context so submissions don't
+                  // touch the scoreboard or frozen participation.
+                  `/problems/${p.id}`
+                : null}
           {#if href}
             <a class="block" {href}>
               <Card variant="surface" size="md" interactive class="flex-row items-center justify-between">

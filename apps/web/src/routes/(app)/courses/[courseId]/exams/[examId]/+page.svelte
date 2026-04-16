@@ -165,7 +165,9 @@
             aria-hidden="true"
           ></span>
           <span>
-            {m.examDetail_problemCount({ count: detail.problems.length })} ·
+            {#if isManager}
+              {m.examDetail_problemCount({ count: detail.problems.length })} ·
+            {/if}
             {scoringLabel(detail.scoringMode)}
           </span>
         </div>

@@ -60,7 +60,7 @@ export const load: PageServerLoad = handleLoad(
       (await contestProblemRepo.existsBySlug(contestContext.slug, id));
     const contextIncludesProblem = problemInAssessment || problemInContest;
 
-    assertProblemViewAccess(
+    await assertProblemViewAccess(
       { id: problemRow.id, authorId: problemRow.authorId, visibility: problemRow.visibility },
       {
         userId,

@@ -18,7 +18,7 @@
   let activeSubTab = $state<SubTabKey>("submissions");
 
   const subTabs: { key: SubTabKey; label: string; count?: number }[] = $derived([
-    { key: "problems", label: m.assignmentDetail_tabProblems(), count: detail.problemCount },
+    { key: "problems", label: m.assignmentDetail_tabProblems() },
     data.mode === "teacher"
       ? {
           key: "submissions",
@@ -156,11 +156,13 @@
             ></span>
             <span>{hint}</span>
           {/if}
-          <span
-            class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-            aria-hidden="true"
-          ></span>
-          <span>{m.assignmentDetail_metaProblemCount({ count: detail.problemCount })}</span>
+          {#if data.mode === "teacher"}
+            <span
+              class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+              aria-hidden="true"
+            ></span>
+            <span>{m.assignmentDetail_metaProblemCount({ count: detail.problemCount })}</span>
+          {/if}
           <span
             class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
             aria-hidden="true"
@@ -196,7 +198,7 @@
           class="rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
         >
           <p class="text-body-lg font-medium text-foreground">
-            {m.assignmentDetail_studentProblemsLockedTitle({ count: detail.problemCount })}
+            {m.assignmentDetail_studentProblemsLockedTitle()}
           </p>
           <p class="mt-2 text-body-sm text-muted-foreground">
             {m.assignmentDetail_studentProblemsLockedHint({

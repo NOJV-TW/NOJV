@@ -38,7 +38,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       redirect(303, `/contests/${contestSlug}`);
     }
     if (now > new Date(contestData.endsAt)) {
-      redirect(303, `/contests/${contestSlug}`);
+      // Contest has ended. Practice-after-close sends the student to the
+      // plain problem page — no scoreboard, no cooldown, no frozen
+      // participation. assertProblemViewAccess on the target route
+      // admits past participants via the historical-participant gate.
+      redirect(302, `/problems/${problemId}`);
     }
   }
 

@@ -188,6 +188,25 @@ export const contestProblemRepo = {
       .then((row) => row !== null);
   },
 
+  // Practice-after-close: a user who participated in a published contest
+  // that has since ended retains read/submit access to the contest's
+  // problems — for practice only, no scoring.
+  hasEndedContestForUser(problemId: string, userId: string, now: Date) {
+    return prisma.contestProblem
+      .findFirst({
+        where: {
+          problemId,
+          contest: {
+            visibility: "published",
+            endsAt: { lt: now },
+            participations: { some: { userId } }
+          }
+        },
+        select: { id: true }
+      })
+      .then((row) => row !== null);
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ContestProblemUncheckedCreateInput) {

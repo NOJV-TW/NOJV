@@ -110,9 +110,10 @@ export async function createQueuedSubmissionRecord(
 
     // ── Visibility: a private problem is only submittable by its author,
     // admins, or a viewer whose (already-validated) context contains it.
-    // Without this, a user could submit to any private problem by cuid. ──
+    // Without this, a user could submit to any private problem by cuid.
+    // The async path also admits historical participants (practice-after-close). ──
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
-    assertProblemViewAccess(problem, actor, { contextIncludesProblem });
+    await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
     // ── Language restriction: contest ──
     if (

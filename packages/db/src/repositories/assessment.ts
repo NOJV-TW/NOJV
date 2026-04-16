@@ -254,6 +254,27 @@ export const assessmentProblemRepo = {
       .then((row) => row !== null);
   },
 
+  // Practice-after-close: a user who had an active membership in a course
+  // whose published assessment closed in the past and contained this
+  // problem retains read/submit access — for practice only, no scoring.
+  hasEndedAssessmentForUser(problemId: string, userId: string, now: Date) {
+    return prisma.courseAssessmentProblem
+      .findFirst({
+        where: {
+          problemId,
+          assessment: {
+            status: "published",
+            closesAt: { lt: now },
+            course: {
+              memberships: { some: { userId, status: "active" } }
+            }
+          }
+        },
+        select: { id: true }
+      })
+      .then((row) => row !== null);
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {

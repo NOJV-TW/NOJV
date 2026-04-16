@@ -1,4 +1,11 @@
-import { problemRepo, problemWorkspaceFileRepo, type TransactionClient } from "@nojv/db";
+import {
+  assessmentProblemRepo,
+  contestProblemRepo,
+  examProblemRepo,
+  problemRepo,
+  problemWorkspaceFileRepo,
+  type TransactionClient
+} from "@nojv/db";
 import type { Language, PlatformRole } from "@nojv/core";
 import { entryFileNameFor } from "@nojv/core";
 
@@ -49,22 +56,40 @@ export async function assertProblemEditAccess(
  * we hide the problem's existence from unauthorized viewers to prevent
  * enumeration).
  *
- * Public problems are visible to anyone logged in. Private problems are
- * only visible to the author, platform admins, and to viewers who arrive
- * with a valid assessment/contest context that contains the problem —
- * the caller is responsible for verifying that context (enrollment,
- * time window, problem membership) BEFORE calling this function and
- * passing `contextIncludesProblem: true`.
+ * Resolution order:
+ *   1. Public problem  → allow anyone logged in.
+ *   2. Platform admin  → allow.
+ *   3. Problem author  → allow.
+ *   4. Active context  → caller already verified enrollment + time window
+ *      and passes `contextIncludesProblem: true`.
+ *   5. Historical participant of a closed context that contained the
+ *      problem → allow (practice-after-close). This fires a single
+ *      lightweight DB lookup and only when the four synchronous checks
+ *      above reject; public problems and active-context callers pay
+ *      nothing for it.
  */
-export function assertProblemViewAccess(
+export async function assertProblemViewAccess(
   problem: { id: string; authorId: string | null; visibility: string },
   actor: ProblemActorContext | null,
-  opts?: { contextIncludesProblem?: boolean }
-): void {
+  opts?: { contextIncludesProblem?: boolean; now?: Date }
+): Promise<void> {
   if (problem.visibility === "public") return;
   if (actor?.platformRole === "admin") return;
   if (actor?.userId === problem.authorId) return;
   if (opts?.contextIncludesProblem) return;
+
+  // Historical-participant gate. Runs three parallel existence checks —
+  // each hits a single indexed join table so the cost is bounded.
+  if (actor?.userId) {
+    const now = opts?.now ?? new Date();
+    const [assessment, contest, exam] = await Promise.all([
+      assessmentProblemRepo.hasEndedAssessmentForUser(problem.id, actor.userId, now),
+      contestProblemRepo.hasEndedContestForUser(problem.id, actor.userId, now),
+      examProblemRepo.hasEndedExamForUser(problem.id, actor.userId, now)
+    ]);
+    if (assessment || contest || exam) return;
+  }
+
   // Mask the existence of the private problem — use 404 not 403.
   throw new NotFoundError(`Problem not found: ${problem.id}`);
 }
