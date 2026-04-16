@@ -69,7 +69,7 @@
       const msLeft = new Date(endIso).getTime() - now;
       if (msLeft <= 0) return null;
       const minutesLeft = Math.max(1, Math.floor(msLeft / 60_000));
-      return m.examsTop_minRemaining({ minutes: minutesLeft });
+      return `${minutesLeft} ${m.examsTop_minLeft()}`;
     }
     if (status === "upcoming") {
       const msUntil = new Date(startIso).getTime() - now;
@@ -257,9 +257,8 @@
                   {hint}
                 </div>
               {/if}
-              <span class={buttonVariants({ variant: "default", size: "default" })}>
-                {m.examsTop_enterExam()}
-                <ChevronRight class="h-4 w-4" />
+              <span class="text-body-sm font-medium text-primary">
+                {m.examsTop_filterRunning()}
               </span>
             {:else if exam.status === "upcoming"}
               <span class="text-body-sm font-medium text-muted-foreground/70">

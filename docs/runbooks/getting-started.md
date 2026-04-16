@@ -207,6 +207,22 @@ lsof -i :5432
 # Or modify docker-compose.yml port mappings
 ```
 
+### Testing IP-based proctoring locally
+
+Production resolves the client IP from Cloudflare's `CF-Connecting-IP` header (see [SECURITY.md — Client IP Trust Model](../SECURITY.md#client-ip-trust-model-cloudflare-only)). Locally (`NODE_ENV !== "production"`) `getClientIp(event)` reads an `x-dev-ip` request header first, then falls back to the socket address.
+
+To exercise exam / contest IP whitelist or binding in dev:
+
+```bash
+# Pretend the request came from 10.1.2.3 (outside a campus whitelist, for example)
+curl -H "x-dev-ip: 10.1.2.3" http://localhost:5173/exams/<examId>
+
+# Pretend to be an allowed campus IP
+curl -H "x-dev-ip: 140.112.30.20" http://localhost:5173/exams/<examId>
+```
+
+The override only fires when `NODE_ENV !== "production"`. Production ignores `x-dev-ip` entirely and requires `CF-Connecting-IP`.
+
 ## Related Docs
 
 - [Architecture Overview](../../ARCHITECTURE.md)

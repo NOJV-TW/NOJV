@@ -5,4 +5,4 @@ resources:
   - namespace.yaml
   - worker-rbac.yaml
   - worker.deployment.yaml
-  - worker.scaledobject.yaml
+  - worker.pdb.yaml

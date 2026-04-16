@@ -33,6 +33,10 @@ COPY apps/sandbox-runner/assets/wrappers/ /assets/wrappers/
 COPY apps/sandbox-runner/assets/testlib/testlib.h /usr/include/testlib.h
 
 ENV HOME="/tmp"
+# Fork-bomb defence: cap the sandbox UID to 64 live processes. Gated by env
+# so dev/CI machines (where tests run as a user that already has hundreds of
+# processes) don't hit EAGAIN. See apps/sandbox-runner/src/utils.ts.
+ENV SANDBOX_NPROC_LIMIT=64
 WORKDIR /workspace
 USER sandbox
 

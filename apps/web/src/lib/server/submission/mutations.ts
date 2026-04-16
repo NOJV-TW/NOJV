@@ -1,16 +1,18 @@
-// Re-export from domain — original logic has been moved to @nojv/domain
-// Thin adapter: extracts clientIp from Request before forwarding to domain
+// Thin adapter: wraps submissionDomain.createQueuedSubmissionRecord so the
+// route handler doesn't need to re-plumb actor fields each call. The caller
+// is responsible for resolving the client IP via
+// `$lib/server/shared/client-ip.getClientIp(event)` — see that file for the
+// Cloudflare trust model.
 import type { SubmissionDraft } from "@nojv/core";
-import { submissionDomain, getClientIp } from "@nojv/domain";
+import { submissionDomain } from "@nojv/domain";
 
 import type { CompletedActorContext } from "../auth";
 
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: CompletedActorContext,
-  request: Request
+  clientIp: string
 ) {
-  const clientIp = getClientIp(request);
   return submissionDomain.createQueuedSubmissionRecord(
     payload,
     {

@@ -6,6 +6,7 @@ import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { dispatchSubmissionJob } from "$lib/server/queue";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
+import { getClientIp } from "$lib/server/shared/client-ip";
 import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -13,7 +14,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const payload = submissionDraftSchema.parse(await event.request.json());
 
-  const submission = await createQueuedSubmissionRecord(payload, actor, event.request);
+  const submission = await createQueuedSubmissionRecord(payload, actor, getClientIp(event));
   await dispatchSubmissionJob({ draft: payload, submissionId: submission.id });
 
   return json(

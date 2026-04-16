@@ -4,7 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { parseJudgeOutput } from "./run-process.js";
-import { createBoundedBuffer } from "../utils.js";
+import { createBoundedBuffer, withProcessLimit } from "../utils.js";
 
 /**
  * Bidirectional pipe between the solution and the interactor:
@@ -57,11 +57,13 @@ function runInteractive(
       return;
     }
 
-    const solution = spawn(solCmd, solArgs, {
+    const [solWrap, ...solWrapArgs] = withProcessLimit([solCmd, ...solArgs]);
+    const solution = spawn(solWrap!, solWrapArgs, {
       stdio: ["pipe", "pipe", "pipe"]
     });
 
-    const interactor = spawn(intCmd, [...intArgs, inputFile], {
+    const [intWrap, ...intWrapArgs] = withProcessLimit([intCmd, ...intArgs, inputFile]);
+    const interactor = spawn(intWrap!, intWrapArgs, {
       stdio: ["pipe", "pipe", "pipe"]
     });
 

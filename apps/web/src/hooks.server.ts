@@ -95,16 +95,13 @@ function setSecurityHeaders(response: Response): void {
 }
 
 function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
-  if (ctx.type === "exam") {
-    // Exam solves live under the top-level `/exams/[examId]/...` tree.
-    return pathname.includes(`/exams/${ctx.examId}`);
-  }
-  // Contest solves live under `/contests/[contestId]/...`.
-  return pathname.includes(`/contests/${ctx.contestId}`);
+  // Exam solves live under the top-level `/exams/[examId]/...` tree. Contests
+  // are public and never page-locked.
+  return pathname.includes(`/exams/${ctx.examId}`);
 }
 
 function pageLockRedirectTarget(ctx: PageLockedContext): string {
-  return ctx.type === "exam" ? `/exams/${ctx.examId}` : `/contests/${ctx.contestId}`;
+  return `/exams/${ctx.examId}`;
 }
 
 async function getCachedPageLockContext(userId: string): Promise<PageLockedContext | null> {

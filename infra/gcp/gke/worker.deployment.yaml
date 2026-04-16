@@ -3,7 +3,12 @@ kind: Deployment
 metadata:
   name: nojv-worker
 spec:
-  replicas: 1
+  # Static 2 replicas for redundancy (a single pod being evicted during node
+  # drain / image pull shouldn't halt judging). Throughput is gated by the
+  # nojv-sandbox ResourceQuota, not worker count — orchestrator work is cheap
+  # and mostly I/O. Introduce autoscaling only when Temporal task queue
+  # backlog or activity latency is actually measured to be a bottleneck.
+  replicas: 2
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -12,8 +17,13 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: nojv-worker
+        nojv-role: worker
     spec:
       serviceAccountName: nojv-worker
+      # Pin the orchestrator workers to the stable node pool. Sandbox pods run
+      # on a separate tainted pool so they can never starve the worker.
+      nodeSelector:
+        nojv-role: worker
       containers:
         - name: worker
           image: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:latest
