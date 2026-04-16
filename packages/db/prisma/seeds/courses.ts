@@ -2,9 +2,14 @@ import type { PrismaClient } from "../../generated/prisma/client";
 
 export async function seedCourses(
   prisma: PrismaClient,
-  users: { teacher: { id: string }; taStudent: { id: string }; student: { id: string } }
+  users: {
+    teacher: { id: string };
+    taStudent: { id: string };
+    student: { id: string };
+    studentNtnu: { id: string };
+  }
 ) {
-  const { teacher, taStudent, student } = users;
+  const { teacher, taStudent, student, studentNtnu } = users;
 
   const osLabCourse = await prisma.course.upsert({
     create: {
@@ -23,7 +28,8 @@ export async function seedCourses(
   const osLabMemberships = [
     { userId: teacher.id, role: "teacher" as const },
     { userId: taStudent.id, role: "ta" as const },
-    { userId: student.id, role: "student" as const }
+    { userId: student.id, role: "student" as const },
+    { userId: studentNtnu.id, role: "student" as const }
   ];
 
   for (const mem of osLabMemberships) {

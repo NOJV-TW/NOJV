@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { ChevronRight } from "@lucide/svelte";
+  import { ChevronRight, ClipboardList } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
@@ -127,12 +127,23 @@
     <div
       class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
     >
-      <h2 class="font-display text-title font-medium">
+      <ClipboardList
+        class="mx-auto h-12 w-12 text-muted-foreground"
+        strokeWidth={1.5}
+        aria-hidden="true"
+      />
+      <h2 class="font-display mt-3 text-title font-medium">
         {m.examsTop_empty()}
       </h2>
       <p class="mt-2 text-body-sm text-muted-foreground">
         {m.examsTop_emptyDescription()}
       </p>
+      <a
+        href="/courses"
+        class={buttonVariants({ variant: "outline", size: "sm" }) + " mt-4 inline-flex"}
+      >
+        {m.common_browseMyCourses()}
+      </a>
     </div>
   {:else}
     <div class="animate-in animate-in-2 grid gap-3">

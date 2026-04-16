@@ -53,6 +53,19 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { id: "usr_student" }
   });
 
+  const studentNtnu = await prisma.user.upsert({
+    create: {
+      name: "41047025s",
+      displayUsername: "41047025s",
+      email: "41047025s@nojv.local",
+      username: "41047025s",
+      id: "usr_41047025s",
+      platformRole: "student"
+    },
+    update: {},
+    where: { id: "usr_41047025s" }
+  });
+
   // Kept out of any CourseMembership so the handle is claimable by a real login without the merge path.
   const placeholderUsername = "b11902999";
   const placeholder = await prisma.user.upsert({

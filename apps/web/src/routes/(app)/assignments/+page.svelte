@@ -10,7 +10,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  const { assignments, counts, currentFilter, hasNoCourses } = $derived(data);
+  const { assignments, counts, currentFilter } = $derived(data);
 
   function setTab(next: string) {
     const url = new URL(page.url);
@@ -77,10 +77,40 @@
     </p>
   </header>
 
-  {#if hasNoCourses}
-    <!-- Empty state: user has no courses at all -->
+  <!-- Tab row -->
+  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
     <div
-      class="animate-in animate-in-1 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+      role="tablist"
+      aria-label={m.navigation_assignments()}
+      class="flex flex-1 items-center gap-1"
+    >
+      {#each tabs as tab (tab.key)}
+        {@const isActive = tab.key === currentFilter}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isActive}
+          onclick={() => setTab(tab.key)}
+          class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'}"
+        >
+          <span>{tab.label}</span>
+          <span
+            class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground'}"
+          >
+            {tab.count}
+          </span>
+        </button>
+      {/each}
+    </div>
+  </div>
+
+  {#if assignments.length === 0}
+    <div
+      class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
     >
       <ClipboardList
         class="mx-auto h-12 w-12 text-muted-foreground"
@@ -97,49 +127,11 @@
         href="/courses"
         class={buttonVariants({ variant: "outline", size: "sm" }) + " mt-4 inline-flex"}
       >
-        {m.assignmentsTop_backToCourses()}
+        {m.common_browseMyCourses()}
       </a>
     </div>
   {:else}
-    <!-- Tab row -->
-    <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
-      <div
-        role="tablist"
-        aria-label={m.navigation_assignments()}
-        class="flex flex-1 items-center gap-1"
-      >
-        {#each tabs as tab (tab.key)}
-          {@const isActive = tab.key === currentFilter}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onclick={() => setTab(tab.key)}
-            class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'}"
-          >
-            <span>{tab.label}</span>
-            <span
-              class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground'}"
-            >
-              {tab.count}
-            </span>
-          </button>
-        {/each}
-      </div>
-    </div>
-
-    {#if assignments.length === 0}
-      <div
-        class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
-      >
-        {m.assignmentsTop_empty()}
-      </div>
-    {:else}
-      <div class="animate-in animate-in-2 grid gap-3">
+    <div class="animate-in animate-in-2 grid gap-3">
         {#each assignments as assignment (assignment.id)}
           {@const badge = statusBadge(assignment.status)}
           {@const hint = urgencyHint(
@@ -238,6 +230,5 @@
           </a>
         {/each}
       </div>
-    {/if}
   {/if}
 </div>
