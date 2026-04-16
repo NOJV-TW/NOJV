@@ -23,10 +23,10 @@
   interface Props {
     allowedLanguages?: Language[] | undefined;
     assessment?: {
-      assessmentSlug: string;
+      assessmentId: string;
       courseId: string;
     } | undefined;
-    contestSlug?: string | undefined;
+    contestId?: string | undefined;
     onSubmissionComplete?: ((
       result: SubmissionResult,
       language: string,
@@ -35,7 +35,7 @@
     problem: ProblemDetail;
   }
 
-  let { allowedLanguages, assessment, contestSlug, onSubmissionComplete, problem }: Props = $props();
+  let { allowedLanguages, assessment, contestId, onSubmissionComplete, problem }: Props = $props();
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
@@ -208,7 +208,7 @@
       return executeSubmission(
         {
           assessment,
-          contestSlug,
+          contestId,
           language,
           problemId: problem.id,
           ...(runCases ? { runCases } : {}),
@@ -223,7 +223,7 @@
     return executeSubmission(
       {
         assessment,
-        contestSlug,
+        contestId,
         language,
         problemId: problem.id,
         ...(runCases ? { runCases } : {}),
@@ -297,7 +297,7 @@
         onavailablechange={(available) => (availableLanguages = available)}
       />
     </div>
-    {#if contestSlug}
+    {#if contestId}
       <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
         {m.editor_contestMode()}
       </span>

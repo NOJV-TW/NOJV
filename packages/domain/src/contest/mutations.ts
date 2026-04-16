@@ -63,13 +63,13 @@ async function resolveAndAttachContestProblems(
 export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
-  contestSlug: string,
+  contestId: string,
   attemptContext?: { problemId: string; sampleOnly: boolean }
 ) {
-  const contest = await requireContest(tx, contestSlug);
+  const contest = await requireContest(tx, contestId);
 
   if (contest.visibility !== "published") {
-    throw new NotFoundError(`Contest not found: ${contestSlug}`);
+    throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
   const now = new Date();
@@ -132,10 +132,10 @@ export async function checkSubmitCooldown(
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
   return runTransaction(async (tx) => {
-    const existing = await contestRepo.withTx(tx).findBySlug(payload.slug);
+    const existing = await contestRepo.withTx(tx).findById(payload.id);
 
     if (existing) {
-      throw new ConflictError(`Contest slug already exists: ${payload.slug}`);
+      throw new ConflictError(`Contest id already exists: ${payload.id}`);
     }
 
     await requireUser(tx, actor.userId);
@@ -152,7 +152,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       frozenAt: payload.frozenAt ? new Date(payload.frozenAt) : null,
       scoreboardMode: payload.scoreboardMode,
       scoringMode: payload.scoringMode,
-      slug: payload.slug,
+      id: payload.id,
       startsAt: new Date(payload.startsAt),
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary,
@@ -173,11 +173,11 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
 export async function updateContestRecord(
   actor: ActorContext,
-  contestSlug: string,
+  contestId: string,
   payload: ContestUpdate
 ) {
   return runTransaction(async (tx) => {
-    const contest = await requireContest(tx, contestSlug);
+    const contest = await requireContest(tx, contestId);
 
     if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin") {
       throw new ForbiddenError("You do not have permission to edit this contest.");

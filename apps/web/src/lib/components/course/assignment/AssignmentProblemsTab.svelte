@@ -10,12 +10,11 @@
 
   interface Props {
     problems: ProblemsTabProblem[];
-    courseId: string;
-    assessmentSlug: string;
+    assessmentId: string;
     class?: string;
   }
 
-  let { problems, courseId, assessmentSlug, class: className }: Props = $props();
+  let { problems, assessmentId, class: className }: Props = $props();
 
   function difficultyClass(difficulty: "easy" | "medium" | "hard"): string {
     if (difficulty === "easy") return "text-success";
@@ -37,7 +36,7 @@
   <div class="grid gap-3">
     {#each problems as problem (problem.problemId)}
       <a
-        href={`/problems/${problem.problemId}?course=${courseId}&assessment=${assessmentSlug}`}
+        href={`/assignments/${assessmentId}/problems/${problem.problemId}`}
         class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
       >
         <div

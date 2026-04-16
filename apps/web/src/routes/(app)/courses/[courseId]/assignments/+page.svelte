@@ -122,7 +122,7 @@
         {@const badge = statusBadge(assignment.status)}
         {@const hint = urgencyHint(assignment.status, assignment.opensAt, assignment.closesAt)}
         <a
-          href={`/courses/${courseId}/assignments/${assignment.id}`}
+          href={`/assignments/${assignment.id}`}
           class="group relative grid grid-cols-[1fr_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
           'draft'
             ? 'border-dashed bg-transparent'

@@ -9,11 +9,11 @@
   interface Props {
     allowedLanguages?: Language[] | undefined;
     assessment?: {
-      assessmentSlug: string;
+      assessmentId: string;
       courseId: string;
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
-    contestSlug?: string | undefined;
+    contestId?: string | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
@@ -23,7 +23,7 @@
     allowedLanguages,
     assessment,
     backLink,
-    contestSlug,
+    contestId,
     initialSubmissions,
     problem,
     testcaseSets = []
@@ -111,7 +111,7 @@
   <ProblemEditor
     {allowedLanguages}
     {assessment}
-    {contestSlug}
+    {contestId}
     onSubmissionComplete={handleSubmissionComplete}
     {problem}
   />

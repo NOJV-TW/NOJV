@@ -45,7 +45,6 @@ export type AssignmentOverviewStatus = "draft" | "upcoming" | "open" | "closed";
 
 export interface AssignmentOverviewRow {
   id: string;
-  slug: string;
   title: string;
   status: AssignmentOverviewStatus;
   /** ISO strings; `opensAt`/`closesAt` may be null for draft rows. */
@@ -81,7 +80,6 @@ function rankAssignment(
 
 interface RawAssessmentRow {
   id: string;
-  slug: string;
   title: string;
   status: string;
   opensAt: Date;
@@ -106,7 +104,6 @@ function mapAssessmentToOverviewRow(
 
   const overviewRow: AssignmentOverviewRow = {
     id: row.id,
-    slug: row.slug,
     title: row.title,
     status,
     opensAt: status === "draft" ? null : row.opensAt.toISOString(),

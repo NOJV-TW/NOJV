@@ -25,7 +25,6 @@ export interface CourseAssessmentRecord {
   id: string;
   opensAt: string;
   problemIds: string[];
-  slug: string;
   summary: string;
   title: string;
 }
@@ -142,9 +141,9 @@ export async function listUserAssessments(userId: string) {
     courseId: a.course.id,
     courseTitle: a.course.title,
     dueAt: a.dueAt?.toISOString() ?? null,
+    id: a.id,
     opensAt: a.opensAt.toISOString(),
     problemCount: a._count.problems,
-    slug: a.slug,
     summary: a.summary,
     title: a.title
   }));
@@ -171,8 +170,8 @@ export async function listUpcomingAssessments(userId: string) {
     courseId: a.course.id,
     courseTitle: a.course.title,
     dueAt: a.dueAt?.toISOString() ?? null,
+    id: a.id,
     opensAt: a.opensAt.toISOString(),
-    slug: a.slug,
     title: a.title
   }));
 }
@@ -186,8 +185,7 @@ export interface GetAssessmentContextOptions {
 export interface AssessmentContextResult {
   allowedLanguages: Language[];
   courseId: string;
-  slug: string;
-  /** Internal assessment id — callers may need it for membership joins. */
+  /** Assessment id — the readable, URL-facing identifier. */
   assessmentId: string;
   /** Resolved time-window state: `upcoming`, `open`, `closed`. */
   timeStatus: "upcoming" | "open" | "closed";
@@ -196,7 +194,7 @@ export interface AssessmentContextResult {
 }
 
 /**
- * Resolve an assessment by (courseId, slug) for the given viewer.
+ * Resolve an assessment by (courseId, assessmentId) for the given viewer.
  *
  * Returns `null` when the assessment is missing, unpublished, or the
  * viewer has no route to it. This masks the existence of the
@@ -212,10 +210,10 @@ export interface AssessmentContextResult {
 // intentional-nullable: the /problems/[id] loader is shared by practice, assignment, and contest modes — a missing or unauthorized assessment must silently fall back to practice-mode, not throw.
 export async function getAssessmentContext(
   courseId: string,
-  assessmentSlug: string,
+  assessmentId: string,
   options: GetAssessmentContextOptions
 ): Promise<AssessmentContextResult | null> {
-  const assessment = await assessmentRepo.findPublishedContext(courseId, assessmentSlug);
+  const assessment = await assessmentRepo.findPublishedContextById(courseId, assessmentId);
   if (!assessment) return null;
 
   const now = options.now ?? new Date();
@@ -254,7 +252,6 @@ export async function getAssessmentContext(
     allowedLanguages: assessment.allowedLanguages as Language[],
     assessmentId: assessment.id,
     courseId: assessment.course.id,
-    slug: assessment.slug,
     timeStatus,
     viewerIsManager
   };

@@ -9,7 +9,7 @@ const {
   userUpdate,
   courseFindById,
   courseMembershipFindByComposite,
-  assessmentFindByComposite,
+  assessmentFindByCompositeId,
   workspaceFindByProblemId,
   submissionCountForUserAndAssessmentSince,
   submissionCreate,
@@ -23,7 +23,7 @@ const {
   userUpdate: vi.fn(),
   courseFindById: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
-  assessmentFindByComposite: vi.fn(),
+  assessmentFindByCompositeId: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionCountForUserAndAssessmentSince: vi.fn(),
   submissionCreate: vi.fn(),
@@ -51,10 +51,10 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({ findByComposite: courseMembershipFindByComposite })
     },
     assessmentRepo: {
-      withTx: () => ({ findByComposite: assessmentFindByComposite })
+      withTx: () => ({ findByCompositeId: assessmentFindByCompositeId })
     },
     contestRepo: {
-      withTx: () => ({ findBySlug: vi.fn() })
+      withTx: () => ({ findById: vi.fn() })
     },
     examSessionRepo: {
       withTx: () => ({ findActiveForUser: examSessionFindActiveForUser })
@@ -109,7 +109,6 @@ const fakeCourse = {
 const fakeAssessmentBase = {
   id: "ca_hw1",
   courseId: fakeCourse.id,
-  slug: "hw1-process-warmup",
   allowedLanguages: [] as string[]
 };
 
@@ -132,7 +131,7 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
   // Now that the assessment time-window check runs against opensAt/closesAt,
   // give the test a wide window centered around an arbitrary "now"; tests
   // using vi.setSystemTime stay safely inside it.
-  assessmentFindByComposite.mockResolvedValue({
+  assessmentFindByCompositeId.mockResolvedValue({
     ...fakeAssessmentBase,
     maxAttemptsPerDay,
     status: "published",
@@ -167,7 +166,7 @@ const baseDraft = {
   sampleOnly: false,
   assessment: {
     courseId: fakeCourse.id,
-    assessmentSlug: fakeAssessmentBase.slug
+    assessmentId: fakeAssessmentBase.id
   }
 };
 

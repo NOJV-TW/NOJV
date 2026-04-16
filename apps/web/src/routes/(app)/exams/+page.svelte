@@ -159,7 +159,7 @@
             ? "bg-info"
             : "bg-muted-foreground"}
         <a
-          href={`/courses/${exam.courseId}/exams/${exam.id}`}
+          href={`/exams/${exam.id}`}
           class="group relative grid grid-cols-[auto_1fr_auto] items-center gap-6 overflow-hidden rounded-2xl border border-border bg-[color:var(--color-panel)] px-7 py-6 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest"
         >
           <!-- Left status accent bar (always visible, color by status) -->
@@ -262,10 +262,9 @@
                 <ChevronRight class="h-4 w-4" />
               </span>
             {:else if exam.status === "upcoming"}
-              <div class="text-right text-caption text-muted-foreground">
-                {m.examsTop_registered()}<br />
-                <span class="font-medium text-foreground">{m.examsTop_canAnswer()}</span>
-              </div>
+              <span class="text-body-sm font-medium text-muted-foreground/70">
+                {m.examsTop_filterUpcoming()}
+              </span>
             {:else}
               <span class={buttonVariants({ variant: "outline", size: "sm" })}>
                 {m.examsTop_viewResults()}
