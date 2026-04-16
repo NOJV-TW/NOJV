@@ -35,13 +35,13 @@ describe("isAllowedPathForExam", () => {
     });
 
     it("allows the exact exam landing path", () => {
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-1", ctx)).toBe(true);
+      expect(isAllowedPathForExam("/exams/exam-1", ctx)).toBe(true);
     });
 
     it("allows nested routes under the exam's own subtree", () => {
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-1/problems/0", ctx)).toBe(true);
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-1/problems/3", ctx)).toBe(true);
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-1/summary", ctx)).toBe(true);
+      expect(isAllowedPathForExam("/exams/exam-1/problems/0", ctx)).toBe(true);
+      expect(isAllowedPathForExam("/exams/exam-1/problems/3", ctx)).toBe(true);
+      expect(isAllowedPathForExam("/exams/exam-1/summary", ctx)).toBe(true);
     });
 
     it("allows /signin and /signout so session recovery is possible", () => {
@@ -61,27 +61,21 @@ describe("isAllowedPathForExam", () => {
       expect(isAllowedPathForExam("/contests", ctx)).toBe(false);
     });
 
-    it("denies OTHER courses and exams", () => {
-      expect(isAllowedPathForExam("/courses/course-2", ctx)).toBe(false);
-      expect(isAllowedPathForExam("/courses/course-2/exams/exam-2", ctx)).toBe(false);
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-2", ctx)).toBe(false);
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-2/problems/0", ctx)).toBe(
-        false
-      );
+    it("denies OTHER exams", () => {
+      expect(isAllowedPathForExam("/exams/exam-2", ctx)).toBe(false);
+      expect(isAllowedPathForExam("/exams/exam-2/problems/0", ctx)).toBe(false);
     });
 
-    it("denies the parent course page (not the exam subtree)", () => {
+    it("denies the parent course tree", () => {
       expect(isAllowedPathForExam("/courses/course-1", ctx)).toBe(false);
       expect(isAllowedPathForExam("/courses/course-1/assignments", ctx)).toBe(false);
     });
 
     it("denies paths that merely share a prefix with the exam path", () => {
-      // `/courses/course-1/exams/exam-1` is the prefix; "/exam-10" must not be
-      // considered a child of "/exam-1".
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-10", ctx)).toBe(false);
-      expect(isAllowedPathForExam("/courses/course-1/exams/exam-10/problems/0", ctx)).toBe(
-        false
-      );
+      // `/exams/exam-1` is the prefix; "/exam-10" must not be considered a
+      // child of "/exam-1".
+      expect(isAllowedPathForExam("/exams/exam-10", ctx)).toBe(false);
+      expect(isAllowedPathForExam("/exams/exam-10/problems/0", ctx)).toBe(false);
     });
 
     it("denies /signup — only /signin is an escape hatch", () => {

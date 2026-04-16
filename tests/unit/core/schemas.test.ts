@@ -87,7 +87,7 @@ describe("submissionDraftSchema", () => {
 describe("contestSessionSchema", () => {
   it("requires a frozen scoreboard flag for contest sessions", () => {
     const result = contestSessionSchema.parse({
-      contestSlug: "spring-qualifier-2026",
+      contestId: "spring-qualifier-2026",
       endsAt: "2026-03-15T10:00:00.000Z",
       frozenScoreboard: true,
       startsAt: "2026-03-15T08:00:00.000Z"

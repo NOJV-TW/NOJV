@@ -21,11 +21,11 @@
     // execution) but accepted for prop-shape parity with ProblemWorkspace.
     allowedLanguages?: Language[] | undefined;
     assessment?: {
-      assessmentSlug: string;
+      assessmentId: string;
       courseId: string;
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
-    contestSlug?: string | undefined;
+    contestId?: string | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
@@ -34,7 +34,7 @@
   let {
     assessment,
     backLink,
-    contestSlug,
+    contestId,
     initialSubmissions,
     problem,
     testcaseSets = []
@@ -238,11 +238,10 @@
 
     const body = {
       assessment,
-      contestSlug,
+      contestId,
       language: placeholderLanguage,
-      mode: contestSlug ? "contest" : assessment ? "assignment" : "practice",
+      mode: contestId ? "contest" : assessment ? "assignment" : "practice",
       problemId: problem.id,
-      problemSlug: problem.id,
       sampleOnly: false,
       sourceCode: placeholderSource,
       sourceFiles: staged.sourceFiles
@@ -344,7 +343,7 @@
           {m.advancedMode_badge()}
         </span>
       </div>
-      {#if contestSlug}
+      {#if contestId}
         <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
           {m.editor_contestMode()}
         </span>

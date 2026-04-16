@@ -9,10 +9,10 @@ vi.mock("@nojv/db", () => ({
     findById
   },
   assessmentRepo: {
-    findByCourseAndSlug: vi.fn()
+    findByCourseAndId: vi.fn()
   },
   problemRepo: {
-    findIdBySlug: vi.fn()
+    findById: vi.fn()
   }
 }));
 

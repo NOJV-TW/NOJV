@@ -13,7 +13,7 @@ const baseContestInput = {
   pageLockEnabled: false,
   scoreboardMode: "live",
   scoringMode: "problem_count",
-  slug: "midterm-2026",
+  id: "midterm-2026",
   startsAt: "2026-05-03T14:00:00.000Z",
   submitCooldownSec: 0,
   summary: "Midterm exam covering sorting and searching.",

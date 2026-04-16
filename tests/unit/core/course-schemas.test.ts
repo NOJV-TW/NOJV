@@ -24,7 +24,7 @@ describe("courseAssessmentCreateSchema", () => {
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
       problemIds: ["warmup-sum"],
-      slug: "hw1-process-warmup",
+      id: "hw1-process-warmup",
       summary: "First assignment",
       title: "Homework 1",
       dueAt: "2026-03-17T12:00:00.000Z"
@@ -40,7 +40,7 @@ describe("courseAssessmentCreateSchema", () => {
       opensAt: "2026-03-18T12:00:00.000Z",
       dueAt: "2026-03-25T12:00:00.000Z",
       problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
-      slug: "hw1-process-warmup",
+      id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
       title: "HW1 Process Warmup"
     });
@@ -54,7 +54,7 @@ describe("courseAssessmentCreateSchema", () => {
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
       problemIds: [],
-      slug: "hw1-process-warmup",
+      id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
       title: "HW1 Process Warmup"
     });
@@ -68,7 +68,7 @@ describe("courseAssessmentCreateSchema", () => {
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
       problemIds: [""],
-      slug: "hw1-process-warmup",
+      id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
       title: "HW1 Process Warmup"
     });
@@ -78,13 +78,13 @@ describe("courseAssessmentCreateSchema", () => {
 });
 
 describe("assessmentContextSchema", () => {
-  it("parses assessment context with courseId and assessment slug", () => {
+  it("parses assessment context with courseId and assessmentId", () => {
     const result = assessmentContextSchema.parse({
-      assessmentSlug: "hw1-process-warmup",
+      assessmentId: "hw1-process-warmup",
       courseId: "course_os-lab-spring-2026"
     });
 
-    expect(result.assessmentSlug).toBe("hw1-process-warmup");
+    expect(result.assessmentId).toBe("hw1-process-warmup");
     expect(result.courseId).toBe("course_os-lab-spring-2026");
   });
 });

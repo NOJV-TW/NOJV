@@ -45,7 +45,7 @@
     if (!search) return list;
     const q = search.toLowerCase();
     return list.filter(
-      (c) => c.title.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
+      (c) => c.title.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
     );
   }
 
@@ -70,7 +70,7 @@
       : "visibility" in contest && contest.visibility === "archived"
         ? m.contests_visibilityArchived()
         : null}
-  <a class="block" href="/contests/{contest.slug}">
+  <a class="block" href="/contests/{contest.id}">
     <Card variant="surface" size="lg" interactive>
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0 flex-1">

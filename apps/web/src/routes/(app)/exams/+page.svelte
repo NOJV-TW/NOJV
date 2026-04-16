@@ -159,7 +159,7 @@
             ? "bg-info"
             : "bg-muted-foreground"}
         <a
-          href={`/courses/${exam.courseId}/exams/${exam.id}`}
+          href={`/exams/${exam.id}`}
           class="group relative grid grid-cols-[auto_1fr_auto] items-center gap-6 overflow-hidden rounded-2xl border border-border bg-[color:var(--color-panel)] px-7 py-6 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest"
         >
           <!-- Left status accent bar (always visible, color by status) -->

@@ -8,11 +8,11 @@
 
 Today, when a time-bound activity ends the student is locked out:
 
-| Activity | Behavior after `endsAt` / `closesAt` |
-| --- | --- |
-| CourseAssessment (作業) | `createQueuedSubmissionRecord` throws `ForbiddenError("Assignment has ended.")` |
-| Contest (競賽) | `ensureContestParticipation` throws `ForbiddenError("Contest has ended.")` |
-| Exam (考試) | Active session closes; page lock redirects release; problem URLs on the detail page become stale |
+| Activity                | Behavior after `endsAt` / `closesAt`                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| CourseAssessment (作業) | `createQueuedSubmissionRecord` throws `ForbiddenError("Assignment has ended.")`                  |
+| Contest (競賽)          | `ensureContestParticipation` throws `ForbiddenError("Contest has ended.")`                       |
+| Exam (考試)             | Active session closes; page lock redirects release; problem URLs on the detail page become stale |
 
 A student who wants to revisit the problem — to study a verdict they didn't solve, to practice after the window — has no path. Post-deadline learning is silently blocked by the attribution guard.
 
@@ -54,10 +54,10 @@ The new gate fires a single lightweight DB query only when the other four gates 
 
 ## UI Changes
 
-| Surface | Current link | Post-close link |
-| --- | --- | --- |
-| `assignments/[id]/+page.svelte` student rows | `/problems/[id]?course=X&assessment=Y` | `/problems/[id]` |
-| `contests/[slug]/+page.svelte` problem cards | `/contests/[slug]/problems/[id]` | `/problems/[id]` |
+| Surface                                      | Current link                            | Post-close link  |
+| -------------------------------------------- | --------------------------------------- | ---------------- |
+| `assignments/[id]/+page.svelte` student rows | `/problems/[id]?course=X&assessment=Y`  | `/problems/[id]` |
+| `contests/[slug]/+page.svelte` problem cards | `/contests/[slug]/problems/[id]`        | `/problems/[id]` |
 | `exams/[examId]/+page.svelte` (student view) | whatever the in-exam page-lock route is | `/problems/[id]` |
 
 The detail pages themselves remain accessible post-close — students can still see the problem list, their frozen score, the submission log, and the scoreboard (contest). Only the outbound problem links change.
@@ -81,6 +81,7 @@ No change to `createQueuedSubmissionRecord`. The existing path:
 ## Implementation Plan
 
 ### Phase 1 — Access control
+
 1. Extend `assertProblemViewAccess` in `packages/domain/src/problem/helpers.ts` to accept an optional `tx` / repo accessor and perform the historical-participant check when the four synchronous gates reject. Signature becomes async.
 2. Update the two callers (`packages/domain/src/submission/mutations.ts`, `apps/web/src/routes/(app)/problems/[id]/+page.server.ts`) to `await`.
 3. Unit tests in `tests/unit/domain/problem-access.test.ts`:
@@ -92,12 +93,14 @@ No change to `createQueuedSubmissionRecord`. The existing path:
    - draft/unpublished context → blocked even for participants
 
 ### Phase 2 — UI link swap
+
 4. `assignments/[assessmentId]/+page.svelte`: when `detail.status === "closed"`, problem rows link to `/problems/${problemId}` without query.
 5. `contests/[slug]/+page.svelte`: when contest has ended, problem cards link to `/problems/${p.id}` instead of the nested contest route.
 6. `exams/[examId]/+page.svelte` (student view): when exam has ended, use `/problems/${problem.id}` for the review entry.
 7. `contests/[slug]/problems/[id]/+page.server.ts`: if contest has ended, `redirect(302, '/problems/' + params.id)`.
 
 ### Phase 3 — Verification
+
 8. Manual smoke:
    - close an assignment with seeded submissions → student can view + submit post-close, score unchanged, new submission appears in `/submissions`.
    - close a contest → problem review works, scoreboard stays frozen.

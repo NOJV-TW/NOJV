@@ -43,7 +43,7 @@ export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
 export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
-    contestSlug: slugSchema.optional(),
+    contestId: slugSchema.optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
     problemId: problemIdentifierSchema,

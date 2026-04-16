@@ -160,7 +160,7 @@ async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
     );
   }
 
-  redirect(303, `/courses/${courseId}/exams/${examId}`);
+  redirect(303, `/exams/${examId}`);
 }
 
 export const actions = {
