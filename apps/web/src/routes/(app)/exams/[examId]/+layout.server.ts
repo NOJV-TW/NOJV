@@ -10,7 +10,9 @@ import {
 } from "@nojv/domain";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
+import { m } from "$lib/paraglide/messages.js";
 import { requireAuth } from "$lib/server/auth";
+import { getClientIp } from "$lib/server/shared/client-ip";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { getCourseHeaderById } = courseDomain;
@@ -49,7 +51,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       entityKind: "exam",
       entityId: examId,
       userId: actor.userId,
-      ip: event.getClientAddress()
+      ip: getClientIp(event)
     });
 
     if (!verdict.ok) {
@@ -63,10 +65,10 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
         case "ip_whitelist":
         case "ip_binding":
           // No dedicated IP error page yet — surface as 403 with a
-          // localised-friendly message.  The hooks-based exam lock is
-          // the primary enforcement path; this branch only fires when
-          // a student navigates in directly.
-          error(403, "Your IP address is not permitted for this exam.");
+          // localised message. The hooks-based exam lock is the primary
+          // enforcement path; this branch only fires when a student
+          // navigates in directly.
+          error(403, m.examShell_ipBlocked());
           break;
         case "not_started":
         case "ended":

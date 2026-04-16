@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceFileNames, type JudgeScriptLanguage } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
-import { createBoundedBuffer, pathExists } from "./utils.js";
+import { createBoundedBuffer, pathExists, withProcessLimit } from "./utils.js";
 
 // Wrapper assets live at `apps/sandbox-runner/assets/wrappers/` in source
 // and at `<runtime-prefix>/assets/wrappers/` in the built sandbox image
@@ -153,7 +153,8 @@ function compileWithCommand(
       return;
     }
 
-    const proc = spawn(cmd, args, {
+    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const proc = spawn(wrappedCmd!, wrappedArgs, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
       // 90s covers Go/Rust/Java cold compiles on CI where toolchain priming can eat 30s+.

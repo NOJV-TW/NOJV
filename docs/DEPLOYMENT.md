@@ -111,17 +111,25 @@ Local dev uses Garage. Production can use GCS (S3-compatible mode), Cloudflare R
 ## GCP Production Architecture
 
 ```
-                    ┌──────────────────┐
-                    │   Cloud Build    │
-                    │  (CI/CD trigger) │
-                    └────────┬─────────┘
-                             │ builds
+    Internet
+       │
+       ▼
+  ┌─────────────┐
+  │ Cloudflare  │  ← DNS + TLS + WAF + DDoS + sets CF-Connecting-IP
+  └──────┬──────┘
+         │ (only path allowed to origin)
+         ▼
+  ┌──────────────────┐
+  │       GCLB       │  ← Cloud Armor: allowlist CF CIDR only
+  └──────┬───────────┘
+         │
               ┌──────────────┼──────────────┐
               ▼              ▼              ▼
      ┌────────────┐  ┌────────────┐  ┌───────────┐
      │ Cloud Run  │  │    GKE     │  │ Cloud Run │
      │   (web)    │  │  (worker)  │  │   Job     │
-     │            │  │            │  │ (migrator)│
+     │ Ingress =  │  │            │  │ (migrator)│
+     │ Internal+LB│  │            │  │           │
      └─────┬──────┘  └─────┬──────┘  └───────────┘
            │               │
            ├───► Cloud SQL (PostgreSQL)
@@ -161,6 +169,74 @@ gcloud builds submit --config infra/gcp/cloudbuild.yaml \
 | `infra/docker/worker.Dockerfile`         | Temporal worker            |
 | `infra/docker/sandbox-runner.Dockerfile` | Sandbox execution runtime  |
 | `infra/docker/migrator.Dockerfile`       | Database migration runner  |
+
+### Cloudflare + Cloud Armor Setup
+
+Production depends on Cloudflare being the **only** ingress path so `getClientIp(event)` can trust `CF-Connecting-IP`. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only) for the rationale.
+
+**One-time setup:**
+
+1. **Cloudflare DNS** — set `nojv.example.com` as a proxied (orange-cloud) A/AAAA record pointing at the GCLB frontend IP. CF terminates TLS at the edge and sets `CF-Connecting-IP` on every inbound request.
+
+2. **Cloud Run Ingress** — flip to `internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is publicly unreachable:
+
+   ```bash
+   gcloud run services update nojv-web \
+     --region=asia-east1 \
+     --ingress=internal-and-cloud-load-balancing
+   ```
+
+   After this change, `curl https://<hash>-<region>.a.run.app` returns 403. All valid traffic must come through GCLB.
+
+3. **Cloud Armor edge policy** — allowlist Cloudflare's official CIDR ranges. Source lists live at <https://www.cloudflare.com/ips-v4> and <https://www.cloudflare.com/ips-v6>; they change rarely but watch for updates.
+
+   ```bash
+   # Create the policy
+   gcloud compute security-policies create cf-only-policy \
+     --description="Allow only Cloudflare edge IPs"
+
+   # Default deny for anything not matched below
+   gcloud compute security-policies rules update 2147483647 \
+     --security-policy=cf-only-policy \
+     --action=deny-403
+
+   # Allow Cloudflare IPv4 ranges (paste the full list as a comma-separated string)
+   gcloud compute security-policies rules create 1000 \
+     --security-policy=cf-only-policy \
+     --src-ip-ranges="173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,..." \
+     --action=allow
+
+   # Same for IPv6 at a separate priority
+   gcloud compute security-policies rules create 1100 \
+     --security-policy=cf-only-policy \
+     --src-ip-ranges="2400:cb00::/32,2606:4700::/32,..." \
+     --action=allow
+
+   # Attach to the GCLB backend service fronting Cloud Run
+   gcloud compute backend-services update nojv-web-backend \
+     --security-policy=cf-only-policy \
+     --global
+   ```
+
+4. **Verify the trust boundary holds:**
+
+   ```bash
+   # (a) Direct to Cloud Run URL — should 403 (Ingress block)
+   curl -I "https://<run-hash>.a.run.app"
+
+   # (b) Direct to GCLB frontend with a non-CF client IP — should 403 (Cloud Armor)
+   curl -I "https://<gclb-ip>"
+
+   # (c) Through Cloudflare — should 200
+   curl -I "https://nojv.example.com"
+
+   # (d) Through Cloudflare but sending a spoofed CF-Connecting-IP — CF rewrites it, app sees real client
+   curl -I -H "CF-Connecting-IP: 1.2.3.4" "https://nojv.example.com"
+   ```
+
+   If (a) or (b) return 200 the trust model is broken — stop and fix before relying on IP-based proctoring.
+
+**Ongoing maintenance:** Cloudflare's CIDR list updates occasionally. A stale Cloud Armor rule either locks out real users (range added) or widens the allowlist to stale IPs (range removed). Either script the refresh via Terraform + the Cloudflare API, or put a calendar reminder to check the published lists quarterly.
 
 ## Microservice Deployment
 

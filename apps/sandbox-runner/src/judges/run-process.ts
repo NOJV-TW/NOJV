@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import type { TestcaseResult } from "../types.js";
-import { createBoundedBuffer } from "../utils.js";
+import { createBoundedBuffer, withProcessLimit } from "../utils.js";
 
 export interface RunProcessResult {
   stdout: string;
@@ -39,7 +39,8 @@ export function runProcess(
 
     const useStdin = options.stdin !== undefined;
 
-    const proc = spawn(cmd, args, {
+    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const proc = spawn(wrappedCmd!, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
       timeout: options.timeoutMs
     });
