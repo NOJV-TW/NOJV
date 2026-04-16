@@ -43,11 +43,7 @@ export const load: PageServerLoad = async (event) => {
   const platformRole = sessionUser?.platformRole ?? "student";
   const isSchoolVerified = username !== null && isReservedUsername(username);
 
-  // `status` is a better-auth additionalField registered in `$lib/auth.ts` but
-  // not in the SessionUser zod schema; access it via a narrow cast rather than
-  // widening the shared type from this route.
-  const status = (sessionUser as { status?: string } | null)?.status;
-  const canEditUsername = !isSchoolVerified && status !== "pending_first_login";
+  const canEditUsername = !isSchoolVerified && sessionUser?.status !== "pending_first_login";
 
   const nameForm = await superValidate({ name: locals.user.name }, zod4(nameSchema));
   const usernameForm = await superValidate({ username: username ?? "" }, zod4(usernameSchema));

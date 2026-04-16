@@ -1,4 +1,4 @@
-export { isReservedUsername } from "@nojv/domain";
+export { isReservedUsername } from "@nojv/core";
 
 type School = "ntnu" | "ntu" | "ntust";
 

@@ -12,6 +12,7 @@ export const supportedLanguages = [
 ] as const;
 
 export const platformRoles = ["admin", "teacher", "student"] as const;
+export const userStatuses = ["active", "disabled", "pending_first_login"] as const;
 export const courseRoles = ["teacher", "ta", "student"] as const;
 export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
@@ -50,6 +51,7 @@ export const localeCodes = ["en", "zh-TW"] as const;
 export const DEFAULT_LOCALE = "zh-TW";
 
 export const platformRoleSchema = z.enum(platformRoles);
+export const userStatusSchema = z.enum(userStatuses);
 export const courseRoleSchema = z.enum(courseRoles);
 export const effectiveCourseRoleSchema = z.enum(effectiveCourseRoles);
 export const problemDifficultySchema = z.enum(problemDifficulties);
@@ -84,6 +86,7 @@ export type Language = z.infer<typeof languageSchema>;
 export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ScoreboardMode = z.infer<typeof scoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
+export type UserStatus = z.infer<typeof userStatusSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
@@ -132,7 +135,8 @@ export const sessionUserSchema = z.object({
   username: z.string().nullable(),
   id: z.string(),
   name: z.string(),
-  platformRole: platformRoleSchema
+  platformRole: platformRoleSchema,
+  status: userStatusSchema.default("active")
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;
