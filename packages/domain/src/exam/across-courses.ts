@@ -1,12 +1,7 @@
 import { courseMembershipRepo, examRepo } from "@nojv/db";
 import type { ContestScoringMode } from "@nojv/core";
 
-// Top-level cross-course "personal exams" view (prototype 15).
-// Aggregates published exams from every course the user is currently
-// enrolled in, regardless of role. Drafts are excluded entirely —
-// drafts only live inside the per-course exams page where teachers /
-// TAs work on them.
-
+// Drafts are excluded — they only live inside the per-course exams page.
 export type ExamAcrossStatus = "running" | "upcoming" | "ended";
 
 export type ExamAcrossStatusFilter = "all" | ExamAcrossStatus;
@@ -50,10 +45,7 @@ function deriveStatus(startsAt: Date, endsAt: Date, now: Date): ExamAcrossStatus
 }
 
 function rankRow(row: ExamAcrossRow, now: Date): number {
-  // Lower = sorted earlier.
-  //   0 running  -> closest to ending first
-  //   1 upcoming -> nearest start first
-  //   2 ended    -> most recent end first
+  // Lower rank = sorted earlier: running, upcoming, ended.
   const startMs = new Date(row.startsAt).getTime();
   const endMs = new Date(row.endsAt).getTime();
   const nowMs = now.getTime();
@@ -62,17 +54,7 @@ function rankRow(row: ExamAcrossRow, now: Date): number {
   return 2_000_000_000_000 - endMs;
 }
 
-/**
- * Cross-course personal exams list. Returns published exams from every
- * course the user is enrolled in (any role), flattened, status-filtered,
- * and sorted: running → upcoming → ended. Drafts are excluded — they
- * only exist on the per-course exams page.
- *
- * The fetch uses `examRepo.listByCourseId` per course in parallel.
- * Typical users are in fewer than ten courses so the N+1 is acceptable
- * and avoids adding a new repo method that could collide with the
- * in-flight per-course exams refactor.
- */
+// N+1 fetch (one `listByCourseId` per course) is acceptable: typical users are in <10 courses.
 export async function listExamsAcrossCoursesForUser(
   userId: string,
   options: ListExamsAcrossCoursesOptions = {}

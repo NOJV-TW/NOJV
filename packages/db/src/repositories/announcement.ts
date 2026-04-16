@@ -2,11 +2,13 @@ import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 
 export const announcementRepo = {
+  // Platform-wide announcements only (courseId null). Course-scoped rows belong to `listRecentForCourse`.
   listPublished(take: number) {
     const now = new Date();
     return prisma.announcement.findMany({
       where: {
         status: "published",
+        courseId: null,
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
@@ -15,19 +17,12 @@ export const announcementRepo = {
     });
   },
 
-  /**
-   * Recent published announcements with the author preview needed by
-   * the course overview announcement row (avatar + name + timestamp).
-   * The Announcement model is currently global (no courseId column), so
-   * this method returns the most recent global announcements — the
-   * `courseId` parameter on the domain helper is forward-compatible for
-   * when per-course announcements land.
-   */
-  listRecentWithAuthor(take: number) {
+  listRecentForCourse(courseId: string, take: number) {
     const now = new Date();
     return prisma.announcement.findMany({
       where: {
         status: "published",
+        courseId,
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],

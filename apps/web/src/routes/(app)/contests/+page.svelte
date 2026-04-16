@@ -1,12 +1,11 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import { cn } from "$lib/utils.js";
   import { Trophy, Plus } from "@lucide/svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import Section from "$lib/components/ui/Section.svelte";
   import { Card } from "$lib/components/ui/card/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -15,15 +14,32 @@
   type ParticipableContest = (typeof data)["participable"][number];
   type ManagedContest = (typeof data)["managed"][number];
   type AnyContest = ParticipableContest | ManagedContest;
+  type TabKey = "participable" | "managed";
 
   let { data, form: actionData } = $props();
 
   let search = $state("");
   let joinDialogOpen = $state(false);
 
-  let tabValue = $derived(
-    $page.url.searchParams.get("tab") === "managed" ? ("managed" as const) : ("participable" as const)
+  const tabValue = $derived<TabKey>(
+    page.url.searchParams.get("tab") === "managed" ? "managed" : "participable"
   );
+
+  const tabCounts = $derived({
+    participable: data.participable.length,
+    managed: data.managed.length
+  });
+
+  function setTab(next: TabKey) {
+    const url = new URL(page.url);
+    if (next === "managed") url.searchParams.set("tab", "managed");
+    else url.searchParams.delete("tab");
+    goto(`?${url.searchParams.toString()}`, {
+      keepFocus: true,
+      replaceState: true,
+      noScroll: true
+    });
+  }
 
   function applySearch<T extends AnyContest>(list: T[]): T[] {
     if (!search) return list;
@@ -115,54 +131,108 @@
   </a>
 {/snippet}
 
-<div class="space-y-6">
-  <Section>
-    {#snippet header()}
-      <h1 class="font-display text-title-lg">{m.navigation_contests()}</h1>
-    {/snippet}
-    {#snippet actions()}
-      {#if data.loggedIn}
-        <Button href="/contests/create" size="default">
-          <Plus class="h-4 w-4" />
-          {m.contests_create()}
-        </Button>
-      {/if}
-    {/snippet}
-  </Section>
+{#snippet tabBody(list: AnyContest[], filtered: AnyContest[], emptyTitle: string)}
+  {#if list.length === 0}
+    <EmptyState
+      variant="minimal"
+      icon={Trophy}
+      title={emptyTitle}
+      description={m.contests_emptyHint()}
+    />
+  {:else if filtered.length === 0}
+    <EmptyState
+      variant="minimal"
+      icon={Trophy}
+      title={m.contests_noMatches()}
+      description={m.contests_noMatchesHint()}
+    />
+  {:else}
+    <section class="grid gap-4 lg:grid-cols-2">
+      {#each filtered as contest (contest.id)}
+        {@render contestCard(contest)}
+      {/each}
+    </section>
+  {/if}
+{/snippet}
 
-  <div class="flex gap-3">
+<div class="pb-24">
+  <header class="animate-in mb-8">
+    <h1 class="font-display text-display font-medium tracking-[-0.02em]">
+      {m.navigation_contests()}
+    </h1>
+    <p class="mt-2 text-body text-muted-foreground">
+      {m.contests_subtitle()}
+    </p>
+  </header>
+
+  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
+    <div
+      role="tablist"
+      aria-label={m.navigation_contests()}
+      class="flex flex-1 items-center gap-1"
+    >
+      {#each [{ key: "participable" as const, label: m.contests_tabParticipable(), count: tabCounts.participable }, { key: "managed" as const, label: m.contests_tabManaged(), count: tabCounts.managed }] as tab (tab.key)}
+        {@const isActive = tab.key === tabValue}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isActive}
+          onclick={() => setTab(tab.key)}
+          class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'}"
+        >
+          <span>{tab.label}</span>
+          <span
+            class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground'}"
+          >
+            {tab.count}
+          </span>
+        </button>
+      {/each}
+    </div>
+
+    {#if data.loggedIn}
+      <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
+        {m.contestDetail_enterCode()}
+      </Button>
+      <Button href="/contests/create">
+        <Plus class="h-4 w-4" />
+        {m.contests_create()}
+      </Button>
+    {/if}
+  </div>
+
+  <div class="animate-in animate-in-2 mb-6">
     <Input
       class="min-w-0 flex-1"
       placeholder={m.contestDetail_searchPlaceholder()}
       type="search"
       bind:value={search}
     />
-    <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
-      {m.contestDetail_enterCode()}
-    </Button>
+    {#if actionData?.codeError}
+      <p class="mt-2 text-body-sm text-destructive">{actionData.codeError}</p>
+    {/if}
   </div>
 
-  {#if actionData?.codeError}
-    <p class="text-body-sm text-destructive">{actionData.codeError}</p>
-  {/if}
+  <div class="animate-in animate-in-3" role="tabpanel">
+    {#if tabValue === "participable"}
+      {@render tabBody(data.participable, filteredParticipable, m.contests_emptyParticipable())}
+    {:else}
+      {@render tabBody(data.managed, filteredManaged, m.contests_emptyManaged())}
+    {/if}
+  </div>
 
   <Dialog.Root bind:open={joinDialogOpen}>
     <Dialog.Content>
       <Dialog.Header>
         <Dialog.Title>{m.contestDetail_enterCode()}</Dialog.Title>
       </Dialog.Header>
-      <form
-        class="flex flex-col gap-4"
-        method="POST"
-        action="?/joinByCode"
-        use:enhance
-      >
+      <form class="flex flex-col gap-4" method="POST" action="?/joinByCode" use:enhance>
         <!-- svelte-ignore a11y_autofocus -->
-        <Input
-          name="code"
-          placeholder="spring-2026-final"
-          autofocus
-        />
+        <Input name="code" placeholder="spring-2026-final" autofocus />
         <div class="flex justify-end">
           <Button type="submit">
             {m.contestDetail_go()}
@@ -171,74 +241,4 @@
       </form>
     </Dialog.Content>
   </Dialog.Root>
-
-  <div>
-    <div
-      role="tablist"
-      class="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground"
-    >
-      <a
-        role="tab"
-        href="/contests"
-        data-sveltekit-replacestate
-        data-sveltekit-noscroll
-        aria-selected={tabValue === "participable"}
-        class={cn(
-          "inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-body-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          tabValue === "participable"
-            ? "bg-background text-foreground shadow-rest"
-            : "hover:text-foreground"
-        )}
-      >
-        {m.contests_tabParticipable()}
-      </a>
-      <a
-        role="tab"
-        href="/contests?tab=managed"
-        data-sveltekit-replacestate
-        data-sveltekit-noscroll
-        aria-selected={tabValue === "managed"}
-        class={cn(
-          "inline-flex items-center justify-center rounded-sm px-3 py-1.5 text-body-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-          tabValue === "managed"
-            ? "bg-background text-foreground shadow-rest"
-            : "hover:text-foreground"
-        )}
-      >
-        {m.contests_tabManaged()}
-      </a>
-    </div>
-
-    {#snippet tabBody(list: AnyContest[], filtered: AnyContest[], emptyTitle: string)}
-      {#if list.length === 0}
-        <EmptyState
-          variant="minimal"
-          icon={Trophy}
-          title={emptyTitle}
-          description={m.contests_emptyHint()}
-        />
-      {:else if filtered.length === 0}
-        <EmptyState
-          variant="minimal"
-          icon={Trophy}
-          title={m.contests_noMatches()}
-          description={m.contests_noMatchesHint()}
-        />
-      {:else}
-        <section class="grid gap-4 lg:grid-cols-2">
-          {#each filtered as contest (contest.id)}
-            {@render contestCard(contest)}
-          {/each}
-        </section>
-      {/if}
-    {/snippet}
-
-    <div class="mt-4" role="tabpanel">
-      {#if tabValue === "participable"}
-        {@render tabBody(data.participable, filteredParticipable, m.contests_emptyParticipable())}
-      {:else}
-        {@render tabBody(data.managed, filteredManaged, m.contests_emptyManaged())}
-      {/if}
-    </div>
-  </div>
 </div>

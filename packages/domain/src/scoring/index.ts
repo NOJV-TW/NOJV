@@ -1,4 +1,4 @@
 export * from "./rank-util";
-export * from "./icpc";
-export * from "./ioi";
+export * from "./problem-count";
+export * from "./point-sum";
 export * from "./scoreboard-builder";

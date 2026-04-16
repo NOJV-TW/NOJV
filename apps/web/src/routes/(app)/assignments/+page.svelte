@@ -5,18 +5,17 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
-  import FilterChips from "$lib/components/common/FilterChips.svelte";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  const { assignments, counts, currentFilter, hasNoCourses } = $derived(data);
+  const { assignments, counts, currentFilter } = $derived(data);
 
-  function setFilter(next: string) {
+  function setTab(next: string) {
     const url = new URL(page.url);
-    if (next === "all") url.searchParams.delete("status");
-    else url.searchParams.set("status", next);
+    if (next === "all") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
     goto(`?${url.searchParams.toString()}`, {
       keepFocus: true,
       replaceState: true,
@@ -24,15 +23,11 @@
     });
   }
 
-  const filterOptions = $derived([
-    { value: "all", label: m.assignmentsTop_filterAll(), count: counts.all },
-    { value: "open", label: m.assignmentsTop_filterOpen(), count: counts.open },
-    {
-      value: "upcoming",
-      label: m.assignmentsTop_filterUpcoming(),
-      count: counts.upcoming
-    },
-    { value: "closed", label: m.assignmentsTop_filterClosed(), count: counts.closed }
+  const tabs = $derived([
+    { key: "all", label: m.assignmentsTop_filterAll(), count: counts.all },
+    { key: "open", label: m.assignmentsTop_filterOpen(), count: counts.open },
+    { key: "upcoming", label: m.assignmentsTop_filterUpcoming(), count: counts.upcoming },
+    { key: "closed", label: m.assignmentsTop_filterClosed(), count: counts.closed }
   ]);
 
   function statusBadge(
@@ -53,10 +48,6 @@
     }
   }
 
-  /**
-   * Urgency hint rendered in the meta row. Same pattern as the per-
-   * course assignments page but phrased from a cross-course POV.
-   */
   function urgencyHint(
     status: "draft" | "upcoming" | "open" | "closed",
     opensAt: string | null,
@@ -78,21 +69,48 @@
 <div class="pb-24">
   <!-- Page head -->
   <header class="animate-in mb-8">
-    <p class="text-caption font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-      {m.assignmentsTop_eyebrow()}
-    </p>
-    <h1 class="font-display mt-2 text-display-sm font-semibold tracking-[-0.02em]">
-      {m.assignmentsTop_title()}
+    <h1 class="font-display text-display font-medium tracking-[-0.02em]">
+      {m.navigation_assignments()}
     </h1>
     <p class="mt-2 text-body text-muted-foreground">
       {m.assignmentsTop_subtitle()}
     </p>
   </header>
 
-  {#if hasNoCourses}
-    <!-- Empty state: user has no courses at all -->
+  <!-- Tab row -->
+  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
     <div
-      class="animate-in animate-in-1 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+      role="tablist"
+      aria-label={m.navigation_assignments()}
+      class="flex flex-1 items-center gap-1"
+    >
+      {#each tabs as tab (tab.key)}
+        {@const isActive = tab.key === currentFilter}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isActive}
+          onclick={() => setTab(tab.key)}
+          class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'}"
+        >
+          <span>{tab.label}</span>
+          <span
+            class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground'}"
+          >
+            {tab.count}
+          </span>
+        </button>
+      {/each}
+    </div>
+  </div>
+
+  {#if assignments.length === 0}
+    <div
+      class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
     >
       <ClipboardList
         class="mx-auto h-12 w-12 text-muted-foreground"
@@ -109,30 +127,11 @@
         href="/courses"
         class={buttonVariants({ variant: "outline", size: "sm" }) + " mt-4 inline-flex"}
       >
-        {m.assignmentsTop_backToCourses()}
+        {m.common_browseMyCourses()}
       </a>
     </div>
   {:else}
-    <!-- Filter chips + sort hint -->
-    <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-4">
-      <div class="flex-1">
-        <FilterChips
-          value={currentFilter}
-          onChange={setFilter}
-          options={filterOptions}
-        />
-      </div>
-      <p class="text-caption text-muted-foreground">{m.assignmentsTop_sortHint()}</p>
-    </div>
-
-    {#if assignments.length === 0}
-      <div
-        class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
-      >
-        {m.assignmentsTop_empty()}
-      </div>
-    {:else}
-      <div class="animate-in animate-in-2 grid gap-3">
+    <div class="animate-in animate-in-2 grid gap-3">
         {#each assignments as assignment (assignment.id)}
           {@const badge = statusBadge(assignment.status)}
           {@const hint = urgencyHint(
@@ -231,6 +230,5 @@
           </a>
         {/each}
       </div>
-    {/if}
   {/if}
 </div>

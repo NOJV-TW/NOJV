@@ -43,6 +43,32 @@ export async function assertProblemEditAccess(
   assertProblemOwnership(problem, actor);
 }
 
+/**
+ * Gate every viewer-side access to problem data (page load, submit, run).
+ * Returns silently when allowed, throws NotFoundError otherwise (never 403 —
+ * we hide the problem's existence from unauthorized viewers to prevent
+ * enumeration).
+ *
+ * Public problems are visible to anyone logged in. Private problems are
+ * only visible to the author, platform admins, and to viewers who arrive
+ * with a valid assessment/contest context that contains the problem —
+ * the caller is responsible for verifying that context (enrollment,
+ * time window, problem membership) BEFORE calling this function and
+ * passing `contextIncludesProblem: true`.
+ */
+export function assertProblemViewAccess(
+  problem: { id: string; authorId: string | null; visibility: string },
+  actor: ProblemActorContext | null,
+  opts?: { contextIncludesProblem?: boolean }
+): void {
+  if (problem.visibility === "public") return;
+  if (actor?.platformRole === "admin") return;
+  if (actor?.userId === problem.authorId) return;
+  if (opts?.contextIncludesProblem) return;
+  // Mask the existence of the private problem — use 404 not 403.
+  throw new NotFoundError(`Problem not found: ${problem.id}`);
+}
+
 // Every listed language must have an editable main.<ext> workspace file,
 // otherwise students in that language have no entry file to submit.
 export async function assertProblemHasWorkspaceForLanguages(

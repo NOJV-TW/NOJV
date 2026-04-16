@@ -27,11 +27,6 @@
     { dataType: "json", resetForm: false }
   );
 
-  // ── Problem picker state ───────────────────────────────────────────
-  // `candidateProblems` is the full set loaded once server-side. We
-  // filter client-side by title / id / tag substring — plenty fast for
-  // typical teacher libraries (< 500 rows) and saves a round-trip per
-  // keystroke.
   let searchQuery = $state("");
   let advancedOpen = $state(true);
 
@@ -102,9 +97,6 @@
     );
   }
 
-  // ── Late-penalty rule builder adapter ──────────────────────────────
-  // The builder emits LatePenaltyRule | null; we mirror that into
-  // $form.latePenalty which serializes as JSON (dataType: "json").
   function handleLatePenaltyChange(value: LatePenaltyRule) {
     $form.latePenalty = value;
   }
@@ -117,9 +109,9 @@
   }
 
   function difficultyLabel(d: "easy" | "medium" | "hard"): string {
-    if (d === "easy") return "Easy";
-    if (d === "hard") return "Hard";
-    return "Medium";
+    if (d === "easy") return m.admin_difficultyEasy();
+    if (d === "hard") return m.admin_difficultyHard();
+    return m.admin_difficultyMedium();
   }
 
   const inputClass =

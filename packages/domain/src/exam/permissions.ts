@@ -11,16 +11,7 @@ export interface CourseMembershipRow {
   status: CourseMembershipStatus;
 }
 
-/**
- * True when the user may edit the exam, preview problems before start,
- * see draft/archived versions, and run plagiarism checks. Pure —
- * callers pre-fetch memberships so the list page can batch-resolve
- * permissions for many exams without N+1.
- *
- * An exam is always tied to a course, so unlike `canManageContest`
- * (which only checks ownership), exam management includes course
- * teachers and TAs.
- */
+// Pure: callers pre-fetch memberships so the list page can batch-resolve without N+1.
 export function canManageExam(
   userId: string | null,
   exam: ExamPermissionInput,

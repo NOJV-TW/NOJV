@@ -74,10 +74,7 @@ export async function listProblemSubmissions(
   });
 
   return submissions.map((s) => {
-    // verdictDetail is the sole source of truth for case results,
-    // subtask results, compiler output, etc. We still validate
-    // `s.status` up front so DB corruption at the enum column is
-    // surfaced rather than hidden.
+    // verdictDetail is the sole source of truth; `s.status` is validated to surface enum-column corruption.
     submissionVerdictSchema.parse(s.status);
     const result = submissionResultSchema.parse(s.verdictDetail);
     const language = languageSchema.parse(s.language);

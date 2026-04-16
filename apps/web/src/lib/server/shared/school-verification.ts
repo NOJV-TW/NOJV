@@ -1,7 +1,7 @@
 import { fail, type RequestEvent } from "@sveltejs/kit";
 import { Resend } from "resend";
 import { env } from "$env/dynamic/private";
-import { verificationDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/domain";
 
 import { createLogger } from "../logger";
 import { consumeFormRateLimit } from "./rate-limiter";
@@ -31,7 +31,7 @@ export async function processSchoolVerification(
 
   // The token row stores `username` directly now — no opaque payload
   // is encoded into the better-auth Verification record any more.
-  const result = await verificationDomain.initiateSchoolVerification(userId, username);
+  const result = await userDomain.initiateSchoolVerification(userId, username);
 
   if (result.status === "error") {
     return { error: result.detail, status: result.httpStatus };

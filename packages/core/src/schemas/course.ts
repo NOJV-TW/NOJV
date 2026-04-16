@@ -3,17 +3,11 @@ import { z } from "zod";
 import { courseRoleSchema, isoDateTimeSchema, languageSchema, slugSchema } from "../types";
 import { adjustmentRuleSchema, adjustmentRulesSchema } from "./assessment-adjustments";
 
-// Course creation takes only title + description. The post-redesign create
-// flow no longer exposes slug / visibility / locale / semester to users;
-// the new URL key is the cuid primary key.
 export const courseCreateSchema = z.object({
   description: z.string().trim().min(8).max(2_000),
   title: z.string().trim().min(3).max(120)
 });
 
-// Course update shares the same shape as create. The settings page only
-// surfaces title + description; defaults / visibility cards in prototype 13
-// are placeholders until schema columns land.
 export const courseUpdateSchema = z.object({
   description: z.string().trim().min(8).max(2_000),
   title: z.string().trim().min(3).max(120)
@@ -91,11 +85,7 @@ export const courseAssessmentCreateSchema = z
     }
   });
 
-// Create-assignment form schema (prototype 05). The form does NOT expose
-// slug or summary — both are auto-generated server-side. Unlike the
-// canonical `courseAssessmentCreateSchema` above, `problemIds` allows 0
-// entries so a teacher can stand up a draft and let a TA fill problems
-// in later. `status` picks between save-as-draft and publish on submit.
+// `problemIds` allows 0 entries so a teacher can stand up a draft for a TA to fill in later.
 export const courseAssignmentFormSchema = z
   .object({
     allowedLanguages: z.array(languageSchema).max(8).default([]),

@@ -14,7 +14,7 @@
   $effect(() => {
     const incomingError = $page.url.searchParams.get("error");
     if (incomingError === "account-disabled") {
-      error = "Account is disabled. Please contact an administrator.";
+      error = m.auth_accountDisabled();
     }
   });
 
@@ -35,15 +35,14 @@
     loading = false;
 
     if (signInError) {
-      error = signInError.message ?? "Invalid credentials";
+      error = signInError.message ?? m.auth_invalidCredentials();
       return;
     }
 
     // Confirm cookie/session is actually persisted before leaving sign-in page.
     const { data: sessionData } = await authClient.getSession();
     if (!sessionData?.session) {
-      error =
-        "Signed in, but session cookie was not persisted. Check HTTPS, reverse proxy Set-Cookie, and BETTER_AUTH_URL.";
+      error = m.auth_sessionCookieNotPersisted();
       return;
     }
 

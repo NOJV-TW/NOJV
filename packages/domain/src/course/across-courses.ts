@@ -1,11 +1,6 @@
 import { assessmentRepo, courseMembershipRepo } from "@nojv/db";
 
-/**
- * Status filter for the top-level /assignments page. Unlike the per-
- * course list this does NOT expose a `draft` filter — drafts are
- * course-internal and the cross-course view only shows them inside
- * "all" for managers.
- */
+// No draft filter: drafts are course-internal and only appear inside "all" for managers.
 export type AssignmentsTopStatusFilter = "all" | "open" | "upcoming" | "closed";
 
 export type AssignmentsTopStatus = "draft" | "upcoming" | "open" | "closed";
@@ -20,15 +15,9 @@ export interface AssignmentsTopRow {
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
-  /**
-   * Best-effort personal progress for the viewer. Null today — the
-   * "my work" stats table does not yet exist (see Task 3.2 convention).
-   */
+  // TODO(cross-course): requires the "my work" stats table.
   myStatus: { solved: number; total: number } | null;
-  /**
-   * Best-effort class stats for a managing viewer. Null today — same
-   * approximation convention as `myStatus`.
-   */
+  // TODO(cross-course): requires per-assessment submission aggregation.
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
 }
 
@@ -72,27 +61,13 @@ function rankRow(
   closesAt: Date,
   now: Date
 ): number {
-  // Lower = higher priority. Matches per-course assignment ranking:
-  //  0 open      -> sort by closesAt asc (most urgent first)
-  //  1 upcoming  -> sort by opensAt asc
-  //  2 draft     -> pushed to the bottom
-  //  3 closed    -> most recently closed first
+  // Lower rank = higher priority; matches per-course `rankAssignment` bands.
   if (status === "open") return closesAt.getTime() - now.getTime();
   if (status === "upcoming") return 1_000_000_000_000 + (opensAt.getTime() - now.getTime());
   if (status === "draft") return 2_000_000_000_000;
   return 3_000_000_000_000 - closesAt.getTime();
 }
 
-/**
- * Personal cross-course assignments roll-up for the top-level
- * /assignments page. Returns every assignment from every course the
- * user is in — published for all enrolments, plus drafts for courses
- * where the user is teacher/TA.
- *
- * Shape matches prototype 14: row carries `courseId` + `courseTitle`
- * for the CourseTagPill; `myStatus` / `classStats` are null today
- * (same TODO convention as the per-course overview).
- */
 export async function listAssignmentsAcrossCoursesForUser(
   userId: string,
   options: ListAssignmentsAcrossCoursesOptions
@@ -114,9 +89,6 @@ export async function listAssignmentsAcrossCoursesForUser(
     .filter((m) => m.role === "teacher" || m.role === "ta")
     .map((m) => m.courseId);
 
-  // Fetch a superset so the in-memory sort + trim has room. Cross-
-  // course scale is small (a student has ~5 courses, each with ~10
-  // assignments); the 3x buffer matches `listForCourse`'s convention.
   const rawRows = await assessmentRepo.listAcrossCourses(
     allCourseIds,
     managerCourseIds,
@@ -139,11 +111,7 @@ export async function listAssignmentsAcrossCoursesForUser(
       opensAt: status === "draft" ? null : raw.opensAt.toISOString(),
       closesAt: status === "draft" ? null : raw.closesAt.toISOString(),
       problemCount: raw._count.problems,
-      // TODO(cross-course): personal progress requires the "my work"
-      // stats table (see per-course overview TODO, Task 3.2).
       myStatus: null,
-      // TODO(cross-course): per-assessment class aggregation requires
-      // the submission aggregation query (see per-course overview TODO).
       classStats: null
     };
     return {
@@ -152,9 +120,6 @@ export async function listAssignmentsAcrossCoursesForUser(
     };
   });
 
-  // Counts reflect the ALL filter set (drafts included for managers).
-  // The status chips never filter to draft here — drafts only appear
-  // inside "all" — so we don't expose a draft counter.
   const counts: AssignmentsTopCounts = { all: 0, open: 0, upcoming: 0, closed: 0 };
   for (const entry of mapped) {
     counts.all += 1;

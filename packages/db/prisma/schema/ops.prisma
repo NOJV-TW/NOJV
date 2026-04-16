@@ -29,12 +29,15 @@ model Announcement {
   publishedAt     DateTime?
   expiresAt       DateTime?
   createdByUserId String?
+  courseId        String?
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
   createdBy       User?                     @relation("AnnouncementCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  course          Course?                   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   translations    AnnouncementTranslation[]
 
   @@index([status, pinned, publishedAt])
+  @@index([courseId, status, pinned, publishedAt])
 }
 
 model AnnouncementTranslation {

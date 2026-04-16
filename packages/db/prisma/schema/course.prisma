@@ -29,13 +29,19 @@ model Course {
   title       String
   description String             @db.Text
   ownerId     String
+  /// When true, students keep read-only access to scores and the
+  /// course landing page but lose click-through into assignment /
+  /// problem details. Toggled by course managers (teachers, TAs,
+  /// owner) — there is no time-based auto-archive yet.
+  archived    Boolean            @default(false)
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  memberships CourseMembership[]
-  assessments CourseAssessment[]
-  exams       Exam[]
-  submissions Submission[]
+  memberships   CourseMembership[]
+  assessments   CourseAssessment[]
+  exams         Exam[]
+  submissions   Submission[]
+  announcements Announcement[]
 }
 
 model CourseMembership {

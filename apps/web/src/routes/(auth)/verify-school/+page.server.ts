@@ -1,14 +1,16 @@
-import { verificationDomain } from "@nojv/domain";
+import { userDomain } from "@nojv/domain";
+
+import { m } from "$lib/paraglide/messages.js";
 
 import type { PageServerLoad } from "./$types";
 
-const { processSchoolVerification } = verificationDomain;
+const { processSchoolVerification } = userDomain;
 
 export const load: PageServerLoad = async ({ url }) => {
   const token = url.searchParams.get("token");
 
   if (!token) {
-    return { status: "error" as const, detail: "缺少驗證 token" };
+    return { status: "error" as const, detail: m.auth_missingVerifyToken() };
   }
 
   // The token itself now carries the username — no parseData callback

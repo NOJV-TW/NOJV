@@ -4,13 +4,7 @@ import type { CourseRole } from "@nojv/core";
 import type { ActorContext } from "../shared/actor-context";
 import { requireCourse } from "../shared/require";
 
-/**
- * Roster row returned by `listMembersForCourse`. Holds just enough to
- * render the prototype 12 member list: avatar-seed fields, a
- * placeholder flag so the UI can de-emphasize `pending_first_login`
- * users, role + joined metadata for the right-hand column. Email is
- * always present here — the route strips it for non-manager viewers.
- */
+// Email is always present here — the route strips it for non-manager viewers.
 export interface CourseMemberRow {
   userId: string;
   name: string;
@@ -23,11 +17,7 @@ export interface CourseMemberRow {
   removedAt: string | null;
 }
 
-/**
- * Fetch the full roster for the members tab. Includes removed rows so
- * the UI can offer a "show removed" toggle later — the current UI
- * filters them out in the page template.
- */
+// Includes removed rows — the current UI filters them in the page template.
 export async function listMembersForCourse(courseId: string): Promise<CourseMemberRow[]> {
   const rows = await courseMembershipAdminRepo.listWithUserByCourse(courseId);
   return rows.map((row) => ({
@@ -43,13 +33,7 @@ export async function listMembersForCourse(courseId: string): Promise<CourseMemb
   }));
 }
 
-/**
- * Normalize a raw textarea string into a deduped array of lowercase
- * handles. Accepts newlines, commas, semicolons, and whitespace as
- * separators. Empty strings are dropped. Order follows first-occurrence
- * so the server-side summary matches the visual order of the pasted
- * list.
- */
+// Order follows first-occurrence so the server summary matches the visual order of the pasted list.
 export function parseHandleInput(raw: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -63,19 +47,6 @@ export function parseHandleInput(raw: string): string[] {
   return out;
 }
 
-/**
- * Result summary for `bulkAddByHandle`. Used by the route action to
- * build the toast message.
- *
- * - `added`: new membership rows created (either by attaching an
- *   existing user or a freshly-created placeholder).
- * - `placeholdersCreated`: subset of `added` where a new `User` row
- *   with `status: pending_first_login` had to be created.
- * - `skipped`: handles that already had an active membership in this
- *   course; left untouched.
- * - `reactivated`: handles that had a `removed` membership; flipped
- *   back to `active` with a fresh `joinedAt`.
- */
 export interface BulkAddResult {
   added: number;
   placeholdersCreated: number;
@@ -83,13 +54,7 @@ export interface BulkAddResult {
   reactivated: number;
 }
 
-/**
- * Bulk-add members to a course by handle. One transaction per call so
- * a partial failure rolls back cleanly. Unknown handles get a
- * placeholder `User` row (spec §5.3); existing users get a
- * `CourseMembership` upsert. Handles with an already-active membership
- * are skipped so replaying the same paste is idempotent.
- */
+// One tx per call so partial failure rolls back cleanly; replaying the same paste is idempotent.
 export async function bulkAddByHandle(
   actor: ActorContext,
   courseId: string,
@@ -108,16 +73,10 @@ export async function bulkAddByHandle(
     let reactivated = 0;
 
     for (const handle of uniqueHandles) {
-      // findByUsername lives on the non-tx repo. Placeholder creation
-      // is rare enough to eat a round-trip per handle; we avoid
-      // pre-batching so the tx rollback semantics stay simple.
       let user = await tx.user.findUnique({ where: { username: handle } });
 
       if (!user) {
-        // Reuse the non-tx placeholder helper via the tx client to keep
-        // the create inside the same transaction — calling
-        // `userRepo.createPlaceholder` would break the atomicity
-        // guarantee.
+        // Inline create stays inside the tx; `userRepo.createPlaceholder` would break atomicity.
         user = await createPlaceholderInTx(tx, handle);
         placeholdersCreated += 1;
       }
@@ -164,11 +123,6 @@ export async function bulkAddByHandle(
   });
 }
 
-/**
- * Flip a member's role. Wraps `courseMembershipAdminRepo.updateRole`
- * and surfaces the course-existence check so the route doesn't have to
- * do it separately.
- */
 export async function changeMemberRole(
   _actor: ActorContext,
   courseId: string,
@@ -178,19 +132,10 @@ export async function changeMemberRole(
   return courseMembershipAdminRepo.updateRole(courseId, userId, role);
 }
 
-/**
- * Soft-remove a member from a course.
- */
 export async function removeMember(_actor: ActorContext, courseId: string, userId: string) {
   return courseMembershipAdminRepo.removeFromCourse(courseId, userId);
 }
 
-/**
- * Internal: create a placeholder user inside an existing transaction.
- * Mirrors `userRepo.createPlaceholder` but operates on the tx client
- * so placeholder creation stays atomic with the matching membership
- * insert.
- */
 async function createPlaceholderInTx(tx: TransactionClient, username: string) {
   return tx.user.create({
     data: {

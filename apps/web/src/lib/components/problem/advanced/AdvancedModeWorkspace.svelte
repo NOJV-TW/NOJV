@@ -91,9 +91,6 @@
     document.addEventListener("mouseup", onUp);
   }
 
-  // ── Upload + submission state ─────────────────────────────────────────────
-  // Soft caps for client-side validation. The schema also enforces
-  // sourceFiles.length <= 200 and content <= 500_000 bytes per file.
   const MAX_FILES = 200;
   const MAX_TOTAL_BYTES = 4 * 1024 * 1024; // 4 MB aggregate
   // Plain source extensions that are wrapped as a single-file submission.
@@ -235,13 +232,7 @@
     pollAbortController = new AbortController();
     const { signal } = pollAbortController;
 
-    // The submission schema requires:
-    //   - `language` ∈ supportedLanguages (no "plaintext")
-    //   - `sourceCode` trimmed & non-empty
-    // Advanced mode doesn't actually use either — the TA image owns
-    // execution — so we send a neutral placeholder language ("cpp") and a
-    // short marker sourceCode. The worker still merges sourceFiles into
-    // /workspace/submission/ via runAdvancedContainer.
+    // Advanced mode ignores `language`/`sourceCode` at the worker boundary; placeholders satisfy the wire schema.
     const placeholderLanguage: Language = "cpp";
     const placeholderSource = "// advanced-mode upload";
 
@@ -333,7 +324,7 @@
   class="hidden w-1 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 active:bg-primary/60 lg:flex"
   role="separator"
   aria-orientation="vertical"
-  aria-label="Resize panels"
+  aria-label={m.common_resizePanels()}
   tabindex="0"
   onmousedown={startResize}
   onkeydown={(e) => {
@@ -393,20 +384,20 @@
         }}
       >
         {#if staging}
-          <p class="text-body-sm font-medium text-muted-foreground">Reading file…</p>
+          <p class="text-body-sm font-medium text-muted-foreground">{m.common_readingFile()}</p>
         {:else if staged}
           <p class="font-mono text-body-sm font-medium text-foreground">{staged.file.name}</p>
           <p class="mt-1 text-caption text-muted-foreground tabular-nums">
             {staged.kind === "zip"
-              ? `Extracted ${String(staged.sourceFiles.length)} file${staged.sourceFiles.length === 1 ? "" : "s"}`
-              : "Single file"}
+              ? m.upload_extractedFiles({ count: staged.sourceFiles.length })
+              : m.upload_singleFile()}
           </p>
         {:else}
           <p class="text-body-sm font-medium text-foreground">
-            Drop a <code class="font-mono text-caption">.zip</code> archive or a single source file, or click to browse
+            {m.upload_dragDropHint()}
           </p>
           <p class="mt-1 text-caption text-muted-foreground">
-            Accepted: .zip, .c, .cpp, .py, .js, .ts, .go, .rs, .java, .txt, .md (max 200 files, 4 MB)
+            {m.upload_acceptedFileTypes()}
           </p>
         {/if}
         <input
@@ -437,9 +428,9 @@
     >
       <span class="text-caption font-medium text-muted-foreground tabular-nums">
         {#if staged}
-          {staged.sourceFiles.length} file{staged.sourceFiles.length === 1 ? "" : "s"} staged
+          {m.upload_filesStaged({ count: staged.sourceFiles.length })}
         {:else}
-          No file selected
+          {m.upload_noFileSelected()}
         {/if}
       </span>
       <div class="flex items-center gap-2">
@@ -449,7 +440,7 @@
           onclick={clearStaged}
           type="button"
         >
-          Clear
+          {m.common_clear()}
         </button>
         <button
           class="rounded-full bg-success px-4 py-1.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"

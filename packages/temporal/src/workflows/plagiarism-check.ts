@@ -1,11 +1,9 @@
 import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
 import type { PlagiarismCheckInput, PlagiarismCheckStatus } from "../types";
 import type * as plagiarismActivities from "../activities/plagiarism";
+import { PLAGIARISM_ACTIVITY } from "./activity-options";
 
-const plagiarism = proxyActivities<typeof plagiarismActivities>({
-  startToCloseTimeout: "10m",
-  retry: { maximumAttempts: 3 }
-});
+const plagiarism = proxyActivities<typeof plagiarismActivities>(PLAGIARISM_ACTIVITY);
 
 export const getPlagiarismStatusQuery =
   defineQuery<PlagiarismCheckStatus>("getPlagiarismStatus");

@@ -24,12 +24,7 @@ import type { FormMessage } from "$lib/types/form-message";
 const { createExamRecord } = examDomain;
 const { listEditableProblems } = problemDomain;
 
-// Form-side schema. The HTML `datetime-local` input binds to plain
-// `YYYY-MM-DDTHH:mm` strings, not ISO-8601 with timezone — we accept
-// lax strings here and convert on submit. Proctoring / scoring /
-// language fields are listed explicitly so the form always round-trips
-// the full shape (no missing-key ambiguity when superforms re-hydrates
-// after a failed submit).
+// `datetime-local` binds to lax `YYYY-MM-DDTHH:mm` strings; `toIsoOrEmpty` converts on submit.
 const examFormSchema = z.object({
   courseId: z.string().min(1),
   title: z.string().trim().max(120).default(""),
@@ -140,9 +135,7 @@ async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
     return fail(400, { form });
   }
 
-  // Defence in depth: the hidden courseId in the form body must match
-  // the URL segment so clients can't retarget the POST to a different
-  // course for which the actor happens to also be a manager.
+  // Defence in depth: reject POSTs that retarget to a different course via the hidden form field.
   if (form.data.courseId !== courseId) {
     return message<FormMessage>(
       form,

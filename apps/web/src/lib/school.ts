@@ -1,3 +1,5 @@
+export { isReservedUsername } from "@nojv/core";
+
 type School = "ntnu" | "ntu" | "ntust";
 
 interface SchoolEmailResult {
@@ -40,21 +42,4 @@ export function parseSchoolEmail(email: string): SchoolEmailResult | null {
 export function extractStudentId(school: School, studentId: string): string {
   if (school === "ntnu") return studentId;
   return `${school}_${studentId}`;
-}
-
-function isStudentIdFormat(value: string): boolean {
-  return NTNU_ID_RE.test(value) || NTU_NTUST_ID_RE.test(value);
-}
-
-export function isReservedUsername(username: string): boolean {
-  if (isStudentIdFormat(username)) return true;
-
-  for (const prefix of ["ntu_", "ntust_", "ntnu_"]) {
-    if (username.startsWith(prefix)) {
-      const rest = username.slice(prefix.length);
-      if (isStudentIdFormat(rest)) return true;
-    }
-  }
-
-  return false;
 }
