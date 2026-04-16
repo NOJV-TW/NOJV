@@ -60,7 +60,7 @@
   }
 </script>
 
-<div class="space-y-10 pb-20">
+<div class="grid gap-10 pb-20 lg:grid-cols-[2fr_3fr]">
   <!-- 1. Announcements ────────────────────────────────────────────── -->
   <section class="animate-in animate-in-1">
     <header class="mb-4 flex items-center justify-between gap-4">
@@ -139,8 +139,9 @@
     {/if}
   </section>
 
-  <!-- 2. Assignments ────────────────────────────────────────────────── -->
-  <section class="animate-in animate-in-2">
+  <div class="space-y-10">
+    <!-- 2. Assignments ────────────────────────────────────────────────── -->
+    <section class="animate-in animate-in-2">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2
         class="flex items-center gap-2.5 font-display text-title font-medium tracking-[-0.01em]"
@@ -201,11 +202,15 @@
               <div
                 class="mt-2 flex items-center gap-3 text-caption text-muted-foreground"
               >
-                <span>{m.courseOverview_problemCount({ count: assignment.problemCount })}</span>
-                <span
-                  class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
-                  aria-hidden="true"
-                ></span>
+                {#if isManager}
+                  <span
+                    >{m.courseOverview_problemCount({ count: assignment.problemCount })}</span
+                  >
+                  <span
+                    class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
+                    aria-hidden="true"
+                  ></span>
+                {/if}
                 <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
               </div>
             </div>
@@ -308,11 +313,12 @@
               <div
                 class="mt-2 flex items-center gap-3 text-caption text-muted-foreground"
               >
-                <span
-                  >{m.courseOverview_problemCount({ count: exam.problemCount })} · {scoringLabel(
-                    exam.scoringMode
-                  )}</span
-                >
+                <span>
+                  {#if isManager}
+                    {m.courseOverview_problemCount({ count: exam.problemCount })} ·
+                  {/if}
+                  {scoringLabel(exam.scoringMode)}
+                </span>
                 <span
                   class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
                   aria-hidden="true"
@@ -354,4 +360,5 @@
       </div>
     {/if}
   </section>
+  </div>
 </div>

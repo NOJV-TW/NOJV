@@ -85,9 +85,9 @@ enum ExamSessionEventType {
 }
 
 /// Standalone contest — public / invite-only competition with no
-/// course binding. As of Phase 3 of the CUID unification, contests
-/// share the proctoring fields with `Exam`; the shared helper at
-/// `packages/domain/src/proctoring/` operates on both entities.
+/// course binding. Contests do NOT have proctoring (page lock, IP
+/// whitelist, IP binding). Those controls live on `Exam` only —
+/// contest = public CP event, exam = proctored classroom assessment.
 model Contest {
   id       String   @id @default(cuid())
   title    String
@@ -107,13 +107,6 @@ model Contest {
   /// editable main.<ext> workspace file for every language listed here.
   allowedLanguages SupportedLanguage[] @default([])
 
-  // ── Proctoring — mirrors Exam ──
-  pageLockEnabled    Boolean         @default(false)
-  ipWhitelistEnabled Boolean         @default(false)
-  ipBindingEnabled   Boolean         @default(false)
-  ipWhitelist        String[]        @default([])
-  ipViolationMode    IpViolationMode @default(block)
-
   inviteCode      String?  @unique
   createdByUserId String?
   createdAt       DateTime @default(now())
@@ -132,7 +125,6 @@ model Contest {
   problems              ContestProblem[]
   participations        ContestParticipation[]
   submissions           Submission[]
-  ipViolationLogs       IpViolationLog[]
 }
 
 model ContestProblem {
@@ -159,15 +151,6 @@ model ContestParticipation {
   score            Int                        @default(0)
   penaltySeconds   Int                        @default(0)
   subtaskScores    Json?
-  boundIp          String?
-  /// Teacher unbind audit trail — set when a teacher clears boundIp
-  /// so the student can re-enter from a new machine.
-  boundIpClearedAt DateTime?
-  /// Parity with `ExamParticipation.ipPin` — reserved for the shared
-  /// proctoring helper. The legacy `boundIp` field stays for now; a
-  /// follow-up pass can collapse them once all callers route through
-  /// the helper.
-  ipPin            String?
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
   contest          Contest                    @relation(fields: [contestId], references: [id], onDelete: Cascade)
@@ -274,21 +257,21 @@ model ExamParticipation {
 /// layer (shared proctoring helper) enforces the invariant that
 /// exactly one of `examId` / `contestId` is non-null per row.
 /// Homework assessments still do not have IP lock.
+/// Audit log for IP whitelist / IP binding violations. Only exams carry
+/// proctoring, so every row must be tied to an exam — contests are
+/// public and do not log IP events.
 model IpViolationLog {
   id            String          @id @default(cuid())
   userId        String
-  examId        String?
-  contestId     String?
+  examId        String
   expectedIp    String?
   actualIp      String
   violationType IpViolationType
   createdAt     DateTime        @default(now())
   user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exam          Exam?           @relation(fields: [examId], references: [id], onDelete: Cascade)
-  contest       Contest?        @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  exam          Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
 
   @@index([examId, createdAt])
-  @@index([contestId, createdAt])
   @@index([userId, createdAt])
 }
 

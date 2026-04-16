@@ -3,6 +3,7 @@ import { error } from "@sveltejs/kit";
 import { examDomain } from "@nojv/domain";
 
 import { requireAuth } from "$lib/server/auth";
+import { getClientIp } from "$lib/server/shared/client-ip";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
@@ -51,7 +52,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       endsAt: view.exam.endsAt,
       countdownMs,
       userHandle: actor.username,
-      ipAddress: event.getClientAddress()
+      ipAddress: getClientIp(event)
     }
   };
 });

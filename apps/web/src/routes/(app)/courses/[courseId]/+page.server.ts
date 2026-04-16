@@ -9,7 +9,8 @@ const {
   listExamOverviewForCourse
 } = courseDomain;
 
-const OVERVIEW_LIMIT = 5;
+const ANNOUNCEMENT_LIMIT = 5;
+const ASSESSMENT_LIMIT = 3;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
@@ -18,15 +19,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const now = new Date();
 
   const [announcements, assignments, exams] = await Promise.all([
-    listRecentAnnouncementsForCourse(course.id, OVERVIEW_LIMIT),
+    listRecentAnnouncementsForCourse(course.id, ANNOUNCEMENT_LIMIT),
     listAssignmentOverviewForCourse(course.id, {
-      limit: OVERVIEW_LIMIT,
+      limit: ASSESSMENT_LIMIT,
       isManager,
       forUserId: actor.userId,
       now
     }),
     listExamOverviewForCourse(course.id, {
-      limit: OVERVIEW_LIMIT,
+      limit: ASSESSMENT_LIMIT,
       isManager,
       forUserId: actor.userId,
       now

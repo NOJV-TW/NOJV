@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nojv-worker
+spec:
+  # With `replicas: 2`, keeping at least 1 available means rolling restarts and
+  # voluntary evictions (node drain, GKE upgrade) never leave zero orchestrators
+  # alive. An in-flight submission stays attached to its worker for the judge
+  # round-trip; taking both down at once would fail those in-flight jobs.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-worker

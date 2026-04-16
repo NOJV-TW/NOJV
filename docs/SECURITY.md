@@ -31,7 +31,24 @@ Security requirements are first-class because this system handles authentication
 - Rate-limit submission and plagiarism endpoints via Redis-backed `rate-limiter-flexible`.
 - Image uploads must validate file type (png/jpeg/gif/webp), enforce 5MB size limit, and require `canEditProblem` permission.
 - Sandbox containers must run with `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `--network none`, and resource limits.
-- Contest IP binding, page lock, and submit cooldown are server-side enforced. Never trust client-side checks alone.
+- Exam IP binding, page lock, and submit cooldown are server-side enforced (contests have no proctoring). Never trust client-side checks alone.
+- Client IP in production is **only** sourced from the `CF-Connecting-IP` header. See [Client IP Trust Model](#client-ip-trust-model-cloudflare-only).
+
+## Client IP Trust Model (Cloudflare-only)
+
+Production trusts **Cloudflare as the sole ingress path**. The client IP used for all proctoring decisions (exam whitelist + binding, audit logs, session pinning) comes from the `CF-Connecting-IP` header, which the CF edge rewrites on every inbound request — any client-supplied value is discarded before the request leaves CF. Contests have no IP gating by product design.
+
+Three layers protect this trust boundary; **all three are required**, and losing any one collapses it:
+
+1. **Cloud Run Ingress = "Internal and Cloud Load Balancing"** — the default `*.a.run.app` URL is rejected, so direct-to-origin is impossible. Traffic must traverse GCLB.
+2. **GCLB Cloud Armor security policy** — source IP allowlist restricted to the official Cloudflare CIDR ranges (<https://www.cloudflare.com/ips-v4> + <https://www.cloudflare.com/ips-v6>). Anything else returns 403 at the LB before reaching Cloud Run.
+3. **Application-level check** — `getClientIp(event)` in `apps/web/src/lib/server/shared/client-ip.ts` reads `CF-Connecting-IP`. If the header is missing in production, the request is rejected with 403. **No fallback** to `X-Forwarded-For` or the socket address — a weaker IP source is strictly worse than refusing.
+
+If Cloudflare is ever replaced or removed, update the Cloud Armor allowlist and the header name in `client-ip.ts` **together** — a drift here silently breaks either availability or the spoofing defence.
+
+Development mode (`NODE_ENV !== "production"`) uses the `x-dev-ip` header override for integration tests, falling back to `event.getClientAddress()` (socket address). This path is never taken in production.
+
+Setup steps live in [DEPLOYMENT.md — Cloudflare + Cloud Armor](DEPLOYMENT.md#cloudflare--cloud-armor-setup).
 
 ## Input Validation
 
