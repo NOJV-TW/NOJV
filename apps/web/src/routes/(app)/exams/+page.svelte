@@ -262,10 +262,9 @@
                 <ChevronRight class="h-4 w-4" />
               </span>
             {:else if exam.status === "upcoming"}
-              <div class="text-right text-caption text-muted-foreground">
-                {m.examsTop_registered()}<br />
-                <span class="font-medium text-foreground">{m.examsTop_canAnswer()}</span>
-              </div>
+              <span class="text-body-sm font-medium text-muted-foreground/70">
+                {m.examsTop_filterUpcoming()}
+              </span>
             {:else}
               <span class={buttonVariants({ variant: "outline", size: "sm" })}>
                 {m.examsTop_viewResults()}
