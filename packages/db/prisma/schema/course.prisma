@@ -67,7 +67,6 @@ model CourseMembership {
 model CourseAssessment {
   id       String                 @id @default(cuid())
   courseId String
-  slug     String
   title    String
   summary  String                 @db.Text
   status   CourseAssessmentStatus @default(draft)
@@ -108,7 +107,6 @@ model CourseAssessment {
   problems               CourseAssessmentProblem[]
   submissions            Submission[]
 
-  @@unique([courseId, slug])
   @@index([courseId, status])
 }
 

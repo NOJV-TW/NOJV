@@ -31,10 +31,10 @@ export const manualCourseEnrollmentSchema = z.object({
   role: courseRoleSchema.default("student")
 });
 
-// Assessments are identified by (courseId, assessmentSlug). The slug
+// Assessments are identified by (courseId, assessmentId). The id
 // carrier used to be the course slug; now it's the course cuid.
 export const assessmentContextSchema = z.object({
-  assessmentSlug: slugSchema,
+  assessmentId: slugSchema,
   courseId: z.string().trim().min(1)
 });
 
@@ -50,7 +50,7 @@ export const courseAssessmentCreateSchema = z
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
     opensAt: isoDateTimeSchema,
     problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
-    slug: slugSchema,
+    id: slugSchema,
     summary: z.string().trim().min(8).max(2_000),
     title: z.string().trim().min(3).max(120)
   })

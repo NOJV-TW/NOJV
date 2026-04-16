@@ -16,7 +16,7 @@ import type {
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
@@ -104,8 +104,8 @@ export async function manuallyEnrollCourseMember(
   });
 }
 
-// Suffix reduces collisions when two teachers type the same title; `(courseId, slug)` still enforces uniqueness.
-function generateAssignmentSlug(title: string): string {
+// Suffix makes the readable id collision-resistant when two teachers type the same title.
+function generateAssignmentId(title: string): string {
   const base = title
     .toLowerCase()
     .trim()
@@ -127,11 +127,7 @@ export async function createCourseAssessmentRecord(
     await assertCourseManager(tx, actor, course.id);
     const creator = await ensureUser(tx, actor.userId, actor);
 
-    const slug = generateAssignmentSlug(payload.title);
-    const existing = await assessmentRepo.withTx(tx).findByComposite(course.id, slug);
-    if (existing) {
-      throw new ConflictError(`Assessment slug already exists in course: ${slug}`);
-    }
+    const assessmentId = generateAssignmentId(payload.title);
 
     // Workspace invariant: every problem must ship editable main.<ext>
     // for every language listed on the assessment. Empty list = unrestricted.
@@ -152,7 +148,7 @@ export async function createCourseAssessmentRecord(
       createdByUserId: creator.id,
       dueAt: new Date(payload.dueAt),
       opensAt: new Date(payload.opensAt),
-      slug,
+      id: assessmentId,
       status: payload.status,
       // Prototype 05 drops the summary field; use the title so the
       // DB column (non-null @db.Text) has a meaningful value.

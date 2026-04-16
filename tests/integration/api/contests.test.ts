@@ -66,7 +66,7 @@ describe("contest queries (real DB)", () => {
   describe("getContestDetail", () => {
     it("returns contest detail with linked problems", async () => {
       const contest = await createTestContest({
-        slug: "detail-test",
+        id: "detail-test",
         visibility: "published",
         title: "Detail Contest"
       });
@@ -81,30 +81,33 @@ describe("contest queries (real DB)", () => {
         }
       });
 
-      const detail = await getContestDetail("detail-test", { userId: null, now: new Date() });
+      const detail = await getContestDetail(contest.id, { userId: null, now: new Date() });
       expect(detail).not.toBeNull();
       expect(detail!.title).toBe("Detail Contest");
       expect(detail!.problems).toHaveLength(1);
       expect(detail!.problems![0]!.points).toBe(200);
-      expect(detail!.problems![0]!.slug).toBe(problem.slug);
+      expect(detail!.problems![0]!.id).toBe(problem.id);
     });
 
-    it("throws NotFoundError for nonexistent slug", async () => {
+    it("throws NotFoundError for nonexistent contestId", async () => {
       await expect(
         getContestDetail("nonexistent", { userId: null, now: new Date() })
       ).rejects.toThrow("Contest not found: nonexistent");
     });
 
     it("throws NotFoundError for draft contest", async () => {
-      await createTestContest({ slug: "draft-contest", visibility: "draft" });
+      const contest = await createTestContest({
+        id: "draft-contest",
+        visibility: "draft"
+      });
       await expect(
-        getContestDetail("draft-contest", { userId: null, now: new Date() })
-      ).rejects.toThrow("Contest not found: draft-contest");
+        getContestDetail(contest.id, { userId: null, now: new Date() })
+      ).rejects.toThrow(`Contest not found: ${contest.id}`);
     });
 
     it("returns problems ordered by ordinal", async () => {
       const contest = await createTestContest({
-        slug: "ordered-problems",
+        id: "ordered-problems",
         visibility: "published"
       });
       const p1 = await createTestProblem({ title: "Problem B" });
@@ -117,7 +120,7 @@ describe("contest queries (real DB)", () => {
         data: { contestId: contest.id, problemId: p2.id, ordinal: 1, points: 100 }
       });
 
-      const detail = await getContestDetail("ordered-problems", {
+      const detail = await getContestDetail(contest.id, {
         userId: null,
         now: new Date()
       });
@@ -131,12 +134,12 @@ describe("contest queries (real DB)", () => {
   describe("getContestWorkspaceData", () => {
     it("returns null participation when user has not joined", async () => {
       const contest = await createTestContest({
-        slug: "workspace-test",
+        id: "workspace-test",
         visibility: "published"
       });
       const user = await createTestUser();
 
-      const data = await getContestWorkspaceData("workspace-test", user.id, {
+      const data = await getContestWorkspaceData(contest.id, user.id, {
         now: new Date()
       });
       expect(data).not.toBeNull();
@@ -145,7 +148,7 @@ describe("contest queries (real DB)", () => {
 
     it("returns participation data when user has joined", async () => {
       const contest = await createTestContest({
-        slug: "joined-contest",
+        id: "joined-contest",
         visibility: "published"
       });
       const user = await createTestUser();
@@ -159,7 +162,7 @@ describe("contest queries (real DB)", () => {
         }
       });
 
-      const data = await getContestWorkspaceData("joined-contest", user.id, {
+      const data = await getContestWorkspaceData(contest.id, user.id, {
         now: new Date()
       });
       expect(data).not.toBeNull();
@@ -176,13 +179,16 @@ describe("contest queries (real DB)", () => {
     });
 
     it("throws NotFoundError for draft contest", async () => {
-      await createTestContest({ slug: "draft-sb", visibility: "draft" });
-      await expect(getScoreboard("draft-sb")).rejects.toThrow(NotFoundError);
+      const contest = await createTestContest({
+        id: "draft-sb",
+        visibility: "draft"
+      });
+      await expect(getScoreboard(contest.id)).rejects.toThrow(NotFoundError);
     });
 
     it("returns empty entries when no participants", async () => {
       const contest = await createTestContest({
-        slug: "empty-sb",
+        id: "empty-sb",
         visibility: "published"
       });
       const problem = await createTestProblem();
@@ -190,14 +196,14 @@ describe("contest queries (real DB)", () => {
         data: { contestId: contest.id, problemId: problem.id, ordinal: 1, points: 100 }
       });
 
-      const sb = await getScoreboard("empty-sb");
+      const sb = await getScoreboard(contest.id);
       expect(sb.entries).toEqual([]);
       expect(sb.problems).toHaveLength(1);
     });
 
     it("returns scoreboard with correct problem_count scoring", async () => {
       const contest = await createTestContest({
-        slug: "problem-count-sb",
+        id: "problem-count-sb",
         visibility: "published",
         scoringMode: "problem_count",
         startsAt: new Date("2026-01-01T00:00:00Z"),
@@ -235,7 +241,7 @@ describe("contest queries (real DB)", () => {
         }
       });
 
-      const sb = await getScoreboard("problem-count-sb");
+      const sb = await getScoreboard(contest.id);
       expect(sb.entries).toHaveLength(1);
       expect(sb.entries[0]!.totalScore).toBe(100);
       expect(sb.entries[0]!.rank).toBe(1);
@@ -243,13 +249,13 @@ describe("contest queries (real DB)", () => {
     });
 
     it("returns hidden scoreboard with no entries for non-privileged users", async () => {
-      await createTestContest({
-        slug: "hidden-sb",
+      const contest = await createTestContest({
+        id: "hidden-sb",
         visibility: "published",
         scoreboardMode: "hidden"
       });
 
-      const sb = await getScoreboard("hidden-sb", { isPrivileged: false });
+      const sb = await getScoreboard(contest.id, { isPrivileged: false });
       expect(sb.entries).toEqual([]);
       expect(sb.scoreboardMode).toBe("hidden");
     });

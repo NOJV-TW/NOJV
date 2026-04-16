@@ -179,7 +179,6 @@ export async function createTestContest(
   return testPrisma.contest.create({
     data: {
       id,
-      slug: overrides.slug ?? `test-contest-${id}`,
       title: overrides.title ?? `Test Contest ${id}`,
       summary: overrides.summary ?? "A test contest",
       visibility: overrides.visibility ?? "published",

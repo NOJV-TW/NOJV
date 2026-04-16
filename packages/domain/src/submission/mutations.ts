@@ -28,7 +28,7 @@ export async function createQueuedSubmissionRecord(
         ? requireCourseAssessment(
             tx,
             payload.assessment.courseId,
-            payload.assessment.assessmentSlug
+            payload.assessment.assessmentId
           )
         : null,
       ensureUser(tx, actor.userId, actor),
@@ -38,10 +38,10 @@ export async function createQueuedSubmissionRecord(
     // ── Active exam lockout: forbid piping a submission through any
     // foreign context while an exam session is live. The exam endpoint
     // attaches examId via the dedicated flow; letting clients pass an
-    // assessment/contest slug here would bypass exam cooldown, IP binding,
+    // assessment/contest id here would bypass exam cooldown, IP binding,
     // and per-day limits. Admins are exempt for operational recovery.
     if (activeExamSession && actor.platformRole !== "admin") {
-      if (courseContext || payload.contestSlug) {
+      if (courseContext || payload.contestId) {
         throw new ForbiddenError(
           "You are in an active exam — submissions cannot carry an external assessment or contest context."
         );
@@ -87,8 +87,8 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    const contestResult = payload.contestSlug
-      ? await ensureContestParticipation(tx, user.id, payload.contestSlug, {
+    const contestResult = payload.contestId
+      ? await ensureContestParticipation(tx, user.id, payload.contestId, {
           problemId: problem.id,
           sampleOnly: payload.sampleOnly ?? false
         })
@@ -110,9 +110,10 @@ export async function createQueuedSubmissionRecord(
 
     // ── Visibility: a private problem is only submittable by its author,
     // admins, or a viewer whose (already-validated) context contains it.
-    // Without this, a user could submit to any private problem by cuid. ──
+    // Without this, a user could submit to any private problem by cuid.
+    // The async path also admits historical participants (practice-after-close). ──
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
-    assertProblemViewAccess(problem, actor, { contextIncludesProblem });
+    await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
     // ── Language restriction: contest ──
     if (

@@ -16,7 +16,7 @@ export function isAllowedPathForExam(pathname: string, ctx: ActiveExamContext): 
   if (pathname === "/signin" || pathname.startsWith("/signin/")) return true;
   if (pathname === "/signout" || pathname.startsWith("/signout/")) return true;
 
-  const examPrefix = `/courses/${ctx.course.id}/exams/${ctx.exam.id}`;
+  const examPrefix = `/exams/${ctx.exam.id}`;
   if (pathname === examPrefix) return true;
   if (pathname.startsWith(examPrefix + "/")) return true;
 
