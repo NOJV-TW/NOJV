@@ -65,12 +65,7 @@ const baseContest = {
   id: "spring-qualifier-2026",
   visibility: "published" as const,
   startsAt: examStart,
-  endsAt: examEnd,
-  pageLockEnabled: false,
-  ipBindingEnabled: false,
-  ipWhitelistEnabled: false,
-  ipWhitelist: [] as string[],
-  ipViolationMode: "block"
+  endsAt: examEnd
 };
 
 beforeEach(() => {
@@ -144,27 +139,10 @@ describe("checkProctoringGate — exam", () => {
 });
 
 describe("checkProctoringGate — contest", () => {
-  it("returns ok when published and within window (no enrollment check)", async () => {
+  // Contests have no proctoring — the gate only covers existence,
+  // visibility, and the time window. `checkIpLock` is never called.
+  it("returns ok when published and within window (no enrollment check, no IP check)", async () => {
     contestFindById.mockResolvedValue(baseContest);
-
-    const verdict = await checkProctoringGate({
-      entityKind: "contest",
-      entityId: baseContest.id,
-      userId: "usr_student",
-      now
-    });
-
-    expect(verdict).toEqual({ ok: true });
-    expect(membershipFindByComposite).not.toHaveBeenCalled();
-  });
-
-  it("denies with ip_whitelist when IP check rejects via whitelist", async () => {
-    contestFindById.mockResolvedValue({
-      ...baseContest,
-      ipWhitelistEnabled: true,
-      ipWhitelist: ["192.168.1.0/24"]
-    });
-    checkIpLockMock.mockResolvedValue({ allowed: false, violationType: "whitelist" });
 
     const verdict = await checkProctoringGate({
       entityKind: "contest",
@@ -174,7 +152,9 @@ describe("checkProctoringGate — contest", () => {
       now
     });
 
-    expect(verdict).toEqual({ ok: false, reason: "ip_whitelist" });
+    expect(verdict).toEqual({ ok: true });
+    expect(membershipFindByComposite).not.toHaveBeenCalled();
+    expect(checkIpLockMock).not.toHaveBeenCalled();
   });
 
   it("denies with not_found when contest missing", async () => {
@@ -190,6 +170,19 @@ describe("checkProctoringGate — contest", () => {
     expect(verdict).toEqual({ ok: false, reason: "not_found" });
   });
 
+  it("denies with not_published when visibility != published", async () => {
+    contestFindById.mockResolvedValue({ ...baseContest, visibility: "draft" });
+
+    const verdict = await checkProctoringGate({
+      entityKind: "contest",
+      entityId: baseContest.id,
+      userId: "usr_student",
+      now
+    });
+
+    expect(verdict).toEqual({ ok: false, reason: "not_published" });
+  });
+
   it("denies with ended when after endsAt", async () => {
     contestFindById.mockResolvedValue(baseContest);
 
@@ -201,5 +194,18 @@ describe("checkProctoringGate — contest", () => {
     });
 
     expect(verdict).toEqual({ ok: false, reason: "ended" });
+  });
+
+  it("denies with not_started before startsAt", async () => {
+    contestFindById.mockResolvedValue(baseContest);
+
+    const verdict = await checkProctoringGate({
+      entityKind: "contest",
+      entityId: baseContest.id,
+      userId: "usr_student",
+      now: new Date("2026-05-01T08:30:00.000Z")
+    });
+
+    expect(verdict).toEqual({ ok: false, reason: "not_started" });
   });
 });
