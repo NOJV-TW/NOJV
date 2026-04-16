@@ -59,11 +59,11 @@ export async function seedCourses(
     create: {
       allowedLanguages: ["c", "cpp", "python"],
       closesAt: new Date("2026-03-25T15:00:00.000Z"),
+      id: "hw1-process-trace",
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       dueAt: new Date("2026-03-23T15:00:00.000Z"),
       opensAt: new Date("2026-03-17T09:00:00.000Z"),
-      slug: "hw1-process-trace",
       status: "published",
       summary:
         "Coursework-oriented assignment with a visible deadline and a private systems problem.",
@@ -78,23 +78,18 @@ export async function seedCourses(
       ]
     },
     update: {},
-    where: {
-      courseId_slug: {
-        courseId: osLabCourse.id,
-        slug: "hw1-process-trace"
-      }
-    }
+    where: { id: "hw1-process-trace" }
   });
 
   const hw2 = await prisma.courseAssessment.upsert({
     create: {
+      id: "hw2-signal-handling",
       allowedLanguages: ["c", "cpp"],
       closesAt: new Date("2026-04-30T15:00:00.000Z"),
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       dueAt: new Date("2026-04-28T15:00:00.000Z"),
       opensAt: new Date("2026-04-16T09:00:00.000Z"),
-      slug: "hw2-signal-handling",
       status: "published",
       summary:
         "Second homework exercising the per-day attempt limit — three submissions per UTC day.",
@@ -103,33 +98,23 @@ export async function seedCourses(
       maxAttemptsPerDay: 3
     },
     update: {},
-    where: {
-      courseId_slug: {
-        courseId: osLabCourse.id,
-        slug: "hw2-signal-handling"
-      }
-    }
+    where: { id: "hw2-signal-handling" }
   });
 
   await prisma.courseAssessment.upsert({
     create: {
+      id: "hw3-scheduler-draft",
       allowedLanguages: [],
       closesAt: new Date("2026-05-30T15:00:00.000Z"),
       courseId: osLabCourse.id,
       createdByUserId: teacher.id,
       opensAt: new Date("2026-05-20T09:00:00.000Z"),
-      slug: "hw3-scheduler-draft",
       status: "draft",
       summary: "Placeholder homework for TA collaboration — no problems linked yet.",
       title: "Homework 3: Scheduler (draft)"
     },
     update: {},
-    where: {
-      courseId_slug: {
-        courseId: osLabCourse.id,
-        slug: "hw3-scheduler-draft"
-      }
-    }
+    where: { id: "hw3-scheduler-draft" }
   });
 
   const midterm = await prisma.exam.upsert({

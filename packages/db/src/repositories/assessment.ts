@@ -18,29 +18,28 @@ export const assessmentRepo = {
     });
   },
 
-  findByCourseAndSlug(courseId: string, assessmentSlug: string) {
+  findByCourseAndId(courseId: string, assessmentId: string) {
     return prisma.courseAssessment.findFirst({
       where: {
-        slug: assessmentSlug,
+        id: assessmentId,
         courseId
       },
       select: { id: true }
     });
   },
 
-  findPublishedContext(courseId: string, assessmentSlug: string) {
+  findPublishedContextById(courseId: string, assessmentId: string) {
     return prisma.courseAssessment.findFirst({
       select: {
         id: true,
         allowedLanguages: true,
         course: { select: { id: true, ownerId: true, archived: true } },
-        slug: true,
         opensAt: true,
         closesAt: true
       },
       where: {
         courseId,
-        slug: assessmentSlug,
+        id: assessmentId,
         status: "published"
       }
     });
@@ -160,9 +159,9 @@ export const assessmentRepo = {
     });
   },
 
-  findWithProblems(courseId: string, slug: string) {
+  findWithProblemsById(courseId: string, assessmentId: string) {
     return prisma.courseAssessment.findFirst({
-      where: { courseId, slug, status: "published" },
+      where: { courseId, id: assessmentId, status: "published" },
       select: {
         id: true,
         problems: {
@@ -193,7 +192,6 @@ export const assessmentRepo = {
       select: {
         id: true,
         courseId: true,
-        slug: true,
         title: true,
         summary: true,
         status: true,
@@ -227,9 +225,10 @@ export const assessmentRepo = {
 
   withTx(tx: TxClient) {
     return {
-      findByComposite(courseId: string, slug: string) {
-        return tx.courseAssessment.findUnique({
-          where: { courseId_slug: { courseId, slug } }
+      // `courseId` is retained as a scoping guard (row must belong to that course).
+      findByCompositeId(courseId: string, assessmentId: string) {
+        return tx.courseAssessment.findFirst({
+          where: { id: assessmentId, courseId }
         });
       },
 
@@ -251,6 +250,27 @@ export const assessmentProblemRepo = {
   exists(assessmentId: string, problemId: string) {
     return prisma.courseAssessmentProblem
       .findFirst({ where: { assessmentId, problemId }, select: { id: true } })
+      .then((row) => row !== null);
+  },
+
+  // Practice-after-close: a user who had an active membership in a course
+  // whose published assessment closed in the past and contained this
+  // problem retains read/submit access — for practice only, no scoring.
+  hasEndedAssessmentForUser(problemId: string, userId: string, now: Date) {
+    return prisma.courseAssessmentProblem
+      .findFirst({
+        where: {
+          problemId,
+          assessment: {
+            status: "published",
+            closesAt: { lt: now },
+            course: {
+              memberships: { some: { userId, status: "active" } }
+            }
+          }
+        },
+        select: { id: true }
+      })
       .then((row) => row !== null);
   },
 

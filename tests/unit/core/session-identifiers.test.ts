@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 interface EditorSessionIdentifierInput {
-  assessmentSlug?: string | undefined;
-  contestSlug?: string | undefined;
+  assessmentId?: string | undefined;
+  contestId?: string | undefined;
   courseId?: string | undefined;
   problemId: string;
 }
@@ -25,16 +25,12 @@ function joinSessionSegments(prefix: string, segments: string[]) {
 }
 
 function buildEditorSessionId(input: EditorSessionIdentifierInput) {
-  if (input.contestSlug) {
-    return joinSessionSegments("editor", [input.problemId, "contest", input.contestSlug]);
+  if (input.contestId) {
+    return joinSessionSegments("editor", [input.problemId, "contest", input.contestId]);
   }
 
-  if (input.courseId && input.assessmentSlug) {
-    return joinSessionSegments("editor", [
-      input.problemId,
-      input.courseId,
-      input.assessmentSlug
-    ]);
+  if (input.courseId && input.assessmentId) {
+    return joinSessionSegments("editor", [input.problemId, input.courseId, input.assessmentId]);
   }
 
   return joinSessionSegments("editor", [input.problemId, "practice"]);
@@ -44,7 +40,7 @@ describe("buildEditorSessionId", () => {
   it("keeps contest telemetry distinct from practice telemetry for the same problem", () => {
     expect(
       buildEditorSessionId({
-        contestSlug: "spring-qualifier-2026",
+        contestId: "spring-qualifier-2026",
         problemId: "warmup-sum"
       })
     ).toBe("editor_warmup-sum_contest_spring-qualifier-2026");
@@ -53,7 +49,7 @@ describe("buildEditorSessionId", () => {
   it("includes course assessment context for assignment editors", () => {
     expect(
       buildEditorSessionId({
-        assessmentSlug: "hw1-process-trace",
+        assessmentId: "hw1-process-trace",
         courseId: "course_os-lab-spring-2026",
         problemId: "process-log-parser"
       })

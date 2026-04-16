@@ -14,10 +14,6 @@ export const contestRepo = {
     return prisma.contest.findUnique({ where: { id } });
   },
 
-  findBySlug(slug: string) {
-    return prisma.contest.findUnique({ where: { slug } });
-  },
-
   findByIdOrThrow(id: string, select?: Prisma.ContestSelect) {
     return prisma.contest.findUniqueOrThrow({
       ...(select ? { select } : {}),
@@ -28,7 +24,7 @@ export const contestRepo = {
   findByInviteCode(inviteCode: string) {
     return prisma.contest.findUnique({
       where: { inviteCode },
-      select: { slug: true, visibility: true }
+      select: { id: true, visibility: true }
     });
   },
 
@@ -57,7 +53,7 @@ export const contestRepo = {
     });
   },
 
-  findDetailBySlug(slug: string) {
+  findDetailById(id: string) {
     return prisma.contest.findUnique({
       include: {
         _count: { select: { participations: true } },
@@ -68,11 +64,11 @@ export const contestRepo = {
           orderBy: { ordinal: "asc" }
         }
       },
-      where: { slug }
+      where: { id }
     });
   },
 
-  findWorkspaceBySlug(slug: string, userId: string) {
+  findWorkspaceById(id: string, userId: string) {
     return prisma.contest.findUnique({
       include: {
         _count: { select: { participations: true } },
@@ -87,11 +83,11 @@ export const contestRepo = {
           orderBy: { ordinal: "asc" }
         }
       },
-      where: { slug }
+      where: { id }
     });
   },
 
-  findForScoreboard(slug: string) {
+  findForScoreboardById(id: string) {
     return prisma.contest.findUnique({
       include: {
         problems: {
@@ -105,11 +101,11 @@ export const contestRepo = {
           where: { status: { in: ["active", "submitted"] } }
         }
       },
-      where: { slug }
+      where: { id }
     });
   },
 
-  findForChart(slug: string, userIds: string[]) {
+  findForChartById(id: string, userIds: string[]) {
     return prisma.contest.findUnique({
       select: {
         startsAt: true,
@@ -118,7 +114,7 @@ export const contestRepo = {
           select: { id: true, userId: true }
         }
       },
-      where: { slug }
+      where: { id }
     });
   },
 
@@ -143,6 +139,23 @@ export const contestRepo = {
     });
   },
 
+  findPageLockedForUser(userId: string, now: Date) {
+    return prisma.contest.findFirst({
+      where: {
+        pageLockEnabled: true,
+        visibility: "published",
+        startsAt: { lte: now },
+        endsAt: { gte: now },
+        participations: {
+          some: { userId, status: "active" }
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+  },
+
   count() {
     return prisma.contest.count();
   },
@@ -160,8 +173,8 @@ export const contestRepo = {
 
   withTx(tx: TxClient) {
     return {
-      findBySlug(slug: string) {
-        return tx.contest.findUnique({ where: { slug } });
+      findById(id: string) {
+        return tx.contest.findUnique({ where: { id } });
       },
 
       create(data: Prisma.ContestUncheckedCreateInput) {
@@ -179,10 +192,29 @@ export const contestRepo = {
 };
 
 export const contestProblemRepo = {
-  existsBySlug(contestSlug: string, problemId: string) {
+  existsById(contestId: string, problemId: string) {
     return prisma.contestProblem
       .findFirst({
-        where: { contest: { slug: contestSlug }, problemId },
+        where: { contestId, problemId },
+        select: { id: true }
+      })
+      .then((row) => row !== null);
+  },
+
+  // Practice-after-close: a user who participated in a published contest
+  // that has since ended retains read/submit access to the contest's
+  // problems — for practice only, no scoring.
+  hasEndedContestForUser(problemId: string, userId: string, now: Date) {
+    return prisma.contestProblem
+      .findFirst({
+        where: {
+          problemId,
+          contest: {
+            visibility: "published",
+            endsAt: { lt: now },
+            participations: { some: { userId } }
+          }
+        },
         select: { id: true }
       })
       .then((row) => row !== null);

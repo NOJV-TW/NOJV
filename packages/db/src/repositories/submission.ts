@@ -373,7 +373,7 @@ export const submissionRepo = {
         courseAssessmentId: true,
         courseAssessment: {
           select: {
-            slug: true,
+            id: true,
             title: true,
             course: { select: courseMiniSelect }
           }

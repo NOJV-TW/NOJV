@@ -39,16 +39,16 @@
     <form method="POST" action="?/create" use:enhance class="space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
     <div>
-      <label class="text-sm font-medium" for="slug">{m.contestCreate_slug()}</label>
+      <label class="text-sm font-medium" for="id">{m.contestCreate_slug()}</label>
       <input
         class={inputClassName}
-        id="slug"
-        name="slug"
+        id="id"
+        name="id"
         type="text"
         placeholder={m.contestCreate_slugPlaceholder()}
-        bind:value={$form.slug}
+        bind:value={$form.id}
       />
-      {#if $errors.slug}<p class="mt-1 text-xs text-red-600">{$errors.slug}</p>{/if}
+      {#if $errors.id}<p class="mt-1 text-xs text-red-600">{$errors.id}</p>{/if}
     </div>
 
     <div>

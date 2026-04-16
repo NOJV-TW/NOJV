@@ -5,16 +5,15 @@ export async function seedContests(prisma: PrismaClient) {
     create: {
       endsAt: new Date("2026-03-15T18:00:00+08:00"),
       frozenBoard: true,
-      id: "contest_spring-qualifier-2026",
+      id: "spring-qualifier-2026",
       inviteCode: "spring2026",
-      slug: "spring-qualifier-2026",
       startsAt: new Date("2026-03-15T14:00:00+08:00"),
       summary: "Qualifier contest with a frozen board in the final hour.",
       title: "Spring Qualifier 2026",
       visibility: "published"
     },
     update: {},
-    where: { slug: "spring-qualifier-2026" }
+    where: { id: "spring-qualifier-2026" }
   });
 
   // Link problems to contests

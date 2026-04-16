@@ -100,10 +100,10 @@ export async function updateContestScores(contestParticipationId: string): Promi
 }
 
 export async function getScoreboard(
-  contestSlug: string,
+  contestId: string,
   options?: { unfrozen?: boolean; isPrivileged?: boolean }
 ): Promise<ScoreboardData> {
-  const contest = await contestRepo.findForScoreboard(contestSlug);
+  const contest = await contestRepo.findForScoreboardById(contestId);
 
   if (!contest || contest.visibility === "draft") {
     throw new NotFoundError("Contest not found.");
@@ -188,12 +188,9 @@ export async function getScoreboard(
   };
 }
 
-export async function getScoreboardChart(
-  contestSlug: string,
-  topN: number
-): Promise<ChartData> {
+export async function getScoreboardChart(contestId: string, topN: number): Promise<ChartData> {
   // Get the scoreboard to determine top N
-  const scoreboardData = await getScoreboard(contestSlug, { unfrozen: false });
+  const scoreboardData = await getScoreboard(contestId, { unfrozen: false });
 
   const topEntries = scoreboardData.entries.slice(0, topN);
   if (topEntries.length === 0) {
@@ -206,7 +203,7 @@ export async function getScoreboardChart(
   const pointsMap = new Map(scoreboardData.problems.map((p) => [p.id, p.points]));
 
   // Fetch only startsAt and participations for top users
-  const contest = await contestRepo.findForChart(contestSlug, [...topUserIds]);
+  const contest = await contestRepo.findForChartById(contestId, [...topUserIds]);
 
   if (!contest) return { series: [] };
 
