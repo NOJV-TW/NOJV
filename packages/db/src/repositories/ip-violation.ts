@@ -4,7 +4,8 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-// IP violations are only logged on exams; contests and assessments have no proctoring gates.
+// Only exams carry proctoring; every `IpViolationLog` row is tied to an exam.
+// Contests are public CP events with no IP gating, by product design.
 export const ipViolationLogRepo = {
   create(data: Prisma.IpViolationLogUncheckedCreateInput) {
     return prisma.ipViolationLog.create({ data });
@@ -43,15 +44,3 @@ export const examParticipationIpRepo = {
   }
 };
 
-export const contestParticipationIpRepo = {
-  withTx(tx: TxClient) {
-    return {
-      updateIpPin(id: string, ip: string) {
-        return tx.contestParticipation.update({
-          where: { id },
-          data: { ipPin: ip }
-        });
-      }
-    };
-  }
-};

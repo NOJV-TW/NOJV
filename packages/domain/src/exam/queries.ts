@@ -351,9 +351,6 @@ export async function checkExamIpAccess(
   participation: { id: string; ipPin: string | null } | null
 ): Promise<IpCheckResult> {
   return runTransaction(async (tx) => {
-    return checkIpLock(tx, config, clientIp, participation, {
-      userId,
-      scope: { kind: "exam", examId }
-    });
+    return checkIpLock(tx, config, clientIp, participation, { userId, examId });
   });
 }

@@ -130,32 +130,6 @@ export const contestRepo = {
     });
   },
 
-  findParticipation(contestId: string, userId: string) {
-    return prisma.contestParticipation.findUnique({
-      select: { id: true, boundIp: true },
-      where: {
-        contestId_userId: { contestId, userId }
-      }
-    });
-  },
-
-  findPageLockedForUser(userId: string, now: Date) {
-    return prisma.contest.findFirst({
-      where: {
-        pageLockEnabled: true,
-        visibility: "published",
-        startsAt: { lte: now },
-        endsAt: { gte: now },
-        participations: {
-          some: { userId, status: "active" }
-        }
-      },
-      select: {
-        id: true
-      }
-    });
-  },
-
   count() {
     return prisma.contest.count();
   },

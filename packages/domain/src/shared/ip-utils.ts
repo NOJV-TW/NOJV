@@ -1,28 +1,11 @@
-import {
-  contestParticipationIpRepo,
-  examParticipationIpRepo,
-  type TransactionClient
-} from "@nojv/db";
+import { examParticipationIpRepo, type TransactionClient } from "@nojv/db";
 
 import { logViolationInTx } from "../proctoring/violation-logger";
 
-export function getClientIp(request: Request): string {
-  if (process.env.NODE_ENV === "development") {
-    const devIp = request.headers.get("x-dev-ip");
-    if (devIp) return devIp.trim();
-  }
-
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
-  }
-
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-
-  return "127.0.0.1";
-}
+// Client-IP resolution lives in the web layer (`apps/web/src/lib/server/shared/client-ip.ts`)
+// because it depends on SvelteKit's `RequestEvent` and on the Cloudflare trust
+// model documented in `docs/SECURITY.md`. The domain only operates on the
+// already-resolved IP string passed into `checkIpLock`.
 
 function ipToNumber(ip: string): number | null {
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
@@ -73,34 +56,26 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
-// As of Phase 3 of the CUID URL unification, both exam and contest
-// violations land in `IpViolationLog` via the shared proctoring logger.
-export type IpLockScope =
-  | { kind: "contest"; contestId: string }
-  | { kind: "exam"; examId: string };
-
+/**
+ * Exam-only IP gate. Contests do not have proctoring — callers must not
+ * route contest requests through here.
+ */
 export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,
   clientIp: string,
-  participation: { ipPin: string | null; id: string } | null,
-  context: { userId: string; scope: IpLockScope }
+  participation: { id: string; ipPin: string | null } | null,
+  context: { userId: string; examId: string }
 ): Promise<IpCheckResult> {
-  const scopeEntity =
-    context.scope.kind === "exam"
-      ? { entityKind: "exam" as const, entityId: context.scope.examId }
-      : { entityKind: "contest" as const, entityId: context.scope.contestId };
-
   // Whitelist check — when enabled, an empty list denies all (fail-closed).
   if (config.ipWhitelistEnabled) {
     if (!isIpInWhitelist(clientIp, config.ipWhitelist)) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "whitelist" };
       }
-      // notify mode: log violation, allow access.
       await logViolationInTx(tx, {
-        ...scopeEntity,
         actualIp: clientIp,
+        examId: context.examId,
         expectedIp: config.ipWhitelist.join(", "),
         userId: context.userId,
         violationType: "whitelist"
@@ -108,23 +83,16 @@ export async function checkIpLock(
     }
   }
 
-  // Binding check
   if (config.ipBindingEnabled && participation) {
     if (!participation.ipPin) {
-      // First visit: bind IP
-      if (context.scope.kind === "exam") {
-        await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
-      } else {
-        await contestParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
-      }
+      await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
     } else if (participation.ipPin !== clientIp) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "binding" };
       }
-      // notify mode: log violation, allow access.
       await logViolationInTx(tx, {
-        ...scopeEntity,
         actualIp: clientIp,
+        examId: context.examId,
         expectedIp: participation.ipPin,
         userId: context.userId,
         violationType: "binding"

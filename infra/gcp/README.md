@@ -2,7 +2,8 @@
 
 ## Current Production Shape
 
-- Cloud Run: `web`
+- **Cloudflare** in front of everything — DNS, TLS, WAF, DDoS. Sets `CF-Connecting-IP` which the app reads for proctoring.
+- Cloud Run: `web` — **Ingress = Internal and Cloud Load Balancing** (so the default `*.a.run.app` URL is blocked and all traffic must traverse GCLB).
 - Cloud Run Job: `migrator`
 - GKE: `worker`
 - GKE Jobs: per-submission sandbox runner pods created by the worker
@@ -10,6 +11,9 @@
 - Memorystore: Redis
 - Artifact Registry: image storage
 - Secret Manager: `DATABASE_URL`, `REDIS_URL`
+- **Cloud Armor security policy** attached to the GCLB backend — source IP allowlist restricted to Cloudflare's official CIDR ranges
+
+> Provisioning + verification steps for the Cloudflare / Ingress / Cloud Armor trust boundary live in [`docs/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup](../../docs/DEPLOYMENT.md#cloudflare--cloud-armor-setup). The rationale (why no XFF fallback) is in [`docs/SECURITY.md` — Client IP Trust Model](../../docs/SECURITY.md#client-ip-trust-model-cloudflare-only).
 
 ## Images
 

@@ -7,11 +7,7 @@ export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
 export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
-export {
-  ipViolationLogRepo,
-  examParticipationIpRepo,
-  contestParticipationIpRepo
-} from "./ip-violation";
+export { ipViolationLogRepo, examParticipationIpRepo } from "./ip-violation";
 export {
   plagiarismRepo,
   type PlagiarismReportSummary,
