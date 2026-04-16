@@ -1,4 +1,7 @@
-import { userRepo, type TransactionClient } from "@nojv/db";
+import { runTransaction, userRepo, type TransactionClient } from "@nojv/db";
+
+import { ConflictError, ForbiddenError, ValidationError } from "../shared/errors";
+import { isReservedUsername } from "./reserved-username";
 
 export interface EnsureUserInput {
   displayName?: string;
@@ -55,5 +58,73 @@ export async function ensureUser(
     email: input.email ?? createLocalEmail(userId),
     username: input.username ?? createLocalUsername(userId),
     platformRole: input.platformRole ?? "student"
+  });
+}
+
+const USERNAME_FORMAT_RE = /^[a-z0-9._-]+$/;
+const USERNAME_MAX_LENGTH = 64;
+const NAME_MAX_LENGTH = 64;
+
+export async function renameName(userId: string, newName: string): Promise<void> {
+  const trimmed = newName.trim();
+  if (trimmed.length === 0 || trimmed.length > NAME_MAX_LENGTH) {
+    throw new ValidationError("INVALID_NAME");
+  }
+  await userRepo.update(userId, { name: trimmed });
+}
+
+export async function renameUsername(
+  userId: string,
+  newUsername: string
+): Promise<{ merged: boolean }> {
+  return runTransaction(async (tx) => {
+    const user = await userRepo.withTx(tx).findById(userId);
+    if (!user) {
+      throw new ForbiddenError("PLACEHOLDER_LOCKED");
+    }
+    if (user.status === "pending_first_login") {
+      throw new ForbiddenError("PLACEHOLDER_LOCKED");
+    }
+
+    const current = user.username;
+    if (current !== null && isReservedUsername(current)) {
+      throw new ConflictError("VERIFIED_LOCKED");
+    }
+
+    const normalized = newUsername.trim().toLowerCase();
+    if (
+      normalized.length === 0 ||
+      normalized.length > USERNAME_MAX_LENGTH ||
+      !USERNAME_FORMAT_RE.test(normalized)
+    ) {
+      throw new ValidationError("INVALID_FORMAT");
+    }
+    if (isReservedUsername(normalized)) {
+      throw new ConflictError("RESERVED_FORMAT");
+    }
+
+    if (normalized === current) {
+      return { merged: false };
+    }
+
+    const conflict = await userRepo.withTx(tx).findByUsername(normalized);
+    if (!conflict) {
+      await userRepo.withTx(tx).update(userId, {
+        username: normalized,
+        displayUsername: normalized
+      });
+      return { merged: false };
+    }
+
+    if (conflict.status === "pending_first_login") {
+      await userRepo.attachPlaceholderInTx(tx, conflict.id, userId);
+      await userRepo.withTx(tx).update(userId, {
+        username: normalized,
+        displayUsername: normalized
+      });
+      return { merged: true };
+    }
+
+    throw new ConflictError("TAKEN");
   });
 }

@@ -9,6 +9,40 @@ function synthesizePlaceholderEmail(username: string): string {
   return `placeholder+${username}@placeholder.nojv.local`;
 }
 
+async function attachPlaceholderInTx(
+  tx: TxClient,
+  placeholderId: string,
+  realUserId: string
+): Promise<void> {
+  // Walk each membership so a single `(courseId, userId)` conflict doesn't kill the whole batch.
+  const placeholderMemberships = await tx.courseMembership.findMany({
+    where: { userId: placeholderId },
+    select: { id: true, courseId: true }
+  });
+  for (const mem of placeholderMemberships) {
+    const existing = await tx.courseMembership.findUnique({
+      where: { courseId_userId: { courseId: mem.courseId, userId: realUserId } },
+      select: { id: true }
+    });
+    if (existing) {
+      // Real user already in this course — drop the placeholder row.
+      await tx.courseMembership.delete({ where: { id: mem.id } });
+    } else {
+      await tx.courseMembership.update({
+        where: { id: mem.id },
+        data: { userId: realUserId }
+      });
+    }
+  }
+
+  await tx.courseMembership.updateMany({
+    where: { addedByUserId: placeholderId },
+    data: { addedByUserId: realUserId }
+  });
+
+  await tx.user.delete({ where: { id: placeholderId } });
+}
+
 export const userRepo = {
   findById(id: string) {
     return prisma.user.findUnique({ where: { id } });
@@ -82,45 +116,32 @@ export const userRepo = {
   },
 
   // Transactional merge: transfers memberships + rewrites `addedBy` refs, then deletes the placeholder.
+  // Wraps `attachPlaceholderInTx` in its own transaction for callers outside an existing tx.
   async attachPlaceholderToAuth(placeholderId: string, realUserId: string) {
     if (placeholderId === realUserId) {
       throw new Error("attachPlaceholderToAuth: placeholder and real user must differ");
     }
-    await runTransaction(async (tx) => {
-      // Walk each membership so a single `(courseId, userId)` conflict doesn't kill the whole batch.
-      const placeholderMemberships = await tx.courseMembership.findMany({
-        where: { userId: placeholderId },
-        select: { id: true, courseId: true }
-      });
-      for (const mem of placeholderMemberships) {
-        const existing = await tx.courseMembership.findUnique({
-          where: { courseId_userId: { courseId: mem.courseId, userId: realUserId } },
-          select: { id: true }
-        });
-        if (existing) {
-          // Real user already in this course — drop the placeholder row.
-          await tx.courseMembership.delete({ where: { id: mem.id } });
-        } else {
-          await tx.courseMembership.update({
-            where: { id: mem.id },
-            data: { userId: realUserId }
-          });
-        }
-      }
+    await runTransaction((tx) => attachPlaceholderInTx(tx, placeholderId, realUserId));
+  },
 
-      await tx.courseMembership.updateMany({
-        where: { addedByUserId: placeholderId },
-        data: { addedByUserId: realUserId }
-      });
-
-      await tx.user.delete({ where: { id: placeholderId } });
-    });
+  // Tx-scoped version for callers that are already inside a `runTransaction`
+  // block (e.g. `renameUsername`). Same semantics as `attachPlaceholderToAuth`
+  // but does not open a nested transaction.
+  attachPlaceholderInTx(tx: TxClient, placeholderId: string, realUserId: string) {
+    if (placeholderId === realUserId) {
+      throw new Error("attachPlaceholderInTx: placeholder and real user must differ");
+    }
+    return attachPlaceholderInTx(tx, placeholderId, realUserId);
   },
 
   withTx(tx: TxClient) {
     return {
       findById(id: string) {
         return tx.user.findUnique({ where: { id } });
+      },
+
+      findByUsername(username: string) {
+        return tx.user.findUnique({ where: { username } });
       },
 
       create(data: Prisma.UserCreateInput) {
