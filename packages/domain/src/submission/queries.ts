@@ -48,15 +48,12 @@ export async function listUserSubmissions(userId: string) {
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,
-  assessmentFilter?: { assessmentSlug: string; courseId: string }
+  assessmentFilter?: { assessmentId: string; courseId: string }
 ) {
   const problemP = problemRepo.findById(problemId);
 
   const assessmentP = assessmentFilter
-    ? assessmentRepo.findByCourseAndSlug(
-        assessmentFilter.courseId,
-        assessmentFilter.assessmentSlug
-      )
+    ? assessmentRepo.findByCourseAndId(assessmentFilter.courseId, assessmentFilter.assessmentId)
     : null;
 
   const [problem, assessment] = await Promise.all([problemP, assessmentP]);

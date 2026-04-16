@@ -117,8 +117,8 @@
           />
         {:else}
           <div class="mt-6 space-y-3">
-            {#each data.assessments as assessment (assessment.slug)}
-              {@const href = assessmentPath(assessment.courseId, assessment.slug)}
+            {#each data.assessments as assessment (assessment.id)}
+              {@const href = assessmentPath(assessment.id)}
               <a
                 {href}
                 class="block rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-transform duration-fast ease-out-soft hover:-translate-y-0.5"

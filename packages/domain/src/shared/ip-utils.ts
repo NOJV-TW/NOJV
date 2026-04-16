@@ -1,9 +1,10 @@
 import {
   contestParticipationIpRepo,
   examParticipationIpRepo,
-  ipViolationLogRepo,
   type TransactionClient
 } from "@nojv/db";
+
+import { logViolationInTx } from "../proctoring/violation-logger";
 
 export function getClientIp(request: Request): string {
   if (process.env.NODE_ENV === "development") {
@@ -72,7 +73,8 @@ export interface IpCheckResult {
   violationType?: "whitelist" | "binding";
 }
 
-// Contest violations are NOT logged — contests don't have proctoring; `IpViolationLog` only references `examId`.
+// As of Phase 3 of the CUID URL unification, both exam and contest
+// violations land in `IpViolationLog` via the shared proctoring logger.
 export type IpLockScope =
   | { kind: "contest"; contestId: string }
   | { kind: "exam"; examId: string };
@@ -84,22 +86,25 @@ export async function checkIpLock(
   participation: { boundIp: string | null; id: string } | null,
   context: { userId: string; scope: IpLockScope }
 ): Promise<IpCheckResult> {
+  const scopeEntity =
+    context.scope.kind === "exam"
+      ? { entityKind: "exam" as const, entityId: context.scope.examId }
+      : { entityKind: "contest" as const, entityId: context.scope.contestId };
+
   // Whitelist check — when enabled, an empty list denies all (fail-closed).
   if (config.ipWhitelistEnabled) {
     if (!isIpInWhitelist(clientIp, config.ipWhitelist)) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "whitelist" };
       }
-      // notify mode: log violation, allow access. Only exams log.
-      if (context.scope.kind === "exam") {
-        await ipViolationLogRepo.withTx(tx).create({
-          actualIp: clientIp,
-          examId: context.scope.examId,
-          expectedIp: config.ipWhitelist.join(", "),
-          userId: context.userId,
-          violationType: "whitelist"
-        });
-      }
+      // notify mode: log violation, allow access.
+      await logViolationInTx(tx, {
+        ...scopeEntity,
+        actualIp: clientIp,
+        expectedIp: config.ipWhitelist.join(", "),
+        userId: context.userId,
+        violationType: "whitelist"
+      });
     }
   }
 
@@ -117,15 +122,13 @@ export async function checkIpLock(
         return { allowed: false, violationType: "binding" };
       }
       // notify mode: log violation, allow access.
-      if (context.scope.kind === "exam") {
-        await ipViolationLogRepo.withTx(tx).create({
-          actualIp: clientIp,
-          examId: context.scope.examId,
-          expectedIp: participation.boundIp,
-          userId: context.userId,
-          violationType: "binding"
-        });
-      }
+      await logViolationInTx(tx, {
+        ...scopeEntity,
+        actualIp: clientIp,
+        expectedIp: participation.boundIp,
+        userId: context.userId,
+        violationType: "binding"
+      });
     }
   }
 

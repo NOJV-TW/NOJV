@@ -181,7 +181,7 @@
         {#each assignments as assignment (assignment.id)}
           {@const badge = assignmentStatusBadge(assignment.status)}
           <a
-            href={`/courses/${course.id}/assignments/${assignment.id}`}
+            href={`/assignments/${assignment.id}`}
             class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
             'draft'
               ? 'border-dashed bg-transparent'
@@ -280,7 +280,7 @@
         {#each exams as exam (exam.id)}
           {@const badge = examStatusBadge(exam.status)}
           <a
-            href={`/courses/${course.id}/exams/${exam.id}`}
+            href={`/exams/${exam.id}`}
             class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {exam.status ===
             'draft'
               ? 'border-dashed bg-transparent'

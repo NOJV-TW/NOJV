@@ -95,10 +95,16 @@ export interface ProblemDetail extends ProblemOverview {
   }[];
 }
 
-export function assessmentPath(courseId: string, assessmentSlug: string): string {
-  // TODO(phase-2): update to the new /courses/[courseId] subtree once
-  // it lands in Task 2.1. During Phase 1 this is a dead link.
-  return `/courses/${courseId}/assignments/${assessmentSlug}`;
+export function assessmentPath(assessmentId: string): string {
+  return `/assignments/${assessmentId}`;
+}
+
+export function examPath(examId: string): string {
+  return `/exams/${examId}`;
+}
+
+export function contestPath(contestId: string): string {
+  return `/contests/${contestId}`;
 }
 
 export type AssessmentWindowState = "upcoming" | "open" | "grace" | "closed";

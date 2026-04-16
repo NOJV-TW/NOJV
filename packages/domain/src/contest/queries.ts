@@ -12,7 +12,6 @@ export interface ContestListItem {
   problemCount: number;
   scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
-  slug: string;
   startsAt: string;
   summary: string;
   title: string;
@@ -45,7 +44,6 @@ export interface ContestDetailData {
   problemsHidden: boolean;
   scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
-  slug: string;
   startsAt: string;
   submitCooldownSec: number;
   summary: string;
@@ -74,14 +72,13 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
     problemCount: c._count.problems,
     scoreboardMode: c.scoreboardMode as ScoreboardMode,
     scoringMode: c.scoringMode,
-    slug: c.slug,
     startsAt: c.startsAt.toISOString(),
     summary: c.summary,
     title: c.title
   };
 }
 
-type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailBySlug>>>;
+type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailById>>>;
 
 type ContestDetailBase = Omit<
   ContestDetailData,
@@ -105,7 +102,6 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
     })),
     scoreboardMode: contest.scoreboardMode as ScoreboardMode,
     scoringMode: contest.scoringMode,
-    slug: contest.slug,
     startsAt: contest.startsAt.toISOString(),
     submitCooldownSec: contest.submitCooldownSec,
     summary: contest.summary,
@@ -169,12 +165,12 @@ function resolveVisibility(
 }
 
 export async function getContestDetail(
-  contestSlug: string,
+  contestId: string,
   options: ContestDetailOptions
 ): Promise<ContestDetailData> {
-  const contest = await contestRepo.findDetailBySlug(contestSlug);
+  const contest = await contestRepo.findDetailById(contestId);
   if (contest?.visibility !== "published") {
-    throw new NotFoundError(`Contest not found: ${contestSlug}`);
+    throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
   const { isManager, problemsHidden } = resolveVisibility(
@@ -194,13 +190,13 @@ export async function getContestDetail(
 }
 
 export async function getContestWorkspaceData(
-  contestSlug: string,
+  contestId: string,
   userId: string,
   options: { now: Date; platformRole?: PlatformRole | null }
 ): Promise<ContestWorkspaceData> {
-  const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
+  const contest = await contestRepo.findWorkspaceById(contestId, userId);
   if (contest?.visibility !== "published") {
-    throw new NotFoundError(`Contest not found: ${contestSlug}`);
+    throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
   const { isManager, problemsHidden } = resolveVisibility(
@@ -241,17 +237,17 @@ export interface GetContestContextOptions {
 
 export interface ContestContextResult {
   allowedLanguages: Language[];
-  slug: string;
+  id: string;
   timeStatus: "upcoming" | "open" | "closed";
   viewerIsManager: boolean;
 }
 
 // intentional-nullable: paired with getAssessmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
 export async function getContestContext(
-  contestSlug: string,
+  contestId: string,
   options: GetContestContextOptions
 ): Promise<ContestContextResult | null> {
-  const contest = await contestRepo.findBySlug(contestSlug);
+  const contest = await contestRepo.findById(contestId);
   if (contest?.visibility !== "published") return null;
 
   const now = options.now ?? new Date();
@@ -271,14 +267,14 @@ export async function getContestContext(
 
   return {
     allowedLanguages: contest.allowedLanguages as Language[],
-    slug: contest.slug,
+    id: contest.id,
     timeStatus,
     viewerIsManager
   };
 }
 
-export async function unfreezeContest(slug: string) {
-  const contest = await contestRepo.findBySlug(slug);
+export async function unfreezeContest(contestId: string) {
+  const contest = await contestRepo.findById(contestId);
   if (!contest) return null;
   await contestRepo.update(contest.id, { frozenAt: null });
   return { ok: true };

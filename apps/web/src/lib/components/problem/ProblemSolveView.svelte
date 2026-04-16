@@ -41,12 +41,12 @@
     allowedLanguages?: Language[] | undefined;
     assessment?:
       | {
-          assessmentSlug: string;
+          assessmentId: string;
           courseId: string;
         }
       | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
-    contestSlug?: string | undefined;
+    contestId?: string | undefined;
     /** Exam-only left rail. Hidden in practice mode regardless of value. */
     siblingProblems?: ProblemSolveSibling[] | undefined;
     /** Exam-only context, consumed by the route-level page chrome. */
@@ -61,7 +61,7 @@
     allowedLanguages,
     assessment,
     backLink,
-    contestSlug,
+    contestId,
     siblingProblems,
     examContext: _examContext
   }: Props = $props();
@@ -160,7 +160,7 @@
       {allowedLanguages}
       {assessment}
       {backLink}
-      {contestSlug}
+      {contestId}
       initialSubmissions={submissions}
       {problem}
       {testcaseSets}
@@ -170,7 +170,7 @@
       {allowedLanguages}
       {assessment}
       {backLink}
-      {contestSlug}
+      {contestId}
       initialSubmissions={submissions}
       {problem}
       {testcaseSets}

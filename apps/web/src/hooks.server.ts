@@ -94,14 +94,17 @@ function setSecurityHeaders(response: Response): void {
   }
 }
 
-function isExamAllowed(
-  pathname: string,
-  searchParams: URLSearchParams,
-  ctx: PageLockedContext
-): boolean {
-  if (pathname.includes(`/exams/${ctx.examId}`)) return true;
-  if (pathname.startsWith("/problems/") && searchParams.get("exam") === ctx.examId) return true;
-  return false;
+function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
+  if (ctx.type === "exam") {
+    // Exam solves live under the top-level `/exams/[examId]/...` tree.
+    return pathname.includes(`/exams/${ctx.examId}`);
+  }
+  // Contest solves live under `/contests/[contestId]/...`.
+  return pathname.includes(`/contests/${ctx.contestId}`);
+}
+
+function pageLockRedirectTarget(ctx: PageLockedContext): string {
+  return ctx.type === "exam" ? `/exams/${ctx.examId}` : `/contests/${ctx.contestId}`;
 }
 
 async function getCachedPageLockContext(userId: string): Promise<PageLockedContext | null> {
@@ -194,8 +197,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (event.locals.sessionUser) {
     if (!isPageLockExempt(cleanPath)) {
       const lockCtx = await getCachedPageLockContext(event.locals.sessionUser.id);
-      if (lockCtx && !isExamAllowed(cleanPath, event.url.searchParams, lockCtx)) {
-        redirect(302, `/exams/${lockCtx.examId}`);
+      if (lockCtx && !isProctoredEntityAllowed(cleanPath, lockCtx)) {
+        redirect(302, pageLockRedirectTarget(lockCtx));
       }
     }
   }
@@ -236,7 +239,7 @@ export const handle: Handle = async ({ event, resolve }) => {
           err: err instanceof Error ? err.message : String(err)
         });
       }
-      redirect(307, `/courses/${examCtx.course.id}/exams/${examCtx.exam.id}/problems/0`);
+      redirect(307, `/exams/${examCtx.exam.id}`);
     }
   }
 

@@ -19,11 +19,11 @@ export async function requireProblem(tx: TransactionClient, problemId: string) {
   return problem;
 }
 
-export async function requireContest(tx: TransactionClient, contestSlug: string) {
-  const contest = await contestRepo.withTx(tx).findBySlug(contestSlug);
+export async function requireContest(tx: TransactionClient, contestId: string) {
+  const contest = await contestRepo.withTx(tx).findById(contestId);
 
   if (!contest) {
-    throw new NotFoundError(`Contest not found: ${contestSlug}`);
+    throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
   return contest;
@@ -52,13 +52,13 @@ export async function requireUser(tx: TransactionClient, userId: string) {
 export async function requireCourseAssessment(
   tx: TransactionClient,
   courseId: string,
-  assessmentSlug: string
+  assessmentId: string
 ) {
   const course = await requireCourse(tx, courseId);
-  const assessment = await assessmentRepo.withTx(tx).findByComposite(course.id, assessmentSlug);
+  const assessment = await assessmentRepo.withTx(tx).findByCompositeId(course.id, assessmentId);
 
   if (!assessment) {
-    throw new NotFoundError(`Assessment not found: ${courseId}/${assessmentSlug}`);
+    throw new NotFoundError(`Assessment not found: ${courseId}/${assessmentId}`);
   }
 
   return {

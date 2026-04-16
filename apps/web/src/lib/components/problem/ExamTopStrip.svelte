@@ -65,7 +65,7 @@
         window.alert(m.examMode_submitEndFailed());
         return;
       }
-      await goto(`/courses/${context.courseId}/exams/${context.examId}`);
+      await goto(`/exams/${context.examId}`);
     } catch {
       ending = false;
       window.alert(m.examMode_submitEndFailed());

@@ -37,7 +37,6 @@ export interface AssignmentDetailSubmissionLogEntry {
 export interface AssignmentDetail {
   id: string;
   courseId: string;
-  slug: string;
   title: string;
   summary: string;
   status: AssignmentDetailStatus;
@@ -214,7 +213,6 @@ export async function getAssignmentDetail(
   return {
     id: row.id,
     courseId: row.courseId,
-    slug: row.slug,
     title: row.title,
     summary: row.summary,
     status,

@@ -248,6 +248,25 @@ export const examProblemRepo = {
     });
   },
 
+  // Practice-after-close: a registered participant of a published exam
+  // that has ended retains read/submit access to the exam's problems —
+  // for practice only, no scoring.
+  hasEndedExamForUser(problemId: string, userId: string, now: Date) {
+    return prisma.examProblem
+      .findFirst({
+        where: {
+          problemId,
+          exam: {
+            status: "published",
+            endsAt: { lt: now },
+            participations: { some: { userId } }
+          }
+        },
+        select: { id: true }
+      })
+      .then((row) => row !== null);
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ExamProblemUncheckedCreateInput) {
