@@ -1,7 +1,12 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect, problemPreviewSelect } from "./selects";
+import {
+  courseMiniSelect,
+  problemMiniSelect,
+  problemPreviewSelect,
+  problemTeacherMiniSelect
+} from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -26,9 +31,12 @@ export const assessmentRepo = {
   findPublishedContext(courseId: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       select: {
+        id: true,
         allowedLanguages: true,
-        course: { select: { id: true } },
-        slug: true
+        course: { select: { id: true, ownerId: true, archived: true } },
+        slug: true,
+        opensAt: true,
+        closesAt: true
       },
       where: {
         courseId,
@@ -42,7 +50,7 @@ export const assessmentRepo = {
     return prisma.courseAssessment.findMany({
       include: {
         _count: { select: { problems: true } },
-        course: { select: { id: true, title: true } }
+        course: { select: courseMiniSelect }
       },
       orderBy: { opensAt: "desc" },
       where: {
@@ -56,11 +64,7 @@ export const assessmentRepo = {
     });
   },
 
-  /**
-   * Batched open / draft counts per course. Returns one row per course
-   * that has at least one matching assessment — courses with zero fall
-   * out and must be merged in as 0 by the caller.
-   */
+  // Courses with zero rows fall out of the result set — callers must merge them in as 0.
   groupOpenCountsByCourse(courseIds: string[], now: Date) {
     if (courseIds.length === 0)
       return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);
@@ -89,15 +93,7 @@ export const assessmentRepo = {
     });
   },
 
-  /**
-   * Rows the course overview needs for each recent/upcoming/open
-   * assignment. Includes problem count and is scoped to a single
-   * course. `includeDrafts = true` returns draft rows at the end so
-   * managers can see work-in-progress; students get `false`.
-   *
-   * Ordering is left to the domain layer (urgency-based sort) — we
-   * fetch a generous superset here and let the caller trim to `limit`.
-   */
+  // Returns a 3x superset; the domain layer applies urgency-based sort and trims to `take`.
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -108,19 +104,11 @@ export const assessmentRepo = {
         courseId,
         status: includeDrafts ? { in: ["draft", "published"] } : "published"
       },
-      // fetch a superset so the domain sort + trim still has room
       take: take * 3
     });
   },
 
-  /**
-   * Full roster of assignments for the course list page. Unlike
-   * `listForCourseOverview` this does not pre-trim — the caller is
-   * expected to cap via `take` (the domain layer passes 50 for the
-   * list page). Status filtering is handled in the domain layer
-   * because "open" / "upcoming" / "closed" are derived from
-   * `opensAt`/`closesAt` at query time, not stored columns.
-   */
+  // open/upcoming/closed status is derived from `opensAt`/`closesAt` in the domain layer, not stored columns.
   listForCourse(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
@@ -135,27 +123,12 @@ export const assessmentRepo = {
     });
   },
 
-  /**
-   * Cross-course roster for the top-level /assignments page. A single
-   * findMany pulls published assessments from every course in
-   * `allCourseIds` AND draft assessments from every course in
-   * `managerCourseIds` (the subset where the user is teacher/TA).
-   * Each row carries `course { id, title }` so the UI can render the
-   * course tag without a second round-trip.
-   *
-   * Status filtering (open / upcoming / closed) is derived in the
-   * domain layer from `opensAt`/`closesAt` — same convention as
-   * `listForCourse`.
-   */
+  // Early return on empty arrays would collapse the inferred include-payload type at the call site.
   listAcrossCourses(allCourseIds: string[], managerCourseIds: string[], take: number) {
-    // Prisma accepts `in: []` and returns an empty result set, so we
-    // can hand a single findMany both the published-for-all and draft-
-    // for-manager clauses without an early return (which would
-    // collapse the inferred include payload type at the call site).
     return prisma.courseAssessment.findMany({
       include: {
         _count: { select: { problems: true } },
-        course: { select: { id: true, title: true } }
+        course: { select: courseMiniSelect }
       },
       orderBy: { opensAt: "desc" },
       where: {
@@ -171,7 +144,7 @@ export const assessmentRepo = {
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
-        course: { select: { id: true, title: true } }
+        course: { select: courseMiniSelect }
       },
       orderBy: { opensAt: "asc" },
       where: {
@@ -214,13 +187,6 @@ export const assessmentRepo = {
     });
   },
 
-  /**
-   * Full assignment detail for the per-assignment page. Scoped to a
-   * course id so the caller doesn't have to cross-check ownership
-   * after the fetch. Returns the assessment plus its ordered problem
-   * list (with difficulty + per-assessment points) — the shape
-   * consumed by `getAssignmentDetail` in `@nojv/domain`.
-   */
   findDetailById(courseId: string, assessmentId: string) {
     return prisma.courseAssessment.findFirst({
       where: { id: assessmentId, courseId },
@@ -241,13 +207,7 @@ export const assessmentRepo = {
           select: {
             ordinal: true,
             points: true,
-            problem: {
-              select: {
-                id: true,
-                title: true,
-                difficulty: true
-              }
-            }
+            problem: { select: problemTeacherMiniSelect }
           }
         }
       }
@@ -286,6 +246,12 @@ export const assessmentProblemRepo = {
       where: { assessmentId },
       include: { problem: { select: problemMiniSelect } }
     });
+  },
+
+  exists(assessmentId: string, problemId: string) {
+    return prisma.courseAssessmentProblem
+      .findFirst({ where: { assessmentId, problemId }, select: { id: true } })
+      .then((row) => row !== null);
   },
 
   withTx(tx: TxClient) {

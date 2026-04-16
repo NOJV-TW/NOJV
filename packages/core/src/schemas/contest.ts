@@ -20,10 +20,7 @@ export const contestSessionSchema = z
     path: ["endsAt"]
   });
 
-// Contest schema — standalone, public/invite-only events only. No
-// courseId binding, no proctoring (page lock / IP whitelist / IP
-// binding — those live on Exam). No adjustment rules or attempt
-// caps — those belong to homework assessments.
+// Standalone events: no courseId binding, no proctoring, no adjustment rules — those live on Exam/CourseAssessment.
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: isoDateTimeSchema,

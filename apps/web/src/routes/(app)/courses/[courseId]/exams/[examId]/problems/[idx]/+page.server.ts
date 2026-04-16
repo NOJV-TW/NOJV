@@ -16,10 +16,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     error(404, "Invalid problem index");
   }
 
-  // Defense in depth. Phase 4.1's `hooks.server.ts` exam lock should
-  // already have redirected any unauthenticated / inactive-session
-  // user away before this loader runs; the loader re-runs the check
-  // so a bypassed hook cannot expose exam content.
+  // Defense in depth so a bypassed `hooks.server.ts` exam lock cannot expose exam content.
   await examDomain.session.requireActiveSessionForUserExam(actor.userId, examId);
 
   const view = await examDomain.getExamProblemView({

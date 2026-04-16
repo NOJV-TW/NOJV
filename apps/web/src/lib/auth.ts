@@ -10,21 +10,7 @@ import { createLogger } from "$lib/server/logger";
 
 const authLogger = createLogger("auth-hooks");
 
-/**
- * On first OAuth login, check whether the user's email resolves to a
- * known school student id (spec §5.3) and, if so, merge any matching
- * placeholder User row into the row better-auth just created. The
- * placeholder was created earlier by a teacher pasting the handle in
- * the course members page; after merging, the placeholder's course
- * memberships carry over to the real user.
- *
- * better-auth exposes `databaseHooks.user.create.before|after`; the
- * `before` variant cannot redirect a create into an update (returning
- * `false` aborts the OAuth flow with no way to substitute an existing
- * row), so reconciliation runs in `after`: better-auth creates the
- * real user normally, then we transfer memberships from the
- * placeholder and delete it.
- */
+// Runs from `user.create.after` — the `before` variant cannot redirect a create into an update.
 async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Promise<void> {
   const parsed = parseSchoolEmail(newUser.email);
   if (!parsed) return;

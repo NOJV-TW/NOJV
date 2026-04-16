@@ -1,10 +1,7 @@
 // tests/fixtures/seed-test-db.ts
 import { testPrisma } from "./factories";
 
-/**
- * All table names to truncate. Order does not matter because
- * TRUNCATE ... CASCADE handles foreign key dependencies.
- */
+// Order does not matter — TRUNCATE ... CASCADE handles FK dependencies.
 const TABLES = [
   "Submission",
   "ContestParticipation",

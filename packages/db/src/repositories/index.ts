@@ -28,4 +28,3 @@ export { schoolVerificationTokenRepo } from "./school-verification";
 export { submissionRepo } from "./submission";
 export { userRepo } from "./user";
 export { userDailyActivityRepo } from "./user-daily-activity";
-export { verificationRepo } from "./verification";

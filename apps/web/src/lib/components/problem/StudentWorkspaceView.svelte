@@ -62,7 +62,7 @@
     <p
       class="mb-2 px-2 pt-1 text-caption font-semibold uppercase tracking-wide text-muted-foreground"
     >
-      Files
+      {m.workspace_filesHeading()}
     </p>
     <ul class="space-y-0.5">
       {#each files as file, index (`${file.language}::${file.path}`)}
@@ -87,10 +87,10 @@
                   : 'bg-muted text-muted-foreground'}"
             >
               {file.visibility === 'editable'
-                ? 'edit'
+                ? m.workspace_visibilityEditable()
                 : file.visibility === 'hidden'
-                  ? 'hidden'
-                  : 'read'}
+                  ? m.workspace_visibilityHidden()
+                  : m.workspace_visibilityReadonly()}
             </span>
           </button>
         </li>
@@ -103,7 +103,7 @@
     class="group relative w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
     role="separator"
     aria-orientation="vertical"
-    aria-label="Resize files panel"
+    aria-label={m.common_resizeFilesPanel()}
     tabindex="0"
     onmousedown={startFilesResize}
     onkeydown={(e) => {

@@ -2,13 +2,7 @@ import { prisma } from "../client";
 import { Prisma } from "../../generated/prisma/client";
 import type { PlagiarismReportStatus } from "../../generated/prisma/enums";
 
-/**
- * Plagiarism state is inlined on `Contest` and `CourseAssessment` as six
- * `plagiarism*` columns. There is no `PlagiarismReport` table any more —
- * re-running MOSS updates the same row in place. A parent whose
- * `plagiarismStatus` is NULL is considered to have no report.
- */
-
+// State is inlined as `plagiarism*` columns on Contest/CourseAssessment; re-running MOSS updates the row in place.
 export interface PlagiarismReportSummary {
   status: PlagiarismReportStatus;
   results: Prisma.JsonValue | null;

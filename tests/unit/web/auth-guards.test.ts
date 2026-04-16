@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   canCreateCourse,
-  canManageCourseMembership,
-  canPublishAssessment,
-  canViewManagePanel,
   ForbiddenError,
   isCourseStaff,
   requirePlatformRole,
@@ -105,19 +102,5 @@ describe("isCourseStaff", () => {
 
   it("returns false for student", () => {
     expect(isCourseStaff("student")).toBe(false);
-  });
-});
-
-describe("permission aliases", () => {
-  it("canManageCourseMembership is isCourseStaff", () => {
-    expect(canManageCourseMembership).toBe(isCourseStaff);
-  });
-
-  it("canPublishAssessment is isCourseStaff", () => {
-    expect(canPublishAssessment).toBe(isCourseStaff);
-  });
-
-  it("canViewManagePanel is isCourseStaff", () => {
-    expect(canViewManagePanel).toBe(isCourseStaff);
   });
 });

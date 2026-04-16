@@ -10,14 +10,7 @@ import type {
   SubmissionResult
 } from "@nojv/core";
 
-/**
- * Shared shape used by both the standard and advanced problem workspaces
- * for rendering submission history in the left-pane submissions tab.
- *
- * `id` is absent for submissions that have not yet been persisted (e.g. a
- * fresh local entry added right after `handleSubmissionComplete`). When
- * present, the left pane lazily fetches source code from `/api/submissions/:id/source`.
- */
+// `id` is absent for local-only entries added before server persistence; when present, source is lazily fetched.
 export interface ProblemSubmissionEntry {
   id?: string;
   language: string;
@@ -26,10 +19,6 @@ export interface ProblemSubmissionEntry {
   submittedAt: string;
 }
 
-/**
- * Authored editorial displayed inside the left-pane editorials tab. This
- * mirrors the payload returned by `GET /api/problems/:id/editorials`.
- */
 export interface ProblemEditorialEntry {
   id: string;
   content: string;
@@ -38,11 +27,6 @@ export interface ProblemEditorialEntry {
   user: { username: string | null; name: string };
 }
 
-/**
- * Subtask/testcase-set summary rendered in the description tab under the
- * problem statement. Both workspaces receive the same shape from the load
- * function.
- */
 export interface ProblemTestcaseSetSummary {
   id: string;
   name: string;
@@ -88,10 +72,6 @@ export interface ProblemDetail extends ProblemOverview {
   judgeType: JudgeType;
   memoryLimitMb: number;
   outputFormat: string;
-  /**
-   * Single source of truth for "what shape is this problem". Mirror of
-   * `Problem.type` in the schema.
-   */
   type: ProblemType;
   samples: {
     input: string;

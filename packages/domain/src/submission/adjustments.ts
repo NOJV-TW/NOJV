@@ -28,27 +28,19 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
     const before = score;
 
     if (rule.type === "time_bonus") {
-      // Linearly scale: full bonus at runtimeMs = 0, no bonus at runtimeMs >= baselineMs.
-      // Unchanged from the pre-redesign behavior. The baselineMs > 0 guard avoids a
-      // divide-by-zero that would produce NaN and wipe the score.
+      // `baselineMs > 0` guards against a divide-by-zero that would produce NaN and wipe the score.
       if (rule.baselineMs > 0 && runtimeMs >= 0) {
         const ratio = Math.max(0, 1 - runtimeMs / rule.baselineMs);
         const bonus = ratio * rule.maxBonusPercent;
         score = score + bonus;
       }
     } else if (rule.type === "flat_late_penalty") {
-      // One-shot percentage deduction. Applied once if the submission arrives
-      // after the configured anchor, regardless of how late. Clamped at 0 by
-      // the per-step clamp below.
       const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
       if (anchor && submittedAt > anchor) {
         score = score * (1 - rule.penaltyPct / 100);
       }
     } else if (rule.type === "daily_late_penalty") {
-      // Linear per-day deduction. `daysLate` is the number of full 24-hour
-      // windows past the anchor; a submission inside the first day is on time
-      // (daysLate = 0 → no penalty). Penalty greater than 100% drives the
-      // score to 0 via `Math.max(0, …)`.
+      // `daysLate = 0` (inside the first 24h window) keeps a submission penalty-free.
       const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
       if (anchor && submittedAt > anchor) {
         const msLate = submittedAt.getTime() - anchor.getTime();
@@ -59,10 +51,7 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
         }
       }
     } else {
-      // rule.type === "final_day_zero"
-      // Hard gate: any submission strictly after the final day is worth 0. If
-      // the assessment has no `closesAt` anchor in context, skip with a warning
-      // rather than silently zero everything.
+      // `final_day_zero`: a missing `closesAt` anchor must not silently zero everything.
       if (!finalDay) {
         warnMissingAnchor(rule.type, "final_day");
       } else if (submittedAt > finalDay) {
@@ -79,11 +68,7 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   return { score, adjustments: log };
 }
 
-/**
- * Resolve the timestamp anchor requested by a rule. Returns `null` (and logs
- * once per missing anchor kind) when the assessment context did not supply
- * the requested field — callers should then skip the rule.
- */
+// Returns `null` (and logs once per missing anchor kind) when the assessment context lacks the field.
 function resolveAnchor(
   startFrom: "due" | "final_day",
   dueAt: Date | null,

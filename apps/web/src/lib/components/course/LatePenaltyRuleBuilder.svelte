@@ -36,9 +36,6 @@
     value === null ? "none" : value.type
   );
 
-  // Local params: only used as defaults when switching to an option.
-  // We read from `value` when the option is selected so the inputs mirror
-  // the authoritative state, and write back via `onChange` on input.
   const FLAT_DEFAULT_PCT = 20;
   const DAILY_DEFAULT_PCT = 10;
 

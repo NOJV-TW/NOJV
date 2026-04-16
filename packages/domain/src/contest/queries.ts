@@ -1,5 +1,5 @@
 import { contestRepo } from "@nojv/db";
-import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
+import type { ContestScoringMode, Language, PlatformRole, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { canManageContest } from "./permissions";
@@ -146,15 +146,22 @@ export async function listContestsForUser(
 
 export interface ContestDetailOptions {
   userId: string | null;
+  /** Optional — caller should pass it so platform admins are recognized as managers. */
+  platformRole?: PlatformRole | null;
   now: Date;
 }
 
 function resolveVisibility(
   userId: string | null,
+  platformRole: PlatformRole | null,
   contest: { createdByUserId: string | null; startsAt: Date },
   now: Date
 ): { isManager: boolean; problemsHidden: boolean } {
-  const isManager = canManageContest(userId, { createdByUserId: contest.createdByUserId });
+  const isManager = canManageContest(
+    userId,
+    { createdByUserId: contest.createdByUserId },
+    platformRole
+  );
   return {
     isManager,
     problemsHidden: !isManager && now < contest.startsAt
@@ -170,7 +177,12 @@ export async function getContestDetail(
     throw new NotFoundError(`Contest not found: ${contestSlug}`);
   }
 
-  const { isManager, problemsHidden } = resolveVisibility(options.userId, contest, options.now);
+  const { isManager, problemsHidden } = resolveVisibility(
+    options.userId,
+    options.platformRole ?? null,
+    contest,
+    options.now
+  );
 
   const base = mapContestDetail(contest);
   return {
@@ -184,14 +196,19 @@ export async function getContestDetail(
 export async function getContestWorkspaceData(
   contestSlug: string,
   userId: string,
-  options: { now: Date }
+  options: { now: Date; platformRole?: PlatformRole | null }
 ): Promise<ContestWorkspaceData> {
   const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
   if (contest?.visibility !== "published") {
     throw new NotFoundError(`Contest not found: ${contestSlug}`);
   }
 
-  const { isManager, problemsHidden } = resolveVisibility(userId, contest, options.now);
+  const { isManager, problemsHidden } = resolveVisibility(
+    userId,
+    options.platformRole ?? null,
+    contest,
+    options.now
+  );
 
   const base = mapContestDetail(contest);
   const participation = contest.participations[0] ?? null;
@@ -216,9 +233,48 @@ export async function findContestByInviteCode(inviteCode: string) {
   return contestRepo.findByInviteCode(inviteCode);
 }
 
-export async function getContestAllowedLanguages(contestSlug: string): Promise<Language[]> {
-  const contest = await contestRepo.findAllowedLanguages(contestSlug);
-  return (contest?.allowedLanguages ?? []) as Language[];
+export interface GetContestContextOptions {
+  viewerUserId: string;
+  viewerPlatformRole: PlatformRole;
+  now?: Date;
+}
+
+export interface ContestContextResult {
+  allowedLanguages: Language[];
+  slug: string;
+  timeStatus: "upcoming" | "open" | "closed";
+  viewerIsManager: boolean;
+}
+
+// intentional-nullable: paired with getAssessmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
+export async function getContestContext(
+  contestSlug: string,
+  options: GetContestContextOptions
+): Promise<ContestContextResult | null> {
+  const contest = await contestRepo.findBySlug(contestSlug);
+  if (contest?.visibility !== "published") return null;
+
+  const now = options.now ?? new Date();
+  const timeStatus: "upcoming" | "open" | "closed" =
+    now < contest.startsAt ? "upcoming" : now > contest.endsAt ? "closed" : "open";
+
+  const viewerIsManager = canManageContest(
+    options.viewerUserId,
+    { createdByUserId: contest.createdByUserId },
+    options.viewerPlatformRole
+  );
+
+  // Non-managers must hit a live time window; pre-start leaks problem
+  // metadata (allowedLanguages alone is benign but the symmetric guard
+  // keeps every caller using the same ruleset).
+  if (!viewerIsManager && timeStatus !== "open") return null;
+
+  return {
+    allowedLanguages: contest.allowedLanguages as Language[],
+    slug: contest.slug,
+    timeStatus,
+    viewerIsManager
+  };
 }
 
 export async function unfreezeContest(slug: string) {

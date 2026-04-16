@@ -49,10 +49,6 @@ export function hasActorUsername<T extends { username: string | null }>(
   return typeof actor.username === "string" && actor.username.length > 0;
 }
 
-/**
- * Require authentication for an API route handler.
- * Throws HttpError (caught by apiHandler) instead of redirecting.
- */
 export function requireApiAuth(event: RequestEvent): CompletedActorContext {
   const actor = getActorContext(event);
   if (!actor) throw new HttpError("Authentication required.", 401);
@@ -60,10 +56,6 @@ export function requireApiAuth(event: RequestEvent): CompletedActorContext {
   return actor;
 }
 
-/**
- * Require authentication for a server load function or page.
- * Redirects to the root if not authenticated.
- */
 export function requireAuth(event: RequestEvent, redirectTo?: string): CompletedActorContext {
   const actor = getActorContext(event);
 
@@ -78,9 +70,6 @@ export function requireAuth(event: RequestEvent, redirectTo?: string): Completed
   return actor;
 }
 
-/**
- * Require specific platform roles. Throws ForbiddenError if not matched.
- */
 export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[]): void {
   if (!roles.includes(actor.platformRole)) {
     throw new ForbiddenError("Insufficient platform role.");
@@ -122,6 +111,3 @@ export function canCreateCourse(platformRole: PlatformRole) {
 }
 
 export const isCourseStaff = canManageCourse;
-export const canManageCourseMembership = canManageCourse;
-export const canPublishAssessment = canManageCourse;
-export const canViewManagePanel = canManageCourse;
