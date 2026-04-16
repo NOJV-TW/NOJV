@@ -30,25 +30,24 @@ export const ipViolationLogRepo = {
   }
 };
 
-// Exam binding uses `ExamParticipation.ipPin` on a different path entirely.
-export const contestParticipationIpRepo = {
+export const examParticipationIpRepo = {
   withTx(tx: TxClient) {
     return {
-      updateBoundIp(id: string, ip: string) {
-        return tx.contestParticipation.update({
+      updateIpPin(id: string, ip: string) {
+        return tx.examParticipation.update({
           where: { id },
-          data: { boundIp: ip }
+          data: { ipPin: ip }
         });
       }
     };
   }
 };
 
-export const examParticipationIpRepo = {
+export const contestParticipationIpRepo = {
   withTx(tx: TxClient) {
     return {
       updateIpPin(id: string, ip: string) {
-        return tx.examParticipation.update({
+        return tx.contestParticipation.update({
           where: { id },
           data: { ipPin: ip }
         });

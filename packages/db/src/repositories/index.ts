@@ -9,8 +9,8 @@ export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
 export {
   ipViolationLogRepo,
-  contestParticipationIpRepo,
-  examParticipationIpRepo
+  examParticipationIpRepo,
+  contestParticipationIpRepo
 } from "./ip-violation";
 export {
   plagiarismRepo,

@@ -83,7 +83,7 @@ export async function checkIpLock(
   tx: TransactionClient,
   config: IpLockConfig,
   clientIp: string,
-  participation: { boundIp: string | null; id: string } | null,
+  participation: { ipPin: string | null; id: string } | null,
   context: { userId: string; scope: IpLockScope }
 ): Promise<IpCheckResult> {
   const scopeEntity =
@@ -110,14 +110,14 @@ export async function checkIpLock(
 
   // Binding check
   if (config.ipBindingEnabled && participation) {
-    if (!participation.boundIp) {
+    if (!participation.ipPin) {
       // First visit: bind IP
       if (context.scope.kind === "exam") {
         await examParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
       } else {
-        await contestParticipationIpRepo.withTx(tx).updateBoundIp(participation.id, clientIp);
+        await contestParticipationIpRepo.withTx(tx).updateIpPin(participation.id, clientIp);
       }
-    } else if (participation.boundIp !== clientIp) {
+    } else if (participation.ipPin !== clientIp) {
       if (config.ipViolationMode === "block") {
         return { allowed: false, violationType: "binding" };
       }
@@ -125,7 +125,7 @@ export async function checkIpLock(
       await logViolationInTx(tx, {
         ...scopeEntity,
         actualIp: clientIp,
-        expectedIp: participation.boundIp,
+        expectedIp: participation.ipPin,
         userId: context.userId,
         violationType: "binding"
       });

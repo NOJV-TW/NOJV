@@ -127,7 +127,7 @@ type ResolveResult =
   | {
       ok: true;
       config: ProctoringConfig;
-      participation: { id: string; boundIp: string | null } | null;
+      participation: { id: string; ipPin: string | null } | null;
     }
   | { ok: false; reason: ProctoringDenialReason };
 
@@ -170,8 +170,7 @@ async function resolveExam(
       ipWhitelistEnabled: exam.ipWhitelistEnabled,
       startsAt: exam.startsAt
     },
-    // Exam participation uses `ipPin`; the IP helper's `boundIp` alias is cross-entity.
-    participation: participation ? { boundIp: participation.ipPin, id: participation.id } : null
+    participation: participation ? { ipPin: participation.ipPin, id: participation.id } : null
   };
 }
 
