@@ -179,14 +179,17 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
 1. **Cloudflare DNS** — set `nojv.example.com` as a proxied (orange-cloud) A/AAAA record pointing at the GCLB frontend IP. CF terminates TLS at the edge and sets `CF-Connecting-IP` on every inbound request.
 
 2. **Cloud Run Ingress** — flip to `internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is publicly unreachable:
+
    ```bash
    gcloud run services update nojv-web \
      --region=asia-east1 \
      --ingress=internal-and-cloud-load-balancing
    ```
+
    After this change, `curl https://<hash>-<region>.a.run.app` returns 403. All valid traffic must come through GCLB.
 
 3. **Cloud Armor edge policy** — allowlist Cloudflare's official CIDR ranges. Source lists live at <https://www.cloudflare.com/ips-v4> and <https://www.cloudflare.com/ips-v6>; they change rarely but watch for updates.
+
    ```bash
    # Create the policy
    gcloud compute security-policies create cf-only-policy \
@@ -216,6 +219,7 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
    ```
 
 4. **Verify the trust boundary holds:**
+
    ```bash
    # (a) Direct to Cloud Run URL — should 403 (Ingress block)
    curl -I "https://<run-hash>.a.run.app"

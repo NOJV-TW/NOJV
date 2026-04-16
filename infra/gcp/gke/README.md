@@ -23,10 +23,10 @@ submissions.
 
 The worker and sandbox pods MUST run on different node pools:
 
-| Pool | Taints | Labels | Scaling |
-| --- | --- | --- | --- |
-| `pool-worker` | none | `nojv-role=worker` | static 2–3 nodes |
-| `pool-sandbox` | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | autoscale 0 → N |
+| Pool           | Taints                         | Labels              | Scaling          |
+| -------------- | ------------------------------ | ------------------- | ---------------- |
+| `pool-worker`  | none                           | `nojv-role=worker`  | static 2–3 nodes |
+| `pool-sandbox` | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | autoscale 0 → N  |
 
 The worker Deployment pins itself via `nodeSelector: nojv-role=worker`. Sandbox
 Pods are created with `nodeSelector: nojv-role=sandbox` and a matching
