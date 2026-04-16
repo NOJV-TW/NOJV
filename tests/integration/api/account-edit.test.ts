@@ -70,6 +70,8 @@ describe("account edit — rename name + username", () => {
     // `41047001a` matches the NTNU student-ID regex → user is considered verified.
     const user = await createTestUser({ username: "41047001a" });
 
-    await expect(userDomain.renameUsername(user.id, "anything")).rejects.toThrow("VERIFIED_LOCKED");
+    await expect(userDomain.renameUsername(user.id, "anything")).rejects.toThrow(
+      "VERIFIED_LOCKED"
+    );
   });
 });

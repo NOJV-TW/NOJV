@@ -155,7 +155,9 @@ describe("renameUsername", () => {
   });
 
   it("new username matches a placeholder — merges memberships, deletes placeholder, merged: true", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ id: "usr_actor", username: "oldname" }));
+    userWithTxFindById.mockResolvedValueOnce(
+      fakeUser({ id: "usr_actor", username: "oldname" })
+    );
     userWithTxFindByUsername.mockResolvedValueOnce({
       id: "usr_placeholder",
       username: "newname",
