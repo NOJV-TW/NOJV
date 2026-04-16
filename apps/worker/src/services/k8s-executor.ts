@@ -143,9 +143,27 @@ export class K8sExecutor implements SandboxExecutor {
           activeDeadlineSeconds: JOB_DEADLINE_SECONDS,
           backoffLimit: 0,
           template: {
+            // The `app: nojv-sandbox` label here (NOT on the Job metadata) is
+            // what the sandbox NetworkPolicy podSelector matches — Job labels
+            // do not propagate to the pod template.
+            metadata: {
+              labels: { app: "nojv-sandbox", "nojv-role": "sandbox" }
+            },
             spec: {
               restartPolicy: "Never",
               automountServiceAccountToken: false,
+              // Sandbox pods only land on the untrusted-code node pool, which
+              // is tainted `nojv-role=sandbox:NoSchedule` so nothing else runs
+              // there. Keeps a runaway fork-bomb from starving the orchestrator.
+              nodeSelector: { "nojv-role": "sandbox" },
+              tolerations: [
+                {
+                  key: "nojv-role",
+                  operator: "Equal",
+                  value: "sandbox",
+                  effect: "NoSchedule"
+                }
+              ],
               securityContext: {
                 runAsUser: 10001,
                 runAsGroup: 10001,

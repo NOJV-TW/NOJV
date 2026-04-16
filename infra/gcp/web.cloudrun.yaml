@@ -7,7 +7,10 @@ spec:
     metadata:
       annotations:
         autoscaling.knative.dev/minScale: "1"
-        autoscaling.knative.dev/maxScale: "5"
+        # 15 instances × 80 concurrent ≈ 1200 simultaneous requests before queueing.
+        # Sized for exam-week peaks (300 students submitting + navigating); bump higher
+        # once real metrics show saturation rather than guessing.
+        autoscaling.knative.dev/maxScale: "15"
     spec:
       containerConcurrency: 80
       timeoutSeconds: 60
