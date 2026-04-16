@@ -10,3 +10,4 @@ export * from "./schemas/advanced-mode";
 export * from "./schemas/user";
 export * from "./queue";
 export * from "./sandbox";
+export * from "./reserved-username";

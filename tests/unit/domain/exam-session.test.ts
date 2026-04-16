@@ -10,7 +10,8 @@ const {
   sessionCreate,
   sessionUpdate,
   sessionRecordEvent,
-  membershipFindByComposite
+  membershipFindByComposite,
+  txCourseFindUnique
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -19,7 +20,8 @@ const {
   sessionCreate: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
-  membershipFindByComposite: vi.fn()
+  membershipFindByComposite: vi.fn(),
+  txCourseFindUnique: vi.fn()
 }));
 
 vi.mock("@nojv/db", () => {
@@ -40,7 +42,11 @@ vi.mock("@nojv/db", () => {
     courseMembershipRepo: {
       withTx: () => ({ findByComposite: membershipFindByComposite })
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    // assertEnrolledInExamCourse now reads `tx.course` directly to check
+    // course.archived alongside membership; provide a tx mock that exposes it.
+    runTransaction: async <T>(
+      fn: (tx: { course: { findUnique: typeof txCourseFindUnique } }) => Promise<T>
+    ): Promise<T> => fn({ course: { findUnique: txCourseFindUnique } })
   };
 });
 
@@ -62,7 +68,7 @@ const fakeActor = {
   platformRole: "student" as const
 };
 
-function setupEnrolledStudent() {
+function setupEnrolledStudent({ archived = false }: { archived?: boolean } = {}) {
   examFindById.mockResolvedValue(fakeExam);
   membershipFindByComposite.mockResolvedValue({
     courseId: fakeExam.courseId,
@@ -70,6 +76,7 @@ function setupEnrolledStudent() {
     status: "active",
     role: "student"
   });
+  txCourseFindUnique.mockResolvedValue({ archived });
 }
 
 describe("examDomain.session.startSession", () => {

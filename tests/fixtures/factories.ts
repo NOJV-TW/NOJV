@@ -149,9 +149,6 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
   return problem;
 }
 
-// --- Problem workspace file ---
-// Allows a test to attach editable/readonly/hidden files to an existing
-// problem. No existing test needs this by default; callers opt in.
 export async function createTestProblemWorkspaceFile(
   overrides: Omit<Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>, "contentKey"> & {
     problemId: string;
@@ -252,10 +249,7 @@ export async function createTestSubmission(
   }
 
   const status = overrides.status ?? "accepted";
-  // Terminal statuses always carry a verdictDetail in production — the judge
-  // pipeline writes them atomically. Integration tests that only care about
-  // filtering/ordering fall through this default so `listProblemSubmissions`
-  // (which `.parse()`s verdictDetail) doesn't blow up on a missing JSONB.
+  // `listProblemSubmissions` `.parse()`s verdictDetail — fill it for terminal statuses so tests don't blow up.
   const defaultVerdictDetail = isTerminalVerdict(status)
     ? buildDefaultVerdictDetail(status)
     : undefined;

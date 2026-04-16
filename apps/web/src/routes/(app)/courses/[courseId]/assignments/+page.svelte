@@ -66,14 +66,6 @@
     }
   }
 
-  /**
-   * Urgency hint rendered in the meta row (right of the status badge).
-   * `null` means no hint — we omit the meta dot as well.
-   *
-   * Intentionally rough for now: "還有 N 天" for open assignments closing
-   * later today/week, "今晚截止" when <= 24h, "N 天後開始" for upcoming.
-   * Closed rows get no hint.
-   */
   function urgencyHint(
     status: "draft" | "upcoming" | "open" | "closed",
     opensAt: string | null,

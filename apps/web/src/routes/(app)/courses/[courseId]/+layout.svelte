@@ -35,7 +35,7 @@
   }
 </script>
 
-<div class="mx-auto w-full max-w-6xl px-6">
+<div class="w-full px-6">
   <CourseHero course={data.course} isManager={data.isManager} />
   <CourseTabBar
     courseId={data.course.id}

@@ -1,7 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect } from "./selects";
+import { problemMiniSelect, userScoreboardSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -32,13 +32,6 @@ export const contestRepo = {
     });
   },
 
-  findAllowedLanguages(slug: string) {
-    return prisma.contest.findUnique({
-      where: { slug },
-      select: { allowedLanguages: true }
-    });
-  },
-
   listPublished() {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -47,10 +40,7 @@ export const contestRepo = {
     });
   },
 
-  /**
-   * Contests a user manages. Standalone contests only — course-role
-   * teaching rights live on `Exam` now.
-   */
+  // Standalone contests only; course-role teaching rights live on `Exam`.
   listManagedForUser(userId: string) {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -59,10 +49,6 @@ export const contestRepo = {
     });
   },
 
-  /**
-   * Standalone published contests a user may participate in. No more
-   * course-embedded path — every published contest is participable.
-   */
   listParticipable() {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -114,7 +100,7 @@ export const contestRepo = {
         },
         participations: {
           include: {
-            user: { select: { displayUsername: true, username: true, name: true } }
+            user: { select: userScoreboardSelect }
           },
           where: { status: { in: ["active", "submitted"] } }
         }
@@ -193,6 +179,15 @@ export const contestRepo = {
 };
 
 export const contestProblemRepo = {
+  existsBySlug(contestSlug: string, problemId: string) {
+    return prisma.contestProblem
+      .findFirst({
+        where: { contest: { slug: contestSlug }, problemId },
+        select: { id: true }
+      })
+      .then((row) => row !== null);
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ContestProblemUncheckedCreateInput) {

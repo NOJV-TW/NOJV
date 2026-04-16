@@ -98,22 +98,13 @@ export async function dispatchAssessmentLifecycle(
   });
 }
 
-/**
- * Schedule the durable timer that auto-closes every active session
- * for an exam at `endsAt`. The workflow id is keyed on `examId`, so
- * re-publishing the same exam terminates any pending workflow and
- * starts a fresh one — this is what enables the "edit endsAt and the
- * timer follows" flow without leaking workflows.
- */
+// Workflow id is keyed on `examId`; re-publishing terminates the pending workflow so the new endsAt follows.
 export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void> {
   const client = await getClient();
 
   await client.workflow.start("examAutoCloseWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `exam-auto-close-${input.examId}`,
-    // If a previous auto-close workflow is still sleeping for this
-    // exam (e.g. teacher edited `endsAt` and we're rescheduling),
-    // terminate it so the new sleep window is authoritative.
     workflowIdConflictPolicy: "TERMINATE_EXISTING",
     args: [input]
   });

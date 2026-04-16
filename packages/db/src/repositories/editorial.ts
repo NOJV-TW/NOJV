@@ -1,12 +1,13 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
+import { userPublicSelect } from "./selects";
 
 export const editorialRepo = {
   listByProblemId(problemId: string) {
     return prisma.editorial.findMany({
       where: { problemId },
       orderBy: { createdAt: "desc" },
-      include: { user: { select: { username: true, name: true } } }
+      include: { user: { select: userPublicSelect } }
     });
   },
 

@@ -53,10 +53,10 @@
     }
   }
 
-  function scoringLabel(mode: "point_sum" | "icpc"): string {
-    return mode === "icpc"
-      ? m.courseOverview_scoringIcpc()
-      : m.courseOverview_scoringIoi();
+  function scoringLabel(mode: "point_sum" | "problem_count"): string {
+    return mode === "problem_count"
+      ? m.courseOverview_scoringProblemCount()
+      : m.courseOverview_scoringPointSum();
   }
 </script>
 

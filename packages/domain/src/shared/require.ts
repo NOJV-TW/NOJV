@@ -9,17 +9,6 @@ import {
 
 import { NotFoundError } from "./errors";
 
-/**
- * Pure "exists-else-throw" helpers for the domain layer.
- *
- * Each helper takes a Prisma transaction client plus a lookup key,
- * calls the corresponding repository's findById/findBySlug, and throws
- * a `NotFoundError` when the entity does not exist.
- *
- * Access-check helpers (ownership, visibility, permission) belong in
- * their respective feature folders — only existence checks live here.
- */
-
 export async function requireProblem(tx: TransactionClient, problemId: string) {
   const problem = await problemRepo.withTx(tx).findById(problemId);
 

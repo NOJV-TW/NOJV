@@ -1,6 +1,7 @@
 import { error, redirect } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
+import { m } from "$lib/paraglide/messages.js";
 import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
 const { getContestWorkspaceData } = contestDomain;
@@ -15,7 +16,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const now = new Date();
 
   const [contestData, problem, submissions] = await Promise.all([
-    getContestWorkspaceData(contestSlug, actor.userId, { now }),
+    getContestWorkspaceData(contestSlug, actor.userId, {
+      now,
+      platformRole: actor.platformRole
+    }),
     getProblemPageData(problemId),
     listProblemSubmissions(actor.userId, problemId)
   ]);
@@ -26,7 +30,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const isContestProblem = problemsList.some((p) => p.id === problemId);
 
   if (!isContestProblem && !contestData.isManager) {
-    error(404, "Problem not found in this contest");
+    error(404, m.contestDetail_problemNotFound());
   }
 
   if (!contestData.isManager) {

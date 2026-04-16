@@ -94,11 +94,6 @@ function setSecurityHeaders(response: Response): void {
   }
 }
 
-// Exams are identified by id (no slug) and live under a course route.
-// Phase 3 will build the dedicated `/courses/[courseId]/exams/[examId]`
-// page; for now the page lock just redirects to that path and allows
-// traffic that is already on it or is hitting a problem with an
-// `exam=<id>` query param.
 function isExamAllowed(
   pathname: string,
   searchParams: URLSearchParams,
@@ -116,13 +111,7 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
 
   const context = await getPageLockedContext(userId);
 
-  // Bounded FIFO / LRU-on-write eviction. Map iterates in insertion order,
-  // so the first key is the oldest insertion. Deleting the existing entry
-  // for this user first (if any) re-promotes them to the tail on set,
-  // giving a proper LRU behavior for actively-refreshing users. Without
-  // this, the old cleanup logic was unbounded: it only removed EXPIRED
-  // entries when size > MAX, so 10k+ concurrent fresh users with a 30s
-  // TTL would grow the map indefinitely and make every miss O(N).
+  // FIFO/LRU eviction: re-inserting on set promotes to the tail; first key is the oldest.
   pageLockCache.delete(userId);
   if (pageLockCache.size >= PAGE_LOCK_CACHE_MAX) {
     const oldestKey = pageLockCache.keys().next().value;
@@ -133,14 +122,7 @@ async function getCachedPageLockContext(userId: string): Promise<PageLockedConte
   return context;
 }
 
-/**
- * In-memory cache for the exam session lock. Mirrors `pageLockCache`
- * (30s TTL, bounded FIFO/LRU). Reading `ActiveExamSession` on every
- * request is too expensive; a student cannot enter a new exam inside
- * a 30-second window, so stale "no exam" entries are harmless and
- * stale "in exam" entries just delay a freshly-released user from
- * leaving the exam by at most one TTL.
- */
+// 30s TTL / bounded FIFO-LRU: stale entries at most delay a freshly-released user from leaving the exam.
 const examContextCache = new Map<
   string,
   { context: ActiveExamContext | null; expiresAt: number }
@@ -189,10 +171,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.session = session?.session ?? null;
   event.locals.user = session?.user ?? null;
-  // better-auth already infers session.user from the auth config (additional
-  // fields + username plugin), so the value is trustworthy. The only gap vs.
-  // SessionUser is that platformRole is widened to `string` and username may
-  // be `undefined`; cast to reconcile without re-validating.
+  // better-auth's inferred session.user is trustworthy; cast narrows `platformRole` / `username` to SessionUser.
   event.locals.sessionUser = (session?.user ?? null) as SessionUser | null;
 
   if (event.locals.sessionUser?.disabled) {
@@ -221,15 +200,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
-  // Exam session lock (Phase 4 §4.7 State B): once a student has an
-  // active exam session, every non-exam navigation bounces back to the
-  // exam's first problem page and is logged as a `visibility_lost`
-  // event. Must run after session fetch but before the paraglide
-  // middleware so the redirect target is a base-locale path.
-  //
-  // Failure mode: if the DB lookup throws (outage, stale cache, etc.),
-  // log and fail open — the student must not be blocked from the site
-  // because the lock subsystem is degraded.
+  // Fails open on DB error: a degraded lock subsystem must never block the student from the site.
   if (event.locals.sessionUser) {
     const sessionUser = event.locals.sessionUser;
     let examCtx: ActiveExamContext | null = null;
@@ -278,29 +249,11 @@ export const handle: Handle = async ({ event, resolve }) => {
   });
 };
 
-/**
- * Global error hook for UNEXPECTED server-side errors.
- *
- * SvelteKit invokes this only when a load / render / endpoint path throws
- * something other than a redirect or a `error(status, message)` call. For
- * EXPECTED domain errors (404/403/422), load functions should be wrapped
- * with `handleLoad` from `$lib/server/shared/load-wrapper`, which maps
- * `HttpError` subclasses to `error(status, message)` before they reach
- * this hook.
- *
- * This hook's job is therefore:
- *   1. Log the unexpected error with enough context to debug.
- *   2. Return a user-safe `App.Error` body that never leaks internals.
- *
- * It must never throw.
- */
+// Expected domain errors are wrapped by `handleLoad`; anything reaching here is an unexpected throw.
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
   const classified = classifyError(error);
 
-  // Redirects and SvelteKit's own errors short-circuit before reaching this
-  // hook, so anything classified as "http" here is a domain HttpError that
-  // escaped a load function without being wrapped by `handleLoad`. Surface
-  // the real message in that case — it's already safe by construction.
+  // An "http" classification here is a domain HttpError that escaped an unwrapped load function.
   if (classified.type === "http") {
     errorLogger.warn("Unwrapped domain HttpError reached handleError", {
       method: event.request.method,

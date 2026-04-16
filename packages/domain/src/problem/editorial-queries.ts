@@ -1,13 +1,5 @@
-import { editorialRepo, problemRepo, submissionRepo } from "@nojv/db";
+import { editorialRepo, submissionRepo } from "@nojv/db";
 import type { Language } from "@nojv/core";
-
-export async function findProblemById(id: string) {
-  return problemRepo.findById(id);
-}
-
-export async function listEditorials(problemId: string) {
-  return editorialRepo.listByProblemId(problemId);
-}
 
 export async function hasUserAcProblem(userId: string, problemId: string): Promise<boolean> {
   const count = await submissionRepo.count({

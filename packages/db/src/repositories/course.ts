@@ -1,6 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import { userPublicSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -62,13 +63,9 @@ export const courseRepo = {
         }
       }
     });
+    // `archived` is a scalar field on Course and is included by default.
   },
 
-  /**
-   * Batched fetch for the /courses listing page. Pulls every course the
-   * given IDs point at, with owner display name + a per-course `_count`
-   * block covering the counters the course card needs.
-   */
   findManyForCards(courseIds: string[]) {
     if (courseIds.length === 0) return Promise.resolve([]);
     return prisma.course.findMany({
@@ -139,7 +136,7 @@ export const courseMembershipRepo = {
       where: { courseId, role: "student", status: "active" },
       select: {
         userId: true,
-        user: { select: { username: true, name: true } }
+        user: { select: userPublicSelect }
       },
       orderBy: { user: { username: "asc" } }
     });
@@ -149,6 +146,12 @@ export const courseMembershipRepo = {
     return prisma.courseMembership.findMany({
       where: { userId, status: "active" },
       select: { courseId: true, role: true, status: true }
+    });
+  },
+
+  findByComposite(courseId: string, userId: string) {
+    return prisma.courseMembership.findUnique({
+      where: { courseId_userId: { courseId, userId } }
     });
   },
 

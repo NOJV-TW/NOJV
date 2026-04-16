@@ -33,11 +33,6 @@ export const load: PageServerLoad = async (event) => {
   return { form, candidateProblems };
 };
 
-// Shared between the two form actions. Both draft and publish share
-// everything except the final `status` that gets persisted. Manager
-// permission is (re-)verified inside `createCourseAssessmentRecord`
-// because `event.parent()` is not available to form actions — see
-// members/+page.server.ts for the same pattern.
 async function submitAssignment(event: RequestEvent, status: "draft" | "published") {
   const limited = await consumeFormRateLimit(event);
   if (limited) return limited;

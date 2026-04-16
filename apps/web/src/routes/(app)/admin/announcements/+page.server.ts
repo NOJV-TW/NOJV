@@ -1,7 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import { DEFAULT_LOCALE } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { announcementDomain } from "@nojv/domain";
 
@@ -48,10 +48,7 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions = {
-  create: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  create: withRateLimit(async (event) => {
     const formData = await event.request.formData();
     const title = readString(formData, "title");
     const content = readString(formData, "content");
@@ -68,12 +65,9 @@ export const actions = {
     });
 
     return { success: true };
-  },
+  }),
 
-  update: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  update: withRateLimit(async (event) => {
     const formData = await event.request.formData();
     const id = readString(formData, "id");
     const title = readString(formData, "title");
@@ -91,23 +85,17 @@ export const actions = {
     });
 
     return { success: true };
-  },
+  }),
 
-  delete: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  delete: withRateLimit(async (event) => {
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
     await deleteAnnouncement(id);
     return { success: true };
-  },
+  }),
 
-  togglePin: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  togglePin: withRateLimit(async (event) => {
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
@@ -115,12 +103,9 @@ export const actions = {
     if (!result) return fail(404, { error: "Not found." });
 
     return { success: true };
-  },
+  }),
 
-  togglePublish: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  togglePublish: withRateLimit(async (event) => {
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
@@ -128,5 +113,5 @@ export const actions = {
     if (!result) return fail(404, { error: "Not found." });
 
     return { success: true };
-  }
+  })
 } satisfies Actions;
