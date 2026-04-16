@@ -34,6 +34,6 @@ export const actions = {
       return fail(404, { codeError: m.contestsList_codeErrorInvalid() });
     }
 
-    redirect(303, `/contests/${contest.slug}`);
+    redirect(303, `/contests/${contest.id}`);
   }
 } satisfies Actions;

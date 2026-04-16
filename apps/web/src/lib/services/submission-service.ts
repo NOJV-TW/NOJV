@@ -10,7 +10,7 @@ import {
 } from "@nojv/core";
 
 export interface SubmissionAssessmentContext {
-  assessmentSlug: string;
+  assessmentId: string;
   courseId: string;
 }
 
@@ -21,7 +21,7 @@ export interface SubmissionWorkspaceFilePayload {
 
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
-  contestSlug?: string | undefined;
+  contestId?: string | undefined;
   language: Language;
   problemId: string;
   // Server rejects runCases when `sampleOnly` is false — they must never touch graded submissions.
@@ -45,7 +45,7 @@ const MAX_POLL_DELAY_MS = 3_000;
 const POLL_BACKOFF_FACTOR = 1.5;
 
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
-  const mode: "contest" | "assignment" | "practice" = request.contestSlug
+  const mode: "contest" | "assignment" | "practice" = request.contestId
     ? "contest"
     : request.assessment
       ? "assignment"
@@ -53,12 +53,10 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
 
   const commonFields: Record<string, unknown> = {
     assessment: request.assessment,
-    contestSlug: request.contestSlug,
+    contestId: request.contestId,
     language: request.language,
     mode,
     problemId: request.problemId,
-    // Backward compat: some stale backend bundles still validate `problemSlug` as an alias for the problem id.
-    problemSlug: request.problemId,
     sampleOnly: request.sampleOnly ?? false
   };
 

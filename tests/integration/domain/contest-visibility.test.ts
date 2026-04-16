@@ -34,7 +34,7 @@ describe("getContestDetail visibility gating", () => {
     await attachProblem(contest.id, 1, 100);
 
     const stranger = await createTestUser();
-    const result = await getContestDetail(contest.slug, {
+    const result = await getContestDetail(contest.id, {
       userId: stranger.id,
       now: new Date("2026-01-01T00:00:00Z")
     });
@@ -55,7 +55,7 @@ describe("getContestDetail visibility gating", () => {
     });
     await attachProblem(contest.id, 1, 100);
 
-    const result = await getContestDetail(contest.slug, {
+    const result = await getContestDetail(contest.id, {
       userId: owner.id,
       now: new Date("2026-01-01T00:00:00Z")
     });
@@ -74,7 +74,7 @@ describe("getContestDetail visibility gating", () => {
     await attachProblem(contest.id, 1, 100);
     const stranger = await createTestUser();
 
-    const result = await getContestDetail(contest.slug, {
+    const result = await getContestDetail(contest.id, {
       userId: stranger.id,
       now: new Date("2026-01-01T00:00:00Z")
     });
@@ -91,7 +91,7 @@ describe("getContestDetail visibility gating", () => {
     });
     await attachProblem(contest.id, 1, 100);
 
-    const result = await getContestDetail(contest.slug, {
+    const result = await getContestDetail(contest.id, {
       userId: null,
       now: new Date("2026-01-01T00:00:00Z")
     });
