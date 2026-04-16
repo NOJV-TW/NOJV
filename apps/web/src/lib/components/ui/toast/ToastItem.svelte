@@ -3,6 +3,7 @@
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { cn } from "$lib/utils.js";
+  import { m } from "$lib/paraglide/messages.js";
   import { toasts, type Toast, type ToastType } from "$lib/stores/toast";
   import { Button } from "$lib/components/ui/button";
 
@@ -109,7 +110,7 @@
       type="button"
       class="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground"
       onclick={() => toasts.remove(toast.id)}
-      aria-label="Dismiss notification"
+      aria-label={m.common_dismissNotification()}
     >
       <X class="size-4" aria-hidden="true" />
     </button>

@@ -45,8 +45,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   ]);
 
   // Active-only filter mirrors the UI; removed rows live on the server for audit.
+  // Placeholders are only exposed to managers — leaking placeholder usernames to
+  // peers lets any student claim a pre-invited TA/teacher handle via the
+  // self-service rename flow and inherit the course membership.
   const visibleMembers = members
     .filter((member) => member.status === "active")
+    .filter((member) => isManager || !member.isPlaceholder)
     .map((member) => ({
       userId: member.userId,
       name: member.name,

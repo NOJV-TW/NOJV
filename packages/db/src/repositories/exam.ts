@@ -117,7 +117,9 @@ export const examRepo = {
     return prisma.exam.findUnique({
       include: {
         _count: { select: { participations: true } },
-        course: { select: courseMiniSelect },
+        // `archived` is needed by the detail page to gate student
+        // click-through; adding it here keeps courseMiniSelect lean.
+        course: { select: { id: true, title: true, archived: true } },
         problems: {
           include: {
             problem: { select: problemTeacherMiniSelect }

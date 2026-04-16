@@ -55,8 +55,8 @@
 
   function scoringLabel(mode: "point_sum" | "problem_count"): string {
     return mode === "problem_count"
-      ? m.courseOverview_scoringIcpc()
-      : m.courseOverview_scoringIoi();
+      ? m.courseOverview_scoringProblemCount()
+      : m.courseOverview_scoringPointSum();
   }
 </script>
 

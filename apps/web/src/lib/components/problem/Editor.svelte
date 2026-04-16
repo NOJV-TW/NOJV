@@ -366,7 +366,7 @@
     class="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
     role="separator"
     aria-orientation="horizontal"
-    aria-label="Resize bottom panel"
+    aria-label={m.common_resizeBottomPanel()}
     tabindex="0"
     onmousedown={startBottomResize}
     onkeydown={(e) => {

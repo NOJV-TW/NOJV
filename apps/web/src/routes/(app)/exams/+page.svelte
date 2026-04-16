@@ -81,7 +81,9 @@
   }
 
   function scoringLabel(mode: "problem_count" | "point_sum"): string {
-    return mode === "point_sum" ? m.examsTop_scoringIoi() : m.examsTop_scoringIcpc();
+    return mode === "point_sum"
+      ? m.examsTop_scoringPointSum()
+      : m.examsTop_scoringProblemCount();
   }
 </script>
 

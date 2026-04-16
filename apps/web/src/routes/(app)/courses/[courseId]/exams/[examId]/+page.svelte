@@ -99,8 +99,8 @@
 
   function scoringLabel(mode: typeof detail.scoringMode): string {
     return mode === "problem_count"
-      ? m.examDetail_scoringIcpc()
-      : m.examDetail_scoringIoi();
+      ? m.examDetail_scoringProblemCount()
+      : m.examDetail_scoringPointSum();
   }
 
   function difficultyLabel(d: "easy" | "medium" | "hard"): string {

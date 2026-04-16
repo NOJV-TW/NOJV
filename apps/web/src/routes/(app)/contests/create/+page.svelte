@@ -114,8 +114,8 @@
     <div>
       <label class="text-sm font-medium" for="scoringMode">{m.contestCreate_scoringMode()}</label>
       <select class={inputClassName} id="scoringMode" name="scoringMode" bind:value={$form.scoringMode}>
-        <option value="problem_count">Problem count (ICPC-style, penalty tiebreaker)</option>
-        <option value="point_sum">Point sum (IOI-style, partial credit)</option>
+        <option value="problem_count">{m.contestCreate_scoringModeProblemCount()}</option>
+        <option value="point_sum">{m.contestCreate_scoringModePointSum()}</option>
       </select>
     </div>
 
@@ -138,7 +138,7 @@
       <select class={inputClassName} id="scoreboardMode" name="scoreboardMode" bind:value={$form.scoreboardMode}>
         <option value="live">{m.contestDetail_live()}</option>
         <option value="frozen">{m.contestDetail_frozen()}</option>
-        <option value="hidden">Hidden</option>
+        <option value="hidden">{m.contestCreate_scoreboardModeHidden()}</option>
       </select>
     </div>
 

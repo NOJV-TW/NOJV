@@ -117,6 +117,18 @@ export async function renameUsername(
     }
 
     if (conflict.status === "pending_first_login") {
+      // A self-service rename must not inherit TA/teacher course memberships.
+      // Report the same "TAKEN" error as a regular conflict so the existence of
+      // privileged placeholders cannot be probed by handle enumeration. Real
+      // TAs/teachers attach through `attachPlaceholderToAuth` (OAuth/email).
+      const elevatedMembership = await tx.courseMembership.findFirst({
+        where: { userId: conflict.id, role: { in: ["teacher", "ta"] } },
+        select: { id: true }
+      });
+      if (elevatedMembership) {
+        throw new ConflictError("TAKEN");
+      }
+
       await userRepo.attachPlaceholderInTx(tx, conflict.id, userId);
       await userRepo.withTx(tx).update(userId, {
         username: normalized,

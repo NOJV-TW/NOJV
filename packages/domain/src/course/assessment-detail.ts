@@ -90,19 +90,33 @@ export async function getAssignmentDetail(
   const row = await assessmentRepo.findDetailById(courseId, assessmentId);
   if (!row) throw new NotFoundError("Assignment not found.");
 
-  const problems: AssignmentDetailProblem[] = row.problems.map((p) => ({
-    problemId: p.problem.id,
-    ordinal: p.ordinal,
-    letter: letterFor(p.ordinal),
-    title: p.problem.title,
-    difficulty: p.problem.difficulty as "easy" | "medium" | "hard",
-    points: p.points,
-    myStatus: null
-  }));
-
-  const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
-
   const status = deriveStatus(row, now);
+
+  // Draft assessments are author-facing only — surface as 404 to everyone else.
+  if (!options.isManager && status === "draft") {
+    throw new NotFoundError("Assignment not found.");
+  }
+
+  // Non-managers see problems only once the assessment has opened. Before
+  // then (upcoming) we strip the list so neither the UI nor a downstream
+  // caller can leak problem titles or link targets.
+  const hideProblemsFromViewer = !options.isManager && status === "upcoming";
+
+  const problems: AssignmentDetailProblem[] = hideProblemsFromViewer
+    ? []
+    : row.problems.map((p) => ({
+        problemId: p.problem.id,
+        ordinal: p.ordinal,
+        letter: letterFor(p.ordinal),
+        title: p.problem.title,
+        difficulty: p.problem.difficulty,
+        points: p.points,
+        myStatus: null
+      }));
+
+  const totalPoints = hideProblemsFromViewer
+    ? row.problems.reduce((sum, p) => sum + p.points, 0)
+    : problems.reduce((sum, p) => sum + p.points, 0);
 
   let myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null = null;
 
@@ -210,7 +224,10 @@ export async function getAssignmentDetail(
     maxAttemptsPerDay: row.maxAttemptsPerDay,
     allowedLanguages: row.allowedLanguages as string[],
     totalPoints,
-    problemCount: problems.length,
+    // The true count stays visible to upcoming-viewers — the UI uses it
+    // to render "N problems will unlock when the assignment opens" — but
+    // the `problems` array stays empty.
+    problemCount: row.problems.length,
     problems,
     myRecentSubmissions
   };

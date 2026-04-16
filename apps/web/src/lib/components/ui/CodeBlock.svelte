@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Copy, Check } from "@lucide/svelte";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     code: string;
@@ -42,10 +43,10 @@
     >
       {#if copied}
         <Check class="h-3.5 w-3.5 text-emerald-500" />
-        <span class="text-emerald-500">Copied</span>
+        <span class="text-emerald-500">{m.common_copied()}</span>
       {:else}
         <Copy class="h-3.5 w-3.5" />
-        <span>Copy</span>
+        <span>{m.common_copy()}</span>
       {/if}
     </button>
   </div>

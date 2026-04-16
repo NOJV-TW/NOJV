@@ -62,7 +62,7 @@
 
   const sections: { id: string; label: string; icon: string }[] = [
     { id: "basic", label: m.admin_tabBasicInfo(), icon: "📝" },
-    { id: "workspace", label: "Workspace", icon: "💻" },
+    { id: "workspace", label: m.admin_tabWorkspace(), icon: "💻" },
     { id: "testcase", label: m.admin_tabTestcase(), icon: "🧪" },
     { id: "judge", label: m.admin_tabJudge(), icon: "⚖️" },
   ];

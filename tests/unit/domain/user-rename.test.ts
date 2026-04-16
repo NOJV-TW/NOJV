@@ -6,16 +6,21 @@ const {
   userWithTxFindById,
   userWithTxFindByUsername,
   userWithTxUpdate,
-  attachPlaceholderInTx
+  attachPlaceholderInTx,
+  courseMembershipFindFirst
 } = vi.hoisted(() => ({
   userUpdate: vi.fn(),
   userWithTxFindById: vi.fn(),
   userWithTxFindByUsername: vi.fn(),
   userWithTxUpdate: vi.fn(),
-  attachPlaceholderInTx: vi.fn()
+  attachPlaceholderInTx: vi.fn(),
+  courseMembershipFindFirst: vi.fn()
 }));
 
 vi.mock("@nojv/db", () => {
+  // The tx passed to callers exposes the Prisma delegates the domain code
+  // actually touches — here only `courseMembership.findFirst`.
+  const tx = { courseMembership: { findFirst: courseMembershipFindFirst } };
   return {
     userRepo: {
       update: userUpdate,
@@ -26,7 +31,7 @@ vi.mock("@nojv/db", () => {
       }),
       attachPlaceholderInTx
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn(tx)
   };
 });
 
@@ -154,7 +159,7 @@ describe("renameUsername", () => {
     expect(userWithTxUpdate).not.toHaveBeenCalled();
   });
 
-  it("new username matches a placeholder — merges memberships, deletes placeholder, merged: true", async () => {
+  it("new username matches a student-only placeholder — merges memberships, deletes placeholder, merged: true", async () => {
     userWithTxFindById.mockResolvedValueOnce(
       fakeUser({ id: "usr_actor", username: "oldname" })
     );
@@ -163,10 +168,15 @@ describe("renameUsername", () => {
       username: "newname",
       status: "pending_first_login"
     });
+    courseMembershipFindFirst.mockResolvedValueOnce(null);
 
     const result = await renameUsername("usr_actor", "newname");
 
     expect(result).toEqual({ merged: true });
+    expect(courseMembershipFindFirst).toHaveBeenCalledWith({
+      where: { userId: "usr_placeholder", role: { in: ["teacher", "ta"] } },
+      select: { id: true }
+    });
     expect(attachPlaceholderInTx).toHaveBeenCalledWith(
       expect.anything(),
       "usr_placeholder",
@@ -176,5 +186,43 @@ describe("renameUsername", () => {
       username: "newname",
       displayUsername: "newname"
     });
+  });
+
+  // Regression: without this guard, any enrolled student could rename to a
+  // pre-invited TA/teacher handle and inherit the CourseMembership.role ==
+  // "ta"/"teacher", escalating to course-manager privileges. We surface the
+  // generic TAKEN error so privileged placeholders cannot be fingerprinted.
+  it("placeholder with a TA course membership — refuses to merge and throws TAKEN", async () => {
+    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
+    userWithTxFindByUsername.mockResolvedValueOnce({
+      id: "usr_placeholder",
+      username: "alice_ta2026",
+      status: "pending_first_login"
+    });
+    courseMembershipFindFirst.mockResolvedValueOnce({ id: "cm_elevated" });
+
+    const err = await renameUsername("usr_actor", "alice_ta2026").catch((e) => e);
+
+    expect(err).toBeInstanceOf(ConflictError);
+    expect(err.message).toBe("TAKEN");
+    expect(attachPlaceholderInTx).not.toHaveBeenCalled();
+    expect(userWithTxUpdate).not.toHaveBeenCalled();
+  });
+
+  it("placeholder with a teacher course membership — refuses to merge and throws TAKEN", async () => {
+    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
+    userWithTxFindByUsername.mockResolvedValueOnce({
+      id: "usr_placeholder",
+      username: "prof_x",
+      status: "pending_first_login"
+    });
+    courseMembershipFindFirst.mockResolvedValueOnce({ id: "cm_elevated" });
+
+    const err = await renameUsername("usr_actor", "prof_x").catch((e) => e);
+
+    expect(err).toBeInstanceOf(ConflictError);
+    expect(err.message).toBe("TAKEN");
+    expect(attachPlaceholderInTx).not.toHaveBeenCalled();
+    expect(userWithTxUpdate).not.toHaveBeenCalled();
   });
 });

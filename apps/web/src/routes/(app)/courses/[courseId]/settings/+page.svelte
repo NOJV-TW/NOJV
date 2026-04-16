@@ -1,7 +1,17 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { applyAction, enhance as kitEnhance } from "$app/forms";
-  import { AlertTriangle, Copy, Eye, Info, Save, Settings, Trash2 } from "@lucide/svelte";
+  import {
+    AlertTriangle,
+    Archive,
+    ArchiveRestore,
+    Copy,
+    Eye,
+    Info,
+    Save,
+    Settings,
+    Trash2
+  } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/ui/button";
@@ -27,6 +37,15 @@
   let typedConfirmation = $state("");
   let deleting = $state(false);
   let copying = $state(false);
+  let archiveSubmitting = $state(false);
+  // Mirror server state locally so the toggle reflects the latest action
+  // result without waiting for full page reload (kit's `update()` handles
+  // the eventual sync). Initial read is wrapped in `untrack` so Svelte
+  // doesn't warn about capturing-but-not-reactively-following `data`.
+  let archivedLocal = $state(untrack(() => data.archived));
+  $effect(() => {
+    archivedLocal = data.archived;
+  });
 
   const courseTitle = $derived(data.form.data.title);
   const canDelete = $derived(typedConfirmation === courseTitle && courseTitle.length > 0);
@@ -202,7 +221,64 @@
     </div>
   </section>
 
-  <!-- 4. Danger zone -->
+  <!-- 4. Archive (reversible, separate from danger zone) -->
+  <section
+    class="animate-in animate-in-3 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
+  >
+    <div class="mb-6 flex items-start gap-3.5">
+      <span
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
+        aria-hidden="true"
+      >
+        {#if archivedLocal}
+          <ArchiveRestore class="h-5 w-5" />
+        {:else}
+          <Archive class="h-5 w-5" />
+        {/if}
+      </span>
+      <div>
+        <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+          {archivedLocal
+            ? m.courseSettings_archiveCardTitleArchived()
+            : m.courseSettings_archiveCardTitleActive()}
+        </h2>
+        <p class="mt-1 text-caption text-muted-foreground">
+          {m.courseSettings_archiveCardDesc()}
+        </p>
+      </div>
+    </div>
+
+    <form
+      method="POST"
+      action="?/toggleArchive"
+      use:kitEnhance={() => {
+        archiveSubmitting = true;
+        // Optimistic flip — server response will reconcile via `update()`.
+        archivedLocal = !archivedLocal;
+        return async ({ result, update }) => {
+          archiveSubmitting = false;
+          if (result.type !== "success") {
+            archivedLocal = !archivedLocal;
+          }
+          await applyAction(result);
+          await update({ reset: false });
+        };
+      }}
+    >
+      <input type="hidden" name="archived" value={String(!archivedLocal)} />
+      <Button type="submit" variant="outline" disabled={archiveSubmitting}>
+        {#if archivedLocal}
+          <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
+          {m.courseSettings_unarchiveButton()}
+        {:else}
+          <Archive class="h-4 w-4" aria-hidden="true" />
+          {m.courseSettings_archiveButton()}
+        {/if}
+      </Button>
+    </form>
+  </section>
+
+  <!-- 5. Danger zone -->
   <section
     class="animate-in animate-in-4 rounded-2xl border p-7"
     style="background: rgba(184, 55, 42, 0.04); border-color: rgba(184, 55, 42, 0.28);"

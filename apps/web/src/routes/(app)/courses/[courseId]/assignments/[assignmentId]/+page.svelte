@@ -189,16 +189,26 @@
         </span>
       </div>
 
+      {#if detail.status === "upcoming"}
+        <!-- Assignment hasn't opened — hide problem titles and links. The
+             domain layer enforces the same rule by returning an empty list. -->
+        <div
+          class="rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+        >
+          <p class="text-body-lg font-medium text-foreground">
+            {m.assignmentDetail_studentProblemsLockedTitle({ count: detail.problemCount })}
+          </p>
+          <p class="mt-2 text-body-sm text-muted-foreground">
+            {m.assignmentDetail_studentProblemsLockedHint({
+              when: formatDateTimeCompact(detail.opensAt)
+            })}
+          </p>
+        </div>
+      {:else}
       <div class="grid gap-3">
         {#each detail.problems as problem (problem.problemId)}
           {@const state = problem.myStatus?.state ?? "none"}
-          <a
-            href={`/problems/${problem.problemId}?courseId=${detail.courseId}&assessmentId=${detail.id}`}
-            class={cn(
-              "group grid grid-cols-[auto_1fr_auto_auto] items-center gap-5 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 no-underline text-foreground transition-[transform,background-color,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[3px] hover:shadow-rest",
-              studentRowClass(state)
-            )}
-          >
+          {#snippet rowBody()}
             <div
               class={cn(
                 "flex h-[42px] w-[42px] items-center justify-center rounded-md border font-display text-title-sm font-medium",
@@ -238,22 +248,46 @@
               </div>
             </div>
 
-            <div
-              class="font-display text-title font-medium tabular-nums leading-none"
-            >
+            <div class="font-display text-title font-medium tabular-nums leading-none">
               <span>{problem.myStatus?.bestScore ?? 0}</span>
               <span class="text-body-sm font-normal text-muted-foreground">
                 / {problem.points}
               </span>
             </div>
 
-            <ChevronRight
-              class="size-5 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </a>
+            {#if !data.course.archived}
+              <ChevronRight class="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            {:else}
+              <span class="size-5 shrink-0" aria-hidden="true"></span>
+            {/if}
+          {/snippet}
+
+          {#if data.course.archived}
+            <!-- Archived course: scores stay visible, click-through is removed.
+                 Submissions log below also reads as a static record. -->
+            <div
+              class={cn(
+                "grid grid-cols-[auto_1fr_auto_auto] items-center gap-5 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 text-foreground",
+                studentRowClass(state)
+              )}
+              aria-disabled="true"
+            >
+              {@render rowBody()}
+            </div>
+          {:else}
+            <a
+              href={`/problems/${problem.problemId}?course=${detail.courseId}&assessment=${detail.slug}`}
+              class={cn(
+                "group grid grid-cols-[auto_1fr_auto_auto] items-center gap-5 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 no-underline text-foreground transition-[transform,background-color,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[3px] hover:shadow-rest",
+                studentRowClass(state)
+              )}
+            >
+              {@render rowBody()}
+            </a>
+          {/if}
         {/each}
       </div>
+      {/if}
     </section>
 
     <section class="animate-in animate-in-2 mt-10">
@@ -341,7 +375,11 @@
 
     <div class="animate-in animate-in-2">
       {#if activeSubTab === "problems"}
-        <AssignmentProblemsTab problems={detail.problems} courseId={detail.courseId} />
+        <AssignmentProblemsTab
+          problems={detail.problems}
+          courseId={detail.courseId}
+          assessmentSlug={detail.slug}
+        />
       {:else if activeSubTab === "submissions"}
         <AssignmentSubmissionsMatrix
           matrix={data.matrix}

@@ -63,6 +63,7 @@ export const courseRepo = {
         }
       }
     });
+    // `archived` is a scalar field on Course and is included by default.
   },
 
   findManyForCards(courseIds: string[]) {
@@ -145,6 +146,12 @@ export const courseMembershipRepo = {
     return prisma.courseMembership.findMany({
       where: { userId, status: "active" },
       select: { courseId: true, role: true, status: true }
+    });
+  },
+
+  findByComposite(courseId: string, userId: string) {
+    return prisma.courseMembership.findUnique({
+      where: { courseId_userId: { courseId, userId } }
     });
   },
 

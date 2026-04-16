@@ -177,14 +177,85 @@ export async function listUpcomingAssessments(userId: string) {
   }));
 }
 
-export async function getAssessmentContext(courseId: string, assessmentSlug: string) {
-  const assessment = await assessmentRepo.findPublishedContext(courseId, assessmentSlug);
+export interface GetAssessmentContextOptions {
+  viewerUserId: string;
+  viewerPlatformRole: PlatformRole;
+  now?: Date;
+}
 
-  return assessment
-    ? {
-        allowedLanguages: assessment.allowedLanguages as Language[],
-        courseId: assessment.course.id,
-        slug: assessment.slug
-      }
-    : null;
+export interface AssessmentContextResult {
+  allowedLanguages: Language[];
+  courseId: string;
+  slug: string;
+  /** Internal assessment id — callers may need it for membership joins. */
+  assessmentId: string;
+  /** Resolved time-window state: `upcoming`, `open`, `closed`. */
+  timeStatus: "upcoming" | "open" | "closed";
+  /** True when the viewer is a manager (owner/teacher/TA) or platform admin. */
+  viewerIsManager: boolean;
+}
+
+/**
+ * Resolve an assessment by (courseId, slug) for the given viewer.
+ *
+ * Returns `null` when the assessment is missing, unpublished, or the
+ * viewer has no route to it. This masks the existence of the
+ * assessment from outsiders — critical because the problem page
+ * previously trusted any forged `?course=X&assessment=Y` query param.
+ *
+ * Authorization:
+ * - Platform admins always pass.
+ * - Course teachers/TAs pass and get `viewerIsManager: true`.
+ * - Enrolled students pass only when the assessment's time window is
+ *   currently open (upcoming/closed both reject).
+ */
+// intentional-nullable: the /problems/[id] loader is shared by practice, assignment, and contest modes — a missing or unauthorized assessment must silently fall back to practice-mode, not throw.
+export async function getAssessmentContext(
+  courseId: string,
+  assessmentSlug: string,
+  options: GetAssessmentContextOptions
+): Promise<AssessmentContextResult | null> {
+  const assessment = await assessmentRepo.findPublishedContext(courseId, assessmentSlug);
+  if (!assessment) return null;
+
+  const now = options.now ?? new Date();
+  const timeStatus: "upcoming" | "open" | "closed" =
+    now < assessment.opensAt ? "upcoming" : now > assessment.closesAt ? "closed" : "open";
+
+  const isAdmin = options.viewerPlatformRole === "admin";
+  const membership = await courseMembershipRepo.findByComposite(
+    assessment.course.id,
+    options.viewerUserId
+  );
+  const isCourseOwner = assessment.course.ownerId === options.viewerUserId;
+  const isCourseManager =
+    membership?.status === "active" &&
+    (membership.role === "teacher" || membership.role === "ta");
+  const isEnrolledStudent = membership?.status === "active" && membership.role === "student";
+
+  // Course creator keeps manager rights even if their membership was
+  // later removed — only teachers can create courses, so ownership
+  // indicates a deliberate, policy-level grant.
+  const viewerIsManager = isAdmin || isCourseManager || isCourseOwner;
+
+  if (!viewerIsManager) {
+    // Non-members never see the assessment exists.
+    if (!isEnrolledStudent) return null;
+    // Enrolled students lose access outside the time window.
+    if (timeStatus !== "open") return null;
+    // Archived courses keep score visibility but lock click-through
+    // into problem detail / submission. Returning null here means a
+    // student typing the URL directly hits the same closed door as
+    // the UI rendering.
+    if (assessment.course.archived) return null;
+  }
+
+  return {
+    allowedLanguages: assessment.allowedLanguages as Language[],
+    assessmentId: assessment.id,
+    courseId: assessment.course.id,
+    slug: assessment.slug,
+    timeStatus,
+    viewerIsManager
+  };
 }

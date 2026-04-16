@@ -14,10 +14,10 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("Seeding database...");
 
-  const { admin, teacher, taStudent, student, studentNtnu } = await seedUsers(prisma);
+  const { admin, teacher, taStudent, student } = await seedUsers(prisma);
   await seedProblems(prisma, teacher.id);
   await seedContests(prisma);
-  await seedCourses(prisma, { teacher, taStudent, student, studentNtnu });
+  await seedCourses(prisma, { teacher, taStudent, student });
 
   // Seed announcements. Title/content now live on AnnouncementTranslation;
   // the parent row carries lifecycle (status/audience/publishedAt).

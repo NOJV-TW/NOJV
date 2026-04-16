@@ -223,3 +223,20 @@ export async function deleteCourse(actor: ActorContext, courseId: string) {
     return courseRepo.withTx(tx).delete(courseId);
   });
 }
+
+// Course managers flip `archived` to freeze student click-through while
+// preserving their score history. The action is reversible; destructive
+// ops live in deleteCourse. No read-side invalidation needed — every
+// consumer reads `course.archived` fresh via the layout loader.
+export async function setCourseArchived(
+  actor: ActorContext,
+  courseId: string,
+  archived: boolean
+) {
+  return runTransaction(async (tx) => {
+    await requireCourse(tx, courseId);
+    await assertCourseManager(tx, actor, courseId);
+
+    return courseRepo.withTx(tx).update(courseId, { archived });
+  });
+}

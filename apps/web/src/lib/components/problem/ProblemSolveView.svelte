@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Language } from "@nojv/core";
+  import { m } from "$lib/paraglide/messages.js";
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
@@ -122,7 +123,7 @@
       <div
         class="flex items-center justify-between px-2 pb-3 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
       >
-        <span>Problems</span>
+        <span>{m.exam_problemsHeader()}</span>
         <span class="font-mono tabular-nums normal-case tracking-normal">
           {solvedCount}/{siblingProblems.length}
         </span>

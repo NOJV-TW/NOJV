@@ -2,14 +2,13 @@ import type { PrismaClient } from "../../generated/prisma/client";
 
 export async function seedCourses(
   prisma: PrismaClient,
-  users: {
-    teacher: { id: string };
-    taStudent: { id: string };
-    student: { id: string };
-    studentNtnu: { id: string };
-  }
+  users: { teacher: { id: string }; taStudent: { id: string }; student: { id: string } }
 ) {
-  const { teacher, taStudent, student, studentNtnu } = users;
+  const { teacher, taStudent, student } = users;
+
+  // Real OAuth-registered user (student handle `41047025s`) — enroll into the OS Lab course
+  // if present. Skipped on a fresh DB without the real login.
+  const studentNtnu = await prisma.user.findUnique({ where: { username: "41047025s" } });
 
   const osLabCourse = await prisma.course.upsert({
     create: {
@@ -25,12 +24,16 @@ export async function seedCourses(
 
   // Course memberships. Everyone is added by the teacher now that the
   // join-token flow has been removed.
-  const osLabMemberships = [
-    { userId: teacher.id, role: "teacher" as const },
-    { userId: taStudent.id, role: "ta" as const },
-    { userId: student.id, role: "student" as const },
-    { userId: studentNtnu.id, role: "student" as const }
+  const osLabMemberships: Array<{ userId: string; role: "teacher" | "ta" | "student" }> = [
+    { userId: teacher.id, role: "teacher" },
+    { userId: taStudent.id, role: "ta" },
+    { userId: student.id, role: "student" }
   ];
+  if (studentNtnu) {
+    osLabMemberships.push({ userId: studentNtnu.id, role: "student" });
+  } else {
+    console.log(`  Skipped enrolling 41047025s — user not present in DB`);
+  }
 
   for (const mem of osLabMemberships) {
     await prisma.courseMembership.upsert({

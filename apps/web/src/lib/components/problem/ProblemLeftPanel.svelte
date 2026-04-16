@@ -460,7 +460,7 @@
               <textarea
                 class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
                 rows="10"
-                placeholder="Write your editorial in Markdown..."
+                placeholder={m.editorials_contentPlaceholder()}
                 bind:value={editorialContent}
               ></textarea>
             </div>

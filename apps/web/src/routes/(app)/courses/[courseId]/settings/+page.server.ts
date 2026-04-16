@@ -10,7 +10,8 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 
-const { findCourseWithMembership, updateCourse, deleteCourse } = courseDomain;
+const { findCourseWithMembership, updateCourse, deleteCourse, setCourseArchived } =
+  courseDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
@@ -36,7 +37,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   return {
     form,
-    courseDescription: fullCourse.description
+    courseDescription: fullCourse.description,
+    archived: fullCourse.archived
   };
 });
 
@@ -67,6 +69,26 @@ export const actions = {
 
     requireAuth(event);
     return fail(501, { error: "copy_unavailable" });
+  },
+
+  toggleArchive: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const courseId = event.params.courseId;
+
+    const formData = await event.request.formData();
+    const next = formData.get("archived") === "true";
+
+    try {
+      await setCourseArchived(actor, courseId, next);
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+
+    return { archived: next };
   },
 
   deleteCourse: async (event) => {

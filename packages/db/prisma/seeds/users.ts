@@ -10,11 +10,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "Admin",
       email: "admin@nojv.local",
       username: "admin",
-      id: "usr_admin",
       platformRole: "admin"
     },
     update: {},
-    where: { id: "usr_admin" }
+    where: { username: "admin" }
   });
 
   const teacher = await prisma.user.upsert({
@@ -22,11 +21,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "Teacher",
       email: "teacher@nojv.local",
       username: "teacher",
-      id: "usr_teacher",
       platformRole: "teacher"
     },
     update: {},
-    where: { id: "usr_teacher" }
+    where: { username: "teacher" }
   });
 
   const taStudent = await prisma.user.upsert({
@@ -34,11 +32,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "TA Student",
       email: "ta-student@nojv.local",
       username: "ta-student",
-      id: "usr_ta_student",
       platformRole: "student"
     },
     update: {},
-    where: { id: "usr_ta_student" }
+    where: { username: "ta-student" }
   });
 
   const student = await prisma.user.upsert({
@@ -46,24 +43,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "Student",
       email: "student@nojv.local",
       username: "student",
-      id: "usr_student",
       platformRole: "student"
     },
     update: {},
-    where: { id: "usr_student" }
-  });
-
-  const studentNtnu = await prisma.user.upsert({
-    create: {
-      name: "41047025s",
-      displayUsername: "41047025s",
-      email: "41047025s@nojv.local",
-      username: "41047025s",
-      id: "usr_41047025s",
-      platformRole: "student"
-    },
-    update: {},
-    where: { id: "usr_41047025s" }
+    where: { username: "student" }
   });
 
   // Kept out of any CourseMembership so the handle is claimable by a real login without the merge path.
@@ -74,16 +57,15 @@ export async function seedUsers(prisma: PrismaClient) {
       displayUsername: placeholderUsername,
       email: `placeholder+${placeholderUsername}@placeholder.nojv.local`,
       username: placeholderUsername,
-      id: "usr_placeholder_b11902999",
       platformRole: "student",
       status: "pending_first_login",
       emailVerified: false
     },
     update: {},
-    where: { id: "usr_placeholder_b11902999" }
+    where: { username: placeholderUsername }
   });
 
-  const credentialedUsers = [admin, teacher, taStudent, student, studentNtnu];
+  const credentialedUsers = [admin, teacher, taStudent, student];
 
   for (const u of credentialedUsers) {
     await prisma.account.upsert({
@@ -103,5 +85,5 @@ export async function seedUsers(prisma: PrismaClient) {
     `  Users: ${credentialedUsers.length} credentialed + 1 pending_first_login placeholder upserted`
   );
 
-  return { admin, teacher, taStudent, student, studentNtnu, placeholder };
+  return { admin, teacher, taStudent, student, placeholder };
 }

@@ -1,4 +1,4 @@
-import type { CourseRole, CourseMembershipStatus } from "@nojv/core";
+import type { CourseRole, CourseMembershipStatus, PlatformRole } from "@nojv/core";
 
 export interface ContestPermissionInput {
   createdByUserId: string | null;
@@ -10,11 +10,14 @@ export interface CourseMembershipRow {
   status: CourseMembershipStatus;
 }
 
-// Contests are standalone — only the creator (or platform admin) can manage; no course-role branch.
+// Contests are standalone — creator OR platform admin can manage. Course-role
+// teaching rights do not transfer (contests have no course parent).
 export function canManageContest(
   userId: string | null,
-  contest: ContestPermissionInput
+  contest: ContestPermissionInput,
+  platformRole?: PlatformRole | null
 ): boolean {
   if (userId === null) return false;
+  if (platformRole === "admin") return true;
   return contest.createdByUserId === userId;
 }

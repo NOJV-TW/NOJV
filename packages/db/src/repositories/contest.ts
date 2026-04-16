@@ -32,13 +32,6 @@ export const contestRepo = {
     });
   },
 
-  findAllowedLanguages(slug: string) {
-    return prisma.contest.findUnique({
-      where: { slug },
-      select: { allowedLanguages: true }
-    });
-  },
-
   listPublished() {
     return prisma.contest.findMany({
       include: contestListInclude,
@@ -186,6 +179,15 @@ export const contestRepo = {
 };
 
 export const contestProblemRepo = {
+  existsBySlug(contestSlug: string, problemId: string) {
+    return prisma.contestProblem
+      .findFirst({
+        where: { contest: { slug: contestSlug }, problemId },
+        select: { id: true }
+      })
+      .then((row) => row !== null);
+  },
+
   withTx(tx: TxClient) {
     return {
       create(data: Prisma.ContestProblemUncheckedCreateInput) {

@@ -11,6 +11,7 @@ export const load: PageServerLoad = handleLoad(
 
     const contest = await getContestDetail(params.slug, {
       userId: user?.id ?? null,
+      platformRole: locals.sessionUser?.platformRole ?? null,
       now
     });
 

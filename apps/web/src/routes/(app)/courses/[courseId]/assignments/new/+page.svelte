@@ -109,9 +109,9 @@
   }
 
   function difficultyLabel(d: "easy" | "medium" | "hard"): string {
-    if (d === "easy") return "Easy";
-    if (d === "hard") return "Hard";
-    return "Medium";
+    if (d === "easy") return m.admin_difficultyEasy();
+    if (d === "hard") return m.admin_difficultyHard();
+    return m.admin_difficultyMedium();
   }
 
   const inputClass =

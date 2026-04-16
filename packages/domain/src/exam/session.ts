@@ -47,12 +47,20 @@ async function assertEnrolledInExamCourse(
     throw new NotFoundError(`Exam not found: ${examId}`);
   }
 
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(exam.courseId, userId);
+  const [membership, course] = await Promise.all([
+    courseMembershipRepo.withTx(tx).findByComposite(exam.courseId, userId),
+    tx.course.findUnique({ where: { id: exam.courseId }, select: { archived: true } })
+  ]);
 
   if (membership?.status !== "active") {
     throw new ForbiddenError("You must be enrolled in the course to access this exam.");
+  }
+
+  // Archived courses lock new exam sessions and submissions. Existing
+  // active sessions are not torn down — students mid-exam keep playing
+  // until they release the session normally.
+  if (course?.archived) {
+    throw new ForbiddenError("This course is archived; new exam sessions are not allowed.");
   }
 
   return exam;

@@ -12,7 +12,10 @@ const {
   assessmentFindByComposite,
   workspaceFindByProblemId,
   submissionCountForUserAndAssessmentSince,
-  submissionCreate
+  submissionCreate,
+  examSessionFindActiveForUser,
+  txAssessmentProblemFindFirst,
+  txContestProblemFindFirst
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -23,7 +26,10 @@ const {
   assessmentFindByComposite: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionCountForUserAndAssessmentSince: vi.fn(),
-  submissionCreate: vi.fn()
+  submissionCreate: vi.fn(),
+  examSessionFindActiveForUser: vi.fn(),
+  txAssessmentProblemFindFirst: vi.fn(),
+  txContestProblemFindFirst: vi.fn()
 }));
 
 vi.mock("@nojv/db", () => {
@@ -50,6 +56,9 @@ vi.mock("@nojv/db", () => {
     contestRepo: {
       withTx: () => ({ findBySlug: vi.fn() })
     },
+    examSessionRepo: {
+      withTx: () => ({ findActiveForUser: examSessionFindActiveForUser })
+    },
     problemWorkspaceFileRepo: {
       findByProblemId: workspaceFindByProblemId
     },
@@ -59,7 +68,19 @@ vi.mock("@nojv/db", () => {
         create: submissionCreate
       })
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    // createQueuedSubmissionRecord now does direct prisma reads against
+    // the assessment/contest problem-link tables for problem-in-context
+    // checks; expose those on the mock tx.
+    runTransaction: async <T>(
+      fn: (tx: {
+        courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
+        contestProblem: { findFirst: typeof txContestProblemFindFirst };
+      }) => Promise<T>
+    ): Promise<T> =>
+      fn({
+        courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
+        contestProblem: { findFirst: txContestProblemFindFirst }
+      })
   };
 });
 
@@ -100,14 +121,23 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
     username: fakeActor.username,
     platformRole: fakeActor.platformRole
   };
-  problemFindById.mockResolvedValue(fakeProblem);
+  problemFindById.mockResolvedValue({
+    ...fakeProblem,
+    visibility: "public"
+  });
   userFindById.mockResolvedValue(user);
   userUpdate.mockResolvedValue(user);
   userCreate.mockResolvedValue(user);
   courseFindById.mockResolvedValue(fakeCourse);
+  // Now that the assessment time-window check runs against opensAt/closesAt,
+  // give the test a wide window centered around an arbitrary "now"; tests
+  // using vi.setSystemTime stay safely inside it.
   assessmentFindByComposite.mockResolvedValue({
     ...fakeAssessmentBase,
-    maxAttemptsPerDay
+    maxAttemptsPerDay,
+    status: "published",
+    opensAt: new Date("2026-01-01T00:00:00.000Z"),
+    closesAt: new Date("2026-12-31T23:59:59.000Z")
   });
   courseMembershipFindByComposite.mockResolvedValue({
     courseId: fakeCourse.id,
@@ -115,6 +145,12 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
     status: "active",
     role: "student"
   });
+  // No active exam session → lockout doesn't trigger.
+  examSessionFindActiveForUser.mockResolvedValue(null);
+  // The assessment link table check needs to confirm the problem is in
+  // the assessment; default to "yes".
+  txAssessmentProblemFindFirst.mockResolvedValue({ id: "cap_1" });
+  txContestProblemFindFirst.mockResolvedValue(null);
   // full_source problem with zero workspace files → submits a single
   // source file directly (no entry-file check).
   workspaceFindByProblemId.mockResolvedValue([]);

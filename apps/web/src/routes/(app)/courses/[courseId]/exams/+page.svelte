@@ -6,6 +6,7 @@
   import Link2 from "@lucide/svelte/icons/link-2";
   import Shield from "@lucide/svelte/icons/shield";
   import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import FilterChips from "$lib/components/common/FilterChips.svelte";
@@ -44,21 +45,9 @@
     return options;
   });
 
-  // Visual glyphs, not translatable copy.
-  const MONTH_LABELS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec"
-  ] as const;
+  const monthFormatter = $derived(
+    new Intl.DateTimeFormat(getLocale(), { month: "short" })
+  );
 
   function pad2(n: number): string {
     return n < 10 ? `0${String(n)}` : String(n);
@@ -74,7 +63,7 @@
     }
     const d = new Date(iso);
     return {
-      month: MONTH_LABELS[d.getMonth()] ?? "—",
+      month: monthFormatter.format(d),
       day: pad2(d.getDate()),
       time: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
     };
@@ -115,7 +104,9 @@
   }
 
   function scoringLabel(mode: "problem_count" | "point_sum"): string {
-    return mode === "problem_count" ? m.examsList_scoringIcpc() : m.examsList_scoringIoi();
+    return mode === "problem_count"
+      ? m.examsList_scoringProblemCount()
+      : m.examsList_scoringPointSum();
   }
 
   function proctorTitle(

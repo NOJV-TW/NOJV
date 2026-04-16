@@ -271,7 +271,7 @@
                 <td class="px-3 py-2">
                   <span class="font-medium">{entry.username}</span>
                   {#if entry.isFirstBlood.some(Boolean)}
-                    <span class="ml-1 text-warning" title="First Blood">&#9733;</span>
+                    <span class="ml-1 text-warning" title={m.contestDetail_firstBlood()}>&#9733;</span>
                   {/if}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums font-semibold">
@@ -285,7 +285,7 @@
                     <span>
                       {formatIcpcCell(ps)}
                       {#if entry.isFirstBlood[pi]}
-                        <span class="ml-0.5 text-warning" title="First Blood">&#9733;</span>
+                        <span class="ml-0.5 text-warning" title={m.contestDetail_firstBlood()}>&#9733;</span>
                       {/if}
                     </span>
                   </td>
@@ -340,7 +340,7 @@
                 <td class="px-3 py-2">
                   <span class="font-medium">{entry.username}</span>
                   {#if entry.isFirstBlood.some(Boolean)}
-                    <span class="ml-1 text-warning" title="First Blood">&#9733;</span>
+                    <span class="ml-1 text-warning" title={m.contestDetail_firstBlood()}>&#9733;</span>
                   {/if}
                 </td>
                 <td class="px-3 py-2 text-right font-mono tabular-nums font-semibold">
@@ -357,7 +357,7 @@
                       <span class="inline-block rounded-xs px-2 py-0.5 text-caption font-mono font-medium tabular-nums {ioiScoreClass(ps.score, prob?.points ?? 100)}">
                         {ps.score}
                         {#if entry.isFirstBlood[pi]}
-                          <span class="text-warning" title="First Blood">&#9733;</span>
+                          <span class="text-warning" title={m.contestDetail_firstBlood()}>&#9733;</span>
                         {/if}
                       </span>
                     {/if}

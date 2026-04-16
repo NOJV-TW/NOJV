@@ -1,7 +1,6 @@
 import { announcementRepo, assessmentRepo, examRepo } from "@nojv/db";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
-// Announcement model is currently global: `courseId` is accepted for forward compatibility but ignored.
 export interface OverviewAnnouncement {
   id: string;
   title: string;
@@ -20,10 +19,10 @@ function pickInitial(name: string): string {
 }
 
 export async function listRecentAnnouncementsForCourse(
-  _courseId: string,
+  courseId: string,
   limit: number
 ): Promise<OverviewAnnouncement[]> {
-  const rows = await announcementRepo.listRecentWithAuthor(limit);
+  const rows = await announcementRepo.listRecentForCourse(courseId, limit);
   return rows.map((row) => {
     const translations = row.translations;
     const localized = translations.find((t) => t.locale === DEFAULT_LOCALE) ??

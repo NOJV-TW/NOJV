@@ -31,9 +31,12 @@ export const assessmentRepo = {
   findPublishedContext(courseId: string, assessmentSlug: string) {
     return prisma.courseAssessment.findFirst({
       select: {
+        id: true,
         allowedLanguages: true,
-        course: { select: { id: true } },
-        slug: true
+        course: { select: { id: true, ownerId: true, archived: true } },
+        slug: true,
+        opensAt: true,
+        closesAt: true
       },
       where: {
         courseId,
@@ -243,6 +246,12 @@ export const assessmentProblemRepo = {
       where: { assessmentId },
       include: { problem: { select: problemMiniSelect } }
     });
+  },
+
+  exists(assessmentId: string, problemId: string) {
+    return prisma.courseAssessmentProblem
+      .findFirst({ where: { assessmentId, problemId }, select: { id: true } })
+      .then((row) => row !== null);
   },
 
   withTx(tx: TxClient) {
