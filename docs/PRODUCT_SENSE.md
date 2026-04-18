@@ -2,10 +2,11 @@
 
 ## Users And Outcomes
 
-- **Student**: submit solutions, track progress via dashboard, participate in timed contests and course assessments, view editorials after AC, join courses via invite token
-- **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments, monitor student progress matrix, trigger plagiarism detection
+- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, view editorials after AC, join courses via invite token
+- **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
 - **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
 - **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
+- **Exam proctor**: session-based course exams with start/heartbeat/end lifecycle, IP pinning, page-lock visibility enforcement, submissions matrix for grading review
 
 ## Shipped Scope
 
@@ -45,8 +46,23 @@
 - Join tokens for student enrollment
 - Course roles: teacher, TA, student
 - Assessment management with open/due/close lifecycle (Temporal-managed)
+- Assessment Settings tab: publish / archive / revert-to-draft / delete-draft with status-aware field locks
+- Editable Problems tab: attach / detach / reorder / per-problem points (locked once assessment opens)
+- Course duplication: single-transaction copy of course + assessments + exams + problem attachments (new copy drops to draft)
+- Class stats aggregation (submittedUsers / totalStudents / avgScore) and per-student myStatus (solved/total) rendered on list pages
+- Practice-after-close: students retain problem access after assessment/contest/exam ends, submissions no longer attributed to the original context
 - Student progress matrix
 - Course-scoped problem management
+
+### Exams
+
+- Course-scoped timed exams (separate from standalone Contests)
+- Exam Settings tab: basic info, scoring mode, scoreboard mode, allowed languages, submit cooldown, proctoring (page lock / IP binding / IP whitelist / violation mode), lifecycle (publish / archive / delete-draft) with status-aware field locks
+- Editable Problems tab: attach / detach / reorder / per-problem points (locked once exam starts)
+- Submissions sub-tab: students × problems matrix with best score + attempt count, CSV export, search, sort, pagination
+- Session-based proctoring: `/api/exam-session/start` binds the student IP pin; heartbeat endpoint records visibility events; end endpoint closes the session
+- Page lock confines the student to `/exams/[examId]/*` while the session is active
+- Student post-close review block on the detail page — links fall back to ordinary practice URLs
 
 ### Plagiarism Detection
 

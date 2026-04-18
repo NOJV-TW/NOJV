@@ -18,6 +18,7 @@ Track documentation quality and implementation legibility as an honest ledger.
 
 ## Doc Drift Status
 
+- Exam + Assignment Settings tabs, editable Problems tabs, and full lifecycle mutations (publish / archive / delete-draft) shipped 2026-04-18; Exam Submissions matrix, copy course, and classStats/myStatus aggregation landed in the same commit. FRONTEND.md and PRODUCT_SENSE.md brought back in sync.
 - Documentation restructured 2026-04-07 to eliminate content overlap and add threat model, design, and product docs.
 - `@nojv/storage` package and image upload feature added 2026-04-06.
 - Architecture redesign (multi-tier, domain package) completed 2026-04-03.
