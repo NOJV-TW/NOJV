@@ -64,8 +64,6 @@
     switch (result.error) {
       case "delete_mismatch":
         return m.courseSettings_deleteMismatchError();
-      case "copy_unavailable":
-        return m.courseSettings_copyUnavailable();
       default:
         return result.error;
     }

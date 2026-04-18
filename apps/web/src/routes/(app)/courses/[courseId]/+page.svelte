@@ -215,22 +215,28 @@
               </div>
             </div>
             <!-- Right side: class stats (teacher) or personal progress (student).
-                 Both are null today (see overview.ts TODOs) so we render
-                 simple placeholder glyphs matching the prototype. -->
+                 Both are populated by `fillAssessmentStats` in the overview
+                 domain; draft/upcoming rows intentionally stay null and
+                 fall through to the status-aware hint. -->
             <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
-              <span
-                class="block font-display text-body-lg font-medium text-foreground"
-              >
-                —
-              </span>
               {#if assignment.status === "draft"}
+                <span class="block font-display text-body-lg font-medium text-foreground">—</span>
                 {m.courseOverview_classStatsDraftHint()}
               {:else if assignment.status === "upcoming"}
+                <span class="block font-display text-body-lg font-medium text-foreground">—</span>
                 {m.courseOverview_classStatsUpcomingHint()}
-              {:else if isManager}
-                {m.courseOverview_classStatsPendingTeacher()}
+              {:else if isManager && assignment.classStats}
+                <span class="block font-display text-body-lg font-medium text-foreground">
+                  {assignment.classStats.submittedUsers}/{assignment.classStats.totalStudents}
+                </span>
+                {m.courseOverview_avgScore({ score: assignment.classStats.avgScore })}
+              {:else if !isManager && assignment.myStatus}
+                <span class="block font-display text-body-lg font-medium text-foreground">
+                  {assignment.myStatus.solved}/{assignment.myStatus.total}
+                </span>
+                {m.courseOverview_completionCaption()}
               {:else}
-                {m.courseOverview_classStatsPendingStudent()}
+                <span class="block font-display text-body-lg font-medium text-foreground">—</span>
               {/if}
             </div>
             <ChevronRight

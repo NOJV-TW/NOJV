@@ -15,7 +15,7 @@ import { dispatchExamAutoClose } from "@nojv/job-dispatch";
 import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireCourse, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
@@ -26,7 +26,8 @@ async function resolveAndAttachExamProblems(
   tx: TransactionClient,
   examId: string,
   problemIds: string[],
-  allowedLanguages: Language[]
+  allowedLanguages: Language[],
+  pointOverrides?: Record<string, number>
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
     id: { in: problemIds }
@@ -50,10 +51,11 @@ async function resolveAndAttachExamProblems(
     problemIds.map(async (id, index) => {
       const problem = problemById.get(id);
       if (!problem) return;
+      const points = pointOverrides?.[id];
       await examProblemRepo.withTx(tx).create({
         examId,
         ordinal: index + 1,
-        points: 100,
+        points: typeof points === "number" && points >= 0 ? Math.floor(points) : 100,
         problemId: problem.id
       });
     })
@@ -200,10 +202,18 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
   return exam;
 }
 
+export interface UpdateExamOptions {
+  /** Per-problem points override (problemId → points). Applied when
+   *  the caller also passes `problemIds`; missing IDs fall back to the
+   *  default of 100. */
+  pointOverrides?: Record<string, number>;
+}
+
 export async function updateExamRecord(
   actor: ActorContext,
   examId: string,
-  payload: ExamUpdate
+  payload: ExamUpdate,
+  options: UpdateExamOptions = {}
 ) {
   return runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
@@ -249,7 +259,13 @@ export async function updateExamRecord(
       await examProblemRepo.withTx(tx).deleteByExamId(exam.id);
       const enforcedLanguages =
         payload.allowedLanguages ?? (exam.allowedLanguages as Language[]);
-      await resolveAndAttachExamProblems(tx, exam.id, payload.problemIds, enforcedLanguages);
+      await resolveAndAttachExamProblems(
+        tx,
+        exam.id,
+        payload.problemIds,
+        enforcedLanguages,
+        options.pointOverrides
+      );
     }
 
     return { id: exam.id };
@@ -282,7 +298,145 @@ export async function freezeExamBoard(examId: string): Promise<void> {
   await examRepo.update(examId, { frozenBoard: true });
 }
 
+export async function unfreezeExamBoard(examId: string): Promise<void> {
+  await scoreboard.unfreezeScoreboard(examId);
+  await examRepo.update(examId, { frozenBoard: false });
+}
+
+/**
+ * Permission-gated wrapper around `freezeExamBoard` / `unfreezeExamBoard`
+ * so route handlers don't need to reimplement the course-staff check
+ * for scoreboard toggles.
+ */
+export async function setExamBoardFrozen(
+  actor: ActorContext,
+  examId: string,
+  frozen: boolean
+): Promise<void> {
+  await runTransaction(async (tx) => {
+    const exam = await requireExam(tx, examId);
+    await assertExamManagePermission(tx, actor, exam);
+  });
+  if (frozen) await freezeExamBoard(examId);
+  else await unfreezeExamBoard(examId);
+}
+
 export async function finalizeExam(examId: string): Promise<void> {
   await scoreboard.unfreezeScoreboard(examId);
   await examRepo.update(examId, { frozenBoard: false, status: "archived" });
+}
+
+// Owner-of-exam or active teacher/TA of the hosting course may manage it.
+// Kept in sync with `updateExamRecord` / `createExamRecord` so Publish,
+// Delete, Archive, and Unarchive all share the same gate.
+async function assertExamManagePermission(
+  tx: TransactionClient,
+  actor: ActorContext,
+  exam: { createdByUserId: string | null; courseId: string }
+) {
+  if (exam.createdByUserId === actor.userId) return;
+  const membership = await courseMembershipRepo
+    .withTx(tx)
+    .findByComposite(exam.courseId, actor.userId);
+  const allowed =
+    membership?.status === "active" &&
+    (membership.role === "teacher" || membership.role === "ta");
+  if (!allowed) {
+    throw new ForbiddenError("You do not have permission to manage this exam.");
+  }
+}
+
+/**
+ * Flip a draft exam to `published`. Validates the exam is actually
+ * publishable (has problems, allowed languages, a sane window) and
+ * schedules the auto-close workflow on commit.
+ */
+export async function publishExam(actor: ActorContext, examId: string): Promise<void> {
+  const { examId: committedId, endsAt } = await runTransaction(async (tx) => {
+    const exam = await requireExam(tx, examId);
+    await assertExamManagePermission(tx, actor, exam);
+
+    if (exam.status !== "draft") {
+      throw new ValidationError("Only draft exams can be published.");
+    }
+
+    const problemCount = await examProblemRepo.withTx(tx).countByExamId(exam.id);
+
+    if (problemCount === 0) {
+      throw new ValidationError("Add at least one problem before publishing.");
+    }
+    if ((exam.allowedLanguages as Language[]).length === 0) {
+      throw new ValidationError("Select at least one allowed language before publishing.");
+    }
+    if (exam.startsAt >= exam.endsAt) {
+      throw new ValidationError("Start time must be before end time.");
+    }
+    if (exam.endsAt <= new Date()) {
+      throw new ValidationError("End time must be in the future.");
+    }
+
+    await examRepo.withTx(tx).update(exam.id, { status: "published" });
+
+    return { examId: exam.id, endsAt: exam.endsAt };
+  });
+
+  // Fires after commit so a rolled-back publish never leaves a phantom workflow behind.
+  await dispatchExamAutoClose({
+    examId: committedId,
+    endsAt: endsAt.toISOString()
+  });
+}
+
+/**
+ * Delete a draft exam outright. Only draft status is permitted so
+ * scoreboards / submissions tied to an active or archived exam stay
+ * intact. Cascading relations (ExamProblem etc.) go with it via the
+ * schema's onDelete rules.
+ */
+export async function deleteExamDraft(actor: ActorContext, examId: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    const exam = await requireExam(tx, examId);
+    await assertExamManagePermission(tx, actor, exam);
+
+    if (exam.status !== "draft") {
+      throw new ValidationError("Only draft exams can be deleted.");
+    }
+
+    await examRepo.withTx(tx).delete(exam.id);
+  });
+}
+
+/**
+ * Archive a published (or already-ended) exam. The exam row is kept so
+ * scoreboards and submissions remain visible; status moves to
+ * `archived` so the detail page hides it from students.
+ */
+export async function archiveExam(actor: ActorContext, examId: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    const exam = await requireExam(tx, examId);
+    await assertExamManagePermission(tx, actor, exam);
+
+    if (exam.status !== "published") {
+      throw new ValidationError("Only published exams can be archived.");
+    }
+
+    await examRepo.withTx(tx).update(exam.id, { status: "archived" });
+  });
+}
+
+/**
+ * Restore an archived exam back to `published`. Useful when an
+ * instructor needs to re-open submissions review for students.
+ */
+export async function unarchiveExam(actor: ActorContext, examId: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    const exam = await requireExam(tx, examId);
+    await assertExamManagePermission(tx, actor, exam);
+
+    if (exam.status !== "archived") {
+      throw new ValidationError("Only archived exams can be unarchived.");
+    }
+
+    await examRepo.withTx(tx).update(exam.id, { status: "published" });
+  });
 }

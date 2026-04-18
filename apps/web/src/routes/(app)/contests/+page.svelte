@@ -157,7 +157,10 @@
 
 <div class="pb-24">
   <header class="animate-in mb-8">
-    <h1 class="font-display text-display font-medium tracking-[-0.02em]">
+    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
+      {m.contests_eyebrow()}
+    </p>
+    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
       {m.navigation_contests()}
     </h1>
     <p class="mt-2 text-body text-muted-foreground">
