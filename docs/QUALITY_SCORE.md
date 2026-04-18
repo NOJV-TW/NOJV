@@ -19,7 +19,7 @@ Track documentation quality and implementation legibility as an honest ledger.
 ## Doc Drift Status
 
 - 2026-04-18 doc quality uplift: ARCHITECTURE.md gained 3 mermaid sequence diagrams (submission / exam session / scoreboard); RELIABILITY.md gained an SLO table; new `docs/runbooks/incident-recovery.md` covers Temporal / Redis / Postgres / sandbox outages; new `docs/specs/` holds per-feature acceptance specs.
-- Known code/doc drift surfaced during spec writing (tracked in spec Open Questions, not fixed this round): contest zod schema still carries proctoring fields that are silently ignored after the 2026-04-18 proctoring revert; `ExamParticipation.ipPin` and `ActiveExamSession.ipPin` are both populated (session-level is authoritative, participation copy is legacy); `finalizeContest` has no route caller.
+- 2026-04-19 drift cleanup: contest zod schema stripped of residual proctoring fields (`ipLockFields`, `pageLockEnabled`); `ActiveExamSession.ipPin` column and all write paths removed — `ExamParticipation.ipPin` is now the single IP-binding pin; specs updated to reflect the `finalizeContest` Temporal caller.
 - Exam + Assignment Settings tabs, editable Problems tabs, and full lifecycle mutations (publish / archive / delete-draft) shipped 2026-04-18; Exam Submissions matrix, copy course, and classStats/myStatus aggregation landed in the same commit. FRONTEND.md and PRODUCT_SENSE.md brought back in sync.
 - Documentation restructured 2026-04-07 to eliminate content overlap and add threat model, design, and product docs.
 - `@nojv/storage` package and image upload feature added 2026-04-06.

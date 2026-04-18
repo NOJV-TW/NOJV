@@ -323,7 +323,3 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - No UI for bulk-releasing all active sessions (staff can only release
   one student at a time). Low priority until we hit a class-wide
   outage scenario.
-- `ActiveExamSession.ipPin` duplicates the intent of
-  `ExamParticipation.ipPin`. Session-level pin is the Phase 4 source of
-  truth; participation-level pin is legacy and flagged for removal in a
-  future pass (see schema.prisma comment).

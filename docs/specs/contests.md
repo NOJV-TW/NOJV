@@ -242,9 +242,7 @@ by design. Verified safe in`contest-permissions.test.ts`.
 ### Schema
 
 - `packages/core/src/schemas/contest.ts` — `contestCreateSchema`,
-  `contestUpdateSchema`, `contestSessionSchema`. Note: this schema
-  still declares `ipLockFields` and `pageLockEnabled` as residual
-  Phase 3 artefacts; the domain and DB schema no longer use them.
+  `contestUpdateSchema`, `contestSessionSchema`.
 - `packages/db/prisma/schema/contest.prisma` — `Contest`,
   `ContestProblem`, `ContestParticipation`, enum `ContestVisibility`,
   `ContestScoringMode`, `ContestParticipationStatus`, `ScoreboardMode`.
@@ -278,17 +276,11 @@ by design. Verified safe in`contest-permissions.test.ts`.
 
 ## Open Questions / TODO
 
-- **Residual proctoring fields in `contestCreateSchema`.**
-  `packages/core/src/schemas/contest.ts:31-32` still inherits
-  `...ipLockFields` and `pageLockEnabled: z.boolean().default(false)`.
-  The DB schema, domain layer, and `gate.ts` have all been cleaned up;
-  the core schema just wasn't cleaned in the revert. These fields are
-  accepted by `createContestRecord` but silently ignored — harmless but
-  confusing. Worth a follow-up to strip them from the schema.
-- **Contest archive surface.** There is no route-level `archiveContest`
-  action; `finalizeContest` is the only path and it's called from...
-  nowhere obvious in `apps/web/src/routes`. Manual SQL or a future
-  admin panel may be the current workflow.
+- **Contest archive surface.** `finalizeContest` is the only path that
+  flips a contest to `archived`, and it is called from the
+  `contestLifecycle` Temporal workflow when `endsAt` passes. There is
+  no route-level "archive now" action; manual SQL or a future admin
+  panel would be needed to archive before `endsAt`.
 - **Practice-after-close + public contests.** The historical-participant
   gate requires a `ContestParticipation` row. A public contest that the
   user never submitted to won't grant practice access. This is

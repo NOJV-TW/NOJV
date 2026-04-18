@@ -41,9 +41,8 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 - IP whitelist evaluation: CIDR matching via `isIpInCidr`
   (IPv4 + IPv4-mapped IPv6); `isIpInWhitelist` returns true iff any CIDR
   matches. Fail-closed when enabled with empty list.
-- IP binding: first call stamps `ExamParticipation.ipPin` (or
-  `ActiveExamSession.ipPin` at session start); subsequent calls compare
-  against the pin.
+- IP binding: first call stamps `ExamParticipation.ipPin`; subsequent
+  calls compare against the pin.
 - Violation recording: `logViolation` / `logViolationInTx` insert rows
   into `IpViolationLog`. All rows are tied to an exam (FK `NOT NULL`).
 - Violation modes: `block` → `{ allowed: false, violationType }` result
@@ -231,8 +230,8 @@ notify` while students are taking the exam, ongoing blocked requests
 - `packages/db/prisma/schema/contest.prisma` (Exam + related):
   - `Exam.pageLockEnabled`, `.ipWhitelistEnabled`, `.ipBindingEnabled`,
     `.ipWhitelist` (String[]), `.ipViolationMode` (enum).
-  - `ExamParticipation.ipPin` (legacy — current Phase 4 source of
-    truth is `ActiveExamSession.ipPin`).
+  - `ExamParticipation.ipPin` — authoritative IP-binding pin consulted
+    by `checkIpLock`.
   - `IpViolationLog` model.
   - Enums: `IpViolationMode`, `IpViolationType`,
     `ExamSessionEventType`.
@@ -246,7 +245,7 @@ notify` while students are taking the exam, ongoing blocked requests
   whitelist, binding flow.
 - `tests/unit/domain/proctoring-gate.test.ts` — composite gate with
   all denial reasons, including contest vs exam split.
-- `tests/unit/domain/exam-session.test.ts` — session `ipPin` plumbing.
+- `tests/unit/domain/exam-session.test.ts` — session start/end plumbing.
 
 ## Open Questions / TODO
 
@@ -262,11 +261,3 @@ notify` while students are taking the exam, ongoing blocked requests
 - **IpViolationLog retention.** No current pruning policy; rows
   accumulate forever. Not critical at current scale; revisit when
   row count crosses 10M.
-- **Contest schema cleanup.** As noted in `docs/specs/contests.md`,
-  `contestCreateSchema` still has `ipLockFields` and
-  `pageLockEnabled`. These are accepted-but-ignored. Should be
-  stripped for clarity.
-- **`ExamParticipation.ipPin` vs `ActiveExamSession.ipPin`.** Two
-  places hold the pin. Session-level is authoritative (Phase 4 design
-  comment). Participation-level is kept for backward compat and
-  flagged for removal in a later cleanup pass.

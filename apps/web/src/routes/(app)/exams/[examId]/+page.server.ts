@@ -12,7 +12,6 @@ import { examDomain, HttpError } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { getClientIp } from "$lib/server/shared/client-ip";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import type { FormMessage } from "$lib/types/form-message";
@@ -123,8 +122,7 @@ export const actions = {
     const actor = requireAuth(event);
     try {
       await examDomain.session.startSessionWithGate(actor, {
-        examId: event.params.examId,
-        ipPin: getClientIp(event)
+        examId: event.params.examId
       });
     } catch (err) {
       if (err instanceof HttpError) {
