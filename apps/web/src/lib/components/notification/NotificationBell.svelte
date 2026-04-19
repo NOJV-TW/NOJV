@@ -1,5 +1,6 @@
 <script lang="ts">
   import BellIcon from "@lucide/svelte/icons/bell";
+  import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { cn } from "$lib/utils.js";
   import NotificationDropdown from "./NotificationDropdown.svelte";
@@ -32,7 +33,7 @@
     bind:this={btnEl}
     aria-expanded={open}
     aria-haspopup="menu"
-    aria-label="Notifications"
+    aria-label={m.notification_bell_ariaLabel()}
     class={cn(
       "relative flex size-9 cursor-pointer items-center justify-center rounded-full border border-border bg-[color:var(--color-panel-strong)] text-foreground transition-[transform,box-shadow] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover",
       notifications.isAnimating && "bell-shake"
@@ -40,12 +41,11 @@
     onclick={() => (open = !open)}
     type="button"
   >
-    <!-- TODO i18n Task 19: aria-label should use m.notification_bell_ariaLabel(). -->
     <BellIcon size={18} />
     {#if notifications.unreadCount > 0}
       <span
         class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground"
-        aria-hidden="true"
+        aria-label={m.notification_bell_unreadCount({ count: notifications.unreadCount })}
       >
         {displayCount}
       </span>

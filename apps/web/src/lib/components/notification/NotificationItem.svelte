@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
   import { notifications, type NotificationItem } from "$lib/stores/notifications.svelte";
   import { cn } from "$lib/utils.js";
 
@@ -6,26 +8,25 @@
 
   let isUnread = $derived(item.readAt === null);
 
-  // TODO i18n Task 19: replace with m.notification_<type>(item.params as any).
-  // Placeholder English strings here keep the component functional until the
-  // paraglide keys land.
   function renderText(n: NotificationItem): string {
-    const p = n.params ?? {};
+    const p = (n.params ?? {}) as Record<string, string>;
     switch (n.type) {
       case "assignment_due_soon":
-        return `Assignment "${String((p as Record<string, unknown>).assignmentName ?? "")}" is due soon.`;
+        return m.notification_assignment_due_soon({ title: p.title ?? "" });
       case "exam_starting_soon":
-        return `Exam "${String((p as Record<string, unknown>).examName ?? "")}" is starting soon.`;
+        return m.notification_exam_starting_soon({ title: p.title ?? "" });
       case "contest_starting_soon":
-        return `Contest "${String((p as Record<string, unknown>).contestName ?? "")}" is starting soon.`;
+        return m.notification_contest_starting_soon({ title: p.title ?? "" });
       case "course_enrolled":
-        return `You were enrolled in ${String((p as Record<string, unknown>).courseName ?? "")}.`;
-      case "announcement_published":
-        return `New announcement: ${String((p as Record<string, unknown>).title ?? "")}.`;
+        return m.notification_course_enrolled({ courseName: p.courseName ?? "" });
+      case "announcement_published": {
+        const title = getLocale() === "zh-TW" ? (p.titleZhTw ?? p.titleEn) : (p.titleEn ?? p.titleZhTw);
+        return m.notification_announcement_published({ title: title ?? "" });
+      }
       case "role_changed":
-        return `Your platform role was changed to ${String((p as Record<string, unknown>).newRole ?? "")}.`;
+        return m.notification_role_changed({ newRole: p.newRole ?? "" });
       case "clarification_answered":
-        return `Your clarification was answered.`;
+        return m.notification_clarification_answered({ questionPreview: p.questionPreview ?? "" });
       default:
         return n.type;
     }
