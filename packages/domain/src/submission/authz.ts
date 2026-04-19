@@ -3,8 +3,10 @@ import {
   contestRepo,
   courseMembershipRepo,
   examRepo,
-  problemRepo
+  problemRepo,
+  submissionRepo
 } from "@nojv/db";
+import type { RejudgeInput } from "@nojv/job-dispatch";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
@@ -77,5 +79,59 @@ export async function assertCanOperateOnSubmission(
 ): Promise<void> {
   if (!(await canOperateOnSubmission(actor, submission))) {
     throw new ForbiddenError("Not permitted to operate on this submission.");
+  }
+}
+
+/**
+ * Authorization for batch-rejudge inputs. The input mirrors the shape
+ * used by `dispatchRejudge` in batch mode. Checks the context-specific
+ * permission; for an unscoped batch (bare `problemId`) the problem author
+ * is allowed, but only if no matching submissions live in a non-practice
+ * context (those must be scoped by contest / assessment / exam).
+ */
+export async function assertBatchRejudgeAccess(
+  actor: ActorContext,
+  input: Extract<RejudgeInput, { mode: "batch" }>
+): Promise<void> {
+  if (actor.platformRole === "admin") return;
+
+  if (input.contestId) {
+    const contest = await contestRepo.findById(input.contestId);
+    if (contest?.createdByUserId !== actor.userId) {
+      throw new ForbiddenError("Not the contest organizer.");
+    }
+    return;
+  }
+
+  if (input.assessmentId) {
+    const assessment = await assessmentRepo.findByIdWithCourseId(input.assessmentId);
+    if (!assessment || !(await isCourseTeacherOrTa(actor.userId, assessment.courseId))) {
+      throw new ForbiddenError("Not course staff for this assessment.");
+    }
+    return;
+  }
+
+  if (input.examId) {
+    const exam = await examRepo.findById(input.examId);
+    if (!exam || !(await isCourseTeacherOrTa(actor.userId, exam.courseId))) {
+      throw new ForbiddenError("Not course staff for this exam.");
+    }
+    return;
+  }
+
+  // Unscoped batch on bare problemId — problem author only, and reject if
+  // any matching submission is in a non-practice context.
+  const problem = await problemRepo.findById(input.problemId);
+  if (problem?.authorId !== actor.userId) {
+    throw new ForbiddenError(
+      "Batch rejudge without a context scope is limited to the problem author."
+    );
+  }
+
+  const anyNonPractice = await submissionRepo.anyWithContextForProblem(input.problemId);
+  if (anyNonPractice) {
+    throw new ForbiddenError(
+      "Batch rejudge includes non-practice submissions; scope to a specific context."
+    );
   }
 }

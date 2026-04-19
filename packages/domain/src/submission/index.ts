@@ -17,7 +17,11 @@ export {
   type WorkspaceFileEntry
 } from "./judge-context";
 export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
-export { canOperateOnSubmission, assertCanOperateOnSubmission } from "./authz";
+export {
+  canOperateOnSubmission,
+  assertCanOperateOnSubmission,
+  assertBatchRejudgeAccess
+} from "./authz";
 export { snapshotForRejudge, finalizeRejudgeLog } from "./rejudge-log";
 export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
 export { deriveSubmissionMode } from "./mode";
