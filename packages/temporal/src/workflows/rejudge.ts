@@ -1,4 +1,5 @@
 import { proxyActivities, defineQuery, setHandler, executeChild } from "@temporalio/workflow";
+import type { SubmissionDraft } from "@nojv/core";
 import type { RejudgeInput, RejudgeProgress } from "../types";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
@@ -14,18 +15,24 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   let total = 0;
   setHandler(getProgressQuery, () => ({ completed, total }));
 
-  const submissionIds = await judge.fetchSubmissionIdsForRejudge(input);
+  let targets: { submissionId: string; draft: SubmissionDraft }[];
+  if (input.mode === "single") {
+    const one = await judge.fetchSingleSubmissionForRejudge(input.submissionId);
+    targets = one ? [one] : [];
+  } else {
+    targets = await judge.fetchSubmissionIdsForRejudge(input);
+  }
 
-  total = submissionIds.length;
+  total = targets.length;
   if (total === 0) return;
 
   const BATCH_SIZE = 10;
-  for (let i = 0; i < submissionIds.length; i += BATCH_SIZE) {
-    const batch = submissionIds.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+    const batch = targets.slice(i, i + BATCH_SIZE);
     await Promise.all(
       batch.map(async (sub) => {
         await executeChild(submissionJudgeWorkflow, {
-          workflowId: `rejudge-${sub.submissionId}`,
+          workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
           taskQueue: JUDGE_TASK_QUEUE,
           args: [{ submissionId: sub.submissionId, draft: sub.draft }]
         });

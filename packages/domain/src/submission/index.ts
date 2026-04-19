@@ -8,6 +8,7 @@ export {
   updateSubmissionStatus,
   completeJudge,
   findForRejudge,
+  findOneForRejudge,
   type AdjustmentContext,
   type CompletedSubmission,
   type SubmissionJudgeContext,

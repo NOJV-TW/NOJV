@@ -10,6 +10,8 @@ import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
 
+type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
+
 let _executor: SandboxExecutor | undefined;
 
 export function setExecutor(executor: SandboxExecutor): void {
@@ -187,7 +189,18 @@ export async function completeSubmission(
 }
 
 export async function fetchSubmissionIdsForRejudge(
-  input: RejudgeInput
+  input: BatchRejudgeInput
 ): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
-  return submissionDomain.findForRejudge(input);
+  return submissionDomain.findForRejudge({
+    problemId: input.problemId,
+    ...(input.contestId ? { contestId: input.contestId } : {}),
+    ...(input.assessmentId ? { assessmentId: input.assessmentId } : {})
+  });
 }
+
+export async function fetchSingleSubmissionForRejudge(
+  submissionId: string
+): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+  return submissionDomain.findOneForRejudge(submissionId);
+}
+

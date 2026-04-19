@@ -249,3 +249,19 @@ export async function findForRejudge(input: {
     }
   }));
 }
+
+export async function findOneForRejudge(
+  submissionId: string
+): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+  const submission = await submissionRepo.findById(submissionId);
+  if (!submission) return null;
+  return {
+    submissionId: submission.id,
+    draft: {
+      language: submission.language,
+      problemId: submission.problemId,
+      sampleOnly: submission.sampleOnly,
+      sourceCode: submission.sourceCode
+    }
+  };
+}

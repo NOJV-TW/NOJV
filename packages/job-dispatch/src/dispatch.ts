@@ -13,11 +13,23 @@ export interface SubmissionJudgeInput {
   draft: SubmissionDraft;
 }
 
-export interface RejudgeInput {
-  problemId: string;
-  contestId?: string;
-  assessmentId?: string;
-}
+export type RejudgeInput =
+  | {
+      mode: "batch";
+      problemId: string;
+      contestId?: string;
+      assessmentId?: string;
+      examId?: string;
+      userIds?: string[];
+      since?: string; // ISO date
+      until?: string; // ISO date
+      triggeredByUserId: string;
+    }
+  | {
+      mode: "single";
+      submissionId: string;
+      triggeredByUserId: string;
+    };
 
 export interface ContestLifecycleInput {
   contestId: string;
@@ -68,7 +80,10 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
 
 export async function dispatchRejudge(input: RejudgeInput): Promise<void> {
   const client = await getClient();
-  const suffix = input.contestId ?? input.assessmentId ?? input.problemId;
+  const suffix =
+    input.mode === "single"
+      ? input.submissionId
+      : (input.examId ?? input.contestId ?? input.assessmentId ?? input.problemId);
 
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
