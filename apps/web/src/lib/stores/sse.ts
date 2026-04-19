@@ -74,6 +74,24 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
   };
 }
 
+// Clarification channel subscription plumbing — implemented in Task 11.
+// Stubbed here so components can import without the type system
+// noticing. The functions are no-ops until Task 11 wires them into the
+// EventSource URL.
+export function subscribeClarificationChannel(
+  _contextType: "contest" | "exam" | "assignment",
+  _contextId: string
+): void {
+  // no-op stub
+}
+
+export function unsubscribeClarificationChannel(
+  _contextType: "contest" | "exam" | "assignment",
+  _contextId: string
+): void {
+  // no-op stub
+}
+
 function handleDefaultEvent(data: SSEEvent) {
   if (data.type === SSE_CONTEST_STARTING) {
     toasts.add({ message: "Contest starting soon!", type: "info" });
