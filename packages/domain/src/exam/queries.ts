@@ -3,6 +3,7 @@ import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
+import { aggregateExamClassStats, aggregateExamMyStatus } from "../shared/list-aggregations";
 import { canManageExam } from "./permissions";
 
 export interface ExamListItem {
@@ -147,9 +148,9 @@ export interface ExamListRow {
   registeredCount: number | null;
   /** Active-student total for the course — set in the loader. Null = unknown. */
   totalStudents: number | null;
-  // TODO(course-exams-list): requires per-exam submission aggregation.
+  /** Manager view only — null for students. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
-  // TODO(course-exams-list): requires the "my work" stats table.
+  /** Student view only — null for managers. */
   myStatus: { solved: number; total: number } | null;
 }
 
@@ -270,8 +271,22 @@ export async function listForCourse(
 
   filtered.sort((a, b) => a.rank - b.rank);
 
+  const visibleRows = filtered.slice(0, options.limit).map((entry) => entry.row);
+  const aggInput = visibleRows.map((r) => ({
+    id: r.id,
+    courseId,
+    problemCount: r.problemCount
+  }));
+  if (options.includeDrafts) {
+    const stats = await aggregateExamClassStats(aggInput);
+    for (const r of visibleRows) r.classStats = stats.get(r.id) ?? null;
+  } else {
+    const my = await aggregateExamMyStatus(options.forUserId, aggInput);
+    for (const r of visibleRows) r.myStatus = my.get(r.id) ?? null;
+  }
+
   return {
-    rows: filtered.slice(0, options.limit).map((entry) => entry.row),
+    rows: visibleRows,
     counts
   };
 }

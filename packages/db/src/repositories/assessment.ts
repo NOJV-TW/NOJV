@@ -223,8 +223,16 @@ export const assessmentRepo = {
     });
   },
 
+  delete(id: string) {
+    return prisma.courseAssessment.delete({ where: { id } });
+  },
+
   withTx(tx: TxClient) {
     return {
+      findById(id: string) {
+        return tx.courseAssessment.findUnique({ where: { id } });
+      },
+
       // `courseId` is retained as a scoping guard (row must belong to that course).
       findByCompositeId(courseId: string, assessmentId: string) {
         return tx.courseAssessment.findFirst({
@@ -232,8 +240,34 @@ export const assessmentRepo = {
         });
       },
 
+      // Full row (all statuses) + attached problems — used by `copyCourse` to
+      // replicate the homework structure of a source course into a new one.
+      listByCourseIdAllWithProblems(courseId: string) {
+        return tx.courseAssessment.findMany({
+          where: { courseId },
+          orderBy: { opensAt: "asc" },
+          include: {
+            problems: {
+              select: { problemId: true, ordinal: true, points: true },
+              orderBy: { ordinal: "asc" }
+            }
+          }
+        });
+      },
+
       create(data: Prisma.CourseAssessmentUncheckedCreateInput) {
         return tx.courseAssessment.create({ data });
+      },
+
+      update(id: string, data: Prisma.CourseAssessmentUncheckedUpdateInput) {
+        return tx.courseAssessment.update({
+          data,
+          where: { id }
+        });
+      },
+
+      delete(id: string) {
+        return tx.courseAssessment.delete({ where: { id } });
       }
     };
   }
@@ -278,6 +312,12 @@ export const assessmentProblemRepo = {
     return {
       create(data: Prisma.CourseAssessmentProblemUncheckedCreateInput) {
         return tx.courseAssessmentProblem.create({ data });
+      },
+
+      deleteByAssessmentId(assessmentId: string) {
+        return tx.courseAssessmentProblem.deleteMany({
+          where: { assessmentId }
+        });
       }
     };
   }

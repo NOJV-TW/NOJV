@@ -3,6 +3,8 @@ import {
   assessmentRepo,
   courseMembershipRepo,
   courseRepo,
+  examProblemRepo,
+  examRepo,
   problemRepo,
   runTransaction,
   type Prisma,
@@ -234,5 +236,117 @@ export async function setCourseArchived(
     await assertCourseManager(tx, actor, courseId);
 
     return courseRepo.withTx(tx).update(courseId, { archived });
+  });
+}
+
+/**
+ * Duplicate a course's structural scaffolding into a brand-new course.
+ *
+ * Copied: course title/description, all assessments (all statuses, reset
+ * to `draft`) and their problem attachments, all exams (all statuses,
+ * reset to `draft`) and their problem attachments.
+ *
+ * Intentionally NOT copied: memberships (actor becomes the sole teacher),
+ * submissions, participations, exam sessions, announcements, plagiarism
+ * reports, IP violation logs. These are either historical data tied to
+ * the source term or time-bound artefacts that the new course will grow
+ * on its own.
+ *
+ * Returns the new course id so the caller can redirect to its settings.
+ */
+export async function copyCourse(
+  actor: ActorContext,
+  sourceCourseId: string
+): Promise<{ newCourseId: string }> {
+  return runTransaction(async (tx) => {
+    const source = await requireCourse(tx, sourceCourseId);
+    await assertCourseManager(tx, actor, source.id);
+
+    const owner = await ensureUser(tx, actor.userId, actor);
+
+    // 1. New Course (title suffixed, archived reset, new owner = actor).
+    const newCourse = await courseRepo.withTx(tx).create({
+      description: source.description,
+      ownerId: owner.id,
+      title: `${source.title} (copy)`
+    });
+
+    // 2. Actor becomes the teacher of the new course. Other roster members
+    // are NOT carried over; the new course starts with a clean member list.
+    await courseMembershipRepo.withTx(tx).create({
+      addedByUserId: owner.id,
+      courseId: newCourse.id,
+      joinedAt: new Date(),
+      role: "teacher",
+      status: "active",
+      userId: owner.id
+    });
+
+    // 3. Clone assessments — status reset to draft so nothing auto-publishes.
+    const sourceAssessments = await assessmentRepo
+      .withTx(tx)
+      .listByCourseIdAllWithProblems(source.id);
+
+    for (const a of sourceAssessments) {
+      const created = await assessmentRepo.withTx(tx).create({
+        allowedLanguages: a.allowedLanguages,
+        closesAt: a.closesAt,
+        courseId: newCourse.id,
+        createdByUserId: owner.id,
+        dueAt: a.dueAt,
+        opensAt: a.opensAt,
+        status: "draft",
+        summary: a.summary,
+        title: a.title,
+        ...(a.maxAttemptsPerDay != null ? { maxAttemptsPerDay: a.maxAttemptsPerDay } : {}),
+        ...(a.adjustmentRules != null
+          ? { adjustmentRules: a.adjustmentRules as Prisma.InputJsonValue }
+          : {})
+      });
+
+      for (const p of a.problems) {
+        await assessmentProblemRepo.withTx(tx).create({
+          assessmentId: created.id,
+          ordinal: p.ordinal,
+          points: p.points,
+          problemId: p.problemId
+        });
+      }
+    }
+
+    // 4. Clone exams — status reset to draft; proctoring config carries over.
+    const sourceExams = await examRepo.withTx(tx).listByCourseIdAllWithProblems(source.id);
+
+    for (const e of sourceExams) {
+      const created = await examRepo.withTx(tx).create({
+        allowedLanguages: e.allowedLanguages,
+        courseId: newCourse.id,
+        createdByUserId: owner.id,
+        endsAt: e.endsAt,
+        ipBindingEnabled: e.ipBindingEnabled,
+        ipViolationMode: e.ipViolationMode,
+        ipWhitelist: e.ipWhitelist,
+        ipWhitelistEnabled: e.ipWhitelistEnabled,
+        pageLockEnabled: e.pageLockEnabled,
+        scoreboardMode: e.scoreboardMode,
+        scoringMode: e.scoringMode,
+        startsAt: e.startsAt,
+        status: "draft",
+        submitCooldownSec: e.submitCooldownSec,
+        summary: e.summary,
+        title: e.title
+      });
+
+      for (const p of e.problems) {
+        await examProblemRepo.withTx(tx).create({
+          examId: created.id,
+          ordinal: p.ordinal,
+          points: p.points,
+          problemId: p.problemId
+        });
+      }
+    }
+
+    return { newCourseId: newCourse.id };
   });
 }

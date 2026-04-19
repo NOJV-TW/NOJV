@@ -176,39 +176,47 @@
 
           <div class="flex items-center gap-5">
             {#if canCreate}
-              <!-- Teacher / TA view: class stats (approximation — see TODO in
-                   domain layer. `classStats` is null today so we render em-dash
-                   with a status-aware hint. Matches the prototype 04 layout. -->
+              <!-- Teacher / TA view: class stats populated by
+                   `fillAssessmentStats` in the overview domain. Draft /
+                   upcoming rows intentionally stay null → status hint. -->
               <div
                 class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
               >
-                <span
-                  class="block font-display text-title-sm font-medium text-foreground"
-                >
-                  —
-                </span>
                 {#if assignment.status === "draft"}
+                  <span class="block font-display text-title-sm font-medium text-foreground">—</span>
                   {m.courseAssignments_classStatsDraftHint()}
                 {:else if assignment.status === "upcoming"}
+                  <span class="block font-display text-title-sm font-medium text-foreground">—</span>
                   {m.courseAssignments_classStatsUpcomingHint()}
+                {:else if assignment.classStats}
+                  <span class="block font-display text-title-sm font-medium text-foreground">
+                    {assignment.classStats.submittedUsers}/{assignment.classStats.totalStudents}
+                  </span>
+                  {m.courseAssignments_avgScore({ score: assignment.classStats.avgScore })}
                 {:else}
-                  {m.courseAssignments_classStatsPendingTeacher()}
+                  <span class="block font-display text-title-sm font-medium text-foreground">—</span>
                 {/if}
               </div>
             {:else}
               <!-- Student view: progress ring (personal completion %) +
-                   action button. `myStatus` is null today (see TODO in
-                   domain layer) so we render the ring empty with a dash
-                   label and a status-aware CTA. Matches prototype 04. -->
+                   action button. `myStatus` is populated by the overview
+                   domain for open/closed rows; draft/upcoming stay null. -->
+              {@const myStatus = assignment.myStatus}
+              {@const pct =
+                myStatus && myStatus.total > 0
+                  ? (myStatus.solved / myStatus.total) * 100
+                  : 0}
               <div
                 class="relative flex h-11 w-11 items-center justify-center rounded-full"
-                style="background: conic-gradient(var(--color-primary) 0%, var(--color-border) 0);"
+                style="background: conic-gradient(var(--color-primary) {pct}%, var(--color-border) {pct}%);"
                 aria-hidden="true"
               >
                 <span
                   class="absolute inset-[4px] rounded-full bg-[color:var(--color-panel)]"
                 ></span>
-                <span class="relative text-caption font-semibold tabular-nums">—</span>
+                <span class="relative text-caption font-semibold tabular-nums">
+                  {#if myStatus}{myStatus.solved}/{myStatus.total}{:else}—{/if}
+                </span>
               </div>
               {#if assignment.status === "open"}
                 <span class={buttonVariants({ variant: "default", size: "sm" })}>

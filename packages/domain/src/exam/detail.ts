@@ -1,7 +1,7 @@
 import { courseMembershipRepo, examParticipationRepo, examRepo } from "@nojv/db";
-import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
+import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
-export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
+export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
 
 export interface ExamDetailProblem {
   id: string;
@@ -18,6 +18,20 @@ export interface ExamRosterEntry {
   name: string;
   handle: string | null;
   status: "registered" | "active" | "submitted" | "disqualified";
+}
+
+/**
+ * Fields exposed only to managers. Keeps the hydration payload for
+ * student viewers lean and avoids leaking the raw whitelist / cooldown
+ * config through DevTools.
+ */
+export interface ExamDetailManagerFields {
+  /** Raw exam status — `liveStatus` still drives UI gating. */
+  rawStatus: "draft" | "published" | "archived";
+  frozenBoard: boolean;
+  ipWhitelist: string[];
+  allowedLanguages: Language[];
+  submitCooldownSec: number;
 }
 
 export interface ExamDetailPageData {
@@ -40,6 +54,8 @@ export interface ExamDetailPageData {
   totalStudents: number;
   /** Manager-only — null for student viewers. */
   roster: ExamRosterEntry[] | null;
+  /** Manager-only settings payload; null for student viewers. */
+  manager: ExamDetailManagerFields | null;
 }
 
 export interface GetExamDetailPageOptions {
@@ -63,6 +79,7 @@ function deriveStatus(
   now: Date
 ): ExamDetailStatus {
   if (raw === "draft") return "draft";
+  if (raw === "archived") return "archived";
   if (now < startsAt) return "upcoming";
   if (now >= endsAt) return "ended";
   return "running";
@@ -79,9 +96,10 @@ export async function getExamDetailPage(
 
   // Drafts are manager-only.
   if (exam.status === "draft" && !options.isManager) return null;
-  // Archived exams are hidden from everyone on this page — they belong
-  // in the contest scoreboard view, not the registration screen.
-  if (exam.status === "archived") return null;
+  // Archived exams stay manager-only — managers need access to unarchive
+  // from the Settings tab; students should not see the detail page for
+  // an archived exam (they still see results via the scoreboard view).
+  if (exam.status === "archived" && !options.isManager) return null;
 
   const [roster, students] = await Promise.all([
     options.isManager
@@ -123,6 +141,16 @@ export async function getExamDetailPage(
           status: p.status
         }));
 
+  const manager: ExamDetailManagerFields | null = options.isManager
+    ? {
+        rawStatus: exam.status,
+        frozenBoard: exam.frozenBoard,
+        ipWhitelist: exam.ipWhitelist,
+        allowedLanguages: exam.allowedLanguages as Language[],
+        submitCooldownSec: exam.submitCooldownSec
+      }
+    : null;
+
   return {
     id: exam.id,
     courseId: exam.courseId,
@@ -141,6 +169,7 @@ export async function getExamDetailPage(
     problems,
     registeredCount: exam._count.participations,
     totalStudents: students.length,
-    roster: rosterMapped
+    roster: rosterMapped,
+    manager
   };
 }

@@ -69,7 +69,10 @@
 <div class="pb-24">
   <!-- Page head -->
   <header class="animate-in mb-8">
-    <h1 class="font-display text-display font-medium tracking-[-0.02em]">
+    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
+      {m.assignmentsTop_eyebrow()}
+    </p>
+    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
       {m.navigation_assignments()}
     </h1>
     <p class="mt-2 text-body text-muted-foreground">
@@ -139,6 +142,11 @@
             assignment.opensAt,
             assignment.closesAt
           )}
+          {@const myStatus = assignment.myStatus}
+          {@const pct =
+            myStatus && myStatus.total > 0
+              ? (myStatus.solved / myStatus.total) * 100
+              : 0}
           <a
             href={`/assignments/${assignment.id}`}
             class="group relative grid grid-cols-[1fr_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
@@ -196,17 +204,20 @@
 
             <div class="flex items-center gap-5">
               <!-- Progress ring (personal completion %). `myStatus` is
-                   null today — see TODO in the domain layer — so we
-                   render the ring empty with a dash label. -->
+                   populated by `listAssignmentsAcrossCoursesForUser` for
+                   student rows; manager rows (teacher/TA in the course)
+                   have `classStats` instead. -->
               <div
                 class="relative flex h-11 w-11 items-center justify-center rounded-full"
-                style="background: conic-gradient(var(--color-primary) 0%, var(--color-border) 0);"
+                style="background: conic-gradient(var(--color-primary) {pct}%, var(--color-border) {pct}%);"
                 aria-hidden="true"
               >
                 <span
                   class="absolute inset-[4px] rounded-full bg-[color:var(--color-panel)]"
                 ></span>
-                <span class="relative text-caption font-semibold tabular-nums">—</span>
+                <span class="relative text-caption font-semibold tabular-nums">
+                  {#if myStatus}{myStatus.solved}/{myStatus.total}{:else}—{/if}
+                </span>
               </div>
               {#if assignment.status === "open"}
                 <span class={buttonVariants({ variant: "default", size: "sm" })}>

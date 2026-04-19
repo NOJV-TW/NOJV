@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   contestScoringModeSchema,
-  ipLockFields,
   isoDateTimeSchema,
   languageSchema,
   scoreboardModeSchema,
@@ -21,15 +20,12 @@ export const contestSessionSchema = z
     path: ["endsAt"]
   });
 
-// Standalone events: no courseId binding, no adjustment rules. Proctoring
-// fields mirror Exam as of Phase 3 of the CUID URL unification.
+// Standalone events: no courseId binding, no proctoring, no adjustment rules.
 const contestCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   endsAt: isoDateTimeSchema,
   frozenAt: isoDateTimeSchema.optional(),
   inviteCode: z.string().trim().max(32).optional(),
-  ...ipLockFields,
-  pageLockEnabled: z.boolean().default(false),
   problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
   scoreboardMode: scoreboardModeSchema.default("live"),
   scoringMode: contestScoringModeSchema.default("problem_count"),

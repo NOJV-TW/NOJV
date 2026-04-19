@@ -25,7 +25,6 @@ export interface ActiveSessionContext {
     examId: string;
     userId: string;
     startedAt: Date;
-    ipPin: string | null;
   };
   exam: {
     id: string;
@@ -67,10 +66,7 @@ async function assertEnrolledInExamCourse(
 }
 
 // Idempotent: if the actor already has an unended session for this exam, returns it without a new enter event.
-export async function startSession(
-  actor: ActorContext,
-  { examId, ipPin }: { examId: string; ipPin?: string | null }
-) {
+export async function startSession(actor: ActorContext, { examId }: { examId: string }) {
   return runTransaction(async (tx) => {
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
 
@@ -86,14 +82,12 @@ export async function startSession(
           startedAt: now,
           endedAt: null,
           releaseReason: null,
-          ipPin: ipPin ?? null,
           lastHeartbeatAt: now
         })
       : await examSessionRepo.withTx(tx).create({
           userId: actor.userId,
           examId,
           startedAt: now,
-          ipPin: ipPin ?? null,
           lastHeartbeatAt: now
         });
 
@@ -207,8 +201,7 @@ export async function getActiveSessionContext(
       id: session.id,
       examId: session.examId,
       userId: session.userId,
-      startedAt: session.startedAt,
-      ipPin: session.ipPin
+      startedAt: session.startedAt
     },
     exam: {
       id: exam.id,
@@ -257,7 +250,6 @@ export async function startSessionWithGate(
   actor: ActorContext,
   options: {
     examId: string;
-    ipPin?: string | null;
     now?: Date;
     gracePeriodMs?: number;
   }
@@ -283,10 +275,7 @@ export async function startSessionWithGate(
   }
 
   const sameExamIdempotent = existingActive?.examId === options.examId;
-  const session = await startSession(actor, {
-    examId: options.examId,
-    ipPin: options.ipPin ?? null
-  });
+  const session = await startSession(actor, { examId: options.examId });
 
   return {
     session: {
