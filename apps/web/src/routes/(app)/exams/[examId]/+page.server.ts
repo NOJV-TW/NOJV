@@ -8,12 +8,7 @@ import {
   type ExamSettingsForm,
   type ExamUpdate
 } from "@nojv/core";
-import {
-  clarificationDomain,
-  examDomain,
-  HttpError,
-  scoreOverrideDomain
-} from "@nojv/domain";
+import { clarificationDomain, examDomain, HttpError, scoreOverrideDomain } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";

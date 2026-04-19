@@ -4,11 +4,7 @@ import { notificationRepo } from "@nojv/db";
 import { clarificationDomain, ConflictError } from "@nojv/domain";
 import { createSubscriber, keys } from "@nojv/redis";
 
-import {
-  createTestContest,
-  createTestUser,
-  testPrisma
-} from "../../fixtures/factories";
+import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
 
 interface ActorUser {
   id: string;
@@ -118,9 +114,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       const notifs = await notificationRepo.listRecent(contestant.id, 10);
       const row = notifs.find((n) => n.type === "clarification_answered");
       expect(row).toBeDefined();
-      expect(row!.linkUrl).toBe(
-        `/contests/${contest.id}#clarification-${asked.id}`
-      );
+      expect(row!.linkUrl).toBe(`/contests/${contest.id}#clarification-${asked.id}`);
       const params = row!.params as { contextType: string; questionPreview: string };
       expect(params.contextType).toBe("contest");
       expect(params.questionPreview.startsWith("Is this modular")).toBe(true);

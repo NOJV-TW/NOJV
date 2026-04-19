@@ -96,9 +96,7 @@ export const GET: RequestHandler = async (event) => {
       clarificationDomain.canAnswerInContext(actor, sub.contextType, sub.contextId)
     ]);
     if (canAsk || canAnswer) {
-      authorizedClarChannels.push(
-        keys.clarificationChannel(sub.contextType, sub.contextId)
-      );
+      authorizedClarChannels.push(keys.clarificationChannel(sub.contextType, sub.contextId));
     }
   }
 
