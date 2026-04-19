@@ -1008,7 +1008,7 @@
   "notification_assignment_due_soon": "作業「{title}」將在 24 小時內到期",
   "notification_bell_ariaLabel": "通知",
   "notification_bell_unreadCount": "{count} 則未讀",
-  "notification_clarification_answered": "你的提問已被回覆：「{questionPreview}」",
+  "notification_clarification_answered": "你的提問已被回覆：「{questionPreview}…」",
   "notification_contest_starting_soon": "比賽「{title}」將於 15 分鐘後開始",
   "notification_course_enrolled": "你被加入課程「{courseName}」",
   "notification_dropdown_empty": "沒有新通知",
