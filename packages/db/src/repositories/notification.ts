@@ -56,7 +56,7 @@ export const notificationRepo = {
       data: inputs.map((i) => ({
         userId: i.userId,
         type: i.type,
-        params: i.params as Prisma.InputJsonValue,
+        params: i.params,
         linkUrl: i.linkUrl ?? null
       }))
     });
