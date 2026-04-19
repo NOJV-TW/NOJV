@@ -4,6 +4,7 @@ import {
   SSE_CONTEST_STARTING,
   SSE_NOTIFICATION,
   SSE_SUBMISSION_VERDICT,
+  type ClarificationSSEEvent,
   type NotificationSSEEvent,
   type SSEEvent
 } from "@nojv/core";
@@ -68,6 +69,20 @@ export async function publishNotification(
   } catch {
     // Best-effort: SSE delivery is eventually consistent with the DB.
     // If Redis is down, the DB row persists and clients re-fetch on load.
+  }
+}
+
+export async function publishClarification(
+  contextType: string,
+  contextId: string,
+  event: ClarificationSSEEvent
+): Promise<void> {
+  try {
+    await publishEvent(keys.clarificationChannel(contextType, contextId), event);
+  } catch {
+    // Best-effort: SSE delivery is eventually consistent with the DB.
+    // If Redis is down, the row is still in the DB and clients re-fetch
+    // on reconnect via the `since` query param.
   }
 }
 

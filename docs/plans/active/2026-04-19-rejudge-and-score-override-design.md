@@ -15,15 +15,15 @@ Two gaps block real classroom use:
 
 Rejudge is **partially built**:
 
-| Piece | State |
-| --- | --- |
-| `rejudgeWorkflow` (10-parallel batch of child `submissionJudgeWorkflow`) | ✅ exists at `packages/temporal/src/workflows/rejudge.ts` |
-| `dispatchRejudge` client helper | ✅ exists at `packages/job-dispatch/src/dispatch.ts:68` |
-| `fetchSubmissionIdsForRejudge` activity → `submissionDomain.findForRejudge` | ✅ exists |
-| `RejudgeInput = { problemId; contestId?; assessmentId? }` | ⚠️ missing single-submission mode, missing `examId`, no user filter |
-| UI entry point anywhere | ❌ none |
-| Permission gate | ❌ none (anyone reaching dispatch can trigger) |
-| Audit log | ❌ none |
+| Piece                                                                       | State                                                               |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `rejudgeWorkflow` (10-parallel batch of child `submissionJudgeWorkflow`)    | ✅ exists at `packages/temporal/src/workflows/rejudge.ts`           |
+| `dispatchRejudge` client helper                                             | ✅ exists at `packages/job-dispatch/src/dispatch.ts:68`             |
+| `fetchSubmissionIdsForRejudge` activity → `submissionDomain.findForRejudge` | ✅ exists                                                           |
+| `RejudgeInput = { problemId; contestId?; assessmentId? }`                   | ⚠️ missing single-submission mode, missing `examId`, no user filter |
+| UI entry point anywhere                                                     | ❌ none                                                             |
+| Permission gate                                                             | ❌ none (anyone reaching dispatch can trigger)                      |
+| Audit log                                                                   | ❌ none                                                             |
 
 Score override has **nothing** built.
 
@@ -31,17 +31,27 @@ Score override has **nothing** built.
 
 ### Scope: three entry points
 
-| Scope | Where | Input |
-| --- | --- | --- |
-| **A. Per-problem, all submissions** | Problem admin page | `{ problemId }` |
-| **B. Per-problem, filtered** | Problem admin page (advanced filters) | `{ problemId, contestId? \| assessmentId? \| examId?, userIds?, dateRange? }` |
-| **C. Single submission** | Submission detail page | `{ submissionId }` |
+| Scope                               | Where                                 | Input                                                                         |
+| ----------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- |
+| **A. Per-problem, all submissions** | Problem admin page                    | `{ problemId }`                                                               |
+| **B. Per-problem, filtered**        | Problem admin page (advanced filters) | `{ problemId, contestId? \| assessmentId? \| examId?, userIds?, dateRange? }` |
+| **C. Single submission**            | Submission detail page                | `{ submissionId }`                                                            |
 
 All three funnel through `dispatchRejudge`. `RejudgeInput` is extended to a discriminated union so the workflow can branch:
 
 ```ts
 type RejudgeInput =
-  | { mode: "batch"; problemId: string; contestId?: string; assessmentId?: string; examId?: string; userIds?: string[]; since?: string; until?: string; triggeredByUserId: string }
+  | {
+      mode: "batch";
+      problemId: string;
+      contestId?: string;
+      assessmentId?: string;
+      examId?: string;
+      userIds?: string[];
+      since?: string;
+      until?: string;
+      triggeredByUserId: string;
+    }
   | { mode: "single"; submissionId: string; triggeredByUserId: string };
 ```
 
@@ -51,12 +61,12 @@ type RejudgeInput =
 
 Derived from the project memory on submission-context permissions:
 
-| Submission context | Allowed actors |
-| --- | --- |
-| `practice` (no assessment/contest/exam) | Platform admin + problem author |
-| `assignment` | Platform admin + course teacher/TA of that course |
-| `exam` | Platform admin + course teacher/TA of that course |
-| `contest` | Platform admin + contest organizer |
+| Submission context                      | Allowed actors                                    |
+| --------------------------------------- | ------------------------------------------------- |
+| `practice` (no assessment/contest/exam) | Platform admin + problem author                   |
+| `assignment`                            | Platform admin + course teacher/TA of that course |
+| `exam`                                  | Platform admin + course teacher/TA of that course |
+| `contest`                               | Platform admin + contest organizer                |
 
 **Problem author rejudge rights cover practice context only.** Once a problem is embedded into an assignment/exam/contest, rejudge authority transfers to the context owner. This rule is enforced in the new `canRejudgeSubmission(actor, submission)` helper in `packages/domain/src/submission/authz.ts`.
 
@@ -221,13 +231,13 @@ Edit reuses the same form pre-filled. Delete is a confirm-modal with the current
 
 ### API routes
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/overrides?contextType=&contextId=` | List overrides for a context. Staff-only. |
-| POST | `/api/overrides` | Create (body: userId, problemId, contextType, contextId, overrideScore, reason). |
-| PATCH | `/api/overrides/[id]` | Update score and/or reason. |
-| DELETE | `/api/overrides/[id]` | Remove. |
-| POST | `/api/rejudge` | Dispatch rejudge (single or batch). |
+| Method | Path                                     | Purpose                                                                          |
+| ------ | ---------------------------------------- | -------------------------------------------------------------------------------- |
+| GET    | `/api/overrides?contextType=&contextId=` | List overrides for a context. Staff-only.                                        |
+| POST   | `/api/overrides`                         | Create (body: userId, problemId, contextType, contextId, overrideScore, reason). |
+| PATCH  | `/api/overrides/[id]`                    | Update score and/or reason.                                                      |
+| DELETE | `/api/overrides/[id]`                    | Remove.                                                                          |
+| POST   | `/api/rejudge`                           | Dispatch rejudge (single or batch).                                              |
 
 All routes: `requireAuth` + `consumeFormRateLimit` + permission check via the shared helpers.
 
@@ -272,14 +282,14 @@ Split enables each commit to land independently; reviewers see data model change
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
-| Batch rejudge of a large class starves live submissions on the judge queue | `JUDGE_TASK_QUEUE` is shared; priority queues are explicitly out of scope — staff are expected to rejudge outside of exam/contest windows. Documented in staff UI. |
-| `submissionJudgeWorkflow` replay re-writes audit log on every retry | The snapshot step happens inside an activity with idempotency by `submissionId + attempt`; replay is safe. |
-| Override set during contest freeze doesn't affect frozen snapshot | Intentional. Matches existing freeze semantics (scoreboard snapshot is fixed at freeze time). |
-| Student sees "manually adjusted" and contacts TA about reason | Reason is staff-internal by design; FAQ can explain the marker. Transparency without disclosing internal notes. |
-| Override left stale after student is removed from course | FK cascade on `User` delete cleans overrides; if only `CourseMembership` is removed (not user), the override persists — correct, since the student's prior grade record shouldn't vanish on re-enrollment tweaks. |
-| Concurrent override edit by two TAs | `@@unique([userId, problemId, contextType, contextId])` + update-within-tx; second writer's update sees the new version and their reason wins, previous version is captured in the audit log. Acceptable for a low-frequency admin action. |
+| Risk                                                                       | Mitigation                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Batch rejudge of a large class starves live submissions on the judge queue | `JUDGE_TASK_QUEUE` is shared; priority queues are explicitly out of scope — staff are expected to rejudge outside of exam/contest windows. Documented in staff UI.                                                                         |
+| `submissionJudgeWorkflow` replay re-writes audit log on every retry        | The snapshot step happens inside an activity with idempotency by `submissionId + attempt`; replay is safe.                                                                                                                                 |
+| Override set during contest freeze doesn't affect frozen snapshot          | Intentional. Matches existing freeze semantics (scoreboard snapshot is fixed at freeze time).                                                                                                                                              |
+| Student sees "manually adjusted" and contacts TA about reason              | Reason is staff-internal by design; FAQ can explain the marker. Transparency without disclosing internal notes.                                                                                                                            |
+| Override left stale after student is removed from course                   | FK cascade on `User` delete cleans overrides; if only `CourseMembership` is removed (not user), the override persists — correct, since the student's prior grade record shouldn't vanish on re-enrollment tweaks.                          |
+| Concurrent override edit by two TAs                                        | `@@unique([userId, problemId, contextType, contextId])` + update-within-tx; second writer's update sees the new version and their reason wins, previous version is captured in the audit log. Acceptable for a low-frequency admin action. |
 
 ## Related Docs
 

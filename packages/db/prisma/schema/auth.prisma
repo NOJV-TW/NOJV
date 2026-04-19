@@ -77,6 +77,8 @@ model User {
   createdScoreOverrides          ScoreOverride[]           @relation("ScoreOverrideCreator")
   editedScoreOverrides           ScoreOverride[]           @relation("ScoreOverrideEditor")
   scoreOverrideAuditChanges      ScoreOverrideAuditLog[]   @relation("ScoreOverrideAuditChanger")
+  clarificationsAsked            Clarification[]           @relation("ClarificationAsker")
+  clarificationsAnswered         Clarification[]           @relation("ClarificationAnswerer")
 }
 
 model Session {

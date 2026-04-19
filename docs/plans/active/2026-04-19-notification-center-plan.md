@@ -11,6 +11,7 @@
 **Reference design:** `docs/plans/active/2026-04-19-notification-center-design.md` — read first.
 
 **Conventions to match:**
+
 - Domain module lives at `packages/domain/src/notification/` with `index.ts` barrel export (mirror `packages/domain/src/announcement/`).
 - Repository at `packages/db/src/repositories/notification.ts` (mirror `announcement.ts`).
 - API routes are SvelteKit server routes at `apps/web/src/routes/api/notifications/...` using `apiHandler` + `requireAuth` + `consumeFormRateLimit`.
@@ -28,6 +29,7 @@
 ### Task 1: Add `Notification` model + `NotificationType` enum to Prisma schema
 
 **Files:**
+
 - Create: `packages/db/prisma/schema/notification.prisma`
 - Modify: `packages/db/prisma/schema/auth.prisma` (add `notifications Notification[]` relation on `User`)
 
@@ -87,6 +89,7 @@ git commit -m "feat(db): add Notification model and NotificationType enum"
 ### Task 2: Generate production migration
 
 **Files:**
+
 - Create: `packages/db/prisma/migrations/<timestamp>_add_notification_table/migration.sql`
 
 **Step 1: Write the migration by hand**
@@ -140,6 +143,7 @@ git commit -m "feat(db): notification migration"
 ### Task 3: Add repository
 
 **Files:**
+
 - Create: `packages/db/src/repositories/notification.ts`
 - Modify: `packages/db/src/repositories/index.ts`
 
@@ -273,6 +277,7 @@ git commit -m "feat(db): notification repository with capped retention"
 ### Task 4: Core package — SSE event constant + channel helper
 
 **Files:**
+
 - Modify: `packages/core/src/index.ts`
 - Modify: `packages/redis/src/keys.ts`
 
@@ -284,10 +289,10 @@ export const SSE_NOTIFICATION = "notification";
 export interface NotificationSSEEvent {
   type: typeof SSE_NOTIFICATION;
   id: string;
-  notificationType: string;  // NotificationType enum value (string at wire)
+  notificationType: string; // NotificationType enum value (string at wire)
   params: unknown;
   linkUrl: string | null;
-  createdAt: string;         // ISO 8601
+  createdAt: string; // ISO 8601
 }
 ```
 
@@ -316,6 +321,7 @@ git commit -m "feat(core): notification SSE event + redis channel helper"
 ### Task 5: Write the failing test for `createNotification`
 
 **Files:**
+
 - Create: `tests/unit/domain/notification.test.ts`
 
 **Step 1: Write the test file**
@@ -387,6 +393,7 @@ git commit -m "test: failing notification domain test"
 ### Task 6: Implement `notificationDomain.createNotification` + barrel
 
 **Files:**
+
 - Create: `packages/domain/src/notification/index.ts`
 - Modify: `packages/domain/src/index.ts`
 
@@ -509,6 +516,7 @@ git commit -m "feat(domain): notification module with createNotification + cap"
 ### Task 7: Integration test — notification publish reaches SSE
 
 **Files:**
+
 - Create: `tests/integration/notification/publish.test.ts`
 
 **Step 1: Write the test**
@@ -573,6 +581,7 @@ git commit -m "test: notification publish reaches redis subscriber"
 ### Task 8: API route — GET `/api/notifications/recent`
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/notifications/recent/+server.ts`
 
 **Step 1: Write the handler**
@@ -614,6 +623,7 @@ git commit -m "feat(web): GET /api/notifications/recent"
 ### Task 9: API routes — `unread-count`, `[id]/read`, `read-all`
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/notifications/unread-count/+server.ts`
 - Create: `apps/web/src/routes/api/notifications/[id]/read/+server.ts`
 - Create: `apps/web/src/routes/api/notifications/read-all/+server.ts`
@@ -688,6 +698,7 @@ git commit -m "feat(web): mark-read + unread-count notification routes"
 ### Task 10: Wire SSE stream to subscribe to notification channel
 
 **Files:**
+
 - Modify: `apps/web/src/routes/api/events/stream/+server.ts`
 
 **Step 1: Add the new channel**
@@ -695,10 +706,7 @@ git commit -m "feat(web): mark-read + unread-count notification routes"
 Find the line `const channels = [userChannel(userId)];` and change to:
 
 ```ts
-const channels = [
-  userChannel(userId),
-  keys.notificationChannel(userId)
-];
+const channels = [userChannel(userId), keys.notificationChannel(userId)];
 ```
 
 Also import `keys` from `@nojv/redis` at the top of the file.
@@ -722,6 +730,7 @@ git commit -m "feat(web): SSE stream subscribes to notification channel"
 ### Task 11: Fire `course_enrolled` in `manuallyEnrollCourseMember`
 
 **Files:**
+
 - Modify: `packages/domain/src/course/mutations.ts` — find `manuallyEnrollCourseMember` function
 - Test: `tests/integration/domain/course-enroll-notification.test.ts`
 
@@ -796,6 +805,7 @@ git commit -m "feat(domain): emit course_enrolled notification on manual enroll"
 ### Task 12: Fire `announcement_published` fan-out on publish
 
 **Files:**
+
 - Modify: `packages/domain/src/announcement/index.ts`
 - Test: `tests/integration/domain/announcement-publish-notification.test.ts`
 
@@ -821,6 +831,7 @@ git commit -m "feat(domain): fan out notifications on announcement publish"
 ### Task 13: Fire `role_changed` on admin role change
 
 **Files:**
+
 - Modify: `packages/domain/src/admin/` — find the function that writes `User.platformRole`
 - Test: `tests/integration/domain/role-change-notification.test.ts`
 
@@ -842,6 +853,7 @@ git commit -m "feat(domain): emit role_changed notification on role update"
 ### Task 14: `assignment_due_soon` in `assessmentLifecycle` workflow
 
 **Files:**
+
 - Modify: `packages/temporal/src/workflows/assessment-lifecycle.ts`
 - Modify: `packages/temporal/src/activities/notification.ts` (or add one if missing)
 - Test: `tests/unit/temporal/assessment-lifecycle.test.ts` (add a case, mocking Temporal time)
@@ -896,6 +908,7 @@ git commit -m "feat(temporal): assignment_due_soon reminder 24h before close"
 ### Task 15: `exam_starting_soon` + `contest_starting_soon` workflows
 
 **Files:**
+
 - Modify: `packages/temporal/src/workflows/exam-lifecycle.ts` (if exists, else the equivalent)
 - Modify: `packages/temporal/src/workflows/contest-lifecycle.ts`
 - Modify: `packages/temporal/src/activities/notification.ts`
@@ -911,6 +924,7 @@ git commit -m "feat(temporal): exam/contest starting_soon reminders"
 ### Task 16: Frontend store
 
 **Files:**
+
 - Create: `apps/web/src/lib/stores/notifications.svelte.ts`
 
 **Step 1: Write the Svelte 5 rune store**
@@ -942,7 +956,13 @@ class NotificationsStore {
     this.unreadCount = data.unreadCount;
   }
 
-  handleSseEvent(payload: { id: string; notificationType: string; params: unknown; linkUrl: string | null; createdAt: string }) {
+  handleSseEvent(payload: {
+    id: string;
+    notificationType: string;
+    params: unknown;
+    linkUrl: string | null;
+    createdAt: string;
+  }) {
     this.items = [
       {
         id: payload.id,
@@ -960,7 +980,9 @@ class NotificationsStore {
 
   private triggerShake() {
     this.isAnimating = true;
-    setTimeout(() => { this.isAnimating = false; }, 500);
+    setTimeout(() => {
+      this.isAnimating = false;
+    }, 500);
   }
 
   async markOne(id: string) {
@@ -1007,6 +1029,7 @@ git commit -m "feat(web): notification store with optimistic mark-read"
 ### Task 17: Components — Bell, Dropdown, Item
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/notification/NotificationBell.svelte`
 - Create: `apps/web/src/lib/components/notification/NotificationDropdown.svelte`
 - Create: `apps/web/src/lib/components/notification/NotificationItem.svelte`
@@ -1033,6 +1056,7 @@ git commit -m "feat(web): notification bell, dropdown, item components"
 ### Task 18: SSE client integration
 
 **Files:**
+
 - Modify: wherever the existing SSE client hook lives — search for `EventSource` or `events/stream` in `apps/web/src/lib/`
 
 **Step 1: Add a handler for the `notification` event**
@@ -1055,10 +1079,11 @@ git commit -m "feat(web): wire notification SSE into store"
 ### Task 19: Paraglide keys
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
 
-**Step 1: Add keys to both files** — see the design doc for the complete list of notification_* keys. Run `pnpm --filter @nojv/web exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` to regenerate `m` helpers.
+**Step 1: Add keys to both files** — see the design doc for the complete list of notification\_\* keys. Run `pnpm --filter @nojv/web exec paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide` to regenerate `m` helpers.
 
 **Step 2: Typecheck**
 
@@ -1077,15 +1102,25 @@ git commit -m "i18n: notification center strings (en, zh-TW)"
 ### Task 20: Bell-shake CSS keyframe
 
 **Files:**
+
 - Modify: the bell component or a shared CSS file (e.g. `apps/web/src/app.css`)
 
 Add:
 
 ```css
 @keyframes bell-shake {
-  0%, 100% { transform: rotate(0); }
-  20%, 60% { transform: rotate(-8deg); }
-  40%, 80% { transform: rotate(8deg); }
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20%,
+  60% {
+    transform: rotate(-8deg);
+  }
+  40%,
+  80% {
+    transform: rotate(8deg);
+  }
 }
 
 .bell-shake {
@@ -1093,8 +1128,13 @@ Add:
 }
 
 @keyframes dot-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
 }
 
 .dot-pulse {
@@ -1138,7 +1178,7 @@ Commit any stray fixes discovered during smoke testing.
 
 ## Notes for the Implementer
 
-- The design doc is the source of truth on *why*; this plan is the source of truth on *what* and *where*. When they conflict, re-read the design.
+- The design doc is the source of truth on _why_; this plan is the source of truth on _what_ and _where_. When they conflict, re-read the design.
 - Do not invent additional notification types beyond the 7 in `NotificationType`. Feature #3 (clarifications) fills in `clarification_answered`; other types belong in a later plan.
 - Do not add email delivery, preference settings, or a `/notifications` page — all explicit non-goals.
 - If any integration test flakes on parallel DB access, confirm `vitest.config.ts` still has `fileParallelism: false` for the integration project (round 6 fix). Do not re-enable parallelism.
