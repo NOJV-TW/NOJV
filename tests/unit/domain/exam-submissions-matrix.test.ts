@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { examFindDetailById, findStudents, groupByUserAndProblem } = vi.hoisted(() => ({
-  examFindDetailById: vi.fn(),
-  findStudents: vi.fn(),
-  groupByUserAndProblem: vi.fn()
-}));
+const { examFindDetailById, findStudents, groupByUserAndProblem, findAllOverrides } =
+  vi.hoisted(() => ({
+    examFindDetailById: vi.fn(),
+    findStudents: vi.fn(),
+    groupByUserAndProblem: vi.fn(),
+    findAllOverrides: vi.fn(() => Promise.resolve([]))
+  }));
 
 vi.mock("@nojv/db", () => ({
   examRepo: { findDetailById: examFindDetailById },
   courseMembershipRepo: { findStudents },
-  submissionRepo: { groupByUserAndProblem }
+  submissionRepo: { groupByUserAndProblem },
+  scoreOverrideRepo: { findAllByContext: findAllOverrides }
 }));
 
 import { examDomain, NotFoundError } from "@nojv/domain";

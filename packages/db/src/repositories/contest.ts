@@ -237,6 +237,17 @@ export const contestParticipationRepo = {
     });
   },
 
+  // Id-only lookup — used by score-override invalidation so we can call
+  // `updateContestScores(participationId)` after editing an override.
+  findIdByContestAndUser(contestId: string, userId: string) {
+    return prisma.contestParticipation
+      .findUnique({
+        where: { contestId_userId: { contestId, userId } },
+        select: { id: true }
+      })
+      .then((row) => row?.id ?? null);
+  },
+
   withTx(tx: TxClient) {
     return {
       upsert(

@@ -1,6 +1,7 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
+import { resolveOverridesForContext } from "../scoring/resolve-final-score";
 
 export type MatrixCellState = "ac" | "partial" | "zero" | "empty";
 
@@ -100,10 +101,31 @@ export async function buildSubmissionsMatrix(
   }
   void grouped;
 
+  // Overlay any manual score overrides. Overrides win over the best-submission
+  // score and also "unlock" a cell that otherwise had 0 attempts — a teacher
+  // can assign credit for an off-platform solution.
+  const overrides = await resolveOverridesForContext({
+    contextType: "assignment",
+    contextId: assessmentId
+  });
+
   const rows: MatrixRow[] = students.map((student) => {
     const cells: MatrixCell[] = problems.map((problem) => {
       const key = `${student.userId}::${problem.problemId}`;
+      const override = overrides.get(key);
       const hit = scoreIndex.get(key);
+      if (override !== undefined) {
+        let state: MatrixCellState;
+        if (override >= problem.points) state = "ac";
+        else if (override > 0) state = "partial";
+        else state = "zero";
+        return {
+          problemId: problem.problemId,
+          score: override,
+          attempts: hit?.count ?? 0,
+          state
+        };
+      }
       if (!hit || hit.count === 0) {
         return { problemId: problem.problemId, score: null, attempts: 0, state: "empty" };
       }

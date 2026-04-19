@@ -1,6 +1,7 @@
 import { assessmentRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
+import { resolveOverridesForContext } from "../scoring/resolve-final-score";
 
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
@@ -162,8 +163,32 @@ export async function getAssignmentDetail(
       }
     }
 
+    // Fetch overrides for this assignment (scoped to this viewer) and
+    // let them win over the best-submission aggregate.
+    const overrides = await resolveOverridesForContext({
+      contextType: "assignment",
+      contextId: assessmentId
+    });
+
     for (const problem of problems) {
       const stats = statsByProblem.get(problem.problemId);
+      const overrideKey = `${options.viewerUserId}::${problem.problemId}`;
+      const override = overrides.get(overrideKey);
+
+      if (override !== undefined) {
+        let state: "ac" | "partial" | "attempted" | "none" = "none";
+        if (override >= problem.points) state = "ac";
+        else if (override > 0) state = "partial";
+        else if ((stats?.attempts ?? 0) > 0) state = "attempted";
+        problem.myStatus = {
+          bestScore: override,
+          attempts: stats?.attempts ?? 0,
+          lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
+          state
+        };
+        continue;
+      }
+
       if (!stats) {
         problem.myStatus = {
           bestScore: null,

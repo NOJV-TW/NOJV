@@ -27,6 +27,8 @@ vi.mock("@nojv/db", () => ({
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   examRepo: { findById: examFindById },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
+  contestParticipationRepo: { findIdByContestAndUser: vi.fn(() => Promise.resolve(null)) },
+  examParticipationRepo: { findIdByExamAndUser: vi.fn(() => Promise.resolve(null)) },
   scoreOverrideRepo: {
     create: overrideCreate,
     update: overrideUpdate,
@@ -42,7 +44,8 @@ vi.mock("@nojv/db", () => ({
 import { ForbiddenError, ValidationError, NotFoundError } from "@nojv/domain";
 import { scoreOverrideDomain } from "@nojv/domain";
 
-const { createOverride, updateOverride, deleteOverride, canSetScoreOverride } = scoreOverrideDomain;
+const { createOverride, updateOverride, deleteOverride, canSetScoreOverride } =
+  scoreOverrideDomain;
 
 function actor(
   overrides: Partial<{
@@ -80,12 +83,16 @@ describe("canSetScoreOverride", () => {
     expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "contest", "c_1")).toBe(
       true
     );
-    expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "exam", "e_1")).toBe(true);
+    expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "exam", "e_1")).toBe(
+      true
+    );
   });
 
   it("contest: only organizer allowed", async () => {
     contestFindById.mockResolvedValue({ id: "c_1", createdByUserId: "usr_org" });
-    expect(await canSetScoreOverride(actor({ userId: "usr_org" }), "contest", "c_1")).toBe(true);
+    expect(await canSetScoreOverride(actor({ userId: "usr_org" }), "contest", "c_1")).toBe(
+      true
+    );
     expect(await canSetScoreOverride(actor({ userId: "usr_other" }), "contest", "c_1")).toBe(
       false
     );
