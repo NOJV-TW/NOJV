@@ -72,6 +72,7 @@ model User {
   dailyActivity                  UserDailyActivity[]
   activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
   notifications                  Notification[]
+  triggeredRejudgeLogs           SubmissionRejudgeLog[]
 }
 
 model Session {
