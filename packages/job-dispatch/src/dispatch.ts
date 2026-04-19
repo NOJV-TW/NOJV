@@ -29,8 +29,9 @@ export interface AssessmentLifecycleInput {
 
 export interface ExamAutoCloseInput {
   examId: string;
-  // ISO-8601 timestamp. Wire format is a string so the Temporal payload
+  // ISO-8601 timestamps. Wire format is a string so the Temporal payload
   // serializer is deterministic regardless of who built the input.
+  startsAt: string;
   endsAt: string;
 }
 

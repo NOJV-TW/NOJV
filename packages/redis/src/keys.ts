@@ -9,6 +9,7 @@ export const keys = {
   cache: (key: string) => `nojv:cache:${key}`,
 
   userChannel: (userId: string) => `user:${userId}`,
+  notificationChannel: (userId: string) => `notification:${userId}`,
   contestChannel: (contestId: string) => `contest:${contestId}`,
   assessmentChannel: (assessmentId: string) => `assessment:${assessmentId}`
 } as const;

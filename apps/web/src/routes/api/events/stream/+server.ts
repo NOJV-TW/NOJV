@@ -1,6 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
-import { createSubscriber } from "@nojv/redis";
+import { createSubscriber, keys } from "@nojv/redis";
 import { userChannel } from "@nojv/core";
 import { createLogger } from "$lib/server/logger";
 import { z } from "zod";
@@ -63,7 +63,7 @@ export const GET: RequestHandler = (event) => {
     start(controller) {
       const encoder = new TextEncoder();
       const subscriber = createSubscriber(redisUrl);
-      const channels = [userChannel(userId)];
+      const channels = [userChannel(userId), keys.notificationChannel(userId)];
 
       function send(data: string) {
         try {

@@ -85,6 +85,15 @@ export const userRepo = {
     });
   },
 
+  // Active-only recipient set for platform-wide fan-outs (announcements, etc).
+  // Excludes `disabled` and `pending_first_login` users.
+  listActiveIds() {
+    return prisma.user.findMany({
+      where: { status: "active" },
+      select: { id: true }
+    });
+  },
+
   update(id: string, data: Prisma.UserUpdateInput) {
     return prisma.user.update({
       where: { id },

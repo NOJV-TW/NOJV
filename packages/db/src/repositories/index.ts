@@ -8,6 +8,8 @@ export { editorialRepo } from "./editorial";
 export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
 export { ipViolationLogRepo, examParticipationIpRepo } from "./ip-violation";
+export { notificationRepo, NOTIFICATION_RETENTION_PER_USER } from "./notification";
+export type { NotificationCreateInput } from "./notification";
 export {
   plagiarismRepo,
   type PlagiarismReportSummary,

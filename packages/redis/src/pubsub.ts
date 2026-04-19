@@ -2,7 +2,9 @@ import {
   SSE_ASSIGNMENT_DEADLINE,
   SSE_CONTEST_ENDING,
   SSE_CONTEST_STARTING,
+  SSE_NOTIFICATION,
   SSE_SUBMISSION_VERDICT,
+  type NotificationSSEEvent,
   type SSEEvent
 } from "@nojv/core";
 
@@ -54,5 +56,38 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
     });
   } catch {
     // best-effort; swallow publish failures.
+  }
+}
+
+export async function publishNotification(
+  userId: string,
+  event: NotificationSSEEvent
+): Promise<void> {
+  try {
+    await publishEvent(keys.notificationChannel(userId), event);
+  } catch {
+    // Best-effort: SSE delivery is eventually consistent with the DB.
+    // If Redis is down, the DB row persists and clients re-fetch on load.
+  }
+}
+
+// Batch fan-out signal: a "something happened, re-fetch" ping without
+// the full payload. Used by createNotificationBatch where the per-row
+// SSE round-trip would be expensive.
+export async function publishNotificationBatchSignal(
+  userId: string,
+  detail: { notificationType: string; params: unknown; linkUrl: string | null }
+): Promise<void> {
+  try {
+    await publishEvent(keys.notificationChannel(userId), {
+      type: SSE_NOTIFICATION,
+      notificationType: detail.notificationType,
+      params: detail.params,
+      linkUrl: detail.linkUrl
+      // id + createdAt intentionally omitted — the client refetches on
+      // any payload missing an id.
+    } as NotificationSSEEvent);
+  } catch {
+    // Best-effort
   }
 }

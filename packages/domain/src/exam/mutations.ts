@@ -195,6 +195,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
   if (exam.status === "published") {
     await dispatchExamAutoClose({
       examId: exam.id,
+      startsAt: exam.startsAt.toISOString(),
       endsAt: exam.endsAt.toISOString()
     });
   }
@@ -352,7 +353,11 @@ async function assertExamManagePermission(
  * schedules the auto-close workflow on commit.
  */
 export async function publishExam(actor: ActorContext, examId: string): Promise<void> {
-  const { examId: committedId, endsAt } = await runTransaction(async (tx) => {
+  const {
+    examId: committedId,
+    startsAt,
+    endsAt
+  } = await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
     await assertExamManagePermission(tx, actor, exam);
 
@@ -377,12 +382,13 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
 
     await examRepo.withTx(tx).update(exam.id, { status: "published" });
 
-    return { examId: exam.id, endsAt: exam.endsAt };
+    return { examId: exam.id, startsAt: exam.startsAt, endsAt: exam.endsAt };
   });
 
   // Fires after commit so a rolled-back publish never leaves a phantom workflow behind.
   await dispatchExamAutoClose({
     examId: committedId,
+    startsAt: startsAt.toISOString(),
     endsAt: endsAt.toISOString()
   });
 }

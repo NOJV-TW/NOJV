@@ -25,7 +25,14 @@ export { closeActiveSessionsForExam } from "./exam-session";
 
 export { runPlagiarismCheck } from "./plagiarism";
 
-export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
+export {
+  publishVerdict,
+  publishContestEvent,
+  publishAssessmentDeadline,
+  fanoutAssignmentDueSoon,
+  fanoutExamStartingSoon,
+  fanoutContestStartingSoon
+} from "./notification";
 
 export {
   getRedis,

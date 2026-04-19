@@ -128,9 +128,10 @@ describe("publishExam", () => {
     expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
     expect(dispatchExamAutoClose).toHaveBeenCalledTimes(1);
     const [payload] = dispatchExamAutoClose.mock.calls[0] as [
-      { examId: string; endsAt: string }
+      { examId: string; startsAt: string; endsAt: string }
     ];
     expect(payload.examId).toBe("exam_1");
+    expect(typeof payload.startsAt).toBe("string");
     expect(typeof payload.endsAt).toBe("string");
   });
 
