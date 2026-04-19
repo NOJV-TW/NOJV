@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronRight } from "@lucide/svelte";
+  import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { cn } from "$lib/utils.js";
@@ -286,11 +286,23 @@
               </div>
             </div>
 
-            <div class="font-display text-title font-medium tabular-nums leading-none">
+            <div
+              class="flex items-center gap-1.5 font-display text-title font-medium tabular-nums leading-none"
+            >
               <span>{problem.myStatus?.bestScore ?? 0}</span>
               <span class="text-body-sm font-normal text-muted-foreground">
                 / {problem.points}
               </span>
+              {#if problem.myStatus?.overridden}
+                <!-- TODO i18n Task 19 -->
+                <span
+                  class="inline-flex items-center text-info"
+                  title="This score has been manually adjusted by a teacher."
+                  aria-label="Adjusted"
+                >
+                  <Info class="size-4" aria-hidden="true" />
+                </span>
+              {/if}
             </div>
 
             {#if !data.course.archived}

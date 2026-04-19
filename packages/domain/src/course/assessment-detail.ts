@@ -22,6 +22,8 @@ export interface AssignmentDetailProblem {
     lastSubmissionAt: string | null;
     /** `ac` = full score, `partial` = score > 0, `attempted` = score === 0, `none` = no subs */
     state: "ac" | "partial" | "attempted" | "none";
+    /** True when the rendered bestScore came from a staff-set ScoreOverride. */
+    overridden: boolean;
   } | null;
 }
 
@@ -184,7 +186,8 @@ export async function getAssignmentDetail(
           bestScore: override,
           attempts: stats?.attempts ?? 0,
           lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
-          state
+          state,
+          overridden: true
         };
         continue;
       }
@@ -194,7 +197,8 @@ export async function getAssignmentDetail(
           bestScore: null,
           attempts: 0,
           lastSubmissionAt: null,
-          state: "none"
+          state: "none",
+          overridden: false
         };
         continue;
       }
@@ -206,7 +210,8 @@ export async function getAssignmentDetail(
         bestScore: stats.bestScore,
         attempts: stats.attempts,
         lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
-        state
+        state,
+        overridden: false
       };
     }
 
