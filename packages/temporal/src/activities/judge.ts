@@ -208,3 +208,18 @@ export async function fetchSingleSubmissionForRejudge(
   return submissionDomain.findOneForRejudge(submissionId);
 }
 
+export async function snapshotSubmissionForRejudge(
+  submissionId: string,
+  triggeredByUserId: string | null
+): Promise<{ logId: string } | null> {
+  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId);
+}
+
+export async function finalizeRejudgeLog(
+  submissionId: string,
+  triggeredByUserId: string | null,
+  logId: string
+): Promise<void> {
+  return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
+}
+

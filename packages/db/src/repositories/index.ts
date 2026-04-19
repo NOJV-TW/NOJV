@@ -24,5 +24,10 @@ export {
 } from "./problem";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export { submissionRepo } from "./submission";
+export { submissionRejudgeLogRepo } from "./submission-rejudge-log";
+export type {
+  SubmissionRejudgeLogCreateInput,
+  SubmissionRejudgeLogUpdateInput
+} from "./submission-rejudge-log";
 export { userRepo } from "./user";
 export { userDailyActivityRepo } from "./user-daily-activity";

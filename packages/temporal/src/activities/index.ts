@@ -4,6 +4,8 @@ export {
   completeSubmission,
   fetchSubmissionIdsForRejudge,
   fetchSingleSubmissionForRejudge,
+  snapshotSubmissionForRejudge,
+  finalizeRejudgeLog,
   setExecutor
 } from "./judge";
 export type { CompletedSubmission, SubmissionJudgeContext, TestcaseSetGroup } from "./judge";
