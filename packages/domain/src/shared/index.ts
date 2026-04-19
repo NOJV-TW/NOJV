@@ -1,6 +1,7 @@
 export * from "./actor-context";
 export * from "./errors";
 export * from "./ip-utils";
+export * from "./list-aggregations";
 export * from "./ip-violations";
 export * from "./page-lock";
 export * from "./permissions";

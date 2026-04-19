@@ -214,13 +214,4 @@ test.describe("Advanced Mode Lifecycle", () => {
 
     await context.close();
   });
-
-  // Convert-to-Advanced escape hatch: requires Agent D's feature (a
-  // `?/convertToAdvanced` form action on the standard problem-edit page).
-  // A grep for `convertToAdvanced` / `convert-to-advanced` across
-  // `apps/web/src/routes/` and `packages/domain/` on this branch returned
-  // zero hits, so the feature has not landed. Skip until it merges.
-  test.skip("teacher can convert a standard problem to Advanced Mode", () => {
-    // requires convert-to-advanced feature merge
-  });
 });

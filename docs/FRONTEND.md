@@ -8,34 +8,37 @@ SvelteKit application with server-side rendering, client hydration, and file-bas
 
 Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/signin` if no session.
 
-| Route                                                | Purpose                                                                       |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `/dashboard`                                         | User stats, activity chart, language/difficulty distribution, recommendations |
-| `/problems`                                          | Problem listing with filters (difficulty, tags, status)                       |
-| `/problems/create`                                   | Problem creation (admin/teacher)                                              |
-| `/problems/[id]`                                     | Problem workspace: Monaco editor, testcases, submit/run                       |
-| `/problems/[id]/edit`                                | Problem editor (admin/teacher)                                                |
-| `/submissions`                                       | User submission history                                                       |
-| `/contests`                                          | Contest listing, invite code join                                             |
-| `/contests/create`                                   | Contest creation (any authenticated user)                                     |
-| `/contests/[slug]`                                   | Contest detail and problem list                                               |
-| `/contests/[slug]/problems/[problemId]`              | Contest problem workspace                                                     |
-| `/contests/[slug]/scoreboard`                        | Real-time scoreboard (ICPC/IOI)                                               |
-| `/courses`                                           | Course listing                                                                |
-| `/courses/[slug]`                                    | Course detail                                                                 |
-| `/courses/[slug]/join/[token]`                       | Join course via token                                                         |
-| `/courses/[slug]/assignments/[assessmentSlug]`       | Assignment workspace                                                          |
-| `/courses/[slug]/manage`                             | Course management panel (staff)                                               |
-| `/courses/[slug]/manage/assessments`                 | Manage assessments                                                            |
-| `/courses/[slug]/manage/members`                     | Manage members                                                                |
-| `/courses/[slug]/manage/problems`                    | Manage course problems                                                        |
-| `/courses/[slug]/manage/plagiarism/[assessmentSlug]` | Plagiarism reports                                                            |
-| `/courses/[slug]/manage/progress`                    | Student progress matrix                                                       |
-| `/assignments`                                       | Assignment listings across courses                                            |
-| `/admin`                                             | Admin dashboard (platform admin only)                                         |
-| `/admin/announcements`                               | Manage announcements                                                          |
-| `/admin/users`                                       | User management (role assignment, disable)                                    |
-| `/account`                                           | User account settings                                                         |
+| Route                                              | Purpose                                                                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `/dashboard`                                       | User stats, activity chart, language/difficulty distribution, recommendations              |
+| `/problems`                                        | Problem listing with filters (difficulty, tags, status)                                    |
+| `/problems/[problemId]`                            | Problem workspace: Monaco editor, testcases, submit/run                                    |
+| `/problems/[problemId]/edit`                       | Problem editor (admin/teacher)                                                             |
+| `/submissions`                                     | User submission history                                                                    |
+| `/contests`                                        | Contest listing, invite code join                                                          |
+| `/contests/create`                                 | Contest creation (any authenticated user)                                                  |
+| `/contests/[contestId]`                            | Contest detail and problem list                                                            |
+| `/contests/[contestId]/problems/[problemId]`       | Contest problem workspace (post-close redirects to `/problems/[problemId]`)                |
+| `/contests/[contestId]/scoreboard`                 | Real-time scoreboard (ICPC/IOI)                                                            |
+| `/courses`                                         | Course listing (Enrolled / Managing tabs)                                                  |
+| `/courses/new`                                     | Course creation (admin/teacher)                                                            |
+| `/courses/[courseId]`                              | Course home — overview, announcements, assignments/exams summary                           |
+| `/courses/[courseId]/settings`                     | Course settings + Copy course + archive (teacher/admin)                                    |
+| `/courses/[courseId]/members`                      | Member management (teacher/admin)                                                          |
+| `/courses/[courseId]/assignments`                  | Course-scoped assignment list                                                              |
+| `/courses/[courseId]/assignments/new`              | Create assignment (teacher/admin)                                                          |
+| `/courses/[courseId]/exams`                        | Course-scoped exam list                                                                    |
+| `/courses/[courseId]/exams/new`                    | Create exam (teacher/admin)                                                                |
+| `/assignments`                                     | Cross-course assignment list (All / Open / Upcoming / Closed tabs)                         |
+| `/assignments/[assessmentId]`                      | Assignment detail — Problems / Submissions / Plagiarism / Settings sub-tabs (manager view) |
+| `/assignments/[assessmentId]/problems/[problemId]` | Assignment problem workspace (post-close redirects to bare practice)                       |
+| `/exams`                                           | Cross-course exam list (All / Running / Upcoming / Ended tabs)                             |
+| `/exams/[examId]`                                  | Exam detail — start screen (student) or Problems / Submissions / Settings (manager)        |
+| `/exams/[examId]/problems/[problemId]`             | In-exam problem workspace (gated by active exam session)                                   |
+| `/admin`                                           | Admin dashboard (platform admin only)                                                      |
+| `/admin/announcements`                             | Manage announcements                                                                       |
+| `/admin/users`                                     | User management (role assignment, disable)                                                 |
+| `/account`                                         | User account settings                                                                      |
 
 ### (auth) — Public Auth Routes
 
@@ -44,27 +47,30 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/signin`           | Sign in (email/password, GitHub, Google) |
 | `/admin-signin`     | Admin-specific sign in                   |
 | `/complete-profile` | Onboarding: username, email verification |
-| `/verify-school`    | School email verification                |
 
 ### API Routes
 
-| Endpoint                                   | Methods   | Purpose                                              |
-| ------------------------------------------ | --------- | ---------------------------------------------------- |
-| `/api/auth/[...path]`                      | GET, POST | better-auth catch-all (session, OAuth, registration) |
-| `/api/submissions`                         | POST      | Create submission, dispatch to Temporal              |
-| `/api/submissions/[id]`                    | GET       | Submission result and verdict                        |
-| `/api/submissions/[id]/source`             | GET       | Submission source code                               |
-| `/api/submissions/[id]/stream`             | GET       | SSE: poll Temporal workflow query for status         |
-| `/api/events/stream`                       | GET       | SSE: real-time events (verdicts, contest, deadlines) |
-| `/api/contests/[slug]/scoreboard`          | GET       | Scoreboard data from Redis                           |
-| `/api/contests/[slug]/scoreboard/chart`    | GET       | Scoreboard chart data                                |
-| `/api/contests/[slug]/scoreboard/unfreeze` | GET       | Unfreeze scoreboard (admin/teacher)                  |
-| `/api/plagiarism/[assessmentId]`           | GET, POST | Plagiarism reports and trigger detection             |
-| `/api/problems/[id]/editorials`            | GET, POST | Problem editorials (AC-gated)                        |
-| `/api/problems/[id]/images`                | POST      | Upload problem image (admin/teacher)                 |
-| `/api/problems/create`                     | POST      | Create problem (admin/teacher)                       |
-| `/api/ip-violations`                       | GET       | IP violation logs (admin/teacher)                    |
-| `/api/healthz`                             | GET       | Health check                                         |
+| Endpoint                                        | Methods   | Purpose                                              |
+| ----------------------------------------------- | --------- | ---------------------------------------------------- |
+| `/api/auth/[...path]`                           | GET, POST | better-auth catch-all (session, OAuth, registration) |
+| `/api/submissions`                              | POST      | Create submission, dispatch to Temporal              |
+| `/api/submissions/[submissionId]`               | GET       | Submission result and verdict                        |
+| `/api/submissions/[submissionId]/source`        | GET       | Submission source code                               |
+| `/api/submissions/[submissionId]/stream`        | GET       | SSE: poll Temporal workflow query for status         |
+| `/api/events/stream`                            | GET       | SSE: real-time events (verdicts, contest, deadlines) |
+| `/api/contests/[contestId]/scoreboard`          | GET       | Scoreboard data from Redis                           |
+| `/api/contests/[contestId]/scoreboard/chart`    | GET       | Scoreboard chart data                                |
+| `/api/contests/[contestId]/scoreboard/unfreeze` | GET       | Unfreeze scoreboard (admin/teacher)                  |
+| `/api/exam-session/start`                       | POST      | Start (or rejoin) an exam session; binds IP pin      |
+| `/api/exam-session/heartbeat`                   | POST      | Record page-lock heartbeat / visibility events       |
+| `/api/exam-session/end`                         | POST      | End an active exam session                           |
+| `/api/plagiarism/[assessmentId]`                | GET, POST | Plagiarism reports and trigger detection             |
+| `/api/problems/[id]/editorials`                 | GET, POST | Problem editorials (AC-gated)                        |
+| `/api/problems/[id]/images`                     | POST      | Upload problem image (admin/teacher)                 |
+| `/api/problems/[id]/advanced-image`             | POST      | Upload advanced-mode judge image                     |
+| `/api/problems/create`                          | POST      | Create problem (admin/teacher)                       |
+| `/api/ip-violations`                            | GET       | IP violation logs (admin/teacher)                    |
+| `/api/healthz`                                  | GET       | Health check                                         |
 
 ## Runtime Boundaries
 

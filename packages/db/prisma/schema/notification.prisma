@@ -1,0 +1,32 @@
+// ═══════════════════════════════════════════════════════════════
+// Notifications
+//
+// One row per event per recipient. `params` (JSONB) holds the
+// per-type payload; the frontend renders user-facing text from
+// (type, params) via paraglide. `readAt IS NULL` ⇔ unread.
+// ═══════════════════════════════════════════════════════════════
+
+enum NotificationType {
+  assignment_due_soon
+  exam_starting_soon
+  contest_starting_soon
+  course_enrolled
+  announcement_published
+  role_changed
+  clarification_answered
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  params    Json
+  linkUrl   String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt, createdAt(sort: Desc)])
+}

@@ -1,5 +1,27 @@
 # Reliability Invariants
 
+## Service Level Objectives
+
+These SLOs are **aspirational targets**, not measured guarantees — the Grafana dashboard wiring that will produce rolling p95/p99 numbers is still being built. Rows flagged `[monitoring TBD]` have no automated measurement in place yet and rely on manual log inspection or user reports.
+
+Every SLO is stated as an end-to-end user-visible metric (not a component internal), so a regression in any tier (app / Temporal / sandbox / DB) shows up in the same table.
+
+| SLO                                                         | Target      | Window              | Notes                                                                                 |
+| ----------------------------------------------------------- | ----------- | ------------------- | ------------------------------------------------------------------------------------- |
+| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days      | Measured from `submission.createdAt` to verdict visible via API / SSE                 |
+| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days      | Advanced-mode (custom docker image) may need higher ceiling per problem               |
+| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day       | Excludes `/api/*/stream` (SSE) and `/api/exam-session/heartbeat`                      |
+| SSE connection stability                                    | 99.5%       | Rolling 1 day       | Share of established connections not dropped by server-side faults `[monitoring TBD]` |
+| Platform availability                                       | 99.5%       | Monthly             | Down = web OR worker OR sandbox tier fully unavailable                                |
+| Scoreboard update latency                                   | p95 < 3s    | Contest in progress | From final AC verdict commit to updated entry returned by `getScoreboard`             |
+| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days      | Excludes app-level `ValidationError` / expected user-facing failures                  |
+| Exam session heartbeat miss rate                            | < 1%        | Exam in progress    | A miss = > 30s gap without a heartbeat from an active session `[monitoring TBD]`      |
+
+**Handling SLO violations:**
+
+- **Minor** (< 10% of samples in the window exceed target): fire an alert, append to the incident log, triage in the next on-call sync. No immediate user-facing action.
+- **Major** (> 50% of samples exceed target, or any availability SLO burned below target for the window): treat as an active incident — follow [Incident Recovery Runbook](runbooks/incident-recovery.md) and prioritise mitigation over root-cause hunting.
+
 ## Service Expectations
 
 | Property              | Guarantee                                                                    |
@@ -106,3 +128,4 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 - [Temporal Workflows](TEMPORAL.md)
 - [Security Requirements](SECURITY.md)
 - [Deployment Guide](DEPLOYMENT.md)
+- [Incident Recovery Runbook](runbooks/incident-recovery.md)

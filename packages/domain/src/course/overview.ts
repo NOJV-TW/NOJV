@@ -1,6 +1,11 @@
 import { announcementRepo, assessmentRepo, examRepo } from "@nojv/db";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
+import {
+  aggregateAssessmentClassStats,
+  aggregateAssessmentMyStatus
+} from "../shared/list-aggregations";
+
 export interface OverviewAnnouncement {
   id: string;
   title: string;
@@ -51,9 +56,9 @@ export interface AssignmentOverviewRow {
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
-  // TODO(course-overview): requires per-assessment submission aggregation that does not yet exist.
+  /** Manager view only — null for students. avgScore is the rounded mean of per-user totals across submitters. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
-  // TODO(course-overview): requires a "my work" stats table.
+  /** Student view only — null for managers. solved counts distinct problems with at least one accepted submission. */
   myStatus: { solved: number; total: number } | null;
 }
 
@@ -132,7 +137,25 @@ export async function listAssignmentOverviewForCourse(
   const mapped = rows.map((row) => mapAssessmentToOverviewRow(row, now));
 
   mapped.sort((a, b) => a.rank - b.rank);
-  return mapped.slice(0, options.limit).map((entry) => entry.row);
+  const top = mapped.slice(0, options.limit).map((entry) => entry.row);
+  await fillAssessmentStats(top, courseId, options);
+  return top;
+}
+
+async function fillAssessmentStats(
+  rows: AssignmentOverviewRow[],
+  courseId: string,
+  options: { isManager: boolean; forUserId: string }
+): Promise<void> {
+  if (rows.length === 0) return;
+  const aggInput = rows.map((r) => ({ id: r.id, courseId, problemCount: r.problemCount }));
+  if (options.isManager) {
+    const stats = await aggregateAssessmentClassStats(aggInput);
+    for (const r of rows) r.classStats = stats.get(r.id) ?? null;
+  } else {
+    const my = await aggregateAssessmentMyStatus(options.forUserId, aggInput);
+    for (const r of rows) r.myStatus = my.get(r.id) ?? null;
+  }
 }
 
 // ── Assignments list page ─────────────────────────────────────────────────
@@ -203,8 +226,14 @@ export async function listAssignmentsForCourse(
 
   filtered.sort((a, b) => a.rank - b.rank);
 
+  const visibleRows = filtered.slice(0, options.limit).map((entry) => entry.row);
+  await fillAssessmentStats(visibleRows, courseId, {
+    isManager: options.includeDrafts,
+    forUserId: options.forUserId
+  });
+
   return {
-    rows: filtered.slice(0, options.limit).map((entry) => entry.row),
+    rows: visibleRows,
     counts
   };
 }

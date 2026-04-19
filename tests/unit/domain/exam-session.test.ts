@@ -95,8 +95,7 @@ describe("examDomain.session.startSession", () => {
     });
 
     const result = await session.startSession(fakeActor, {
-      examId: fakeExam.id,
-      ipPin: "10.0.0.1"
+      examId: fakeExam.id
     });
 
     expect(result.id).toBe("sess_1");
@@ -104,8 +103,7 @@ describe("examDomain.session.startSession", () => {
     expect(sessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: fakeActor.userId,
-        examId: fakeExam.id,
-        ipPin: "10.0.0.1"
+        examId: fakeExam.id
       })
     );
     expect(sessionRecordEvent).toHaveBeenCalledTimes(1);
@@ -148,14 +146,13 @@ describe("examDomain.session.startSession", () => {
       endedAt: null
     });
 
-    await session.startSession(fakeActor, { examId: fakeExam.id, ipPin: "10.0.0.2" });
+    await session.startSession(fakeActor, { examId: fakeExam.id });
 
     expect(sessionUpdate).toHaveBeenCalledWith(
       "sess_old",
       expect.objectContaining({
         endedAt: null,
-        releaseReason: null,
-        ipPin: "10.0.0.2"
+        releaseReason: null
       })
     );
     expect(sessionRecordEvent).toHaveBeenCalledWith(
@@ -366,7 +363,6 @@ describe("examDomain.session.getActiveSessionContext", () => {
       userId: fakeActor.userId,
       examId: fakeExam.id,
       startedAt: new Date("2026-04-14T09:00:00.000Z"),
-      ipPin: "10.0.0.1",
       endedAt: null
     });
     examFindByIdOrThrow.mockResolvedValue(fakeExam);

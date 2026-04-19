@@ -120,6 +120,20 @@ export const courseMembershipRepo = {
     });
   },
 
+  async countStudentsByCourse(courseIds: string[]): Promise<Map<string, number>> {
+    if (courseIds.length === 0) return new Map();
+    const rows = await prisma.courseMembership.groupBy({
+      by: ["courseId"],
+      where: {
+        courseId: { in: courseIds },
+        role: "student",
+        status: "active"
+      },
+      _count: { _all: true }
+    });
+    return new Map(rows.map((r) => [r.courseId, r._count._all]));
+  },
+
   countActiveAssessments(courseIds: string[], now: Date) {
     return prisma.courseAssessment.count({
       where: {

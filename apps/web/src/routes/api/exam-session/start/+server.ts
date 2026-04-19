@@ -5,7 +5,6 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { getClientIp } from "$lib/server/shared/client-ip";
 import { examDomain } from "@nojv/domain";
 
 const bodySchema = z.object({
@@ -19,8 +18,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const body = bodySchema.parse(await event.request.json());
 
   const result = await examDomain.session.startSessionWithGate(actor, {
-    examId: body.examId,
-    ipPin: getClientIp(event)
+    examId: body.examId
   });
 
   return json(

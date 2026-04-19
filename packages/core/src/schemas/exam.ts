@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   contestScoringModeSchema,
   ipLockFields,
+  ipLockFormFields,
   isoDateTimeSchema,
   languageSchema,
   scoreboardModeSchema
@@ -43,3 +44,24 @@ export const examUpdateSchema = examCreateBaseSchema.partial();
 
 export type ExamCreate = z.infer<typeof examCreateSchema>;
 export type ExamUpdate = z.infer<typeof examUpdateSchema>;
+
+/**
+ * Superforms payload for the detail page's Settings tab. Uses
+ * `ipLockFormFields` (textarea variant) and lax datetime strings
+ * produced by `<input type="datetime-local">`. Server action converts
+ * to ISO strings + whitelist array before calling `updateExamRecord`.
+ */
+export const examSettingsFormSchema = z.object({
+  title: z.string().trim().max(120).default(""),
+  summary: z.string().trim().max(4_000).default(""),
+  startsAt: z.string().default(""),
+  endsAt: z.string().default(""),
+  scoringMode: contestScoringModeSchema.default("point_sum"),
+  scoreboardMode: scoreboardModeSchema.default("hidden"),
+  allowedLanguages: z.array(languageSchema).max(8).default([]),
+  submitCooldownSec: z.coerce.number().int().min(0).max(600).default(0),
+  pageLockEnabled: z.boolean().default(false),
+  ...ipLockFormFields
+});
+
+export type ExamSettingsForm = z.infer<typeof examSettingsFormSchema>;
