@@ -37,5 +37,12 @@ export const submissionRejudgeLogRepo = {
         newResultJson: input.newResultJson ?? Prisma.JsonNull
       }
     });
+  },
+
+  listBySubmission(submissionId: string) {
+    return prisma.submissionRejudgeLog.findMany({
+      where: { submissionId },
+      orderBy: { createdAt: "desc" }
+    });
   }
 };
