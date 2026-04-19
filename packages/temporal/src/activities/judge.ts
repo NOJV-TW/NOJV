@@ -10,6 +10,8 @@ import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
 
+type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
+
 let _executor: SandboxExecutor | undefined;
 
 export function setExecutor(executor: SandboxExecutor): void {
@@ -187,7 +189,37 @@ export async function completeSubmission(
 }
 
 export async function fetchSubmissionIdsForRejudge(
-  input: RejudgeInput
+  input: BatchRejudgeInput
 ): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
-  return submissionDomain.findForRejudge(input);
+  return submissionDomain.findForRejudge({
+    problemId: input.problemId,
+    ...(input.contestId ? { contestId: input.contestId } : {}),
+    ...(input.assessmentId ? { assessmentId: input.assessmentId } : {}),
+    ...(input.examId ? { examId: input.examId } : {}),
+    ...(input.userIds ? { userIds: input.userIds } : {}),
+    ...(input.since ? { since: new Date(input.since) } : {}),
+    ...(input.until ? { until: new Date(input.until) } : {})
+  });
 }
+
+export async function fetchSingleSubmissionForRejudge(
+  submissionId: string
+): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+  return submissionDomain.findOneForRejudge(submissionId);
+}
+
+export async function snapshotSubmissionForRejudge(
+  submissionId: string,
+  triggeredByUserId: string | null
+): Promise<{ logId: string } | null> {
+  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId);
+}
+
+export async function finalizeRejudgeLog(
+  submissionId: string,
+  triggeredByUserId: string | null,
+  logId: string
+): Promise<void> {
+  return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
+}
+

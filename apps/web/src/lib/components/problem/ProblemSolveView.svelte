@@ -46,6 +46,8 @@
         }
       | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    /** Whether the viewer may rejudge submissions in this context. */
+    canRejudge?: boolean;
     contestId?: string | undefined;
     /** Exam-only left rail. Hidden in practice mode regardless of value. */
     siblingProblems?: ProblemSolveSibling[] | undefined;
@@ -61,6 +63,7 @@
     allowedLanguages,
     assessment,
     backLink,
+    canRejudge = false,
     contestId,
     siblingProblems,
     examContext: _examContext
@@ -160,6 +163,7 @@
       {allowedLanguages}
       {assessment}
       {backLink}
+      {canRejudge}
       {contestId}
       initialSubmissions={submissions}
       {problem}
@@ -170,6 +174,7 @@
       {allowedLanguages}
       {assessment}
       {backLink}
+      {canRejudge}
       {contestId}
       initialSubmissions={submissions}
       {problem}

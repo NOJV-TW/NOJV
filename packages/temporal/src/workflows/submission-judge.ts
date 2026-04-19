@@ -23,6 +23,21 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   let status: SubmissionJudgeStatus = "queued";
   setHandler(getStatusQuery, () => status);
 
+  // When invoked via rejudgeWorkflow, snapshot the pre-rejudge state
+  // before we overwrite it. A null return means the submission no
+  // longer exists (e.g. deleted between dispatch and workflow start);
+  // in that case we skip both the snapshot and the finalize and let
+  // the judge proceed normally — it will fail cleanly if the row is
+  // truly gone.
+  let rejudgeLogId: string | null = null;
+  if (input.forRejudge) {
+    const snap = await judge.snapshotSubmissionForRejudge(
+      input.submissionId,
+      input.forRejudge.triggeredByUserId
+    );
+    rejudgeLogId = snap?.logId ?? null;
+  }
+
   status = "compiling";
   const judgeContext = await judge.fetchJudgeContext(input.submissionId);
 
@@ -40,4 +55,12 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     stats.updateUserStats(submission),
     notification.publishVerdict(submission)
   ]);
+
+  if (rejudgeLogId) {
+    await judge.finalizeRejudgeLog(
+      input.submissionId,
+      input.forRejudge?.triggeredByUserId ?? null,
+      rejudgeLogId
+    );
+  }
 }

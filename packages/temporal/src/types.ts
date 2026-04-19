@@ -3,15 +3,30 @@ import type { SubmissionDraft } from "@nojv/core";
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionDraft;
+  /** Present only when dispatched via rejudgeWorkflow; drives the
+   *  snapshot/finalize audit hooks in submissionJudgeWorkflow. */
+  forRejudge?: { triggeredByUserId: string };
 }
 
 export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";
 
-export interface RejudgeInput {
-  problemId: string;
-  contestId?: string;
-  assessmentId?: string;
-}
+export type RejudgeInput =
+  | {
+      mode: "batch";
+      problemId: string;
+      contestId?: string;
+      assessmentId?: string;
+      examId?: string;
+      userIds?: string[];
+      since?: string; // ISO date
+      until?: string; // ISO date
+      triggeredByUserId: string;
+    }
+  | {
+      mode: "single";
+      submissionId: string;
+      triggeredByUserId: string;
+    };
 
 export interface RejudgeProgress {
   completed: number;

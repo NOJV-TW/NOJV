@@ -87,6 +87,7 @@ model Problem {
   examLinks       ExamProblem[]
   assessmentLinks CourseAssessmentProblem[]
   editorials      Editorial[]
+  scoreOverrides  ScoreOverride[]           @relation("ScoreOverrideProblem")
 
   @@index([status, visibility, createdAt])
   @@index([authorId])

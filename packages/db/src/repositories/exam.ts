@@ -347,6 +347,17 @@ export const examParticipationRepo = {
     });
   },
 
+  // Id-only lookup — used by score-override invalidation so we can call
+  // `updateExamScores(participationId)` after editing an override.
+  findIdByExamAndUser(examId: string, userId: string) {
+    return prisma.examParticipation
+      .findUnique({
+        where: { examId_userId: { examId, userId } },
+        select: { id: true }
+      })
+      .then((row) => row?.id ?? null);
+  },
+
   withTx(tx: TxClient) {
     return {
       upsert(

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ChevronRight } from "@lucide/svelte";
+  import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { cn } from "$lib/utils.js";
@@ -8,6 +8,8 @@
   import AssignmentSubmissionsMatrix from "$lib/components/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
+  import { Button } from "$lib/components/ui/button";
+  import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
   import type { PageData } from "./$types";
 
@@ -17,6 +19,26 @@
 
   type SubTabKey = "problems" | "submissions" | "plagiarism" | "settings";
   let activeSubTab = $state<SubTabKey>("submissions");
+
+  let showOverrideDrawer = $state(false);
+  const canSetOverride = $derived(
+    data.mode === "teacher" ? (data.canSetOverride ?? false) : false
+  );
+  // Pull students + problems off the submissions matrix so we don't fetch twice.
+  const overrideStudents = $derived(
+    data.mode === "teacher"
+      ? data.matrix.rows.map((r) => ({
+          id: r.userId,
+          username: r.handle,
+          name: r.displayName
+        }))
+      : []
+  );
+  const overrideProblems = $derived(
+    data.mode === "teacher"
+      ? detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
+      : []
+  );
 
   const subTabs: { key: SubTabKey; label: string; count?: number }[] = $derived([
     { key: "problems", label: m.assignmentDetail_tabProblems() },
@@ -179,6 +201,18 @@
           </span>
         </div>
       </div>
+      {#if canSetOverride}
+        <div class="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onclick={() => (showOverrideDrawer = true)}
+          >
+            {m.override_staff_buttonLabel()}
+          </Button>
+        </div>
+      {/if}
     </div>
   </section>
 
@@ -251,11 +285,22 @@
               </div>
             </div>
 
-            <div class="font-display text-title font-medium tabular-nums leading-none">
+            <div
+              class="flex items-center gap-1.5 font-display text-title font-medium tabular-nums leading-none"
+            >
               <span>{problem.myStatus?.bestScore ?? 0}</span>
               <span class="text-body-sm font-normal text-muted-foreground">
                 / {problem.points}
               </span>
+              {#if problem.myStatus?.overridden}
+                <span
+                  class="inline-flex items-center text-info"
+                  title={m.override_student_markerTooltip()}
+                  aria-label={m.override_student_marker()}
+                >
+                  <Info class="size-4" aria-hidden="true" />
+                </span>
+              {/if}
             </div>
 
             {#if !data.course.archived}
@@ -415,3 +460,14 @@
     </div>
   {/if}
 </div>
+
+{#if canSetOverride}
+  <ScoreOverrideDrawer
+    open={showOverrideDrawer}
+    onOpenChange={(v) => (showOverrideDrawer = v)}
+    contextType="assignment"
+    contextId={detail.id}
+    students={overrideStudents}
+    problems={overrideProblems}
+  />
+{/if}
