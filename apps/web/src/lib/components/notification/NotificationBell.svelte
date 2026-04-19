@@ -44,7 +44,10 @@
     <BellIcon size={18} />
     {#if notifications.unreadCount > 0}
       <span
-        class="absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground"
+        class={cn(
+          "absolute -right-1 -top-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground",
+          notifications.isAnimating && "dot-pulse"
+        )}
         aria-label={m.notification_bell_unreadCount({ count: notifications.unreadCount })}
       >
         {displayCount}
@@ -80,5 +83,19 @@
 
   :global(.bell-shake) {
     animation: bell-shake 450ms ease-in-out;
+  }
+
+  @keyframes dot-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.15);
+    }
+  }
+
+  :global(.dot-pulse) {
+    animation: dot-pulse 400ms ease-in-out;
   }
 </style>
