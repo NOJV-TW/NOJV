@@ -8,6 +8,7 @@ export {
   updateSubmissionStatus,
   completeJudge,
   findForRejudge,
+  findOneForRejudge,
   type AdjustmentContext,
   type CompletedSubmission,
   type SubmissionJudgeContext,
@@ -16,6 +17,16 @@ export {
   type WorkspaceFileEntry
 } from "./judge-context";
 export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
+export {
+  canOperateOnSubmission,
+  assertCanOperateOnSubmission,
+  assertBatchRejudgeAccess
+} from "./authz";
+export { snapshotForRejudge, finalizeRejudgeLog } from "./rejudge-log";
 export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
 export { deriveSubmissionMode } from "./mode";
-export { dispatchSubmissionJudge, querySubmissionStatus } from "@nojv/job-dispatch";
+export {
+  dispatchRejudge,
+  dispatchSubmissionJudge,
+  querySubmissionStatus
+} from "@nojv/job-dispatch";

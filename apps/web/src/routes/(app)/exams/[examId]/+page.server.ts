@@ -8,7 +8,7 @@ import {
   type ExamSettingsForm,
   type ExamUpdate
 } from "@nojv/core";
-import { examDomain, HttpError } from "@nojv/domain";
+import { examDomain, HttpError, scoreOverrideDomain } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
@@ -52,13 +52,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { exam: examHeader, isManager } = parent;
   const actor = requireAuth(event);
 
-  const [detail, matrix] = await Promise.all([
+  const [detail, matrix, canSetOverride] = await Promise.all([
     getExamDetailPage(event.params.examId, {
       viewerUserId: actor.userId,
       isManager
     }),
     // Manager-only aggregation; null for students keeps the hydration payload slim.
-    isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null)
+    isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null),
+    isManager
+      ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", event.params.examId)
+      : Promise.resolve(false)
   ]);
 
   // The layout gate already accepted this exam for the viewer; treat a
@@ -97,6 +100,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     detail,
     matrix,
     isManager,
+    canSetOverride,
     courseId: examHeader.courseId,
     settingsForm
   };

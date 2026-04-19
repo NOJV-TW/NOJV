@@ -1,6 +1,7 @@
 import { courseMembershipRepo, examRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
+import { resolveOverridesForContext } from "../scoring/resolve-final-score";
 
 export type ExamMatrixCellState = "ac" | "partial" | "zero" | "empty";
 
@@ -92,10 +93,30 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     });
   }
 
+  // Overlay any manual score overrides — same semantics as the assignment
+  // matrix (override wins over best-submission and can unlock an empty cell).
+  const overrides = await resolveOverridesForContext({
+    contextType: "exam",
+    contextId: examId
+  });
+
   const rows: ExamMatrixRow[] = students.map((student) => {
     const cells: ExamMatrixCell[] = problems.map((problem) => {
       const key = `${student.userId}::${problem.problemId}`;
+      const override = overrides.get(key);
       const hit = scoreIndex.get(key);
+      if (override !== undefined) {
+        let state: ExamMatrixCellState;
+        if (override >= problem.points) state = "ac";
+        else if (override > 0) state = "partial";
+        else state = "zero";
+        return {
+          problemId: problem.problemId,
+          score: override,
+          attempts: hit?.count ?? 0,
+          state
+        };
+      }
       if (!hit || hit.count === 0) {
         return { problemId: problem.problemId, score: null, attempts: 0, state: "empty" };
       }

@@ -13,6 +13,7 @@ export * as notificationDomain from "./notification";
 export * as plagiarismDomain from "./plagiarism";
 export * as proctoringDomain from "./proctoring";
 export * as problemDomain from "./problem";
+export * as scoreOverrideDomain from "./score-override";
 export * as scoring from "./scoring";
 export * as submissionDomain from "./submission";
 export * as userDomain from "./user";

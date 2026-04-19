@@ -1,4 +1,9 @@
-import { contestRepo, contestParticipationRepo, submissionRepo } from "@nojv/db";
+import {
+  contestRepo,
+  contestParticipationRepo,
+  scoreOverrideRepo,
+  submissionRepo
+} from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
 
@@ -81,6 +86,16 @@ export async function updateContestScores(contestParticipationId: string): Promi
       if (!contestProblems.has(sub.problemId)) continue;
       const current = bestByProblem.get(sub.problemId) ?? 0;
       if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
+    }
+
+    // Overlay any per-problem overrides for this participant — overrides
+    // win over the best-submission aggregate, even for problems they
+    // never submitted to.
+    const overrideRows = await scoreOverrideRepo.findAllByContext("contest", contest.id);
+    for (const row of overrideRows) {
+      if (row.userId !== participation.userId) continue;
+      if (!contestProblems.has(row.problemId)) continue;
+      bestByProblem.set(row.problemId, row.overrideScore);
     }
 
     let totalScore = 0;

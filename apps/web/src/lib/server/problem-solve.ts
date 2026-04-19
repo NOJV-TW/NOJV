@@ -5,7 +5,7 @@ import { problemRepo } from "@nojv/db";
 import type { Language } from "@nojv/core";
 
 const { assertProblemViewAccess, getProblemPageData, getProblemTestcaseSets } = problemDomain;
-const { listProblemSubmissions } = submissionDomain;
+const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 
 import type { ActorContext } from "$lib/server/auth";
 
@@ -59,6 +59,8 @@ export interface ProblemSolvePropsShape {
       }
     | undefined;
   backLink: { href: string; type: "assignment" | "contest" } | undefined;
+  /** Whether the viewer may rejudge submissions in this context. */
+  canRejudge: boolean;
   contestId: string | undefined;
   problem: Awaited<ReturnType<typeof getProblemPageData>>;
   submissions: Awaited<ReturnType<typeof listProblemSubmissions>>;
@@ -141,10 +143,32 @@ export async function loadProblemSolveData(
       : undefined
   );
 
+  // Submissions listed here all share the same context, so the rejudge
+  // authz decision is homogeneous — compute once. The synthetic submission
+  // only needs the context fields; id/userId do not affect the check.
+  const canRejudge = await canOperateOnSubmission(
+    {
+      userId: actor.userId,
+      username: actor.username ?? "",
+      displayName: actor.displayName,
+      email: actor.email,
+      platformRole: actor.platformRole
+    },
+    {
+      id: "",
+      userId: actor.userId,
+      problemId,
+      contestId: context.kind === "contest" ? context.contestId : null,
+      courseAssessmentId: context.kind === "assessment" ? context.assessmentId : null,
+      examId: null
+    }
+  );
+
   return {
     allowedLanguages: context.allowedLanguages,
     assessmentProp,
     backLink: context.backLink,
+    canRejudge,
     contestId,
     problem,
     submissions,

@@ -44,6 +44,7 @@
   <div class="flex-1">
     <ProblemSolveView
       mode="exam"
+      canRejudge={data.canRejudge}
       problem={data.problem}
       submissions={data.submissions}
       siblingProblems={data.siblingProblems}
