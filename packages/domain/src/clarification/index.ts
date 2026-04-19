@@ -45,8 +45,10 @@ export interface AnswerInput {
   answerText: string;
 }
 
-export interface ProjectedClarification
-  extends Omit<ClarificationRow, "askedBy" | "answeredBy" | "askedByUserId"> {
+export interface ProjectedClarification extends Omit<
+  ClarificationRow,
+  "askedBy" | "answeredBy" | "askedByUserId"
+> {
   askedByUserId: string | null;
   askedBy: { id: string; username: string; name: string } | null;
   answeredBy: { id: string; username: string; name: string } | null;
@@ -75,10 +77,13 @@ function projectRow(row: ClarificationRow, isStaff: boolean): ProjectedClarifica
   };
 }
 
-export async function ask(actor: ActorContext, input: AskInput): Promise<ProjectedClarification> {
+export async function ask(
+  actor: ActorContext,
+  input: AskInput
+): Promise<ProjectedClarification> {
   const text = input.questionText;
   if (text.length < QUESTION_MIN || text.length > QUESTION_MAX) {
-    throw new ConflictError(`Question must be ${QUESTION_MIN}-${QUESTION_MAX} characters.`);
+    throw new ConflictError("Question must be 10-1000 characters.");
   }
   if (!(await canAskClarification(actor, input.contextType, input.contextId))) {
     throw new ForbiddenError("Only participants may ask clarifications.");
@@ -117,7 +122,7 @@ export async function answer(
 ): Promise<ProjectedClarification> {
   const text = input.answerText;
   if (text.length < ANSWER_MIN || text.length > ANSWER_MAX) {
-    throw new ConflictError(`Answer must be ${ANSWER_MIN}-${ANSWER_MAX} characters.`);
+    throw new ConflictError("Answer must be 1-1000 characters.");
   }
   const row = await clarificationRepo.findById(id);
   if (!row) throw new NotFoundError("Clarification not found.");

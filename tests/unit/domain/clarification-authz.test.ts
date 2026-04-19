@@ -62,16 +62,16 @@ describe("canAskClarification — admin", () => {
 describe("canAskClarification — contest", () => {
   it("allows a participant", async () => {
     contestListParticipantUserIds.mockResolvedValue(["usr_student", "usr_other"]);
-    expect(await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1")).toBe(
-      true
-    );
+    expect(
+      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1")
+    ).toBe(true);
   });
 
   it("denies a non-participant", async () => {
     contestListParticipantUserIds.mockResolvedValue(["usr_other"]);
-    expect(await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1")).toBe(
-      false
-    );
+    expect(
+      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1")
+    ).toBe(false);
   });
 });
 
@@ -163,16 +163,16 @@ describe("canAnswerInContext — admin", () => {
 describe("canAnswerInContext — contest", () => {
   it("allows the organizer", async () => {
     contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "usr_organizer" });
-    expect(await canAnswerInContext(actor({ userId: "usr_organizer" }), "contest", "ctst_1")).toBe(
-      true
-    );
+    expect(
+      await canAnswerInContext(actor({ userId: "usr_organizer" }), "contest", "ctst_1")
+    ).toBe(true);
   });
 
   it("denies a non-organizer", async () => {
     contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "usr_organizer" });
-    expect(await canAnswerInContext(actor({ userId: "usr_stranger" }), "contest", "ctst_1")).toBe(
-      false
-    );
+    expect(
+      await canAnswerInContext(actor({ userId: "usr_stranger" }), "contest", "ctst_1")
+    ).toBe(false);
   });
 
   it("denies when contest is missing", async () => {
