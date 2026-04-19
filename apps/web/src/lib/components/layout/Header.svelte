@@ -6,6 +6,7 @@
   import { shortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { cn } from "$lib/utils.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
+  import NotificationBell from "../notification/NotificationBell.svelte";
   import ThemeToggle from "./ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());
@@ -134,6 +135,9 @@
         {/each}
       </div>
       <ThemeToggle />
+      {#if user}
+        <NotificationBell />
+      {/if}
       <UserAuthMenu />
     </div>
   </div>
