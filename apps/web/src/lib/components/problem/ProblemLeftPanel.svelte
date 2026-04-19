@@ -13,9 +13,16 @@
   import CodeBlock from "../ui/CodeBlock.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
+  import { toasts } from "$lib/stores/toast";
 
   export interface ProblemLeftPanelProps {
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    /**
+     * Server-computed flag controlling whether the "Rejudge this submission"
+     * button is rendered in the submission detail view. The real gate lives
+     * on `/api/rejudge`; this is progressive disclosure only.
+     */
+    canRejudge?: boolean;
     /**
      * Bindable submission history. Parents (the right-pane Editor / advanced
      * uploader) mutate this array to push freshly-completed submissions; the
@@ -36,6 +43,7 @@
 
   let {
     backLink,
+    canRejudge = false,
     submissions = $bindable([]),
     leftTab: initialLeftTab = "description",
     viewingIndex: initialViewingIndex = null,
@@ -71,6 +79,28 @@
   });
 
   let loadingSourceId = $state<string | null>(null);
+  let rejudgingId = $state<string | null>(null);
+
+  async function handleRejudge(submissionId: string) {
+    if (rejudgingId !== null) return;
+    rejudgingId = submissionId;
+    try {
+      const res = await fetch("/api/rejudge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "single", submissionId })
+      });
+      if (res.ok) {
+        toasts.add({ type: "success", message: m.rejudge_toast_queuedSingle() });
+      } else {
+        toasts.add({ type: "error", message: m.rejudge_toast_error() });
+      }
+    } catch {
+      toasts.add({ type: "error", message: m.rejudge_toast_error() });
+    } finally {
+      rejudgingId = null;
+    }
+  }
 
   // ── Editorials state ──────────────────────────────────────────────────────
   let editorials = $state<ProblemEditorialEntry[]>([]);
@@ -338,6 +368,16 @@
               <span class="text-caption text-muted-foreground tabular-nums">
                 Runtime: {String(entry.result.runtimeMs)} ms
               </span>
+            {/if}
+            {#if canRejudge && entry.id}
+              <button
+                class="ml-auto rounded-md border border-border px-2.5 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={rejudgingId === entry.id}
+                onclick={() => handleRejudge(entry.id!)}
+                type="button"
+              >
+                {m.rejudge_single_button()}
+              </button>
             {/if}
           </div>
 

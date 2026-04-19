@@ -9,6 +9,7 @@
   allowedLanguages={data.allowedLanguages}
   assessment={data.assessmentProp}
   backLink={data.backLink}
+  canRejudge={data.canRejudge}
   contestId={data.contestId}
   problem={data.problem}
   submissions={data.submissions}

@@ -8,7 +8,13 @@ import {
   type CourseAssessmentUpdate,
   type Language
 } from "@nojv/core";
-import { assessmentDomain, courseDomain, plagiarismDomain, problemDomain } from "@nojv/domain";
+import {
+  assessmentDomain,
+  courseDomain,
+  plagiarismDomain,
+  problemDomain,
+  scoreOverrideDomain
+} from "@nojv/domain";
 
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -54,14 +60,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const courseId = assessment.courseId;
 
   if (isManager) {
-    const [detail, matrix, plagiarism, candidateProblems] = await Promise.all([
+    const [detail, matrix, plagiarism, candidateProblems, canSetOverride] = await Promise.all([
       getAssignmentDetail(courseId, assessmentId, {
         viewerUserId: actor.userId,
         isManager: true
       }),
       buildSubmissionsMatrix(courseId, assessmentId),
       findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(() => null),
-      listEditableProblems(actor.userId)
+      listEditableProblems(actor.userId),
+      scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId)
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -83,6 +90,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       matrix,
       settingsForm,
       candidateProblems,
+      canSetOverride,
       plagiarism: plagiarism
         ? {
             status: plagiarism.status,
