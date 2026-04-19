@@ -3,9 +3,11 @@ import {
   SSE_CONTEST_STARTING,
   SSE_CONTEST_ENDING,
   SSE_ASSIGNMENT_DEADLINE,
+  SSE_NOTIFICATION,
   sseEventSchema,
   type SSEEvent
 } from "@nojv/core";
+import { notifications } from "./notifications.svelte";
 import { toasts } from "./toast";
 
 let eventSource: EventSource | null = null;
@@ -81,5 +83,16 @@ function handleDefaultEvent(data: SSEEvent) {
   }
   if (data.type === SSE_ASSIGNMENT_DEADLINE) {
     toasts.add({ message: "Assignment deadline approaching!", type: "info" });
+  }
+  if (data.type === SSE_NOTIFICATION) {
+    // Batch signals arrive without id/createdAt; the store falls back to
+    // refetching /api/notifications/recent in that case.
+    notifications.handleSseEvent({
+      notificationType: data.notificationType,
+      params: data.params,
+      linkUrl: data.linkUrl,
+      ...(data.id !== undefined && { id: data.id }),
+      ...(data.createdAt !== undefined && { createdAt: data.createdAt })
+    });
   }
 }

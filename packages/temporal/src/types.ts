@@ -32,7 +32,8 @@ export interface AssessmentLifecycleInput {
 
 export interface ExamAutoCloseInput {
   examId: string;
-  // Passed as a string so the Temporal payload is deterministic across SDK serializers.
+  // Passed as strings so the Temporal payload is deterministic across SDK serializers.
+  startsAt: string;
   endsAt: string;
 }
 

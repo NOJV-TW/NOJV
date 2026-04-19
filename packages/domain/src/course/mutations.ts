@@ -22,6 +22,7 @@ import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
+import * as notificationDomain from "../notification";
 import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages
@@ -75,7 +76,7 @@ export async function manuallyEnrollCourseMember(
   actor: ActorContext,
   payload: ManualCourseEnrollment
 ) {
-  return runTransaction(async (tx) => {
+  const { course, membership } = await runTransaction(async (tx) => {
     const course = await requireCourse(tx, payload.courseId);
     const manager = await ensureUser(tx, actor.userId, actor);
     const user = await ensureUser(tx, `usr_${payload.username}`, {
@@ -85,7 +86,7 @@ export async function manuallyEnrollCourseMember(
       platformRole: payload.role === "teacher" ? "teacher" : "student"
     });
 
-    return courseMembershipRepo.withTx(tx).upsert(
+    const membership = await courseMembershipRepo.withTx(tx).upsert(
       course.id,
       user.id,
       {
@@ -103,7 +104,22 @@ export async function manuallyEnrollCourseMember(
         status: "active"
       }
     );
+
+    return { course, membership };
   });
+
+  // Only students get a participant-style notification. Teachers / TAs are
+  // staff and get their context from the course manage UI, not the bell.
+  if (payload.role === "student") {
+    await notificationDomain.createNotification({
+      userId: membership.userId,
+      type: "course_enrolled",
+      params: { courseId: course.id, courseName: course.title },
+      linkUrl: `/courses/${course.id}`
+    });
+  }
+
+  return membership;
 }
 
 // Suffix makes the readable id collision-resistant when two teachers type the same title.
