@@ -3,11 +3,20 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Card } from "$lib/components/ui/card/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import { Button } from "$lib/components/ui/button";
+  import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import Lock from "@lucide/svelte/icons/lock";
 
   let { data } = $props();
 
   let contest = $derived(data.contest);
+
+  let showOverrideDrawer = $state(false);
+  const canSetOverride = $derived(data.canSetOverride);
+  const overrideStudents = $derived(data.overrideStudents);
+  const overrideProblems = $derived(
+    (contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))
+  );
 
   let now = $state(new Date());
 
@@ -62,14 +71,27 @@
 <div class="space-y-8">
   <!-- Hero -->
   <Card variant="elevated" size="hero">
-    <div class="flex items-center gap-2 flex-wrap">
-      <Badge variant="muted">{contest.scoringMode}</Badge>
-      {#if isActive}
-        <Badge variant="success">{m.contests_statusActive()}</Badge>
-      {:else if !hasStarted}
-        <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
-      {:else}
-        <Badge variant="muted">{m.contests_statusEnded()}</Badge>
+    <div class="flex items-center gap-2 flex-wrap justify-between">
+      <div class="flex items-center gap-2 flex-wrap">
+        <Badge variant="muted">{contest.scoringMode}</Badge>
+        {#if isActive}
+          <Badge variant="success">{m.contests_statusActive()}</Badge>
+        {:else if !hasStarted}
+          <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
+        {:else}
+          <Badge variant="muted">{m.contests_statusEnded()}</Badge>
+        {/if}
+      </div>
+      {#if canSetOverride}
+        <!-- TODO i18n Task 19 -->
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onclick={() => (showOverrideDrawer = true)}
+        >
+          Score Overrides
+        </Button>
       {/if}
     </div>
     <h1 class="font-display text-title-lg font-semibold [text-wrap:balance]">
@@ -191,3 +213,14 @@
     </div>
   </div>
 </div>
+
+{#if canSetOverride}
+  <ScoreOverrideDrawer
+    open={showOverrideDrawer}
+    onOpenChange={(v) => (showOverrideDrawer = v)}
+    contextType="contest"
+    contextId={contest.id}
+    students={overrideStudents}
+    problems={overrideProblems}
+  />
+{/if}

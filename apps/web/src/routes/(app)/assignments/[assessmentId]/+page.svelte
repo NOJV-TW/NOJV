@@ -8,6 +8,8 @@
   import AssignmentSubmissionsMatrix from "$lib/components/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
+  import { Button } from "$lib/components/ui/button";
+  import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
   import type { PageData } from "./$types";
 
@@ -17,6 +19,26 @@
 
   type SubTabKey = "problems" | "submissions" | "plagiarism" | "settings";
   let activeSubTab = $state<SubTabKey>("submissions");
+
+  let showOverrideDrawer = $state(false);
+  const canSetOverride = $derived(
+    data.mode === "teacher" ? (data.canSetOverride ?? false) : false
+  );
+  // Pull students + problems off the submissions matrix so we don't fetch twice.
+  const overrideStudents = $derived(
+    data.mode === "teacher"
+      ? data.matrix.rows.map((r) => ({
+          id: r.userId,
+          username: r.handle,
+          name: r.displayName
+        }))
+      : []
+  );
+  const overrideProblems = $derived(
+    data.mode === "teacher"
+      ? detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
+      : []
+  );
 
   const subTabs: { key: SubTabKey; label: string; count?: number }[] = $derived([
     { key: "problems", label: m.assignmentDetail_tabProblems() },
@@ -179,6 +201,19 @@
           </span>
         </div>
       </div>
+      {#if canSetOverride}
+        <div class="flex shrink-0 items-center gap-2">
+          <!-- TODO i18n Task 19 -->
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onclick={() => (showOverrideDrawer = true)}
+          >
+            Score Overrides
+          </Button>
+        </div>
+      {/if}
     </div>
   </section>
 
@@ -415,3 +450,14 @@
     </div>
   {/if}
 </div>
+
+{#if canSetOverride}
+  <ScoreOverrideDrawer
+    open={showOverrideDrawer}
+    onOpenChange={(v) => (showOverrideDrawer = v)}
+    contextType="assignment"
+    contextId={detail.id}
+    students={overrideStudents}
+    problems={overrideProblems}
+  />
+{/if}

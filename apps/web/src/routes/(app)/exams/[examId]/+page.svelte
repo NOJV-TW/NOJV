@@ -12,6 +12,7 @@
   import ExamSubmissionsMatrix from "$lib/components/course/exam/ExamSubmissionsMatrix.svelte";
   import ExamSettingsTab from "$lib/components/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/course/exam/ExamProblemsTab.svelte";
+  import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -115,6 +116,21 @@
   type SubTab = "problems" | "submissions" | "settings";
   let activeTab = $state<SubTab>("problems");
 
+  let showOverrideDrawer = $state(false);
+  const canSetOverride = $derived(data.canSetOverride ?? false);
+  const overrideStudents = $derived(
+    data.matrix
+      ? data.matrix.rows.map((r) => ({
+          id: r.userId,
+          username: r.handle,
+          name: r.displayName
+        }))
+      : []
+  );
+  const overrideProblems = $derived(
+    detail.problems.map((p) => ({ id: p.id, title: p.title }))
+  );
+
   // The top-level `/exams` list is the breadcrumb target — the
   // id-unified exam shell no longer needs a courseId in the URL.
   const examsListHref = "/exams";
@@ -177,7 +193,20 @@
         </div>
       </div>
       {#if isManager}
-        <TeacherBadge role="teacher" />
+        <div class="flex shrink-0 items-center gap-2">
+          {#if canSetOverride}
+            <!-- TODO i18n Task 19 -->
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onclick={() => (showOverrideDrawer = true)}
+            >
+              Score Overrides
+            </Button>
+          {/if}
+          <TeacherBadge role="teacher" />
+        </div>
       {/if}
     </div>
 
@@ -532,6 +561,17 @@
     {/if}
   {/if}
 </div>
+
+{#if canSetOverride}
+  <ScoreOverrideDrawer
+    open={showOverrideDrawer}
+    onOpenChange={(v) => (showOverrideDrawer = v)}
+    contextType="exam"
+    contextId={detail.id}
+    students={overrideStudents}
+    problems={overrideProblems}
+  />
+{/if}
 
 <style>
   .countdown-card {

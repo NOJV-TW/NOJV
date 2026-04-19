@@ -1,7 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect, userScoreboardSelect } from "./selects";
+import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -228,6 +228,16 @@ export const contestParticipationRepo = {
     return prisma.contestParticipation
       .findMany({ where: { contestId }, select: { userId: true } })
       .then((rows) => rows.map((r) => r.userId));
+  },
+
+  // Participant roster with user mini profiles — used by the score-override
+  // drawer so staff can pick a student to adjust.
+  listParticipantsWithUser(contestId: string) {
+    return prisma.contestParticipation.findMany({
+      where: { contestId },
+      include: { user: { select: userMiniSelect } },
+      orderBy: [{ user: { username: "asc" } }]
+    });
   },
 
   update(id: string, data: Prisma.ContestParticipationUpdateInput) {
