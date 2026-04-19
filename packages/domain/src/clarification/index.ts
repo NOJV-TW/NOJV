@@ -219,29 +219,31 @@ async function publishClarificationEvent(
   row: ClarificationRow
 ): Promise<void> {
   try {
-    // Publish the staff projection; the SSE bridge re-masks per-subscriber
-    // in a later task (Task 11). For now subscribers receive the full
-    // payload — that is acceptable because only /api/events/stream with
-    // the correct subscription filters delivers these messages, and the
-    // HTTP API list/detail endpoints still enforce per-request projection.
-    const staff = projectRow(row, true);
+    // Publish the MASKED projection — asker identity is nulled. Staff
+    // of the context recover unmasked askers via the GET endpoint on
+    // (re)connect. Publishing the staff projection would be a latent
+    // anonymity regression if the SSE stream were ever mis-routed to a
+    // non-staff subscriber; the masked projection is fail-safe by
+    // default. Answerer identity is always public (staff are not
+    // anonymous), so `answeredBy` rides along.
+    const masked = projectRow(row, false);
     const event: ClarificationSSEEvent = {
       type: SSE_CLARIFICATION,
       action,
       payload: {
-        id: staff.id,
-        contextType: staff.contextType,
-        contextId: staff.contextId,
-        problemId: staff.problemId,
-        questionText: staff.questionText,
-        answerText: staff.answerText,
-        state: staff.state,
-        askedByUserId: staff.askedByUserId,
-        askedBy: staff.askedBy,
-        answeredByUserId: staff.answeredByUserId,
-        answeredBy: staff.answeredBy,
-        answeredAt: staff.answeredAt ? staff.answeredAt.toISOString() : null,
-        createdAt: staff.createdAt.toISOString()
+        id: masked.id,
+        contextType: masked.contextType,
+        contextId: masked.contextId,
+        problemId: masked.problemId,
+        questionText: masked.questionText,
+        answerText: masked.answerText,
+        state: masked.state,
+        askedByUserId: masked.askedByUserId,
+        askedBy: masked.askedBy,
+        answeredByUserId: masked.answeredByUserId,
+        answeredBy: masked.answeredBy,
+        answeredAt: masked.answeredAt ? masked.answeredAt.toISOString() : null,
+        createdAt: masked.createdAt.toISOString()
       }
     };
     await pubsub.publishClarification(row.contextType, row.contextId, event);
