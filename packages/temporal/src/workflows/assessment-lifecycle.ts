@@ -6,6 +6,9 @@ import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
 const assessment = proxyActivities<typeof assessmentActivities>(SHORT_ACTIVITY);
 const notification = proxyActivities<typeof notificationActivities>(NOTIFICATION_ACTIVITY);
+// `fanoutAssignmentDueSoon` persists notification rows + chunked Redis pub/sub;
+// give it SHORT's 30s budget and 3 retries instead of the 10s pub/sub default.
+const notificationDurable = proxyActivities<typeof notificationActivities>(SHORT_ACTIVITY);
 
 const DEADLINE_REMINDER_HOURS = 24;
 
@@ -30,6 +33,16 @@ export async function assessmentLifecycleWorkflow(
   }
 
   if (info.closesAt) {
+    // Fan out `assignment_due_soon` notifications 24h before hard close.
+    // The domain helper is a no-op if the assessment already closed, so
+    // we don't need a second guard here.
+    const reminderTime = new Date(info.closesAt).getTime() - DEADLINE_REMINDER_HOURS * 3600_000;
+    const msUntilReminder = reminderTime - Date.now();
+    if (msUntilReminder > 0) {
+      await sleep(msUntilReminder);
+    }
+    await notificationDurable.fanoutAssignmentDueSoon(input.assessmentId);
+
     const msUntilClose = new Date(info.closesAt).getTime() - Date.now();
     if (msUntilClose > 0) {
       await sleep(msUntilClose);
