@@ -219,6 +219,128 @@ Single source of all business logic. Organized by domain:
   - **Orchestration functions** — called by web, may dispatch workflows via job-dispatch
   - **Data functions** — called by temporal activities, pure DB + event operations
 
+## Key Flows
+
+The three sequence diagrams below walk through the most load-bearing runtime paths. Actor names are consistent across diagrams: `Browser` is the SvelteKit client, `Web` is the SvelteKit server (apps/web), `Temporal` is the Temporal service, `Worker` is a Temporal worker process (apps/worker) running judge or platform activities, `Sandbox` is the isolated sandbox-runner container, `Redis` is the shared Redis instance (pub/sub + scoreboard ZSETs), and `Postgres` is the primary database.
+
+### Submission Judging Lifecycle
+
+This is the end-to-end path from clicking "Submit" to seeing a verdict. The web layer only writes the queued row and dispatches a workflow — all real judging happens inside the Temporal workflow, which calls domain data functions through activities. The browser learns the final verdict by polling the submission workflow's `getStatus` query over SSE; a separate user-scoped SSE pub/sub channel (`user:{userId}`) also receives a best-effort verdict notification that the header toast listens to.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as Web (SvelteKit)
+    participant Postgres
+    participant Temporal
+    participant Worker
+    participant Sandbox
+    participant Redis
+
+    Browser->>Web: POST /api/submissions (SubmissionDraft)
+    Web->>Postgres: createQueuedSubmissionRecord (status=queued)
+    Web->>Temporal: dispatchSubmissionJudge (workflowId judge-{id}, queue "judge")
+    Web-->>Browser: 202 { submissionId, pollUrl }
+
+    Browser->>Web: GET /api/submissions/{id}/stream (SSE)
+    Web->>Temporal: querySubmissionStatus (getStatus query)
+
+    Temporal->>Worker: submissionJudgeWorkflow(input)
+    Worker->>Postgres: fetchJudgeContext (testcases + limits)
+    Worker->>Postgres: updateSubmissionStatus(running)
+    Worker->>Sandbox: executor.execute(SandboxRequest)
+    Sandbox-->>Worker: SandboxResult (per-testcase outcomes)
+    Worker->>Postgres: completeSubmission (verdict + score)
+
+    alt contest/exam submission
+        Worker->>Postgres: updateContestScores (recompute)
+        Worker->>Redis: scoreboard.updateScoreboard (ZADD + EXPIRE)
+    end
+
+    Worker->>Postgres: updateUserStats
+    Worker->>Redis: PUBLISH user:{userId} submission.verdict
+    Web-->>Browser: SSE { status: "completed", result }
+```
+
+Edge cases: if the Temporal service is down, `dispatchSubmissionJudge` rejects and the submission stays in `queued` (no rollback); `createQueuedSubmissionRecord` has already committed. If the worker crashes mid-execution, Temporal retries the workflow up to `maximumAttempts: 3` from the last durable activity boundary. If Redis is down, `publishVerdict` swallows the error (best-effort), so the header toast never fires but the per-submission SSE stream still converges via the direct DB read.
+
+### Exam Session Lifecycle
+
+Exam sessions are mutually exclusive globally per user — the SvelteKit `handle` hook enforces that a student with an active session can only reach `/exams/{id}/**`. `startSessionWithGate` is idempotent on `(userId, examId)`, so a page refresh after `?/startExam` never duplicates the session; only the first call returns 201. Submissions within the exam reuse the standard judging flow (diagram above). Auto-close is a separate Temporal timer workflow keyed on `examId` that terminates any prior instance so re-publishing with a new `endsAt` correctly reschedules.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as Web (SvelteKit)
+    participant Postgres
+    participant Temporal
+    participant Worker
+
+    Note over Temporal,Worker: Earlier: publishExam → dispatchExamAutoClose<br/>(workflowId exam-auto-close-{examId})
+
+    Browser->>Web: POST /exams/{examId}?/startExam
+    Web->>Postgres: startSessionWithGate (enroll check, gate window)
+    Web->>Postgres: ExamSession upsert (ipPin, startedAt) + event "enter"
+    Web-->>Browser: 201 (fresh) or 200 (idempotent re-entry)
+
+    loop every ~30s while tab open
+        Browser->>Web: POST /api/exam-session/heartbeat {examId}
+        Web->>Postgres: heartbeatWithThrottle (bump lastHeartbeatAt, throttle event insert)
+    end
+
+    Note over Browser,Web: handle hook blocks navigation outside /exams/{id}/**;<br/>attempted off-path request records "visibility_lost" event
+    Browser->>Web: GET /courses/... (disallowed)
+    Web->>Postgres: recordEvent("visibility_lost", {attemptedPath})
+    Web-->>Browser: 302 → /exams/{examId}
+
+    Browser->>Web: submit problem (see Submission Judging Lifecycle)
+
+    alt student submits exam
+        Browser->>Web: POST /api/exam-session/end {reason: "submitted"}
+        Web->>Postgres: endSession (endedAt, releaseReason, event "release")
+        Web-->>Browser: 200
+    else timer reaches endsAt
+        Temporal->>Worker: examAutoCloseWorkflow fires after sleep(endsAt - now)
+        Worker->>Postgres: closeActiveSessionsForExam (endedAt, reason "time_up", event "auto_close")
+    end
+```
+
+Edge cases: if Temporal is down at publish time, the auto-close workflow is never scheduled and sessions will not self-close — students must manually end, or an instructor releases them. If the heartbeat request fails (network loss), the session's `lastHeartbeatAt` goes stale but the session stays active; instructor dashboards surface the gap. IP pin mismatch is enforced elsewhere in the submission path, not in heartbeat.
+
+### Contest Scoreboard Update
+
+A successful judge in contest context triggers `updateContestScores`, which recomputes the participant's score in Postgres and writes the packed score (for ICPC: `solved * 1e9 - penalty`) into a Redis ZSET keyed `nojv:scoreboard:{contestId}`. The public scoreboard page does **not** subscribe to a Redis pub/sub channel for live updates — it polls with `invalidateAll()` on a 30 s `setInterval`, and the server-side endpoint reads either the live ZSET or a frozen snapshot.
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as Web (SvelteKit)
+    participant Worker
+    participant Postgres
+    participant Redis
+
+    Note over Worker: submissionJudgeWorkflow reaches completion<br/>(see Submission Judging Lifecycle)
+    Worker->>Postgres: updateContestScores (recompute participation row)
+    Worker->>Redis: ZADD nojv:scoreboard:{contestId} packedScore participationId
+    Worker->>Redis: EXPIRE nojv:scoreboard:{contestId} 90d
+
+    loop every 30s on scoreboard page
+        Browser->>Web: invalidateAll() → GET /api/contests/{id}/scoreboard
+        Web->>Postgres: contestRepo.findForScoreboardById (contest + participations)
+        Web->>Redis: EXISTS nojv:scoreboard:{contestId}:frozen
+        alt frozen snapshot present
+            Web->>Redis: ZREVRANGE frozen key WITHSCORES
+        else live board
+            Web->>Postgres: submissionRepo.findForContestScoreboard (rebuild from DB)
+        end
+        Web-->>Browser: ScoreboardData (entries + problems)
+    end
+
+    Note over Web,Redis: freezeScoreboard copies live ZSET → frozen key (ZRANGE + ZADD)<br/>getScoreboard transparently prefers frozen while present
+```
+
+Edge cases: if Redis is down, `updateScoreboard` throws and propagates back through the activity — Temporal retries up to the activity retry policy, so the ZSET eventually converges. The read path falls back to Postgres (`buildScoreboard` from raw submissions) for the page render, so the scoreboard stays available even if Redis is unreachable. A bulk rejudge writes many `updateScoreboard` calls in a tight loop; each ZADD is idempotent.
+
 ## Related Docs
 
 - [Product Sense](docs/PRODUCT_SENSE.md)

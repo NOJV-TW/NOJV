@@ -9,6 +9,9 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import TeacherBadge from "$lib/components/common/TeacherBadge.svelte";
+  import ExamSubmissionsMatrix from "$lib/components/course/exam/ExamSubmissionsMatrix.svelte";
+  import ExamSettingsTab from "$lib/components/course/exam/ExamSettingsTab.svelte";
+  import ExamProblemsTab from "$lib/components/course/exam/ExamProblemsTab.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -34,9 +37,10 @@
 
   // Derived live status — keeps the UI honest if the user leaves the
   // page open across the start/end boundary.
-  type LiveStatus = "draft" | "upcoming" | "running" | "ended";
+  type LiveStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
   const liveStatus: LiveStatus = $derived.by(() => {
     if (detail.status === "draft") return "draft";
+    if (detail.status === "archived") return "archived";
     if (nowMs < startsAtMs) return "upcoming";
     if (nowMs >= endsAtMs) return "ended";
     return "running";
@@ -86,12 +90,13 @@
     if (s === "running") return m.examDetail_statusRunning();
     if (s === "ended") return m.examDetail_statusEnded();
     if (s === "draft") return m.examDetail_statusDraft();
+    if (s === "archived") return m.examDetail_statusArchived();
     return m.examDetail_statusUpcoming();
   }
 
   function statusVariant(s: LiveStatus): "info" | "default" | "muted" {
     if (s === "running") return "default";
-    if (s === "ended" || s === "draft") return "muted";
+    if (s === "ended" || s === "draft" || s === "archived") return "muted";
     return "info";
   }
 
@@ -108,7 +113,7 @@
   }
 
   type SubTab = "problems" | "submissions" | "settings";
-  const activeTab = $derived<SubTab>("problems");
+  let activeTab = $state<SubTab>("problems");
 
   // The top-level `/exams` list is the breadcrumb target — the
   // id-unified exam shell no longer needs a courseId in the URL.
@@ -354,6 +359,7 @@
           type="button"
           role="tab"
           aria-selected={activeTab === "problems"}
+          onclick={() => (activeTab = "problems")}
           class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
           'problems'
             ? 'bg-[color:var(--color-primary)]/14 text-primary'
@@ -364,80 +370,53 @@
         <button
           type="button"
           role="tab"
-          aria-selected={false}
-          disabled
-          class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium text-muted-foreground/60"
-          title={m.examDetail_subTabComingSoon()}
+          aria-selected={activeTab === "submissions"}
+          onclick={() => (activeTab = "submissions")}
+          class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+          'submissions'
+            ? 'bg-[color:var(--color-primary)]/14 text-primary'
+            : 'text-muted-foreground hover:text-foreground'}"
         >
-          {m.examDetail_subTabSubmissions()} <span class="text-caption">—</span>
+          {m.examDetail_subTabSubmissions()}
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={false}
-          disabled
-          class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium text-muted-foreground/60"
-          title={m.examDetail_subTabComingSoon()}
+          aria-selected={activeTab === "settings"}
+          onclick={() => (activeTab = "settings")}
+          class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+          'settings'
+            ? 'bg-[color:var(--color-primary)]/14 text-primary'
+            : 'text-muted-foreground hover:text-foreground'}"
         >
           {m.examDetail_subTabSettings()}
         </button>
       </div>
     </div>
 
+    {#if activeTab === "submissions" && data.matrix}
+      <div class="animate-in animate-in-4">
+        <ExamSubmissionsMatrix matrix={data.matrix} examId={detail.id} />
+      </div>
+    {:else if activeTab === "settings" && data.settingsForm}
+      <div class="animate-in animate-in-4">
+        <ExamSettingsTab
+          form={data.settingsForm}
+          {detail}
+          {liveStatus}
+        />
+      </div>
+    {:else}
     <div
       class="animate-in animate-in-4 grid gap-8 lg:grid-cols-[1.4fr_1fr]"
     >
-      <!-- LEFT: Problems panel -->
-      <section
-        class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 backdrop-blur"
-      >
-        <header class="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 class="font-display text-title font-medium">
-            {m.examDetail_problemsHeading()}
-          </h2>
-          <span class="text-caption text-muted-foreground">
-            {m.examDetail_problemsHint()}
-          </span>
-        </header>
-
-        {#if detail.problems.length === 0}
-          <div
-            class="rounded-xl border border-dashed border-border px-4 py-8 text-center text-body-sm text-muted-foreground"
-          >
-            {m.examDetail_problemsEmpty()}
-          </div>
-        {:else}
-          <ul class="space-y-2.5">
-            {#each detail.problems as problem (problem.id)}
-              <li
-                class="flex items-center justify-between gap-4 rounded-xl border border-border-subtle px-4 py-3"
-              >
-                <div class="flex items-center gap-3">
-                  <span
-                    class="min-w-[28px] text-center font-display text-title-sm font-medium text-muted-foreground"
-                  >
-                    {problem.letter}
-                  </span>
-                  <div class="min-w-0">
-                    <div class="font-semibold">{problem.title}</div>
-                    <div class="mt-1 text-caption text-muted-foreground">
-                      {difficultyLabel(problem.difficulty)} ·
-                      {m.examDetail_problemPoints({ count: problem.points })}
-                    </div>
-                  </div>
-                </div>
-                <Button
-                  href={`/problems/${problem.id}`}
-                  variant="outline"
-                  size="sm"
-                >
-                  {m.examDetail_problemPreview()}
-                </Button>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
+      <!-- LEFT: Problems panel (editable for draft/upcoming managers) -->
+      <ExamProblemsTab
+        {detail}
+        {liveStatus}
+        canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
+        {form}
+      />
 
       <!-- RIGHT: Roster panel -->
       <section
@@ -504,12 +483,53 @@
         </Button>
       </section>
     </div>
+    {/if}
   {:else}
     <p
       class="mx-auto mt-2 max-w-[60ch] text-center text-caption text-muted-foreground"
     >
       {m.examDetail_studentNote()}
     </p>
+
+    {#if detail.status === "ended" && detail.problems.length > 0}
+      <section
+        class="animate-in animate-in-3 mt-10 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 backdrop-blur"
+      >
+        <header class="mb-4">
+          <h2 class="font-display text-title font-medium">
+            {m.examDetail_studentReviewHeading()}
+          </h2>
+          <p class="mt-1 text-body-sm text-muted-foreground">
+            {m.examDetail_studentReviewHint()}
+          </p>
+        </header>
+        <ul class="space-y-2.5">
+          {#each detail.problems as problem (problem.id)}
+            <li
+              class="flex items-center justify-between gap-4 rounded-xl border border-border-subtle px-4 py-3"
+            >
+              <div class="flex items-center gap-3">
+                <span
+                  class="min-w-[28px] text-center font-display text-title-sm font-medium text-muted-foreground"
+                >
+                  {problem.letter}
+                </span>
+                <div class="min-w-0">
+                  <div class="font-semibold">{problem.title}</div>
+                  <div class="mt-1 text-caption text-muted-foreground">
+                    {difficultyLabel(problem.difficulty)} ·
+                    {m.examDetail_problemPoints({ count: problem.points })}
+                  </div>
+                </div>
+              </div>
+              <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
+                {m.examDetail_problemPreview()}
+              </Button>
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
   {/if}
 </div>
 

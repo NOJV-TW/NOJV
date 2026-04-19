@@ -18,11 +18,9 @@ describe("examSessionRepo (real DB)", () => {
     // Start a session.
     const started = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id,
-      ipPin: "10.0.0.1"
+      examId: exam.id
     });
     expect(started.endedAt).toBeNull();
-    expect(started.ipPin).toBe("10.0.0.1");
 
     // Append the enter event + a few audit events out-of-order in
     // wall-clock terms, then assert the list-by-occurredAt ordering.
@@ -98,18 +96,14 @@ describe("examSessionRepo (real DB)", () => {
 
     const first = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id,
-      ipPin: "10.0.0.1"
+      examId: exam.id
     });
     const second = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id,
-      ipPin: "10.0.0.2"
+      examId: exam.id
     });
 
     expect(second.id).toBe(first.id);
-    // Second start on an unended row leaves ipPin untouched.
-    expect(second.ipPin).toBe("10.0.0.1");
 
     const rows = await testPrisma.activeExamSession.findMany({
       where: { userId: user.id, examId: exam.id }

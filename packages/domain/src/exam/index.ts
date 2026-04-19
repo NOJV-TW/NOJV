@@ -5,4 +5,5 @@ export * from "./permissions";
 export * from "./across-courses";
 export * from "./detail";
 export * from "./problem-view";
+export * from "./submissions-matrix";
 export * as session from "./session";

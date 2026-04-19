@@ -133,8 +133,48 @@ export const courseAssignmentFormSchema = z
     }
   });
 
+// Domain-facing partial update payload. Every field is optional so
+// callers can send only the fields they actually want to change. The
+// domain layer enforces status-aware field-level locks (see
+// `packages/domain/src/assessment/mutations.ts`).
+export const courseAssessmentUpdateSchema = z.object({
+  allowedLanguages: z.array(languageSchema).max(8).optional(),
+  closesAt: isoDateTimeSchema.optional(),
+  dueAt: isoDateTimeSchema.nullish(),
+  maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+  opensAt: isoDateTimeSchema.optional(),
+  problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
+  problemOrdinals: z
+    .array(
+      z.object({
+        problemId: z.string().trim().min(1),
+        points: z.coerce.number().int().min(0).max(10_000)
+      })
+    )
+    .max(32)
+    .optional(),
+  summary: z.string().trim().max(2_000).optional(),
+  title: z.string().trim().min(3).max(120).optional()
+});
+
+// Superforms-facing schema used by the assignment settings tab. Strings
+// come out of <input type="datetime-local"> as local-time strings rather
+// than ISO — we accept any non-empty string and normalise to ISO in the
+// server action before calling the domain update.
+export const assessmentSettingsFormSchema = z.object({
+  title: z.string().trim().min(3).max(120),
+  summary: z.string().trim().max(2_000).default(""),
+  opensAt: z.string().trim().min(1),
+  dueAt: z.string().trim().default(""),
+  closesAt: z.string().trim().min(1),
+  allowedLanguages: z.array(languageSchema).max(8).default([]),
+  maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish()
+});
+
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
+export type AssessmentSettingsFormData = z.infer<typeof assessmentSettingsFormSchema>;
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
+export type CourseAssessmentUpdate = z.infer<typeof courseAssessmentUpdateSchema>;
 export type CourseAssignmentFormData = z.infer<typeof courseAssignmentFormSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;

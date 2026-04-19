@@ -156,6 +156,58 @@ export const submissionRepo = {
     });
   },
 
+  groupBestScoresByAssessment(assessmentIds: string[]) {
+    if (assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["courseAssessmentId", "userId", "problemId"],
+      _max: { score: true },
+      where: {
+        courseAssessmentId: { in: assessmentIds },
+        sampleOnly: false
+      }
+    });
+  },
+
+  groupAcceptedByAssessmentForUser(opts: { assessmentIds: string[]; userId: string }) {
+    if (opts.assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["courseAssessmentId", "problemId"],
+      _count: { _all: true },
+      where: {
+        courseAssessmentId: { in: opts.assessmentIds },
+        userId: opts.userId,
+        sampleOnly: false,
+        status: "accepted"
+      }
+    });
+  },
+
+  groupBestScoresByExam(examIds: string[]) {
+    if (examIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["examId", "userId", "problemId"],
+      _max: { score: true },
+      where: {
+        examId: { in: examIds },
+        sampleOnly: false
+      }
+    });
+  },
+
+  groupAcceptedByExamForUser(opts: { examIds: string[]; userId: string }) {
+    if (opts.examIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["examId", "problemId"],
+      _count: { _all: true },
+      where: {
+        examId: { in: opts.examIds },
+        userId: opts.userId,
+        sampleOnly: false,
+        status: "accepted"
+      }
+    });
+  },
+
   groupByProblemAndStatus(userId: string, problemIds: string[]) {
     return prisma.submission.groupBy({
       by: ["problemId", "status"],

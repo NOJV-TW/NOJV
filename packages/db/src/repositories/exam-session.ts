@@ -19,15 +19,7 @@ export const examSessionRepo = {
   },
 
   // Idempotent: an unended row is returned untouched; an ended row is reopened by clearing `endedAt`.
-  async startSession({
-    userId,
-    examId,
-    ipPin
-  }: {
-    userId: string;
-    examId: string;
-    ipPin?: string | null;
-  }) {
+  async startSession({ userId, examId }: { userId: string; examId: string }) {
     const existing = await prisma.activeExamSession.findUnique({
       where: { userId_examId: { userId, examId } }
     });
@@ -44,7 +36,6 @@ export const examSessionRepo = {
           startedAt: now,
           endedAt: null,
           releaseReason: null,
-          ipPin: ipPin ?? null,
           lastHeartbeatAt: now
         }
       });
@@ -55,7 +46,6 @@ export const examSessionRepo = {
         userId,
         examId,
         startedAt: now,
-        ipPin: ipPin ?? null,
         lastHeartbeatAt: now
       }
     });

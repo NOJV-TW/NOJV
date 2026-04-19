@@ -225,6 +225,21 @@ export const examRepo = {
         return tx.exam.findUnique({ where: { id } });
       },
 
+      // Full row (all statuses) + attached problems — used by `copyCourse` to
+      // replicate the exam structure of a source course into a new one.
+      listByCourseIdAllWithProblems(courseId: string) {
+        return tx.exam.findMany({
+          where: { courseId },
+          orderBy: { startsAt: "asc" },
+          include: {
+            problems: {
+              select: { problemId: true, ordinal: true, points: true },
+              orderBy: { ordinal: "asc" }
+            }
+          }
+        });
+      },
+
       create(data: Prisma.ExamUncheckedCreateInput) {
         return tx.exam.create({ data });
       },
@@ -234,6 +249,10 @@ export const examRepo = {
           data,
           where: { id }
         });
+      },
+
+      delete(id: string) {
+        return tx.exam.delete({ where: { id } });
       }
     };
   }
@@ -246,6 +265,10 @@ export const examProblemRepo = {
       include: { problem: { select: problemMiniSelect } },
       orderBy: { ordinal: "asc" }
     });
+  },
+
+  countByExamId(examId: string) {
+    return prisma.examProblem.count({ where: { examId } });
   },
 
   // Practice-after-close: a registered participant of a published exam
@@ -271,6 +294,10 @@ export const examProblemRepo = {
     return {
       create(data: Prisma.ExamProblemUncheckedCreateInput) {
         return tx.examProblem.create({ data });
+      },
+
+      countByExamId(examId: string) {
+        return tx.examProblem.count({ where: { examId } });
       },
 
       deleteByExamId(examId: string) {
