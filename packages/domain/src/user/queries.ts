@@ -1,5 +1,6 @@
 import { submissionRepo, userRepo, type Prisma } from "@nojv/db";
 import { aggregateByTag } from "./analytics-helpers";
+import * as notificationDomain from "../notification";
 
 export interface UserSearchParams {
   search?: string;
@@ -39,7 +40,22 @@ export async function listUsersPaginated(params: UserSearchParams) {
 }
 
 export async function updateUserRole(userId: string, role: "admin" | "teacher" | "student") {
-  return userRepo.update(userId, { platformRole: role });
+  // Read the current role before writing so we can detect a no-op and
+  // avoid generating a role_changed bell entry for an admin re-applying
+  // the same role.
+  const existing = await userRepo.findById(userId);
+  const updated = await userRepo.update(userId, { platformRole: role });
+
+  if (existing && existing.platformRole !== role) {
+    await notificationDomain.createNotification({
+      userId,
+      type: "role_changed",
+      params: { oldRole: existing.platformRole, newRole: role },
+      linkUrl: "/account"
+    });
+  }
+
+  return updated;
 }
 
 export async function toggleUserDisabled(userId: string) {
