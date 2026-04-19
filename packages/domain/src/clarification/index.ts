@@ -239,6 +239,7 @@ async function publishClarificationEvent(
         askedByUserId: staff.askedByUserId,
         askedBy: staff.askedBy,
         answeredByUserId: staff.answeredByUserId,
+        answeredBy: staff.answeredBy,
         answeredAt: staff.answeredAt ? staff.answeredAt.toISOString() : null,
         createdAt: staff.createdAt.toISOString()
       }

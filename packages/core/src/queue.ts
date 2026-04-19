@@ -63,6 +63,15 @@ export const clarificationEventSchema = z.object({
       })
       .nullable(),
     answeredByUserId: z.string().nullable(),
+    // Mirrors the GET projection so SSE-driven updates populate the
+    // "Answered by {name}" chip without an extra round trip.
+    answeredBy: z
+      .object({
+        id: z.string(),
+        username: z.string(),
+        name: z.string()
+      })
+      .nullable(),
     answeredAt: z.string().nullable(),
     createdAt: z.string()
   })
