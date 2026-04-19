@@ -1,6 +1,10 @@
 import {
   assessmentRepo,
+  contestParticipationRepo,
+  contestRepo,
   courseMembershipRepo,
+  examParticipationRepo,
+  examRepo,
   notificationRepo,
   type NotificationCreateInput
 } from "@nojv/db";
@@ -110,6 +114,70 @@ export async function fanoutAssignmentDueSoon(assessmentId: string): Promise<voi
         dueAt: dueAtIso
       },
       linkUrl: `/assignments/${assessment.id}`
+    }))
+  );
+}
+
+/**
+ * Fan out `exam_starting_soon` notifications to every registered
+ * participant of a published exam.
+ *
+ * No-ops (returns silently) when the exam is unpublished/deleted, has no
+ * `startsAt`, or `startsAt` has already passed — the workflow schedules
+ * this ~15 min before `startsAt`, but retries and clock skew can fire it
+ * late, at which point the reminder is stale.
+ */
+export async function fanoutExamStartingSoon(examId: string): Promise<void> {
+  const exam = await examRepo.findById(examId);
+  if (!exam) return;
+  if (exam.status !== "published") return;
+  if (exam.startsAt.getTime() <= Date.now()) return;
+
+  const participantIds = await examParticipationRepo.listParticipantUserIds(examId);
+  if (participantIds.length === 0) return;
+
+  const startsAtIso = exam.startsAt.toISOString();
+  await createNotificationBatch(
+    participantIds.map((userId) => ({
+      userId,
+      type: "exam_starting_soon",
+      params: {
+        courseId: exam.courseId,
+        examId: exam.id,
+        title: exam.title,
+        startsAt: startsAtIso
+      },
+      linkUrl: `/exams/${exam.id}`
+    }))
+  );
+}
+
+/**
+ * Fan out `contest_starting_soon` notifications to every registered
+ * participant of a published contest. Contests use the
+ * `visibility` enum (no `status` field) — gate on
+ * `visibility === "published"`.
+ */
+export async function fanoutContestStartingSoon(contestId: string): Promise<void> {
+  const contest = await contestRepo.findById(contestId);
+  if (!contest) return;
+  if (contest.visibility !== "published") return;
+  if (contest.startsAt.getTime() <= Date.now()) return;
+
+  const participantIds = await contestParticipationRepo.listParticipantUserIds(contestId);
+  if (participantIds.length === 0) return;
+
+  const startsAtIso = contest.startsAt.toISOString();
+  await createNotificationBatch(
+    participantIds.map((userId) => ({
+      userId,
+      type: "contest_starting_soon",
+      params: {
+        contestId: contest.id,
+        title: contest.title,
+        startsAt: startsAtIso
+      },
+      linkUrl: `/contests/${contest.id}`
     }))
   );
 }

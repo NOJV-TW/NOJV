@@ -223,6 +223,13 @@ export const contestParticipationRepo = {
     });
   },
 
+  // Lightweight id-only list used by notification fan-out workflows.
+  listParticipantUserIds(contestId: string) {
+    return prisma.contestParticipation
+      .findMany({ where: { contestId }, select: { userId: true } })
+      .then((rows) => rows.map((r) => r.userId));
+  },
+
   update(id: string, data: Prisma.ContestParticipationUpdateInput) {
     return prisma.contestParticipation.update({
       data,
