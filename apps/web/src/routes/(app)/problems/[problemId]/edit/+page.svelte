@@ -159,13 +159,12 @@
     {/if}
     <div class="ml-auto flex items-center gap-2">
       {#if data.problem.status !== "draft"}
-        <!-- TODO i18n Task 19 — "Rejudge submissions" -->
         <Button
           variant="outline"
           size="sm"
           onclick={() => (showRejudgeDialog = true)}
         >
-          Rejudge submissions
+          {m.rejudge_problem_admin_button()}
         </Button>
       {/if}
       {#if data.problem.status === "draft"}

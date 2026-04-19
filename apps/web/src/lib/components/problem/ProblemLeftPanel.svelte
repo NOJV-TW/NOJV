@@ -90,14 +90,13 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "single", submissionId })
       });
-      // TODO i18n Task 19
       if (res.ok) {
-        toasts.add({ type: "success", message: "Rejudge queued" });
+        toasts.add({ type: "success", message: m.rejudge_toast_queuedSingle() });
       } else {
-        toasts.add({ type: "error", message: "Rejudge failed" });
+        toasts.add({ type: "error", message: m.rejudge_toast_error() });
       }
     } catch {
-      toasts.add({ type: "error", message: "Rejudge failed" });
+      toasts.add({ type: "error", message: m.rejudge_toast_error() });
     } finally {
       rejudgingId = null;
     }
@@ -371,14 +370,13 @@
               </span>
             {/if}
             {#if canRejudge && entry.id}
-              <!-- TODO i18n Task 19 -->
               <button
                 class="ml-auto rounded-md border border-border px-2.5 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={rejudgingId === entry.id}
                 onclick={() => handleRejudge(entry.id!)}
                 type="button"
               >
-                {rejudgingId === entry.id ? "Queuing…" : "Rejudge this submission"}
+                {m.rejudge_single_button()}
               </button>
             {/if}
           </div>

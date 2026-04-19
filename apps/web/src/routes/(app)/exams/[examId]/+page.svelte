@@ -195,14 +195,13 @@
       {#if isManager}
         <div class="flex shrink-0 items-center gap-2">
           {#if canSetOverride}
-            <!-- TODO i18n Task 19 -->
             <Button
               variant="outline"
               size="sm"
               type="button"
               onclick={() => (showOverrideDrawer = true)}
             >
-              Score Overrides
+              {m.override_staff_buttonLabel()}
             </Button>
           {/if}
           <TeacherBadge role="teacher" />

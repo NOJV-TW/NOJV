@@ -203,14 +203,13 @@
       </div>
       {#if canSetOverride}
         <div class="flex shrink-0 items-center gap-2">
-          <!-- TODO i18n Task 19 -->
           <Button
             variant="outline"
             size="sm"
             type="button"
             onclick={() => (showOverrideDrawer = true)}
           >
-            Score Overrides
+            {m.override_staff_buttonLabel()}
           </Button>
         </div>
       {/if}
@@ -294,11 +293,10 @@
                 / {problem.points}
               </span>
               {#if problem.myStatus?.overridden}
-                <!-- TODO i18n Task 19 -->
                 <span
                   class="inline-flex items-center text-info"
-                  title="This score has been manually adjusted by a teacher."
-                  aria-label="Adjusted"
+                  title={m.override_student_markerTooltip()}
+                  aria-label={m.override_student_marker()}
                 >
                   <Info class="size-4" aria-hidden="true" />
                 </span>

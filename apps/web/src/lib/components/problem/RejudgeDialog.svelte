@@ -1,8 +1,8 @@
 <script lang="ts">
-  // TODO i18n Task 19 — hardcoded English strings to be replaced with paraglide keys.
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
 
   type ContextType = "" | "contest" | "assignment" | "exam";
@@ -93,10 +93,10 @@
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        toasts.add({ type: "success", message: "Rejudge queued" });
+        toasts.add({ type: "success", message: m.rejudge_toast_queuedBatch() });
         handleOpenChange(false);
       } else {
-        let msg = "Rejudge failed";
+        let msg: string = m.rejudge_toast_error();
         try {
           const body = (await res.json()) as { message?: string };
           if (body.message) msg = body.message;
@@ -107,8 +107,8 @@
         toasts.add({ type: "error", message: msg });
       }
     } catch {
-      error = "Network error";
-      toasts.add({ type: "error", message: "Rejudge failed" });
+      error = m.rejudge_toast_error();
+      toasts.add({ type: "error", message: m.rejudge_toast_error() });
     } finally {
       submitting = false;
     }
@@ -118,16 +118,16 @@
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
   <Dialog.Content showCloseButton>
     <Dialog.Header>
-      <Dialog.Title>Rejudge submissions</Dialog.Title>
+      <Dialog.Title>{m.rejudge_dialog_title()}</Dialog.Title>
       <Dialog.Description>
-        Queue a batch rejudge for this problem. Optional filters narrow the scope.
+        {m.rejudge_dialog_filterCtx()}
       </Dialog.Description>
     </Dialog.Header>
 
     <form class="space-y-4" onsubmit={handleSubmit}>
       <div class="flex flex-col gap-1.5">
         <label class="text-body-sm font-medium" for="rejudge-context-type">
-          Context
+          {m.rejudge_dialog_filterCtx()}
         </label>
         <select
           id="rejudge-context-type"
@@ -135,21 +135,17 @@
           bind:value={contextType}
           disabled={submitting}
         >
-          <option value="">All submissions</option>
-          <option value="contest">Contest</option>
-          <option value="assignment">Assignment</option>
-          <option value="exam">Exam</option>
+          <option value="">{m.rejudge_dialog_contextType_all()}</option>
+          <option value="contest">{m.rejudge_dialog_contextType_contest()}</option>
+          <option value="assignment">{m.rejudge_dialog_contextType_assignment()}</option>
+          <option value="exam">{m.rejudge_dialog_contextType_exam()}</option>
         </select>
       </div>
 
       {#if contextType !== ""}
         <div class="flex flex-col gap-1.5">
           <label class="text-body-sm font-medium" for="rejudge-context-id">
-            {contextType === "contest"
-              ? "Contest id"
-              : contextType === "assignment"
-                ? "Assignment id"
-                : "Exam id"}
+            {m.rejudge_dialog_contextId()}
           </label>
           <Input
             id="rejudge-context-id"
@@ -162,20 +158,15 @@
 
       <div class="flex flex-col gap-1.5">
         <label class="text-body-sm font-medium" for="rejudge-user-ids">
-          User ids
+          {m.rejudge_dialog_userIds()}
         </label>
-        <Input
-          id="rejudge-user-ids"
-          bind:value={userIds}
-          placeholder="leave blank for all — or comma-separated"
-          disabled={submitting}
-        />
+        <Input id="rejudge-user-ids" bind:value={userIds} disabled={submitting} />
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div class="flex flex-col gap-1.5">
           <label class="text-body-sm font-medium" for="rejudge-since">
-            Since
+            {m.rejudge_dialog_since()}
           </label>
           <Input
             id="rejudge-since"
@@ -186,7 +177,7 @@
         </div>
         <div class="flex flex-col gap-1.5">
           <label class="text-body-sm font-medium" for="rejudge-until">
-            Until
+            {m.rejudge_dialog_until()}
           </label>
           <Input
             id="rejudge-until"
@@ -208,10 +199,10 @@
           onclick={() => handleOpenChange(false)}
           disabled={submitting}
         >
-          Cancel
+          {m.rejudge_dialog_cancelBtn()}
         </Button>
         <Button type="submit" loading={submitting} disabled={submitting}>
-          Queue rejudge
+          {m.rejudge_dialog_submitBtn()}
         </Button>
       </Dialog.Footer>
     </form>

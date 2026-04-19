@@ -1,8 +1,8 @@
 <script lang="ts">
-  // TODO i18n Task 19 — placeholder English replaced during Task 19.
   import { toasts } from "$lib/stores/toast";
   import { Button } from "$lib/components/ui/button";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import { m } from "$lib/paraglide/messages.js";
   import type { OverrideRow, ProblemOption, StudentOption } from "./ScoreOverrideForm.svelte";
 
   export interface OverrideListRow extends OverrideRow {
@@ -57,13 +57,13 @@
     try {
       const res = await fetch(`/api/overrides/${id}`, { method: "DELETE" });
       if (res.ok) {
-        toasts.add({ type: "success", message: "Override deleted" });
+        toasts.add({ type: "success", message: m.override_staff_toastDeleted() });
         ondelete();
       } else {
-        toasts.add({ type: "error", message: "Action failed" });
+        toasts.add({ type: "error", message: m.override_staff_toastError() });
       }
     } catch {
-      toasts.add({ type: "error", message: "Action failed" });
+      toasts.add({ type: "error", message: m.override_staff_toastError() });
     } finally {
       deleting = false;
       pendingDeleteId = null;
@@ -75,18 +75,26 @@
   <div
     class="rounded-lg border border-dashed border-border-strong bg-[color:var(--color-panel)]/40 px-4 py-6 text-center text-caption text-muted-foreground"
   >
-    No overrides yet
+    {m.override_staff_emptyList()}
   </div>
 {:else}
   <div class="overflow-hidden rounded-lg border border-border">
     <table class="w-full text-body-sm">
       <thead class="bg-muted/40 text-caption uppercase tracking-wide text-muted-foreground">
         <tr>
-          <th class="px-3 py-2 text-left font-medium">Student</th>
-          <th class="px-3 py-2 text-left font-medium">Problem</th>
-          <th class="px-3 py-2 text-right font-medium">Score</th>
-          <th class="px-3 py-2 text-left font-medium">Reason</th>
-          <th class="px-3 py-2 text-left font-medium">Updated</th>
+          <th class="px-3 py-2 text-left font-medium">
+            {m.override_staff_fieldStudent()}
+          </th>
+          <th class="px-3 py-2 text-left font-medium">
+            {m.override_staff_fieldProblem()}
+          </th>
+          <th class="px-3 py-2 text-right font-medium">
+            {m.override_staff_fieldScore()}
+          </th>
+          <th class="px-3 py-2 text-left font-medium">
+            {m.override_staff_fieldReason()}
+          </th>
+          <th class="px-3 py-2 text-left font-medium"></th>
           <th class="px-3 py-2 text-right font-medium"></th>
         </tr>
       </thead>
@@ -110,7 +118,7 @@
                   type="button"
                   onclick={() => onedit(row)}
                 >
-                  Edit
+                  {m.override_staff_editBtn()}
                 </Button>
                 <Button
                   variant="outline"
@@ -118,7 +126,7 @@
                   type="button"
                   onclick={() => (pendingDeleteId = row.id)}
                 >
-                  Delete
+                  {m.override_staff_deleteBtn()}
                 </Button>
               </div>
             </td>
@@ -131,10 +139,10 @@
 
 <ConfirmDialog
   open={pendingDeleteId !== null}
-  title="Delete this override?"
-  message="This action cannot be undone."
-  confirmText="Delete"
-  cancelText="Cancel"
+  title={m.override_staff_deleteConfirm()}
+  message=""
+  confirmText={m.override_staff_deleteBtn()}
+  cancelText={m.rejudge_dialog_cancelBtn()}
   variant="danger"
   onconfirm={confirmDelete}
   oncancel={() => (pendingDeleteId = null)}

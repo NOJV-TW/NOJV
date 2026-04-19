@@ -83,14 +83,13 @@
         {/if}
       </div>
       {#if canSetOverride}
-        <!-- TODO i18n Task 19 -->
         <Button
           variant="outline"
           size="sm"
           type="button"
           onclick={() => (showOverrideDrawer = true)}
         >
-          Score Overrides
+          {m.override_staff_buttonLabel()}
         </Button>
       {/if}
     </div>

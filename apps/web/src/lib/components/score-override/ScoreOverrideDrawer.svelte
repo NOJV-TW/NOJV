@@ -1,7 +1,7 @@
 <script lang="ts">
-  // TODO i18n Task 19 — placeholder English replaced during Task 19.
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import { m } from "$lib/paraglide/messages.js";
   import ScoreOverrideForm, {
     type OverrideRow,
     type ProblemOption,
@@ -65,18 +65,21 @@
     class="max-h-[90vh] overflow-y-auto sm:max-w-3xl"
   >
     <Dialog.Header>
-      <Dialog.Title>Score Overrides</Dialog.Title>
+      <Dialog.Title>{m.override_staff_buttonLabel()}</Dialog.Title>
       <Dialog.Description>
-        Manually adjust a student's score for a specific problem in this context.
-        Audit log is kept automatically.
+        {m.override_staff_reasonHint()}
       </Dialog.Description>
     </Dialog.Header>
 
     <div class="space-y-6">
       <section class="space-y-3">
-        <h3 class="font-display text-title-sm font-medium">Existing overrides</h3>
+        <h3 class="font-display text-title-sm font-medium">
+          {m.override_staff_buttonLabel()}
+        </h3>
         {#if loading}
-          <div class="text-caption text-muted-foreground">Loading…</div>
+          <div class="text-caption text-muted-foreground">
+            {m.override_staff_emptyList()}
+          </div>
         {:else}
           <ScoreOverrideList
             {rows}
@@ -91,7 +94,9 @@
       <section class="space-y-3 border-t border-border pt-5">
         <div class="flex items-center justify-between">
           <h3 class="font-display text-title-sm font-medium">
-            {editTarget ? "Edit override" : "New override"}
+            {editTarget
+              ? m.override_staff_editBtn()
+              : m.override_staff_newBtn()}
           </h3>
           {#if editTarget}
             <Button
@@ -100,7 +105,7 @@
               type="button"
               onclick={() => (editTarget = null)}
             >
-              Cancel edit
+              {m.rejudge_dialog_cancelBtn()}
             </Button>
           {/if}
         </div>
