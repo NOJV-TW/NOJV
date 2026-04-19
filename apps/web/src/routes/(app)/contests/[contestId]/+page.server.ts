@@ -1,6 +1,6 @@
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { contestParticipationRepo } from "@nojv/db";
-import { contestDomain, scoreOverrideDomain } from "@nojv/domain";
+import { clarificationDomain, contestDomain, scoreOverrideDomain } from "@nojv/domain";
 
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -39,5 +39,25 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }
   }
 
-  return { contest, canSetOverride, overrideStudents };
+  // Clarification permission flags. Students ask, staff answer; admins
+  // cannot ask (invariant enforced in clarificationDomain.canAskClarification).
+  const actor = getActorContext(event);
+  let canAskClar = false;
+  let canAnswerClar = false;
+  if (actor && hasActorUsername(actor)) {
+    [canAskClar, canAnswerClar] = await Promise.all([
+      clarificationDomain.canAskClarification(actor, "contest", contest.id),
+      clarificationDomain.canAnswerInContext(actor, "contest", contest.id)
+    ]);
+  }
+
+  return {
+    contest,
+    canSetOverride,
+    overrideStudents,
+    clarification: {
+      canAsk: canAskClar,
+      canAnswer: canAnswerClar
+    }
+  };
 });

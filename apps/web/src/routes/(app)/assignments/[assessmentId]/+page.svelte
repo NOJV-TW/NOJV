@@ -10,6 +10,7 @@
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
+  import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
   import type { PageData } from "./$types";
 
@@ -17,8 +18,15 @@
 
   const detail = $derived(data.detail);
 
-  type SubTabKey = "problems" | "submissions" | "plagiarism" | "settings";
+  type SubTabKey = "problems" | "submissions" | "plagiarism" | "settings" | "clarifications";
   let activeSubTab = $state<SubTabKey>("submissions");
+
+  const clarificationProblems = $derived(
+    detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
+  );
+  const clarificationEnabled = $derived(
+    data.clarification.canAsk || data.clarification.canAnswer
+  );
 
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(
@@ -50,7 +58,10 @@
         }
       : { key: "submissions", label: m.assignmentDetail_tabSubmissions() },
     { key: "plagiarism", label: m.assignmentDetail_tabPlagiarism() },
-    { key: "settings", label: m.assignmentDetail_tabSettings() }
+    { key: "settings", label: m.assignmentDetail_tabSettings() },
+    ...(clarificationEnabled
+      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
+      : [])
   ]);
 
   function statusBadge(
@@ -379,6 +390,21 @@
         </div>
       {/if}
     </section>
+
+    {#if clarificationEnabled}
+      <section class="animate-in animate-in-3 mt-10">
+        <h2 class="font-display text-title font-medium leading-tight">{m.clarification_tab_title()}</h2>
+        <div class="mt-4">
+          <ClarificationTab
+            contextType="assignment"
+            contextId={detail.id}
+            canAsk={data.clarification.canAsk}
+            canAnswer={data.clarification.canAnswer}
+            problems={clarificationProblems}
+          />
+        </div>
+      </section>
+    {/if}
   {:else}
     <!-- ══════ TEACHER VIEW ══════ -->
 
@@ -455,6 +481,14 @@
             detail.opensAt,
             detail.closesAt
           )}
+        />
+      {:else if activeSubTab === "clarifications"}
+        <ClarificationTab
+          contextType="assignment"
+          contextId={detail.id}
+          canAsk={data.clarification.canAsk}
+          canAnswer={data.clarification.canAnswer}
+          problems={clarificationProblems}
         />
       {/if}
     </div>

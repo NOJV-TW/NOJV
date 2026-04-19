@@ -1,6 +1,12 @@
 export { announcementRepo } from "./announcement";
 export { announcementTranslationRepo } from "./announcement-translation";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
+export { clarificationRepo } from "./clarification";
+export type {
+  ClarificationRow,
+  ClarificationCreateInput,
+  ClarificationAnswerUpdate
+} from "./clarification";
 export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
 export { courseMembershipAdminRepo } from "./course-membership";
