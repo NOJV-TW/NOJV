@@ -1,6 +1,13 @@
-import { notificationRepo, type NotificationCreateInput } from "@nojv/db";
+import {
+  assessmentRepo,
+  courseMembershipRepo,
+  notificationRepo,
+  type NotificationCreateInput
+} from "@nojv/db";
 import { pubsub } from "@nojv/redis";
 import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
+
+import { listStudentsBelowMaxScore } from "../assessment";
 
 export type CreateNotificationInput = NotificationCreateInput;
 
@@ -69,4 +76,40 @@ export async function markAsRead(userId: string, notificationId: string) {
 
 export async function markAllAsRead(userId: string) {
   return notificationRepo.markAllRead(userId);
+}
+
+/**
+ * Fan out `assignment_due_soon` notifications to every active student in
+ * the course who has not yet reached the assessment's maximum score.
+ *
+ * No-ops (returns silently) when the assessment was unpublished, deleted,
+ * or already closed between workflow schedule time and the fire moment.
+ */
+export async function fanoutAssignmentDueSoon(assessmentId: string): Promise<void> {
+  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
+  if (!assessment) return;
+  if (assessment.status !== "published") return;
+  if (assessment.closesAt.getTime() <= Date.now()) return;
+
+  const members = await courseMembershipRepo.findStudents(assessment.courseId);
+  const studentIds = members.map((m) => m.userId);
+  if (studentIds.length === 0) return;
+
+  const notYetMaxed = await listStudentsBelowMaxScore(assessmentId, studentIds);
+  if (notYetMaxed.length === 0) return;
+
+  const dueAtIso = assessment.closesAt.toISOString();
+  await createNotificationBatch(
+    notYetMaxed.map((userId) => ({
+      userId,
+      type: "assignment_due_soon",
+      params: {
+        courseId: assessment.courseId,
+        assessmentId: assessment.id,
+        title: assessment.title,
+        dueAt: dueAtIso
+      },
+      linkUrl: `/assignments/${assessment.id}`
+    }))
+  );
 }
