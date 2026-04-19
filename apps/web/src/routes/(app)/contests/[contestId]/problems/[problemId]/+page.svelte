@@ -66,6 +66,7 @@
   <ProblemWorkspace
     allowedLanguages={data.contestData.allowedLanguages}
     backLink={{ href: `/contests/${data.contestId}`, type: "contest" }}
+    canRejudge={data.canRejudge}
     contestId={data.contestId}
     initialSubmissions={data.submissions}
     problem={data.problem}

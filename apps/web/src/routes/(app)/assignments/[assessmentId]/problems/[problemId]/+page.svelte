@@ -10,6 +10,7 @@
   allowedLanguages={data.solveProps.allowedLanguages}
   assessment={data.solveProps.assessmentProp}
   backLink={data.solveProps.backLink}
+  canRejudge={data.solveProps.canRejudge}
   contestId={data.solveProps.contestId}
   problem={data.solveProps.problem}
   submissions={data.solveProps.submissions}

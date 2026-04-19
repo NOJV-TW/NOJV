@@ -44,6 +44,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem: view.problem,
     submissions: view.submissions,
     siblingProblems: view.siblingProblems,
+    // Exam problem page is a student-only surface (hooks.server.ts locks
+    // staff out of active exam sessions). Rejudge belongs on the staff
+    // manage pages, so hide the UI here unconditionally.
+    canRejudge: false,
     examContext: {
       examId,
       courseId: view.exam.courseId,
