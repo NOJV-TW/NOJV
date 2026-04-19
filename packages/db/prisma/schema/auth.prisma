@@ -73,6 +73,10 @@ model User {
   activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
   notifications                  Notification[]
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
+  asOverrideStudent              ScoreOverride[]           @relation("ScoreOverrideUser")
+  createdScoreOverrides          ScoreOverride[]           @relation("ScoreOverrideCreator")
+  editedScoreOverrides           ScoreOverride[]           @relation("ScoreOverrideEditor")
+  scoreOverrideAuditChanges      ScoreOverrideAuditLog[]   @relation("ScoreOverrideAuditChanger")
 }
 
 model Session {

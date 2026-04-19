@@ -110,6 +110,71 @@ model SubmissionRejudgeLog {
   @@index([rejudgedByUserId, createdAt(sort: Desc)])
 }
 
+enum OverrideContextType {
+  assignment
+  exam
+  contest
+}
+
+enum ScoreOverrideAction {
+  create
+  update
+  delete
+}
+
+/// Staff-only per-(user, problem, context) manual score override.
+/// `resolveFinalScore` short-circuits the best-submission aggregate when
+/// a matching row is present. Practice context is not a valid target —
+/// `OverrideContextType` makes that unrepresentable at the type level.
+model ScoreOverride {
+  id              String              @id @default(cuid())
+  userId          String
+  problemId       String
+  contextType     OverrideContextType
+  contextId       String
+  overrideScore   Int
+  reason          String              @db.Text
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user      User    @relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)
+  problem   Problem @relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy User?   @relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  auditLogs ScoreOverrideAuditLog[]
+
+  @@unique([userId, problemId, contextType, contextId])
+  @@index([contextType, contextId])
+}
+
+/// Append-only audit trail for every score-override create/update/delete.
+/// `overrideId` is nullable so audit rows survive the cascade when the
+/// override is deleted (delete action sets it to null up-front).
+model ScoreOverrideAuditLog {
+  id              String              @id @default(cuid())
+  overrideId      String?
+  userId          String
+  problemId       String
+  contextType     OverrideContextType
+  contextId       String
+  action          ScoreOverrideAction
+  oldScore        Int?
+  newScore        Int?
+  oldReason       String?
+  newReason       String?
+  changedByUserId String?
+  createdAt       DateTime            @default(now())
+
+  override  ScoreOverride? @relation(fields: [overrideId], references: [id], onDelete: SetNull)
+  changedBy User?          @relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([contextType, contextId, createdAt(sort: Desc)])
+  @@index([userId, problemId, createdAt(sort: Desc)])
+}
+
 model Editorial {
   id        String            @id @default(cuid())
   userId    String
