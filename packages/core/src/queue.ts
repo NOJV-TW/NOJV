@@ -6,6 +6,16 @@ export const SSE_SUBMISSION_VERDICT = "submission:verdict" as const;
 export const SSE_CONTEST_STARTING = "contest:starting" as const;
 export const SSE_CONTEST_ENDING = "contest:ending" as const;
 export const SSE_ASSIGNMENT_DEADLINE = "assignment:deadline" as const;
+export const SSE_NOTIFICATION = "notification" as const;
+
+export interface NotificationSSEEvent {
+  type: typeof SSE_NOTIFICATION;
+  id: string;
+  notificationType: string;
+  params: unknown;
+  linkUrl: string | null;
+  createdAt: string;
+}
 
 export function userChannel(userId: string): string {
   return `user:${userId}`;
@@ -34,7 +44,7 @@ export type SubmissionVerdictEvent = z.infer<typeof submissionVerdictEventSchema
 export type ContestStartingEvent = z.infer<typeof contestStartingEventSchema>;
 export type ContestEndingEvent = z.infer<typeof contestEndingEventSchema>;
 export type AssignmentDeadlineEvent = z.infer<typeof assignmentDeadlineEventSchema>;
-export type SSEEvent = z.infer<typeof sseEventSchema>;
+export type SSEEvent = z.infer<typeof sseEventSchema> | NotificationSSEEvent;
 
 export const submissionJudgeJobSchema = z.object({
   draft: submissionDraftSchema,
