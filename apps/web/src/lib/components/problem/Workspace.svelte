@@ -13,6 +13,7 @@
       courseId: string;
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    canRejudge?: boolean;
     contestId?: string | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
@@ -23,6 +24,7 @@
     allowedLanguages,
     assessment,
     backLink,
+    canRejudge = false,
     contestId,
     initialSubmissions,
     problem,
@@ -84,6 +86,7 @@
 >
   <ProblemLeftPanel
     {backLink}
+    {canRejudge}
     bind:submissions
     {problem}
     {testcaseSets}

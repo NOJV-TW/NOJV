@@ -1,4 +1,4 @@
-import { examRepo, examParticipationRepo, submissionRepo } from "@nojv/db";
+import { examRepo, examParticipationRepo, scoreOverrideRepo, submissionRepo } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
 
@@ -85,6 +85,14 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
       if (!examProblems.has(sub.problemId)) continue;
       const current = bestByProblem.get(sub.problemId) ?? 0;
       if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
+    }
+
+    // Overlay any per-problem overrides for this participant.
+    const overrideRows = await scoreOverrideRepo.findAllByContext("exam", exam.id);
+    for (const row of overrideRows) {
+      if (row.userId !== participation.userId) continue;
+      if (!examProblems.has(row.problemId)) continue;
+      bestByProblem.set(row.problemId, row.overrideScore);
     }
 
     let totalScore = 0;

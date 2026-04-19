@@ -6,7 +6,7 @@ import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
 const { getContestWorkspaceData } = contestDomain;
 const { getProblemPageData } = problemDomain;
-const { listProblemSubmissions } = submissionDomain;
+const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
@@ -46,7 +46,19 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }
   }
 
+  // Submissions on this route all live in the same contest context, so
+  // the rejudge authz decision is homogeneous — compute once.
+  const canRejudge = await canOperateOnSubmission(actor, {
+    id: "",
+    userId: actor.userId,
+    problemId,
+    contestId,
+    courseAssessmentId: null,
+    examId: null
+  });
+
   return {
+    canRejudge,
     contestData,
     contestId,
     problem,

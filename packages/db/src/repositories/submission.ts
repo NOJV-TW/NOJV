@@ -319,6 +319,25 @@ export const submissionRepo = {
     });
   },
 
+  // Used by the batch-rejudge authz check: is there any submission for this
+  // problem that's attached to a contest / assessment / exam context? If so,
+  // an unscoped batch would include work that the problem author alone can't
+  // re-grade, and the caller must scope the batch instead.
+  async anyWithContextForProblem(problemId: string): Promise<boolean> {
+    const row = await prisma.submission.findFirst({
+      where: {
+        problemId,
+        OR: [
+          { contestId: { not: null } },
+          { courseAssessmentId: { not: null } },
+          { examId: { not: null } }
+        ]
+      },
+      select: { id: true }
+    });
+    return row !== null;
+  },
+
   findForPlagiarism(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.findMany({
       where,

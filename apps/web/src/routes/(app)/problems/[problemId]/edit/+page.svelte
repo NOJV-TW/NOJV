@@ -11,6 +11,7 @@
   import ImageSection from "$lib/components/problem/advanced/ImageSection.svelte";
   import ContainerContractSection from "$lib/components/problem/advanced/ContainerContractSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import RejudgeDialog from "$lib/components/problem/RejudgeDialog.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { toasts } from "$lib/stores/toast";
@@ -24,6 +25,7 @@
   let dirty = $state(false);
   let showPublishConfirm = $state(false);
   let showDeleteConfirm = $state(false);
+  let showRejudgeDialog = $state(false);
   let deleting = $state(false);
 
   // Advanced-mode image config — only meaningful when isAdvanced is true.
@@ -155,17 +157,27 @@
         {m.admin_advancedMode()}
       </h2>
     {/if}
-    {#if data.problem.status === "draft"}
-      <Button
-        class="ml-auto"
-        variant="outline"
-        size="sm"
-        disabled={deleting}
-        onclick={() => (showDeleteConfirm = true)}
-      >
-        {deleting ? m.common_deleting() : m.common_delete()}
-      </Button>
-    {/if}
+    <div class="ml-auto flex items-center gap-2">
+      {#if data.problem.status !== "draft"}
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => (showRejudgeDialog = true)}
+        >
+          {m.rejudge_problem_admin_button()}
+        </Button>
+      {/if}
+      {#if data.problem.status === "draft"}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={deleting}
+          onclick={() => (showDeleteConfirm = true)}
+        >
+          {deleting ? m.common_deleting() : m.common_delete()}
+        </Button>
+      {/if}
+    </div>
   </div>
 
   {#if isAdvanced}
@@ -243,5 +255,11 @@
     cancelText={m.admin_cancel()}
     onconfirm={handlePublishConfirmed}
     oncancel={() => (showPublishConfirm = false)}
+  />
+
+  <RejudgeDialog
+    problemId={data.problem.id}
+    open={showRejudgeDialog}
+    onOpenChange={(v) => (showRejudgeDialog = v)}
   />
 </div>
