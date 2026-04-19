@@ -23,6 +23,14 @@ export {
   testcaseRepo
 } from "./problem";
 export { schoolVerificationTokenRepo } from "./school-verification";
+export {
+  scoreOverrideRepo,
+  scoreOverrideAuditLogRepo,
+  type ScoreOverrideCompositeKey,
+  type ScoreOverrideCreateData,
+  type ScoreOverrideUpdateData,
+  type ScoreOverrideAuditCreateData
+} from "./score-override";
 export { submissionRepo } from "./submission";
 export { submissionRejudgeLogRepo } from "./submission-rejudge-log";
 export type {
