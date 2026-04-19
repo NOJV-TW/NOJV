@@ -3,6 +3,9 @@ import type { SubmissionDraft } from "@nojv/core";
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionDraft;
+  /** Present only when dispatched via rejudgeWorkflow; drives the
+   *  snapshot/finalize audit hooks in submissionJudgeWorkflow. */
+  forRejudge?: { triggeredByUserId: string };
 }
 
 export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";

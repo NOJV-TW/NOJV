@@ -3,6 +3,7 @@ export {
   executeSandbox,
   completeSubmission,
   fetchSubmissionIdsForRejudge,
+  fetchSingleSubmissionForRejudge,
   setExecutor
 } from "./judge";
 export type { CompletedSubmission, SubmissionJudgeContext, TestcaseSetGroup } from "./judge";

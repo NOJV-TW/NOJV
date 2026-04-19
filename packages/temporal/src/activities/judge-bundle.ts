@@ -6,6 +6,7 @@ export {
   executeSandbox,
   completeSubmission,
   fetchSubmissionIdsForRejudge,
+  fetchSingleSubmissionForRejudge,
   setExecutor
 } from "./judge";
 

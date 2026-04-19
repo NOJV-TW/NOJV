@@ -26,6 +26,8 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   total = targets.length;
   if (total === 0) return;
 
+  const forRejudge = { triggeredByUserId: input.triggeredByUserId };
+
   const BATCH_SIZE = 10;
   for (let i = 0; i < targets.length; i += BATCH_SIZE) {
     const batch = targets.slice(i, i + BATCH_SIZE);
@@ -34,7 +36,7 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
         await executeChild(submissionJudgeWorkflow, {
           workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
           taskQueue: JUDGE_TASK_QUEUE,
-          args: [{ submissionId: sub.submissionId, draft: sub.draft }]
+          args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }]
         });
         completed++;
       })
