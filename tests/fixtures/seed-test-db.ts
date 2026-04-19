@@ -3,6 +3,7 @@ import { testPrisma } from "./factories";
 
 // Order does not matter — TRUNCATE ... CASCADE handles FK dependencies.
 const TABLES = [
+  "Clarification",
   "SubmissionRejudgeLog",
   "Submission",
   "ContestParticipation",
