@@ -194,7 +194,11 @@ export async function fetchSubmissionIdsForRejudge(
   return submissionDomain.findForRejudge({
     problemId: input.problemId,
     ...(input.contestId ? { contestId: input.contestId } : {}),
-    ...(input.assessmentId ? { assessmentId: input.assessmentId } : {})
+    ...(input.assessmentId ? { assessmentId: input.assessmentId } : {}),
+    ...(input.examId ? { examId: input.examId } : {}),
+    ...(input.userIds ? { userIds: input.userIds } : {}),
+    ...(input.since ? { since: new Date(input.since) } : {}),
+    ...(input.until ? { until: new Date(input.until) } : {})
   });
 }
 

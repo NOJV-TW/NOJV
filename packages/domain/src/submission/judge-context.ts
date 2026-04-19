@@ -224,6 +224,10 @@ export async function findForRejudge(input: {
   problemId: string;
   contestId?: string;
   assessmentId?: string;
+  examId?: string;
+  userIds?: string[];
+  since?: Date;
+  until?: Date;
 }): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
@@ -235,6 +239,18 @@ export async function findForRejudge(input: {
   }
   if (input.assessmentId) {
     where.courseAssessmentId = input.assessmentId;
+  }
+  if (input.examId) {
+    where.examId = input.examId;
+  }
+  if (input.userIds && input.userIds.length > 0) {
+    where.userId = { in: input.userIds };
+  }
+  if (input.since || input.until) {
+    where.createdAt = {
+      ...(input.since ? { gte: input.since } : {}),
+      ...(input.until ? { lte: input.until } : {})
+    };
   }
 
   const submissions = await submissionRepo.findForRejudge(where);
