@@ -29,7 +29,9 @@ export {
   publishVerdict,
   publishContestEvent,
   publishAssessmentDeadline,
-  fanoutAssignmentDueSoon
+  fanoutAssignmentDueSoon,
+  fanoutExamStartingSoon,
+  fanoutContestStartingSoon
 } from "./notification";
 
 export {
