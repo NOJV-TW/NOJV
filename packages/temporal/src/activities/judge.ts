@@ -222,4 +222,3 @@ export async function finalizeRejudgeLog(
 ): Promise<void> {
   return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
 }
-
