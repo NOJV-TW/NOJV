@@ -21,6 +21,7 @@
 ### Task 1: Add `Clarification` schema + enums
 
 **Files:**
+
 - Create: `packages/db/prisma/schema/clarification.prisma`
 - Modify: `packages/db/prisma/schema/auth.prisma` (back-relations on `User`)
 - Modify: `packages/db/prisma/schema/problem.prisma` (back-relation on `Problem`)
@@ -78,6 +79,7 @@ git commit -m "feat(db): Clarification model + state/context enums"
 ### Task 2: Migration
 
 **Files:**
+
 - Create: `packages/db/prisma/migrations/20260419140000_add_clarification/migration.sql`
 
 ```sql
@@ -122,6 +124,7 @@ Commit `feat(db): clarification migration`.
 ### Task 3: Repository
 
 **Files:**
+
 - Create: `packages/db/src/repositories/clarification.ts`
 - Modify: `packages/db/src/repositories/index.ts`
 
@@ -129,12 +132,24 @@ Minimum surface:
 
 ```ts
 export const clarificationRepo = {
-  listForContext(contextType, contextId, since?: Date) { /* orderBy createdAt asc, filter >since if provided */ },
-  findById(id) { /* include askedBy + answeredBy + problem */ },
-  create(data) { /* plain create */ },
-  updateAnswer(id, { answerText, answeredByUserId, state }) { /* partial update */ },
-  updateState(id, state) { /* only state, e.g. dismiss */ },
-  countInWindow(userId, contextType, contextId, windowStart) { /* for rate limiter */ }
+  listForContext(contextType, contextId, since?: Date) {
+    /* orderBy createdAt asc, filter >since if provided */
+  },
+  findById(id) {
+    /* include askedBy + answeredBy + problem */
+  },
+  create(data) {
+    /* plain create */
+  },
+  updateAnswer(id, { answerText, answeredByUserId, state }) {
+    /* partial update */
+  },
+  updateState(id, state) {
+    /* only state, e.g. dismiss */
+  },
+  countInWindow(userId, contextType, contextId, windowStart) {
+    /* for rate limiter */
+  }
 };
 ```
 
@@ -145,6 +160,7 @@ Commit `feat(db): clarification repository`.
 ### Task 4: SSE event constant + channel helper
 
 **Files:**
+
 - Modify: `packages/core/src/index.ts` — add:
 
 ```ts
@@ -161,7 +177,7 @@ export interface ClarificationSSEEvent {
     questionText: string;
     answerText: string | null;
     state: "pending" | "answered" | "dismissed";
-    askedByUserId: string | null;   // set for staff, null for students
+    askedByUserId: string | null; // set for staff, null for students
     askedBy: { id: string; username: string; name: string } | null;
     answeredByUserId: string | null;
     answeredAt: string | null;
@@ -184,6 +200,7 @@ Commit `feat(core): clarification SSE event + channel`.
 ### Task 5: Domain authz helpers
 
 **Files:**
+
 - Create: `packages/domain/src/clarification/authz.ts`
 - Test: `tests/unit/domain/clarification-authz.test.ts`
 
@@ -195,9 +212,12 @@ export async function canAskClarification(actor, contextType, contextId): Promis
   // admin is NOT allowed to ask (admin posts would violate the "only students ask" rule).
   if (actor.platformRole === "admin") return false;
   switch (contextType) {
-    case "contest":    return hasContestParticipation(actor.userId, contextId);
-    case "exam":       return hasExamParticipation(actor.userId, contextId);
-    case "assignment": return isActiveStudentInAssessment(actor.userId, contextId);
+    case "contest":
+      return hasContestParticipation(actor.userId, contextId);
+    case "exam":
+      return hasExamParticipation(actor.userId, contextId);
+    case "assignment":
+      return isActiveStudentInAssessment(actor.userId, contextId);
   }
 }
 
@@ -205,14 +225,17 @@ export async function canAskClarification(actor, contextType, contextId): Promis
 export async function canAnswerInContext(actor, contextType, contextId): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
   switch (contextType) {
-    case "contest":    return isContestOrganizer(actor.userId, contextId);
-    case "exam":       return isCourseTeacherOrTaForExam(actor.userId, contextId);
-    case "assignment": return isCourseTeacherOrTaForAssessment(actor.userId, contextId);
+    case "contest":
+      return isContestOrganizer(actor.userId, contextId);
+    case "exam":
+      return isCourseTeacherOrTaForExam(actor.userId, contextId);
+    case "assignment":
+      return isCourseTeacherOrTaForAssessment(actor.userId, contextId);
   }
 }
 
 // Can the actor see a read response with unmasked author?
-export const canSeeAuthor = canAnswerInContext;  // admins + staff of that context
+export const canSeeAuthor = canAnswerInContext; // admins + staff of that context
 ```
 
 Tests cover the matrix. Helpers like `hasContestParticipation` likely exist already — grep and reuse.
@@ -224,11 +247,13 @@ Commit `feat(domain): clarification authz helpers`.
 ### Task 6: Domain module — mutations + projection + anonymity
 
 **Files:**
+
 - Create: `packages/domain/src/clarification/index.ts`
 - Modify: `packages/domain/src/index.ts` (barrel)
 - Test: `tests/unit/domain/clarification.test.ts`
 
 **Step 1: Write failing tests** covering:
+
 - `ask` writes row with state `pending`; rejects when caller is not a participant
 - `answer` transitions `pending → answered`, sets answeredBy and answeredAt
 - `dismiss` transitions `pending → dismissed`; `answered → dismissed` rejected
@@ -239,7 +264,7 @@ Commit `feat(domain): clarification authz helpers`.
 **Step 2: Implement**
 
 ```ts
-export async function ask(actor, input: { contextType, contextId, problemId?, questionText }) {
+export async function ask(actor, input: { contextType; contextId; problemId?; questionText }) {
   if (!(await canAskClarification(actor, input.contextType, input.contextId))) {
     throw new ForbiddenError("Only participants may ask clarifications.");
   }
@@ -248,7 +273,12 @@ export async function ask(actor, input: { contextType, contextId, problemId?, qu
 
   // Rate limit: 5 per 10 minutes per (user, context)
   const windowStart = new Date(Date.now() - 10 * 60 * 1000);
-  const recent = await clarificationRepo.countInWindow(actor.userId, input.contextType, input.contextId, windowStart);
+  const recent = await clarificationRepo.countInWindow(
+    actor.userId,
+    input.contextType,
+    input.contextId,
+    windowStart
+  );
   if (recent >= 5) throw new ConflictError("Too many questions in the last 10 minutes.");
 
   const row = await clarificationRepo.create({
@@ -265,14 +295,16 @@ export async function ask(actor, input: { contextType, contextId, problemId?, qu
 export async function answer(actor, id, { answerText }) {
   const row = await clarificationRepo.findById(id);
   if (!row) throw new NotFoundError();
-  if (!(await canAnswerInContext(actor, row.contextType, row.contextId))) throw new ForbiddenError();
-  if (row.state === "dismissed") throw new ConflictError("Dismissed clarifications cannot be answered.");
+  if (!(await canAnswerInContext(actor, row.contextType, row.contextId)))
+    throw new ForbiddenError();
+  if (row.state === "dismissed")
+    throw new ConflictError("Dismissed clarifications cannot be answered.");
 
   const updated = await clarificationRepo.updateAnswer(id, {
     answerText,
     answeredByUserId: actor.userId,
     state: "answered",
-    answeredAt: row.state === "pending" ? new Date() : row.answeredAt  // preserve first-answered time on edit
+    answeredAt: row.state === "pending" ? new Date() : row.answeredAt // preserve first-answered time on edit
   });
   await publishClarificationEvent("updated", updated);
   // Fan out notification only on pending → answered transition
@@ -295,8 +327,10 @@ export async function answer(actor, id, { answerText }) {
 export async function dismiss(actor, id) {
   const row = await clarificationRepo.findById(id);
   if (!row) throw new NotFoundError();
-  if (!(await canAnswerInContext(actor, row.contextType, row.contextId))) throw new ForbiddenError();
-  if (row.state === "answered") throw new ConflictError("Answered clarifications cannot be dismissed.");
+  if (!(await canAnswerInContext(actor, row.contextType, row.contextId)))
+    throw new ForbiddenError();
+  if (row.state === "answered")
+    throw new ConflictError("Answered clarifications cannot be dismissed.");
   const updated = await clarificationRepo.updateState(id, "dismissed");
   await publishClarificationEvent("dismissed", updated);
   return updated;
@@ -318,9 +352,12 @@ function projectRow(row, canSeeAuthor: boolean) {
 
 function buildClarificationLink(contextType, contextId, id): string {
   switch (contextType) {
-    case "contest":    return `/contests/${contextId}#clarification-${id}`;
-    case "exam":       return `/exams/${contextId}#clarification-${id}`;
-    case "assignment": return `/assignments/${contextId}#clarification-${id}`;
+    case "contest":
+      return `/contests/${contextId}#clarification-${id}`;
+    case "exam":
+      return `/exams/${contextId}#clarification-${id}`;
+    case "assignment":
+      return `/assignments/${contextId}#clarification-${id}`;
   }
 }
 ```
@@ -335,7 +372,9 @@ async function publishClarificationEvent(action, row) {
       keys.clarificationChannel(row.contextType, row.contextId),
       JSON.stringify({ type: SSE_CLARIFICATION, action, payload: projectRow(row, true) })
     );
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }
 ```
 
@@ -352,6 +391,7 @@ git commit -m "feat(domain): clarification module with anonymity projection"
 ### Task 7: API routes
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/clarifications/+server.ts` (GET, POST)
 - Create: `apps/web/src/routes/api/clarifications/[id]/+server.ts` (PATCH)
 - Create: `apps/web/src/routes/api/clarifications/[id]/canned/+server.ts` (POST)
@@ -379,6 +419,7 @@ Commit `feat(web): clarification API routes + SSE subscription`.
 ### Task 8: Store
 
 **Files:**
+
 - Create: `apps/web/src/lib/stores/clarifications.svelte.ts`
 
 ```ts
@@ -397,10 +438,12 @@ export type ClarificationItem = {
 
 export function createClarificationsStore(contextType: string, contextId: string) {
   const items = $state<ClarificationItem[]>([]);
-  let lastSeen = $state<string | null>(null);   // localStorage-backed "last tab visit"
+  let lastSeen = $state<string | null>(null); // localStorage-backed "last tab visit"
 
   async function init() {
-    const r = await fetch(`/api/clarifications?contextType=${contextType}&contextId=${contextId}`);
+    const r = await fetch(
+      `/api/clarifications?contextType=${contextType}&contextId=${contextId}`
+    );
     if (r.ok) items.splice(0, items.length, ...(await r.json()).items);
   }
 
@@ -420,9 +463,15 @@ export function createClarificationsStore(contextType: string, contextId: string
     // SSE will deliver the row; UI doesn't need to optimistically insert.
   }
 
-  async function answer(id: string, answerText: string) { /* PATCH */ }
-  async function dismiss(id: string) { /* PATCH */ }
-  async function canned(id: string, templateKey: string) { /* POST /canned */ }
+  async function answer(id: string, answerText: string) {
+    /* PATCH */
+  }
+  async function dismiss(id: string) {
+    /* PATCH */
+  }
+  async function canned(id: string, templateKey: string) {
+    /* POST /canned */
+  }
 
   const unreadCount = $derived(
     lastSeen ? items.filter((i) => i.createdAt > lastSeen).length : 0
@@ -444,6 +493,7 @@ Commit `feat(web): clarification store`.
 ### Task 9: Components
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/clarification/ClarificationTab.svelte`
 - Create: `apps/web/src/lib/components/clarification/ClarificationList.svelte`
 - Create: `apps/web/src/lib/components/clarification/ClarificationItem.svelte`
@@ -453,6 +503,7 @@ Commit `feat(web): clarification store`.
 `ClarificationTab.svelte` props: `{ contextType, contextId, canAsk, canAnswer, problems: { id, title }[] }`. Initializes the store, subscribes to SSE, renders ask-form (if `canAsk`), list, and inlines the staff panel (if `canAnswer`) for each pending row.
 
 `ClarificationItem.svelte` renders:
+
 - Anonymous "Anonymous" (or staff-visible `askedBy.username`) + relative time
 - Optional problem link via `problemId`
 - Question body
@@ -471,12 +522,14 @@ Commit `feat(web): clarification components`.
 ### Task 10: Mount tabs on detail pages
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/contests/[contestId]/+page.svelte`
 - Modify: `apps/web/src/routes/(app)/exams/[examId]/+page.svelte`
 - Modify: `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.svelte`
 - Modify: matching `+page.server.ts` load functions to pass `canAsk`, `canAnswer`, and the attached problems list to the tab
 
 Add a new "Clarifications" tab using whatever tab primitive already lives on each page (likely Bits UI `Tabs`). Pass:
+
 - `contextType="contest" | "exam" | "assignment"`
 - `contextId={params.contestId | examId | assessmentId}`
 - `canAsk`, `canAnswer` booleans resolved server-side
@@ -489,9 +542,11 @@ Commit `feat(web): clarification tab on contest/exam/assignment detail`.
 ### Task 11: SSE client integration
 
 **Files:**
+
 - Modify: the existing SSE client code (search for `EventSource` / `events/stream` usage in the existing Layout or `useSseEvents` helper)
 
 When `ClarificationTab` mounts, call the existing `subscribeToClarifications(contextType, contextId)` helper (create if needed) that:
+
 1. Appends `?clarificationSub=<contextType>:<contextId>` to the stream URL (requires reconnecting the `EventSource`).
 2. On `event: clarification` SSE message, calls `store.handleSse(parsedData)`.
 
@@ -504,6 +559,7 @@ Commit `feat(web): clarification SSE client bridge`.
 ### Task 12: i18n keys
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`, `zh-TW.json`
 
 Keys from the design doc. Remember the canned-reply templates — these are used server-side (POST /canned) AND client-side (as button labels). Ensure both contexts access the same paraglide message.
@@ -515,6 +571,7 @@ Compile and commit.
 ### Task 13: Integration test — SSE round trip + notification wiring
 
 **Files:**
+
 - Create: `tests/integration/clarification/sse-and-notify.test.ts`
 
 ```ts
@@ -529,16 +586,19 @@ it("ask publishes SSE event; answer publishes event + notification", async () =>
   sub.on("message", (_chan, msg) => events.push(JSON.parse(msg)));
   await sub.subscribe(keys.clarificationChannel("contest", contest.id));
 
-  const asked = await clarificationDomain.ask(
-    actorFor(contestant),
-    { contextType: "contest", contextId: contest.id, questionText: "Is this modular arithmetic?" }
-  );
+  const asked = await clarificationDomain.ask(actorFor(contestant), {
+    contextType: "contest",
+    contextId: contest.id,
+    questionText: "Is this modular arithmetic?"
+  });
 
   // Expect a "created" SSE event
   await waitFor(() => events.find((e) => e.action === "created"));
   expect(events[0].payload.askedByUserId).toBe(contestant.id);
 
-  await clarificationDomain.answer(actorFor(organizer), asked.id, { answerText: "Yes, mod 1e9+7." });
+  await clarificationDomain.answer(actorFor(organizer), asked.id, {
+    answerText: "Yes, mod 1e9+7."
+  });
 
   // Expect "updated" SSE event + a clarification_answered notification for the asker
   await waitFor(() => events.find((e) => e.action === "updated"));
@@ -556,6 +616,7 @@ Commit `test: clarification SSE + notification integration`.
 ### Task 14: `clarification_answered` notification i18n
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`, `zh-TW.json`
 
 Fill in `notification_clarification_answered` — uses `params.questionPreview` and `params.contextType`. e.g.:

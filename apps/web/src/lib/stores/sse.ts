@@ -16,10 +16,24 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 
+// Active clarification channel subscriptions, as `"${contextType}:${contextId}"`.
+// Serialized onto the EventSource URL as repeated `clarificationSub` params
+// so the server can subscribe to the right Redis channels for this connection.
+const clarificationSubs = new Set<string>();
+
+function buildStreamUrl(): string {
+  if (clarificationSubs.size === 0) return "/api/events/stream";
+  const params = new URLSearchParams();
+  for (const sub of clarificationSubs) {
+    params.append("clarificationSub", sub);
+  }
+  return `/api/events/stream?${params.toString()}`;
+}
+
 export function connectSSE() {
   if (!browser || eventSource) return;
 
-  eventSource = new EventSource("/api/events/stream");
+  eventSource = new EventSource(buildStreamUrl());
 
   eventSource.onmessage = (event) => {
     try {
@@ -72,6 +86,51 @@ export function onSSEEvent(type: string, callback: (data: SSEEvent) => void): ()
   return () => {
     listeners.get(type)?.delete(callback);
   };
+}
+
+function reconnectIfConnected(): void {
+  if (!browser) return;
+  if (!eventSource) return;
+  // Close and re-open so the server subscribes to the updated set of
+  // clarification channels. The existing `connectSSE` path handles
+  // reconnect-scheduling if this fails.
+  eventSource.close();
+  eventSource = null;
+  connectSSE();
+}
+
+/**
+ * Request that the SSE stream also subscribe to the
+ * `clarification:{contextType}:{contextId}` channel. If the page is
+ * already streaming, the connection is torn down and re-opened so the
+ * server can resubscribe to the new channel set. Safe to call
+ * repeatedly — the second call for the same (type, id) is a no-op.
+ */
+export function subscribeClarificationChannel(
+  contextType: "contest" | "exam" | "assignment",
+  contextId: string
+): void {
+  if (!browser) return;
+  const key = `${contextType}:${contextId}`;
+  if (clarificationSubs.has(key)) return;
+  clarificationSubs.add(key);
+  reconnectIfConnected();
+}
+
+/**
+ * Remove a clarification channel subscription. If the page had an
+ * active EventSource, the connection is re-opened so the server drops
+ * the Redis subscription along with its buffer.
+ */
+export function unsubscribeClarificationChannel(
+  contextType: "contest" | "exam" | "assignment",
+  contextId: string
+): void {
+  if (!browser) return;
+  const key = `${contextType}:${contextId}`;
+  if (!clarificationSubs.has(key)) return;
+  clarificationSubs.delete(key);
+  reconnectIfConnected();
 }
 
 function handleDefaultEvent(data: SSEEvent) {

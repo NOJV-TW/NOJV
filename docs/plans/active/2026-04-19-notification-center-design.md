@@ -14,13 +14,13 @@ Give every user a persistent log of **"review-later" events** that are relevant 
 
 ## Toast vs Notification — Hard Boundary
 
-| | Toast | Notification |
-| --- | --- | --- |
-| Purpose | "You are using the site right now and this just happened" | "Something relevant to you happened; you may want to look later" |
-| Examples | Submission verdict, form save success, copy success | Assignment due in 24h, added to course, announcement, role changed |
-| Persistence | Ephemeral, auto-dismiss | Stored in DB, user-controlled dismissal |
-| UI entry | Bottom-right popover | Navbar bell + dropdown |
-| Existing code | `$lib/stores/toast.ts` (unchanged) | New |
+|               | Toast                                                     | Notification                                                       |
+| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------ |
+| Purpose       | "You are using the site right now and this just happened" | "Something relevant to you happened; you may want to look later"   |
+| Examples      | Submission verdict, form save success, copy success       | Assignment due in 24h, added to course, announcement, role changed |
+| Persistence   | Ephemeral, auto-dismiss                                   | Stored in DB, user-controlled dismissal                            |
+| UI entry      | Bottom-right popover                                      | Navbar bell + dropdown                                             |
+| Existing code | `$lib/stores/toast.ts` (unchanged)                        | New                                                                |
 
 Verdict and form-success events stay in toast; they MUST NOT be duplicated into the Notification table.
 
@@ -75,15 +75,15 @@ enum NotificationType {
 
 **Params shape by type:**
 
-| Type | params |
-| --- | --- |
-| `assignment_due_soon` | `{ courseSlug, assessmentSlug, title, dueAt }` |
-| `exam_starting_soon` | `{ courseSlug, examId, title, startsAt }` |
-| `contest_starting_soon` | `{ contestSlug, title, startsAt }` |
-| `course_enrolled` | `{ courseSlug, courseName }` |
-| `announcement_published` | `{ announcementId, titleEn, titleZhTw }` |
-| `role_changed` | `{ newRole, oldRole }` |
-| `clarification_answered` | reserved; shape decided when feature #3 lands |
+| Type                     | params                                         |
+| ------------------------ | ---------------------------------------------- |
+| `assignment_due_soon`    | `{ courseSlug, assessmentSlug, title, dueAt }` |
+| `exam_starting_soon`     | `{ courseSlug, examId, title, startsAt }`      |
+| `contest_starting_soon`  | `{ contestSlug, title, startsAt }`             |
+| `course_enrolled`        | `{ courseSlug, courseName }`                   |
+| `announcement_published` | `{ announcementId, titleEn, titleZhTw }`       |
+| `role_changed`           | `{ newRole, oldRole }`                         |
+| `clarification_answered` | reserved; shape decided when feature #3 lands  |
 
 **Retention:** capped at 50 per user. `createNotification` triggers a cleanup that deletes any row beyond the 50th row (ordered by `createdAt DESC`) for that user. Implemented as a subquery inside the same transaction so a single insert never stays over quota.
 
@@ -93,19 +93,19 @@ enum NotificationType {
 
 ### Immediate events (written inline from domain layer)
 
-| Event | Trigger | Producer |
-| --- | --- | --- |
-| `course_enrolled` | Teacher/TA adds a student to a course | `manuallyEnrollCourseMember` in `packages/domain/src/course/mutations.ts` |
+| Event                    | Trigger                                    | Producer                                                                      |
+| ------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------- |
+| `course_enrolled`        | Teacher/TA adds a student to a course      | `manuallyEnrollCourseMember` in `packages/domain/src/course/mutations.ts`     |
 | `announcement_published` | Announcement transitions draft → published | `packages/domain/src/announcement/mutations.ts` (fan-out to all active users) |
-| `role_changed` | Admin changes a user's platform role | `packages/domain/src/admin/mutations.ts` |
+| `role_changed`           | Admin changes a user's platform role       | `packages/domain/src/admin/mutations.ts`                                      |
 
 ### Scheduled events (Temporal workflow sleep-then-fan-out)
 
-| Event | Workflow | Sleep |
-| --- | --- | --- |
-| `assignment_due_soon` | `assessmentLifecycle` | `dueAt - 24h` |
-| `exam_starting_soon` | `examLifecycle` | `startsAt - 15min` |
-| `contest_starting_soon` | `contestLifecycle` | `startsAt - 15min` |
+| Event                   | Workflow              | Sleep              |
+| ----------------------- | --------------------- | ------------------ |
+| `assignment_due_soon`   | `assessmentLifecycle` | `dueAt - 24h`      |
+| `exam_starting_soon`    | `examLifecycle`       | `startsAt - 15min` |
+| `contest_starting_soon` | `contestLifecycle`    | `startsAt - 15min` |
 
 On wake:
 
@@ -156,12 +156,12 @@ Plain CSS `@keyframes bell-shake` (rotate ±8deg three times, 450 ms total) + re
 
 ### API routes
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/notifications/recent?limit=N` | Latest N notifications for the auth user (default 20, max 50). |
-| GET | `/api/notifications/unread-count` | Unread count — fallback when SSE disconnects. |
-| POST | `/api/notifications/[id]/read` | Mark one as read. |
-| POST | `/api/notifications/read-all` | Mark all unread as read. |
+| Method | Path                                | Purpose                                                        |
+| ------ | ----------------------------------- | -------------------------------------------------------------- |
+| GET    | `/api/notifications/recent?limit=N` | Latest N notifications for the auth user (default 20, max 50). |
+| GET    | `/api/notifications/unread-count`   | Unread count — fallback when SSE disconnects.                  |
+| POST   | `/api/notifications/[id]/read`      | Mark one as read.                                              |
+| POST   | `/api/notifications/read-all`       | Mark all unread as read.                                       |
 
 All gated by `requireAuth` + existing `consumeFormRateLimit` pattern.
 
@@ -200,13 +200,13 @@ Split allows reviewers to reason about data model, side effects, and UX as three
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
-| Announcement fan-out spike in prod (10k users × batch) | Batch size 500; `INSERT ... SELECT` keeps it as O(1) round-trips per batch; scheduled off peak by existing announcement publish flow |
-| Workflow replay re-fires reminder | Workflow stores a boolean "sent" signal in its own state before calling the activity; activity itself is idempotent because `createNotification` is a plain insert (duplicates are acceptable by design — we don't dedupe across workflow restarts) |
-| Redis pub fails silently → user misses real-time update | On reconnect, the SSE client refetches `unread-count`; new notifications are still in the DB and surface on next `/api/notifications/recent` call |
-| Capped cleanup deadlocks under write storm | The subquery runs inside the same transaction as the insert, scoped to one `userId` — no cross-user lock; DB ordering is deterministic |
-| Stale translations when paraglide keys change | Since text is rendered client-side from `{ type, params }`, updating a paraglide message updates every existing notification automatically; no migration required |
+| Risk                                                    | Mitigation                                                                                                                                                                                                                                          |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Announcement fan-out spike in prod (10k users × batch)  | Batch size 500; `INSERT ... SELECT` keeps it as O(1) round-trips per batch; scheduled off peak by existing announcement publish flow                                                                                                                |
+| Workflow replay re-fires reminder                       | Workflow stores a boolean "sent" signal in its own state before calling the activity; activity itself is idempotent because `createNotification` is a plain insert (duplicates are acceptable by design — we don't dedupe across workflow restarts) |
+| Redis pub fails silently → user misses real-time update | On reconnect, the SSE client refetches `unread-count`; new notifications are still in the DB and surface on next `/api/notifications/recent` call                                                                                                   |
+| Capped cleanup deadlocks under write storm              | The subquery runs inside the same transaction as the insert, scoped to one `userId` — no cross-user lock; DB ordering is deterministic                                                                                                              |
+| Stale translations when paraglide keys change           | Since text is rendered client-side from `{ type, params }`, updating a paraglide message updates every existing notification automatically; no migration required                                                                                   |
 
 ## Related Docs
 
