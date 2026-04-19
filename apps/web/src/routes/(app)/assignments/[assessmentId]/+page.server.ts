@@ -10,6 +10,7 @@ import {
 } from "@nojv/core";
 import {
   assessmentDomain,
+  clarificationDomain,
   courseDomain,
   plagiarismDomain,
   problemDomain,
@@ -60,7 +61,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const courseId = assessment.courseId;
 
   if (isManager) {
-    const [detail, matrix, plagiarism, candidateProblems, canSetOverride] = await Promise.all([
+    const [
+      detail,
+      matrix,
+      plagiarism,
+      candidateProblems,
+      canSetOverride,
+      canAskClar,
+      canAnswerClar
+    ] = await Promise.all([
       getAssignmentDetail(courseId, assessmentId, {
         viewerUserId: actor.userId,
         isManager: true
@@ -68,7 +77,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       buildSubmissionsMatrix(courseId, assessmentId),
       findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(() => null),
       listEditableProblems(actor.userId),
-      scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId)
+      scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId),
+      clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
+      clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId)
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -91,6 +102,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       settingsForm,
       candidateProblems,
       canSetOverride,
+      clarification: {
+        canAsk: canAskClar,
+        canAnswer: canAnswerClar
+      },
       plagiarism: plagiarism
         ? {
             status: plagiarism.status,
@@ -103,13 +118,21 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     };
   }
 
-  const detail = await getAssignmentDetail(courseId, assessmentId, {
-    viewerUserId: actor.userId,
-    isManager: false
-  });
+  const [detail, canAskClar, canAnswerClar] = await Promise.all([
+    getAssignmentDetail(courseId, assessmentId, {
+      viewerUserId: actor.userId,
+      isManager: false
+    }),
+    clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
+    clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId)
+  ]);
   return {
     mode: "student" as const,
-    detail
+    detail,
+    clarification: {
+      canAsk: canAskClar,
+      canAnswer: canAnswerClar
+    }
   };
 });
 

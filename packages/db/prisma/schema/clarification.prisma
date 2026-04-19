@@ -1,0 +1,42 @@
+// ═══════════════════════════════════════════════════════════════
+// Clarifications
+//
+// Public-but-anonymous Q&A for contests, exams, and assignments.
+// `askedByUserId` is ALWAYS stored (accountability); the API
+// projection masks it from non-staff viewers.
+// ═══════════════════════════════════════════════════════════════
+
+enum ClarificationContextType {
+  contest
+  exam
+  assignment
+}
+
+enum ClarificationState {
+  pending
+  answered
+  dismissed
+}
+
+model Clarification {
+  id               String                   @id @default(cuid())
+  contextType      ClarificationContextType
+  contextId        String
+  problemId        String?
+  askedByUserId    String
+  questionText     String                   @db.Text
+  answerText       String?                  @db.Text
+  state            ClarificationState       @default(pending)
+  answeredByUserId String?
+  answeredAt       DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  askedBy    User     @relation("ClarificationAsker", fields: [askedByUserId], references: [id], onDelete: Cascade)
+  answeredBy User?    @relation("ClarificationAnswerer", fields: [answeredByUserId], references: [id], onDelete: SetNull)
+  problem    Problem? @relation("ProblemClarifications", fields: [problemId], references: [id], onDelete: SetNull)
+
+  @@index([contextType, contextId, createdAt(sort: Desc)])
+  @@index([contextType, contextId, state])
+  @@index([askedByUserId, createdAt(sort: Desc)])
+}

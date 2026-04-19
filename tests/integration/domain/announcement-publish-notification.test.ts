@@ -155,5 +155,4 @@ describe("announcement publish fan-out", () => {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);
     }
   });
-
 });

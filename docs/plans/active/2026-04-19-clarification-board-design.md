@@ -14,17 +14,17 @@ Every contest / exam / assignment gets a clarification board where participants 
 
 ## Core Design Decisions
 
-| Decision | Choice | Why |
-| --- | --- | --- |
-| Context scope | contest + exam + assignment | All three have a "staff vs participants" asymmetry worth supporting |
-| Visibility | Public-but-anonymous to students; full identity to staff | Balance ICPC-style transparency with the psychological barrier to asking "dumb" questions |
-| Who can ask | Students only (confirmed by `ContestParticipation` / `ExamParticipation` / `CourseMembership.role = student`) | Staff accounts ask nothing; prevents the "staff fakes a question to drop a hint" abuse pattern |
-| Who can answer | Matches the submission-context permission matrix — organizer for contests, teacher/TA for exam/assignment, admin always | Consistent with rejudge / score override |
-| Problem linkage | Optional (`problemId` nullable) | Flexibility for "general" vs. per-problem questions |
-| Unanswered visibility | Published instantly on submit (with `state: pending`) | Lets students check before asking duplicates — the user's explicit rationale |
-| Editability | Student questions are immutable; staff may edit their own answers; staff cannot edit student questions; staff may set `state: dismissed` for spam/irrelevant | Preserves the "post-on-submit" contract while giving staff a graceful way to handle noise |
-| Canned answers | 4 built-in templates via paraglide i18n keys | Speed up the common "No comment" / "Read the problem" replies |
-| Notifications | Active users get SSE push; asker gets a persistent notification when answered | Live awareness + offline catch-up for the asker only |
+| Decision              | Choice                                                                                                                                                       | Why                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Context scope         | contest + exam + assignment                                                                                                                                  | All three have a "staff vs participants" asymmetry worth supporting                            |
+| Visibility            | Public-but-anonymous to students; full identity to staff                                                                                                     | Balance ICPC-style transparency with the psychological barrier to asking "dumb" questions      |
+| Who can ask           | Students only (confirmed by `ContestParticipation` / `ExamParticipation` / `CourseMembership.role = student`)                                                | Staff accounts ask nothing; prevents the "staff fakes a question to drop a hint" abuse pattern |
+| Who can answer        | Matches the submission-context permission matrix — organizer for contests, teacher/TA for exam/assignment, admin always                                      | Consistent with rejudge / score override                                                       |
+| Problem linkage       | Optional (`problemId` nullable)                                                                                                                              | Flexibility for "general" vs. per-problem questions                                            |
+| Unanswered visibility | Published instantly on submit (with `state: pending`)                                                                                                        | Lets students check before asking duplicates — the user's explicit rationale                   |
+| Editability           | Student questions are immutable; staff may edit their own answers; staff cannot edit student questions; staff may set `state: dismissed` for spam/irrelevant | Preserves the "post-on-submit" contract while giving staff a graceful way to handle noise      |
+| Canned answers        | 4 built-in templates via paraglide i18n keys                                                                                                                 | Speed up the common "No comment" / "Read the problem" replies                                  |
+| Notifications         | Active users get SSE push; asker gets a persistent notification when answered                                                                                | Live awareness + offline catch-up for the asker only                                           |
 
 ## Data Model
 
@@ -71,10 +71,11 @@ The DB always stores `askedByUserId` as the real user. The API layer strips or k
 
 ```ts
 function projectClarificationForViewer(clar, viewer) {
-  const canSeeAuthor = viewer.isAdmin || viewer.canAnswerInContext(clar.contextType, clar.contextId);
+  const canSeeAuthor =
+    viewer.isAdmin || viewer.canAnswerInContext(clar.contextType, clar.contextId);
   return {
     ...clar,
-    askedBy: canSeeAuthor ? clar.askedBy : null,        // null → frontend renders "anonymous"
+    askedBy: canSeeAuthor ? clar.askedBy : null, // null → frontend renders "anonymous"
     askedByUserId: canSeeAuthor ? clar.askedByUserId : null
   };
 }
@@ -97,12 +98,12 @@ Helpers live in `packages/domain/src/clarification/authz.ts` alongside existing 
 
 ## API Routes
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/clarifications?contextType=&contextId=` | List all clarifications for a context, with anonymity masking. Optional `?since=<createdAt>` for SSE backfill. |
-| POST | `/api/clarifications` | Ask a new question. Body: `{ contextType, contextId, problemId?, questionText }`. Rate-limited. |
-| PATCH | `/api/clarifications/[id]` | Staff: answer or edit answer or dismiss. Body: one of `{ answerText, state: "answered" }`, `{ state: "dismissed" }`. |
-| POST | `/api/clarifications/[id]/canned` | Staff convenience: apply a canned reply. Body: `{ templateKey: "noComment" \| "readProblem" \| "yes" \| "no" }`. Internally sets `answerText = m.clarification_template_<key>()` in the default locale and flips state to `answered`. |
+| Method | Path                                          | Purpose                                                                                                                                                                                                                               |
+| ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/clarifications?contextType=&contextId=` | List all clarifications for a context, with anonymity masking. Optional `?since=<createdAt>` for SSE backfill.                                                                                                                        |
+| POST   | `/api/clarifications`                         | Ask a new question. Body: `{ contextType, contextId, problemId?, questionText }`. Rate-limited.                                                                                                                                       |
+| PATCH  | `/api/clarifications/[id]`                    | Staff: answer or edit answer or dismiss. Body: one of `{ answerText, state: "answered" }`, `{ state: "dismissed" }`.                                                                                                                  |
+| POST   | `/api/clarifications/[id]/canned`             | Staff convenience: apply a canned reply. Body: `{ templateKey: "noComment" \| "readProblem" \| "yes" \| "no" }`. Internally sets `answerText = m.clarification_template_<key>()` in the default locale and flips state to `answered`. |
 
 All routes: `requireAuth` + `consumeFormRateLimit` + permission checks via shared helpers. `PATCH` emits an audit-style log line via the existing logger (not a dedicated audit table — the `answeredBy` + `updatedAt` columns plus log retention cover the accountability need for this feature).
 
@@ -206,16 +207,16 @@ Split allows reviewers to reason about anonymity/permissions independently of UI
 
 ## Risks & Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
-| Spam: one student posts 50 duplicates fast | Rate limit (5 / 10 min / context); staff can `dismiss` en masse |
-| De-anonymization via timestamps + participation count | Mitigated but not eliminated — in a 2-person exam, even anonymous posts de-anonymize by elimination. Acceptable: documented behavior, staff can inform students that anonymity is best-effort in small rooms |
-| Asker sees they're the author in their own session (from browser state or response payload) | API response never contains `askedByUserId` for non-staff, including for the asker themselves. Asker identifies their own threads via the bell notification, not via the public list |
-| Leaked hints: staff accidentally drop info in an answer | Out of scope — this is staff process, not a platform guarantee. Canned templates reduce accidental verbosity |
-| Clarification board abused to leak messages to peers | Staff see author identity and can `dismiss` + report. Rate limit prevents flooding |
-| `Problem` deleted while clarifications reference it | `onDelete: SetNull` on `problemId` — clarification survives as a "general" question, text body retains whatever context the asker wrote |
-| Contest ends, clarification board still accepting questions | Server-side check: `POST /api/clarifications` rejects if current time is outside the context's active window. Read endpoints remain open for historical review |
-| SSE disconnect during live contest → missed question | Client store's `since` query on reconnect replays anything newer than the latest id held locally |
+| Risk                                                                                        | Mitigation                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Spam: one student posts 50 duplicates fast                                                  | Rate limit (5 / 10 min / context); staff can `dismiss` en masse                                                                                                                                              |
+| De-anonymization via timestamps + participation count                                       | Mitigated but not eliminated — in a 2-person exam, even anonymous posts de-anonymize by elimination. Acceptable: documented behavior, staff can inform students that anonymity is best-effort in small rooms |
+| Asker sees they're the author in their own session (from browser state or response payload) | API response never contains `askedByUserId` for non-staff, including for the asker themselves. Asker identifies their own threads via the bell notification, not via the public list                         |
+| Leaked hints: staff accidentally drop info in an answer                                     | Out of scope — this is staff process, not a platform guarantee. Canned templates reduce accidental verbosity                                                                                                 |
+| Clarification board abused to leak messages to peers                                        | Staff see author identity and can `dismiss` + report. Rate limit prevents flooding                                                                                                                           |
+| `Problem` deleted while clarifications reference it                                         | `onDelete: SetNull` on `problemId` — clarification survives as a "general" question, text body retains whatever context the asker wrote                                                                      |
+| Contest ends, clarification board still accepting questions                                 | Server-side check: `POST /api/clarifications` rejects if current time is outside the context's active window. Read endpoints remain open for historical review                                               |
+| SSE disconnect during live contest → missed question                                        | Client store's `since` query on reconnect replays anything newer than the latest id held locally                                                                                                             |
 
 ## Related Docs
 

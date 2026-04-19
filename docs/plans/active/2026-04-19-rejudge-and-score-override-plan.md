@@ -21,6 +21,7 @@
 ### Task 1: Extend `RejudgeInput` to a discriminated union
 
 **Files:**
+
 - Modify: `packages/temporal/src/types.ts`
 
 **Step 1: Rewrite the interface**
@@ -46,8 +47,8 @@ export type RejudgeInput =
       assessmentId?: string;
       examId?: string;
       userIds?: string[];
-      since?: string;          // ISO date
-      until?: string;          // ISO date
+      since?: string; // ISO date
+      until?: string; // ISO date
       triggeredByUserId: string;
     }
   | {
@@ -81,6 +82,7 @@ git commit -m "feat(temporal): RejudgeInput discriminated union (single + batch)
 ### Task 2: Extend `findForRejudge` domain query
 
 **Files:**
+
 - Modify: `packages/domain/src/submission/judge-context.ts:223`
 
 **Step 1: Extend the signature to cover new fields**
@@ -102,7 +104,7 @@ export async function findForRejudge(input: {
 
   if (input.contestId) where.contestId = input.contestId;
   if (input.assessmentId) where.courseAssessmentId = input.assessmentId;
-  if (input.examId) where.examId = input.examId;                  // confirm column name on Submission
+  if (input.examId) where.examId = input.examId; // confirm column name on Submission
   if (input.userIds && input.userIds.length > 0) where.userId = { in: input.userIds };
   if (input.since || input.until) {
     where.createdAt = {};
@@ -111,7 +113,12 @@ export async function findForRejudge(input: {
   }
 
   const submissions = await submissionRepo.findForRejudge(where);
-  return submissions.map((s) => ({ submissionId: s.id, draft: { /* same as today */ } }));
+  return submissions.map((s) => ({
+    submissionId: s.id,
+    draft: {
+      /* same as today */
+    }
+  }));
 }
 ```
 
@@ -129,6 +136,7 @@ git commit -m "feat(domain): findForRejudge supports exam / userIds / date range
 ### Task 3: Add single-submission fetch path for `rejudgeWorkflow`
 
 **Files:**
+
 - Modify: `packages/temporal/src/activities/judge.ts` — add `fetchSingleSubmissionForRejudge`
 - Modify: `packages/temporal/src/workflows/rejudge.ts` — branch on mode
 
@@ -176,6 +184,7 @@ git commit -m "feat(temporal): single-submission rejudge workflow path"
 ### Task 4: Add `SubmissionRejudgeLog` schema + migration
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/submission.prisma` — add the model
 - Create: migration file under `packages/db/prisma/migrations/`
 
@@ -219,6 +228,7 @@ git commit -m "feat(db): SubmissionRejudgeLog audit table"
 ### Task 5: Thread `forRejudge` flag through `submissionJudgeWorkflow` + snapshot on entry
 
 **Files:**
+
 - Modify: `packages/temporal/src/types.ts` — extend `SubmissionJudgeInput`
 - Modify: `packages/temporal/src/workflows/submission-judge.ts`
 - Modify: `packages/temporal/src/activities/judge.ts`
@@ -230,7 +240,7 @@ git commit -m "feat(db): SubmissionRejudgeLog audit table"
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionDraft;
-  forRejudge?: { triggeredByUserId: string };   // present only on rejudge runs
+  forRejudge?: { triggeredByUserId: string }; // present only on rejudge runs
 }
 ```
 
@@ -239,7 +249,10 @@ export interface SubmissionJudgeInput {
 Before `executeSandbox` in `submissionJudgeWorkflow`, if `input.forRejudge` is set, call:
 
 ```ts
-await judge.snapshotSubmissionForRejudge(input.submissionId, input.forRejudge.triggeredByUserId);
+await judge.snapshotSubmissionForRejudge(
+  input.submissionId,
+  input.forRejudge.triggeredByUserId
+);
 ```
 
 The activity reads the current `Submission` row and writes a `SubmissionRejudgeLog` row with `old*` fields populated and `new*` left null (updated later on completion). Simpler alternative: one-pass log written on completion with both old and new — implementer's call. Either is fine as long as the audit captures pre/post.
@@ -259,6 +272,7 @@ git commit -m "feat(temporal): snapshot submission rejudge log before/after re-j
 ### Task 6: Shared authz helper `canOperateOnSubmission`
 
 **Files:**
+
 - Create: `packages/domain/src/submission/authz.ts`
 - Modify: `packages/domain/src/submission/index.ts` (re-export)
 - Test: `tests/unit/domain/submission-authz.test.ts`
@@ -266,6 +280,7 @@ git commit -m "feat(temporal): snapshot submission rejudge log before/after re-j
 **Step 1: Write the failing test**
 
 Cover the matrix from the memory:
+
 - Admin → always allowed
 - Practice submission → problem author allowed, other user denied
 - Assignment submission → course teacher/TA allowed, unrelated teacher denied
@@ -277,7 +292,14 @@ Cover the matrix from the memory:
 ```ts
 export async function canOperateOnSubmission(
   actor: ActorContext,
-  submission: { id: string; userId: string; problemId: string; contestId?: string | null; courseAssessmentId?: string | null; examId?: string | null }
+  submission: {
+    id: string;
+    userId: string;
+    problemId: string;
+    contestId?: string | null;
+    courseAssessmentId?: string | null;
+    examId?: string | null;
+  }
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
 
@@ -323,6 +345,7 @@ git commit -m "feat(domain): canOperateOnSubmission authz helper"
 ### Task 7: Batch-scope authz `assertBatchRejudgeAccess`
 
 **Files:**
+
 - Modify: `packages/domain/src/submission/authz.ts`
 - Test: `tests/unit/domain/batch-rejudge-authz.test.ts`
 
@@ -336,14 +359,19 @@ export async function assertBatchRejudgeAccess(
   if (actor.platformRole === "admin") return;
 
   // If a specific context is set, check that one.
-  if (input.contestId) { /* must be organizer */ }
-  else if (input.assessmentId) { /* must be course teacher/TA */ }
-  else if (input.examId) { /* must be course teacher/TA */ }
-  else {
+  if (input.contestId) {
+    /* must be organizer */
+  } else if (input.assessmentId) {
+    /* must be course teacher/TA */
+  } else if (input.examId) {
+    /* must be course teacher/TA */
+  } else {
     // Unscoped batch on a bare problemId — only problem author (practice) is allowed, and then only if no mixed-context submissions match.
     const problem = await problemRepo.findById(input.problemId);
     if (problem?.createdByUserId !== actor.userId) {
-      throw new ForbiddenError("Batch rejudge without a context scope is limited to the problem author.");
+      throw new ForbiddenError(
+        "Batch rejudge without a context scope is limited to the problem author."
+      );
     }
     const anyNonPractice = await submissionRepo.anyMatch({
       problemId: input.problemId,
@@ -354,7 +382,9 @@ export async function assertBatchRejudgeAccess(
       ]
     });
     if (anyNonPractice) {
-      throw new ForbiddenError("Batch rejudge includes non-practice submissions; scope to a specific context.");
+      throw new ForbiddenError(
+        "Batch rejudge includes non-practice submissions; scope to a specific context."
+      );
     }
   }
 }
@@ -373,6 +403,7 @@ git commit -m "feat(domain): batch rejudge authz enforcement"
 ### Task 8: API route — `POST /api/rejudge`
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/rejudge/+server.ts`
 
 **Step 1: Implement**
@@ -409,7 +440,11 @@ export const POST: RequestHandler = apiHandler(async (event) => {
     const submission = await submissionRepo.findById(body.submissionId);
     if (!submission) return new Response("Not found", { status: 404 });
     await submissionDomain.assertCanOperateOnSubmission(actor, submission);
-    await dispatchRejudge({ mode: "single", submissionId: submission.id, triggeredByUserId: actor.userId });
+    await dispatchRejudge({
+      mode: "single",
+      submissionId: submission.id,
+      triggeredByUserId: actor.userId
+    });
     return json({ queued: 1 });
   }
 
@@ -430,6 +465,7 @@ git commit -m "feat(web): POST /api/rejudge (single + batch)"
 ### Task 9: Integration test — single-submission rejudge round trip
 
 **Files:**
+
 - Create: `tests/integration/rejudge/single-mode.test.ts`
 
 Seed a problem, submit code that scores 50, assert `Submission.score = 50`; then modify the problem's testcase via a domain call, call `POST /api/rejudge` in single mode as admin, await workflow completion, assert `Submission.score` changed and a `SubmissionRejudgeLog` row exists with matching `oldScore`.
@@ -449,6 +485,7 @@ git commit -m "test: rejudge single-mode integration test"
 ### Task 10: Rejudge button on problem admin page (batch)
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/edit/+page.svelte` — add a "Rejudge submissions" button in the admin actions area
 - Create: `apps/web/src/lib/components/problem/RejudgeDialog.svelte` — modal with optional filters (contestId / assessmentId / examId / userIds comma-separated / date range)
 
@@ -467,6 +504,7 @@ git commit -m "feat(web): rejudge dialog on problem admin page"
 ### Task 11: Rejudge button on submission detail page (single)
 
 **Files:**
+
 - Identify the submission detail page. If none exists as a standalone page, the existing submission modal from the submissions list works — search for `SubmissionDetail` / `SubmissionModal` components.
 - Add a button visible only when `canOperateOnSubmission(actor, submission)` — check via a server-side flag passed to the component.
 
@@ -485,6 +523,7 @@ git commit -m "feat(web): single-submission rejudge button"
 ### Task 12: Add `ScoreOverride` + `ScoreOverrideAuditLog` schemas
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/submission.prisma` (or a new `override.prisma`) — add both models + enums
 - Create: migration
 
@@ -551,6 +590,7 @@ git commit -m "feat(db): ScoreOverride + audit log"
 ### Task 13: Repository
 
 **Files:**
+
 - Create: `packages/db/src/repositories/score-override.ts`
 - Modify: `packages/db/src/repositories/index.ts`
 
@@ -563,6 +603,7 @@ Commit `feat(db): score override repository`.
 ### Task 14: Domain module with audited write-through
 
 **Files:**
+
 - Create: `packages/domain/src/score-override/index.ts`
 - Create: `packages/domain/src/score-override/authz.ts`
 - Modify: `packages/domain/src/index.ts` (barrel)
@@ -573,6 +614,7 @@ Commit `feat(db): score override repository`.
 **Step 2: Implement**
 
 All three mutations wrap in `prisma.$transaction(async (tx) => { ... })`:
+
 - `create`: write `ScoreOverride`, then `ScoreOverrideAuditLog` with `action: create`, `oldScore: null`, `newScore: overrideScore`, `oldReason: null`, `newReason: reason`.
 - `update`: read current row, write audit with old/new pair, update row.
 - `delete`: read current row, write audit, delete row.
@@ -590,6 +632,7 @@ git commit -m "feat(domain): score override with audit log"
 ### Task 15: `resolveFinalScore` integration
 
 **Files:**
+
 - Modify: `packages/domain/src/submission/scoring.ts`
 - Modify: every reader — class stats aggregation, ICPC/IOI scoreboard builders, exam submissions matrix, per-student assessment grade view
 
@@ -602,8 +645,10 @@ export async function resolveFinalScore(
   context: { contextType: OverrideContextType; contextId: string }
 ) {
   const override = await scoreOverrideRepo.findUnique({
-    userId, problemId,
-    contextType: context.contextType, contextId: context.contextId
+    userId,
+    problemId,
+    contextType: context.contextType,
+    contextId: context.contextId
   });
   if (override) return { score: override.overrideScore, source: "override" as const };
   const best = await submissionRepo.findBestScore(userId, problemId, context);
@@ -616,6 +661,7 @@ export async function resolveFinalScore(
 Grep for `findBestScore` and scoreboard aggregation; wherever the final per-problem score is computed for a student in an assignment/exam/contest context, replace direct best-score reads with `resolveFinalScore`.
 
 Expected surfaces (confirm by grep):
+
 - `packages/domain/src/scoring/point-sum.ts`
 - `packages/domain/src/scoring/problem-count.ts`
 - `packages/domain/src/scoring/scoreboard-builder.ts`
@@ -625,6 +671,7 @@ Expected surfaces (confirm by grep):
 **Step 3: On override mutation, invalidate scoreboards**
 
 `create`/`update`/`delete` should, after commit, enqueue:
+
 - `contest` → `updateScoreboard(contestId)` via existing activity
 - `exam` → equivalent updater if exists, else direct Redis write
 - `assignment` → touch class-stats cache if cached; otherwise no-op (reads recompute live)
@@ -640,10 +687,12 @@ git commit -m "feat(domain): resolveFinalScore routes override over submission"
 ### Task 16: API routes
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/overrides/+server.ts` (GET list, POST create)
 - Create: `apps/web/src/routes/api/overrides/[id]/+server.ts` (PATCH, DELETE)
 
 Zod schemas:
+
 ```ts
 const createSchema = z.object({
   userId: z.string().min(1),
@@ -670,6 +719,7 @@ Commit `feat(web): score override API routes`.
 ### Task 17: Staff drawer on manage pages
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/score-override/ScoreOverrideDrawer.svelte`
 - Create: `apps/web/src/lib/components/score-override/ScoreOverrideForm.svelte`
 - Create: `apps/web/src/lib/components/score-override/ScoreOverrideList.svelte`
@@ -687,6 +737,7 @@ Commit `feat(web): score override staff drawer`.
 ### Task 18: Student "adjusted" marker
 
 **Files:**
+
 - Modify: the student-facing assignment/exam/contest detail page row renderers where a per-problem score shows
 
 Add a small icon + i18n-tooltip when `source === "override"` on the returned final score. No reason shown.
@@ -698,6 +749,7 @@ Commit `feat(web): student-facing override marker`.
 ### Task 19: i18n keys
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`, `zh-TW.json`
 
 Add (paraglide key → English → zh-TW):

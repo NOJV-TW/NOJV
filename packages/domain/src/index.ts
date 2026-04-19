@@ -6,6 +6,7 @@ export type { ExamPermissionInput } from "./exam/permissions";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as assessmentDomain from "./assessment";
+export * as clarificationDomain from "./clarification";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
 export * as examDomain from "./exam";
