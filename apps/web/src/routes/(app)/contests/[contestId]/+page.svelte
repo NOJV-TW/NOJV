@@ -5,6 +5,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
+  import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import Lock from "@lucide/svelte/icons/lock";
 
   let { data } = $props();
@@ -211,6 +212,19 @@
       {/if}
     </div>
   </div>
+
+  {#if data.clarification.canAsk || data.clarification.canAnswer}
+    <section class="space-y-4">
+      <h2 class="font-display text-title font-semibold">Clarifications</h2>
+      <ClarificationTab
+        contextType="contest"
+        contextId={contest.id}
+        canAsk={data.clarification.canAsk}
+        canAnswer={data.clarification.canAnswer}
+        problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
+      />
+    </section>
+  {/if}
 </div>
 
 {#if canSetOverride}

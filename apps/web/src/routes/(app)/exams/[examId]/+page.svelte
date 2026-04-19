@@ -13,6 +13,7 @@
   import ExamSettingsTab from "$lib/components/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/course/exam/ExamProblemsTab.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
+  import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -113,8 +114,12 @@
     return m.examDetail_difficultyMedium();
   }
 
-  type SubTab = "problems" | "submissions" | "settings";
+  type SubTab = "problems" | "submissions" | "settings" | "clarifications";
   let activeTab = $state<SubTab>("problems");
+
+  const clarificationProblems = $derived(
+    detail.problems.map((p) => ({ id: p.id, title: p.title }))
+  );
 
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(data.canSetOverride ?? false);
@@ -419,6 +424,20 @@
         >
           {m.examDetail_subTabSettings()}
         </button>
+        {#if data.clarification.canAsk || data.clarification.canAnswer}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "clarifications"}
+            onclick={() => (activeTab = "clarifications")}
+            class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+            'clarifications'
+              ? 'bg-[color:var(--color-primary)]/14 text-primary'
+              : 'text-muted-foreground hover:text-foreground'}"
+          >
+            Clarifications
+          </button>
+        {/if}
       </div>
     </div>
 
@@ -432,6 +451,16 @@
           form={data.settingsForm}
           {detail}
           {liveStatus}
+        />
+      </div>
+    {:else if activeTab === "clarifications"}
+      <div class="animate-in animate-in-4">
+        <ClarificationTab
+          contextType="exam"
+          contextId={detail.id}
+          canAsk={data.clarification.canAsk}
+          canAnswer={data.clarification.canAnswer}
+          problems={clarificationProblems}
         />
       </div>
     {:else}
@@ -556,6 +585,23 @@
             </li>
           {/each}
         </ul>
+      </section>
+    {/if}
+
+    {#if data.clarification.canAsk || data.clarification.canAnswer}
+      <section
+        class="animate-in animate-in-3 mt-10 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7"
+      >
+        <header class="mb-4">
+          <h2 class="font-display text-title font-medium">Clarifications</h2>
+        </header>
+        <ClarificationTab
+          contextType="exam"
+          contextId={detail.id}
+          canAsk={data.clarification.canAsk}
+          canAnswer={data.clarification.canAnswer}
+          problems={clarificationProblems}
+        />
       </section>
     {/if}
   {/if}
