@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
   import { cn } from "$lib/utils.js";
+  import { m } from "$lib/paraglide/messages.js";
   import type { ClarificationItem } from "$lib/stores/clarifications.svelte";
   import ClarificationStaffPanel from "./ClarificationStaffPanel.svelte";
   import type { ClarificationsStore } from "$lib/stores/clarifications.svelte";
@@ -21,12 +22,15 @@
   // Render-time relative timestamp. Not reactive to clock tick — cheap
   // approximation for a low-frequency feed; re-computes on every SSE
   // update anyway.
+  // Relative-time copy is locale-agnostic by design (follows the same
+  // `Ns / Nm / Nh / Nd` pattern used by NotificationItem); not wired to
+  // paraglide to keep the unit labels untranslated but consistent.
   function renderRelative(iso: string): string {
     const then = new Date(iso).getTime();
     const now = Date.now();
     const diff = Math.max(0, now - then);
     const sec = Math.floor(diff / 1000);
-    if (sec < 60) return `${sec}s ago`; // TODO i18n Task 12
+    if (sec < 60) return `${sec}s ago`;
     const min = Math.floor(sec / 60);
     if (min < 60) return `${min}m ago`;
     const hr = Math.floor(min / 60);
@@ -40,13 +44,15 @@
     item.state === "pending" ? "info" : item.state === "answered" ? "success" : "muted"
   );
   const stateLabel = $derived(
-    // TODO i18n Task 12
-    item.state === "pending" ? "Pending" : item.state === "answered" ? "Answered" : "Dismissed"
+    item.state === "pending"
+      ? m.clarification_state_pending()
+      : item.state === "answered"
+        ? m.clarification_state_answered()
+        : m.clarification_state_dismissed()
   );
 
   const askerLabel = $derived(
-    // TODO i18n Task 12
-    item.askedBy ? `@${item.askedBy.username}` : "Anonymous"
+    item.askedBy ? `@${item.askedBy.username}` : m.clarification_author_anonymous()
   );
 </script>
 
@@ -70,8 +76,9 @@
         class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
         aria-hidden="true"
       ></span>
-      <!-- TODO i18n Task 12 -->
-      <Badge variant="muted" size="sm">Problem: {problemTitle}</Badge>
+      <Badge variant="muted" size="sm"
+        >{m.clarification_problemChip({ title: problemTitle })}</Badge
+      >
     {/if}
   </header>
 
@@ -84,8 +91,7 @@
       <p class="whitespace-pre-wrap text-body text-foreground">{item.answerText}</p>
       {#if item.answeredBy}
         <p class="mt-2 text-caption text-muted-foreground">
-          <!-- TODO i18n Task 12 -->
-          Answered by {item.answeredBy.name}
+          {m.clarification_answerBy({ name: item.answeredBy.name })}
           {#if item.answeredAt}
             · {renderRelative(item.answeredAt)}
           {/if}

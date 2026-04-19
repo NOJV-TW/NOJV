@@ -435,7 +435,7 @@
               ? 'bg-[color:var(--color-primary)]/14 text-primary'
               : 'text-muted-foreground hover:text-foreground'}"
           >
-            Clarifications
+            {m.clarification_tab_title()}
           </button>
         {/if}
       </div>
@@ -593,7 +593,7 @@
         class="animate-in animate-in-3 mt-10 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7"
       >
         <header class="mb-4">
-          <h2 class="font-display text-title font-medium">Clarifications</h2>
+          <h2 class="font-display text-title font-medium">{m.clarification_tab_title()}</h2>
         </header>
         <ClarificationTab
           contextType="exam"

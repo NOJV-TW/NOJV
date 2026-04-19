@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
+  import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import type {
     ClarificationItem,
@@ -29,11 +30,9 @@
     try {
       await store.answer(item.id, answerText);
       answerText = "";
-      // TODO i18n Task 12
-      toasts.success("Answer posted");
+      toasts.success(m.clarification_toastAnswered());
     } catch (err) {
-      // TODO i18n Task 12
-      toasts.error(err instanceof Error ? err.message : "Action failed");
+      toasts.error(err instanceof Error ? err.message : m.clarification_toastError());
     } finally {
       busy = false;
     }
@@ -43,11 +42,9 @@
     busy = true;
     try {
       await store.canned(item.id, key);
-      // TODO i18n Task 12
-      toasts.success("Answer posted");
+      toasts.success(m.clarification_toastAnswered());
     } catch (err) {
-      // TODO i18n Task 12
-      toasts.error(err instanceof Error ? err.message : "Action failed");
+      toasts.error(err instanceof Error ? err.message : m.clarification_toastError());
     } finally {
       busy = false;
     }
@@ -57,11 +54,9 @@
     busy = true;
     try {
       await store.dismiss(item.id);
-      // TODO i18n Task 12
-      toasts.info("Marked as dismissed");
+      toasts.info(m.clarification_toastDismissed());
     } catch (err) {
-      // TODO i18n Task 12
-      toasts.error(err instanceof Error ? err.message : "Action failed");
+      toasts.error(err instanceof Error ? err.message : m.clarification_toastError());
     } finally {
       busy = false;
     }
@@ -69,9 +64,8 @@
 </script>
 
 <div class="space-y-3">
-  <!-- TODO i18n Task 12 -->
   <div class="text-caption font-medium uppercase tracking-wide text-muted-foreground">
-    Quick replies
+    {m.clarification_staff_cannedLabel()}
   </div>
   <div class="flex flex-wrap gap-2">
     <Button
@@ -81,8 +75,7 @@
       disabled={busy}
       onclick={() => sendCanned("noComment")}
     >
-      <!-- TODO i18n Task 12 -->
-      No comment.
+      {m.clarification_template_noComment()}
     </Button>
     <Button
       variant="outline"
@@ -91,8 +84,7 @@
       disabled={busy}
       onclick={() => sendCanned("readProblem")}
     >
-      <!-- TODO i18n Task 12 -->
-      Please re-read the problem statement.
+      {m.clarification_template_readProblem()}
     </Button>
     <Button
       variant="outline"
@@ -101,8 +93,7 @@
       disabled={busy}
       onclick={() => sendCanned("yes")}
     >
-      <!-- TODO i18n Task 12 -->
-      Yes.
+      {m.clarification_template_yes()}
     </Button>
     <Button
       variant="outline"
@@ -111,14 +102,14 @@
       disabled={busy}
       onclick={() => sendCanned("no")}
     >
-      <!-- TODO i18n Task 12 -->
-      No.
+      {m.clarification_template_no()}
     </Button>
   </div>
 
   <label class="block space-y-1.5">
-    <!-- TODO i18n Task 12 -->
-    <span class="text-caption font-medium text-muted-foreground">Your answer</span>
+    <span class="text-caption font-medium text-muted-foreground"
+      >{m.clarification_staff_answerLabel()}</span
+    >
     <textarea
       bind:value={answerText}
       rows={3}
@@ -139,12 +130,10 @@
       disabled={busy}
       onclick={handleDismiss}
     >
-      <!-- TODO i18n Task 12 -->
-      Dismiss
+      {m.clarification_staff_dismissBtn()}
     </Button>
     <Button type="button" size="sm" disabled={!canSubmit} onclick={submit}>
-      <!-- TODO i18n Task 12 -->
-      Send answer
+      {m.clarification_staff_submitBtn()}
     </Button>
   </div>
 </div>

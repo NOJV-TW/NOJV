@@ -60,7 +60,7 @@
     { key: "plagiarism", label: m.assignmentDetail_tabPlagiarism() },
     { key: "settings", label: m.assignmentDetail_tabSettings() },
     ...(clarificationEnabled
-      ? [{ key: "clarifications" as const, label: "Clarifications" }]
+      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
       : [])
   ]);
 
@@ -393,7 +393,7 @@
 
     {#if clarificationEnabled}
       <section class="animate-in animate-in-3 mt-10">
-        <h2 class="font-display text-title font-medium leading-tight">Clarifications</h2>
+        <h2 class="font-display text-title font-medium leading-tight">{m.clarification_tab_title()}</h2>
         <div class="mt-4">
           <ClarificationTab
             contextType="assignment"

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
   import type { ClarificationsStore } from "$lib/stores/clarifications.svelte";
   import ClarificationItem from "./ClarificationItem.svelte";
 
@@ -32,18 +33,16 @@
 
 <div class="space-y-4">
   <div class="flex flex-wrap items-center gap-4 text-caption text-muted-foreground tabular-nums">
-    <!-- TODO i18n Task 12 -->
-    <span>Pending: {counts.pending}</span>
-    <span>Answered: {counts.answered}</span>
-    <span>Dismissed: {counts.dismissed}</span>
+    <span>{m.clarification_count_pending({ count: counts.pending })}</span>
+    <span>{m.clarification_count_answered({ count: counts.answered })}</span>
+    <span>{m.clarification_count_dismissed({ count: counts.dismissed })}</span>
   </div>
 
   {#if sorted.length === 0}
     <div
       class="rounded-2xl border border-dashed border-border bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
-      <!-- TODO i18n Task 12 -->
-      No questions yet
+      {m.clarification_empty()}
     </div>
   {:else}
     <div class="max-h-[72vh] space-y-3 overflow-y-auto pr-1">

@@ -215,7 +215,7 @@
 
   {#if data.clarification.canAsk || data.clarification.canAnswer}
     <section class="space-y-4">
-      <h2 class="font-display text-title font-semibold">Clarifications</h2>
+      <h2 class="font-display text-title font-semibold">{m.clarification_tab_title()}</h2>
       <ClarificationTab
         contextType="contest"
         contextId={contest.id}
