@@ -320,6 +320,13 @@ export const examParticipationRepo = {
     });
   },
 
+  // Lightweight id-only list used by notification fan-out workflows.
+  listParticipantUserIds(examId: string) {
+    return prisma.examParticipation
+      .findMany({ where: { examId }, select: { userId: true } })
+      .then((rows) => rows.map((r) => r.userId));
+  },
+
   findByIdWithExam(id: string) {
     return prisma.examParticipation.findUnique({
       include: {
