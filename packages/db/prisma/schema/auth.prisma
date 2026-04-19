@@ -71,6 +71,7 @@ model User {
   ipViolationLogs                IpViolationLog[]
   dailyActivity                  UserDailyActivity[]
   activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
+  notifications                  Notification[]
 }
 
 model Session {

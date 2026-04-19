@@ -1,5 +1,10 @@
 import { assessmentRepo, courseMembershipRepo } from "@nojv/db";
 
+import {
+  aggregateAssessmentClassStats,
+  aggregateAssessmentMyStatus
+} from "../shared/list-aggregations";
+
 // No draft filter: drafts are course-internal and only appear inside "all" for managers.
 export type AssignmentsTopStatusFilter = "all" | "open" | "upcoming" | "closed";
 
@@ -15,9 +20,9 @@ export interface AssignmentsTopRow {
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
-  // TODO(cross-course): requires the "my work" stats table.
+  /** Student row only — null for assignments in courses this user manages. */
   myStatus: { solved: number; total: number } | null;
-  // TODO(cross-course): requires per-assessment submission aggregation.
+  /** Manager row only — null for assignments in courses this user is enrolled in as a student. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
 }
 
@@ -136,8 +141,31 @@ export async function listAssignmentsAcrossCoursesForUser(
 
   filtered.sort((a, b) => a.rank - b.rank);
 
+  const visibleRows = filtered.slice(0, limit).map((entry) => entry.row);
+
+  const managerCourseSet = new Set(managerCourseIds);
+  const managedRows = visibleRows.filter((r) => managerCourseSet.has(r.courseId));
+  const studentRows = visibleRows.filter((r) => !managerCourseSet.has(r.courseId));
+
+  const [classStatsByAssessment, myStatusByAssessment] = await Promise.all([
+    aggregateAssessmentClassStats(
+      managedRows.map((r) => ({ id: r.id, courseId: r.courseId, problemCount: r.problemCount }))
+    ),
+    aggregateAssessmentMyStatus(
+      userId,
+      studentRows.map((r) => ({ id: r.id, problemCount: r.problemCount }))
+    )
+  ]);
+
+  for (const r of managedRows) {
+    r.classStats = classStatsByAssessment.get(r.id) ?? null;
+  }
+  for (const r of studentRows) {
+    r.myStatus = myStatusByAssessment.get(r.id) ?? null;
+  }
+
   return {
-    rows: filtered.slice(0, limit).map((entry) => entry.row),
+    rows: visibleRows,
     counts,
     hasNoCourses: false
   };

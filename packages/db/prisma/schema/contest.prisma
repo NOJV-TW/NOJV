@@ -277,10 +277,9 @@ model IpViolationLog {
 
 /// One row per student per active exam. Drives the Phase 4 exam lock
 /// in hooks.server.ts: while `endedAt IS NULL` the student is routed
-/// back to the exam landing page on every navigation. `ipPin` is a
-/// snapshot of the client IP at session start and is consumed by the
-/// Phase 4 IP binding check (the `Exam.ipPin` on `ExamParticipation`
-/// is the legacy fallback kept for now).
+/// back to the exam landing page on every navigation. IP binding is
+/// enforced via `ExamParticipation.ipPin` — the session row does not
+/// carry a pin of its own.
 model ActiveExamSession {
   id              String                    @id @default(cuid())
   userId          String
@@ -288,7 +287,6 @@ model ActiveExamSession {
   startedAt       DateTime                  @default(now())
   endedAt         DateTime?
   releaseReason   ExamSessionReleaseReason?
-  ipPin           String?
   lastHeartbeatAt DateTime                  @default(now())
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt

@@ -1,5 +1,7 @@
 import { assessmentRepo } from "@nojv/db";
 
+export * from "./mutations";
+
 export interface AssessmentInfo {
   closesAt: string;
   /** Nullable: assessments without a soft deadline have no late penalty. */

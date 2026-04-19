@@ -8,6 +8,7 @@
   import AssignmentSubmissionsMatrix from "$lib/components/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
+  import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -120,9 +121,12 @@
     return "text-muted-foreground";
   }
 
-  // Link into the new id-unified problem sub-tree.  Teacher-tab sub-components
-  // still build old URLs — Phase 6 rewires them in a single pass.
+  // After close, drop assignment context so the problem opens as practice
+  // (no attempt counting, no scoreboard write).
   function problemHref(problemId: string): string {
+    if (detail.status === "closed") {
+      return `/problems/${problemId}`;
+    }
     return `/assignments/${detail.id}/problems/${problemId}`;
   }
 </script>
@@ -374,6 +378,8 @@
         <AssignmentProblemsTab
           problems={detail.problems}
           assessmentId={detail.id}
+          canEdit={data.mode === "teacher" && detail.status !== "closed"}
+          candidateProblems={data.mode === "teacher" ? data.candidateProblems : []}
         />
       {:else if activeSubTab === "submissions"}
         <AssignmentSubmissionsMatrix
@@ -395,8 +401,16 @@
             handle: r.handle
           }))}
         />
-      {:else if activeSubTab === "settings"}
-        <AssignmentSettingsTab {detail} />
+      {:else if activeSubTab === "settings" && data.mode === "teacher"}
+        <AssignmentSettingsTab
+          form={data.settingsForm}
+          {detail}
+          liveStatus={deriveAssignmentLiveStatus(
+            data.assessment.status,
+            detail.opensAt,
+            detail.closesAt
+          )}
+        />
       {/if}
     </div>
   {/if}
