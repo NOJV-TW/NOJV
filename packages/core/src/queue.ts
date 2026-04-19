@@ -33,18 +33,28 @@ const contestStartingEventSchema = z.object({ type: z.literal(SSE_CONTEST_STARTI
 const contestEndingEventSchema = z.object({ type: z.literal(SSE_CONTEST_ENDING) });
 const assignmentDeadlineEventSchema = z.object({ type: z.literal(SSE_ASSIGNMENT_DEADLINE) });
 
+export const notificationEventSchema = z.object({
+  type: z.literal(SSE_NOTIFICATION),
+  id: z.string().optional(), // omitted on batch signals
+  notificationType: z.string(),
+  params: z.unknown(),
+  linkUrl: z.string().nullable(),
+  createdAt: z.string().optional() // omitted on batch signals
+});
+
 export const sseEventSchema = z.discriminatedUnion("type", [
   submissionVerdictEventSchema,
   contestStartingEventSchema,
   contestEndingEventSchema,
-  assignmentDeadlineEventSchema
+  assignmentDeadlineEventSchema,
+  notificationEventSchema
 ]);
 
 export type SubmissionVerdictEvent = z.infer<typeof submissionVerdictEventSchema>;
 export type ContestStartingEvent = z.infer<typeof contestStartingEventSchema>;
 export type ContestEndingEvent = z.infer<typeof contestEndingEventSchema>;
 export type AssignmentDeadlineEvent = z.infer<typeof assignmentDeadlineEventSchema>;
-export type SSEEvent = z.infer<typeof sseEventSchema> | NotificationSSEEvent;
+export type SSEEvent = z.infer<typeof sseEventSchema>;
 
 export const submissionJudgeJobSchema = z.object({
   draft: submissionDraftSchema,
