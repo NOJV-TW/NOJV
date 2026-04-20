@@ -38,6 +38,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@dodona/dolos-core": "^1.2.1",
+    "@dodona/dolos-lib": "3.5.1",
     "@nojv/core": "workspace:*",
     "@nojv/domain": "workspace:*",
     "@nojv/redis": "workspace:*",

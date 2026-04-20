@@ -39,11 +39,18 @@
       "drizzle-orm": "^0.45.2"
     },
     "onlyBuiltDependencies": [
+      "@dodona/dolos-parsers",
       "@prisma/engines",
       "@swc/core",
       "esbuild",
-      "prisma"
-    ]
+      "prisma",
+      "tree-sitter",
+      "tree-sitter-compat"
+    ],
+    "patchedDependencies": {
+      "tree-sitter@0.25.0": "patches/tree-sitter@0.25.0.patch",
+      "@dodona/dolos-parsers@1.4.1": "patches/@dodona__dolos-parsers@1.4.1.patch"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
