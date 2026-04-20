@@ -3,6 +3,16 @@ FROM node:24-bookworm-slim AS builder
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
+# build-essential + python3 are required by node-gyp when pnpm installs
+# the Dolos plagiarism stack: tree-sitter@0.25.0 (patched to c++20 in
+# patches/) and @dodona/dolos-parsers@1.4.1 (patched to run node-gyp on
+# install) both compile native addons against Node 24's V8 headers.
+# Ships only in the builder stage — the runtime image reuses the
+# precompiled .node files from here and does not need a compiler.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends build-essential python3 \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
 
 WORKDIR /build
