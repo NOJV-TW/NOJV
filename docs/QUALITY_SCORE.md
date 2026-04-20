@@ -14,7 +14,7 @@ Track documentation quality and implementation legibility as an honest ledger.
 | Reliability guidance       | A-    | SLO table (8 targets), failure modes, operational invariants, health checks, and `docs/runbooks/incident-recovery.md` covering 4 outages.                       | Wire Grafana dashboards to replace `[monitoring TBD]`.    |
 | Security guidance          | B+    | Handling rules, sensitive data, and threat model cover all current attack surfaces.                                                                             | Add automated security scanning to CI.                    |
 | Schema documentation       | B     | Domain model overview, enums, and relationships documented.                                                                                                     | Generate schema docs automatically from Prisma schema.    |
-| Test coverage              | C+    | Vitest unit/integration and Playwright E2E configured (52 unit files / 473 tests) but no coverage threshold and integration gaps remain.                        | Add coverage thresholds and missing integration tests.    |
+| Test coverage              | B-    | Vitest unit/integration and Playwright E2E configured (53 unit files / 482 tests + 22 integration files / 138 tests). No coverage threshold yet.                | Add coverage thresholds; expand route-level integration.  |
 
 ## Doc Drift Status
 

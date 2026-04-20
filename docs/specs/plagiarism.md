@@ -46,9 +46,11 @@ button.
   `?source=true&userId&problemId` returns a single source-code string.
 - Permission gate `canManageCourse` (admin, platform teacher, course
   teacher, course TA) on both trigger and view paths.
-- MOSS language mapping: `c/cpp/go/rust → c`, `java → java`,
+- MOSS language mapping: `c/go/rust → c`, `cpp → cc`, `java → java`,
   `javascript/typescript → javascript`, `python → python`; any other
-  `SupportedLanguage` value is silently skipped.
+  `SupportedLanguage` value is silently skipped. MOSS treats `c` and
+  `cc` as distinct languages, so C++ submissions never pair against C,
+  Go, or Rust even on the same problem.
 - Pre-MOSS deduplication: per `(userId, problemId)` keep only the
   highest-scoring `accepted` submission.
 - Cross-group pairing is forbidden: submissions only compare against
@@ -133,9 +135,14 @@ button.
 
 ### MOSS language mapping + grouping
 
-- GIVEN submissions in `c`, `cpp`, `go`, `rust`,
+- GIVEN submissions in `c`, `go`, `rust`,
   WHEN the activity groups by MOSS language,
-  THEN all four bucket under `c` and are compared jointly per problem.
+  THEN they all bucket under `c` and are compared jointly per problem.
+- GIVEN `cpp` submissions,
+  WHEN grouping runs,
+  THEN they land in the separate `cc` bucket — MOSS treats C and C++ as
+  distinct languages, so C++ submissions never pair against C / Go /
+  Rust even on the same problem.
 - GIVEN submissions in an unmapped `SupportedLanguage`,
   WHEN grouping runs,
   THEN those submissions are silently skipped (no error, no failure).
@@ -253,9 +260,14 @@ button.
   `resolvePlagiarismTarget` (exam / courseAssessment / legacy-contest
   remap / not-found paths) and `createPlagiarismReport` (pre-wipe
   contract + persistence-failure throw).
-- **Still missing**: MOSS activity tests (best-score dedup + language
-  bucketing + skip-single-file groups) and route-level tests
-  (permission gate for trigger / view / source fetch).
+- `tests/unit/temporal/plagiarism-activity.test.ts` — covers the
+  `runPlagiarismCheck` activity with the domain layer mocked: status
+  bookkeeping, empty-submission short-circuit, best-score dedup, C /
+  Go / Rust → `c` bucketing, cpp's separate `cc` bucket,
+  skip-single-submission groups, unmapped-language skip, and the
+  failure path that calls `markReportFailed` + rethrows.
+- **Still missing**: route-level tests (permission gate for trigger /
+  view / source fetch).
 
 ## Open Questions / TODO
 

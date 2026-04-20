@@ -226,9 +226,11 @@ in Open Questions.
   group-row flattening, and byTag top-8 cut.
 - `tests/unit/domain/user-analytics-helpers.test.ts` — covers
   `aggregateByTag` including the stable-sort-on-ties invariant.
-- **Still missing**: integration coverage for `updateUserStats` upsert
-  across the UTC midnight boundary, and an E2E test for empty-state
-  rendering on a brand-new user. The platform-wide
+- `tests/integration/domain/user-daily-activity.test.ts` — covers
+  `updateUserStats` across UTC midnight (two distinct rows), same-day
+  increment coalescing, and the `sampleOnly` no-op.
+- **Still missing**: an E2E test for empty-state rendering on a
+  brand-new user. The platform-wide
   `tests/unit/web/db-read-model.test.ts` tests a different
   `getDashboardStats()` — unrelated to this surface.
 
