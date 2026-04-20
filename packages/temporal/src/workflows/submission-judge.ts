@@ -30,12 +30,14 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   // the judge proceed normally — it will fail cleanly if the row is
   // truly gone.
   let rejudgeLogId: string | null = null;
+  let rejudgeOldStatus: string | null = null;
   if (input.forRejudge) {
     const snap = await judge.snapshotSubmissionForRejudge(
       input.submissionId,
       input.forRejudge.triggeredByUserId,
     );
     rejudgeLogId = snap?.logId ?? null;
+    rejudgeOldStatus = snap?.oldStatus ?? null;
   }
 
   status = "compiling";
@@ -52,7 +54,9 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
 
   status = "completed";
   await Promise.all([
-    stats.updateUserStats(submission),
+    rejudgeOldStatus !== null
+      ? stats.adjustUserStatsForRejudge(submission, rejudgeOldStatus)
+      : stats.updateUserStats(submission),
     notification.publishVerdict(submission),
   ]);
 

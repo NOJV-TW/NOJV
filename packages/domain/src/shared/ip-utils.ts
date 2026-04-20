@@ -1,3 +1,5 @@
+import { BlockList, isIPv4, isIPv6 } from "node:net";
+
 import { examParticipationIpRepo, type TransactionClient } from "@nojv/db";
 
 import { logViolationInTx } from "../proctoring/violation-logger";
@@ -7,36 +9,38 @@ import { logViolationInTx } from "../proctoring/violation-logger";
 // model documented in `docs/SECURITY.md`. The domain only operates on the
 // already-resolved IP string passed into `checkIpLock`.
 
-function ipToNumber(ip: string): number | null {
+type IpFamily = "ipv4" | "ipv6";
+
+function classifyIp(ip: string): { family: IpFamily; addr: string } | null {
+  if (!ip) return null;
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
-  if (mapped?.[1]) ip = mapped[1];
-
-  const parts = ip.split(".");
-  if (parts.length !== 4) return null;
-
-  let result = 0;
-  for (const part of parts) {
-    const num = Number(part);
-    if (Number.isNaN(num) || num < 0 || num > 255) return null;
-    result = (result << 8) | num;
-  }
-  return result >>> 0; // unsigned
+  if (mapped?.[1]) return { family: "ipv4", addr: mapped[1] };
+  if (isIPv4(ip)) return { family: "ipv4", addr: ip };
+  if (isIPv6(ip)) return { family: "ipv6", addr: ip };
+  return null;
 }
 
-/** Check if an IP falls within a CIDR range. Supports IPv4 and IPv4-mapped IPv6. */
+/** Check if an IP falls within a CIDR range. Supports IPv4, IPv6, and v4-mapped v6. */
 export function isIpInCidr(ip: string, cidr: string): boolean {
   const [rangeIp, prefixStr] = cidr.split("/");
   if (!rangeIp) return false;
-  const prefix = prefixStr ? Number(prefixStr) : 32;
-  if (Number.isNaN(prefix) || prefix < 0 || prefix > 32) return false;
 
-  const ipNum = ipToNumber(ip);
-  const rangeNum = ipToNumber(rangeIp);
-  if (ipNum === null || rangeNum === null) return false;
+  const ipNorm = classifyIp(ip);
+  const rangeNorm = classifyIp(rangeIp);
+  if (!ipNorm || !rangeNorm) return false;
+  if (ipNorm.family !== rangeNorm.family) return false;
 
-  if (prefix === 0) return true;
-  const mask = (~0 << (32 - prefix)) >>> 0;
-  return (ipNum & mask) === (rangeNum & mask);
+  const maxPrefix = rangeNorm.family === "ipv4" ? 32 : 128;
+  const prefix = prefixStr === undefined ? maxPrefix : Number(prefixStr);
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > maxPrefix) return false;
+
+  try {
+    const list = new BlockList();
+    list.addSubnet(rangeNorm.addr, prefix, rangeNorm.family);
+    return list.check(ipNorm.addr, ipNorm.family);
+  } catch {
+    return false;
+  }
 }
 
 /** Check if an IP matches any CIDR range in the whitelist. */

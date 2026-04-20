@@ -721,7 +721,7 @@
   "examCreate_ipWhitelistCidrLabel": "Allowed IP ranges (CIDR)",
   "examCreate_ipWhitelistDesc": "Only allow submissions from these IP ranges. Useful when the exam is held in a controlled venue.",
   "examCreate_ipWhitelistLabel": "IP whitelist",
-  "examCreate_ipWhitelistPlaceholder": "e.g. 140.122.0.0/16, 203.0.113.0/24",
+  "examCreate_ipWhitelistPlaceholder": "e.g. 140.122.0.0/16, 203.0.113.0/24, 2001:db8::/32",
   "examCreate_ipWhitelistWarning": "An empty whitelist blocks every submission. Add at least one CIDR before enabling.",
   "examCreate_languagesHint": "Languages Hint",
   "examCreate_languagesLabel": "Languages Label",

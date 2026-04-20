@@ -12,7 +12,7 @@ export {
   setExecutor,
 } from "./judge";
 
-export { updateUserStats } from "./stats";
+export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
 
 export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
 

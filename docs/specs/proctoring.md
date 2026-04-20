@@ -39,8 +39,9 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 - Page lock: `hooks.server.ts` redirects active-session users to
   `/exams/[examId]` for any path outside the exam tree.
 - IP whitelist evaluation: CIDR matching via `isIpInCidr`
-  (IPv4 + IPv4-mapped IPv6); `isIpInWhitelist` returns true iff any CIDR
-  matches. Fail-closed when enabled with empty list.
+  (IPv4, native IPv6, v4-mapped IPv6 via Node `net.BlockList`);
+  `isIpInWhitelist` returns true iff any CIDR matches.
+  Fail-closed when enabled with empty list.
 - IP binding: first call stamps `ExamParticipation.ipPin`; subsequent
   calls compare against the pin.
 - Violation recording: `logViolation` / `logViolationInTx` insert rows
@@ -62,8 +63,6 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 - Remote proctoring (webcam, screen recording, browser lockdown).
 - Whole-course IP locks (per-exam only).
 - Per-problem IP locks (per-exam only).
-- IPv6 native CIDR matching — `isIpInCidr` parses IPv4 only (plus
-  `::ffff:` v4-mapped v6).
 
 ## Acceptance Criteria
 
@@ -105,10 +104,10 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 - CIDR edge cases:
   - `prefix = 0` matches any IP.
   - `prefix = 32` requires exact match.
-  - Malformed CIDR (`/33`, `/-1`, missing IP, non-numeric) → match is
-    false, never thrown.
-  - IPv6 non-v4-mapped (`2001:db8::1`) → `ipToNumber` returns null →
-    no match.
+  - Malformed CIDR (`/33`, `/-1`, `/129`, missing IP, non-numeric,
+    family mismatch between IP and CIDR) → match is false, never thrown.
+  - Native IPv6 (`2001:db8::1`) matches native-IPv6 CIDRs
+    (`2001:db8::/32`, `::/0`, `::1/128`) via Node `net.BlockList`.
 
 ### IP binding
 
@@ -249,11 +248,6 @@ notify` while students are taking the exam, ongoing blocked requests
 
 ## Open Questions / TODO
 
-- **IPv6 CIDR support.** `isIpInCidr` only handles IPv4 + v4-mapped
-  v6. A v6-native client IP silently fails no-match. In practice,
-  Cloudflare normalizes to v4 for most consumer traffic, but if a
-  school's network is v6-only the current code denies all. Needs
-  design review before fixing.
 - **Whitelist UI for bulk import.** Teachers currently paste CIDR
   entries one per line into a textarea (`ipLockFormFields
 .ipWhitelistText`). A CSV import / lab-network import flow is a

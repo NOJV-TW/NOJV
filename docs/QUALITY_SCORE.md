@@ -18,6 +18,21 @@ Track documentation quality and implementation legibility as an honest ledger.
 
 ## Doc Drift Status
 
+- 2026-04-20 targeted bug + perf sweep: fixed six audit findings — (1)
+  rejudge path now calls `adjustUserStatsForRejudge` so
+  `UserDailyActivity.acCount` delta-adjusts on the submission's original
+  day instead of double-counting on today; (2) clarification `ask()`
+  now validates `problemId` belongs to the context via
+  `{contest,exam,assessment}ProblemRepo.exists`; (3) `isIpInCidr` now
+  supports native IPv6 via Node `net.BlockList` (added 6 regression
+  tests); (4) `ExamTopStrip` + settings placeholder now display IPv6
+  cleanly (v4-mapped strip + `break-all`); (5) `fanoutAssignmentDueSoon`
+  uses new lightweight `listActiveStudentUserIds` instead of hydrating
+  full user rows; (6) notification retention cap consolidated into
+  single set-based DELETE with `ROW_NUMBER()` window — one query for N
+  users instead of N OFFSET scans — and `markAllRead` now triggers the
+  same cleanup. `docs/specs/dashboard.md` and `docs/specs/proctoring.md`
+  updated the same day.
 - 2026-04-20 Dolos migration (commit `49c9e6a`): plagiarism detection moved from MOSS (moss.stanford.edu TCP socket) to Dolos (`@dodona/dolos-lib`, self-hosted in-process AST matching). `SimilarityPair` shape swapped to `{ similarity, longest, overlap }`; `plagiarismMossReportUrl` renamed to `plagiarismReportUrl` on `CourseAssessment`, `Exam`, `Contest`. Docs swept the same day: `docs/specs/plagiarism.md` (rewritten), `docs/PRODUCT_SENSE.md`, `ARCHITECTURE.md`, `docs/TEMPORAL.md`, `docs/DATABASE.md`, `docs/RELIABILITY.md`, `docs/THREAT_MODEL.md`, `docs/runbooks/incident-recovery.md`, `docs/playbooks/exhibition-demo-playbook.md`, `docs/specs/assignments.md`, `README.md`. Dolos migration design + plan moved to `docs/plans/completed/`.
 - 2026-04-20 spec backfill: added `docs/specs/plagiarism.md`, `docs/specs/editorials.md`, `docs/specs/dashboard.md`. The two drifts each flagged were fixed the same day — the phantom "problem-solving recommendations" bullet was struck from `PRODUCT_SENSE.md § User Dashboard`, and the editorial POST error string was updated to "Solve this problem first to post an editorial." via an optional override on the shared AC gate helper. Unit coverage for all three surfaces landed in `tests/unit/domain/{plagiarism-queries,editorial-queries,dashboard-view}.test.ts` (+ stable-sort assertion in `user-analytics-helpers.test.ts`); route and integration tests remain as follow-ups.
 - 2026-04-18 doc quality uplift: ARCHITECTURE.md gained 3 mermaid sequence diagrams (submission / exam session / scoreboard); RELIABILITY.md gained an SLO table; new `docs/runbooks/incident-recovery.md` covers Temporal / Redis / Postgres / sandbox outages; new `docs/specs/` holds per-feature acceptance specs.

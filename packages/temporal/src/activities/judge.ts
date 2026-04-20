@@ -211,7 +211,7 @@ export async function fetchSingleSubmissionForRejudge(
 export async function snapshotSubmissionForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
-): Promise<{ logId: string } | null> {
+): Promise<{ logId: string; oldStatus: string } | null> {
   return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId);
 }
 

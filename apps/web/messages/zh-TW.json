@@ -721,7 +721,7 @@
   "examCreate_ipWhitelistCidrLabel": "允許的 IP 範圍（CIDR）",
   "examCreate_ipWhitelistDesc": "僅允許來自這些 IP 範圍的提交。適用於指定場地的考試。",
   "examCreate_ipWhitelistLabel": "IP 白名單",
-  "examCreate_ipWhitelistPlaceholder": "例如 140.122.0.0/16, 203.0.113.0/24",
+  "examCreate_ipWhitelistPlaceholder": "例如 140.122.0.0/16, 203.0.113.0/24, 2001:db8::/32",
   "examCreate_ipWhitelistWarning": "白名單為空時會阻擋所有提交，啟用前請至少加入一個 CIDR。",
   "examCreate_languagesHint": "選擇允許學生使用的語言",
   "examCreate_languagesLabel": "允許語言",
