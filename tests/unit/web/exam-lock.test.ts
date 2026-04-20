@@ -9,17 +9,17 @@ function makeCtx(overrides: Partial<ActiveExamContext> = {}): ActiveExamContext 
       examId: "exam-1",
       userId: "user-1",
       startedAt: new Date("2026-04-14T00:00:00Z"),
-      ipPin: null
+      ipPin: null,
     },
     exam: {
       id: "exam-1",
       courseId: "course-1",
-      title: "Midterm"
+      title: "Midterm",
     },
     course: {
-      id: "course-1"
+      id: "course-1",
     },
-    ...overrides
+    ...overrides,
   };
 }
 

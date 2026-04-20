@@ -4,7 +4,7 @@ import {
   runTransaction,
   scoreOverrideAuditLogRepo,
   scoreOverrideRepo,
-  type OverrideContextType
+  type OverrideContextType,
 } from "@nojv/db";
 
 import { updateContestScores } from "../contest/scoring";
@@ -28,13 +28,13 @@ import { assertCanSetScoreOverride } from "./authz";
 async function invalidateScoreboardForOverride(
   contextType: OverrideContextType,
   contextId: string,
-  userId: string
+  userId: string,
 ): Promise<void> {
   try {
     if (contextType === "contest") {
       const participationId = await contestParticipationRepo.findIdByContestAndUser(
         contextId,
-        userId
+        userId,
       );
       if (participationId) {
         await updateContestScores(participationId);
@@ -42,7 +42,7 @@ async function invalidateScoreboardForOverride(
     } else if (contextType === "exam") {
       const participationId = await examParticipationRepo.findIdByExamAndUser(
         contextId,
-        userId
+        userId,
       );
       if (participationId) {
         await updateExamScores(participationId);
@@ -100,7 +100,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
       overrideScore: input.overrideScore,
       reason: input.reason,
       createdByUserId: actor.userId,
-      updatedByUserId: actor.userId
+      updatedByUserId: actor.userId,
     });
 
     await scoreOverrideAuditLogRepo.create(tx, {
@@ -114,7 +114,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
       newScore: input.overrideScore,
       oldReason: null,
       newReason: input.reason,
-      changedByUserId: actor.userId
+      changedByUserId: actor.userId,
     });
 
     return created;
@@ -138,7 +138,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
     const row = await scoreOverrideRepo.update(tx, id, {
       ...(patch.overrideScore !== undefined ? { overrideScore: patch.overrideScore } : {}),
       ...(patch.reason !== undefined ? { reason: patch.reason } : {}),
-      updatedByUserId: actor.userId
+      updatedByUserId: actor.userId,
     });
 
     await scoreOverrideAuditLogRepo.create(tx, {
@@ -152,7 +152,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
       newScore: row.overrideScore,
       oldReason: existing.reason,
       newReason: row.reason,
-      changedByUserId: actor.userId
+      changedByUserId: actor.userId,
     });
 
     return row;
@@ -161,7 +161,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
   await invalidateScoreboardForOverride(
     existing.contextType,
     existing.contextId,
-    existing.userId
+    existing.userId,
   );
   return updated;
 }
@@ -189,7 +189,7 @@ export async function deleteOverride(actor: ActorContext, id: string) {
       newScore: null,
       oldReason: existing.reason,
       newReason: null,
-      changedByUserId: actor.userId
+      changedByUserId: actor.userId,
     });
 
     await scoreOverrideRepo.delete(tx, id);
@@ -198,7 +198,7 @@ export async function deleteOverride(actor: ActorContext, id: string) {
   await invalidateScoreboardForOverride(
     existing.contextType,
     existing.contextId,
-    existing.userId
+    existing.userId,
   );
 }
 
@@ -209,7 +209,7 @@ export async function listByContext(contextType: OverrideContextType, contextId:
 export async function listAuditForContext(
   contextType: OverrideContextType,
   contextId: string,
-  limit = 100
+  limit = 100,
 ) {
   return scoreOverrideAuditLogRepo.listForContext(contextType, contextId, limit);
 }

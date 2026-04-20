@@ -20,7 +20,7 @@ export interface SchoolVerificationError {
 
 export async function processSchoolVerification(
   userId: string,
-  email: string
+  email: string,
 ): Promise<SchoolVerificationResult | SchoolVerificationError> {
   const parsed = parseSchoolEmail(email);
   if (!parsed) {
@@ -59,12 +59,12 @@ export async function processSchoolVerification(
         <p style="margin-top:24px;font-size:13px;color:#6b7280">此連結將在 30 分鐘後失效。</p>
         <p style="font-size:13px;color:#6b7280">如果您沒有申請此驗證，請忽略這封信。</p>
       </div>
-    `
+    `,
   });
 
   if (error) {
     logger.error("email send failed", {
-      err: error.message
+      err: error.message,
     });
     return { error: "Failed to send email", status: 500 };
   }

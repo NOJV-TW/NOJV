@@ -80,7 +80,7 @@ export const GET: RequestHandler = (event) => {
               send({
                 result: submission.verdictDetail,
                 status: submission.status,
-                submissionId: submission.id
+                submissionId: submission.id,
               });
               break;
             }
@@ -90,7 +90,7 @@ export const GET: RequestHandler = (event) => {
             send({
               result: submission.verdictDetail,
               status: submission.status,
-              submissionId: submission.id
+              submissionId: submission.id,
             });
             break;
           }
@@ -102,14 +102,14 @@ export const GET: RequestHandler = (event) => {
       }
       releaseOnce();
       controller.close();
-    }
+    },
   });
 
   return new Response(stream, {
     headers: {
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
-      "Content-Type": "text/event-stream"
-    }
+      "Content-Type": "text/event-stream",
+    },
   });
 };

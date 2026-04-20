@@ -41,7 +41,7 @@ describe("verdictColor", () => {
       "running",
       "runtime_error",
       "time_limit_exceeded",
-      "wrong_answer"
+      "wrong_answer",
     ];
 
     expect(Object.keys(verdictColor).sort()).toEqual(expectedKeys);

@@ -4,7 +4,7 @@ import {
   contestSessionSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
-  submissionDraftSchema
+  submissionDraftSchema,
 } from "../../../packages/core/src/index";
 
 describe("submissionDraftSchema", () => {
@@ -13,7 +13,7 @@ describe("submissionDraftSchema", () => {
       language: "cpp",
       mode: "practice",
       problemId: "two-sum-plus",
-      sourceCode: "int main() { return 0; }"
+      sourceCode: "int main() { return 0; }",
     });
 
     expect(result.problemId).toBe("two-sum-plus");
@@ -28,13 +28,13 @@ describe("submissionDraftSchema", () => {
       sourceFiles: [
         {
           path: "src/main.ts",
-          content: "import { sum } from './sum.ts'; console.log(sum(1,2));"
+          content: "import { sum } from './sum.ts'; console.log(sum(1,2));",
         },
         {
           path: "src/sum.ts",
-          content: "export const sum = (a:number,b:number)=>a+b;"
-        }
-      ]
+          content: "export const sum = (a:number,b:number)=>a+b;",
+        },
+      ],
     });
 
     expect(result.sourceFiles).toHaveLength(2);
@@ -48,10 +48,10 @@ describe("submissionDraftSchema", () => {
       problemId: "sum-ab",
       runCases: [
         { input: "1 2\n", expectedOutput: "3\n" },
-        { input: "10 20\n" } // expectedOutput omitted — Run shows actual stdout only
+        { input: "10 20\n" }, // expectedOutput omitted — Run shows actual stdout only
       ],
       sampleOnly: true,
-      sourceCode: "int main(){}"
+      sourceCode: "int main(){}",
     });
 
     expect(result.runCases).toHaveLength(2);
@@ -65,7 +65,7 @@ describe("submissionDraftSchema", () => {
       problemId: "sum-ab",
       runCases: [{ input: "1\n", expectedOutput: "1\n" }],
       sampleOnly: false,
-      sourceCode: "int main(){}"
+      sourceCode: "int main(){}",
     });
 
     expect(parsed.success).toBe(false);
@@ -77,7 +77,7 @@ describe("submissionDraftSchema", () => {
       problemId: "sum-ab",
       runCases: Array.from({ length: 11 }, () => ({ input: "x" })),
       sampleOnly: true,
-      sourceCode: "int main(){}"
+      sourceCode: "int main(){}",
     });
 
     expect(parsed.success).toBe(false);
@@ -90,7 +90,7 @@ describe("contestSessionSchema", () => {
       contestId: "spring-qualifier-2026",
       endsAt: "2026-03-15T10:00:00.000Z",
       frozenScoreboard: true,
-      startsAt: "2026-03-15T08:00:00.000Z"
+      startsAt: "2026-03-15T08:00:00.000Z",
     });
 
     expect(result.frozenScoreboard).toBe(true);
@@ -103,15 +103,15 @@ describe("problemTestcaseSetCreateSchema", () => {
       cases: [
         {
           output: "3\n",
-          input: "1 2\n"
+          input: "1 2\n",
         },
         {
           output: "300\n",
-          input: "100 200\n"
-        }
+          input: "100 200\n",
+        },
       ],
       name: "Hidden Set",
-      weight: 2
+      weight: 2,
     });
 
     expect(result.cases).toHaveLength(2);
@@ -125,7 +125,7 @@ describe("problemJudgeTestcaseSchema", () => {
       output: "3\n",
       id: "tc_01",
       input: "1 2\n",
-      weight: 3
+      weight: 3,
     });
 
     expect(result.id).toBe("tc_01");

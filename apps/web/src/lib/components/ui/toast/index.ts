@@ -8,5 +8,5 @@ export {
   type Toast,
   type ToastType,
   type ToastOptions,
-  type ToastUndo
+  type ToastUndo,
 } from "$lib/stores/toast";

@@ -9,7 +9,7 @@ Production-oriented Online Judge platform. Supports competitive programming cont
 - **Extensible pipeline**: Static analysis, custom scoring, artifact collection, network access
 - **Contests**: ICPC/IOI scoring, real-time scoreboard, freeze, IP lock, page lock
 - **Courses**: Membership management, join tokens, assessments with deadlines
-- **Plagiarism detection**: Stanford MOSS integration
+- **Plagiarism detection**: Dolos AST similarity (self-hosted, in-process)
 - **Auth**: Email/password, GitHub OAuth, Google OAuth
 - **i18n**: English + Traditional Chinese (zh-TW)
 - **Real-time**: SSE streaming for submission verdicts and contest events

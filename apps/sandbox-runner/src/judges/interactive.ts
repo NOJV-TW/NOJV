@@ -19,7 +19,7 @@ export async function judgeInteractive(
   runCommand: string[],
   testcase: TestcaseFiles,
   interactorCommand: string[],
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestcaseResult> {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "interactive-"));
   const inputFile = path.join(tmpDir, "input.txt");
@@ -37,7 +37,7 @@ function runInteractive(
   testcase: TestcaseFiles,
   interactorCommand: string[],
   inputFile: string,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestcaseResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -52,19 +52,19 @@ function runInteractive(
         stdout: "",
         stderr: "Empty run or interactor command.",
         exitCode: -1,
-        timeMs: 0
+        timeMs: 0,
       });
       return;
     }
 
     const [solWrap, ...solWrapArgs] = withProcessLimit([solCmd, ...solArgs]);
     const solution = spawn(solWrap!, solWrapArgs, {
-      stdio: ["pipe", "pipe", "pipe"]
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
     const [intWrap, ...intWrapArgs] = withProcessLimit([intCmd, ...intArgs, inputFile]);
     const interactor = spawn(intWrap!, intWrapArgs, {
-      stdio: ["pipe", "pipe", "pipe"]
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
     solution.stdout.pipe(interactor.stdin);
@@ -116,7 +116,7 @@ function runInteractive(
         index: testcase.index,
         stdout: solStdout,
         exitCode: solutionExitCode,
-        timeMs: Math.round(performance.now() - startTime)
+        timeMs: Math.round(performance.now() - startTime),
       };
 
       if (timedOut) return resolve({ ...base, verdict: "TLE", stderr: solStderr });
@@ -126,7 +126,7 @@ function runInteractive(
           ...base,
           verdict: "SE",
           stderr: `Interactor error: ${intStderr}`,
-          feedback: "Interactor failed to start (system error)."
+          feedback: "Interactor failed to start (system error).",
         });
       }
       if (interactorSignal) {
@@ -134,7 +134,7 @@ function runInteractive(
           ...base,
           verdict: "SE",
           stderr: `Interactor crashed with signal ${interactorSignal}.\n${intStderr}`,
-          feedback: `Interactor crashed (${interactorSignal}).`
+          feedback: `Interactor crashed (${interactorSignal}).`,
         });
       }
       if (solutionSignal === "SIGKILL")
@@ -146,7 +146,7 @@ function runInteractive(
       const parsed = parseJudgeOutput(
         interactorExitCode,
         intLines[0] ?? "",
-        intLines.slice(1).join("\n")
+        intLines.slice(1).join("\n"),
       );
 
       resolve({
@@ -154,7 +154,7 @@ function runInteractive(
         verdict: parsed.accepted ? "AC" : "WA",
         stderr: solStderr,
         score: parsed.score,
-        ...(parsed.feedback ? { feedback: parsed.feedback } : {})
+        ...(parsed.feedback ? { feedback: parsed.feedback } : {}),
       });
     }
 

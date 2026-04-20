@@ -12,8 +12,8 @@ test.describe("Submission Validation", () => {
       data: {
         problemId: PROBLEM_ID,
         language: "python",
-        sourceCode: "print(1)"
-      }
+        sourceCode: "print(1)",
+      },
     });
     expect(res.status()).toBe(401);
   });
@@ -25,8 +25,8 @@ test.describe("Submission Validation", () => {
       data: {
         problemId: PROBLEM_ID,
         language: "python",
-        sourceCode: ""
-      }
+        sourceCode: "",
+      },
     });
     expect(res.status()).toBe(400);
     await context.close();
@@ -39,8 +39,8 @@ test.describe("Submission Validation", () => {
       data: {
         problemId: PROBLEM_ID,
         language: "brainfuck",
-        sourceCode: "print(1)"
-      }
+        sourceCode: "print(1)",
+      },
     });
     expect(res.status()).toBe(400);
     await context.close();
@@ -53,8 +53,8 @@ test.describe("Submission Validation", () => {
       data: {
         problemId: "nonexistent-problem-xyz",
         language: "python",
-        sourceCode: "print(1)"
-      }
+        sourceCode: "print(1)",
+      },
     });
     // Should be 404 or 500 (problem not found)
     expect(res.status()).toBeGreaterThanOrEqual(400);

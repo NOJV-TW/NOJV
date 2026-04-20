@@ -8,13 +8,13 @@ import {
   problemRepo,
   runTransaction,
   type Prisma,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 import type {
   CourseAssignmentFormData,
   CourseCreate,
   CourseUpdate,
-  ManualCourseEnrollment
+  ManualCourseEnrollment,
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -25,14 +25,14 @@ import { ensureUser } from "../user/mutations";
 import * as notificationDomain from "../notification";
 import {
   assertCourseProblemAccess,
-  assertProblemHasWorkspaceForLanguages
+  assertProblemHasWorkspaceForLanguages,
 } from "../problem/helpers";
 
 // Defensive re-check so form-post handlers never rely on trusted loader state.
 async function assertCourseManager(
   tx: TransactionClient,
   actor: ActorContext,
-  courseId: string
+  courseId: string,
 ) {
   if (actor.platformRole === "admin") return;
 
@@ -41,7 +41,7 @@ async function assertCourseManager(
     .findByComposite(courseId, actor.userId);
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
-    membership?.role ?? null
+    membership?.role ?? null,
   );
   if (!canManageCourse(effectiveRole) || membership?.status !== "active") {
     throw new ForbiddenError("You do not have permission to manage this course.");
@@ -54,7 +54,7 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
     const course = await courseRepo.withTx(tx).create({
       description: payload.description,
       ownerId: owner.id,
-      title: payload.title
+      title: payload.title,
     });
 
     // Owner is added as a teacher. No join-token path anymore — Phase 5
@@ -65,7 +65,7 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
       joinedAt: new Date(),
       role: "teacher",
       status: "active",
-      userId: owner.id
+      userId: owner.id,
     });
 
     return { course };
@@ -74,7 +74,7 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
 
 export async function manuallyEnrollCourseMember(
   actor: ActorContext,
-  payload: ManualCourseEnrollment
+  payload: ManualCourseEnrollment,
 ) {
   const { course, membership } = await runTransaction(async (tx) => {
     const course = await requireCourse(tx, payload.courseId);
@@ -83,7 +83,7 @@ export async function manuallyEnrollCourseMember(
       displayName: payload.displayName,
       email: payload.email,
       username: payload.username,
-      platformRole: payload.role === "teacher" ? "teacher" : "student"
+      platformRole: payload.role === "teacher" ? "teacher" : "student",
     });
 
     const membership = await courseMembershipRepo.withTx(tx).upsert(
@@ -95,14 +95,14 @@ export async function manuallyEnrollCourseMember(
         joinedAt: new Date(),
         role: payload.role,
         status: "active",
-        userId: user.id
+        userId: user.id,
       },
       {
         addedByUserId: manager.id,
         joinedAt: new Date(),
         role: payload.role,
-        status: "active"
-      }
+        status: "active",
+      },
     );
 
     return { course, membership };
@@ -115,7 +115,7 @@ export async function manuallyEnrollCourseMember(
       userId: membership.userId,
       type: "course_enrolled",
       params: { courseId: course.id, courseName: course.title },
-      linkUrl: `/courses/${course.id}`
+      linkUrl: `/courses/${course.id}`,
     });
   }
 
@@ -138,7 +138,7 @@ function generateAssignmentId(title: string): string {
 export async function createCourseAssessmentRecord(
   actor: ActorContext,
   courseId: string,
-  payload: CourseAssignmentFormData
+  payload: CourseAssignmentFormData,
 ) {
   return runTransaction(async (tx) => {
     const course = await requireCourse(tx, courseId);
@@ -152,8 +152,8 @@ export async function createCourseAssessmentRecord(
     if (payload.allowedLanguages.length > 0 && payload.problemIds.length > 0) {
       await Promise.all(
         payload.problemIds.map((id) =>
-          assertProblemHasWorkspaceForLanguages(tx, id, payload.allowedLanguages)
-        )
+          assertProblemHasWorkspaceForLanguages(tx, id, payload.allowedLanguages),
+        ),
       );
     }
 
@@ -177,13 +177,13 @@ export async function createCourseAssessmentRecord(
         : {}),
       ...(adjustmentRules.length > 0
         ? { adjustmentRules: adjustmentRules as Prisma.InputJsonValue }
-        : {})
+        : {}),
     });
 
     const problemIds = payload.problemIds;
     if (problemIds.length > 0) {
       const problems = await problemRepo.withTx(tx).findMany({
-        id: { in: problemIds }
+        id: { in: problemIds },
       });
       const problemById = new Map(problems.map((p) => [p.id, p]));
 
@@ -203,9 +203,9 @@ export async function createCourseAssessmentRecord(
             assessmentId: assessment.id,
             ordinal: index + 1,
             points: 100,
-            problemId: problem.id
+            problemId: problem.id,
           });
-        })
+        }),
       );
     }
 
@@ -216,7 +216,7 @@ export async function createCourseAssessmentRecord(
 export async function updateCourse(
   actor: ActorContext,
   courseId: string,
-  payload: CourseUpdate
+  payload: CourseUpdate,
 ) {
   return runTransaction(async (tx) => {
     await requireCourse(tx, courseId);
@@ -224,7 +224,7 @@ export async function updateCourse(
 
     return courseRepo.withTx(tx).update(courseId, {
       description: payload.description,
-      title: payload.title
+      title: payload.title,
     });
   });
 }
@@ -245,7 +245,7 @@ export async function deleteCourse(actor: ActorContext, courseId: string) {
 export async function setCourseArchived(
   actor: ActorContext,
   courseId: string,
-  archived: boolean
+  archived: boolean,
 ) {
   return runTransaction(async (tx) => {
     await requireCourse(tx, courseId);
@@ -272,7 +272,7 @@ export async function setCourseArchived(
  */
 export async function copyCourse(
   actor: ActorContext,
-  sourceCourseId: string
+  sourceCourseId: string,
 ): Promise<{ newCourseId: string }> {
   return runTransaction(async (tx) => {
     const source = await requireCourse(tx, sourceCourseId);
@@ -284,7 +284,7 @@ export async function copyCourse(
     const newCourse = await courseRepo.withTx(tx).create({
       description: source.description,
       ownerId: owner.id,
-      title: `${source.title} (copy)`
+      title: `${source.title} (copy)`,
     });
 
     // 2. Actor becomes the teacher of the new course. Other roster members
@@ -295,7 +295,7 @@ export async function copyCourse(
       joinedAt: new Date(),
       role: "teacher",
       status: "active",
-      userId: owner.id
+      userId: owner.id,
     });
 
     // 3. Clone assessments — status reset to draft so nothing auto-publishes.
@@ -317,7 +317,7 @@ export async function copyCourse(
         ...(a.maxAttemptsPerDay != null ? { maxAttemptsPerDay: a.maxAttemptsPerDay } : {}),
         ...(a.adjustmentRules != null
           ? { adjustmentRules: a.adjustmentRules as Prisma.InputJsonValue }
-          : {})
+          : {}),
       });
 
       for (const p of a.problems) {
@@ -325,7 +325,7 @@ export async function copyCourse(
           assessmentId: created.id,
           ordinal: p.ordinal,
           points: p.points,
-          problemId: p.problemId
+          problemId: p.problemId,
         });
       }
     }
@@ -350,7 +350,7 @@ export async function copyCourse(
         status: "draft",
         submitCooldownSec: e.submitCooldownSec,
         summary: e.summary,
-        title: e.title
+        title: e.title,
       });
 
       for (const p of e.problems) {
@@ -358,7 +358,7 @@ export async function copyCourse(
           examId: created.id,
           ordinal: p.ordinal,
           points: p.points,
-          problemId: p.problemId
+          problemId: p.problemId,
         });
       }
     }

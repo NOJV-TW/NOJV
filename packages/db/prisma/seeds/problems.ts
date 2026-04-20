@@ -5,7 +5,7 @@ import {
   putText,
   testcaseInputKey,
   testcaseOutputKey,
-  workspaceFileKey
+  workspaceFileKey,
 } from "@nojv/storage";
 
 import type { Prisma, PrismaClient } from "../../generated/prisma/client";
@@ -73,12 +73,12 @@ type SeedProblemSample = {
 };
 
 function toSamplesJson(
-  samples: readonly SeedProblemSample[] | undefined
+  samples: readonly SeedProblemSample[] | undefined,
 ): Prisma.InputJsonValue | undefined {
   if (!samples) return undefined;
   return samples.map((sample) => ({
     input: sample.input,
-    output: sample.output
+    output: sample.output,
   }));
 }
 
@@ -104,7 +104,7 @@ type SeedProblemDef = {
 const hardenedIds = [
   "problem_stateful-dhcp-parser",
   "problem_memory-leak-forensics",
-  "problem_noisy-oracle-hunt"
+  "problem_noisy-oracle-hunt",
 ] as const;
 
 export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void {
@@ -146,7 +146,7 @@ export function validateProblemDefinitions(problemDefs: SeedProblemDef[]): void 
       }
       if (config.type === "interactive" && !(config.interactorScript as string)?.trim()) {
         throw new Error(
-          `Interactive judge requires interactorScript in judgeConfig: ${def.id}`
+          `Interactive judge requires interactorScript in judgeConfig: ${def.id}`,
         );
       }
     }
@@ -170,7 +170,7 @@ export type SeedStorageClient = { send: (command: unknown) => Promise<unknown> }
 export async function seedProblems(
   prisma: PrismaClient,
   teacherId: string,
-  storageOverride?: SeedStorageClient
+  storageOverride?: SeedStorageClient,
 ) {
   // Single storage client shared across every blob upload below. The seed
   // script writes testcase + workspace blobs through the same primitives
@@ -196,19 +196,19 @@ export async function seedProblems(
           body: "實作經典的暖身題。從標準輸入讀取兩個整數，並將它們的總和加上換行符號後輸出。",
           inputFormat:
             "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
-          outputFormat: "一行，輸出 $a + b$ 的值。"
+          outputFormat: "一行，輸出 $a + b$ 的值。",
         },
         en: {
           title: "Warmup Sum",
           body: "Implement the classic warmup judge task. Read exactly two integers from standard input and print their sum followed by a newline.",
           inputFormat:
             "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
-          outputFormat: "A single line containing the value of $a + b$."
-        }
+          outputFormat: "A single line containing the value of $a + b$.",
+        },
       },
       samples: [
         { input: "2 5", output: "7" },
-        { input: "0 0", output: "0" }
+        { input: "0 0", output: "0" },
       ],
       testcases: {
         sample: {
@@ -216,18 +216,18 @@ export async function seedProblems(
           cases: [
             { input: "2 5", output: "7" },
             { input: "0 0", output: "0" },
-            { input: "-3 7", output: "4" }
-          ]
+            { input: "-3 7", output: "4" },
+          ],
         },
         hidden: {
           description: "Hidden cases including 32-bit signed integer edges.",
           cases: [
             { input: "1000000 999999", output: "1999999" },
             { input: "-100 -200", output: "-300" },
-            { input: "2147483646 1", output: "2147483647" }
-          ]
-        }
-      }
+            { input: "2147483646 1", output: "2147483647" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -244,36 +244,36 @@ export async function seedProblems(
           body: "為每艘船維護下一個可用碼頭。隱藏評審偏好使用 DSU 或貪心路徑壓縮方法。",
           inputFormat:
             "第一行一個整數 $N$（$1 \\le N \\le 10^6$），表示碼頭數量。\n\n接下來 $N$ 行，每行一個整數 $d_i$（$1 \\le d_i \\le N$），表示第 $i$ 艘船希望停靠的碼頭編號。",
-          outputFormat: "一行，輸出無法成功停靠的船隻數量。"
+          outputFormat: "一行，輸出無法成功停靠的船隻數量。",
         },
         en: {
           title: "Graph Docking",
           body: "Maintain the next available dock for each incoming ship. The hidden judge favors DSU or greedy path compression approaches.",
           inputFormat:
             "The first line contains an integer $N$ ($1 \\le N \\le 10^6$), the number of docks.\n\nThe next $N$ lines each contain an integer $d_i$ ($1 \\le d_i \\le N$), the preferred dock for the $i$-th ship.",
-          outputFormat: "A single line containing the number of ships that could not dock."
-        }
+          outputFormat: "A single line containing the number of ships that could not dock.",
+        },
       },
       samples: [
         { input: "4\n3\n4\n1\n1\n", output: "2" },
-        { input: "2\n1\n2\n", output: "0" }
+        { input: "2\n1\n2\n", output: "0" },
       ],
       testcases: {
         sample: {
           description: "1 ≤ N ≤ 6, simple verification cases.",
           cases: [
             { input: "4\n3\n4\n1\n1\n", output: "2" },
-            { input: "2\n1\n2\n", output: "0" }
-          ]
+            { input: "2\n1\n2\n", output: "0" },
+          ],
         },
         hidden: {
           description: "1 ≤ N ≤ 10^6, stresses DSU/path compression.",
           cases: [
             { input: "6\n5\n6\n3\n3\n2\n1\n", output: "3" },
-            { input: "1\n1\n", output: "0" }
-          ]
-        }
-      }
+            { input: "1\n1\n", output: "0" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -290,7 +290,7 @@ export async function seedProblems(
           body: "在多層走廊中協調多個代理，同時保持最短路徑保證。一旦迷宮開始分支，需要高效的狀態壓縮和最短路徑推理。",
           inputFormat:
             "第一行兩個整數 $R$ 和 $C$（$1 \\le R, C \\le 1000$），表示迷宮的列數與行數。\n\n接下來 $R$ 行，每行 $C$ 個字元，`.` 表示通道，`#` 表示牆壁。\n\n起點為左上角 $(0,0)$，終點為右下角 $(R-1,C-1)$。",
-          outputFormat: "一行，輸出從起點到終點的最短路徑長度。"
+          outputFormat: "一行，輸出從起點到終點的最短路徑長度。",
         },
         en: {
           title: "Distributed Labyrinth",
@@ -298,29 +298,29 @@ export async function seedProblems(
           inputFormat:
             "The first line contains two integers $R$ and $C$ ($1 \\le R, C \\le 1000$), the number of rows and columns.\n\nThe next $R$ lines each contain $C$ characters: `.` for passage and `#` for wall.\n\nThe start is at $(0,0)$ and the goal is at $(R-1,C-1)$.",
           outputFormat:
-            "A single line containing the length of the shortest path from start to goal."
-        }
+            "A single line containing the length of the shortest path from start to goal.",
+        },
       },
       samples: [
         { input: "3 3\n...\n.#.\n...\n", output: "4" },
-        { input: "2 2\n..\n..\n", output: "2" }
+        { input: "2 2\n..\n..\n", output: "2" },
       ],
       testcases: {
         sample: {
           description: "Tiny mazes used to introduce the format.",
           cases: [
             { input: "3 3\n...\n.#.\n...\n", output: "4" },
-            { input: "2 2\n..\n..\n", output: "2" }
-          ]
+            { input: "2 2\n..\n..\n", output: "2" },
+          ],
         },
         hidden: {
           description: "1 ≤ R, C ≤ 1000, dense and degenerate mazes.",
           cases: [
             { input: "5 5\n.....\n.###.\n.#.#.\n.###.\n.....\n", output: "8" },
-            { input: "1 1\n.\n", output: "0" }
-          ]
-        }
-      }
+            { input: "1 1\n.\n", output: "0" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -338,7 +338,7 @@ export async function seedProblems(
           inputFormat:
             "第一行一個整數 $N$（$1 \\le N \\le 10^5$），表示事件數量。\n\n接下來 $N$ 行，每行格式為 `fork <parent> <child>`、`exit <pid>` 或 `wait <pid>`。",
           outputFormat:
-            "每行一個事件的正規化描述：\n\n- `fork` 事件輸出 `<parent>-><child> forked`\n- `exit` 事件輸出 `<pid> exited`\n- `wait` 事件輸出 `<pid> waited`"
+            "每行一個事件的正規化描述：\n\n- `fork` 事件輸出 `<parent>-><child> forked`\n- `exit` 事件輸出 `<pid> exited`\n- `wait` 事件輸出 `<pid> waited`",
         },
         en: {
           title: "Process Log Parser",
@@ -346,14 +346,14 @@ export async function seedProblems(
           inputFormat:
             "The first line contains an integer $N$ ($1 \\le N \\le 10^5$), the number of events.\n\nThe next $N$ lines each contain an event in the form `fork <parent> <child>`, `exit <pid>`, or `wait <pid>`.",
           outputFormat:
-            "One line per event:\n\n- `fork` events produce `<parent>-><child> forked`\n- `exit` events produce `<pid> exited`\n- `wait` events produce `<pid> waited`"
-        }
+            "One line per event:\n\n- `fork` events produce `<parent>-><child> forked`\n- `exit` events produce `<pid> exited`\n- `wait` events produce `<pid> waited`",
+        },
       },
       samples: [
         {
           input: "3\nfork 1 2\nexit 2\nwait 1\n",
-          output: "1->2 forked\n2 exited\n1 waited\n"
-        }
+          output: "1->2 forked\n2 exited\n1 waited\n",
+        },
       ],
       testcases: {
         sample: {
@@ -361,24 +361,24 @@ export async function seedProblems(
           cases: [
             {
               input: "3\nfork 1 2\nexit 2\nwait 1\n",
-              output: "1->2 forked\n2 exited\n1 waited\n"
-            }
-          ]
+              output: "1->2 forked\n2 exited\n1 waited\n",
+            },
+          ],
         },
         hidden: {
           description: "1 ≤ N ≤ 10^5, nested fork chains.",
           cases: [
             {
               input: "5\nfork 1 2\nfork 2 3\nexit 3\nwait 2\nexit 1\n",
-              output: "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n"
+              output: "1->2 forked\n2->3 forked\n3 exited\n2 waited\n1 exited\n",
             },
             {
               input: "2\nfork 1 2\nexit 2\n",
-              output: "1->2 forked\n2 exited\n"
-            }
-          ]
-        }
-      }
+              output: "1->2 forked\n2 exited\n",
+            },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -395,36 +395,36 @@ export async function seedProblems(
           body: "計算在爆發約束下行程樹的最小成本隔離策略。這個題目在課程考試中保持私有。",
           inputFormat:
             "第一行一個整數 $N$（$2 \\le N \\le 10^5$），表示行程數量。\n\n接下來 $N-1$ 行，每行兩個整數 $u$ 和 $v$，表示行程 $u$ fork 了行程 $v$。",
-          outputFormat: "一行，輸出最小隔離成本。"
+          outputFormat: "一行，輸出最小隔離成本。",
         },
         en: {
           title: "Fork Bomb Safeguard",
           body: "Compute the minimum cost isolation strategy for a process tree under burst constraints. This problem stays private to the course exam.",
           inputFormat:
             "The first line contains an integer $N$ ($2 \\le N \\le 10^5$), the number of processes.\n\nThe next $N-1$ lines each contain two integers $u$ and $v$, indicating process $u$ forked process $v$.",
-          outputFormat: "A single line containing the minimum isolation cost."
-        }
+          outputFormat: "A single line containing the minimum isolation cost.",
+        },
       },
       samples: [
         { input: "4\n1 2\n1 3\n3 4\n", output: "7" },
-        { input: "2\n1 2\n", output: "3" }
+        { input: "2\n1 2\n", output: "3" },
       ],
       testcases: {
         sample: {
           description: "Small process trees demonstrating the cost model.",
           cases: [
             { input: "4\n1 2\n1 3\n3 4\n", output: "7" },
-            { input: "2\n1 2\n", output: "3" }
-          ]
+            { input: "2\n1 2\n", output: "3" },
+          ],
         },
         hidden: {
           description: "2 ≤ N ≤ 10^5, deep + wide trees.",
           cases: [
             { input: "5\n1 2\n1 3\n3 4\n3 5\n", output: "11" },
-            { input: "3\n1 2\n2 3\n", output: "6" }
-          ]
-        }
-      }
+            { input: "3\n1 2\n2 3\n", output: "6" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -441,19 +441,19 @@ export async function seedProblems(
           body: "讀入兩個整數並輸出它們的總和。",
           inputFormat:
             "一行，包含兩個以空白分隔的整數 $a$ 和 $b$（$-2^{31} \\le a, b \\le 2^{31}-1$）。",
-          outputFormat: "一行，輸出 $a + b$ 的值。"
+          outputFormat: "一行，輸出 $a + b$ 的值。",
         },
         en: {
           title: "Add Two Numbers",
           body: "Read two integers from stdin and print their sum.",
           inputFormat:
             "A single line containing two space-separated integers $a$ and $b$ ($-2^{31} \\le a, b \\le 2^{31}-1$).",
-          outputFormat: "A single line containing the value of $a + b$."
-        }
+          outputFormat: "A single line containing the value of $a + b$.",
+        },
       },
       samples: [
         { input: "1 2", output: "3" },
-        { input: "0 0", output: "0" }
+        { input: "0 0", output: "0" },
       ],
       testcases: {
         sample: {
@@ -461,18 +461,18 @@ export async function seedProblems(
           cases: [
             { input: "1 2", output: "3" },
             { input: "0 0", output: "0" },
-            { input: "-1 1", output: "0" }
-          ]
+            { input: "-1 1", output: "0" },
+          ],
         },
         hidden: {
           description: "Hidden cases including 32-bit signed integer edges.",
           cases: [
             { input: "1000000 999999", output: "1999999" },
             { input: "-500 -700", output: "-1200" },
-            { input: "2147483646 1", output: "2147483647" }
-          ]
-        }
-      }
+            { input: "2147483646 1", output: "2147483647" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -500,7 +500,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-`
+`,
       },
       timeLimitMs: 1000,
       visibility: "public" as const,
@@ -510,7 +510,7 @@ if __name__ == "__main__":
           body: "計算結果並以浮點數精度輸出。答案與預期值的絕對差必須小於 1e-6。",
           inputFormat:
             "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^9$）。",
-          outputFormat: "一行，輸出 $a / b$ 的值。答案與預期值的絕對差須小於 $10^{-6}$。"
+          outputFormat: "一行，輸出 $a / b$ 的值。答案與預期值的絕對差須小於 $10^{-6}$。",
         },
         en: {
           title: "Float Compare",
@@ -518,29 +518,29 @@ if __name__ == "__main__":
           inputFormat:
             "A single line containing two space-separated positive integers $a$ and $b$ ($1 \\le a, b \\le 10^9$).",
           outputFormat:
-            "A single line containing the value of $a / b$. Your answer must be within $10^{-6}$ absolute difference of the expected value."
-        }
+            "A single line containing the value of $a / b$. Your answer must be within $10^{-6}$ absolute difference of the expected value.",
+        },
       },
       samples: [
         { input: "1 3", output: "0.333333" },
-        { input: "1 7", output: "0.142857" }
+        { input: "1 7", output: "0.142857" },
       ],
       testcases: {
         sample: {
           description: "Public sample cases for the floating-point judge.",
           cases: [
             { input: "1 3", output: "0.333333" },
-            { input: "1 7", output: "0.142857" }
-          ]
+            { input: "1 7", output: "0.142857" },
+          ],
         },
         hidden: {
           description: "Hidden cases evaluated by the custom checker.",
           cases: [
             { input: "2 3", output: "0.666667" },
-            { input: "355 113", output: "3.141593" }
-          ]
-        }
-      }
+            { input: "355 113", output: "3.141593" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -583,7 +583,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-`
+`,
       },
       timeLimitMs: 2000,
       visibility: "public" as const,
@@ -593,37 +593,37 @@ if __name__ == "__main__":
           body: "這是一道互動題。系統會選定一個秘密數字，你需要透過互動來猜出它。\\n\\n系統首先會輸出範圍 `lo hi`，你每次猜一個數字，系統會回應 `higher`（太小）、`lower`（太大）或 `correct`（猜對）。你最多有 20 次猜測機會。",
           inputFormat:
             "第一行包含兩個整數 $lo$ 和 $hi$（$1 \\le lo \\le hi \\le 10^6$），表示數字的範圍。",
-          outputFormat: "每次輸出一個整數作為你的猜測。"
+          outputFormat: "每次輸出一個整數作為你的猜測。",
         },
         en: {
           title: "Guess the Number",
           body: "This is an interactive problem. The system picks a secret number and you must guess it.\\n\\nThe system first outputs the range `lo hi`. Each turn, you output a guess and the system responds with `higher` (too low), `lower` (too high), or `correct`. You have at most 20 guesses.",
           inputFormat:
             "The first line contains two integers $lo$ and $hi$ ($1 \\le lo \\le hi \\le 10^6$), the range of the number.",
-          outputFormat: "Output one integer per line as your guess."
-        }
+          outputFormat: "Output one integer per line as your guess.",
+        },
       },
       samples: [
         { input: "42", output: "" },
-        { input: "500000", output: "" }
+        { input: "500000", output: "" },
       ],
       testcases: {
         sample: {
           description: "Public sample secrets exercised by the interactor.",
           cases: [
             { input: "42", output: "" },
-            { input: "500000", output: "" }
-          ]
+            { input: "500000", output: "" },
+          ],
         },
         hidden: {
           description: "Boundary secrets including 1 and 10^6.",
           cases: [
             { input: "1", output: "" },
             { input: "1000000", output: "" },
-            { input: "314159", output: "" }
-          ]
-        }
-      }
+            { input: "314159", output: "" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -640,7 +640,7 @@ if __name__ == "__main__":
           body: '這是一題多檔函式實作題。你要在 `main.py` 裡實作 `parse_dhcp_options(hex_payload)`，輸入是一串十六進位字元（每兩位代表一個 byte），內容為 DHCP option TLV 串流。\n\n規則：\n1. Code 0 為 padding，略過。\n2. Code 255 為 End，遇到即停止。\n3. 若長度欄位或資料不足，回傳 `["ERROR"]`。\n4. 回傳每個 TLV 的字串格式 `CODE:LEN:VALUE`。\n5. Code 1/3/6 的 VALUE 需轉為 IPv4（每 4 bytes 一組，以逗號串接）；其他 code 以大寫十六進位連續字串輸出。',
           inputFormat:
             "評測 driver 會先讀入整數 $Q$，接著有 $Q$ 行 hex payload。每行都會呼叫一次 `parse_dhcp_options`。",
-          outputFormat: "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。"
+          outputFormat: "每筆 payload 輸出一行。若回傳列表為 `[a, b, c]`，則輸出 `a|b|c`。",
         },
         en: {
           title: "Stateful DHCP Option Parser",
@@ -648,14 +648,14 @@ if __name__ == "__main__":
           inputFormat:
             "The judge driver reads an integer $Q$, followed by $Q$ payload lines. Each line is passed once to `parse_dhcp_options`.",
           outputFormat:
-            "Print one line per payload. A returned list `[a, b, c]` must be printed as `a|b|c`."
-        }
+            "Print one line per payload. A returned list `[a, b, c]` must be printed as `a|b|c`.",
+        },
       },
       samples: [
         {
           input: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
-          output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
-        }
+          output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2",
+        },
       ],
       workspaceFiles: [
         {
@@ -681,7 +681,7 @@ def parse_dhcp_options(hex_payload: str) -> List[str]:
           visibility: "editable",
           description:
             "Implement parse_dhcp_options here. This is the file you edit; the driver and hidden smoke check import from `main`.",
-          orderIndex: 0
+          orderIndex: 0,
         },
         {
           language: "python",
@@ -717,7 +717,7 @@ if __name__ == "__main__":
           visibility: "readonly",
           description:
             "Judge driver — reads Q hex payloads from stdin and prints the return of parse_dhcp_options for each. You don't need to touch this file.",
-          orderIndex: 1
+          orderIndex: 1,
         },
         {
           language: "python",
@@ -743,8 +743,8 @@ if __name__ == "__main__":
           visibility: "hidden",
           description:
             "Hidden pre-flight sanity check run by the judge before grading. Ensures parse_dhcp_options at least returns a list of strings so a crash here fails fast with a clear signal.",
-          orderIndex: 2
-        }
+          orderIndex: 2,
+        },
       ],
       testcases: {
         sample: {
@@ -752,24 +752,24 @@ if __name__ == "__main__":
           cases: [
             {
               input: "2\n0104C0A8010103040A000001FF\n0108C0A80101C0A80102FF\n",
-              output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2"
-            }
-          ]
+              output: "1:4:192.168.1.1|3:4:10.0.0.1\n1:8:192.168.1.1,192.168.1.2",
+            },
+          ],
         },
         hidden: {
           description: "Malformed payloads, multi-byte non-IP values, padding handling.",
           cases: [
             {
               input: "2\n0C066E6F6A762D31FF\n0104C0A801\n",
-              output: "12:6:6E6F6A762D31\nERROR"
+              output: "12:6:6E6F6A762D31\nERROR",
             },
             {
               input: "1\n00000608C0A80101C0A801FEFF\n",
-              output: "6:8:192.168.1.1,192.168.1.254"
-            }
-          ]
-        }
-      }
+              output: "6:8:192.168.1.1,192.168.1.254",
+            },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -786,25 +786,25 @@ if __name__ == "__main__":
           body: "這是一題多檔函式實作題。你要在 `main.py` 裡實作 `analyze_trace(events)`，每個事件格式為：\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\n同一 `id` 重複 ALLOC 視為先前未釋放（覆蓋前請先計入洩漏），FREE 不存在的 `id` 視為 invalid free。\n\n回傳 `(peak_bytes, leaked_blocks, invalid_free_count)`。",
           inputFormat:
             "評測 driver 會先讀入整數 $N$，再讀 $N$ 行事件，最後呼叫 `analyze_trace`。",
-          outputFormat: "輸出三個整數：`peak_bytes leaked_blocks invalid_free_count`。"
+          outputFormat: "輸出三個整數：`peak_bytes leaked_blocks invalid_free_count`。",
         },
         en: {
           title: "Memory Leak Forensics",
           body: "In this problem, implement `analyze_trace(events)` in `main.py`; the judge driver calls it with the parsed event list. Each event is one of:\n- `ALLOC <id> <size>`\n- `FREE <id>`\n\nIf an `id` is allocated again before being freed, treat the old block as leaked before overwrite. Freeing a non-existing `id` counts as an invalid free.\n\nReturn `(peak_bytes, leaked_blocks, invalid_free_count)`.",
           inputFormat:
             "The judge driver reads an integer $N$, then $N$ event lines, and calls `analyze_trace`.",
-          outputFormat: "Print three integers: `peak_bytes leaked_blocks invalid_free_count`."
-        }
+          outputFormat: "Print three integers: `peak_bytes leaked_blocks invalid_free_count`.",
+        },
       },
       samples: [
         {
           input: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
-          output: "48 0 0"
+          output: "48 0 0",
         },
         {
           input: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
-          output: "10 1 2"
-        }
+          output: "10 1 2",
+        },
       ],
       workspaceFiles: [
         {
@@ -826,7 +826,7 @@ def analyze_trace(events: Iterable[str]) -> Tuple[int, int, int]:
           visibility: "editable",
           description:
             "Implement analyze_trace here. The driver imports it from `main` and feeds it parsed event lines.",
-          orderIndex: 0
+          orderIndex: 0,
         },
         {
           language: "python",
@@ -859,8 +859,8 @@ if __name__ == "__main__":
           visibility: "readonly",
           description:
             "Judge driver — parses the stdin event stream and prints the three integers your analyze_trace returns. Read-only.",
-          orderIndex: 1
-        }
+          orderIndex: 1,
+        },
       ],
       testcases: {
         sample: {
@@ -868,13 +868,13 @@ if __name__ == "__main__":
           cases: [
             {
               input: "6\nALLOC a 16\nALLOC b 32\nFREE a\nALLOC a 8\nFREE b\nFREE a\n",
-              output: "48 0 0"
+              output: "48 0 0",
             },
             {
               input: "5\nALLOC x 10\nALLOC x 5\nFREE y\nFREE x\nFREE x\n",
-              output: "10 1 2"
-            }
-          ]
+              output: "10 1 2",
+            },
+          ],
         },
         hidden: {
           description: "Mixed traces with peak tracking, leaks, and invalid frees.",
@@ -882,15 +882,15 @@ if __name__ == "__main__":
             {
               input:
                 "8\nALLOC p1 100\nALLOC p2 200\nFREE p1\nALLOC p3 50\nALLOC p2 30\nFREE p3\nFREE p9\nFREE p2\n",
-              output: "300 1 1"
+              output: "300 1 1",
             },
             {
               input: "4\nFREE z\nALLOC z 1\nALLOC z 2\nALLOC z 3\n",
-              output: "3 2 1"
-            }
-          ]
-        }
-      }
+              output: "3 2 1",
+            },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -933,7 +933,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-`
+`,
       },
       timeLimitMs: 2500,
       visibility: "public" as const,
@@ -942,36 +942,36 @@ if __name__ == "__main__":
           title: "Noisy Oracle Hunt",
           body: "這是一道高難互動題。你要找出區間內秘密數字，但 oracle 並非完全誠實。\n\n互動器第一行輸出：`lo hi maxTurns liePeriod`。\n你每回合輸出一個猜測整數，互動器回應：\n- `higher`：你的猜測太小\n- `lower`：你的猜測太大\n- `correct`：猜中\n\n陷阱：每逢第 `liePeriod` 回合（例如 5,10,15...），若尚未猜中，回應會故意反轉。",
           inputFormat: "互動器先輸出四個整數 `lo hi maxTurns liePeriod`。",
-          outputFormat: "每回合輸出一個整數猜測，並立即 flush。"
+          outputFormat: "每回合輸出一個整數猜測，並立即 flush。",
         },
         en: {
           title: "Noisy Oracle Hunt",
           body: "This is a hard interactive problem. You must find a hidden number in range, but the oracle is not always truthful.\n\nThe interactor first prints: `lo hi maxTurns liePeriod`.\nEach turn, print one integer guess, and receive:\n- `higher`: your guess is too small\n- `lower`: your guess is too large\n- `correct`: guessed exactly\n\nTrap: on every `liePeriod`-th turn (5, 10, 15, ...), if not already correct, the response is intentionally inverted.",
           inputFormat: "The interactor first outputs `lo hi maxTurns liePeriod`.",
-          outputFormat: "Print one integer guess per turn and flush immediately."
-        }
+          outputFormat: "Print one integer guess per turn and flush immediately.",
+        },
       },
       samples: [
         { input: "42", output: "" },
-        { input: "777777", output: "" }
+        { input: "777777", output: "" },
       ],
       testcases: {
         sample: {
           description: "Public sample secrets for the noisy oracle.",
           cases: [
             { input: "42", output: "" },
-            { input: "777777", output: "" }
-          ]
+            { input: "777777", output: "" },
+          ],
         },
         hidden: {
           description: "Boundary secrets challenging the lie schedule.",
           cases: [
             { input: "1", output: "" },
             { input: "1000000", output: "" },
-            { input: "314159", output: "" }
-          ]
-        }
-      }
+            { input: "314159", output: "" },
+          ],
+        },
+      },
     },
     {
       authorId: teacherId,
@@ -989,16 +989,16 @@ if __name__ == "__main__":
           title: "Shell Scripting Lab",
           body: "這是一道 Advanced Mode 題目。請上傳 shell 腳本 (例如 `main.sh`)，系統會把檔案放到 `/workspace/submission/`。\n\n判題容器已由助教事先打包，內部 bundle 所有測資與評分腳本，跑完後把分數寫到 `/workspace/output/result.json`。",
           inputFormat: "（由助教的判題映像檔自行定義。）",
-          outputFormat: "（由助教的判題映像檔自行定義。）"
+          outputFormat: "（由助教的判題映像檔自行定義。）",
         },
         en: {
           title: "Shell Scripting Lab",
           body: "Advanced Mode demo problem. Upload a shell script (e.g. `main.sh`); the system mounts it under `/workspace/submission/`.\n\nThe TA-provided judge image bundles its own testcases, runs the script internally, and writes the final score to `/workspace/output/result.json`.",
           inputFormat: "(Defined inside the TA's judge image.)",
-          outputFormat: "(Defined inside the TA's judge image.)"
-        }
-      }
-    }
+          outputFormat: "(Defined inside the TA's judge image.)",
+        },
+      },
+    },
   ];
 
   validateProblemDefinitions(problemDefs);
@@ -1013,7 +1013,7 @@ if __name__ == "__main__":
       status: def.status ?? "published",
       samples: toSamplesJson(def.samples),
       advancedImageRef: def.advancedImageRef ?? null,
-      advancedImageSource: def.advancedImageSource ?? null
+      advancedImageSource: def.advancedImageSource ?? null,
     };
 
     const problem = await prisma.problem.upsert({
@@ -1023,10 +1023,10 @@ if __name__ == "__main__":
         memoryLimitMb: def.memoryLimitMb,
         timeLimitMs: def.timeLimitMs,
         visibility: def.visibility,
-        ...sharedFields
+        ...sharedFields,
       },
       update: sharedFields,
-      where: { id: def.id }
+      where: { id: def.id },
     });
 
     // Upsert statements for each locale
@@ -1038,20 +1038,20 @@ if __name__ == "__main__":
           outputFormat: stmt.outputFormat ?? "",
           locale,
           problemId: problem.id,
-          title: stmt.title
+          title: stmt.title,
         },
         update: {
           bodyMarkdown: stmt.body,
           inputFormat: stmt.inputFormat ?? "",
           outputFormat: stmt.outputFormat ?? "",
-          title: stmt.title
+          title: stmt.title,
         },
         where: {
           problemId_locale: {
             locale,
-            problemId: problem.id
-          }
-        }
+            problemId: problem.id,
+          },
+        },
       });
     }
 
@@ -1066,18 +1066,18 @@ if __name__ == "__main__":
             description: setDef.description ?? "",
             ordinal: index,
             problemId: problem.id,
-            weight: 1
+            weight: 1,
           },
           update: {
             description: setDef.description ?? "",
-            ordinal: index
+            ordinal: index,
           },
           where: {
             problemId_name: {
               name: setName,
-              problemId: problem.id
-            }
-          }
+              problemId: problem.id,
+            },
+          },
         });
 
         // Delete existing testcases and re-create for idempotency. The
@@ -1085,7 +1085,7 @@ if __name__ == "__main__":
         // below since each new testcase gets a fresh id (and thus a
         // fresh S3 key). Old objects become orphans — fine for seed.
         await prisma.testcase.deleteMany({
-          where: { testcaseSetId: testcaseSet.id }
+          where: { testcaseSetId: testcaseSet.id },
         });
 
         // S3 first, single createMany after — same write order as the
@@ -1096,9 +1096,9 @@ if __name__ == "__main__":
             const id = testcaseIds[caseIndex]!;
             return [
               putText(storage, testcaseInputKey(problem.id, id), tc.input),
-              putText(storage, testcaseOutputKey(problem.id, id), tc.output)
+              putText(storage, testcaseOutputKey(problem.id, id), tc.output),
             ];
-          })
+          }),
         );
         await prisma.testcase.createMany({
           data: setDef.cases.map((_tc, caseIndex) => {
@@ -1108,9 +1108,9 @@ if __name__ == "__main__":
               ordinal: caseIndex + 1,
               testcaseSetId: testcaseSet.id,
               inputKey: testcaseInputKey(problem.id, id),
-              outputKey: testcaseOutputKey(problem.id, id)
+              outputKey: testcaseOutputKey(problem.id, id),
             };
-          })
+          }),
         });
       }
     }
@@ -1118,15 +1118,15 @@ if __name__ == "__main__":
     // Upsert workspace files (multi-file scaffolds + hidden helpers).
     if (def.workspaceFiles && def.workspaceFiles.length > 0) {
       await prisma.problemWorkspaceFile.deleteMany({
-        where: { problemId: problem.id }
+        where: { problemId: problem.id },
       });
       // S3 first, then createMany — same flow as production. Orphan
       // blobs from previous seed runs (if any) are tolerable.
       const fileIds = def.workspaceFiles.map(() => randomUUID());
       await Promise.all(
         def.workspaceFiles.map((wf, i) =>
-          putText(storage, workspaceFileKey(problem.id, fileIds[i]!), wf.content)
-        )
+          putText(storage, workspaceFileKey(problem.id, fileIds[i]!), wf.content),
+        ),
       );
       await prisma.problemWorkspaceFile.createMany({
         data: def.workspaceFiles.map((wf, i) => ({
@@ -1137,8 +1137,8 @@ if __name__ == "__main__":
           contentKey: workspaceFileKey(problem.id, fileIds[i]!),
           visibility: wf.visibility,
           description: wf.description ?? "",
-          orderIndex: wf.orderIndex ?? 0
-        }))
+          orderIndex: wf.orderIndex ?? 0,
+        })),
       });
     }
 
@@ -1148,7 +1148,7 @@ if __name__ == "__main__":
     if (def.workspaceFiles?.length) extras.push(`${def.workspaceFiles.length} workspace files`);
     const extrasLabel = extras.length ? `, ${extras.join(", ")}` : "";
     console.log(
-      `  Problem: ${def.id} [${def.type}] (${Object.keys(def.statements).join(", ")} statements, ${testcaseSetCount} testcase sets${extrasLabel})`
+      `  Problem: ${def.id} [${def.type}] (${Object.keys(def.statements).join(", ")} statements, ${testcaseSetCount} testcase sets${extrasLabel})`,
     );
   }
 }

@@ -16,14 +16,14 @@ async function execPipeline(pipeline: ReturnType<Redis["pipeline"]>): Promise<vo
 export async function updateScoreboard(
   contestId: string,
   participationId: string,
-  score: number
+  score: number,
 ): Promise<void> {
   const key = keys.scoreboard(contestId);
   await execPipeline(
     getRedis()
       .pipeline()
       .zadd(key, score.toString(), participationId)
-      .expire(key, SCOREBOARD_TTL_SECONDS)
+      .expire(key, SCOREBOARD_TTL_SECONDS),
   );
 }
 
@@ -31,7 +31,7 @@ export async function updateScoreboard(
 export async function getScoreboard(
   contestId: string,
   start = 0,
-  stop = -1
+  stop = -1,
 ): Promise<{ participationId: string; score: number }[]> {
   const redis = getRedis();
   const frozenKey = keys.scoreboardFrozen(contestId);
@@ -75,7 +75,7 @@ export async function freezeScoreboard(contestId: string): Promise<void> {
       redis
         .pipeline()
         .zadd(frozenKey, ...zaddArgs)
-        .expire(frozenKey, SCOREBOARD_TTL_SECONDS)
+        .expire(frozenKey, SCOREBOARD_TTL_SECONDS),
     );
   }
 }

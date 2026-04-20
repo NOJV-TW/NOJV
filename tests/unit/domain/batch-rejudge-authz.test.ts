@@ -6,14 +6,14 @@ const {
   examFindById,
   problemFindById,
   courseMembershipFindByComposite,
-  submissionAnyWithContextForProblem
+  submissionAnyWithContextForProblem,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
   problemFindById: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
-  submissionAnyWithContextForProblem: vi.fn()
+  submissionAnyWithContextForProblem: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -22,7 +22,7 @@ vi.mock("@nojv/db", () => ({
   examRepo: { findById: examFindById },
   problemRepo: { findById: problemFindById },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
-  submissionRepo: { anyWithContextForProblem: submissionAnyWithContextForProblem }
+  submissionRepo: { anyWithContextForProblem: submissionAnyWithContextForProblem },
 }));
 
 import { ForbiddenError, submissionDomain } from "@nojv/domain";
@@ -33,21 +33,21 @@ function actor(
   overrides: Partial<{
     userId: string;
     platformRole: "admin" | "teacher" | "student";
-  }> = {}
+  }> = {},
 ) {
   return {
     userId: overrides.userId ?? "usr_actor",
     username: "actor",
     platformRole: overrides.platformRole ?? ("student" as const),
     displayName: "Actor",
-    email: "actor@example.com"
+    email: "actor@example.com",
   };
 }
 
 const baseBatch = {
   mode: "batch" as const,
   problemId: "prob_1",
-  triggeredByUserId: "usr_actor"
+  triggeredByUserId: "usr_actor",
 };
 
 beforeEach(() => {
@@ -57,7 +57,7 @@ beforeEach(() => {
 describe("assertBatchRejudgeAccess — admin bypass", () => {
   it("resolves quietly for admin regardless of scope", async () => {
     await expect(
-      assertBatchRejudgeAccess(actor({ platformRole: "admin" }), baseBatch)
+      assertBatchRejudgeAccess(actor({ platformRole: "admin" }), baseBatch),
     ).resolves.toBeUndefined();
     expect(contestFindById).not.toHaveBeenCalled();
     expect(problemFindById).not.toHaveBeenCalled();
@@ -70,8 +70,8 @@ describe("assertBatchRejudgeAccess — contest-scoped", () => {
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_organizer" }), {
         ...baseBatch,
-        contestId: "ctst_1"
-      })
+        contestId: "ctst_1",
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -80,8 +80,8 @@ describe("assertBatchRejudgeAccess — contest-scoped", () => {
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_stranger" }), {
         ...baseBatch,
-        contestId: "ctst_1"
-      })
+        contestId: "ctst_1",
+      }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -90,8 +90,8 @@ describe("assertBatchRejudgeAccess — contest-scoped", () => {
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_organizer" }), {
         ...baseBatch,
-        contestId: "ctst_1"
-      })
+        contestId: "ctst_1",
+      }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
@@ -103,13 +103,13 @@ describe("assertBatchRejudgeAccess — assessment-scoped", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_teacher" }), {
         ...baseBatch,
-        assessmentId: "ca_hw1"
-      })
+        assessmentId: "ca_hw1",
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -119,13 +119,13 @@ describe("assertBatchRejudgeAccess — assessment-scoped", () => {
       courseId: "crs_1",
       userId: "usr_ta",
       role: "ta",
-      status: "active"
+      status: "active",
     });
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_ta" }), {
         ...baseBatch,
-        assessmentId: "ca_hw1"
-      })
+        assessmentId: "ca_hw1",
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -135,8 +135,8 @@ describe("assertBatchRejudgeAccess — assessment-scoped", () => {
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_stranger" }), {
         ...baseBatch,
-        assessmentId: "ca_hw1"
-      })
+        assessmentId: "ca_hw1",
+      }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
@@ -148,13 +148,13 @@ describe("assertBatchRejudgeAccess — exam-scoped", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_teacher" }), {
         ...baseBatch,
-        examId: "exm_1"
-      })
+        examId: "exm_1",
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -164,8 +164,8 @@ describe("assertBatchRejudgeAccess — exam-scoped", () => {
     await expect(
       assertBatchRejudgeAccess(actor({ userId: "usr_stranger" }), {
         ...baseBatch,
-        examId: "exm_1"
-      })
+        examId: "exm_1",
+      }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
@@ -175,7 +175,7 @@ describe("assertBatchRejudgeAccess — unscoped (bare problemId)", () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     submissionAnyWithContextForProblem.mockResolvedValue(false);
     await expect(
-      assertBatchRejudgeAccess(actor({ userId: "usr_author" }), baseBatch)
+      assertBatchRejudgeAccess(actor({ userId: "usr_author" }), baseBatch),
     ).resolves.toBeUndefined();
   });
 
@@ -183,14 +183,14 @@ describe("assertBatchRejudgeAccess — unscoped (bare problemId)", () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     submissionAnyWithContextForProblem.mockResolvedValue(true);
     await expect(
-      assertBatchRejudgeAccess(actor({ userId: "usr_author" }), baseBatch)
+      assertBatchRejudgeAccess(actor({ userId: "usr_author" }), baseBatch),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it("rejects a non-author", async () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     await expect(
-      assertBatchRejudgeAccess(actor({ userId: "usr_stranger" }), baseBatch)
+      assertBatchRejudgeAccess(actor({ userId: "usr_stranger" }), baseBatch),
     ).rejects.toBeInstanceOf(ForbiddenError);
     // Short-circuits before checking non-practice submissions.
     expect(submissionAnyWithContextForProblem).not.toHaveBeenCalled();

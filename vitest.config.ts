@@ -11,7 +11,7 @@ const sharedAliases = {
   "@nojv/domain": path.resolve(__dirname, "packages/domain/src/index.ts"),
   "@nojv/job-dispatch": path.resolve(__dirname, "packages/job-dispatch/src/index.ts"),
   "@nojv/redis": path.resolve(__dirname, "packages/redis/src/index.ts"),
-  "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts")
+  "@nojv/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
 };
 
 export default defineConfig({
@@ -19,7 +19,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
-      reportsDirectory: "./coverage"
+      reportsDirectory: "./coverage",
     },
     projects: [
       {
@@ -27,8 +27,8 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
-          environment: "node"
-        }
+          environment: "node",
+        },
       },
       {
         resolve: { alias: sharedAliases },
@@ -44,9 +44,9 @@ export default defineConfig({
           // parallelise, but the gain is small for a 6-file suite.
           fileParallelism: false,
           globalSetup: ["tests/setup/global-setup.ts"],
-          setupFiles: ["tests/setup/integration-setup.ts"]
-        }
-      }
-    ]
-  }
+          setupFiles: ["tests/setup/integration-setup.ts"],
+        },
+      },
+    ],
+  },
 });

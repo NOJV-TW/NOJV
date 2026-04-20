@@ -16,7 +16,7 @@ export function readCheckbox(formData: FormData, key: string): boolean {
 export function parseJsonField<T>(
   raw: FormDataEntryValue | null,
   schema: z.ZodType<T>,
-  fieldName = "data"
+  fieldName = "data",
 ): T {
   if (typeof raw !== "string") error(400, `Missing ${fieldName} field`);
 

@@ -23,7 +23,7 @@ const handleAuth: RequestHandler = async (event) => {
       path: event.url.pathname,
       provider: event.url.pathname.split("/").at(-1) ?? null,
       query: event.url.searchParams.toString(),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
   }

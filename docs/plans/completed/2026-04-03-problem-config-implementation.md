@@ -33,7 +33,7 @@ import {
   artifactConfigSchema,
   networkAccessConfigSchema,
   pipelineStageSchema,
-  customScriptConfigSchema
+  customScriptConfigSchema,
 } from "../pipeline";
 
 export const judgeConfigSchema = z.object({
@@ -45,7 +45,7 @@ export const judgeConfigSchema = z.object({
 
   pipeline: z
     .object({
-      stages: z.array(pipelineStageSchema).min(1).max(20)
+      stages: z.array(pipelineStageSchema).min(1).max(20),
     })
     .optional(),
 
@@ -55,11 +55,11 @@ export const judgeConfigSchema = z.object({
   customScripts: z
     .array(
       customScriptConfigSchema.extend({
-        name: z.string().min(1).max(100)
-      })
+        name: z.string().min(1).max(100),
+      }),
     )
     .max(10)
-    .optional()
+    .optional(),
 });
 
 export type JudgeConfig = z.infer<typeof judgeConfigSchema>;
@@ -205,7 +205,7 @@ export const problemCreateSchema = z.object({
   title: z.string().trim().min(3).max(120),
   visibility: problemVisibilitySchema,
   judgeConfig: judgeConfigSchema.optional(),
-  status: problemStatusSchema.default("draft")
+  status: problemStatusSchema.default("draft"),
 });
 ```
 
@@ -327,7 +327,7 @@ Replace the old field assignments with:
 const problem = await problemRepo.withTx(tx).create({
   // ... other fields unchanged
   judgeConfig: input.judgeConfig ?? undefined,
-  status: input.status ?? "published"
+  status: input.status ?? "published",
   // Remove: judgeType, checkerScript, interactorScript, pipelineConfig,
   //         scoringScript, scoringLanguage, artifactPatterns, networkAccessConfig
 } as any);
@@ -362,7 +362,7 @@ return {
   pipelineConfig: judgeConfig.pipeline ?? null,
   scoringLanguage: judgeConfig.scoring?.language ?? null,
   scoringScript: judgeConfig.scoring?.script ?? null,
-  artifactPatterns: judgeConfig.artifacts?.patterns ?? []
+  artifactPatterns: judgeConfig.artifacts?.patterns ?? [],
   // ... rest unchanged
 };
 ```
@@ -560,7 +560,7 @@ const basicInfoSchema = z.object({
   inputFormat: z.string().trim().max(4_000).default(""),
   outputFormat: z.string().trim().max(4_000).default(""),
   summary: z.string().trim().max(2_000).default(""),
-  status: problemStatusSchema.optional()
+  status: problemStatusSchema.optional(),
 });
 ```
 
@@ -813,22 +813,22 @@ export const scoringRuleSchema = z.discriminatedUnion("type", [
     type: z.literal("late_penalty_fixed"),
     perUnit: z.enum(["day", "week"]),
     amount: z.number().min(0).max(100),
-    maxDeduction: z.number().min(0).max(100)
+    maxDeduction: z.number().min(0).max(100),
   }),
   z.object({
     type: z.literal("late_penalty_decay"),
-    halfLifeHours: z.number().min(1).max(8760)
+    halfLifeHours: z.number().min(1).max(8760),
   }),
   z.object({
     type: z.literal("time_bonus"),
     maxBonusPercent: z.number().min(0).max(100),
-    baselineMs: z.number().min(0)
+    baselineMs: z.number().min(0),
   }),
   z.object({
     type: z.literal("memory_penalty"),
     thresholdMb: z.number().min(0),
-    maxDeduction: z.number().min(0).max(100)
-  })
+    maxDeduction: z.number().min(0).max(100),
+  }),
 ]);
 
 export const subtaskScoringStrategy = z.enum(["all_or_nothing", "proportional", "minimum"]);
@@ -841,7 +841,7 @@ export const scoringConfigSchema = z.object({
 
   // Rules mode
   subtaskStrategies: z.record(z.string(), subtaskScoringStrategy).optional(),
-  adjustmentRules: z.array(scoringRuleSchema).max(10).optional()
+  adjustmentRules: z.array(scoringRuleSchema).max(10).optional(),
 });
 ```
 
@@ -897,7 +897,7 @@ const body = {
   sourceCode: "", // not used for zip
   sourceFiles: files.map((f) => ({ path: f.path, content: f.content })),
   entryFile: entryFilePath,
-  submissionType: "zip_project"
+  submissionType: "zip_project",
 };
 ```
 

@@ -17,7 +17,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const submission = await getSubmissionForUser(
     submissionId,
     actor.userId,
-    actor.platformRole === "admin"
+    actor.platformRole === "admin",
   );
 
   return json({ sourceCode: submission.sourceCode });

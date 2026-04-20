@@ -19,12 +19,12 @@ const sharedIgnores = [
   "**/svelte.config.js",
   "**/tsdown.config.ts",
   "**/vite.config.ts",
-  "**/vitest.config.ts"
+  "**/vitest.config.ts",
 ];
 
 export const baseConfig = [
   {
-    ignores: sharedIgnores
+    ignores: sharedIgnores,
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
@@ -33,23 +33,23 @@ export const baseConfig = [
     languageOptions: {
       ecmaVersion: "latest",
       globals: {
-        ...globals.node
+        ...globals.node,
       },
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: process.cwd()
-      }
+        tsconfigRootDir: process.cwd(),
+      },
     },
     rules: {
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {
-          prefer: "type-imports"
-        }
+          prefer: "type-imports",
+        },
       ],
-      "@typescript-eslint/no-confusing-void-expression": "off"
-    }
-  }
+      "@typescript-eslint/no-confusing-void-expression": "off",
+    },
+  },
 ];
 
 export default baseConfig;

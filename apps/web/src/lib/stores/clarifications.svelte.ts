@@ -42,7 +42,7 @@ export interface ClarificationsStore {
  */
 export function createClarificationsStore(
   contextType: "contest" | "exam" | "assignment",
-  contextId: string
+  contextId: string,
 ): ClarificationsStore {
   let items = $state<ClarificationItem[]>([]);
   let lastSeenAt = $state<string | null>(null);
@@ -80,7 +80,7 @@ export function createClarificationsStore(
     const r = await fetch("/api/clarifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contextType, contextId, problemId, questionText })
+      body: JSON.stringify({ contextType, contextId, problemId, questionText }),
     });
     if (!r.ok) {
       const body = (await r.json().catch(() => ({ message: "Ask failed" }))) as {
@@ -95,7 +95,7 @@ export function createClarificationsStore(
     const r = await fetch(`/api/clarifications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answerText })
+      body: JSON.stringify({ answerText }),
     });
     if (!r.ok) throw new Error("Answer failed");
   }
@@ -104,19 +104,19 @@ export function createClarificationsStore(
     const r = await fetch(`/api/clarifications/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ state: "dismissed" })
+      body: JSON.stringify({ state: "dismissed" }),
     });
     if (!r.ok) throw new Error("Dismiss failed");
   }
 
   async function canned(
     id: string,
-    templateKey: "noComment" | "readProblem" | "yes" | "no"
+    templateKey: "noComment" | "readProblem" | "yes" | "no",
   ): Promise<void> {
     const r = await fetch(`/api/clarifications/${id}/canned`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ templateKey })
+      body: JSON.stringify({ templateKey }),
     });
     if (!r.ok) throw new Error("Canned reply failed");
   }
@@ -146,6 +146,6 @@ export function createClarificationsStore(
     answer,
     dismiss,
     canned,
-    markTabVisited
+    markTabVisited,
   };
 }

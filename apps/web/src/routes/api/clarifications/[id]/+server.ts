@@ -10,11 +10,11 @@ import { clarificationDomain } from "@nojv/domain";
 const patchSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("answer"),
-    answerText: z.string().min(1).max(1000)
+    answerText: z.string().min(1).max(1000),
   }),
   z.object({
-    kind: z.literal("dismiss")
-  })
+    kind: z.literal("dismiss"),
+  }),
 ]);
 
 function parseBody(raw: unknown): z.infer<typeof patchSchema> {
@@ -50,7 +50,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   }
 
   const updated = await clarificationDomain.answer(actor, id, {
-    answerText: parsed.answerText
+    answerText: parsed.answerText,
   });
   return json(updated);
 });

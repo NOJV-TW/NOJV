@@ -9,7 +9,7 @@ const {
   workspaceCreateMany,
   problemFindById,
   problemUpdate,
-  PRISMA_JSON_NULL
+  PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
   problemStatementCreate: vi.fn(),
@@ -18,7 +18,7 @@ const {
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
   // Sentinel for Prisma.JsonNull — we only need identity equality in assertions.
-  PRISMA_JSON_NULL: Symbol("Prisma.JsonNull")
+  PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
 
 vi.mock("@nojv/storage", () => {
@@ -39,7 +39,7 @@ vi.mock("@nojv/storage", () => {
       `problems/${problemId}/testcases/${testcaseId}/files/${filename}`,
     workspaceFileKey: (problemId: string, fileId: string) =>
       `problems/${problemId}/workspace/${fileId}`,
-    problemPrefix: (problemId: string) => `problems/${problemId}/`
+    problemPrefix: (problemId: string) => `problems/${problemId}/`,
   };
 });
 
@@ -48,35 +48,35 @@ vi.mock("@nojv/db", () => {
     create: problemCreate,
     findById: problemFindById,
     update: problemUpdate,
-    delete: vi.fn()
+    delete: vi.fn(),
   };
   const statementWithTx = {
     create: problemStatementCreate,
-    upsert: vi.fn()
+    upsert: vi.fn(),
   };
   const workspaceWithTx = {
     deleteByProblemId: workspaceDeleteByProblemId,
-    createMany: workspaceCreateMany
+    createMany: workspaceCreateMany,
   };
   return {
     Prisma: {
-      JsonNull: PRISMA_JSON_NULL
+      JsonNull: PRISMA_JSON_NULL,
     },
     problemRepo: {
       withTx: () => withTx,
       findById: problemFindById,
-      delete: vi.fn()
+      delete: vi.fn(),
     },
     problemStatementRepo: {
-      withTx: () => statementWithTx
+      withTx: () => statementWithTx,
     },
     problemWorkspaceFileRepo: {
       withTx: () => workspaceWithTx,
-      findByProblemId: vi.fn().mockResolvedValue([])
+      findByProblemId: vi.fn().mockResolvedValue([]),
     },
     testcaseSetRepo: { withTx: () => ({}) },
     testcaseRepo: { withTx: () => ({}) },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
 });
 
@@ -89,7 +89,7 @@ const fakeTx = {} as never;
 const baseInput = {
   authorId: "usr_1",
   difficulty: "easy" as const,
-  title: "Test Problem"
+  title: "Test Problem",
 };
 
 describe("createProblemDefinition", () => {
@@ -129,7 +129,7 @@ describe("createProblemDefinition", () => {
       ...baseInput,
       type: "special_env",
       advancedImageRef: "ghcr.io/acme/ta:1.2.3",
-      advancedImageSource: "tarball"
+      advancedImageSource: "tarball",
     });
 
     const data = problemCreate.mock.calls[0][0];
@@ -141,7 +141,7 @@ describe("createProblemDefinition", () => {
     await createProblemDefinition(fakeTx, {
       ...baseInput,
       difficulty: "hard",
-      tags: ["graph", "dp"]
+      tags: ["graph", "dp"],
     });
 
     const data = problemCreate.mock.calls[0][0];
@@ -154,7 +154,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
   const actor = {
     userId: "usr_author",
     username: "author",
-    platformRole: "teacher" as const
+    platformRole: "teacher" as const,
   };
 
   beforeEach(() => {
@@ -162,7 +162,7 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
     problemFindById.mockResolvedValue({
       id: "prob_1",
       authorId: "usr_author",
-      judgeConfig: null
+      judgeConfig: null,
     });
     workspaceDeleteByProblemId.mockResolvedValue(undefined);
     workspaceCreateMany.mockResolvedValue(undefined);
@@ -177,10 +177,10 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: "print('hello')\n",
-            visibility: "editable"
-          }
-        ]
-      })
+            visibility: "editable",
+          },
+        ],
+      }),
     ).resolves.toEqual({ id: "prob_1", fileCount: 1 });
     expect(workspaceCreateMany).toHaveBeenCalledTimes(1);
   });
@@ -198,22 +198,22 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: "print('hi')\n",
-            visibility: "editable"
+            visibility: "editable",
           },
           {
             language: "python",
             path: "big_a.py",
             content: chunk,
-            visibility: "editable"
+            visibility: "editable",
           },
           {
             language: "python",
             path: "big_b.py",
             content: chunk,
-            visibility: "editable"
-          }
-        ]
-      })
+            visibility: "editable",
+          },
+        ],
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(workspaceDeleteByProblemId).not.toHaveBeenCalled();
   });
@@ -228,16 +228,16 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: pythonChunk,
-            visibility: "editable"
+            visibility: "editable",
           },
           {
             language: "cpp",
             path: "main.cpp",
             content: cppChunk,
-            visibility: "editable"
-          }
-        ]
-      })
+            visibility: "editable",
+          },
+        ],
+      }),
     ).resolves.toEqual({ id: "prob_1", fileCount: 2 });
   });
 
@@ -252,16 +252,16 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: pythonChunk,
-            visibility: "editable"
+            visibility: "editable",
           },
           {
             language: "cpp",
             path: "main.cpp",
             content: cppBig,
-            visibility: "editable"
-          }
-        ]
-      })
+            visibility: "editable",
+          },
+        ],
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -274,10 +274,10 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
             language: "python",
             path: "main.py",
             content: chunk,
-            visibility: "editable"
-          }
-        ]
-      })
+            visibility: "editable",
+          },
+        ],
+      }),
     ).rejects.toThrow(/python.*1 MB limit.*1100000 bytes/);
   });
 });

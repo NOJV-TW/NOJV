@@ -16,23 +16,23 @@ const {
   bulkAddByHandle,
   changeMemberRole,
   removeMember,
-  parseHandleInput
+  parseHandleInput,
 } = courseDomain;
 
 const HANDLE_BLOCK_MAX = 16_000;
 
 const bulkAddSchema = z.object({
   handles: z.string().trim().min(1).max(HANDLE_BLOCK_MAX),
-  role: z.enum(["student", "ta"])
+  role: z.enum(["student", "ta"]),
 });
 
 const changeRoleSchema = z.object({
   userId: z.string().trim().min(1),
-  role: z.enum(["student", "ta", "teacher"])
+  role: z.enum(["student", "ta", "teacher"]),
 });
 
 const removeSchema = z.object({
-  userId: z.string().trim().min(1)
+  userId: z.string().trim().min(1),
 });
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -41,7 +41,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const [members, bulkAddForm] = await Promise.all([
     listMembersForCourse(course.id),
-    superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema))
+    superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema)),
   ]);
 
   // Active-only filter mirrors the UI; removed rows live on the server for audit.
@@ -58,12 +58,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       email: isManager ? member.email : null,
       role: member.role,
       isPlaceholder: member.isPlaceholder,
-      joinedAt: member.joinedAt
+      joinedAt: member.joinedAt,
     }));
 
   return {
     members: visibleMembers,
-    bulkAddForm
+    bulkAddForm,
   };
 });
 
@@ -87,25 +87,25 @@ export const actions = {
       return message<FormMessage>(
         form,
         { kind: "error", text: "No valid handles in input." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     try {
       const result = await bulkAddByHandle(actor, event.params.courseId, {
         handles,
-        role: form.data.role
+        role: form.data.role,
       });
       return message<FormMessage>(form, {
         kind: "success",
-        text: `Added ${String(result.added)} members (${String(result.placeholdersCreated)} new placeholders, ${String(result.skipped)} skipped)`
+        text: `Added ${String(result.added)} members (${String(result.placeholdersCreated)} new placeholders, ${String(result.skipped)} skipped)`,
       });
     } catch (err) {
       const classified = classifyError(err);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 }
+        { status: 400 },
       );
     }
   },
@@ -123,7 +123,7 @@ export const actions = {
     const form = await event.request.formData();
     const parsed = changeRoleSchema.safeParse({
       userId: form.get("userId"),
-      role: form.get("role")
+      role: form.get("role"),
     });
     if (!parsed.success) {
       return fail(400, { error: "Invalid role change request" });
@@ -134,7 +134,7 @@ export const actions = {
         actor,
         event.params.courseId,
         parsed.data.userId,
-        parsed.data.role
+        parsed.data.role,
       );
       return { success: true };
     } catch (err) {
@@ -166,5 +166,5 @@ export const actions = {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
     }
-  }
+  },
 } satisfies Actions;

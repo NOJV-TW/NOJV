@@ -36,7 +36,7 @@ describe("account edit — rename name + username", () => {
     const placeholderHandle = "pending_student_1";
     const placeholder = await userRepo.createPlaceholder({
       username: placeholderHandle,
-      addedByUserId: teacher.id
+      addedByUserId: teacher.id,
     });
     await testPrisma.courseMembership.create({
       data: {
@@ -44,8 +44,8 @@ describe("account edit — rename name + username", () => {
         userId: placeholder.id,
         role: "student",
         status: "active",
-        addedByUserId: teacher.id
-      }
+        addedByUserId: teacher.id,
+      },
     });
 
     // Real (non-verified) user renames into the placeholder's handle.
@@ -60,7 +60,7 @@ describe("account edit — rename name + username", () => {
     expect(await testPrisma.user.findUnique({ where: { id: placeholder.id } })).toBeNull();
 
     const memberships = await testPrisma.courseMembership.findMany({
-      where: { courseId: course.id }
+      where: { courseId: course.id },
     });
     expect(memberships).toHaveLength(1);
     expect(memberships[0]!.userId).toBe(realUser.id);
@@ -71,7 +71,7 @@ describe("account edit — rename name + username", () => {
     const user = await createTestUser({ username: "41047001a" });
 
     await expect(userDomain.renameUsername(user.id, "anything")).rejects.toThrow(
-      "VERIFIED_LOCKED"
+      "VERIFIED_LOCKED",
     );
   });
 });

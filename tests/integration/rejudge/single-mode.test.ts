@@ -7,7 +7,7 @@ import {
   createTestContest,
   createTestProblem,
   createTestSubmission,
-  createTestUser
+  createTestUser,
 } from "../../fixtures/factories";
 
 // We deliberately do NOT spin up a Temporal dev server here. The job-
@@ -30,7 +30,7 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
       userId: student.id,
       problemId: problem.id,
       status: "wrong_answer",
-      score: 30
+      score: 30,
     });
 
     // Step 1: snapshot pre-rejudge state.
@@ -41,7 +41,7 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
     // submission with a better verdict.
     await submissionRepo.complete(submission.id, {
       status: "accepted",
-      score: 100
+      score: 100,
     });
 
     // Step 3: finalize the log — fills in the new* fields.
@@ -71,7 +71,7 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
       problemId: problem.id,
       contestId: contest.id,
       status: "wrong_answer",
-      score: 0
+      score: 0,
     });
 
     const loaded = await submissionRepo.findById(submission.id);
@@ -85,10 +85,10 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
           username: organizer.username ?? "organizer",
           displayName: organizer.name,
           email: organizer.email,
-          platformRole: "teacher"
+          platformRole: "teacher",
         },
-        loaded!
-      )
+        loaded!,
+      ),
     ).resolves.toBeUndefined();
 
     // Unrelated teacher is not.
@@ -99,10 +99,10 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
           username: otherTeacher.username ?? "other",
           displayName: otherTeacher.name,
           email: otherTeacher.email,
-          platformRole: "teacher"
+          platformRole: "teacher",
         },
-        loaded!
-      )
+        loaded!,
+      ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

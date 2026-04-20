@@ -21,7 +21,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const scoreboard = await getScoreboard(contestId, {
     isPrivileged: canUnfreeze,
-    unfrozen: unfrozen && canUnfreeze
+    unfrozen: unfrozen && canUnfreeze,
   });
 
   return json(scoreboard);

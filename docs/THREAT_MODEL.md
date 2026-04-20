@@ -294,7 +294,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **False plagiarism reports**: Attacker triggers plagiarism check repeatedly to generate noise. _Mitigation_: Only course staff can trigger. Rate limited. Report record prevents duplicate workflows for the same target.
-- **MOSS service abuse**: Attacker triggers many MOSS submissions to exhaust the external service. _Mitigation_: Rate limiter on POST. Course staff restriction limits the pool of potential abusers. _Gap_: MOSS retries are not idempotent — retries may create duplicate MOSS runs (documented in RELIABILITY.md).
+- **Worker resource exhaustion via plagiarism floods**: Attacker triggers many detection runs to load tree-sitter parsers and exhaust worker CPU/memory. _Mitigation_: Rate limiter on POST. Course staff restriction limits the pool of potential abusers. Dolos runs in-process with bounded inputs (one assessment's submissions), capped by the activity's 10-minute timeout.
 - **Source code leakage via plagiarism endpoint**: Attacker uses `source=true` query param to read arbitrary student code. _Mitigation_: `canManageCourse(role)` gate. Only course staff can access. `userId` and `problemId` params required — returns code only for the target assessment's submissions.
 
 ### 3.9 Infrastructure and Configuration
@@ -347,15 +347,15 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Medium
 
-| Threat                                           | Justification                                                                                 |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| DoS via submission flooding                      | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service. |
-| SSE connection exhaustion                        | No per-user SSE connection limit. Many concurrent connections could exhaust server memory.    |
-| Image storage exhaustion                         | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.        |
-| Information leakage from Zod validation errors   | Validation issue responses include field paths — reveals internal schema structure.           |
-| Plagiarism detection abuse (duplicate MOSS runs) | Non-idempotent MOSS retries could waste external service quota.                               |
-| Redis data manipulation (development)            | No Redis auth in dev. Any local process can read/write cache, scoreboards, cooldowns.         |
-| Course join token brute force                    | General rate limiter (20/min) but no token-specific lockout.                                  |
+| Threat                                         | Justification                                                                                 |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| DoS via submission flooding                    | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service. |
+| SSE connection exhaustion                      | No per-user SSE connection limit. Many concurrent connections could exhaust server memory.    |
+| Image storage exhaustion                       | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.        |
+| Information leakage from Zod validation errors | Validation issue responses include field paths — reveals internal schema structure.           |
+| Plagiarism detection abuse (worker load)       | Repeated triggers load tree-sitter parsers and consume worker CPU/memory in-process.          |
+| Redis data manipulation (development)          | No Redis auth in dev. Any local process can read/write cache, scoreboards, cooldowns.         |
+| Course join token brute force                  | General rate limiter (20/min) but no token-specific lockout.                                  |
 
 ### Low
 
@@ -378,7 +378,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | 6   | No CSRF token on API routes                         | SvelteKit form actions have built-in CSRF. API routes rely on same-origin and auth headers | Verify `Origin` header checking is active on all mutation endpoints                         | Medium   |
 | 7   | File type validation uses `file.type`               | MIME type is client-reported and can be spoofed                                            | Add magic-number (file header) validation for uploaded images                               | Medium   |
 | 8   | Temporal UI exposed in development                  | Port 8080 accessible on localhost                                                          | Ensure Temporal UI is not publicly accessible in production (firewall or VPN)               | High     |
-| 9   | MOSS retry non-idempotency                          | Retries may create duplicate MOSS runs                                                     | Track MOSS submission ID in `PlagiarismReport` to detect duplicates                         | Low      |
+| 9   | Plagiarism concurrency cap                          | No per-worker cap on concurrent Dolos runs                                                 | Add a semaphore / Temporal activity concurrency limit if operator sees parser contention    | Low      |
 | 10  | No account lockout on failed login                  | bcrypt slows brute force but no explicit lockout                                           | Consider temporary account lockout after N failed attempts                                  | Medium   |
 
 ## Related Docs

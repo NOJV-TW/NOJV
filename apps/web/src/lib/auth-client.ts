@@ -4,5 +4,5 @@ import { inferAdditionalFields, usernameClient } from "better-auth/client/plugin
 import type { getAuth } from "$lib/auth";
 
 export const authClient = createAuthClient({
-  plugins: [usernameClient(), inferAdditionalFields<ReturnType<typeof getAuth>>()]
+  plugins: [usernameClient(), inferAdditionalFields<ReturnType<typeof getAuth>>()],
 });

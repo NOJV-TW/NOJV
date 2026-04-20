@@ -5,7 +5,7 @@ import {
   NotFoundError,
   ForbiddenError,
   resolveEffectiveCourseRole,
-  canManageCourse
+  canManageCourse,
 } from "@nojv/domain";
 import type { Language } from "@nojv/core";
 import { requireAuth } from "$lib/server/auth";
@@ -37,7 +37,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const membership = course.memberships[0] ?? null;
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
-    membership?.role ?? null
+    membership?.role ?? null,
   );
   const isCourseOwner = course.ownerId === actor.userId;
   const isManager = canManageCourse(effectiveRole) || isCourseOwner;
@@ -76,13 +76,13 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       status: assessment.status,
       opensAt: assessment.opensAt.toISOString(),
       closesAt: assessment.closesAt.toISOString(),
-      allowedLanguages: assessment.allowedLanguages as Language[]
+      allowedLanguages: assessment.allowedLanguages as Language[],
     },
     course: {
       id: course.id,
       title: course.title,
-      archived: course.archived
+      archived: course.archived,
     },
-    isManager
+    isManager,
   };
 });

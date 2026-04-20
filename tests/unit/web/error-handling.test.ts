@@ -7,13 +7,13 @@ vi.mock("@nojv/db", () => ({
   announcementRepo: {},
   assessmentRepo: {},
   assessmentParticipationRepo: {},
-  runTransaction: vi.fn()
+  runTransaction: vi.fn(),
 }));
 
 vi.mock("@nojv/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nojv/core")>();
   return {
-    ...actual
+    ...actual,
   };
 });
 
@@ -30,7 +30,7 @@ describe("classifyError", () => {
       expect(result).toEqual({
         status: 400,
         message: "Validation failed.",
-        type: "validation"
+        type: "validation",
       });
     }
   });
@@ -41,7 +41,7 @@ describe("classifyError", () => {
     expect(result).toEqual({
       status: 422,
       message: "Custom error",
-      type: "http"
+      type: "http",
     });
   });
 
@@ -51,7 +51,7 @@ describe("classifyError", () => {
     expect(result).toEqual({
       status: 404,
       message: "Not found.",
-      type: "http"
+      type: "http",
     });
   });
 
@@ -61,7 +61,7 @@ describe("classifyError", () => {
     expect(result).toEqual({
       status: 403,
       message: "Forbidden.",
-      type: "http"
+      type: "http",
     });
   });
 
@@ -70,7 +70,7 @@ describe("classifyError", () => {
     expect(result).toEqual({
       status: 500,
       message: "Internal server error.",
-      type: "unknown"
+      type: "unknown",
     });
   });
 
@@ -79,7 +79,7 @@ describe("classifyError", () => {
     expect(result).toEqual({
       status: 500,
       message: "Internal server error.",
-      type: "unknown"
+      type: "unknown",
     });
   });
 });

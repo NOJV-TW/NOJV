@@ -13,7 +13,7 @@ const notificationDurable = proxyActivities<typeof notificationActivities>(SHORT
 const DEADLINE_REMINDER_HOURS = 24;
 
 export async function assessmentLifecycleWorkflow(
-  input: AssessmentLifecycleInput
+  input: AssessmentLifecycleInput,
 ): Promise<void> {
   const info = await assessment.getAssessmentInfo(input.assessmentId);
 

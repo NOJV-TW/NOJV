@@ -37,7 +37,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     timeLimitMs: 1000,
     title: "Untitled Problem",
     type,
-    visibility: "private"
+    visibility: "private",
   });
 
   // The response field is still called `mode` — Tabs.svelte branches on

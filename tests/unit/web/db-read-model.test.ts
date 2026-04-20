@@ -7,7 +7,7 @@ const {
   count: countProblems,
   groupAcceptedByProblem,
   countSubmissions,
-  countCourses
+  countCourses,
 } = vi.hoisted(() => ({
   listWithCounts: vi.fn(),
   findDetailById: vi.fn(),
@@ -15,13 +15,13 @@ const {
   count: vi.fn(),
   groupAcceptedByProblem: vi.fn(),
   countSubmissions: vi.fn(),
-  countCourses: vi.fn()
+  countCourses: vi.fn(),
 }));
 
 vi.mock("$app/environment", () => ({
   browser: false,
   dev: true,
-  building: false
+  building: false,
 }));
 
 // Stub @nojv/storage so domain code can resolve `getText` without an S3
@@ -32,7 +32,7 @@ vi.mock("@nojv/storage", () => {
   return {
     createStorageClient: () => ({}),
     getText: vi.fn((_client: unknown, key: string) =>
-      Promise.resolve(blobStore.get(key) ?? "")
+      Promise.resolve(blobStore.get(key) ?? ""),
     ),
     putText: vi.fn((_client: unknown, key: string, content: string) => {
       blobStore.set(key, content);
@@ -49,7 +49,7 @@ vi.mock("@nojv/storage", () => {
     workspaceFileKey: (problemId: string, fileId: string) =>
       `problems/${problemId}/workspace/${fileId}`,
     problemPrefix: (problemId: string) => `problems/${problemId}/`,
-    __blobStore: blobStore
+    __blobStore: blobStore,
   };
 });
 
@@ -58,27 +58,27 @@ vi.mock("@nojv/db", () => ({
     count: countProblems,
     countPublic,
     listWithCounts,
-    findDetailById
+    findDetailById,
   },
   problemStatementRepo: {
     fullTextSearch: vi.fn().mockResolvedValue([]),
-    likeSearch: vi.fn().mockResolvedValue([])
+    likeSearch: vi.fn().mockResolvedValue([]),
   },
   submissionRepo: {
     count: countSubmissions,
     groupAcceptedByProblem,
-    groupByProblemAndStatus: vi.fn().mockResolvedValue([])
+    groupByProblemAndStatus: vi.fn().mockResolvedValue([]),
   },
   courseRepo: {
-    count: countCourses
+    count: countCourses,
   },
   announcementRepo: {
-    listPublished: vi.fn().mockResolvedValue([])
+    listPublished: vi.fn().mockResolvedValue([]),
   },
   assessmentRepo: {
-    listByUser: vi.fn().mockResolvedValue([])
+    listByUser: vi.fn().mockResolvedValue([]),
   },
-  runTransaction: vi.fn()
+  runTransaction: vi.fn(),
 }));
 
 import { courseDomain, problemDomain } from "@nojv/domain";
@@ -107,8 +107,8 @@ describe("DB-backed read model", () => {
         difficulty: "easy",
         tags: [],
         type: "full_source",
-        visibility: "public"
-      }
+        visibility: "public",
+      },
     ]);
     countProblems.mockResolvedValue(1);
     groupAcceptedByProblem.mockResolvedValue([{ _count: 1, problemId: "prob_compiler_intro" }]);
@@ -122,8 +122,8 @@ describe("DB-backed read model", () => {
         id: "prob_compiler_intro",
         title: "Compiler Intro",
         type: "full_source",
-        totalSubmissions: 2
-      })
+        totalSubmissions: 2,
+      }),
     );
   });
 
@@ -131,7 +131,7 @@ describe("DB-backed read model", () => {
     findDetailById.mockResolvedValue(null);
 
     await expect(getProblemPageData("nonexistent-problem", "en")).rejects.toThrow(
-      "Problem not found: nonexistent-problem"
+      "Problem not found: nonexistent-problem",
     );
   });
 
@@ -148,13 +148,13 @@ describe("DB-backed read model", () => {
           inputFormat: "Two integers a and b",
           locale: "en",
           outputFormat: "A single integer",
-          title: "A+B Problem"
-        }
+          title: "A+B Problem",
+        },
       ],
       tags: ["easy", "math", "beginner"],
       type: "full_source",
       samples: [{ input: "1 2\n", output: "3\n" }],
-      visibility: "public"
+      visibility: "public",
     });
     countSubmissions.mockResolvedValue(5);
 
@@ -184,15 +184,15 @@ describe("DB-backed read model", () => {
     };
     storage.__blobStore.set(
       "problems/prob_blanks/workspace/file_solution",
-      "int solve() { return 42; }\n"
+      "int solve() { return 42; }\n",
     );
     storage.__blobStore.set(
       "problems/prob_blanks/workspace/file_helpers",
-      "#pragma once\nint solve();\n"
+      "#pragma once\nint solve();\n",
     );
     storage.__blobStore.set(
       "problems/prob_blanks/workspace/file_grader",
-      "// server-only test harness\n"
+      "// server-only test harness\n",
     );
 
     findDetailById.mockResolvedValue({
@@ -206,8 +206,8 @@ describe("DB-backed read model", () => {
           inputFormat: "",
           locale: "en",
           outputFormat: "",
-          title: "Fill in the Blanks"
-        }
+          title: "Fill in the Blanks",
+        },
       ],
       tags: ["easy"],
       type: "multi_file",
@@ -220,7 +220,7 @@ describe("DB-backed read model", () => {
           contentKey: "problems/prob_blanks/workspace/file_solution",
           description: "Your solution goes here.",
           visibility: "editable",
-          orderIndex: 0
+          orderIndex: 0,
         },
         {
           language: "cpp",
@@ -228,7 +228,7 @@ describe("DB-backed read model", () => {
           contentKey: "problems/prob_blanks/workspace/file_helpers",
           description: "",
           visibility: "readonly",
-          orderIndex: 1
+          orderIndex: 1,
         },
         {
           language: "cpp",
@@ -236,9 +236,9 @@ describe("DB-backed read model", () => {
           contentKey: "problems/prob_blanks/workspace/file_grader",
           description: "Hidden server-side grader.",
           visibility: "hidden",
-          orderIndex: 2
-        }
-      ]
+          orderIndex: 2,
+        },
+      ],
     });
     countSubmissions.mockResolvedValue(0);
 
@@ -251,7 +251,7 @@ describe("DB-backed read model", () => {
     expect(detail?.workspaceFiles.map((f) => f.path)).toEqual([
       "solution.cpp",
       "helpers.h",
-      "grader.cpp"
+      "grader.cpp",
     ]);
     // Hidden file's raw content must never leave the server.
     const hidden = detail?.workspaceFiles.find((f) => f.visibility === "hidden");
@@ -275,8 +275,8 @@ describe("DB-backed read model", () => {
         id: "prob_hard",
         tags: ["hard"],
         type: "full_source",
-        visibility: "public"
-      }
+        visibility: "public",
+      },
     ]);
     countProblems.mockResolvedValue(1);
     groupAcceptedByProblem.mockResolvedValue([{ _count: 3, problemId: "prob_hard" }]);
@@ -295,8 +295,8 @@ describe("DB-backed read model", () => {
         id: "prob_new",
         tags: ["medium"],
         type: "full_source",
-        visibility: "public"
-      }
+        visibility: "public",
+      },
     ]);
     countProblems.mockResolvedValue(1);
 

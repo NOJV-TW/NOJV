@@ -21,7 +21,7 @@ describe("notificationDomain (real DB + Redis)", () => {
       userId: user.id,
       type: "course_enrolled",
       params: { courseSlug: "x", courseName: "X" },
-      linkUrl: "/courses/x"
+      linkUrl: "/courses/x",
     });
 
     const rows = await notificationRepo.listRecent(user.id, 10);
@@ -43,7 +43,7 @@ describe("notificationDomain (real DB + Redis)", () => {
         userId: user.id,
         type: "announcement_published",
         params: { ordinal: i },
-        linkUrl: `/n/${i}`
+        linkUrl: `/n/${i}`,
       });
     }
 
@@ -72,7 +72,7 @@ describe("notificationDomain (real DB + Redis)", () => {
         userId: user.id,
         type: "course_enrolled",
         params: { courseSlug: "algos", courseName: "Algorithms" },
-        linkUrl: "/courses/algos"
+        linkUrl: "/courses/algos",
       });
 
       const deadline = Date.now() + 1000;
@@ -107,7 +107,7 @@ describe("notificationDomain (real DB + Redis)", () => {
       userId: user.id,
       type: "role_changed",
       params: { role: "teacher" },
-      linkUrl: null
+      linkUrl: null,
     });
     const [created] = await notificationRepo.listRecent(user.id, 1);
     expect(created).toBeDefined();
@@ -135,7 +135,7 @@ describe("notificationDomain (real DB + Redis)", () => {
         userId: userA.id,
         type: "announcement_published",
         params: { ordinal: i },
-        linkUrl: `/a/${i}`
+        linkUrl: `/a/${i}`,
       });
     }
 
@@ -149,7 +149,7 @@ describe("notificationDomain (real DB + Redis)", () => {
       userId: userB.id,
       type: "announcement_published",
       params: { ordinal: 0 },
-      linkUrl: "/b/0"
+      linkUrl: "/b/0",
     });
 
     // markAllAsRead for user A should flip only the 2 remaining unread rows.

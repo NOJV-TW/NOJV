@@ -125,7 +125,7 @@ it("accepts problemIds containing underscores (actual DB ids like problem_warmup
     problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
     slug: "hw1-process-warmup",
     summary: "Process warmup with two easy problems.",
-    title: "HW1 Process Warmup"
+    title: "HW1 Process Warmup",
   });
 
   expect(result.success).toBe(true);
@@ -139,7 +139,7 @@ it("rejects empty problemIds array", () => {
     problemIds: [],
     slug: "hw1-process-warmup",
     summary: "Process warmup with two easy problems.",
-    title: "HW1 Process Warmup"
+    title: "HW1 Process Warmup",
   });
 
   expect(result.success).toBe(false);
@@ -153,7 +153,7 @@ it("rejects problemIds whose entries are empty strings", () => {
     problemIds: [""],
     slug: "hw1-process-warmup",
     summary: "Process warmup with two easy problems.",
-    title: "HW1 Process Warmup"
+    title: "HW1 Process Warmup",
   });
 
   expect(result.success).toBe(false);
@@ -225,14 +225,14 @@ const baseContestInput = {
   startsAt: "2026-05-03T14:00:00.000Z",
   submitCooldownSec: 0,
   summary: "Midterm exam covering sorting and searching.",
-  title: "Midterm 2026"
+  title: "Midterm 2026",
 };
 
 describe("contestCreateSchema", () => {
   it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"]
+      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
     });
 
     expect(result.success).toBe(true);
@@ -241,7 +241,7 @@ describe("contestCreateSchema", () => {
   it("rejects empty problemIds array", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: []
+      problemIds: [],
     });
 
     expect(result.success).toBe(false);
@@ -250,7 +250,7 @@ describe("contestCreateSchema", () => {
   it("rejects problemIds whose entries are empty strings", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: [""]
+      problemIds: [""],
     });
 
     expect(result.success).toBe(false);
@@ -261,7 +261,7 @@ describe("contestCreateSchema", () => {
       ...baseContestInput,
       problemIds: ["problem_warmup-sum"],
       startsAt: "2026-05-03T17:00:00.000Z",
-      endsAt: "2026-05-03T14:00:00.000Z"
+      endsAt: "2026-05-03T14:00:00.000Z",
     });
 
     expect(result.success).toBe(false);
@@ -471,13 +471,13 @@ const {
   errors,
   submitting,
   message: formMessage,
-  enhance
+  enhance,
 } = superForm(
   untrack(() => formData),
   {
     dataType: "json",
-    invalidateAll: true
-  }
+    invalidateAll: true,
+  },
 );
 ```
 
@@ -489,13 +489,13 @@ const {
   errors,
   submitting,
   message: formMessage,
-  enhance
+  enhance,
 } = superForm<typeof formData.data, FormMessage>(
   untrack(() => formData),
   {
     dataType: "json",
-    invalidateAll: true
-  }
+    invalidateAll: true,
+  },
 );
 ```
 
@@ -587,10 +587,10 @@ const {
   errors,
   submitting,
   message: formMessage,
-  enhance
+  enhance,
 } = superForm(
   untrack(() => formData),
-  { dataType: "json", invalidateAll: true }
+  { dataType: "json", invalidateAll: true },
 );
 ```
 
@@ -602,13 +602,13 @@ const {
   errors,
   submitting,
   message: formMessage,
-  enhance
+  enhance,
 } = superForm<typeof formData.data, FormMessage>(
   untrack(() => formData),
   {
     dataType: "json",
-    invalidateAll: true
-  }
+    invalidateAll: true,
+  },
 );
 ```
 
@@ -718,9 +718,9 @@ const {
   errors,
   submitting,
   message: formMessage,
-  enhance
+  enhance,
 } = superForm<typeof formData.data, FormMessage>(formData, {
-  dataType: "json"
+  dataType: "json",
 });
 ```
 
@@ -803,13 +803,13 @@ test.describe("Teacher form error visibility", () => {
     await page.getByRole("button", { name: /發布測驗|Publish assessment/i }).click();
 
     await expect(page.getByText(`Published Fix HW ${uniqueSuffix}.`)).toBeVisible({
-      timeout: 10_000
+      timeout: 10_000,
     });
     await context.close();
   });
 
   test("teacher sees a visible error banner when assessment creation fails", async ({
-    browser
+    browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
@@ -857,7 +857,7 @@ test.describe("Teacher form error visibility", () => {
     await page.getByRole("button", { name: /建立競賽|Create Contest/i }).click();
 
     await expect(page.getByText(`Contest "Fix Quiz ${uniqueSuffix}" created.`)).toBeVisible({
-      timeout: 10_000
+      timeout: 10_000,
     });
     await context.close();
   });

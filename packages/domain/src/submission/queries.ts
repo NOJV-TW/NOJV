@@ -3,7 +3,7 @@ import {
   languageSchema,
   submissionResultSchema,
   submissionVerdicts,
-  submissionVerdictSchema
+  submissionVerdictSchema,
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -11,7 +11,7 @@ import { NotFoundError } from "../shared/errors";
 export async function getSubmissionForUser(
   submissionId: string,
   userId: string,
-  isAdmin: boolean
+  isAdmin: boolean,
 ) {
   const submission = await submissionRepo.findById(submissionId);
 
@@ -40,7 +40,7 @@ export async function listUserSubmissions(userId: string) {
       problemTitle: s.problem.title,
       runtimeMs: s.runtimeMs,
       score: s.score,
-      status: s.status
+      status: s.status,
     };
   });
 }
@@ -48,7 +48,7 @@ export async function listUserSubmissions(userId: string) {
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,
-  assessmentFilter?: { assessmentId: string; courseId: string }
+  assessmentFilter?: { assessmentId: string; courseId: string },
 ) {
   const problemP = problemRepo.findById(problemId);
 
@@ -67,7 +67,7 @@ export async function listProblemSubmissions(
     problemId: problem.id,
     userId,
     statusIn: [...submissionVerdicts],
-    ...(courseAssessmentId ? { courseAssessmentId } : {})
+    ...(courseAssessmentId ? { courseAssessmentId } : {}),
   });
 
   return submissions.map((s) => {
@@ -80,7 +80,7 @@ export async function listProblemSubmissions(
       id: s.id,
       language,
       result,
-      submittedAt: s.createdAt.toISOString()
+      submittedAt: s.createdAt.toISOString(),
     };
   });
 }

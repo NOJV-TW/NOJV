@@ -43,9 +43,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     allowedLanguages: assessment.allowedLanguages,
     backLink: {
       href: `/assignments/${assessment.id}`,
-      type: "assignment"
+      type: "assignment",
     },
-    problemInScope: true
+    problemInScope: true,
   });
 
   return { solveProps };

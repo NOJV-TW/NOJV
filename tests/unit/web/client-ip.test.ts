@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 const { getWebEnvMock } = vi.hoisted(() => ({
-  getWebEnvMock: vi.fn()
+  getWebEnvMock: vi.fn(),
 }));
 
 vi.mock("$lib/server/env", () => ({
-  getWebEnv: getWebEnvMock
+  getWebEnv: getWebEnvMock,
 }));
 
 const { getClientIp } = await import("$lib/server/shared/client-ip");
@@ -20,7 +20,7 @@ function mockEvent(opts: {
   if (opts.devIp) headers.set("x-dev-ip", opts.devIp);
   return {
     request: new Request("https://nojv.test", { headers }),
-    getClientAddress: () => opts.socket ?? "127.0.0.1"
+    getClientAddress: () => opts.socket ?? "127.0.0.1",
   } as unknown as Parameters<typeof getClientIp>[0];
 }
 

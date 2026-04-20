@@ -2,7 +2,7 @@ import { assessmentRepo, courseMembershipRepo } from "@nojv/db";
 
 import {
   aggregateAssessmentClassStats,
-  aggregateAssessmentMyStatus
+  aggregateAssessmentMyStatus,
 } from "../shared/list-aggregations";
 
 // No draft filter: drafts are course-internal and only appear inside "all" for managers.
@@ -52,7 +52,7 @@ function deriveStatus(
   rawStatus: string,
   opensAt: Date,
   closesAt: Date,
-  now: Date
+  now: Date,
 ): AssignmentsTopStatus {
   if (rawStatus === "draft") return "draft";
   if (opensAt > now) return "upcoming";
@@ -64,7 +64,7 @@ function rankRow(
   status: AssignmentsTopStatus,
   opensAt: Date,
   closesAt: Date,
-  now: Date
+  now: Date,
 ): number {
   // Lower rank = higher priority; matches per-course `rankAssignment` bands.
   if (status === "open") return closesAt.getTime() - now.getTime();
@@ -75,7 +75,7 @@ function rankRow(
 
 export async function listAssignmentsAcrossCoursesForUser(
   userId: string,
-  options: ListAssignmentsAcrossCoursesOptions
+  options: ListAssignmentsAcrossCoursesOptions,
 ): Promise<AssignmentsTopResult> {
   const now = options.now ?? new Date();
   const limit = options.limit ?? DEFAULT_LIMIT;
@@ -85,7 +85,7 @@ export async function listAssignmentsAcrossCoursesForUser(
     return {
       rows: [],
       counts: { all: 0, open: 0, upcoming: 0, closed: 0 },
-      hasNoCourses: true
+      hasNoCourses: true,
     };
   }
 
@@ -97,7 +97,7 @@ export async function listAssignmentsAcrossCoursesForUser(
   const rawRows = await assessmentRepo.listAcrossCourses(
     allCourseIds,
     managerCourseIds,
-    limit * 3
+    limit * 3,
   );
 
   interface Mapped {
@@ -117,11 +117,11 @@ export async function listAssignmentsAcrossCoursesForUser(
       closesAt: status === "draft" ? null : raw.closesAt.toISOString(),
       problemCount: raw._count.problems,
       myStatus: null,
-      classStats: null
+      classStats: null,
     };
     return {
       row,
-      rank: rankRow(status, raw.opensAt, raw.closesAt, now)
+      rank: rankRow(status, raw.opensAt, raw.closesAt, now),
     };
   });
 
@@ -149,12 +149,16 @@ export async function listAssignmentsAcrossCoursesForUser(
 
   const [classStatsByAssessment, myStatusByAssessment] = await Promise.all([
     aggregateAssessmentClassStats(
-      managedRows.map((r) => ({ id: r.id, courseId: r.courseId, problemCount: r.problemCount }))
+      managedRows.map((r) => ({
+        id: r.id,
+        courseId: r.courseId,
+        problemCount: r.problemCount,
+      })),
     ),
     aggregateAssessmentMyStatus(
       userId,
-      studentRows.map((r) => ({ id: r.id, problemCount: r.problemCount }))
-    )
+      studentRows.map((r) => ({ id: r.id, problemCount: r.problemCount })),
+    ),
   ]);
 
   for (const r of managedRows) {
@@ -167,6 +171,6 @@ export async function listAssignmentsAcrossCoursesForUser(
   return {
     rows: visibleRows,
     counts,
-    hasNoCourses: false
+    hasNoCourses: false,
   };
 }

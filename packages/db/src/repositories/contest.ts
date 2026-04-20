@@ -6,7 +6,7 @@ import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selec
 type TxClient = TransactionClient;
 
 const contestListInclude = {
-  _count: { select: { participations: true, problems: true } }
+  _count: { select: { participations: true, problems: true } },
 } as const;
 
 export const contestRepo = {
@@ -17,14 +17,14 @@ export const contestRepo = {
   findByIdOrThrow(id: string, select?: Prisma.ContestSelect) {
     return prisma.contest.findUniqueOrThrow({
       ...(select ? { select } : {}),
-      where: { id }
+      where: { id },
     });
   },
 
   findByInviteCode(inviteCode: string) {
     return prisma.contest.findUnique({
       where: { inviteCode },
-      select: { id: true, visibility: true }
+      select: { id: true, visibility: true },
     });
   },
 
@@ -32,7 +32,7 @@ export const contestRepo = {
     return prisma.contest.findMany({
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
-      where: { visibility: "published" }
+      where: { visibility: "published" },
     });
   },
 
@@ -41,7 +41,7 @@ export const contestRepo = {
     return prisma.contest.findMany({
       include: contestListInclude,
       orderBy: { updatedAt: "desc" },
-      where: { createdByUserId: userId }
+      where: { createdByUserId: userId },
     });
   },
 
@@ -49,7 +49,7 @@ export const contestRepo = {
     return prisma.contest.findMany({
       include: contestListInclude,
       orderBy: { startsAt: "desc" },
-      where: { visibility: "published" }
+      where: { visibility: "published" },
     });
   },
 
@@ -59,12 +59,12 @@ export const contestRepo = {
         _count: { select: { participations: true } },
         problems: {
           include: {
-            problem: { select: problemMiniSelect }
+            problem: { select: problemMiniSelect },
           },
-          orderBy: { ordinal: "asc" }
-        }
+          orderBy: { ordinal: "asc" },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -74,16 +74,16 @@ export const contestRepo = {
         _count: { select: { participations: true } },
         participations: {
           where: { userId },
-          take: 1
+          take: 1,
         },
         problems: {
           include: {
-            problem: { select: problemMiniSelect }
+            problem: { select: problemMiniSelect },
           },
-          orderBy: { ordinal: "asc" }
-        }
+          orderBy: { ordinal: "asc" },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -92,16 +92,16 @@ export const contestRepo = {
       include: {
         problems: {
           include: { problem: { select: problemMiniSelect } },
-          orderBy: { ordinal: "asc" }
+          orderBy: { ordinal: "asc" },
         },
         participations: {
           include: {
-            user: { select: userScoreboardSelect }
+            user: { select: userScoreboardSelect },
           },
-          where: { status: { in: ["active", "submitted"] } }
-        }
+          where: { status: { in: ["active", "submitted"] } },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -111,10 +111,10 @@ export const contestRepo = {
         startsAt: true,
         participations: {
           where: { userId: { in: userIds } },
-          select: { id: true, userId: true }
-        }
+          select: { id: true, userId: true },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -124,9 +124,9 @@ export const contestRepo = {
         endsAt: true,
         frozenAt: true,
         scoringMode: true,
-        startsAt: true
+        startsAt: true,
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -137,7 +137,7 @@ export const contestRepo = {
   update(id: string, data: Prisma.ContestUpdateInput) {
     return prisma.contest.update({
       data,
-      where: { id }
+      where: { id },
     });
   },
 
@@ -158,11 +158,11 @@ export const contestRepo = {
       update(id: string, data: Prisma.ContestUncheckedUpdateInput) {
         return tx.contest.update({
           data,
-          where: { id }
+          where: { id },
         });
-      }
+      },
     };
-  }
+  },
 };
 
 export const contestProblemRepo = {
@@ -170,7 +170,7 @@ export const contestProblemRepo = {
     return prisma.contestProblem
       .findFirst({
         where: { contestId, problemId },
-        select: { id: true }
+        select: { id: true },
       })
       .then((row) => row !== null);
   },
@@ -186,10 +186,10 @@ export const contestProblemRepo = {
           contest: {
             visibility: "published",
             endsAt: { lt: now },
-            participations: { some: { userId } }
-          }
+            participations: { some: { userId } },
+          },
         },
-        select: { id: true }
+        select: { id: true },
       })
       .then((row) => row !== null);
   },
@@ -202,11 +202,11 @@ export const contestProblemRepo = {
 
       deleteByContestId(contestId: string) {
         return tx.contestProblem.deleteMany({
-          where: { contestId }
+          where: { contestId },
         });
-      }
+      },
     };
-  }
+  },
 };
 
 export const contestParticipationRepo = {
@@ -215,11 +215,11 @@ export const contestParticipationRepo = {
       include: {
         contest: {
           include: {
-            problems: { orderBy: { ordinal: "asc" } }
-          }
-        }
+            problems: { orderBy: { ordinal: "asc" } },
+          },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -236,14 +236,14 @@ export const contestParticipationRepo = {
     return prisma.contestParticipation.findMany({
       where: { contestId },
       include: { user: { select: userMiniSelect } },
-      orderBy: [{ user: { username: "asc" } }]
+      orderBy: [{ user: { username: "asc" } }],
     });
   },
 
   update(id: string, data: Prisma.ContestParticipationUpdateInput) {
     return prisma.contestParticipation.update({
       data,
-      where: { id }
+      where: { id },
     });
   },
 
@@ -253,7 +253,7 @@ export const contestParticipationRepo = {
     return prisma.contestParticipation
       .findUnique({
         where: { contestId_userId: { contestId, userId } },
-        select: { id: true }
+        select: { id: true },
       })
       .then((row) => row?.id ?? null);
   },
@@ -264,22 +264,22 @@ export const contestParticipationRepo = {
         contestId: string,
         userId: string,
         createData: Prisma.ContestParticipationUncheckedCreateInput,
-        updateData: Prisma.ContestParticipationUncheckedUpdateInput
+        updateData: Prisma.ContestParticipationUncheckedUpdateInput,
       ) {
         return tx.contestParticipation.upsert({
           create: createData,
           update: updateData,
           where: {
-            contestId_userId: { contestId, userId }
-          }
+            contestId_userId: { contestId, userId },
+          },
         });
       },
 
       findByContestAndUser(contestId: string, userId: string) {
         return tx.contestParticipation.findUnique({
-          where: { contestId_userId: { contestId, userId } }
+          where: { contestId_userId: { contestId, userId } },
         });
-      }
+      },
     };
-  }
+  },
 };

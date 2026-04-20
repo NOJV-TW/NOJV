@@ -5,7 +5,7 @@ import {
   submissionVerdicts,
   submissionVerdictSchema,
   type Language,
-  type SubmissionResult
+  type SubmissionResult,
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -85,7 +85,7 @@ export async function getExamProblemView(options: {
         userId: options.actorUserId,
         problemId: current.problem.id,
         sampleOnly: false,
-        status: { in: [...submissionVerdicts] }
+        status: { in: [...submissionVerdicts] },
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -93,16 +93,16 @@ export async function getExamProblemView(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true
+        verdictDetail: true,
       },
-      take: 50
+      take: 50,
     }),
     submissionRepo.groupByUserAndProblem({
       examId: options.examId,
       userId: options.actorUserId,
       problemId: { in: problemIds },
-      sampleOnly: false
-    })
+      sampleOnly: false,
+    }),
   ]);
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
@@ -113,7 +113,7 @@ export async function getExamProblemView(options: {
       id: s.id,
       language,
       result,
-      submittedAt: s.createdAt.toISOString()
+      submittedAt: s.createdAt.toISOString(),
     };
   });
 
@@ -131,7 +131,7 @@ export async function getExamProblemView(options: {
     bestScore: bestByProblemId.get(ep.problem.id),
     maxScore: ep.points,
     isActive: index === options.problemIdx,
-    href: `/exams/${exam.id}/problems/${String(index)}`
+    href: `/exams/${exam.id}/problems/${String(index)}`,
   }));
 
   return {
@@ -143,10 +143,10 @@ export async function getExamProblemView(options: {
       courseId: exam.courseId,
       title: exam.title,
       startsAt: exam.startsAt.toISOString(),
-      endsAt: exam.endsAt.toISOString()
+      endsAt: exam.endsAt.toISOString(),
     },
     examTitle: exam.title,
-    courseLabel: exam.course.title
+    courseLabel: exam.course.title,
   };
 }
 
@@ -187,7 +187,7 @@ export async function getExamProblemViewByProblemId(options: {
         userId: options.actorUserId,
         problemId: current.problem.id,
         sampleOnly: false,
-        status: { in: [...submissionVerdicts] }
+        status: { in: [...submissionVerdicts] },
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -195,16 +195,16 @@ export async function getExamProblemViewByProblemId(options: {
         createdAt: true,
         language: true,
         status: true,
-        verdictDetail: true
+        verdictDetail: true,
       },
-      take: 50
+      take: 50,
     }),
     submissionRepo.groupByUserAndProblem({
       examId: options.examId,
       userId: options.actorUserId,
       problemId: { in: problemIds },
-      sampleOnly: false
-    })
+      sampleOnly: false,
+    }),
   ]);
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
@@ -215,7 +215,7 @@ export async function getExamProblemViewByProblemId(options: {
       id: s.id,
       language,
       result,
-      submittedAt: s.createdAt.toISOString()
+      submittedAt: s.createdAt.toISOString(),
     };
   });
 
@@ -233,7 +233,7 @@ export async function getExamProblemViewByProblemId(options: {
     bestScore: bestByProblemId.get(ep.problem.id),
     maxScore: ep.points,
     isActive: index === activeIdx,
-    href: `/exams/${exam.id}/problems/${ep.problem.id}`
+    href: `/exams/${exam.id}/problems/${ep.problem.id}`,
   }));
 
   return {
@@ -245,9 +245,9 @@ export async function getExamProblemViewByProblemId(options: {
       courseId: exam.courseId,
       title: exam.title,
       startsAt: exam.startsAt.toISOString(),
-      endsAt: exam.endsAt.toISOString()
+      endsAt: exam.endsAt.toISOString(),
     },
     examTitle: exam.title,
-    courseLabel: exam.course.title
+    courseLabel: exam.course.title,
   };
 }

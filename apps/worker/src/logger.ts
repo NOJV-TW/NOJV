@@ -10,6 +10,7 @@ export function createLogger(context: string) {
       child.debug(data ?? {}, message),
     info: (message: string, data?: Record<string, unknown>) => child.info(data ?? {}, message),
     warn: (message: string, data?: Record<string, unknown>) => child.warn(data ?? {}, message),
-    error: (message: string, data?: Record<string, unknown>) => child.error(data ?? {}, message)
+    error: (message: string, data?: Record<string, unknown>) =>
+      child.error(data ?? {}, message),
   };
 }

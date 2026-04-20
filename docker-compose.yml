@@ -75,7 +75,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "if command -v temporal >/dev/null 2>&1 && (temporal operator cluster health --address 127.0.0.1:7233 >/dev/null 2>&1 || temporal operator cluster health --address temporal:7233 >/dev/null 2>&1); then exit 0; fi; if command -v tctl >/dev/null 2>&1 && (tctl --address 127.0.0.1:7233 cluster health >/dev/null 2>&1 || tctl --address temporal:7233 cluster health >/dev/null 2>&1); then exit 0; fi; if command -v nc >/dev/null 2>&1 && (nc -z 127.0.0.1 7233 >/dev/null 2>&1 || nc -z temporal 7233 >/dev/null 2>&1); then exit 0; fi; exit 1"
+          "if command -v temporal >/dev/null 2>&1 && (temporal operator cluster health --address 127.0.0.1:7233 >/dev/null 2>&1 || temporal operator cluster health --address temporal:7233 >/dev/null 2>&1); then exit 0; fi; if command -v tctl >/dev/null 2>&1 && (tctl --address 127.0.0.1:7233 cluster health >/dev/null 2>&1 || tctl --address temporal:7233 cluster health >/dev/null 2>&1); then exit 0; fi; if command -v nc >/dev/null 2>&1 && (nc -z 127.0.0.1 7233 >/dev/null 2>&1 || nc -z temporal 7233 >/dev/null 2>&1); then exit 0; fi; exit 1",
         ]
       interval: 10s
       timeout: 10s
@@ -138,7 +138,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://localhost:3000').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"
+          "fetch('http://localhost:3000').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s
@@ -178,7 +178,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://localhost:8080/healthz').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"
+          "fetch('http://localhost:8080/healthz').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s

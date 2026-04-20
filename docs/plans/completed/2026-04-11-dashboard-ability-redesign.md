@@ -56,19 +56,19 @@ describe("aggregateByTag", () => {
     const rows = [
       { problem: { tags: ["dp", "graph"] } },
       { problem: { tags: ["dp", "math"] } },
-      { problem: { tags: ["graph"] } }
+      { problem: { tags: ["graph"] } },
     ];
     const result = aggregateByTag(rows);
     expect(result).toEqual([
       { tag: "dp", acCount: 2 },
       { tag: "graph", acCount: 2 },
-      { tag: "math", acCount: 1 }
+      { tag: "math", acCount: 1 },
     ]);
   });
 
   it("sorts descending by acCount and caps at 8 tags", () => {
     const rows = Array.from({ length: 12 }, (_, i) => ({
-      problem: { tags: [`tag${i}`] }
+      problem: { tags: [`tag${i}`] },
     }));
     // Add extra counts for tag0 so we can verify ordering.
     rows.push({ problem: { tags: ["tag0"] } });
@@ -216,11 +216,11 @@ Find `getUserAnalytics` (around line 102). Locate the `return { ... }` block at 
 return {
   byDifficulty: (["easy", "medium", "hard"] as const).map((d) => ({
     difficulty: d,
-    acCount: difficultyCounts[d]
+    acCount: difficultyCounts[d],
   })),
   byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
   byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all })),
-  byTag: aggregateByTag(acProblems)
+  byTag: aggregateByTag(acProblems),
 };
 ```
 
@@ -424,7 +424,7 @@ const ACTIVITY_DAYS = 30;
 function utcDayOffset(daysBack: number): Date {
   const now = new Date();
   return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack)
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack),
   );
 }
 
@@ -437,7 +437,7 @@ export const load: PageServerLoad = async (event) => {
   const [{ stats, recentSubmissions }, dailyActivity, analytics] = await Promise.all([
     getUserDashboard(actor.userId),
     userDailyActivityRepo.findRange(actor.userId, from, to),
-    getUserAnalytics(actor.userId)
+    getUserAnalytics(actor.userId),
   ]);
 
   return {
@@ -451,8 +451,8 @@ export const load: PageServerLoad = async (event) => {
       .map((row) => ({
         date: row.date.toISOString().slice(0, 10),
         acCount: row.acCount,
-        submissionCount: row.submissionCount
-      }))
+        submissionCount: row.submissionCount,
+      })),
   };
 };
 ```

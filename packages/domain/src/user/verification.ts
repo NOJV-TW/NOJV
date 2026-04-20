@@ -12,7 +12,7 @@ export type InitiateVerificationResult =
  */
 export async function initiateSchoolVerification(
   userId: string,
-  username: string
+  username: string,
 ): Promise<InitiateVerificationResult> {
   const existing = await userRepo.findByUsername(username);
   if (existing && existing.id !== userId) {
@@ -26,7 +26,7 @@ export async function initiateSchoolVerification(
     token,
     userId,
     username,
-    expiresAt
+    expiresAt,
   });
 
   return { status: "success", token, expiresAt };
@@ -56,7 +56,7 @@ export async function processSchoolVerification(token: string): Promise<VerifySc
   // Update user username
   await userRepo.update(record.userId, {
     username: record.username,
-    displayUsername: record.username
+    displayUsername: record.username,
   });
 
   // Delete used token

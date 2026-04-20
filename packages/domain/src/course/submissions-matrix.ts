@@ -50,11 +50,11 @@ function letterFor(ordinal: number): string {
 // Does not re-check permissions; route loader must gate on `isManager` before calling.
 export async function buildSubmissionsMatrix(
   courseId: string,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<SubmissionsMatrix> {
   const [assessment, students] = await Promise.all([
     assessmentRepo.findDetailById(courseId, assessmentId),
-    courseMembershipRepo.findStudents(courseId)
+    courseMembershipRepo.findStudents(courseId),
   ]);
   if (!assessment) throw new NotFoundError("Assignment not found.");
 
@@ -63,7 +63,7 @@ export async function buildSubmissionsMatrix(
     letter: letterFor(p.ordinal),
     ordinal: p.ordinal,
     title: p.problem.title,
-    points: p.points
+    points: p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 
@@ -72,7 +72,7 @@ export async function buildSubmissionsMatrix(
       problems,
       rows: [],
       totalPoints,
-      studentCount: students.length
+      studentCount: students.length,
     };
   }
 
@@ -82,7 +82,7 @@ export async function buildSubmissionsMatrix(
   const grouped = await submissionRepo.groupBestScores({
     assessmentId,
     studentIds,
-    problemIds
+    problemIds,
   });
 
   const scoreIndex = new Map<string, { best: number; count: number }>();
@@ -91,12 +91,12 @@ export async function buildSubmissionsMatrix(
     courseAssessmentId: assessmentId,
     userId: { in: studentIds },
     problemId: { in: problemIds },
-    sampleOnly: false
+    sampleOnly: false,
   });
   for (const g of fullGrouped) {
     scoreIndex.set(`${g.userId}::${g.problemId}`, {
       best: g._max.score ?? 0,
-      count: g._count.id
+      count: g._count.id,
     });
   }
   void grouped;
@@ -106,7 +106,7 @@ export async function buildSubmissionsMatrix(
   // can assign credit for an off-platform solution.
   const overrides = await resolveOverridesForContext({
     contextType: "assignment",
-    contextId: assessmentId
+    contextId: assessmentId,
   });
 
   const rows: MatrixRow[] = students.map((student) => {
@@ -123,7 +123,7 @@ export async function buildSubmissionsMatrix(
           problemId: problem.problemId,
           score: override,
           attempts: hit?.count ?? 0,
-          state
+          state,
         };
       }
       if (!hit || hit.count === 0) {
@@ -141,7 +141,7 @@ export async function buildSubmissionsMatrix(
       displayName: student.user.name,
       handle: student.user.username ?? "",
       cells,
-      total
+      total,
     };
   });
 
@@ -149,6 +149,6 @@ export async function buildSubmissionsMatrix(
     problems,
     rows,
     totalPoints,
-    studentCount: students.length
+    studentCount: students.length,
   };
 }

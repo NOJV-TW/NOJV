@@ -28,7 +28,7 @@ const TABLES = [
   "Verification",
   "Session",
   "Account",
-  "User"
+  "User",
 ] as const;
 
 export async function truncateAllTables() {

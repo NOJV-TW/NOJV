@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   assessmentContextSchema,
   courseAssessmentCreateSchema,
-  courseCreateSchema
+  courseCreateSchema,
 } from "../../../packages/core/src/index";
 
 describe("courseCreateSchema", () => {
   it("accepts teacher-authored course creation payloads", () => {
     const result = courseCreateSchema.parse({
       description: "Operating systems lab with graded programming assignments.",
-      title: "Operating Systems Lab"
+      title: "Operating Systems Lab",
     });
 
     expect(result.title).toBe("Operating Systems Lab");
@@ -27,7 +27,7 @@ describe("courseAssessmentCreateSchema", () => {
       id: "hw1-process-warmup",
       summary: "First assignment",
       title: "Homework 1",
-      dueAt: "2026-03-17T12:00:00.000Z"
+      dueAt: "2026-03-17T12:00:00.000Z",
     });
 
     expect(result.success).toBe(false);
@@ -42,7 +42,7 @@ describe("courseAssessmentCreateSchema", () => {
       problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
       id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup"
+      title: "HW1 Process Warmup",
     });
 
     expect(result.success).toBe(true);
@@ -56,7 +56,7 @@ describe("courseAssessmentCreateSchema", () => {
       problemIds: [],
       id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup"
+      title: "HW1 Process Warmup",
     });
 
     expect(result.success).toBe(false);
@@ -70,7 +70,7 @@ describe("courseAssessmentCreateSchema", () => {
       problemIds: [""],
       id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
-      title: "HW1 Process Warmup"
+      title: "HW1 Process Warmup",
     });
 
     expect(result.success).toBe(false);
@@ -81,7 +81,7 @@ describe("assessmentContextSchema", () => {
   it("parses assessment context with courseId and assessmentId", () => {
     const result = assessmentContextSchema.parse({
       assessmentId: "hw1-process-warmup",
-      courseId: "course_os-lab-spring-2026"
+      courseId: "course_os-lab-spring-2026",
     });
 
     expect(result.assessmentId).toBe("hw1-process-warmup");

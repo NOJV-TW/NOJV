@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const { users, totalCount, totalPages } = await listUsersPaginated({
     ...(search ? { search } : {}),
     ...(roleFilter ? { roleFilter } : {}),
-    page
+    page,
   });
 
   return { users, totalCount, page, totalPages, search, roleFilter };
@@ -67,5 +67,5 @@ export const actions = {
     if (!result) return fail(404, { error: "User not found." });
 
     return { success: true };
-  }
+  },
 } satisfies Actions;

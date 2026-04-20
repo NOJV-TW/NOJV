@@ -3,7 +3,7 @@ import {
   clarificationRepo,
   contestRepo,
   examRepo,
-  type ClarificationRow
+  type ClarificationRow,
 } from "@nojv/db";
 import { SSE_CLARIFICATION, type ClarificationSSEEvent } from "@nojv/core";
 import { pubsub } from "@nojv/redis";
@@ -15,7 +15,7 @@ import {
   canAnswerInContext,
   canAskClarification,
   canSeeAuthor,
-  type ClarificationContextType
+  type ClarificationContextType,
 } from "./authz";
 
 export {
@@ -23,7 +23,7 @@ export {
   canAskClarification,
   canSeeAuthor,
   assertCanAnswerInContext,
-  assertCanAskClarification
+  assertCanAskClarification,
 } from "./authz";
 export type { ClarificationContextType } from "./authz";
 
@@ -55,7 +55,7 @@ export interface ProjectedClarification extends Omit<
 }
 
 function normalizeUser(
-  u: { id: string; username: string | null; name: string } | null
+  u: { id: string; username: string | null; name: string } | null,
 ): { id: string; username: string; name: string } | null {
   if (!u) return null;
   return { id: u.id, username: u.username ?? "", name: u.name };
@@ -73,13 +73,13 @@ function projectRow(row: ClarificationRow, isStaff: boolean): ProjectedClarifica
     ...row,
     askedByUserId: isStaff ? row.askedByUserId : null,
     askedBy: isStaff ? normalizeUser(row.askedBy) : null,
-    answeredBy: normalizeUser(row.answeredBy)
+    answeredBy: normalizeUser(row.answeredBy),
   };
 }
 
 export async function ask(
   actor: ActorContext,
-  input: AskInput
+  input: AskInput,
 ): Promise<ProjectedClarification> {
   const text = input.questionText;
   if (text.length < QUESTION_MIN || text.length > QUESTION_MAX) {
@@ -95,7 +95,7 @@ export async function ask(
     actor.userId,
     input.contextType,
     input.contextId,
-    windowStart
+    windowStart,
   );
   if (recent >= RATE_LIMIT_COUNT) {
     throw new ConflictError("Too many questions in the last 10 minutes.");
@@ -106,7 +106,7 @@ export async function ask(
     contextId: input.contextId,
     problemId: input.problemId ?? null,
     askedByUserId: actor.userId,
-    questionText: text
+    questionText: text,
   });
   await publishClarificationEvent("created", row);
   // Asker is not staff — even on their own POST they get the masked
@@ -118,7 +118,7 @@ export async function ask(
 export async function answer(
   actor: ActorContext,
   id: string,
-  input: AnswerInput
+  input: AnswerInput,
 ): Promise<ProjectedClarification> {
   const text = input.answerText;
   if (text.length < ANSWER_MIN || text.length > ANSWER_MAX) {
@@ -138,7 +138,7 @@ export async function answer(
     answerText: text,
     answeredByUserId: actor.userId,
     state: "answered",
-    answeredAt: row.answeredAt ?? new Date()
+    answeredAt: row.answeredAt ?? new Date(),
   });
   await publishClarificationEvent("updated", updated);
 
@@ -153,9 +153,9 @@ export async function answer(
           contextType: row.contextType,
           contextId: row.contextId,
           clarificationId: row.id,
-          questionPreview: row.questionText.slice(0, 80)
+          questionPreview: row.questionText.slice(0, 80),
         },
-        linkUrl: buildClarificationLink(row.contextType, row.contextId, row.id)
+        linkUrl: buildClarificationLink(row.contextType, row.contextId, row.id),
       });
     } catch {
       // Notification delivery is best-effort; the answer has already
@@ -168,7 +168,7 @@ export async function answer(
 
 export async function dismiss(
   actor: ActorContext,
-  id: string
+  id: string,
 ): Promise<ProjectedClarification> {
   const row = await clarificationRepo.findById(id);
   if (!row) throw new NotFoundError("Clarification not found.");
@@ -187,7 +187,7 @@ export async function listForViewer(
   viewer: ActorContext,
   contextType: ClarificationContextType,
   contextId: string,
-  since?: Date
+  since?: Date,
 ): Promise<ProjectedClarification[]> {
   const rows = await clarificationRepo.listForContext(contextType, contextId, since);
   const isStaff = await canSeeAuthor(viewer, contextType, contextId);
@@ -202,7 +202,7 @@ export async function listForViewer(
 export function buildClarificationLink(
   contextType: ClarificationContextType,
   contextId: string,
-  id: string
+  id: string,
 ): string {
   switch (contextType) {
     case "contest":
@@ -216,7 +216,7 @@ export function buildClarificationLink(
 
 async function publishClarificationEvent(
   action: ClarificationSSEEvent["action"],
-  row: ClarificationRow
+  row: ClarificationRow,
 ): Promise<void> {
   try {
     // Publish the MASKED projection — asker identity is nulled. Staff
@@ -243,8 +243,8 @@ async function publishClarificationEvent(
         answeredByUserId: masked.answeredByUserId,
         answeredBy: masked.answeredBy,
         answeredAt: masked.answeredAt ? masked.answeredAt.toISOString() : null,
-        createdAt: masked.createdAt.toISOString()
-      }
+        createdAt: masked.createdAt.toISOString(),
+      },
     };
     await pubsub.publishClarification(row.contextType, row.contextId, event);
   } catch {
@@ -258,7 +258,7 @@ async function publishClarificationEvent(
  */
 async function assertContextActiveForAsk(
   contextType: ClarificationContextType,
-  contextId: string
+  contextId: string,
 ): Promise<void> {
   const now = new Date();
   switch (contextType) {

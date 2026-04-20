@@ -21,8 +21,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     {
       pollUrl: `/api/submissions/${submission.id}`,
       status: submission.status,
-      submissionId: submission.id
+      submissionId: submission.id,
     },
-    { status: 202 }
+    { status: 202 },
   );
 });

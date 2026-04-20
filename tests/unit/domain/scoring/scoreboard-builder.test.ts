@@ -11,13 +11,13 @@ const session = {
   id: "session_1",
   startsAt: SESSION_START,
   endsAt: SESSION_END,
-  frozenAt: null as Date | null
+  frozenAt: null as Date | null,
 };
 
 function mkParticipant(userId: string) {
   return {
     userId,
-    user: { username: userId, displayUsername: null, name: userId }
+    user: { username: userId, displayUsername: null, name: userId },
   };
 }
 
@@ -30,14 +30,14 @@ function mkSub(
   problemId: string,
   score: number,
   minutesAfterStart: number,
-  status = "accepted"
+  status = "accepted",
 ) {
   return {
     userId,
     problemId,
     score,
     status,
-    createdAt: new Date(SESSION_START.getTime() + minutesAfterStart * 60 * 1000)
+    createdAt: new Date(SESSION_START.getTime() + minutesAfterStart * 60 * 1000),
   };
 }
 
@@ -50,7 +50,7 @@ describe("buildScoreboard (dispatcher)", () => {
   const submissions = [
     mkSub("u1", "P1", 100, 5),
     mkSub("u2", "P1", 100, 15),
-    mkSub("u2", "P2", 50, 25, "wrong_answer")
+    mkSub("u2", "P2", 50, 25, "wrong_answer"),
   ];
 
   it("dispatches to ICPC when scoringMode=problem_count", () => {
@@ -60,7 +60,7 @@ describe("buildScoreboard (dispatcher)", () => {
       participants,
       submissions,
       problems,
-      false
+      false,
     );
     // ICPC scores by problems solved, penalty in seconds.
     expect(board[0]!.userId).toBe("u1");
@@ -92,7 +92,7 @@ describe("buildScoreboard (dispatcher)", () => {
 describe("buildScoreboardChartSeries", () => {
   const pointsByProblem = new Map([
     ["P1", 100],
-    ["P2", 100]
+    ["P2", 100],
   ]);
 
   it("returns the zero baseline for users with no submissions", () => {
@@ -102,7 +102,7 @@ describe("buildScoreboardChartSeries", () => {
       ["u1"],
       new Map(),
       new Map([["u1", "alice"]]),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series).toHaveLength(1);
     expect(series[0]!.username).toBe("alice");
@@ -116,9 +116,9 @@ describe("buildScoreboardChartSeries", () => {
         [
           mkSub("u1", "P1", 100, 10),
           mkSub("u1", "P1", 100, 15), // duplicate solve on same problem — ignored
-          mkSub("u1", "P2", 100, 30)
-        ]
-      ]
+          mkSub("u1", "P2", 100, 30),
+        ],
+      ],
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
@@ -126,18 +126,18 @@ describe("buildScoreboardChartSeries", () => {
       ["u1"],
       subsByUser,
       new Map(),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
       { time: 10 * 60, score: 100 },
-      { time: 30 * 60, score: 200 }
+      { time: 30 * 60, score: 200 },
     ]);
   });
 
   it("ICPC: wrong-answer submissions do not create chart points", () => {
     const subsByUser = new Map([
-      ["u1", [mkSub("u1", "P1", 0, 5, "wrong_answer"), mkSub("u1", "P1", 100, 10)]]
+      ["u1", [mkSub("u1", "P1", 0, 5, "wrong_answer"), mkSub("u1", "P1", 100, 10)]],
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
@@ -145,11 +145,11 @@ describe("buildScoreboardChartSeries", () => {
       ["u1"],
       subsByUser,
       new Map(),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
-      { time: 10 * 60, score: 100 }
+      { time: 10 * 60, score: 100 },
     ]);
   });
 
@@ -161,9 +161,9 @@ describe("buildScoreboardChartSeries", () => {
           mkSub("u1", "P1", 40, 5, "wrong_answer"),
           mkSub("u1", "P1", 70, 15, "wrong_answer"),
           mkSub("u1", "P1", 50, 25, "wrong_answer"), // not an improvement — skipped
-          mkSub("u1", "P2", 100, 40)
-        ]
-      ]
+          mkSub("u1", "P2", 100, 40),
+        ],
+      ],
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
@@ -171,13 +171,13 @@ describe("buildScoreboardChartSeries", () => {
       ["u1"],
       subsByUser,
       new Map(),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
       { time: 5 * 60, score: 40 },
       { time: 15 * 60, score: 70 },
-      { time: 40 * 60, score: 170 }
+      { time: 40 * 60, score: 170 },
     ]);
   });
 
@@ -185,8 +185,8 @@ describe("buildScoreboardChartSeries", () => {
     const subsByUser = new Map([
       [
         "u1",
-        [mkSub("u1", "P1", 30, 10, "wrong_answer"), mkSub("u1", "P1", 90, 20, "wrong_answer")]
-      ]
+        [mkSub("u1", "P1", 30, 10, "wrong_answer"), mkSub("u1", "P1", 90, 20, "wrong_answer")],
+      ],
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
@@ -194,12 +194,12 @@ describe("buildScoreboardChartSeries", () => {
       ["u1"],
       subsByUser,
       new Map(),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
       { time: 10 * 60, score: 30 },
-      { time: 20 * 60, score: 90 }
+      { time: 20 * 60, score: 90 },
     ]);
   });
 
@@ -210,7 +210,7 @@ describe("buildScoreboardChartSeries", () => {
       ["u1"],
       new Map(),
       new Map(),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series[0]!.username).toBe("u1");
   });
@@ -218,7 +218,7 @@ describe("buildScoreboardChartSeries", () => {
   it("produces one series per top user, in the order they were requested", () => {
     const subsByUser = new Map([
       ["u1", [mkSub("u1", "P1", 100, 10)]],
-      ["u2", [mkSub("u2", "P1", 100, 20)]]
+      ["u2", [mkSub("u2", "P1", 100, 20)]],
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
@@ -226,7 +226,7 @@ describe("buildScoreboardChartSeries", () => {
       ["u2", "u1"],
       subsByUser,
       new Map(),
-      pointsByProblem
+      pointsByProblem,
     );
     expect(series.map((s) => s.userId)).toEqual(["u2", "u1"]);
   });

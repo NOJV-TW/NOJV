@@ -12,7 +12,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const limit = Number.isFinite(limitRaw) ? limitRaw : 20;
   const [items, unreadCount] = await Promise.all([
     notificationDomain.listRecent(actor.userId, limit),
-    notificationDomain.countUnread(actor.userId)
+    notificationDomain.countUnread(actor.userId),
   ]);
   return json({ items, unreadCount });
 });

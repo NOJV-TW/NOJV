@@ -18,35 +18,35 @@ describe("canManageExam", () => {
 
   it("returns true for an active teacher of the course", () => {
     const memberships = [
-      { courseId: "course-1", role: "teacher" as const, status: "active" as const }
+      { courseId: "course-1", role: "teacher" as const, status: "active" as const },
     ];
     expect(canManageExam("teacher-1", exam, memberships)).toBe(true);
   });
 
   it("returns true for an active TA of the course", () => {
     const memberships = [
-      { courseId: "course-1", role: "ta" as const, status: "active" as const }
+      { courseId: "course-1", role: "ta" as const, status: "active" as const },
     ];
     expect(canManageExam("ta-1", exam, memberships)).toBe(true);
   });
 
   it("returns false for a student of the course", () => {
     const memberships = [
-      { courseId: "course-1", role: "student" as const, status: "active" as const }
+      { courseId: "course-1", role: "student" as const, status: "active" as const },
     ];
     expect(canManageExam("student-1", exam, memberships)).toBe(false);
   });
 
   it("returns false for a removed teacher membership", () => {
     const memberships = [
-      { courseId: "course-1", role: "teacher" as const, status: "removed" as const }
+      { courseId: "course-1", role: "teacher" as const, status: "removed" as const },
     ];
     expect(canManageExam("teacher-1", exam, memberships)).toBe(false);
   });
 
   it("returns false when teacher membership is for a different course", () => {
     const memberships = [
-      { courseId: "course-other", role: "teacher" as const, status: "active" as const }
+      { courseId: "course-other", role: "teacher" as const, status: "active" as const },
     ];
     expect(canManageExam("teacher-1", exam, memberships)).toBe(false);
   });

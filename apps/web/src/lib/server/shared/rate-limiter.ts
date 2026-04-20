@@ -13,13 +13,13 @@ function createRateLimiter(points: number, duration: number) {
       storeClient: redis,
       points: points * multiplier,
       duration,
-      keyPrefix: "rl"
+      keyPrefix: "rl",
     });
   } catch {
     // Fallback to memory if Redis is not available (e.g., during build)
     return new RateLimiterMemory({
       points: points * multiplier,
-      duration
+      duration,
     });
   }
 }

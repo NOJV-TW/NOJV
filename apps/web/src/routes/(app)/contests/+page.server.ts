@@ -35,5 +35,5 @@ export const actions = {
     }
 
     redirect(303, `/contests/${contest.id}`);
-  }
+  },
 } satisfies Actions;

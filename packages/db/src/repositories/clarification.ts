@@ -2,13 +2,13 @@ import { prisma } from "../client";
 import type {
   ClarificationContextType,
   ClarificationState,
-  Prisma
+  Prisma,
 } from "../../generated/prisma/client";
 
 const clarificationInclude = {
   askedBy: { select: { id: true, username: true, name: true } },
   answeredBy: { select: { id: true, username: true, name: true } },
-  problem: { select: { id: true, title: true } }
+  problem: { select: { id: true, title: true } },
 } as const satisfies Prisma.ClarificationInclude;
 
 export type ClarificationRow = Prisma.ClarificationGetPayload<{
@@ -36,17 +36,17 @@ export const clarificationRepo = {
       where: {
         contextType,
         contextId,
-        ...(since ? { createdAt: { gt: since } } : {})
+        ...(since ? { createdAt: { gt: since } } : {}),
       },
       orderBy: { createdAt: "asc" },
-      include: clarificationInclude
+      include: clarificationInclude,
     });
   },
 
   findById(id: string) {
     return prisma.clarification.findUnique({
       where: { id },
-      include: clarificationInclude
+      include: clarificationInclude,
     });
   },
 
@@ -57,9 +57,9 @@ export const clarificationRepo = {
         contextId: data.contextId,
         problemId: data.problemId,
         askedByUserId: data.askedByUserId,
-        questionText: data.questionText
+        questionText: data.questionText,
       },
-      include: clarificationInclude
+      include: clarificationInclude,
     });
   },
 
@@ -70,9 +70,9 @@ export const clarificationRepo = {
         answerText: data.answerText,
         answeredByUserId: data.answeredByUserId,
         state: data.state,
-        answeredAt: data.answeredAt
+        answeredAt: data.answeredAt,
       },
-      include: clarificationInclude
+      include: clarificationInclude,
     });
   },
 
@@ -80,7 +80,7 @@ export const clarificationRepo = {
     return prisma.clarification.update({
       where: { id },
       data: { state },
-      include: clarificationInclude
+      include: clarificationInclude,
     });
   },
 
@@ -88,15 +88,15 @@ export const clarificationRepo = {
     userId: string,
     contextType: ClarificationContextType,
     contextId: string,
-    windowStart: Date
+    windowStart: Date,
   ) {
     return prisma.clarification.count({
       where: {
         askedByUserId: userId,
         contextType,
         contextId,
-        createdAt: { gte: windowStart }
-      }
+        createdAt: { gte: windowStart },
+      },
     });
-  }
+  },
 };

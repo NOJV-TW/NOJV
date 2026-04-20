@@ -82,7 +82,7 @@ function createToastStore() {
       type,
       createdAt: Date.now(),
       dismissible,
-      ...(options.undo ? { undo: options.undo } : {})
+      ...(options.undo ? { undo: options.undo } : {}),
     };
 
     update((toasts) => {
@@ -127,7 +127,7 @@ function createToastStore() {
     warning: (message: string, options: Omit<ToastOptions, "type"> = {}) =>
       show(message, { ...options, type: "warning" }),
     info: (message: string, options: Omit<ToastOptions, "type"> = {}) =>
-      show(message, { ...options, type: "info" })
+      show(message, { ...options, type: "info" }),
   };
 }
 

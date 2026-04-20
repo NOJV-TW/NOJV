@@ -41,8 +41,8 @@ describe("buildEditorSessionId", () => {
     expect(
       buildEditorSessionId({
         contestId: "spring-qualifier-2026",
-        problemId: "warmup-sum"
-      })
+        problemId: "warmup-sum",
+      }),
     ).toBe("editor_warmup-sum_contest_spring-qualifier-2026");
   });
 
@@ -51,8 +51,8 @@ describe("buildEditorSessionId", () => {
       buildEditorSessionId({
         assessmentId: "hw1-process-trace",
         courseId: "course_os-lab-spring-2026",
-        problemId: "process-log-parser"
-      })
+        problemId: "process-log-parser",
+      }),
     ).toBe("editor_process-log-parser_course-os-lab-spring-2026_hw1-process-trace");
   });
 });

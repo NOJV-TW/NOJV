@@ -25,7 +25,7 @@ export class WorkerApp {
     this.env = env;
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
-      isTemporalConnected: () => this.temporalConnected
+      isTemporalConnected: () => this.temporalConnected,
     });
   }
 
@@ -47,7 +47,7 @@ export class WorkerApp {
         taskQueue: JUDGE_TASK_QUEUE,
         workflowsPath: require.resolve("@nojv/temporal/workflows"),
         activities: await import("@nojv/temporal/activities/judge"),
-        maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY
+        maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
       });
       this.workers.push(judgeWorker);
     }
@@ -59,7 +59,7 @@ export class WorkerApp {
         taskQueue: PLATFORM_TASK_QUEUE,
         workflowsPath: require.resolve("@nojv/temporal/workflows"),
         activities: await import("@nojv/temporal/activities/platform"),
-        maxConcurrentActivityTaskExecutions: 10
+        maxConcurrentActivityTaskExecutions: 10,
       });
       this.workers.push(platformWorker);
     }
@@ -73,14 +73,14 @@ export class WorkerApp {
         ? [JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE][i]
         : mode === "judge"
           ? JUDGE_TASK_QUEUE
-          : PLATFORM_TASK_QUEUE
+          : PLATFORM_TASK_QUEUE,
     );
 
     logger.info("temporal worker started", {
       address,
       mode,
       namespace,
-      taskQueues: taskQueues.join(", ")
+      taskQueues: taskQueues.join(", "),
     });
 
     await Promise.all(this.workers.map((w) => w.run()));
