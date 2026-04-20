@@ -18,7 +18,7 @@ export const NOTIFICATION_ACTIVITY: ActivityOptions = {
   retry: { maximumAttempts: 2 },
 };
 
-// MOSS 提交 + 輪詢，可能耗時數分鐘。
+// Dolos AST analysis across all (problem, language) groups.
 export const PLAGIARISM_ACTIVITY: ActivityOptions = {
   startToCloseTimeout: "10m",
   retry: { maximumAttempts: 3 },

@@ -25,14 +25,12 @@ Problem ──┬── ProblemStatementI18n (locale-specific content)
 Contest ──┬── ContestProblem
           ├── ContestParticipation
           ├── Submission
-          ├── PlagiarismReport
           └── IpViolationLog
 
 Course ──┬── CourseMembership
          ├── CourseJoinToken
          ├── CourseAssessment ──┬── CourseAssessmentProblem
          │                     ├── AssessmentParticipation
-         │                     ├── PlagiarismReport
          │                     └── IpViolationLog
          ├── Contest (course-linked)
          └── Submission
@@ -135,21 +133,21 @@ Per-language files that make up a Standard Mode problem's workspace. Columns: `l
 
 Advanced Mode (`Problem.type === "special_env"`) does not use `TestcaseSet` / `Testcase` rows — the TA-provided Docker image bundles its own testcases and writes a structured `result.json`. See [Judge Pipeline](JUDGE_PIPELINE.md#advanced-mode-pipeline).
 
-### PlagiarismReport
+### Plagiarism state (inlined)
 
-Tracks Dolos plagiarism detection runs. Created by web endpoint, processed by Temporal workflow. Links to either `CourseAssessment` or `Contest`.
+Plagiarism reports are not a separate model — the six `plagiarism*` columns (`plagiarismStatus`, `plagiarismResults`, `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`) live directly on `CourseAssessment`, `Exam`, and `Contest`. One latest run per parent row; re-running upserts in place. Created by the web endpoint, processed by the Temporal plagiarism activity.
 
 ## JSON Columns
 
-| Model.Field                          | Schema                  | Purpose                                                               |
-| ------------------------------------ | ----------------------- | --------------------------------------------------------------------- |
-| `Problem.judgeConfig`                | `JudgeConfig`           | type / compare / checker / interactor / runtime / subtaskStrategies   |
-| `Problem.samples`                    | `{ input, output }[]`   | Sample I/O pairs rendered on the student problem page                 |
-| `CourseAssessment.adjustmentRules`   | `AdjustmentRule[]`      | Late penalty / time bonus / memory penalty rules (applied post-judge) |
-| `Contest.adjustmentRules`            | `AdjustmentRule[]`      | Same as above, applied to contest submissions                         |
-| `Submission.verdictDetail`           | Full `SubmissionResult` | Per-case + per-subtask results, compiler output, scoring feedback     |
-| `ContestParticipation.subtaskScores` | Score breakdown         | Per-subtask contest scores                                            |
-| `PlagiarismReport.results`           | Dolos result array      | Similarity pairs (similarity, longest, overlap)                       |
+| Model.Field                          | Schema                  | Purpose                                                                              |
+| ------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------ |
+| `Problem.judgeConfig`                | `JudgeConfig`           | type / compare / checker / interactor / runtime / subtaskStrategies                  |
+| `Problem.samples`                    | `{ input, output }[]`   | Sample I/O pairs rendered on the student problem page                                |
+| `CourseAssessment.adjustmentRules`   | `AdjustmentRule[]`      | Late penalty / time bonus / memory penalty rules (applied post-judge)                |
+| `Contest.adjustmentRules`            | `AdjustmentRule[]`      | Same as above, applied to contest submissions                                        |
+| `Submission.verdictDetail`           | Full `SubmissionResult` | Per-case + per-subtask results, compiler output, scoring feedback                    |
+| `ContestParticipation.subtaskScores` | Score breakdown         | Per-subtask contest scores                                                           |
+| `*.plagiarismResults`                | Dolos result array      | Similarity pairs (similarity, longest, overlap) on CourseAssessment / Exam / Contest |
 
 ## Seed Data
 
