@@ -39,4 +39,17 @@ describe("aggregateByTag", () => {
     const rows = [{ problem: { tags: [] } }, { problem: { tags: ["dp"] } }];
     expect(aggregateByTag(rows)).toEqual([{ tag: "dp", acCount: 1 }]);
   });
+
+  it("breaks count ties deterministically so repeated calls yield stable ordering", () => {
+    const rows = [
+      { problem: { tags: ["alpha"] } },
+      { problem: { tags: ["beta"] } },
+      { problem: { tags: ["gamma"] } }
+    ];
+    const first = aggregateByTag(rows);
+    const second = aggregateByTag(rows);
+    const third = aggregateByTag([...rows].reverse());
+    expect(first).toEqual(second);
+    expect(first.map((r) => r.tag)).toEqual(third.map((r) => r.tag));
+  });
 });
