@@ -12,7 +12,7 @@ function fakeUser(overrides: Record<string, unknown> = {}) {
     name: "Test",
     username: null,
     platformRole: "student",
-    ...overrides
+    ...overrides,
   };
 }
 

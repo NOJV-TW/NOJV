@@ -21,14 +21,14 @@ export function createAssessmentListLoader() {
           closesAt: a.closesAt,
           dueAt: a.dueAt,
           now,
-          opensAt: a.opensAt
+          opensAt: a.opensAt,
         });
         return {
           ...a,
           windowState,
-          windowStateColor: windowStateColorClass(windowState)
+          windowStateColor: windowStateColorClass(windowState),
         };
-      })
+      }),
     };
   };
 }

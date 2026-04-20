@@ -18,5 +18,5 @@ export {
   type SkeletonCardProps,
   type SkeletonListProps,
   type SkeletonTableProps,
-  type SkeletonStatProps
+  type SkeletonStatProps,
 };

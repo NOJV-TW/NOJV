@@ -29,7 +29,7 @@ function flattenAnnouncement(announcement: {
     published: announcement.status === "published",
     createdAt: announcement.createdAt,
     title: localized.title,
-    content: localized.content
+    content: localized.content,
   };
 }
 
@@ -40,14 +40,14 @@ export const load: PageServerLoad = async (event) => {
     const announcements = await listAnnouncements();
     return {
       announcements: announcements.map(flattenAnnouncement),
-      assessments: []
+      assessments: [],
     };
   }
 
   const now = new Date().toISOString();
   const [announcements, rawAssessments] = await Promise.all([
     listAnnouncements(),
-    listUpcomingAssessments(user.id)
+    listUpcomingAssessments(user.id),
   ]);
 
   const assessments = rawAssessments.map((a) => {
@@ -55,19 +55,19 @@ export const load: PageServerLoad = async (event) => {
       closesAt: a.closesAt,
       dueAt: a.dueAt,
       now,
-      opensAt: a.opensAt
+      opensAt: a.opensAt,
     });
     return {
       ...a,
       // Template calls `new Date(dueAt)` directly; coalesce to closesAt.
       dueAt: a.dueAt ?? a.closesAt,
       windowState,
-      windowStateColor: windowStateColorClass(windowState)
+      windowStateColor: windowStateColorClass(windowState),
     };
   });
 
   return {
     announcements: announcements.map(flattenAnnouncement),
-    assessments
+    assessments,
   };
 };

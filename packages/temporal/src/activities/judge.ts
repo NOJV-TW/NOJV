@@ -4,7 +4,7 @@ import {
   type SandboxExecutor,
   type SandboxRequest,
   type SubmissionDraft,
-  type SubmissionResult
+  type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/domain";
 
@@ -28,7 +28,7 @@ export type SubmissionJudgeContext = submissionDomain.SubmissionJudgeContext;
 export type TestcaseSetGroup = submissionDomain.TestcaseSetGroup;
 
 export async function fetchJudgeContext(
-  submissionId: string
+  submissionId: string,
 ): Promise<submissionDomain.SubmissionJudgeContext> {
   return submissionDomain.getJudgeContext(submissionId);
 }
@@ -36,7 +36,7 @@ export async function fetchJudgeContext(
 // Student files may override only `editable` paths; readonly/hidden teacher files win.
 function mergeSandboxSources(
   draft: SubmissionDraft,
-  judgeContext: submissionDomain.SubmissionJudgeContext
+  judgeContext: submissionDomain.SubmissionJudgeContext,
 ): {
   sourceCode: string;
   sourceFiles?: { path: string; content: string }[];
@@ -47,7 +47,7 @@ function mergeSandboxSources(
   if (langFiles.length === 0) {
     return {
       sourceCode: draft.sourceCode,
-      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {})
+      ...(draft.sourceFiles ? { sourceFiles: draft.sourceFiles } : {}),
     };
   }
 
@@ -57,7 +57,7 @@ function mergeSandboxSources(
   }
 
   const editablePaths = new Set(
-    langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path)
+    langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path),
   );
 
   if (draft.sourceFiles) {
@@ -76,20 +76,20 @@ function mergeSandboxSources(
 
   const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
     path,
-    content
+    content,
   }));
 
   return {
     sourceCode: merged.get(mainPath) ?? draft.sourceCode,
     sourceFiles,
-    entryFile: mainPath
+    entryFile: mainPath,
   };
 }
 
 export async function executeSandbox(
   submissionId: string,
   draft: SubmissionDraft,
-  judgeContext: submissionDomain.SubmissionJudgeContext
+  judgeContext: submissionDomain.SubmissionJudgeContext,
 ): Promise<SubmissionResult> {
   const executor = getExecutor();
 
@@ -107,7 +107,7 @@ export async function executeSandbox(
         input: tc.input,
         ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),
         weight: 0,
-        isSample: true
+        isSample: true,
       }))
     : useSamples
       ? judgeContext.samples.map((s, i) => ({
@@ -115,7 +115,7 @@ export async function executeSandbox(
           input: s.input,
           output: s.output,
           weight: 0,
-          isSample: true
+          isSample: true,
         }))
       : useAdvanced
         ? [] // advanced: TA image bundles testcases
@@ -125,8 +125,8 @@ export async function executeSandbox(
               input: tc.input,
               ...(tc.output != null ? { output: tc.output } : {}),
               weight: tc.weight,
-              isSample: false
-            }))
+              isSample: false,
+            })),
           );
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
@@ -140,7 +140,7 @@ export async function executeSandbox(
       imageRef: ctx.imageRef,
       imageSource: ctx.imageSource,
       totalTimeMs: ctx.resourceLimits.totalTimeMs,
-      memoryMb: ctx.resourceLimits.memoryMb
+      memoryMb: ctx.resourceLimits.memoryMb,
     };
   }
 
@@ -159,13 +159,13 @@ export async function executeSandbox(
         : {}),
       ...(judgeContext.interactorScript != null
         ? { interactorScript: judgeContext.interactorScript }
-        : {})
+        : {}),
     },
     limits: {
       timeoutMs: judgeContext.runtime.timeLimitMs,
-      memoryMb: judgeContext.runtime.memoryLimitMb
+      memoryMb: judgeContext.runtime.memoryLimitMb,
     },
-    ...(advancedPayload ? { advanced: advancedPayload } : {})
+    ...(advancedPayload ? { advanced: advancedPayload } : {}),
   };
 
   const result = await executor.execute(request);
@@ -177,19 +177,19 @@ export async function executeSandbox(
   }
 
   return submissionResultSchema.parse(
-    submissionDomain.mapResult(result, activeSets, judgeContext)
+    submissionDomain.mapResult(result, activeSets, judgeContext),
   );
 }
 
 export async function completeSubmission(
   submissionId: string,
-  result: SubmissionResult
+  result: SubmissionResult,
 ): Promise<submissionDomain.CompletedSubmission> {
   return submissionDomain.completeJudge(submissionId, result);
 }
 
 export async function fetchSubmissionIdsForRejudge(
-  input: BatchRejudgeInput
+  input: BatchRejudgeInput,
 ): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
   return submissionDomain.findForRejudge({
     problemId: input.problemId,
@@ -198,19 +198,19 @@ export async function fetchSubmissionIdsForRejudge(
     ...(input.examId ? { examId: input.examId } : {}),
     ...(input.userIds ? { userIds: input.userIds } : {}),
     ...(input.since ? { since: new Date(input.since) } : {}),
-    ...(input.until ? { until: new Date(input.until) } : {})
+    ...(input.until ? { until: new Date(input.until) } : {}),
   });
 }
 
 export async function fetchSingleSubmissionForRejudge(
-  submissionId: string
+  submissionId: string,
 ): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
   return submissionDomain.findOneForRejudge(submissionId);
 }
 
 export async function snapshotSubmissionForRejudge(
   submissionId: string,
-  triggeredByUserId: string | null
+  triggeredByUserId: string | null,
 ): Promise<{ logId: string } | null> {
   return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId);
 }
@@ -218,7 +218,7 @@ export async function snapshotSubmissionForRejudge(
 export async function finalizeRejudgeLog(
   submissionId: string,
   triggeredByUserId: string | null,
-  logId: string
+  logId: string,
 ): Promise<void> {
   return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
 }

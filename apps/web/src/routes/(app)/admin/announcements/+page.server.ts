@@ -11,7 +11,7 @@ const {
   updateAnnouncement,
   deleteAnnouncement,
   toggleAnnouncementPin,
-  toggleAnnouncementPublish
+  toggleAnnouncementPublish,
 } = announcementDomain;
 
 interface AnnouncementTranslationRow {
@@ -41,9 +41,9 @@ export const load: PageServerLoad = async () => {
         pinned: a.pinned,
         published: a.status === "published",
         createdAt: a.createdAt,
-        updatedAt: a.updatedAt
+        updatedAt: a.updatedAt,
       };
-    })
+    }),
   };
 };
 
@@ -61,7 +61,7 @@ export const actions = {
       title,
       content,
       pinned: readCheckbox(formData, "pinned"),
-      published: readCheckbox(formData, "published")
+      published: readCheckbox(formData, "published"),
     });
 
     return { success: true };
@@ -81,7 +81,7 @@ export const actions = {
       title,
       content,
       pinned: readCheckbox(formData, "pinned"),
-      published: readCheckbox(formData, "published")
+      published: readCheckbox(formData, "published"),
     });
 
     return { success: true };
@@ -113,5 +113,5 @@ export const actions = {
     if (!result) return fail(404, { error: "Not found." });
 
     return { success: true };
-  })
+  }),
 } satisfies Actions;

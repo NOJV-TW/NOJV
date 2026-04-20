@@ -5,7 +5,7 @@ export const advancedTestcaseResultSchema = z.object({
   index: z.number().int().nonnegative(),
   verdict: z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]),
   runtimeMs: z.number().int().nonnegative().optional(),
-  feedback: z.string().max(4_000).optional()
+  feedback: z.string().max(4_000).optional(),
 });
 
 export type AdvancedTestcaseResult = z.infer<typeof advancedTestcaseResultSchema>;
@@ -14,7 +14,7 @@ export type AdvancedTestcaseResult = z.infer<typeof advancedTestcaseResultSchema
 export const advancedSubtaskResultSchema = z.object({
   name: z.string().max(200),
   score: z.number().min(0).max(100),
-  passed: z.boolean()
+  passed: z.boolean(),
 });
 
 export type AdvancedSubtaskResult = z.infer<typeof advancedSubtaskResultSchema>;
@@ -28,11 +28,11 @@ export const advancedResultSchema = z.object({
     "time_limit_exceeded",
     "memory_limit_exceeded",
     "runtime_error",
-    "compile_error"
+    "compile_error",
   ]),
   feedback: z.string().max(10_000).optional(),
   testcases: z.array(advancedTestcaseResultSchema).max(1_000).optional(),
-  subtasks: z.array(advancedSubtaskResultSchema).max(100).optional()
+  subtasks: z.array(advancedSubtaskResultSchema).max(100).optional(),
 });
 
 export type AdvancedResult = z.infer<typeof advancedResultSchema>;
@@ -44,9 +44,9 @@ export const advancedImageConfigSchema = z.object({
   resourceLimits: z
     .object({
       totalTimeMs: z.number().int().min(1_000).max(300_000).default(30_000),
-      memoryMb: z.number().int().min(16).max(4096).default(1_024)
+      memoryMb: z.number().int().min(16).max(4096).default(1_024),
     })
-    .optional()
+    .optional(),
 });
 
 export type AdvancedImageConfig = z.infer<typeof advancedImageConfigSchema>;

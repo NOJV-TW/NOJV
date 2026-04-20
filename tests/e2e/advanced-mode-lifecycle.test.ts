@@ -22,11 +22,11 @@ type FormActionResult = {
 async function postFormAction(
   page: import("@playwright/test").Page,
   urlPath: string,
-  form: Record<string, string>
+  form: Record<string, string>,
 ): Promise<FormActionResult> {
   const res = await page.request.post(urlPath, {
     form,
-    headers: { origin: ORIGIN }
+    headers: { origin: ORIGIN },
   });
   return res.json() as Promise<FormActionResult>;
 }
@@ -35,7 +35,7 @@ async function buildSubmissionZip(): Promise<Buffer> {
   const zip = new JSZip();
   zip.file(
     "main.sh",
-    "#!/bin/sh\n# Minimal advanced-mode submission for E2E — never actually runs.\necho hello\n"
+    "#!/bin/sh\n# Minimal advanced-mode submission for E2E — never actually runs.\necho hello\n",
   );
   zip.file("README.md", "# advanced-mode e2e upload\n");
   return zip.generateAsync({ type: "nodebuffer" });
@@ -59,7 +59,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     // the JSON body keeps the test surface narrow and avoids depending on a
     // fragile click path through the dropdown menu.
     const res = await page.request.post("/api/problems/create", {
-      data: { mode: "advanced" }
+      data: { mode: "advanced" },
     });
     expect(res.ok()).toBe(true);
     const body = (await res.json()) as { id: string; mode: string };
@@ -71,7 +71,7 @@ test.describe("Advanced Mode Lifecycle", () => {
   });
 
   test("edit page renders the advanced layout for special_env problems and accepts a registry image ref", async ({
-    browser
+    browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
@@ -94,9 +94,9 @@ test.describe("Advanced Mode Lifecycle", () => {
           ref: REGISTRY_REF,
           source: "registry",
           timeLimitMs: 30_000,
-          memoryLimitMb: 1_024
-        })
-      }
+          memoryLimitMb: 1_024,
+        }),
+      },
     );
     expect(saveResult.type).not.toBe("error");
     expect(saveResult.type).not.toBe("failure");
@@ -119,7 +119,7 @@ test.describe("Advanced Mode Lifecycle", () => {
   });
 
   test("teacher viewing the student page sees the Advanced Mode upload UI, not Monaco", async ({
-    browser
+    browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
@@ -137,7 +137,7 @@ test.describe("Advanced Mode Lifecycle", () => {
 
     // The drop zone copy ("Drop a .zip archive…") confirms the upload UI.
     await expect(
-      page.getByText(/drop a .*\.zip.* archive or a single source file/i)
+      page.getByText(/drop a .*\.zip.* archive or a single source file/i),
     ).toBeVisible();
 
     await context.close();
@@ -155,7 +155,7 @@ test.describe("Advanced Mode Lifecycle", () => {
 
     // Upload dropzone is present — both the copy and the hidden file input.
     await expect(
-      page.getByText(/drop a .*\.zip.* archive or a single source file/i)
+      page.getByText(/drop a .*\.zip.* archive or a single source file/i),
     ).toBeVisible();
     const fileInput = page.locator(`#advanced-upload-${advancedProblemId}`);
     await expect(fileInput).toHaveCount(1);
@@ -170,7 +170,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     const pubResult = await postFormAction(
       teacherPage,
       `/problems/${advancedProblemId}/edit?/publish`,
-      {}
+      {},
     );
     expect(pubResult.type).not.toBe("error");
     await teacherCtx.close();
@@ -188,8 +188,8 @@ test.describe("Advanced Mode Lifecycle", () => {
         problemId: advancedProblemId,
         language: "python",
         sourceCode: "print('hello')\n",
-        sourceFiles: [{ path: "README.md", content: "# advanced-mode e2e upload\n" }]
-      }
+        sourceFiles: [{ path: "README.md", content: "# advanced-mode e2e upload\n" }],
+      },
     });
     if (!createRes.ok()) {
       const errBody = await createRes.text().catch(() => "no body");

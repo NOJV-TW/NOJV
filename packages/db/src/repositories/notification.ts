@@ -15,7 +15,7 @@ export const notificationRepo = {
     return prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: limit
+      take: limit,
     });
   },
 
@@ -31,8 +31,8 @@ export const notificationRepo = {
           userId: input.userId,
           type: input.type,
           params: input.params,
-          linkUrl: input.linkUrl ?? null
-        }
+          linkUrl: input.linkUrl ?? null,
+        },
       });
 
       await tx.$executeRaw`
@@ -57,8 +57,8 @@ export const notificationRepo = {
         userId: i.userId,
         type: i.type,
         params: i.params,
-        linkUrl: i.linkUrl ?? null
-      }))
+        linkUrl: i.linkUrl ?? null,
+      })),
     });
 
     const userIds = Array.from(new Set(inputs.map((i) => i.userId)));
@@ -80,7 +80,7 @@ export const notificationRepo = {
   async markRead(userId: string, notificationId: string) {
     const row = await prisma.notification.updateMany({
       where: { id: notificationId, userId, readAt: null },
-      data: { readAt: new Date() }
+      data: { readAt: new Date() },
     });
     return row.count;
   },
@@ -88,8 +88,8 @@ export const notificationRepo = {
   async markAllRead(userId: string) {
     const row = await prisma.notification.updateMany({
       where: { userId, readAt: null },
-      data: { readAt: new Date() }
+      data: { readAt: new Date() },
     });
     return row.count;
-  }
+  },
 };

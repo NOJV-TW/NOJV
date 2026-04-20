@@ -19,7 +19,7 @@ export function sourceExtension(language: string | undefined): string {
  */
 export function buildSandboxConfigJson(
   request: SandboxRequest,
-  sourceFileMap: { path: string; key: string }[]
+  sourceFileMap: { path: string; key: string }[],
 ): Record<string, unknown> {
   return {
     submissionId: request.submissionId,
@@ -36,7 +36,7 @@ export function buildSandboxConfigJson(
     ...(request.judgeConfig.interactorLanguage
       ? { interactorLanguage: request.judgeConfig.interactorLanguage }
       : {}),
-    ...(sourceFileMap.length > 0 ? { sourceFileMap } : {})
+    ...(sourceFileMap.length > 0 ? { sourceFileMap } : {}),
   };
 }
 
@@ -51,8 +51,8 @@ export function sandboxSystemError(message: string, stdout = ""): SandboxResult 
         stderr: message,
         exitCode: -1,
         timeMs: 0,
-        feedback: message
-      }
-    ]
+        feedback: message,
+      },
+    ],
   };
 }

@@ -29,7 +29,7 @@ export async function listMembersForCourse(courseId: string): Promise<CourseMemb
     status: row.status,
     isPlaceholder: row.user.status === "pending_first_login",
     joinedAt: row.joinedAt.toISOString(),
-    removedAt: row.removedAt?.toISOString() ?? null
+    removedAt: row.removedAt?.toISOString() ?? null,
   }));
 }
 
@@ -58,10 +58,10 @@ export interface BulkAddResult {
 export async function bulkAddByHandle(
   actor: ActorContext,
   courseId: string,
-  payload: { handles: string[]; role: CourseRole }
+  payload: { handles: string[]; role: CourseRole },
 ): Promise<BulkAddResult> {
   const uniqueHandles = Array.from(
-    new Set(payload.handles.map((h) => h.trim().toLowerCase()))
+    new Set(payload.handles.map((h) => h.trim().toLowerCase())),
   ).filter((h) => h.length > 0);
 
   return runTransaction(async (tx) => {
@@ -82,7 +82,7 @@ export async function bulkAddByHandle(
       }
 
       const existing = await tx.courseMembership.findUnique({
-        where: { courseId_userId: { courseId: course.id, userId: user.id } }
+        where: { courseId_userId: { courseId: course.id, userId: user.id } },
       });
 
       if (existing?.status === "active") {
@@ -98,8 +98,8 @@ export async function bulkAddByHandle(
             status: "active",
             joinedAt: now,
             removedAt: null,
-            addedByUserId: actor.userId
-          }
+            addedByUserId: actor.userId,
+          },
         });
         reactivated += 1;
         added += 1;
@@ -113,8 +113,8 @@ export async function bulkAddByHandle(
           role: payload.role,
           status: "active",
           joinedAt: now,
-          addedByUserId: actor.userId
-        }
+          addedByUserId: actor.userId,
+        },
       });
       added += 1;
     }
@@ -127,7 +127,7 @@ export async function changeMemberRole(
   _actor: ActorContext,
   courseId: string,
   userId: string,
-  role: CourseRole
+  role: CourseRole,
 ) {
   return courseMembershipAdminRepo.updateRole(courseId, userId, role);
 }
@@ -146,7 +146,7 @@ async function createPlaceholderInTx(tx: TransactionClient, username: string) {
       emailVerified: false,
       status: "pending_first_login",
       disabled: false,
-      platformRole: "student"
-    }
+      platformRole: "student",
+    },
   });
 }

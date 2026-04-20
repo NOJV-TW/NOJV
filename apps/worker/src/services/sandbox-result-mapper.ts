@@ -3,7 +3,7 @@ import type {
   SandboxRequest,
   SandboxResult,
   SandboxTestcaseResult,
-  SandboxVerdict
+  SandboxVerdict,
 } from "@nojv/core";
 
 // Map the TA image's top-level verdict onto the narrower SandboxVerdict.
@@ -17,7 +17,7 @@ export const ADVANCED_VERDICT_TO_SANDBOX: Record<AdvancedResult["verdict"], Sand
   time_limit_exceeded: "TLE",
   memory_limit_exceeded: "MLE",
   runtime_error: "RE",
-  compile_error: "RE"
+  compile_error: "RE",
 };
 
 // Synthetic "overall" verdict emitted when the TA image failed to run
@@ -25,7 +25,7 @@ export const ADVANCED_VERDICT_TO_SANDBOX: Record<AdvancedResult["verdict"], Sand
 // problems don't have system-managed testcases any more.
 export function advancedFallbackResult(
   _request: SandboxRequest,
-  message: string
+  message: string,
 ): SandboxResult {
   return {
     testcaseResults: [
@@ -36,15 +36,15 @@ export function advancedFallbackResult(
         stderr: message,
         exitCode: -1,
         timeMs: 0,
-        feedback: message
-      }
-    ]
+        feedback: message,
+      },
+    ],
   };
 }
 
 export function mapAdvancedResult(
   _request: SandboxRequest,
-  result: AdvancedResult
+  result: AdvancedResult,
 ): SandboxResult {
   // Prefer per-case details from the image if present. Otherwise emit a
   // single synthetic result using the top-level verdict — the TA image
@@ -58,7 +58,7 @@ export function mapAdvancedResult(
           stderr: "",
           exitCode: 0,
           timeMs: entry.runtimeMs ?? 0,
-          ...(entry.feedback ? { feedback: entry.feedback } : {})
+          ...(entry.feedback ? { feedback: entry.feedback } : {}),
         }))
       : [
           {
@@ -68,13 +68,13 @@ export function mapAdvancedResult(
             stderr: "",
             exitCode: 0,
             timeMs: 0,
-            ...(result.feedback ? { feedback: result.feedback } : {})
-          }
+            ...(result.feedback ? { feedback: result.feedback } : {}),
+          },
         ];
 
   return {
     testcaseResults: perCaseResults,
     customScore: result.score,
-    ...(result.feedback ? { scoringFeedback: result.feedback } : {})
+    ...(result.feedback ? { scoringFeedback: result.feedback } : {}),
   };
 }

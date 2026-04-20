@@ -18,10 +18,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const [contestData, problem, submissions] = await Promise.all([
     getContestWorkspaceData(contestId, actor.userId, {
       now,
-      platformRole: actor.platformRole
+      platformRole: actor.platformRole,
     }),
     getProblemPageData(problemId),
-    listProblemSubmissions(actor.userId, problemId)
+    listProblemSubmissions(actor.userId, problemId),
   ]);
 
   // A manager may preview any problem in the contest even before start.
@@ -54,7 +54,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problemId,
     contestId,
     courseAssessmentId: null,
-    examId: null
+    examId: null,
   });
 
   return {
@@ -62,6 +62,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     contestData,
     contestId,
     problem,
-    submissions
+    submissions,
   };
 });

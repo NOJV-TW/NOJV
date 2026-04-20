@@ -75,7 +75,7 @@ function letterFor(ordinal: number): string {
 
 function deriveStatus(
   row: { status: string; opensAt: Date; closesAt: Date },
-  now: Date
+  now: Date,
 ): AssignmentDetailStatus {
   if (row.status === "draft") return "draft";
   if (row.opensAt > now) return "upcoming";
@@ -86,7 +86,7 @@ function deriveStatus(
 export async function getAssignmentDetail(
   courseId: string,
   assessmentId: string,
-  options: GetAssignmentDetailOptions
+  options: GetAssignmentDetailOptions,
 ): Promise<AssignmentDetail> {
   const now = options.now ?? new Date();
   const row = await assessmentRepo.findDetailById(courseId, assessmentId);
@@ -113,7 +113,7 @@ export async function getAssignmentDetail(
         title: p.problem.title,
         difficulty: p.problem.difficulty,
         points: p.points,
-        myStatus: null
+        myStatus: null,
       }));
 
   const totalPoints = hideProblemsFromViewer
@@ -130,13 +130,13 @@ export async function getAssignmentDetail(
         courseAssessmentId: assessmentId,
         userId: options.viewerUserId,
         problemId: { in: problemIds },
-        sampleOnly: false
+        sampleOnly: false,
       }),
       submissionRepo.findMany({
         where: {
           courseAssessmentId: assessmentId,
           userId: options.viewerUserId,
-          sampleOnly: false
+          sampleOnly: false,
         },
         orderBy: { createdAt: "desc" },
         take: 10,
@@ -145,16 +145,16 @@ export async function getAssignmentDetail(
           problemId: true,
           status: true,
           score: true,
-          createdAt: true
-        }
-      })
+          createdAt: true,
+        },
+      }),
     ]);
 
     const statsByProblem = new Map<string, { bestScore: number; attempts: number }>();
     for (const g of grouped) {
       statsByProblem.set(g.problemId, {
         bestScore: g._max.score ?? 0,
-        attempts: g._count.id
+        attempts: g._count.id,
       });
     }
 
@@ -169,7 +169,7 @@ export async function getAssignmentDetail(
     // let them win over the best-submission aggregate.
     const overrides = await resolveOverridesForContext({
       contextType: "assignment",
-      contextId: assessmentId
+      contextId: assessmentId,
     });
 
     for (const problem of problems) {
@@ -187,7 +187,7 @@ export async function getAssignmentDetail(
           attempts: stats?.attempts ?? 0,
           lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
           state,
-          overridden: true
+          overridden: true,
         };
         continue;
       }
@@ -198,7 +198,7 @@ export async function getAssignmentDetail(
           attempts: 0,
           lastSubmissionAt: null,
           state: "none",
-          overridden: false
+          overridden: false,
         };
         continue;
       }
@@ -211,12 +211,12 @@ export async function getAssignmentDetail(
         attempts: stats.attempts,
         lastSubmissionAt: lastByProblem.get(problem.problemId) ?? null,
         state,
-        overridden: false
+        overridden: false,
       };
     }
 
     const problemLookup = new Map(
-      problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }])
+      problems.map((p) => [p.problemId, { letter: p.letter, title: p.title }]),
     );
     myRecentSubmissions = (
       recent as {
@@ -235,7 +235,7 @@ export async function getAssignmentDetail(
         problemTitle: p?.title ?? "",
         status: s.status,
         score: s.score,
-        createdAt: s.createdAt.toISOString()
+        createdAt: s.createdAt.toISOString(),
       };
     });
   }
@@ -257,6 +257,6 @@ export async function getAssignmentDetail(
     // the `problems` array stays empty.
     problemCount: row.problems.length,
     problems,
-    myRecentSubmissions
+    myRecentSubmissions,
   };
 }

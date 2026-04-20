@@ -10,7 +10,7 @@ import {
   type ScoreboardEntry,
   type ScoreboardProblem,
   type SubmissionRow,
-  type TimedSession
+  type TimedSession,
 } from "./rank-util";
 
 export function buildPointSumScoreboard(
@@ -18,7 +18,7 @@ export function buildPointSumScoreboard(
   participants: ParticipantRow[],
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
-  showFrozen: boolean
+  showFrozen: boolean,
 ): ScoreboardEntry[] {
   const frozenAt = session.frozenAt;
 
@@ -70,7 +70,7 @@ export function buildPointSumScoreboard(
         isFrozen,
         isPending: isFrozen,
         problemId: prob.id,
-        score: bestScore
+        score: bestScore,
       });
 
       isFirstBlood.push(firstFullByProblem.get(prob.id) === p.userId && firstAcTime != null);
@@ -84,7 +84,7 @@ export function buildPointSumScoreboard(
       rank: 0,
       totalPenalty: lastImprovementTime,
       totalScore,
-      userId: p.userId
+      userId: p.userId,
     };
   });
 

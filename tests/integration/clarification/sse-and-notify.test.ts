@@ -20,7 +20,7 @@ function actorFor(user: ActorUser) {
     username: user.username ?? user.id,
     displayName: user.name,
     email: user.email,
-    platformRole: user.platformRole
+    platformRole: user.platformRole,
   };
 }
 
@@ -34,8 +34,8 @@ async function seedContestWithParticipant() {
     data: {
       contestId: contest.id,
       userId: contestant.id,
-      status: "active"
-    }
+      status: "active",
+    },
   });
   return { organizer, contestant, contest };
 }
@@ -55,7 +55,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       await clarificationDomain.ask(actorFor(contestant), {
         contextType: "contest",
         contextId: contest.id,
-        questionText: "Is this mod 1e9+7?"
+        questionText: "Is this mod 1e9+7?",
       });
 
       const deadline = Date.now() + 1000;
@@ -85,7 +85,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     const asked = await clarificationDomain.ask(actorFor(contestant), {
       contextType: "contest",
       contextId: contest.id,
-      questionText: "Is this modular arithmetic?"
+      questionText: "Is this modular arithmetic?",
     });
 
     // Subscribe AFTER the ask so we only collect the answer's "updated"
@@ -99,7 +99,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
 
     try {
       await clarificationDomain.answer(actorFor(organizer), asked.id, {
-        answerText: "Yes, mod 1e9+7."
+        answerText: "Yes, mod 1e9+7.",
       });
 
       const deadline = Date.now() + 1000;
@@ -129,15 +129,15 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     const asked = await clarificationDomain.ask(actorFor(contestant), {
       contextType: "contest",
       contextId: contest.id,
-      questionText: "This question will be dismissed."
+      questionText: "This question will be dismissed.",
     });
 
     await clarificationDomain.dismiss(actorFor(organizer), asked.id);
 
     await expect(
       clarificationDomain.answer(actorFor(organizer), asked.id, {
-        answerText: "Too late."
-      })
+        answerText: "Too late.",
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -147,15 +147,15 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     const asked = await clarificationDomain.ask(actorFor(contestant), {
       contextType: "contest",
       contextId: contest.id,
-      questionText: "This question will be answered."
+      questionText: "This question will be answered.",
     });
 
     await clarificationDomain.answer(actorFor(organizer), asked.id, {
-      answerText: "Here's the answer."
+      answerText: "Here's the answer.",
     });
 
     await expect(
-      clarificationDomain.dismiss(actorFor(organizer), asked.id)
+      clarificationDomain.dismiss(actorFor(organizer), asked.id),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -167,7 +167,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       await clarificationDomain.ask(actorFor(contestant), {
         contextType: "contest",
         contextId: contest.id,
-        questionText: `Question number ${i + 1} about the problem.`
+        questionText: `Question number ${i + 1} about the problem.`,
       });
     }
 
@@ -176,8 +176,8 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
       clarificationDomain.ask(actorFor(contestant), {
         contextType: "contest",
         contextId: contest.id,
-        questionText: "One too many questions here now."
-      })
+        questionText: "One too many questions here now.",
+      }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 });

@@ -16,12 +16,12 @@ export const userDailyActivityRepo = {
         userId: opts.userId,
         date: opts.date,
         submissionCount: 1,
-        acCount: acDelta
+        acCount: acDelta,
       },
       update: {
         submissionCount: { increment: 1 },
-        acCount: { increment: acDelta }
-      }
+        acCount: { increment: acDelta },
+      },
     });
   },
 
@@ -29,9 +29,9 @@ export const userDailyActivityRepo = {
     return prisma.userDailyActivity.findMany({
       where: {
         userId,
-        date: { gte: from, lte: to }
+        date: { gte: from, lte: to },
       },
-      orderBy: { date: "desc" }
+      orderBy: { date: "desc" },
     });
   },
 
@@ -45,14 +45,14 @@ export const userDailyActivityRepo = {
             userId: opts.userId,
             date: opts.date,
             submissionCount: 1,
-            acCount: acDelta
+            acCount: acDelta,
           },
           update: {
             submissionCount: { increment: 1 },
-            acCount: { increment: acDelta }
-          }
+            acCount: { increment: acDelta },
+          },
         });
-      }
+      },
     };
-  }
+  },
 };

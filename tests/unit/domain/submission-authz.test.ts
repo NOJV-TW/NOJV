@@ -7,13 +7,13 @@ const {
   assessmentFindByIdWithCourseId,
   examFindById,
   problemFindById,
-  courseMembershipFindByComposite
+  courseMembershipFindByComposite,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
   problemFindById: vi.fn(),
-  courseMembershipFindByComposite: vi.fn()
+  courseMembershipFindByComposite: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -21,7 +21,7 @@ vi.mock("@nojv/db", () => ({
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   examRepo: { findById: examFindById },
   problemRepo: { findById: problemFindById },
-  courseMembershipRepo: { findByComposite: courseMembershipFindByComposite }
+  courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
 }));
 
 import { ForbiddenError, submissionDomain } from "@nojv/domain";
@@ -32,14 +32,14 @@ function actor(
   overrides: Partial<{
     userId: string;
     platformRole: "admin" | "teacher" | "student";
-  }> = {}
+  }> = {},
 ) {
   return {
     userId: overrides.userId ?? "usr_actor",
     username: "actor",
     platformRole: overrides.platformRole ?? ("student" as const),
     displayName: "Actor",
-    email: "actor@example.com"
+    email: "actor@example.com",
   };
 }
 
@@ -49,7 +49,7 @@ const baseSubmission = {
   problemId: "prob_1",
   contestId: null as string | null,
   courseAssessmentId: null as string | null,
-  examId: null as string | null
+  examId: null as string | null,
 };
 
 beforeEach(() => {
@@ -60,7 +60,7 @@ describe("canOperateOnSubmission — admin", () => {
   it("returns true for an admin on any context (practice)", async () => {
     const result = await canOperateOnSubmission(
       actor({ platformRole: "admin" }),
-      baseSubmission
+      baseSubmission,
     );
     expect(result).toBe(true);
     expect(contestFindById).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("canOperateOnSubmission — admin", () => {
   it("returns true for an admin on a contest submission", async () => {
     const result = await canOperateOnSubmission(actor({ platformRole: "admin" }), {
       ...baseSubmission,
-      contestId: "ctst_1"
+      contestId: "ctst_1",
     });
     expect(result).toBe(true);
     expect(contestFindById).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ describe("canOperateOnSubmission — admin", () => {
   it("returns true for an admin on an exam submission", async () => {
     const result = await canOperateOnSubmission(actor({ platformRole: "admin" }), {
       ...baseSubmission,
-      examId: "exm_1"
+      examId: "exm_1",
     });
     expect(result).toBe(true);
   });
@@ -87,7 +87,7 @@ describe("canOperateOnSubmission — admin", () => {
   it("returns true for an admin on an assignment submission", async () => {
     const result = await canOperateOnSubmission(actor({ platformRole: "admin" }), {
       ...baseSubmission,
-      courseAssessmentId: "ca_1"
+      courseAssessmentId: "ca_1",
     });
     expect(result).toBe(true);
   });
@@ -98,7 +98,7 @@ describe("canOperateOnSubmission — practice context", () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     const result = await canOperateOnSubmission(
       actor({ userId: "usr_author" }),
-      baseSubmission
+      baseSubmission,
     );
     expect(result).toBe(true);
   });
@@ -107,7 +107,7 @@ describe("canOperateOnSubmission — practice context", () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     const result = await canOperateOnSubmission(
       actor({ userId: "usr_stranger" }),
-      baseSubmission
+      baseSubmission,
     );
     expect(result).toBe(false);
   });
@@ -116,7 +116,7 @@ describe("canOperateOnSubmission — practice context", () => {
     problemFindById.mockResolvedValue(null);
     const result = await canOperateOnSubmission(
       actor({ userId: "usr_author" }),
-      baseSubmission
+      baseSubmission,
     );
     expect(result).toBe(false);
   });
@@ -131,7 +131,7 @@ describe("canOperateOnSubmission — assignment context", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_teacher" }), sub);
     expect(result).toBe(true);
@@ -143,7 +143,7 @@ describe("canOperateOnSubmission — assignment context", () => {
       courseId: "crs_1",
       userId: "usr_ta",
       role: "ta",
-      status: "active"
+      status: "active",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_ta" }), sub);
     expect(result).toBe(true);
@@ -155,7 +155,7 @@ describe("canOperateOnSubmission — assignment context", () => {
       courseId: "crs_1",
       userId: "usr_student",
       role: "student",
-      status: "active"
+      status: "active",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_student" }), sub);
     expect(result).toBe(false);
@@ -166,7 +166,7 @@ describe("canOperateOnSubmission — assignment context", () => {
     courseMembershipFindByComposite.mockResolvedValue(null);
     const result = await canOperateOnSubmission(
       actor({ userId: "usr_unrelated", platformRole: "teacher" }),
-      sub
+      sub,
     );
     expect(result).toBe(false);
   });
@@ -177,7 +177,7 @@ describe("canOperateOnSubmission — assignment context", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "removed"
+      status: "removed",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_teacher" }), sub);
     expect(result).toBe(false);
@@ -193,7 +193,7 @@ describe("canOperateOnSubmission — exam context", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_teacher" }), sub);
     expect(result).toBe(true);
@@ -205,7 +205,7 @@ describe("canOperateOnSubmission — exam context", () => {
       courseId: "crs_1",
       userId: "usr_ta",
       role: "ta",
-      status: "active"
+      status: "active",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_ta" }), sub);
     expect(result).toBe(true);
@@ -216,7 +216,7 @@ describe("canOperateOnSubmission — exam context", () => {
     courseMembershipFindByComposite.mockResolvedValue(null);
     const result = await canOperateOnSubmission(
       actor({ userId: "usr_other_teacher", platformRole: "teacher" }),
-      sub
+      sub,
     );
     expect(result).toBe(false);
   });
@@ -227,7 +227,7 @@ describe("canOperateOnSubmission — exam context", () => {
       courseId: "crs_1",
       userId: "usr_student",
       role: "student",
-      status: "active"
+      status: "active",
     });
     const result = await canOperateOnSubmission(actor({ userId: "usr_student" }), sub);
     expect(result).toBe(false);
@@ -247,7 +247,7 @@ describe("canOperateOnSubmission — contest context", () => {
     contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "usr_organizer" });
     const result = await canOperateOnSubmission(
       actor({ userId: "usr_other_teacher", platformRole: "teacher" }),
-      sub
+      sub,
     );
     expect(result).toBe(false);
   });
@@ -263,14 +263,14 @@ describe("assertCanOperateOnSubmission", () => {
   it("resolves quietly when permitted", async () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     await expect(
-      assertCanOperateOnSubmission(actor({ userId: "usr_author" }), baseSubmission)
+      assertCanOperateOnSubmission(actor({ userId: "usr_author" }), baseSubmission),
     ).resolves.toBeUndefined();
   });
 
   it("throws ForbiddenError when denied", async () => {
     problemFindById.mockResolvedValue({ id: "prob_1", authorId: "usr_author" });
     await expect(
-      assertCanOperateOnSubmission(actor({ userId: "usr_stranger" }), baseSubmission)
+      assertCanOperateOnSubmission(actor({ userId: "usr_stranger" }), baseSubmission),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

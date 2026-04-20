@@ -6,7 +6,7 @@ import {
   type ScoreboardEntry,
   type ScoreboardProblem,
   type SubmissionRow,
-  type TimedSession
+  type TimedSession,
 } from "./rank-util";
 
 // "problem_count" runs ICPC rules; anything else runs IOI rules.
@@ -18,7 +18,7 @@ export function buildScoreboard(
   participants: ParticipantRow[],
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
-  showFrozen: boolean
+  showFrozen: boolean,
 ): ScoreboardEntry[] {
   return scoringMode === "problem_count"
     ? buildProblemCountScoreboard(session, participants, submissions, problems, showFrozen)
@@ -42,7 +42,7 @@ export function buildScoreboardChartSeries(
   topUserIds: readonly string[],
   submissionsByUser: Map<string, SubmissionRow[]>,
   usernameByUser: Map<string, string>,
-  pointsByProblem: Map<string, number>
+  pointsByProblem: Map<string, number>,
 ): ChartSeries[] {
   return topUserIds.map((userId) => {
     const userSubs = submissionsByUser.get(userId) ?? [];
@@ -59,7 +59,7 @@ export function buildScoreboardChartSeries(
           cumScore += pointsByProblem.get(sub.problemId) ?? 0;
           points.push({
             score: cumScore,
-            time: secondsSince(sessionStartsAt, sub.createdAt)
+            time: secondsSince(sessionStartsAt, sub.createdAt),
           });
         }
       }
@@ -75,7 +75,7 @@ export function buildScoreboardChartSeries(
           bestByProblem.set(sub.problemId, sub.score);
           points.push({
             score: cumScore,
-            time: secondsSince(sessionStartsAt, sub.createdAt)
+            time: secondsSince(sessionStartsAt, sub.createdAt),
           });
         }
       }
@@ -84,7 +84,7 @@ export function buildScoreboardChartSeries(
     return {
       username: usernameByUser.get(userId) ?? userId,
       points,
-      userId
+      userId,
     };
   });
 }

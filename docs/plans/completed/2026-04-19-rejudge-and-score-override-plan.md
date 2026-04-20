@@ -99,7 +99,7 @@ export async function findForRejudge(input: {
 }): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
-    sampleOnly: false
+    sampleOnly: false,
   };
 
   if (input.contestId) where.contestId = input.contestId;
@@ -117,7 +117,7 @@ export async function findForRejudge(input: {
     submissionId: s.id,
     draft: {
       /* same as today */
-    }
+    },
   }));
 }
 ```
@@ -251,7 +251,7 @@ Before `executeSandbox` in `submissionJudgeWorkflow`, if `input.forRejudge` is s
 ```ts
 await judge.snapshotSubmissionForRejudge(
   input.submissionId,
-  input.forRejudge.triggeredByUserId
+  input.forRejudge.triggeredByUserId,
 );
 ```
 
@@ -299,7 +299,7 @@ export async function canOperateOnSubmission(
     contestId?: string | null;
     courseAssessmentId?: string | null;
     examId?: string | null;
-  }
+  },
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
 
@@ -354,7 +354,7 @@ git commit -m "feat(domain): canOperateOnSubmission authz helper"
 ```ts
 export async function assertBatchRejudgeAccess(
   actor: ActorContext,
-  input: Exclude<RejudgeInput, { mode: "single" }>
+  input: Exclude<RejudgeInput, { mode: "single" }>,
 ): Promise<void> {
   if (actor.platformRole === "admin") return;
 
@@ -370,7 +370,7 @@ export async function assertBatchRejudgeAccess(
     const problem = await problemRepo.findById(input.problemId);
     if (problem?.createdByUserId !== actor.userId) {
       throw new ForbiddenError(
-        "Batch rejudge without a context scope is limited to the problem author."
+        "Batch rejudge without a context scope is limited to the problem author.",
       );
     }
     const anyNonPractice = await submissionRepo.anyMatch({
@@ -378,12 +378,12 @@ export async function assertBatchRejudgeAccess(
       OR: [
         { contestId: { not: null } },
         { courseAssessmentId: { not: null } },
-        { examId: { not: null } }
-      ]
+        { examId: { not: null } },
+      ],
     });
     if (anyNonPractice) {
       throw new ForbiddenError(
-        "Batch rejudge includes non-practice submissions; scope to a specific context."
+        "Batch rejudge includes non-practice submissions; scope to a specific context.",
       );
     }
   }
@@ -427,7 +427,7 @@ const batchSchema = z.object({
   examId: z.string().optional(),
   userIds: z.array(z.string()).optional(),
   since: z.iso.datetime().optional(),
-  until: z.iso.datetime().optional()
+  until: z.iso.datetime().optional(),
 });
 const bodySchema = z.discriminatedUnion("mode", [singleSchema, batchSchema]);
 
@@ -443,7 +443,7 @@ export const POST: RequestHandler = apiHandler(async (event) => {
     await dispatchRejudge({
       mode: "single",
       submissionId: submission.id,
-      triggeredByUserId: actor.userId
+      triggeredByUserId: actor.userId,
     });
     return json({ queued: 1 });
   }
@@ -642,13 +642,13 @@ git commit -m "feat(domain): score override with audit log"
 export async function resolveFinalScore(
   userId: string,
   problemId: string,
-  context: { contextType: OverrideContextType; contextId: string }
+  context: { contextType: OverrideContextType; contextId: string },
 ) {
   const override = await scoreOverrideRepo.findUnique({
     userId,
     problemId,
     contextType: context.contextType,
-    contextId: context.contextId
+    contextId: context.contextId,
   });
   if (override) return { score: override.overrideScore, source: "override" as const };
   const best = await submissionRepo.findBestScore(userId, problemId, context);
@@ -700,11 +700,11 @@ const createSchema = z.object({
   contextType: z.enum(["assignment", "exam", "contest"]),
   contextId: z.string().min(1),
   overrideScore: z.number().int().min(0),
-  reason: z.string().min(1).max(500)
+  reason: z.string().min(1).max(500),
 });
 const patchSchema = z.object({
   overrideScore: z.number().int().min(0).optional(),
-  reason: z.string().min(1).max(500).optional()
+  reason: z.string().min(1).max(500).optional(),
 });
 ```
 

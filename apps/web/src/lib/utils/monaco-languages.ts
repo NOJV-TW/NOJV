@@ -26,7 +26,7 @@ export const monacoLanguageMap: Record<string, string> = {
   yml: "yaml",
   txt: "plaintext",
   makefile: "makefile",
-  sh: "shell"
+  sh: "shell",
 };
 
 export function getMonacoLanguage(langOrExt: string): string {

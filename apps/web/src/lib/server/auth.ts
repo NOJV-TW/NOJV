@@ -10,7 +10,7 @@ import {
   HttpError,
   NotFoundError,
   ConflictError,
-  ForbiddenError
+  ForbiddenError,
 } from "@nojv/domain";
 
 export { HttpError, NotFoundError, ConflictError, ForbiddenError };
@@ -39,12 +39,12 @@ export function getActorContext(event: RequestEvent): ActorContext | null {
     emailVerified: sessionUser.emailVerified,
     username: sessionUser.username,
     platformRole: sessionUser.platformRole,
-    userId: sessionUser.id
+    userId: sessionUser.id,
   };
 }
 
 export function hasActorUsername<T extends { username: string | null }>(
-  actor: T
+  actor: T,
 ): actor is T & { username: string } {
   return typeof actor.username === "string" && actor.username.length > 0;
 }
@@ -96,8 +96,8 @@ export async function resolveCoursePermission(courseId: string, actor: ActorCont
     course,
     role: resolveCoursePermissionRole({
       courseRole: membership?.role ?? null,
-      platformRole: actor.platformRole
-    })
+      platformRole: actor.platformRole,
+    }),
   };
 }
 

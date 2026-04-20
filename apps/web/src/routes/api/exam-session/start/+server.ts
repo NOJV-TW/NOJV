@@ -8,7 +8,7 @@ import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { examDomain } from "@nojv/domain";
 
 const bodySchema = z.object({
-  examId: z.string().min(1)
+  examId: z.string().min(1),
 });
 
 // Idempotent: re-entering an existing session returns 200; a fresh start returns 201.
@@ -18,7 +18,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const body = bodySchema.parse(await event.request.json());
 
   const result = await examDomain.session.startSessionWithGate(actor, {
-    examId: body.examId
+    examId: body.examId,
   });
 
   return json(
@@ -26,8 +26,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
       sessionId: result.session.id,
       examId: result.session.examId,
       startedAt: result.session.startedAt.toISOString(),
-      endsAt: result.exam.endsAt.toISOString()
+      endsAt: result.exam.endsAt.toISOString(),
     },
-    { status: result.created ? 201 : 200 }
+    { status: result.created ? 201 : 200 },
   );
 });

@@ -15,7 +15,7 @@ export function detectSubtasksFromFiles(
   files: { name: string; content: string }[],
   regexPattern: string,
   inExt: string,
-  outExt: string
+  outExt: string,
 ): { cases: ParsedCase[]; subtasks: SubtaskConfig[]; error?: string } {
   let regex: RegExp;
   try {
@@ -80,7 +80,7 @@ export function detectSubtasksFromFiles(
       allCases.push({
         input: entry.in ?? "",
         output: entry.out ?? "",
-        sourceFile: `${entry.fileName}${inExt}`
+        sourceFile: `${entry.fileName}${inExt}`,
       });
     }
 
@@ -88,7 +88,7 @@ export function detectSubtasksFromFiles(
       name: `Subtask ${subtaskId}`,
       description: "",
       points: Math.round(100 / sortedSubtaskIds.length),
-      caseIndices: indices
+      caseIndices: indices,
     });
   }
 

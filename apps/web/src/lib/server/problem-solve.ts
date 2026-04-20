@@ -86,7 +86,7 @@ export interface ProblemSolvePropsShape {
 export async function loadProblemSolveData(
   problemId: string,
   actor: ActorContext,
-  context: ProblemSolveContext
+  context: ProblemSolveContext,
 ): Promise<ProblemSolvePropsShape> {
   // `getProblemPageData` returns the UI-facing `ProblemDetail` which does not
   // carry `authorId`.  We fetch the row separately to run the view-access
@@ -94,7 +94,7 @@ export async function loadProblemSolveData(
   // is a small win.
   const [problemRow, problem] = await Promise.all([
     problemRepo.findById(problemId),
-    getProblemPageData(problemId)
+    getProblemPageData(problemId),
   ]);
 
   if (!problemRow) {
@@ -105,14 +105,14 @@ export async function loadProblemSolveData(
     {
       id: problemRow.id,
       authorId: problemRow.authorId,
-      visibility: problemRow.visibility
+      visibility: problemRow.visibility,
     },
     {
       userId: actor.userId,
       username: actor.username ?? "",
-      platformRole: actor.platformRole
+      platformRole: actor.platformRole,
     },
-    { contextIncludesProblem: context.problemInScope }
+    { contextIncludesProblem: context.problemInScope },
   );
 
   const fullTestcaseSets = await getProblemTestcaseSets(problemId);
@@ -122,7 +122,7 @@ export async function loadProblemSolveData(
     description: set.description,
     weight: set.weight,
     ordinal: set.ordinal,
-    caseCount: set.testcases.length
+    caseCount: set.testcases.length,
   }));
 
   const assessmentProp =
@@ -140,7 +140,7 @@ export async function loadProblemSolveData(
     problemId,
     context.kind === "assessment" || context.kind === "exam"
       ? { assessmentId: context.assessmentId, courseId: context.courseId }
-      : undefined
+      : undefined,
   );
 
   // Submissions listed here all share the same context, so the rejudge
@@ -152,7 +152,7 @@ export async function loadProblemSolveData(
       username: actor.username ?? "",
       displayName: actor.displayName,
       email: actor.email,
-      platformRole: actor.platformRole
+      platformRole: actor.platformRole,
     },
     {
       id: "",
@@ -160,8 +160,8 @@ export async function loadProblemSolveData(
       problemId,
       contestId: context.kind === "contest" ? context.contestId : null,
       courseAssessmentId: context.kind === "assessment" ? context.assessmentId : null,
-      examId: null
-    }
+      examId: null,
+    },
   );
 
   return {
@@ -172,6 +172,6 @@ export async function loadProblemSolveData(
     contestId,
     problem,
     submissions,
-    testcaseSets
+    testcaseSets,
   };
 }

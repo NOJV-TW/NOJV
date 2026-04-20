@@ -3,14 +3,14 @@ import {
   judgeScriptLanguageSchema,
   judgeTypeSchema,
   languageSchema,
-  problemTypeSchema
+  problemTypeSchema,
 } from "@nojv/core";
 
 export type {
   SandboxResult,
   SandboxTestcase,
   SandboxTestcaseResult,
-  SandboxVerdict
+  SandboxVerdict,
 } from "@nojv/core";
 
 // Config schema for validating /submission/config.json.
@@ -26,8 +26,8 @@ export const SandboxInputSchema = z.object({
     .array(
       z.object({
         path: z.string().min(1).max(300),
-        content: z.string()
-      })
+        content: z.string(),
+      }),
     )
     .max(200)
     .optional(),
@@ -35,17 +35,17 @@ export const SandboxInputSchema = z.object({
     .array(
       z.object({
         path: z.string().min(1).max(300),
-        key: z.string().min(1).max(300)
-      })
+        key: z.string().min(1).max(300),
+      }),
     )
     .max(200)
     .optional(),
   limits: z.object({
     timeoutMs: z.number(),
-    memoryMb: z.number()
+    memoryMb: z.number(),
   }),
   checkerLanguage: judgeScriptLanguageSchema.optional(),
-  interactorLanguage: judgeScriptLanguageSchema.optional()
+  interactorLanguage: judgeScriptLanguageSchema.optional(),
 });
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;

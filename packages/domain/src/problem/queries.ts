@@ -3,7 +3,7 @@ import {
   problemStatementRepo,
   submissionRepo,
   testcaseSetRepo,
-  type Prisma
+  type Prisma,
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
@@ -15,7 +15,7 @@ import {
   type ProblemImageSource,
   type ProblemStatus,
   type ProblemType,
-  type ProblemVisibility
+  type ProblemVisibility,
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -92,7 +92,7 @@ fn main() {
 `,
   javascript: ``,
   typescript: ``,
-  python: ``
+  python: ``,
 };
 
 function buildProblemSamples(problem: {
@@ -105,19 +105,24 @@ function buildProblemSamples(problem: {
         typeof s === "object" &&
         s !== null &&
         typeof (s as { input?: unknown }).input === "string" &&
-        typeof (s as { output?: unknown }).output === "string"
+        typeof (s as { output?: unknown }).output === "string",
     )
     .map((s) => ({ input: s.input, output: s.output }));
 }
 
 // Per language: use the first editable workspace file if any, else the hardcoded stub.
 function buildStarterByLanguage(
-  workspaceFiles: { language: string; path: string; visibility: string; content: string }[] = []
+  workspaceFiles: {
+    language: string;
+    path: string;
+    visibility: string;
+    content: string;
+  }[] = [],
 ): Record<string, string> {
   const result: Record<string, string> = { ...starterByLanguage };
   for (const lang of Object.keys(result)) {
     const first = workspaceFiles.find(
-      (f) => f.language === lang && f.visibility === "editable"
+      (f) => f.language === lang && f.visibility === "editable",
     );
     if (first) {
       result[lang] = first.content;
@@ -160,13 +165,13 @@ async function mapPersistedProblemDetail(
   },
   locale: string,
   totalSubmissions: number,
-  acceptedCount: number
+  acceptedCount: number,
 ): Promise<ProblemDetail> {
   const tags = problem.tags ?? [];
   const localized = pickProblemStatement(problem.statements, locale, problem.title, "");
 
   const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-    type: "standard"
+    type: "standard",
   };
 
   // SECURITY: hidden workspace files are kept in the list so the client can
@@ -185,9 +190,9 @@ async function mapPersistedProblemDetail(
         path: f.path,
         content,
         visibility,
-        description: f.description ?? ""
+        description: f.description ?? "",
       };
-    })
+    }),
   );
 
   return {
@@ -212,7 +217,7 @@ async function mapPersistedProblemDetail(
     visibility: problem.visibility,
     workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
-    advancedImageSource: problem.advancedImageSource ?? null
+    advancedImageSource: problem.advancedImageSource ?? null,
   };
 }
 
@@ -247,7 +252,7 @@ export interface ProblemListResult {
 }
 
 export async function listProblemCards(
-  params: ProblemListParams = {}
+  params: ProblemListParams = {},
 ): Promise<ProblemListResult> {
   const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 30));
   const page = Math.max(1, params.page ?? 1);
@@ -260,11 +265,11 @@ export async function listProblemCards(
     const q = params.q.trim();
     const [matchingRows, likeRows] = await Promise.all([
       problemStatementRepo.fullTextSearch(q),
-      problemStatementRepo.likeSearch(q)
+      problemStatementRepo.likeSearch(q),
     ]);
     const allIds = new Set([
       ...matchingRows.map((r) => r.problemId),
-      ...likeRows.map((r) => r.problemId)
+      ...likeRows.map((r) => r.problemId),
     ]);
     where.id = { in: [...allIds] };
   }
@@ -286,8 +291,8 @@ export async function listProblemCards(
     problemRepo.listWithCounts({
       where,
       skip: (page - 1) * pageSize,
-      take: pageSize
-    })
+      take: pageSize,
+    }),
   ]);
 
   const problemIds = persistedProblems.map((p) => p.id);
@@ -297,7 +302,7 @@ export async function listProblemCards(
     problemIds.length > 0 ? submissionRepo.groupAcceptedByProblem(problemIds) : [],
     params.userId && problemIds.length > 0
       ? submissionRepo.groupByProblemAndStatus(params.userId, problemIds)
-      : []
+      : [],
   ]);
 
   const acceptedByProblemId = new Map(acceptedCounts.map((r) => [r.problemId, r._count]));
@@ -316,7 +321,7 @@ export async function listProblemCards(
     const total = problem._count.submissions;
     const accepted = acceptedByProblemId.get(problem.id) ?? 0;
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-      type: "standard" as const
+      type: "standard" as const,
     };
     return {
       acceptanceRate: total > 0 ? accepted / total : 0,
@@ -327,7 +332,7 @@ export async function listProblemCards(
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
       title: problem.title,
-      totalSubmissions: total
+      totalSubmissions: total,
     };
   });
 
@@ -339,7 +344,7 @@ export async function listEditableProblems(userId: string) {
 
   return problems.map((problem) => {
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-      type: "standard" as const
+      type: "standard" as const,
     };
     return {
       difficulty: problem.difficulty,
@@ -349,7 +354,7 @@ export async function listEditableProblems(userId: string) {
       status: problem.status,
       tags: problem.tags,
       title: problem.title,
-      visibility: problem.visibility
+      visibility: problem.visibility,
     };
   });
 }
@@ -363,14 +368,14 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
 
   const acceptedCount = await submissionRepo.count({
     problemId: persistedProblem.id,
-    status: "accepted"
+    status: "accepted",
   });
 
   return await mapPersistedProblemDetail(
     persistedProblem,
     locale,
     persistedProblem._count.submissions,
-    acceptedCount
+    acceptedCount,
   );
 }
 

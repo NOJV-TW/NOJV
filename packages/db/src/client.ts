@@ -10,14 +10,14 @@ const globalForPrisma = globalThis as typeof globalThis & {
 
 const environment = parseDatabaseEnv(process.env);
 const adapter = new PrismaPg({
-  connectionString: environment.DATABASE_URL
+  connectionString: environment.DATABASE_URL,
 });
 
 export const prisma =
   globalForPrisma.__nojvPrisma ??
   new PrismaClient({
     adapter,
-    log: environment.NODE_ENV === "development" ? ["warn", "error"] : ["error"]
+    log: environment.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
 if (environment.NODE_ENV !== "production") {

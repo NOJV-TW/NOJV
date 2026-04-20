@@ -93,12 +93,12 @@ Validated against `advancedResultSchema` in `packages/core/src/schemas/advanced-
   "feedback": "human-readable string",
   "testcases": [
     // optional, up to 1000
-    { "index": 0, "verdict": "AC", "runtimeMs": 120, "feedback": "..." }
+    { "index": 0, "verdict": "AC", "runtimeMs": 120, "feedback": "..." },
   ],
   "subtasks": [
     // optional, up to 100
-    { "name": "sample", "score": 100, "passed": true }
-  ]
+    { "name": "sample", "score": 100, "passed": true },
+  ],
 }
 ```
 

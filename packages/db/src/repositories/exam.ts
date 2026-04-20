@@ -6,14 +6,14 @@ import {
   problemMiniSelect,
   problemTeacherMiniSelect,
   userMiniSelect,
-  userScoreboardSelect
+  userScoreboardSelect,
 } from "./selects";
 
 type TxClient = TransactionClient;
 
 const examListInclude = {
   _count: { select: { participations: true, problems: true } },
-  course: { select: courseMiniSelect }
+  course: { select: courseMiniSelect },
 } as const;
 
 export const examRepo = {
@@ -24,14 +24,14 @@ export const examRepo = {
   findByIdOrThrow(id: string, select?: Prisma.ExamSelect) {
     return prisma.exam.findUniqueOrThrow({
       ...(select ? { select } : {}),
-      where: { id }
+      where: { id },
     });
   },
 
   findByIdWithCourse(id: string) {
     return prisma.exam.findUnique({
       where: { id },
-      select: { course: { select: { id: true } }, courseId: true, id: true }
+      select: { course: { select: { id: true } }, courseId: true, id: true },
     });
   },
 
@@ -41,8 +41,8 @@ export const examRepo = {
       orderBy: { startsAt: "desc" },
       where: {
         courseId,
-        status: "published"
-      }
+        status: "published",
+      },
     });
   },
 
@@ -53,9 +53,9 @@ export const examRepo = {
       orderBy: { startsAt: "desc" },
       where: {
         courseId,
-        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+        status: includeDrafts ? { in: ["draft", "published"] } : "published",
       },
-      take: take * 3
+      take: take * 3,
     });
   },
 
@@ -66,9 +66,9 @@ export const examRepo = {
       orderBy: { startsAt: "desc" },
       where: {
         courseId,
-        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+        status: includeDrafts ? { in: ["draft", "published"] } : "published",
       },
-      take
+      take,
     });
   },
 
@@ -78,7 +78,7 @@ export const examRepo = {
     return prisma.exam.findMany({
       include: examListInclude,
       orderBy: { updatedAt: "desc" },
-      where: { OR: orClauses }
+      where: { OR: orClauses },
     });
   },
 
@@ -90,9 +90,9 @@ export const examRepo = {
       where: {
         courseId: { in: courseIds },
         status: "published",
-        endsAt: { gte: now }
+        endsAt: { gte: now },
       },
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -103,12 +103,12 @@ export const examRepo = {
         course: { select: courseMiniSelect },
         problems: {
           include: {
-            problem: { select: problemMiniSelect }
+            problem: { select: problemMiniSelect },
           },
-          orderBy: { ordinal: "asc" }
-        }
+          orderBy: { ordinal: "asc" },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -122,12 +122,12 @@ export const examRepo = {
         course: { select: { id: true, title: true, archived: true } },
         problems: {
           include: {
-            problem: { select: problemTeacherMiniSelect }
+            problem: { select: problemTeacherMiniSelect },
           },
-          orderBy: { ordinal: "asc" }
-        }
+          orderBy: { ordinal: "asc" },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -138,16 +138,16 @@ export const examRepo = {
         course: { select: courseMiniSelect },
         participations: {
           where: { userId },
-          take: 1
+          take: 1,
         },
         problems: {
           include: {
-            problem: { select: problemMiniSelect }
+            problem: { select: problemMiniSelect },
           },
-          orderBy: { ordinal: "asc" }
-        }
+          orderBy: { ordinal: "asc" },
+        },
       },
-      where: { id: examId }
+      where: { id: examId },
     });
   },
 
@@ -156,16 +156,16 @@ export const examRepo = {
       include: {
         problems: {
           include: { problem: { select: problemMiniSelect } },
-          orderBy: { ordinal: "asc" }
+          orderBy: { ordinal: "asc" },
         },
         participations: {
           include: {
-            user: { select: userScoreboardSelect }
+            user: { select: userScoreboardSelect },
           },
-          where: { status: { in: ["active", "submitted"] } }
-        }
+          where: { status: { in: ["active", "submitted"] } },
+        },
       },
-      where: { id: examId }
+      where: { id: examId },
     });
   },
 
@@ -175,9 +175,9 @@ export const examRepo = {
         endsAt: true,
         frozenAt: true,
         scoringMode: true,
-        startsAt: true
+        startsAt: true,
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -189,13 +189,13 @@ export const examRepo = {
         startsAt: { lte: now },
         endsAt: { gte: now },
         participations: {
-          some: { userId, status: "active" }
-        }
+          some: { userId, status: "active" },
+        },
       },
       select: {
         id: true,
-        course: { select: { id: true } }
-      }
+        course: { select: { id: true } },
+      },
     });
   },
 
@@ -203,8 +203,8 @@ export const examRepo = {
     return prisma.examParticipation.findUnique({
       select: { id: true, ipPin: true },
       where: {
-        examId_userId: { examId, userId }
-      }
+        examId_userId: { examId, userId },
+      },
     });
   },
 
@@ -215,7 +215,7 @@ export const examRepo = {
   update(id: string, data: Prisma.ExamUpdateInput) {
     return prisma.exam.update({
       data,
-      where: { id }
+      where: { id },
     });
   },
 
@@ -234,9 +234,9 @@ export const examRepo = {
           include: {
             problems: {
               select: { problemId: true, ordinal: true, points: true },
-              orderBy: { ordinal: "asc" }
-            }
-          }
+              orderBy: { ordinal: "asc" },
+            },
+          },
         });
       },
 
@@ -247,15 +247,15 @@ export const examRepo = {
       update(id: string, data: Prisma.ExamUncheckedUpdateInput) {
         return tx.exam.update({
           data,
-          where: { id }
+          where: { id },
         });
       },
 
       delete(id: string) {
         return tx.exam.delete({ where: { id } });
-      }
+      },
     };
-  }
+  },
 };
 
 export const examProblemRepo = {
@@ -263,7 +263,7 @@ export const examProblemRepo = {
     return prisma.examProblem.findMany({
       where: { examId },
       include: { problem: { select: problemMiniSelect } },
-      orderBy: { ordinal: "asc" }
+      orderBy: { ordinal: "asc" },
     });
   },
 
@@ -282,10 +282,10 @@ export const examProblemRepo = {
           exam: {
             status: "published",
             endsAt: { lt: now },
-            participations: { some: { userId } }
-          }
+            participations: { some: { userId } },
+          },
         },
-        select: { id: true }
+        select: { id: true },
       })
       .then((row) => row !== null);
   },
@@ -302,11 +302,11 @@ export const examProblemRepo = {
 
       deleteByExamId(examId: string) {
         return tx.examProblem.deleteMany({
-          where: { examId }
+          where: { examId },
         });
-      }
+      },
     };
-  }
+  },
 };
 
 export const examParticipationRepo = {
@@ -314,9 +314,9 @@ export const examParticipationRepo = {
     return prisma.examParticipation.findMany({
       where: { examId },
       include: {
-        user: { select: userMiniSelect }
+        user: { select: userMiniSelect },
       },
-      orderBy: [{ status: "asc" }, { registeredAt: "asc" }]
+      orderBy: [{ status: "asc" }, { registeredAt: "asc" }],
     });
   },
 
@@ -332,18 +332,18 @@ export const examParticipationRepo = {
       include: {
         exam: {
           include: {
-            problems: { orderBy: { ordinal: "asc" } }
-          }
-        }
+            problems: { orderBy: { ordinal: "asc" } },
+          },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
   update(id: string, data: Prisma.ExamParticipationUpdateInput) {
     return prisma.examParticipation.update({
       data,
-      where: { id }
+      where: { id },
     });
   },
 
@@ -353,7 +353,7 @@ export const examParticipationRepo = {
     return prisma.examParticipation
       .findUnique({
         where: { examId_userId: { examId, userId } },
-        select: { id: true }
+        select: { id: true },
       })
       .then((row) => row?.id ?? null);
   },
@@ -364,22 +364,22 @@ export const examParticipationRepo = {
         examId: string,
         userId: string,
         createData: Prisma.ExamParticipationUncheckedCreateInput,
-        updateData: Prisma.ExamParticipationUncheckedUpdateInput
+        updateData: Prisma.ExamParticipationUncheckedUpdateInput,
       ) {
         return tx.examParticipation.upsert({
           create: createData,
           update: updateData,
           where: {
-            examId_userId: { examId, userId }
-          }
+            examId_userId: { examId, userId },
+          },
         });
       },
 
       findByExamAndUser(examId: string, userId: string) {
         return tx.examParticipation.findUnique({
-          where: { examId_userId: { examId, userId } }
+          where: { examId_userId: { examId, userId } },
         });
-      }
+      },
     };
-  }
+  },
 };

@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { findAllActiveForExam, endSession, recordEvent } = vi.hoisted(() => ({
   findAllActiveForExam: vi.fn(),
   endSession: vi.fn(),
-  recordEvent: vi.fn()
+  recordEvent: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
     examRepo: {
       withTx: () => ({ findById: vi.fn() }),
-      findByIdOrThrow: vi.fn()
+      findByIdOrThrow: vi.fn(),
     },
     examSessionRepo: {
       findAllActiveForExam,
@@ -21,13 +21,13 @@ vi.mock("@nojv/db", () => {
         findByUserAndExam: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
-        recordEvent: vi.fn()
-      })
+        recordEvent: vi.fn(),
+      }),
     },
     courseMembershipRepo: {
-      withTx: () => ({ findByComposite: vi.fn() })
+      withTx: () => ({ findByComposite: vi.fn() }),
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
 });
 
@@ -54,7 +54,7 @@ describe("examDomain.session.autoCloseForExam", () => {
     findAllActiveForExam.mockResolvedValue([
       { id: "sess_a", examId: "exam_abc", userId: "usr_1", endedAt: null },
       { id: "sess_b", examId: "exam_abc", userId: "usr_2", endedAt: null },
-      { id: "sess_c", examId: "exam_abc", userId: "usr_3", endedAt: null }
+      { id: "sess_c", examId: "exam_abc", userId: "usr_3", endedAt: null },
     ]);
 
     const result = await session.autoCloseForExam("exam_abc");
@@ -69,15 +69,15 @@ describe("examDomain.session.autoCloseForExam", () => {
     expect(recordEvent).toHaveBeenCalledTimes(3);
     expect(recordEvent).toHaveBeenNthCalledWith(1, {
       sessionId: "sess_a",
-      eventType: "auto_close"
+      eventType: "auto_close",
     });
     expect(recordEvent).toHaveBeenNthCalledWith(2, {
       sessionId: "sess_b",
-      eventType: "auto_close"
+      eventType: "auto_close",
     });
     expect(recordEvent).toHaveBeenNthCalledWith(3, {
       sessionId: "sess_c",
-      eventType: "auto_close"
+      eventType: "auto_close",
     });
   });
 

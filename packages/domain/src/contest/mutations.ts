@@ -8,7 +8,7 @@ import {
   runTransaction,
   submissionRepo,
   type Prisma,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 import type { ContestCreate, ContestUpdate, Language } from "@nojv/core";
 
@@ -26,10 +26,10 @@ async function resolveAndAttachContestProblems(
   tx: TransactionClient,
   contestId: string,
   problemIds: string[],
-  allowedLanguages: Language[]
+  allowedLanguages: Language[],
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
-    id: { in: problemIds }
+    id: { in: problemIds },
   });
   const problemById = new Map(problems.map((p) => [p.id, p]));
 
@@ -42,7 +42,7 @@ async function resolveAndAttachContestProblems(
   // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
     await Promise.all(
-      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages))
+      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
     );
   }
 
@@ -54,9 +54,9 @@ async function resolveAndAttachContestProblems(
         contestId,
         ordinal: index + 1,
         points: 100,
-        problemId: problem.id
+        problemId: problem.id,
       });
-    })
+    }),
   );
 }
 
@@ -64,7 +64,7 @@ export async function ensureContestParticipation(
   tx: TransactionClient,
   userId: string,
   contestId: string,
-  attemptContext?: { problemId: string; sampleOnly: boolean }
+  attemptContext?: { problemId: string; sampleOnly: boolean },
 ) {
   const contest = await requireContest(tx, contestId);
 
@@ -87,11 +87,11 @@ export async function ensureContestParticipation(
       contestId: contest.id,
       startedAt: new Date(),
       status: "active",
-      userId
+      userId,
     },
     {
-      status: "active"
-    }
+      status: "active",
+    },
   );
 
   // Contest has no `maxAttempts`; parameter kept for caller-signature parity.
@@ -105,7 +105,7 @@ export async function checkSubmitCooldown(
   contestId: string,
   userId: string,
   problemId: string,
-  cooldownSec: number
+  cooldownSec: number,
 ) {
   if (cooldownSec <= 0) return;
 
@@ -114,18 +114,18 @@ export async function checkSubmitCooldown(
   const recentSubmission = await submissionRepo.withTx(tx).findMostRecent({
     contestParticipation: {
       contestId,
-      userId
+      userId,
     },
     problemId,
     sampleOnly: false,
-    createdAt: { gte: cutoff }
+    createdAt: { gte: cutoff },
   });
 
   if (recentSubmission) {
     const waitUntil = new Date(recentSubmission.createdAt.getTime() + cooldownSec * 1000);
     const remainingSec = Math.ceil((waitUntil.getTime() - Date.now()) / 1000);
     throw new ForbiddenError(
-      `Submit cooldown active. Please wait ${String(remainingSec)} seconds.`
+      `Submit cooldown active. Please wait ${String(remainingSec)} seconds.`,
     );
   }
 }
@@ -157,14 +157,14 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary,
       title: payload.title,
-      visibility: "published"
+      visibility: "published",
     });
 
     await resolveAndAttachContestProblems(
       tx,
       contest.id,
       payload.problemIds,
-      payload.allowedLanguages
+      payload.allowedLanguages,
     );
 
     return contest;
@@ -174,7 +174,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 export async function updateContestRecord(
   actor: ActorContext,
   contestId: string,
-  payload: ContestUpdate
+  payload: ContestUpdate,
 ) {
   return runTransaction(async (tx) => {
     const contest = await requireContest(tx, contestId);
@@ -189,7 +189,7 @@ export async function updateContestRecord(
       scoringMode: payload.scoringMode,
       submitCooldownSec: payload.submitCooldownSec,
       allowedLanguages: payload.allowedLanguages,
-      scoreboardMode: payload.scoreboardMode
+      scoreboardMode: payload.scoreboardMode,
     });
 
     if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
@@ -211,7 +211,7 @@ export async function updateContestRecord(
         tx,
         contest.id,
         payload.problemIds,
-        enforcedLanguages
+        enforcedLanguages,
       );
     }
 
@@ -227,14 +227,14 @@ export interface ContestLifecycleInfo {
 }
 
 export async function getContestLifecycleInfo(
-  contestId: string
+  contestId: string,
 ): Promise<ContestLifecycleInfo> {
   const contest = await contestRepo.findInfoById(contestId);
   return {
     endsAt: contest.endsAt.toISOString(),
     freezeTime: contest.frozenAt?.toISOString() ?? null,
     scoringMode: contest.scoringMode,
-    startsAt: contest.startsAt.toISOString()
+    startsAt: contest.startsAt.toISOString(),
   };
 }
 

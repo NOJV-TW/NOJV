@@ -7,8 +7,8 @@ const { hasEndedAssessmentForUser, hasEndedContestForUser, hasEndedExamForUser }
   () => ({
     hasEndedAssessmentForUser: vi.fn(),
     hasEndedContestForUser: vi.fn(),
-    hasEndedExamForUser: vi.fn()
-  })
+    hasEndedExamForUser: vi.fn(),
+  }),
 );
 
 vi.mock("@nojv/db", () => ({
@@ -18,7 +18,7 @@ vi.mock("@nojv/db", () => ({
   // Unused by the tests below, but the real module exports these —
   // stub them so the import resolves cleanly.
   problemRepo: {},
-  problemWorkspaceFileRepo: {}
+  problemWorkspaceFileRepo: {},
 }));
 
 import { problemDomain } from "@nojv/domain";
@@ -32,12 +32,12 @@ const privateProblem = { id: "prob_priv", authorId: "usr_author", visibility: "p
 const studentActor = {
   userId: "usr_student",
   username: "student",
-  platformRole: "user" as const
+  platformRole: "user" as const,
 };
 const authorActor = {
   userId: "usr_author",
   username: "author",
-  platformRole: "user" as const
+  platformRole: "user" as const,
 };
 const adminActor = { userId: "usr_admin", username: "admin", platformRole: "admin" as const };
 
@@ -71,7 +71,7 @@ describe("assertProblemViewAccess — synchronous gates", () => {
 
   it("allows callers who vouched for the active context", async () => {
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { contextIncludesProblem: true })
+      assertProblemViewAccess(privateProblem, studentActor, { contextIncludesProblem: true }),
     ).resolves.toBeUndefined();
     expect(hasEndedAssessmentForUser).not.toHaveBeenCalled();
   });
@@ -83,42 +83,42 @@ describe("assertProblemViewAccess — historical participant (practice-after-clo
   it("allows a participant of an ended assessment that contained the problem", async () => {
     hasEndedAssessmentForUser.mockResolvedValue(true);
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { now })
+      assertProblemViewAccess(privateProblem, studentActor, { now }),
     ).resolves.toBeUndefined();
     expect(hasEndedAssessmentForUser).toHaveBeenCalledWith(
       privateProblem.id,
       studentActor.userId,
-      now
+      now,
     );
   });
 
   it("allows a participant of an ended contest that contained the problem", async () => {
     hasEndedContestForUser.mockResolvedValue(true);
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { now })
+      assertProblemViewAccess(privateProblem, studentActor, { now }),
     ).resolves.toBeUndefined();
     expect(hasEndedContestForUser).toHaveBeenCalledWith(
       privateProblem.id,
       studentActor.userId,
-      now
+      now,
     );
   });
 
   it("allows a participant of an ended exam that contained the problem", async () => {
     hasEndedExamForUser.mockResolvedValue(true);
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { now })
+      assertProblemViewAccess(privateProblem, studentActor, { now }),
     ).resolves.toBeUndefined();
     expect(hasEndedExamForUser).toHaveBeenCalledWith(
       privateProblem.id,
       studentActor.userId,
-      now
+      now,
     );
   });
 
   it("blocks a non-participant on a private problem (all three repos return false)", async () => {
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { now })
+      assertProblemViewAccess(privateProblem, studentActor, { now }),
     ).rejects.toThrow(NotFoundError);
   });
 
@@ -131,7 +131,7 @@ describe("assertProblemViewAccess — historical participant (practice-after-clo
     hasEndedContestForUser.mockResolvedValue(false);
     hasEndedExamForUser.mockResolvedValue(false);
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { now })
+      assertProblemViewAccess(privateProblem, studentActor, { now }),
     ).rejects.toThrow(NotFoundError);
   });
 
@@ -142,7 +142,7 @@ describe("assertProblemViewAccess — historical participant (practice-after-clo
     hasEndedContestForUser.mockResolvedValue(false);
     hasEndedExamForUser.mockResolvedValue(false);
     await expect(
-      assertProblemViewAccess(privateProblem, studentActor, { now })
+      assertProblemViewAccess(privateProblem, studentActor, { now }),
     ).rejects.toThrow(NotFoundError);
   });
 

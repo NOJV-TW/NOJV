@@ -6,7 +6,7 @@ import type { CourseRole, EffectiveCourseRole, PlatformRole } from "@nojv/core";
  */
 export function resolveEffectiveCourseRole(
   platformRole: PlatformRole,
-  courseRole: CourseRole | null
+  courseRole: CourseRole | null,
 ): EffectiveCourseRole | null {
   if (platformRole === "admin") return "admin";
   return courseRole;

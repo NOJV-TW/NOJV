@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
   const [publicResult, editableProblems] = await Promise.all([
     listProblemCards({ difficulty, page, q, tags, userId }),
-    userId ? listEditableProblems(userId) : Promise.resolve(null)
+    userId ? listEditableProblems(userId) : Promise.resolve(null),
   ]);
 
   const sessionUser = locals.sessionUser;
@@ -25,6 +25,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   return {
     editableProblems,
     publicResult,
-    canCreate
+    canCreate,
   };
 };

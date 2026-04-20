@@ -4,7 +4,7 @@ import {
   courseDomain,
   resolveEffectiveCourseRole,
   NotFoundError,
-  ForbiddenError
+  ForbiddenError,
 } from "@nojv/domain";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -22,7 +22,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const membership = course.memberships[0] ?? null;
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
-    membership?.role ?? null
+    membership?.role ?? null,
   );
   // The course creator keeps manager rights even if their membership row
   // is later demoted or removed — only teachers can create courses, so
@@ -42,13 +42,13 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       title: course.title,
       studentCount: course._count.memberships,
       ownerDisplayName: course.owner.name,
-      archived: course.archived
+      archived: course.archived,
     },
     isManager,
     counts: {
       assignments: course._count.assessments,
       exams: course._count.exams,
-      members: course._count.memberships
-    }
+      members: course._count.memberships,
+    },
   };
 });

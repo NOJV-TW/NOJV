@@ -51,8 +51,5 @@ model AnnouncementTranslation {
   @@unique([announcementId, locale])
 }
 
-// Plagiarism reports are now inlined on Contest and CourseAssessment
-// (see `plagiarism*` columns on those models). Re-running MOSS upserts
-// the inline fields in place; there is no PlagiarismReport table.
-// The `PlagiarismReportStatus` enum above stays, because those inline
-// columns still reference it.
+// Plagiarism reports are inlined on Contest and CourseAssessment as
+// `plagiarism*` columns; re-running upserts the row in place.

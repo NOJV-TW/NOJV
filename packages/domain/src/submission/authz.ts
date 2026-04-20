@@ -4,7 +4,7 @@ import {
   courseMembershipRepo,
   examRepo,
   problemRepo,
-  submissionRepo
+  submissionRepo,
 } from "@nojv/db";
 import type { RejudgeInput } from "@nojv/job-dispatch";
 
@@ -40,7 +40,7 @@ export async function canOperateOnSubmission(
     contestId?: string | null;
     courseAssessmentId?: string | null;
     examId?: string | null;
-  }
+  },
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
 
@@ -75,7 +75,7 @@ export async function assertCanOperateOnSubmission(
     contestId?: string | null;
     courseAssessmentId?: string | null;
     examId?: string | null;
-  }
+  },
 ): Promise<void> {
   if (!(await canOperateOnSubmission(actor, submission))) {
     throw new ForbiddenError("Not permitted to operate on this submission.");
@@ -91,7 +91,7 @@ export async function assertCanOperateOnSubmission(
  */
 export async function assertBatchRejudgeAccess(
   actor: ActorContext,
-  input: Extract<RejudgeInput, { mode: "batch" }>
+  input: Extract<RejudgeInput, { mode: "batch" }>,
 ): Promise<void> {
   if (actor.platformRole === "admin") return;
 
@@ -124,14 +124,14 @@ export async function assertBatchRejudgeAccess(
   const problem = await problemRepo.findById(input.problemId);
   if (problem?.authorId !== actor.userId) {
     throw new ForbiddenError(
-      "Batch rejudge without a context scope is limited to the problem author."
+      "Batch rejudge without a context scope is limited to the problem author.",
     );
   }
 
   const anyNonPractice = await submissionRepo.anyWithContextForProblem(input.problemId);
   if (anyNonPractice) {
     throw new ForbiddenError(
-      "Batch rejudge includes non-practice submissions; scope to a specific context."
+      "Batch rejudge includes non-practice submissions; scope to a specific context.",
     );
   }
 }

@@ -8,7 +8,7 @@ export const schoolVerificationTokenRepo = {
 
   findById(token: string) {
     return prisma.schoolVerificationToken.findUnique({
-      where: { token }
+      where: { token },
     });
   },
 
@@ -18,7 +18,7 @@ export const schoolVerificationTokenRepo = {
 
   deleteExpired(now: Date = new Date()) {
     return prisma.schoolVerificationToken.deleteMany({
-      where: { expiresAt: { lt: now } }
+      where: { expiresAt: { lt: now } },
     });
-  }
+  },
 };

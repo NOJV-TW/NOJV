@@ -7,7 +7,7 @@ import {
   createTestCourse,
   createTestExam,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 const { session } = examDomain;
@@ -30,13 +30,13 @@ async function buildActor(overrides: ActorOverrides = {}) {
     displayName: user.name,
     email: user.email,
     emailVerified: false,
-    platformRole: user.platformRole as "student" | "teacher" | "admin"
+    platformRole: user.platformRole as "student" | "teacher" | "admin",
   };
 }
 
 async function createCourseWithMember(
   userId: string,
-  role: "student" | "teacher" | "ta" = "student"
+  role: "student" | "teacher" | "ta" = "student",
 ) {
   const owner = await createTestUser({ platformRole: "teacher" });
   const course = await createTestCourse({ ownerId: owner.id });
@@ -46,8 +46,8 @@ async function createCourseWithMember(
       userId,
       role,
       status: "active",
-      joinedAt: new Date()
-    }
+      joinedAt: new Date(),
+    },
   });
   return { course, owner };
 }
@@ -55,7 +55,7 @@ async function createCourseWithMember(
 function inWindow(now = new Date()) {
   return {
     startsAt: new Date(now.getTime() - 60_000),
-    endsAt: new Date(now.getTime() + 60 * 60_000)
+    endsAt: new Date(now.getTime() + 60 * 60_000),
   };
 }
 
@@ -66,7 +66,7 @@ describe("examDomain.session — start", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
 
     const result = await session.startSessionWithGate(actor, { examId: exam.id });
@@ -78,14 +78,14 @@ describe("examDomain.session — start", () => {
 
     // Persisted: row exists with endedAt: null
     const persisted = await testPrisma.activeExamSession.findFirst({
-      where: { userId: actor.userId, examId: exam.id }
+      where: { userId: actor.userId, examId: exam.id },
     });
     expect(persisted).not.toBeNull();
     expect(persisted!.endedAt).toBeNull();
 
     // An `enter` event was recorded
     const events = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: persisted!.id }
+      where: { sessionId: persisted!.id },
     });
     expect(events).toHaveLength(1);
     expect(events[0]!.eventType).toBe("enter");
@@ -97,7 +97,7 @@ describe("examDomain.session — start", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
 
     const first = await session.startSessionWithGate(actor, { examId: exam.id });
@@ -109,12 +109,12 @@ describe("examDomain.session — start", () => {
 
     // Still only one row, still only one enter event
     const sessions = await testPrisma.activeExamSession.findMany({
-      where: { userId: actor.userId, examId: exam.id }
+      where: { userId: actor.userId, examId: exam.id },
     });
     expect(sessions).toHaveLength(1);
 
     const events = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: first.session.id, eventType: "enter" }
+      where: { sessionId: first.session.id, eventType: "enter" },
     });
     expect(events).toHaveLength(1);
   });
@@ -127,11 +127,11 @@ describe("examDomain.session — start", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
 
     await expect(
-      session.startSessionWithGate(actor, { examId: exam.id })
+      session.startSessionWithGate(actor, { examId: exam.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -141,11 +141,11 @@ describe("examDomain.session — start", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "draft",
-      ...inWindow()
+      ...inWindow(),
     });
 
     await expect(
-      session.startSessionWithGate(actor, { examId: exam.id })
+      session.startSessionWithGate(actor, { examId: exam.id }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -157,7 +157,7 @@ describe("examDomain.session — start", () => {
       courseId: course.id,
       status: "published",
       startsAt: new Date(past.getTime() - 60 * 60_000),
-      endsAt: past
+      endsAt: past,
     });
 
     const err = await session
@@ -177,7 +177,7 @@ describe("examDomain.session — start", () => {
       courseId: course.id,
       status: "published",
       startsAt,
-      endsAt: new Date(startsAt.getTime() + 60 * 60_000)
+      endsAt: new Date(startsAt.getTime() + 60 * 60_000),
     });
 
     const err = await session
@@ -197,7 +197,7 @@ describe("examDomain.session — start", () => {
       courseId: course.id,
       status: "published",
       startsAt,
-      endsAt: new Date(startsAt.getTime() + 60 * 60_000)
+      endsAt: new Date(startsAt.getTime() + 60 * 60_000),
     });
 
     const result = await session.startSessionWithGate(actor, { examId: exam.id });
@@ -212,18 +212,18 @@ describe("examDomain.session — start", () => {
     const examA = await createTestExam({
       courseId: courseA.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     const examB = await createTestExam({
       courseId: courseB.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
 
     await session.startSessionWithGate(actor, { examId: examA.id });
 
     await expect(
-      session.startSessionWithGate(actor, { examId: examB.id })
+      session.startSessionWithGate(actor, { examId: examB.id }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 });
@@ -235,14 +235,14 @@ describe("examDomain.session — end (submitted)", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
 
     const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
 
     const updated = await session.endSession(actor, {
       examId: exam.id,
-      reason: "submitted"
+      reason: "submitted",
     });
 
     expect(updated.id).toBe(started.id);
@@ -250,7 +250,7 @@ describe("examDomain.session — end (submitted)", () => {
     expect(updated.releaseReason).toBe("submitted");
 
     const events = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "release" }
+      where: { sessionId: started.id, eventType: "release" },
     });
     expect(events).toHaveLength(1);
     expect(events[0]!.metadata).toEqual({ reason: "submitted" });
@@ -262,7 +262,7 @@ describe("examDomain.session — end (submitted)", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     await session.startSessionWithGate(ownerActor, { examId: exam.id });
 
@@ -274,8 +274,8 @@ describe("examDomain.session — end (submitted)", () => {
         userId: otherActor.userId,
         role: "student",
         status: "active",
-        joinedAt: new Date()
-      }
+        joinedAt: new Date(),
+      },
     });
 
     // `endSession` looks up by the caller's userId, so the lookup
@@ -284,7 +284,7 @@ describe("examDomain.session — end (submitted)", () => {
     // task spec — the HTTP layer maps "no session for caller" to a
     // permission failure.
     await expect(
-      session.endSession(otherActor, { examId: exam.id, reason: "submitted" })
+      session.endSession(otherActor, { examId: exam.id, reason: "submitted" }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -300,21 +300,21 @@ describe("examDomain.session — end (released_by_instructor)", () => {
         userId: studentActor.userId,
         role: "student",
         status: "active",
-        joinedAt: new Date()
-      }
+        joinedAt: new Date(),
+      },
     });
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     const { session: started } = await session.startSessionWithGate(studentActor, {
-      examId: exam.id
+      examId: exam.id,
     });
 
     const updated = await session.releaseSessionAsInstructor(teacherActor, {
       examId: exam.id,
-      targetUserId: studentActor.userId
+      targetUserId: studentActor.userId,
     });
 
     expect(updated.id).toBe(started.id);
@@ -322,12 +322,12 @@ describe("examDomain.session — end (released_by_instructor)", () => {
     expect(updated.releaseReason).toBe("released_by_instructor");
 
     const events = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "release" }
+      where: { sessionId: started.id, eventType: "release" },
     });
     expect(events).toHaveLength(1);
     expect(events[0]!.metadata).toEqual({
       reason: "released_by_instructor",
-      endedByUserId: teacherActor.userId
+      endedByUserId: teacherActor.userId,
     });
   });
 
@@ -341,19 +341,19 @@ describe("examDomain.session — end (released_by_instructor)", () => {
         userId: studentActor.userId,
         role: "student",
         status: "active",
-        joinedAt: new Date()
-      }
+        joinedAt: new Date(),
+      },
     });
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     await session.startSessionWithGate(studentActor, { examId: exam.id });
 
     const updated = await session.releaseSessionAsInstructor(taActor, {
       examId: exam.id,
-      targetUserId: studentActor.userId
+      targetUserId: studentActor.userId,
     });
 
     expect(updated.releaseReason).toBe("released_by_instructor");
@@ -369,21 +369,21 @@ describe("examDomain.session — end (released_by_instructor)", () => {
         userId: studentB.userId,
         role: "student",
         status: "active",
-        joinedAt: new Date()
-      }
+        joinedAt: new Date(),
+      },
     });
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     await session.startSessionWithGate(studentB, { examId: exam.id });
 
     await expect(
       session.releaseSessionAsInstructor(studentA, {
         examId: exam.id,
-        targetUserId: studentB.userId
-      })
+        targetUserId: studentB.userId,
+      }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -397,21 +397,21 @@ describe("examDomain.session — end (released_by_instructor)", () => {
         userId: studentActor.userId,
         role: "student",
         status: "active",
-        joinedAt: new Date()
-      }
+        joinedAt: new Date(),
+      },
     });
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     // Note: studentActor never starts a session.
 
     await expect(
       session.releaseSessionAsInstructor(teacherActor, {
         examId: exam.id,
-        targetUserId: studentActor.userId
-      })
+        targetUserId: studentActor.userId,
+      }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -423,12 +423,12 @@ describe("examDomain.session — heartbeat throttle", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
 
     const before = await testPrisma.activeExamSession.findUnique({
-      where: { id: started.id }
+      where: { id: started.id },
     });
 
     // Wait long enough that the heartbeat timestamp must move forward.
@@ -438,11 +438,11 @@ describe("examDomain.session — heartbeat throttle", () => {
 
     expect(result.recordedEvent).toBe(true);
     expect(result.session.lastHeartbeatAt.getTime()).toBeGreaterThan(
-      before!.lastHeartbeatAt.getTime()
+      before!.lastHeartbeatAt.getTime(),
     );
 
     const heartbeatEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "heartbeat" }
+      where: { sessionId: started.id, eventType: "heartbeat" },
     });
     expect(heartbeatEvents).toHaveLength(1);
   });
@@ -453,7 +453,7 @@ describe("examDomain.session — heartbeat throttle", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
 
@@ -467,7 +467,7 @@ describe("examDomain.session — heartbeat throttle", () => {
     expect(r3.recordedEvent).toBe(false);
 
     const heartbeatEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "heartbeat" }
+      where: { sessionId: started.id, eventType: "heartbeat" },
     });
     expect(heartbeatEvents).toHaveLength(1);
   });
@@ -478,7 +478,7 @@ describe("examDomain.session — heartbeat throttle", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     const { session: started } = await session.startSessionWithGate(actor, { examId: exam.id });
 
@@ -492,7 +492,7 @@ describe("examDomain.session — heartbeat throttle", () => {
     expect(r2.recordedEvent).toBe(true);
 
     const heartbeatEvents = await testPrisma.examSessionEvent.findMany({
-      where: { sessionId: started.id, eventType: "heartbeat" }
+      where: { sessionId: started.id, eventType: "heartbeat" },
     });
     expect(heartbeatEvents).toHaveLength(2);
   });
@@ -503,12 +503,12 @@ describe("examDomain.session — heartbeat throttle", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     // Note: no startSession call.
 
     await expect(session.heartbeatWithThrottle(actor.userId, exam.id)).rejects.toBeInstanceOf(
-      NotFoundError
+      NotFoundError,
     );
   });
 
@@ -518,13 +518,13 @@ describe("examDomain.session — heartbeat throttle", () => {
     const exam = await createTestExam({
       courseId: course.id,
       status: "published",
-      ...inWindow()
+      ...inWindow(),
     });
     await session.startSessionWithGate(actor, { examId: exam.id });
     await session.endSession(actor, { examId: exam.id, reason: "submitted" });
 
     await expect(session.heartbeatWithThrottle(actor.userId, exam.id)).rejects.toBeInstanceOf(
-      NotFoundError
+      NotFoundError,
     );
   });
 });

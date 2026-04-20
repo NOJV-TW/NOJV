@@ -11,7 +11,7 @@ const {
   createPlagiarismReport,
   findPlagiarismReport,
   getPlagiarismSourceCode,
-  dispatchPlagiarismCheck
+  dispatchPlagiarismCheck,
 } = plagiarismDomain;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -33,7 +33,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   await dispatchPlagiarismCheck({
     targetId: target.id,
     targetType: target.type,
-    triggeredById: actor.userId
+    triggeredById: actor.userId,
   });
 
   return json({ targetId: target.id, status: "pending" }, { status: 202 });

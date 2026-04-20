@@ -5,7 +5,7 @@ import {
   createTestProblem,
   createTestSubmission,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 import { problemDomain, courseDomain } from "@nojv/domain";
@@ -37,18 +37,18 @@ describe("read model (real DB)", () => {
       const user = await createTestUser();
       const problem = await createTestProblem({
         authorId: user.id,
-        visibility: "public"
+        visibility: "public",
       });
 
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted"
+        status: "accepted",
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "wrong_answer"
+        status: "wrong_answer",
       });
 
       const result = await listProblemCards();
@@ -60,18 +60,18 @@ describe("read model (real DB)", () => {
       const user = await createTestUser();
       const problem = await createTestProblem({
         authorId: user.id,
-        visibility: "public"
+        visibility: "public",
       });
 
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted"
+        status: "accepted",
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "wrong_answer"
+        status: "wrong_answer",
       });
 
       const result = await listProblemCards();
@@ -90,7 +90,7 @@ describe("read model (real DB)", () => {
         id: "two-sum",
         difficulty: "hard",
         visibility: "public",
-        tags: ["array", "hash-table"]
+        tags: ["array", "hash-table"],
       });
 
       const result = await listProblemCards();
@@ -107,7 +107,7 @@ describe("read model (real DB)", () => {
   describe("getProblemPageData", () => {
     it("throws NotFoundError for nonexistent id", async () => {
       await expect(getProblemPageData("nonexistent")).rejects.toThrow(
-        "Problem not found: nonexistent"
+        "Problem not found: nonexistent",
       );
     });
 
@@ -118,7 +118,7 @@ describe("read model (real DB)", () => {
         authorId: author.id,
         difficulty: "medium",
         visibility: "public",
-        title: "Detail Problem"
+        title: "Detail Problem",
       });
 
       const detail = await getProblemPageData("detail-problem", "en");
@@ -133,7 +133,7 @@ describe("read model (real DB)", () => {
     it("surfaces Problem.samples on the read model", async () => {
       await createTestProblem({
         id: "samples-problem",
-        visibility: "public"
+        visibility: "public",
       });
 
       // The factory writes a default `samples` pair on `Problem` matching
@@ -149,7 +149,7 @@ describe("read model (real DB)", () => {
     it("includes input/output format from statement", async () => {
       await createTestProblem({
         id: "format-problem",
-        visibility: "public"
+        visibility: "public",
       });
 
       const detail = await getProblemPageData("format-problem", "en");
@@ -163,23 +163,23 @@ describe("read model (real DB)", () => {
       const problem = await createTestProblem({
         id: "counted-problem",
         authorId: user.id,
-        visibility: "public"
+        visibility: "public",
       });
 
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted"
+        status: "accepted",
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "wrong_answer"
+        status: "wrong_answer",
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted"
+        status: "accepted",
       });
 
       const detail = await getProblemPageData("counted-problem", "en");

@@ -9,11 +9,11 @@ export const announcementRepo = {
       where: {
         status: "published",
         courseId: null,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
       include: { translations: true },
-      take
+      take,
     });
   },
 
@@ -23,42 +23,42 @@ export const announcementRepo = {
       where: {
         status: "published",
         courseId,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
       include: {
         translations: true,
-        createdBy: { select: { id: true, name: true } }
+        createdBy: { select: { id: true, name: true } },
       },
-      take
+      take,
     });
   },
 
   listAll() {
     return prisma.announcement.findMany({
       orderBy: { createdAt: "desc" },
-      include: { translations: true }
+      include: { translations: true },
     });
   },
 
   findById(id: string) {
     return prisma.announcement.findUnique({
       where: { id },
-      include: { translations: true }
+      include: { translations: true },
     });
   },
 
   findPinnedStatus(id: string) {
     return prisma.announcement.findUnique({
       where: { id },
-      select: { pinned: true }
+      select: { pinned: true },
     });
   },
 
   findStatus(id: string) {
     return prisma.announcement.findUnique({
       where: { id },
-      select: { status: true }
+      select: { status: true },
     });
   },
 
@@ -69,11 +69,11 @@ export const announcementRepo = {
   update(id: string, data: Prisma.AnnouncementUpdateInput) {
     return prisma.announcement.update({
       where: { id },
-      data
+      data,
     });
   },
 
   delete(id: string) {
     return prisma.announcement.delete({ where: { id } });
-  }
+  },
 };

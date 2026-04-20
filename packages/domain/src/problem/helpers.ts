@@ -4,7 +4,7 @@ import {
   examProblemRepo,
   problemRepo,
   problemWorkspaceFileRepo,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 import type { Language, PlatformRole } from "@nojv/core";
 import { entryFileNameFor } from "@nojv/core";
@@ -19,7 +19,7 @@ export interface ProblemActorContext {
 
 export function assertCourseProblemAccess(
   problem: { authorId: string | null; visibility: string },
-  actor: ProblemActorContext
+  actor: ProblemActorContext,
 ) {
   if (
     problem.visibility === "private" &&
@@ -27,14 +27,14 @@ export function assertCourseProblemAccess(
     problem.authorId !== actor.userId
   ) {
     throw new ForbiddenError(
-      "Private problems can only be attached by their author or an admin."
+      "Private problems can only be attached by their author or an admin.",
     );
   }
 }
 
 export function assertProblemOwnership(
   problem: { authorId: string | null },
-  actor: ProblemActorContext
+  actor: ProblemActorContext,
 ) {
   if (actor.platformRole !== "admin" && problem.authorId !== actor.userId) {
     throw new ForbiddenError("Only the author or an admin can modify this problem.");
@@ -43,7 +43,7 @@ export function assertProblemOwnership(
 
 export async function assertProblemEditAccess(
   actor: ProblemActorContext,
-  problemId: string
+  problemId: string,
 ): Promise<void> {
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
@@ -71,7 +71,7 @@ export async function assertProblemEditAccess(
 export async function assertProblemViewAccess(
   problem: { id: string; authorId: string | null; visibility: string },
   actor: ProblemActorContext | null,
-  opts?: { contextIncludesProblem?: boolean; now?: Date }
+  opts?: { contextIncludesProblem?: boolean; now?: Date },
 ): Promise<void> {
   if (problem.visibility === "public") return;
   if (actor?.platformRole === "admin") return;
@@ -85,7 +85,7 @@ export async function assertProblemViewAccess(
     const [assessment, contest, exam] = await Promise.all([
       assessmentProblemRepo.hasEndedAssessmentForUser(problem.id, actor.userId, now),
       contestProblemRepo.hasEndedContestForUser(problem.id, actor.userId, now),
-      examProblemRepo.hasEndedExamForUser(problem.id, actor.userId, now)
+      examProblemRepo.hasEndedExamForUser(problem.id, actor.userId, now),
     ]);
     if (assessment || contest || exam) return;
   }
@@ -99,7 +99,7 @@ export async function assertProblemViewAccess(
 export async function assertProblemHasWorkspaceForLanguages(
   tx: TransactionClient,
   problemId: string,
-  allowedLanguages: Language[]
+  allowedLanguages: Language[],
 ): Promise<void> {
   if (allowedLanguages.length === 0) return;
 
@@ -109,14 +109,14 @@ export async function assertProblemHasWorkspaceForLanguages(
   for (const language of allowedLanguages) {
     const entryPath = entryFileNameFor(language);
     const hasEntry = workspaceFiles.some(
-      (f) => f.language === language && f.path === entryPath && f.visibility === "editable"
+      (f) => f.language === language && f.path === entryPath && f.visibility === "editable",
     );
     if (!hasEntry) missing.push(language);
   }
 
   if (missing.length > 0) {
     throw new ValidationError(
-      `Problem ${problemId} is missing editable main.<ext> files for: ${missing.join(", ")}.`
+      `Problem ${problemId} is missing editable main.<ext> files for: ${missing.join(", ")}.`,
     );
   }
 }

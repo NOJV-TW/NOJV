@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 4dd5ac8b4f3b39ea1e1d12abc1cfbd2d763a7144..6d543ac8c2add97cc167d00546f7ae34355b2fa6 100644
+--- a/package.json
++++ b/package.json
+@@ -5,7 +5,8 @@
+   "main": "index.js",
+   "license": "MIT",
+   "scripts": {
+-    "build": "node-gyp rebuild"
++    "build": "node-gyp rebuild",
++    "install": "node-gyp rebuild"
+   },
+   "dependencies": {
+     "nan": "^2.23.1",

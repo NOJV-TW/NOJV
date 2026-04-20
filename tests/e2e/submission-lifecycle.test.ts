@@ -36,14 +36,14 @@ If the input points are collinear, print \`-1.00 -1.00 -1.00\`.`;
 const SAMPLE_CASES: Array<{ input: string; output: string }> = [
   { input: "0 0 4 0 0 3", output: "14.00 12.00 90.00" },
   { input: "0 0 2 0 3 4", output: "14.00 8.00 53.13" },
-  { input: "0 0 1 0 2 0", output: "-1.00 -1.00 -1.00" }
+  { input: "0 0 1 0 2 0", output: "-1.00 -1.00 -1.00" },
 ];
 
 const HIDDEN_CASES: Array<{ input: string; output: string }> = [
   { input: "1 1 4 1 1 5", output: "14.00 12.00 90.00" },
   { input: "0 0 5 0 3 4", output: "20.00 20.00 53.13" },
   { input: "-2 -2 2 -2 -2 2", output: "16.00 16.00 90.00" },
-  { input: "0 0 3 0 6 0", output: "-1.00 -1.00 -1.00" }
+  { input: "0 0 3 0 6 0", output: "-1.00 -1.00 -1.00" },
 ];
 
 // -----------------------------------------------------------------------------
@@ -195,11 +195,11 @@ type FormActionResult = {
 async function postFormAction(
   page: import("@playwright/test").Page,
   urlPath: string,
-  form: Record<string, string>
+  form: Record<string, string>,
 ): Promise<FormActionResult> {
   const res = await page.request.post(urlPath, {
     form,
-    headers: { origin: ORIGIN }
+    headers: { origin: ORIGIN },
   });
   return res.json() as Promise<FormActionResult>;
 }
@@ -252,13 +252,13 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       const trigger = document.querySelector<HTMLButtonElement>('[data-slot="select-trigger"]');
       // Find the visibility trigger (the second one — first is difficulty)
       const triggers = [
-        ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')
+        ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]'),
       ];
       const visTrigger = triggers.find((t) => /private/i.test(t.textContent ?? ""));
       if (!visTrigger) throw new Error("Visibility trigger not found");
       // The hidden input sibling stores the form value
       const hiddenInput = visTrigger.parentElement?.querySelector<HTMLInputElement>(
-        'input[type="hidden"], input[name="visibility"]'
+        'input[type="hidden"], input[name="visibility"]',
       );
       if (hiddenInput) {
         hiddenInput.value = "public";
@@ -285,7 +285,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     // Wait for the basic-info form action to finish — the page reloads with
     // the new title surfaced as the heading.
     await expect(page.getByRole("heading", { name: PROBLEM_TITLE })).toBeVisible({
-      timeout: 15_000
+      timeout: 15_000,
     });
 
     await context.close();
@@ -299,8 +299,8 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       data: JSON.stringify({
         name: "Sample",
         weight: 1,
-        cases: SAMPLE_CASES
-      })
+        cases: SAMPLE_CASES,
+      }),
     });
     expect(body.type).not.toBe("error");
     expect(body.type).not.toBe("failure");
@@ -316,8 +316,8 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       data: JSON.stringify({
         name: "Hidden",
         weight: 2,
-        cases: HIDDEN_CASES
-      })
+        cases: HIDDEN_CASES,
+      }),
     });
     expect(body.type).not.toBe("error");
     expect(body.type).not.toBe("failure");
@@ -363,9 +363,9 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
         sourceCode: MAIN_C,
         sourceFiles: [
           { path: "parallelogram.h", content: PARALLELOGRAM_H },
-          { path: "parallelogram.c", content: PARALLELOGRAM_C }
-        ]
-      }
+          { path: "parallelogram.c", content: PARALLELOGRAM_C },
+        ],
+      },
     });
     expect(createRes.status()).toBe(202);
     const created = await createRes.json();
@@ -399,7 +399,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       "compile_error",
       "runtime_error",
       "time_limit_exceeded",
-      "memory_limit_exceeded"
+      "memory_limit_exceeded",
     ]).toContain(lastStatus);
 
     await context.close();

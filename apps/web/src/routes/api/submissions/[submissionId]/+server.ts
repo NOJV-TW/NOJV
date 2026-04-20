@@ -17,12 +17,12 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const submission = await getSubmissionForUser(
     submissionId,
     actor.userId,
-    actor.platformRole === "admin"
+    actor.platformRole === "admin",
   );
 
   return json({
     result: submission.verdictDetail,
     status: submission.status,
-    submissionId: submission.id
+    submissionId: submission.id,
   });
 });

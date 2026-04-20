@@ -9,7 +9,7 @@ import { getPageLockedContext, type PageLockedContext } from "$lib/server/page-l
 import {
   getActiveExamContext,
   isAllowedPathForExam,
-  type ActiveExamContext
+  type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
 import { classifyError } from "$lib/server/shared/handle-action-error";
@@ -24,14 +24,14 @@ const examLockLogger = createLogger("exam-lock");
 process.on("unhandledRejection", (reason) => {
   processLogger.warn("Unhandled promise rejection", {
     err: reason instanceof Error ? reason.message : String(reason),
-    stack: reason instanceof Error ? reason.stack : undefined
+    stack: reason instanceof Error ? reason.stack : undefined,
   });
 });
 
 process.on("uncaughtException", (err) => {
   processLogger.error("Uncaught exception — exiting", {
     err: err.message,
-    stack: err.stack
+    stack: err.stack,
   });
   process.exit(1);
 });
@@ -43,7 +43,7 @@ const PROFILE_EXEMPT_PREFIXES = [
   "/verify-school",
   "/signin",
   "/admin-signin",
-  "/signup"
+  "/signup",
 ];
 
 /** Locale prefixes that paraglide may prepend to URLs (non-base locales). */
@@ -87,7 +87,7 @@ function setSecurityHeaders(response: Response): void {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+    "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   );
   if (process.env.NODE_ENV === "production") {
     response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -166,7 +166,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   const session = await getAuth().api.getSession({
-    headers: event.request.headers
+    headers: event.request.headers,
   });
 
   event.locals.session = session?.session ?? null;
@@ -209,7 +209,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     } catch (err) {
       examLockLogger.warn("getActiveExamContext failed — failing open", {
         userId: sessionUser.id,
-        err: err instanceof Error ? err.message : String(err)
+        err: err instanceof Error ? err.message : String(err),
       });
     }
 
@@ -221,19 +221,19 @@ export const handle: Handle = async ({ event, resolve }) => {
             email: sessionUser.email,
             username: sessionUser.username ?? "",
             platformRole: sessionUser.platformRole,
-            userId: sessionUser.id
+            userId: sessionUser.id,
           },
           {
             examId: examCtx.exam.id,
             eventType: "visibility_lost",
-            metadata: { attemptedPath: cleanPath }
-          }
+            metadata: { attemptedPath: cleanPath },
+          },
         );
       } catch (err) {
         examLockLogger.warn("recordEvent(visibility_lost) failed", {
           userId: sessionUser.id,
           examId: examCtx.exam.id,
-          err: err instanceof Error ? err.message : String(err)
+          err: err instanceof Error ? err.message : String(err),
         });
       }
       redirect(307, `/exams/${examCtx.exam.id}`);
@@ -258,7 +258,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
     errorLogger.warn("Unwrapped domain HttpError reached handleError", {
       method: event.request.method,
       status: classified.status,
-      url: event.url.pathname
+      url: event.url.pathname,
     });
     return { message: classified.message };
   }
@@ -268,7 +268,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
     method: event.request.method,
     stack: error instanceof Error ? error.stack : undefined,
     status,
-    url: event.url.pathname
+    url: event.url.pathname,
   });
 
   return { message };

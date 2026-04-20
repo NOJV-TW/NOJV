@@ -38,7 +38,7 @@ export const actions = {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
-        startsAt: new Date(startsAt).toISOString()
+        startsAt: new Date(startsAt).toISOString(),
       });
       const result = await createContestRecord(actor, payload);
       return message(form, { kind: "success", text: `Contest "${result.title}" created.` });
@@ -46,5 +46,5 @@ export const actions = {
       const msg = err instanceof Error ? err.message : "Contest creation failed.";
       return message(form, { kind: "error", text: msg }, { status: 400 });
     }
-  }
+  },
 } satisfies Actions;

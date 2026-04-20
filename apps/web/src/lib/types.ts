@@ -7,7 +7,7 @@ import type {
   ProblemStatus,
   ProblemType,
   ProblemVisibility,
-  SubmissionResult
+  SubmissionResult,
 } from "@nojv/core";
 
 // `id` is absent for local-only entries added before server persistence; when present, source is lazily fetched.
@@ -62,7 +62,7 @@ export const verdictColor: Record<string, string> = {
   running: "text-muted-foreground",
   runtime_error: "text-amber-600 dark:text-amber-400",
   time_limit_exceeded: "text-red-600 dark:text-red-400",
-  wrong_answer: "text-red-600 dark:text-red-400"
+  wrong_answer: "text-red-600 dark:text-red-400",
 };
 
 export interface ProblemDetail extends ProblemOverview {
@@ -126,7 +126,7 @@ export function deriveAssessmentWindowState({
   closesAt,
   dueAt,
   now,
-  opensAt
+  opensAt,
 }: AssessmentWindowStateInput): AssessmentWindowState {
   const currentTime = now ? new Date(now) : new Date();
   const opensDate = new Date(opensAt);
@@ -154,7 +154,7 @@ const windowStateColors: Record<AssessmentWindowState, string> = {
   closed: "text-[color:var(--color-muted-foreground)]",
   grace: "text-amber-600 dark:text-amber-400",
   open: "text-emerald-600 dark:text-emerald-400",
-  upcoming: "text-blue-600 dark:text-blue-400"
+  upcoming: "text-blue-600 dark:text-blue-400",
 };
 
 export function windowStateColorClass(state: AssessmentWindowState) {
@@ -163,5 +163,5 @@ export function windowStateColorClass(state: AssessmentWindowState) {
 
 export const assessmentPresentation: AssessmentPresentation = {
   heroLabel: "Deadline-driven assignment workspace",
-  supportLabel: "Coursework framing with open, due, and close windows"
+  supportLabel: "Coursework framing with open, due, and close windows",
 };

@@ -7,7 +7,7 @@ export function sanitizeId(value: string): string {
 export function forceRemoveContainer(containerName: string): void {
   const child = spawn("docker", ["rm", "-f", containerName], {
     env: process.env,
-    stdio: "pipe"
+    stdio: "pipe",
   });
 
   child.stdin.end();

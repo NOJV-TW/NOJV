@@ -4,7 +4,7 @@ import {
   createTestContest,
   createTestProblem,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 import { contestDomain } from "@nojv/domain";
@@ -40,8 +40,8 @@ describe("contest queries (real DB)", () => {
           contestId: contest.id,
           problemId: problem.id,
           ordinal: 1,
-          points: 100
-        }
+          points: 100,
+        },
       });
 
       const user = await createTestUser();
@@ -50,8 +50,8 @@ describe("contest queries (real DB)", () => {
           contestId: contest.id,
           userId: user.id,
           status: "active",
-          startedAt: new Date()
-        }
+          startedAt: new Date(),
+        },
       });
 
       const contests = await listPublicContests();
@@ -68,7 +68,7 @@ describe("contest queries (real DB)", () => {
       const contest = await createTestContest({
         id: "detail-test",
         visibility: "published",
-        title: "Detail Contest"
+        title: "Detail Contest",
       });
       const problem = await createTestProblem();
 
@@ -77,8 +77,8 @@ describe("contest queries (real DB)", () => {
           contestId: contest.id,
           problemId: problem.id,
           ordinal: 1,
-          points: 200
-        }
+          points: 200,
+        },
       });
 
       const detail = await getContestDetail(contest.id, { userId: null, now: new Date() });
@@ -91,38 +91,38 @@ describe("contest queries (real DB)", () => {
 
     it("throws NotFoundError for nonexistent contestId", async () => {
       await expect(
-        getContestDetail("nonexistent", { userId: null, now: new Date() })
+        getContestDetail("nonexistent", { userId: null, now: new Date() }),
       ).rejects.toThrow("Contest not found: nonexistent");
     });
 
     it("throws NotFoundError for draft contest", async () => {
       const contest = await createTestContest({
         id: "draft-contest",
-        visibility: "draft"
+        visibility: "draft",
       });
       await expect(
-        getContestDetail(contest.id, { userId: null, now: new Date() })
+        getContestDetail(contest.id, { userId: null, now: new Date() }),
       ).rejects.toThrow(`Contest not found: ${contest.id}`);
     });
 
     it("returns problems ordered by ordinal", async () => {
       const contest = await createTestContest({
         id: "ordered-problems",
-        visibility: "published"
+        visibility: "published",
       });
       const p1 = await createTestProblem({ title: "Problem B" });
       const p2 = await createTestProblem({ title: "Problem A" });
 
       await testPrisma.contestProblem.create({
-        data: { contestId: contest.id, problemId: p1.id, ordinal: 2, points: 100 }
+        data: { contestId: contest.id, problemId: p1.id, ordinal: 2, points: 100 },
       });
       await testPrisma.contestProblem.create({
-        data: { contestId: contest.id, problemId: p2.id, ordinal: 1, points: 100 }
+        data: { contestId: contest.id, problemId: p2.id, ordinal: 1, points: 100 },
       });
 
       const detail = await getContestDetail(contest.id, {
         userId: null,
-        now: new Date()
+        now: new Date(),
       });
       expect(detail!.problems![0]!.title).toBe("Problem A");
       expect(detail!.problems![1]!.title).toBe("Problem B");
@@ -135,12 +135,12 @@ describe("contest queries (real DB)", () => {
     it("returns null participation when user has not joined", async () => {
       const contest = await createTestContest({
         id: "workspace-test",
-        visibility: "published"
+        visibility: "published",
       });
       const user = await createTestUser();
 
       const data = await getContestWorkspaceData(contest.id, user.id, {
-        now: new Date()
+        now: new Date(),
       });
       expect(data).not.toBeNull();
       expect(data!.participation).toBeNull();
@@ -149,7 +149,7 @@ describe("contest queries (real DB)", () => {
     it("returns participation data when user has joined", async () => {
       const contest = await createTestContest({
         id: "joined-contest",
-        visibility: "published"
+        visibility: "published",
       });
       const user = await createTestUser();
 
@@ -158,12 +158,12 @@ describe("contest queries (real DB)", () => {
           contestId: contest.id,
           userId: user.id,
           status: "active",
-          startedAt: new Date()
-        }
+          startedAt: new Date(),
+        },
       });
 
       const data = await getContestWorkspaceData(contest.id, user.id, {
-        now: new Date()
+        now: new Date(),
       });
       expect(data).not.toBeNull();
       expect(data!.participation).not.toBeNull();
@@ -181,7 +181,7 @@ describe("contest queries (real DB)", () => {
     it("throws NotFoundError for draft contest", async () => {
       const contest = await createTestContest({
         id: "draft-sb",
-        visibility: "draft"
+        visibility: "draft",
       });
       await expect(getScoreboard(contest.id)).rejects.toThrow(NotFoundError);
     });
@@ -189,11 +189,11 @@ describe("contest queries (real DB)", () => {
     it("returns empty entries when no participants", async () => {
       const contest = await createTestContest({
         id: "empty-sb",
-        visibility: "published"
+        visibility: "published",
       });
       const problem = await createTestProblem();
       await testPrisma.contestProblem.create({
-        data: { contestId: contest.id, problemId: problem.id, ordinal: 1, points: 100 }
+        data: { contestId: contest.id, problemId: problem.id, ordinal: 1, points: 100 },
       });
 
       const sb = await getScoreboard(contest.id);
@@ -207,12 +207,12 @@ describe("contest queries (real DB)", () => {
         visibility: "published",
         scoringMode: "problem_count",
         startsAt: new Date("2026-01-01T00:00:00Z"),
-        endsAt: new Date("2026-12-31T23:59:59Z")
+        endsAt: new Date("2026-12-31T23:59:59Z"),
       });
 
       const problem = await createTestProblem();
       await testPrisma.contestProblem.create({
-        data: { contestId: contest.id, problemId: problem.id, ordinal: 1, points: 100 }
+        data: { contestId: contest.id, problemId: problem.id, ordinal: 1, points: 100 },
       });
 
       const user = await createTestUser();
@@ -221,8 +221,8 @@ describe("contest queries (real DB)", () => {
           contestId: contest.id,
           userId: user.id,
           status: "active",
-          startedAt: new Date("2026-01-01T00:00:00Z")
-        }
+          startedAt: new Date("2026-01-01T00:00:00Z"),
+        },
       });
 
       // Create an accepted submission
@@ -237,8 +237,8 @@ describe("contest queries (real DB)", () => {
           status: "accepted",
           userId: user.id,
           createdAt: new Date("2026-01-01T01:00:00Z"),
-          score: 100
-        }
+          score: 100,
+        },
       });
 
       const sb = await getScoreboard(contest.id);
@@ -252,7 +252,7 @@ describe("contest queries (real DB)", () => {
       const contest = await createTestContest({
         id: "hidden-sb",
         visibility: "published",
-        scoreboardMode: "hidden"
+        scoreboardMode: "hidden",
       });
 
       const sb = await getScoreboard(contest.id, { isPrivileged: false });

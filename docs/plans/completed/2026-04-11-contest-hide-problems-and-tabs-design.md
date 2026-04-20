@@ -41,7 +41,7 @@ type CourseMembershipRow = {
 export function canManageContest(
   userId: string | null,
   contest: ContestPermissionInput,
-  courseMemberships: CourseMembershipRow[]
+  courseMemberships: CourseMembershipRow[],
 ): boolean;
 ```
 

@@ -4,7 +4,7 @@ import {
   createTestProblem,
   createTestSubmission,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 import { submissionDomain } from "@nojv/domain";
@@ -22,7 +22,7 @@ describe("submission queries (real DB)", () => {
       const submission = await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
-        status: "accepted"
+        status: "accepted",
       });
 
       const result = await getSubmissionForUser(submission.id, user.id, false);
@@ -36,7 +36,7 @@ describe("submission queries (real DB)", () => {
       const problem = await createTestProblem({ authorId: owner.id });
       const submission = await createTestSubmission({
         userId: owner.id,
-        problemId: problem.id
+        problemId: problem.id,
       });
 
       const result = await getSubmissionForUser(submission.id, admin.id, true);
@@ -49,11 +49,11 @@ describe("submission queries (real DB)", () => {
       const problem = await createTestProblem({ authorId: owner.id });
       const submission = await createTestSubmission({
         userId: owner.id,
-        problemId: problem.id
+        problemId: problem.id,
       });
 
       await expect(getSubmissionForUser(submission.id, other.id, false)).rejects.toThrow(
-        NotFoundError
+        NotFoundError,
       );
     });
 
@@ -61,7 +61,7 @@ describe("submission queries (real DB)", () => {
       const user = await createTestUser();
 
       await expect(getSubmissionForUser("nonexistent-id", user.id, false)).rejects.toThrow(
-        NotFoundError
+        NotFoundError,
       );
     });
   });
@@ -78,13 +78,13 @@ describe("submission queries (real DB)", () => {
         userId: user.id,
         problemId: problem.id,
         status: "accepted",
-        sampleOnly: false
+        sampleOnly: false,
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
         status: "wrong_answer",
-        sampleOnly: false
+        sampleOnly: false,
       });
 
       const results = await listProblemSubmissions(user.id, problem.id);
@@ -101,13 +101,13 @@ describe("submission queries (real DB)", () => {
         userId: user.id,
         problemId: problem.id,
         status: "accepted",
-        sampleOnly: false
+        sampleOnly: false,
       });
       await createTestSubmission({
         userId: user.id,
         problemId: problem.id,
         status: "accepted",
-        sampleOnly: true
+        sampleOnly: true,
       });
 
       const results = await listProblemSubmissions(user.id, problem.id);
@@ -129,7 +129,7 @@ describe("submission queries (real DB)", () => {
         userId: user1.id,
         problemId: problem.id,
         status: "accepted",
-        sampleOnly: false
+        sampleOnly: false,
       });
 
       const results = await listProblemSubmissions(user2.id, problem.id);
@@ -144,7 +144,7 @@ describe("submission queries (real DB)", () => {
         userId: user.id,
         problemId: problem.id,
         status: "wrong_answer",
-        sampleOnly: false
+        sampleOnly: false,
       });
 
       // Small delay to ensure different createdAt
@@ -154,7 +154,7 @@ describe("submission queries (real DB)", () => {
         userId: user.id,
         problemId: problem.id,
         status: "accepted",
-        sampleOnly: false
+        sampleOnly: false,
       });
 
       const results = await listProblemSubmissions(user.id, problem.id);
@@ -176,11 +176,11 @@ describe("submission queries (real DB)", () => {
         problemId: problem.id,
         language: "cpp",
         status: "wrong_answer",
-        sourceCode: "int main() {}"
+        sourceCode: "int main() {}",
       });
 
       const fetched = await testPrisma.submission.findUnique({
-        where: { id: submission.id }
+        where: { id: submission.id },
       });
       expect(fetched).not.toBeNull();
       expect(fetched!.language).toBe("cpp");

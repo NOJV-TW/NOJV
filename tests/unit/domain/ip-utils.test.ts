@@ -3,16 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 // Hoisted mock for ipViolationLogRepo so we can assert it isn't called on the
 // fail-closed path and is called once on the notify path.
 const { violationLogCreate } = vi.hoisted(() => ({
-  violationLogCreate: vi.fn()
+  violationLogCreate: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   ipViolationLogRepo: {
-    withTx: () => ({ create: violationLogCreate })
+    withTx: () => ({ create: violationLogCreate }),
   },
   examParticipationIpRepo: {
-    withTx: () => ({ updateIpPin: vi.fn() })
-  }
+    withTx: () => ({ updateIpPin: vi.fn() }),
+  },
 }));
 
 import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
@@ -20,7 +20,7 @@ import { checkIpLock, isIpInCidr, isIpInWhitelist } from "@nojv/domain";
 const fakeTx = {} as never;
 const fakeContext = {
   userId: "usr_test",
-  scope: { kind: "exam" as const, examId: "exm_test" }
+  scope: { kind: "exam" as const, examId: "exm_test" },
 };
 
 describe("isIpInCidr", () => {
@@ -68,11 +68,11 @@ describe("checkIpLock — whitelist", () => {
         ipWhitelistEnabled: true,
         ipBindingEnabled: false,
         ipWhitelist: [],
-        ipViolationMode: "block"
+        ipViolationMode: "block",
       },
       "1.2.3.4",
       null,
-      fakeContext
+      fakeContext,
     );
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).not.toHaveBeenCalled();
@@ -86,11 +86,11 @@ describe("checkIpLock — whitelist", () => {
         ipWhitelistEnabled: true,
         ipBindingEnabled: false,
         ipWhitelist: [],
-        ipViolationMode: "notify"
+        ipViolationMode: "notify",
       },
       "1.2.3.4",
       null,
-      fakeContext
+      fakeContext,
     );
     expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).toHaveBeenCalledTimes(1);
@@ -104,11 +104,11 @@ describe("checkIpLock — whitelist", () => {
         ipWhitelistEnabled: true,
         ipBindingEnabled: false,
         ipWhitelist: ["10.0.0.0/8"],
-        ipViolationMode: "block"
+        ipViolationMode: "block",
       },
       "10.1.2.3",
       null,
-      fakeContext
+      fakeContext,
     );
     expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).not.toHaveBeenCalled();
@@ -122,11 +122,11 @@ describe("checkIpLock — whitelist", () => {
         ipWhitelistEnabled: true,
         ipBindingEnabled: false,
         ipWhitelist: ["10.0.0.0/8"],
-        ipViolationMode: "block"
+        ipViolationMode: "block",
       },
       "1.2.3.4",
       null,
-      fakeContext
+      fakeContext,
     );
     expect(result).toEqual({ allowed: false, violationType: "whitelist" });
     expect(violationLogCreate).not.toHaveBeenCalled();
@@ -140,11 +140,11 @@ describe("checkIpLock — whitelist", () => {
         ipWhitelistEnabled: false,
         ipBindingEnabled: false,
         ipWhitelist: [],
-        ipViolationMode: "block"
+        ipViolationMode: "block",
       },
       "1.2.3.4",
       null,
-      fakeContext
+      fakeContext,
     );
     expect(result).toEqual({ allowed: true });
     expect(violationLogCreate).not.toHaveBeenCalled();

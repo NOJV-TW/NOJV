@@ -7,7 +7,7 @@ import {
   runTransaction,
   submissionRepo,
   type Prisma,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
 
@@ -27,10 +27,10 @@ async function resolveAndAttachExamProblems(
   examId: string,
   problemIds: string[],
   allowedLanguages: Language[],
-  pointOverrides?: Record<string, number>
+  pointOverrides?: Record<string, number>,
 ) {
   const problems = await problemRepo.withTx(tx).findMany({
-    id: { in: problemIds }
+    id: { in: problemIds },
   });
   const problemById = new Map(problems.map((p) => [p.id, p]));
 
@@ -43,7 +43,7 @@ async function resolveAndAttachExamProblems(
   // Every allowedLanguage must have an editable main.<ext> on every problem.
   if (allowedLanguages.length > 0) {
     await Promise.all(
-      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages))
+      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
     );
   }
 
@@ -56,9 +56,9 @@ async function resolveAndAttachExamProblems(
         examId,
         ordinal: index + 1,
         points: typeof points === "number" && points >= 0 ? Math.floor(points) : 100,
-        problemId: problem.id
+        problemId: problem.id,
       });
-    })
+    }),
   );
 }
 
@@ -73,7 +73,7 @@ async function requireExam(tx: TransactionClient, examId: string) {
 export async function ensureExamParticipation(
   tx: TransactionClient,
   userId: string,
-  examId: string
+  examId: string,
 ) {
   const exam = await requireExam(tx, examId);
 
@@ -103,11 +103,11 @@ export async function ensureExamParticipation(
       examId: exam.id,
       startedAt: new Date(),
       status: "active",
-      userId
+      userId,
     },
     {
-      status: "active"
-    }
+      status: "active",
+    },
   );
 
   return { exam, participation };
@@ -118,7 +118,7 @@ export async function checkExamSubmitCooldown(
   examId: string,
   userId: string,
   problemId: string,
-  cooldownSec: number
+  cooldownSec: number,
 ) {
   if (cooldownSec <= 0) return;
 
@@ -129,14 +129,14 @@ export async function checkExamSubmitCooldown(
     userId,
     problemId,
     sampleOnly: false,
-    createdAt: { gte: cutoff }
+    createdAt: { gte: cutoff },
   });
 
   if (recentSubmission) {
     const waitUntil = new Date(recentSubmission.createdAt.getTime() + cooldownSec * 1000);
     const remainingSec = Math.ceil((waitUntil.getTime() - Date.now()) / 1000);
     throw new ForbiddenError(
-      `Submit cooldown active. Please wait ${String(remainingSec)} seconds.`
+      `Submit cooldown active. Please wait ${String(remainingSec)} seconds.`,
     );
   }
 }
@@ -176,7 +176,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       status: payload.status,
       submitCooldownSec: payload.submitCooldownSec,
       summary: payload.summary ?? "",
-      title: payload.title
+      title: payload.title,
     });
 
     if (payload.problemIds.length > 0) {
@@ -184,7 +184,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
         tx,
         created.id,
         payload.problemIds,
-        payload.allowedLanguages
+        payload.allowedLanguages,
       );
     }
 
@@ -196,7 +196,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     await dispatchExamAutoClose({
       examId: exam.id,
       startsAt: exam.startsAt.toISOString(),
-      endsAt: exam.endsAt.toISOString()
+      endsAt: exam.endsAt.toISOString(),
     });
   }
 
@@ -214,7 +214,7 @@ export async function updateExamRecord(
   actor: ActorContext,
   examId: string,
   payload: ExamUpdate,
-  options: UpdateExamOptions = {}
+  options: UpdateExamOptions = {},
 ) {
   return runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
@@ -243,7 +243,7 @@ export async function updateExamRecord(
       ipWhitelist: payload.ipWhitelist,
       ipViolationMode: payload.ipViolationMode,
       pageLockEnabled: payload.pageLockEnabled,
-      scoreboardMode: payload.scoreboardMode
+      scoreboardMode: payload.scoreboardMode,
     });
 
     if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
@@ -265,7 +265,7 @@ export async function updateExamRecord(
         exam.id,
         payload.problemIds,
         enforcedLanguages,
-        options.pointOverrides
+        options.pointOverrides,
       );
     }
 
@@ -286,7 +286,7 @@ export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycl
     endsAt: exam.endsAt.toISOString(),
     freezeTime: exam.frozenAt?.toISOString() ?? null,
     scoringMode: exam.scoringMode,
-    startsAt: exam.startsAt.toISOString()
+    startsAt: exam.startsAt.toISOString(),
   };
 }
 
@@ -312,7 +312,7 @@ export async function unfreezeExamBoard(examId: string): Promise<void> {
 export async function setExamBoardFrozen(
   actor: ActorContext,
   examId: string,
-  frozen: boolean
+  frozen: boolean,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
@@ -333,7 +333,7 @@ export async function finalizeExam(examId: string): Promise<void> {
 async function assertExamManagePermission(
   tx: TransactionClient,
   actor: ActorContext,
-  exam: { createdByUserId: string | null; courseId: string }
+  exam: { createdByUserId: string | null; courseId: string },
 ) {
   if (exam.createdByUserId === actor.userId) return;
   const membership = await courseMembershipRepo
@@ -356,7 +356,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
   const {
     examId: committedId,
     startsAt,
-    endsAt
+    endsAt,
   } = await runTransaction(async (tx) => {
     const exam = await requireExam(tx, examId);
     await assertExamManagePermission(tx, actor, exam);
@@ -389,7 +389,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
   await dispatchExamAutoClose({
     examId: committedId,
     startsAt: startsAt.toISOString(),
-    endsAt: endsAt.toISOString()
+    endsAt: endsAt.toISOString(),
   });
 }
 

@@ -10,7 +10,7 @@ const {
   assessmentProblemCreate,
   courseMembershipFindByComposite,
   problemFindMany,
-  problemWorkspaceFindByProblemId
+  problemWorkspaceFindByProblemId,
 } = vi.hoisted(() => ({
   assessmentFindById: vi.fn(),
   assessmentUpdate: vi.fn(),
@@ -20,44 +20,44 @@ const {
   assessmentProblemCreate: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
   problemFindMany: vi.fn(),
-  problemWorkspaceFindByProblemId: vi.fn()
+  problemWorkspaceFindByProblemId: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   const assessmentWithTx = {
     findById: assessmentFindById,
     update: assessmentUpdate,
-    delete: assessmentDelete
+    delete: assessmentDelete,
   };
   const assessmentProblemWithTx = {
     deleteByAssessmentId: assessmentProblemDeleteByAssessmentId,
-    create: assessmentProblemCreate
+    create: assessmentProblemCreate,
   };
   const courseMembershipWithTx = {
-    findByComposite: courseMembershipFindByComposite
+    findByComposite: courseMembershipFindByComposite,
   };
   const problemWithTx = {
-    findMany: problemFindMany
+    findMany: problemFindMany,
   };
   return {
     Prisma: {},
     assessmentRepo: {
-      withTx: () => assessmentWithTx
+      withTx: () => assessmentWithTx,
     },
     assessmentProblemRepo: {
       findByAssessmentId: assessmentProblemFindByAssessmentId,
-      withTx: () => assessmentProblemWithTx
+      withTx: () => assessmentProblemWithTx,
     },
     courseMembershipRepo: {
-      withTx: () => courseMembershipWithTx
+      withTx: () => courseMembershipWithTx,
     },
     problemRepo: {
-      withTx: () => problemWithTx
+      withTx: () => problemWithTx,
     },
     problemWorkspaceFileRepo: {
-      findByProblemId: problemWorkspaceFindByProblemId
+      findByProblemId: problemWorkspaceFindByProblemId,
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
 });
 
@@ -70,7 +70,7 @@ const teacherActor = {
   username: "teacher",
   displayName: "Teacher",
   email: "t@example.com",
-  platformRole: "teacher" as const
+  platformRole: "teacher" as const,
 };
 
 const studentActor = {
@@ -78,7 +78,7 @@ const studentActor = {
   username: "student",
   displayName: "Student",
   email: "s@example.com",
-  platformRole: "student" as const
+  platformRole: "student" as const,
 };
 
 function draftAssessment(overrides: Record<string, unknown> = {}) {
@@ -92,7 +92,7 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
     closesAt: new Date("2030-01-15T00:00:00Z"),
     allowedLanguages: ["cpp"],
     title: "Old title",
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -106,7 +106,7 @@ describe("updateAssessmentRecord", () => {
     problemWorkspaceFindByProblemId.mockResolvedValue([]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
-      status: "active"
+      status: "active",
     });
   });
 
@@ -126,7 +126,7 @@ describe("updateAssessmentRecord", () => {
     await updateAssessmentRecord(teacherActor, "asg_1", {
       opensAt: "2031-01-01T00:00:00.000Z",
       closesAt: "2031-02-01T00:00:00.000Z",
-      dueAt: "2031-01-20T00:00:00.000Z"
+      dueAt: "2031-01-20T00:00:00.000Z",
     });
 
     const [, data] = assessmentUpdate.mock.calls[0];
@@ -149,7 +149,7 @@ describe("updateAssessmentRecord", () => {
     courseMembershipFindByComposite.mockResolvedValue(null);
 
     await expect(
-      updateAssessmentRecord(studentActor, "asg_1", { title: "hax" })
+      updateAssessmentRecord(studentActor, "asg_1", { title: "hax" }),
     ).rejects.toThrow(/permission/i);
     expect(assessmentUpdate).not.toHaveBeenCalled();
   });
@@ -158,11 +158,11 @@ describe("updateAssessmentRecord", () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
     courseMembershipFindByComposite.mockResolvedValue({
       role: "student",
-      status: "active"
+      status: "active",
     });
 
     await expect(
-      updateAssessmentRecord(studentActor, "asg_1", { title: "hax" })
+      updateAssessmentRecord(studentActor, "asg_1", { title: "hax" }),
     ).rejects.toThrow(/permission/i);
   });
 
@@ -176,14 +176,14 @@ describe("updateAssessmentRecord", () => {
       problemIds: ["prob_a", "prob_b"],
       problemOrdinals: [
         { problemId: "prob_a", points: 50 },
-        { problemId: "prob_b", points: 75 }
-      ]
+        { problemId: "prob_b", points: 75 },
+      ],
     });
 
     expect(assessmentProblemDeleteByAssessmentId).toHaveBeenCalledWith("asg_1");
     expect(assessmentProblemCreate).toHaveBeenCalledTimes(2);
     const pointsByProblem = new Map(
-      assessmentProblemCreate.mock.calls.map((c) => [c[0].problemId, c[0].points])
+      assessmentProblemCreate.mock.calls.map((c) => [c[0].problemId, c[0].points]),
     );
     expect(pointsByProblem.get("prob_a")).toBe(50);
     expect(pointsByProblem.get("prob_b")).toBe(75);
@@ -194,13 +194,13 @@ describe("updateAssessmentRecord", () => {
     const opensAt = new Date(now.getTime() - 60_000);
     const closesAt = new Date(now.getTime() + 60_000);
     assessmentFindById.mockResolvedValue(
-      draftAssessment({ status: "published", opensAt, closesAt, dueAt: null })
+      draftAssessment({ status: "published", opensAt, closesAt, dueAt: null }),
     );
 
     await expect(
       updateAssessmentRecord(teacherActor, "asg_1", {
-        opensAt: new Date(opensAt.getTime() + 1_000).toISOString()
-      })
+        opensAt: new Date(opensAt.getTime() + 1_000).toISOString(),
+      }),
     ).rejects.toThrow(/opensAt/);
   });
 
@@ -209,13 +209,13 @@ describe("updateAssessmentRecord", () => {
     const opensAt = new Date(now.getTime() - 60_000);
     const closesAt = new Date(now.getTime() + 60_000);
     assessmentFindById.mockResolvedValue(
-      draftAssessment({ status: "published", opensAt, closesAt, dueAt: null })
+      draftAssessment({ status: "published", opensAt, closesAt, dueAt: null }),
     );
 
     await expect(
       updateAssessmentRecord(teacherActor, "asg_1", {
-        closesAt: new Date(closesAt.getTime() - 1_000).toISOString()
-      })
+        closesAt: new Date(closesAt.getTime() - 1_000).toISOString(),
+      }),
     ).rejects.toThrow(/closesAt/);
   });
 
@@ -226,12 +226,12 @@ describe("updateAssessmentRecord", () => {
         status: "published",
         opensAt: new Date(now.getTime() - 120_000),
         closesAt: new Date(now.getTime() - 60_000),
-        dueAt: null
-      })
+        dueAt: null,
+      }),
     );
 
     await expect(
-      updateAssessmentRecord(teacherActor, "asg_1", { title: "nope" })
+      updateAssessmentRecord(teacherActor, "asg_1", { title: "nope" }),
     ).rejects.toThrow(/closed/i);
   });
 });
@@ -241,11 +241,11 @@ describe("publishAssessment", () => {
     vi.clearAllMocks();
     assessmentUpdate.mockResolvedValue({ id: "asg_1" });
     assessmentProblemFindByAssessmentId.mockResolvedValue([
-      { id: "pair_1", assessmentId: "asg_1", problemId: "prob_a" }
+      { id: "pair_1", assessmentId: "asg_1", problemId: "prob_a" },
     ]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
-      status: "active"
+      status: "active",
     });
   });
 
@@ -269,7 +269,7 @@ describe("publishAssessment", () => {
     assessmentProblemFindByAssessmentId.mockResolvedValue([]);
 
     await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(
-      /at least one problem/i
+      /at least one problem/i,
     );
   });
 
@@ -285,8 +285,8 @@ describe("publishAssessment", () => {
       draftAssessment({
         opensAt: new Date(now.getTime() - 120_000),
         closesAt: new Date(now.getTime() - 60_000),
-        dueAt: null
-      })
+        dueAt: null,
+      }),
     );
 
     await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(/closesAt/);
@@ -298,8 +298,8 @@ describe("publishAssessment", () => {
       draftAssessment({
         opensAt: new Date(now.getTime() + 60_000),
         dueAt: new Date(now.getTime() + 30_000), // before opensAt
-        closesAt: new Date(now.getTime() + 120_000)
-      })
+        closesAt: new Date(now.getTime() + 120_000),
+      }),
     );
 
     await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(/dueAt/);
@@ -319,7 +319,7 @@ describe("deleteAssessmentDraft", () => {
     assessmentDelete.mockResolvedValue({ id: "asg_1" });
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
-      status: "active"
+      status: "active",
     });
   });
 

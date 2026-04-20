@@ -20,7 +20,7 @@ export async function listUsersPaginated(params: UserSearchParams) {
     where.OR = [
       { username: { contains: params.search, mode: "insensitive" } },
       { email: { contains: params.search, mode: "insensitive" } },
-      { name: { contains: params.search, mode: "insensitive" } }
+      { name: { contains: params.search, mode: "insensitive" } },
     ];
   }
 
@@ -34,7 +34,7 @@ export async function listUsersPaginated(params: UserSearchParams) {
 
   const [users, totalCount] = await Promise.all([
     userRepo.listPaginated({ where, skip, take }),
-    userRepo.count(where)
+    userRepo.count(where),
   ]);
   return { users, totalCount, page, totalPages: Math.max(1, Math.ceil(totalCount / take)) };
 }
@@ -51,7 +51,7 @@ export async function updateUserRole(userId: string, role: "admin" | "teacher" |
       userId,
       type: "role_changed",
       params: { oldRole: existing.platformRole, newRole: role },
-      linkUrl: "/account"
+      linkUrl: "/account",
     });
   }
 
@@ -89,13 +89,13 @@ export async function getDashboardView(userId: string): Promise<DashboardView> {
       submissionRepo.findDistinctAcByUser(userId),
       submissionRepo.count({ userId, sampleOnly: false }),
       submissionRepo.groupByLanguageForUser(userId),
-      submissionRepo.groupByStatusForUser(userId)
+      submissionRepo.groupByStatusForUser(userId),
     ]);
 
   const difficultyCounts: Record<"easy" | "medium" | "hard", number> = {
     easy: 0,
     medium: 0,
-    hard: 0
+    hard: 0,
   };
   for (const row of acProblems) {
     difficultyCounts[row.problem.difficulty] += 1;
@@ -104,16 +104,16 @@ export async function getDashboardView(userId: string): Promise<DashboardView> {
   const analytics: UserAnalytics = {
     byDifficulty: (["easy", "medium", "hard"] as const).map((d) => ({
       difficulty: d,
-      acCount: difficultyCounts[d]
+      acCount: difficultyCounts[d],
     })),
     byLanguage: languageGroups.map((g) => ({ language: g.language, count: g._count._all })),
     byVerdict: verdictGroups.map((g) => ({ status: g.status, count: g._count._all })),
-    byTag: aggregateByTag(acProblems)
+    byTag: aggregateByTag(acProblems),
   };
 
   return {
     stats: { totalAc: acProblems.length, totalAttempts },
     recentSubmissions,
-    analytics
+    analytics,
   };
 }

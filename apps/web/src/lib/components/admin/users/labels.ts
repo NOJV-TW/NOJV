@@ -49,7 +49,7 @@ const en: UsersPageLabels = {
   systemText: "System Text",
   userFound: "user found",
   usersFound: "users found",
-  username: "Username"
+  username: "Username",
 };
 
 const zh: UsersPageLabels = {
@@ -74,7 +74,7 @@ const zh: UsersPageLabels = {
   systemText: "系統文字",
   userFound: "位使用者",
   usersFound: "位使用者",
-  username: "使用者名稱"
+  username: "使用者名稱",
 };
 
 export function getUsersPageLabels(lang: UiLang): UsersPageLabels {

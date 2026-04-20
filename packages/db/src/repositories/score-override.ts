@@ -2,7 +2,7 @@ import { prisma } from "../client";
 import type {
   OverrideContextType,
   Prisma,
-  ScoreOverrideAction
+  ScoreOverrideAction,
 } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 
@@ -54,9 +54,9 @@ export const scoreOverrideRepo = {
           userId: key.userId,
           problemId: key.problemId,
           contextType: key.contextType,
-          contextId: key.contextId
-        }
-      }
+          contextId: key.contextId,
+        },
+      },
     });
   },
 
@@ -70,8 +70,8 @@ export const scoreOverrideRepo = {
       orderBy: { createdAt: "desc" },
       include: {
         user: { select: { id: true, username: true, name: true } },
-        problem: { select: { id: true, title: true } }
-      }
+        problem: { select: { id: true, title: true } },
+      },
     });
   },
 
@@ -84,8 +84,8 @@ export const scoreOverrideRepo = {
       select: {
         userId: true,
         problemId: true,
-        overrideScore: true
-      }
+        overrideScore: true,
+      },
     });
   },
 
@@ -98,14 +98,14 @@ export const scoreOverrideRepo = {
       overrideScore: data.overrideScore,
       reason: data.reason,
       createdByUserId: data.createdByUserId,
-      updatedByUserId: data.updatedByUserId
+      updatedByUserId: data.updatedByUserId,
     };
     return tx.scoreOverride.create({ data: payload });
   },
 
   update(tx: TxClient, id: string, data: ScoreOverrideUpdateData) {
     const payload: Prisma.ScoreOverrideUncheckedUpdateInput = {
-      updatedByUserId: data.updatedByUserId
+      updatedByUserId: data.updatedByUserId,
     };
     if (data.overrideScore !== undefined) payload.overrideScore = data.overrideScore;
     if (data.reason !== undefined) payload.reason = data.reason;
@@ -114,7 +114,7 @@ export const scoreOverrideRepo = {
 
   delete(tx: TxClient, id: string) {
     return tx.scoreOverride.delete({ where: { id } });
-  }
+  },
 };
 
 export const scoreOverrideAuditLogRepo = {
@@ -131,8 +131,8 @@ export const scoreOverrideAuditLogRepo = {
         newScore: data.newScore,
         oldReason: data.oldReason,
         newReason: data.newReason,
-        changedByUserId: data.changedByUserId
-      }
+        changedByUserId: data.changedByUserId,
+      },
     });
   },
 
@@ -142,8 +142,8 @@ export const scoreOverrideAuditLogRepo = {
       orderBy: { createdAt: "desc" },
       take: limit,
       include: {
-        changedBy: { select: { id: true, username: true, name: true } }
-      }
+        changedBy: { select: { id: true, username: true, name: true } },
+      },
     });
-  }
+  },
 };

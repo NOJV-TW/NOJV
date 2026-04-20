@@ -68,7 +68,7 @@ export function resolveDisplayUsername(user: ParticipantRow["user"]): string {
 
 export function assignRanks(
   entries: ScoreboardEntry[],
-  isTied: (a: ScoreboardEntry, b: ScoreboardEntry) => boolean
+  isTied: (a: ScoreboardEntry, b: ScoreboardEntry) => boolean,
 ): void {
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
@@ -82,7 +82,7 @@ export function assignRanks(
 export function splitFrozenVisible(
   probSubs: SubmissionRow[],
   frozenAt: Date | null,
-  showFrozen: boolean
+  showFrozen: boolean,
 ): { visibleSubs: SubmissionRow[]; isFrozen: boolean } {
   if (!(showFrozen && frozenAt)) {
     return { isFrozen: false, visibleSubs: probSubs };

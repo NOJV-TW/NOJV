@@ -7,5 +7,5 @@ await build({
   target: "node24",
   format: "esm",
   outfile: "dist/index.js",
-  packages: "external"
+  packages: "external",
 });

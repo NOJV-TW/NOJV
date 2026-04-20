@@ -22,7 +22,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 100,
-      rawScore: 80
+      rawScore: 80,
     });
     expect(result.score).toBe(80);
     expect(result.adjustments).toEqual([]);
@@ -36,8 +36,8 @@ describe("applyAdjustmentRules", () => {
         dueAt,
         finalDay,
         runtimeMs: 0,
-        rawScore: 150
-      }).score
+        rawScore: 150,
+      }).score,
     ).toBe(100);
 
     expect(
@@ -47,8 +47,8 @@ describe("applyAdjustmentRules", () => {
         dueAt,
         finalDay,
         runtimeMs: 0,
-        rawScore: -5
-      }).score
+        rawScore: -5,
+      }).score,
     ).toBe(0);
   });
 
@@ -63,7 +63,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 100,
-      rawScore: 80
+      rawScore: 80,
     });
     expect(result.score).toBe(80);
   });
@@ -76,7 +76,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 500,
-      rawScore: 80
+      rawScore: 80,
     });
     expect(result.score).toBe(85); // 80 + 5
   });
@@ -92,7 +92,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -104,7 +104,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -116,7 +116,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(80); // 100 * 0.8
   });
@@ -129,7 +129,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 80
+      rawScore: 80,
     });
     const b = applyAdjustmentRules({
       rules: [rule],
@@ -137,7 +137,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 80
+      rawScore: 80,
     });
     expect(a.score).toBe(b.score);
     expect(a.score).toBe(60); // 80 * 0.75
@@ -150,7 +150,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 80
+      rawScore: 80,
     });
     expect(result.score).toBe(0);
   });
@@ -165,8 +165,8 @@ describe("applyAdjustmentRules", () => {
         dueAt,
         finalDay,
         runtimeMs: 0,
-        rawScore: 100
-      }).score
+        rawScore: 100,
+      }).score,
     ).toBe(100);
     // submittedAt is after finalDay → penalty
     expect(
@@ -176,8 +176,8 @@ describe("applyAdjustmentRules", () => {
         dueAt,
         finalDay,
         runtimeMs: 0,
-        rawScore: 100
-      }).score
+        rawScore: 100,
+      }).score,
     ).toBe(50);
   });
 
@@ -188,7 +188,7 @@ describe("applyAdjustmentRules", () => {
       dueAt: null,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -204,7 +204,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -217,7 +217,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(90);
   });
@@ -230,7 +230,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(70);
   });
@@ -243,7 +243,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(0);
   });
@@ -255,7 +255,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay: null,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -271,7 +271,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -283,7 +283,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });
@@ -295,7 +295,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(0);
   });
@@ -307,7 +307,7 @@ describe("applyAdjustmentRules", () => {
       dueAt,
       finalDay: null,
       runtimeMs: 0,
-      rawScore: 100
+      rawScore: 100,
     });
     expect(result.score).toBe(100);
   });

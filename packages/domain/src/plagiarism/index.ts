@@ -2,7 +2,7 @@ export {
   plagiarismTargetFilter,
   type PlagiarismResults,
   type PlagiarismTarget,
-  type SimilarityPair
+  type SimilarityPair,
 } from "./types";
 export {
   fetchSubmissionsForCheck,
@@ -18,6 +18,6 @@ export {
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,
   PlagiarismNotFoundError,
-  PlagiarismForbiddenError
+  PlagiarismForbiddenError,
 } from "./queries";
 export { dispatchPlagiarismCheck } from "@nojv/job-dispatch";

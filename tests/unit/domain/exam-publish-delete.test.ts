@@ -9,7 +9,7 @@ const {
   membershipFindByComposite,
   dispatchExamAutoClose,
   freezeScoreboard,
-  unfreezeScoreboard
+  unfreezeScoreboard,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examUpdate: vi.fn(),
@@ -18,7 +18,7 @@ const {
   membershipFindByComposite: vi.fn(),
   dispatchExamAutoClose: vi.fn(),
   freezeScoreboard: vi.fn(),
-  unfreezeScoreboard: vi.fn()
+  unfreezeScoreboard: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -27,32 +27,32 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({
         findById: examFindById,
         update: examUpdate,
-        delete: examDelete
+        delete: examDelete,
       }),
-      update: examUpdate
+      update: examUpdate,
     },
     examProblemRepo: {
       withTx: () => ({
         countByExamId: examProblemCount,
         create: vi.fn(),
-        deleteByExamId: vi.fn()
+        deleteByExamId: vi.fn(),
       }),
       findByExamId: vi.fn(),
-      countByExamId: examProblemCount
+      countByExamId: examProblemCount,
     },
     examParticipationRepo: {
-      withTx: () => ({ upsert: vi.fn(), findByExamAndUser: vi.fn() })
+      withTx: () => ({ upsert: vi.fn(), findByExamAndUser: vi.fn() }),
     },
     problemRepo: {
-      withTx: () => ({ findMany: vi.fn() })
+      withTx: () => ({ findMany: vi.fn() }),
     },
     submissionRepo: {
-      withTx: () => ({ findMostRecent: vi.fn() })
+      withTx: () => ({ findMostRecent: vi.fn() }),
     },
     courseMembershipRepo: {
-      withTx: () => ({ findByComposite: membershipFindByComposite })
+      withTx: () => ({ findByComposite: membershipFindByComposite }),
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
 });
 
@@ -67,7 +67,7 @@ vi.mock("@nojv/job-dispatch", () => {
     queryPlagiarismStatus: vi.fn(),
     queryRejudgeProgress: vi.fn(),
     querySubmissionStatus: vi.fn(),
-    closeClient: vi.fn()
+    closeClient: vi.fn(),
   };
 });
 
@@ -75,8 +75,8 @@ vi.mock("@nojv/redis", () => {
   return {
     scoreboard: {
       freezeScoreboard,
-      unfreezeScoreboard
-    }
+      unfreezeScoreboard,
+    },
   };
 });
 
@@ -90,7 +90,7 @@ const fakeActor = {
   username: "teacher",
   displayName: "Teacher One",
   email: "teacher@example.com",
-  platformRole: "teacher" as const
+  platformRole: "teacher" as const,
 };
 
 const fakeOtherActor = {
@@ -98,7 +98,7 @@ const fakeOtherActor = {
   username: "outsider",
   displayName: "Outsider",
   email: "outsider@example.com",
-  platformRole: "student" as const
+  platformRole: "student" as const,
 };
 
 function publishableExam(overrides: Record<string, unknown> = {}) {
@@ -110,7 +110,7 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
     startsAt: new Date(Date.now() + 60 * 60_000),
     endsAt: new Date(Date.now() + 120 * 60_000),
     allowedLanguages: ["cpp17"],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -128,7 +128,7 @@ describe("publishExam", () => {
     expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
     expect(dispatchExamAutoClose).toHaveBeenCalledTimes(1);
     const [payload] = dispatchExamAutoClose.mock.calls[0] as [
-      { examId: string; startsAt: string; endsAt: string }
+      { examId: string; startsAt: string; endsAt: string },
     ];
     expect(payload.examId).toBe("exam_1");
     expect(typeof payload.startsAt).toBe("string");
@@ -164,8 +164,8 @@ describe("publishExam", () => {
     examFindById.mockResolvedValue(
       publishableExam({
         startsAt: new Date(Date.now() - 120 * 60_000),
-        endsAt: new Date(Date.now() - 60 * 60_000)
-      })
+        endsAt: new Date(Date.now() - 60 * 60_000),
+      }),
     );
     examProblemCount.mockResolvedValue(1);
 
@@ -196,7 +196,7 @@ describe("publishExam", () => {
       courseId: "course_1",
       userId: fakeActor.userId,
       status: "active",
-      role: "teacher"
+      role: "teacher",
     });
     examProblemCount.mockResolvedValue(1);
 
@@ -231,7 +231,7 @@ describe("deleteExamDraft", () => {
     membershipFindByComposite.mockResolvedValue(null);
 
     await expect(deleteExamDraft(fakeOtherActor, "exam_1")).rejects.toBeInstanceOf(
-      ForbiddenError
+      ForbiddenError,
     );
     expect(examDelete).not.toHaveBeenCalled();
   });
@@ -305,7 +305,7 @@ describe("unarchiveExam", () => {
     membershipFindByComposite.mockResolvedValue(null);
 
     await expect(unarchiveExam(fakeOtherActor, "exam_1")).rejects.toBeInstanceOf(
-      ForbiddenError
+      ForbiddenError,
     );
     expect(examUpdate).not.toHaveBeenCalled();
   });
@@ -341,7 +341,7 @@ describe("setExamBoardFrozen", () => {
     membershipFindByComposite.mockResolvedValue(null);
 
     await expect(setExamBoardFrozen(fakeOtherActor, "exam_1", true)).rejects.toBeInstanceOf(
-      ForbiddenError
+      ForbiddenError,
     );
     expect(freezeScoreboard).not.toHaveBeenCalled();
     expect(examUpdate).not.toHaveBeenCalled();
