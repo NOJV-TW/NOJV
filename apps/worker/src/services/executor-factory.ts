@@ -12,13 +12,13 @@ export function createExecutor(env: WorkerEnv): SandboxExecutor {
       cpuRequest: env.K8S_CPU_REQUEST,
       cpuLimit: env.K8S_CPU_LIMIT,
       memoryRequest: env.K8S_MEMORY_REQUEST,
-      memoryLimit: env.K8S_MEMORY_LIMIT
+      memoryLimit: env.K8S_MEMORY_LIMIT,
     });
   }
   return new DockerExecutor({
     cpuLimit: env.SANDBOX_CPU_LIMIT,
     image: env.SANDBOX_IMAGE,
     memoryMb: env.SANDBOX_MEMORY_MB,
-    pidsLimit: env.SANDBOX_PIDS_LIMIT
+    pidsLimit: env.SANDBOX_PIDS_LIMIT,
   });
 }

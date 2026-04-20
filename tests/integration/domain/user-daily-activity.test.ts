@@ -27,7 +27,7 @@ describe("updateUserStats — UTC date bucketing", () => {
       problemId: "prob_1",
       language: "cpp",
       sampleOnly: false,
-      status: "accepted"
+      status: "accepted",
     });
 
     // 2026-04-21T00:00:01Z — first second of day D+1.
@@ -38,13 +38,13 @@ describe("updateUserStats — UTC date bucketing", () => {
       problemId: "prob_1",
       language: "cpp",
       sampleOnly: false,
-      status: "wrong_answer"
+      status: "wrong_answer",
     });
 
     const rows = await userDailyActivityRepo.findRange(
       user.id,
       new Date("2026-04-19T00:00:00Z"),
-      new Date("2026-04-22T00:00:00Z")
+      new Date("2026-04-22T00:00:00Z"),
     );
 
     // findRange orders by date DESC.
@@ -67,7 +67,7 @@ describe("updateUserStats — UTC date bucketing", () => {
       problemId: "prob_1",
       language: "cpp",
       sampleOnly: false,
-      status: "accepted"
+      status: "accepted",
     });
 
     vi.setSystemTime(new Date("2026-04-20T14:30:00Z"));
@@ -77,7 +77,7 @@ describe("updateUserStats — UTC date bucketing", () => {
       problemId: "prob_1",
       language: "cpp",
       sampleOnly: false,
-      status: "wrong_answer"
+      status: "wrong_answer",
     });
 
     vi.setSystemTime(new Date("2026-04-20T22:15:00Z"));
@@ -87,13 +87,13 @@ describe("updateUserStats — UTC date bucketing", () => {
       problemId: "prob_2",
       language: "python",
       sampleOnly: false,
-      status: "accepted"
+      status: "accepted",
     });
 
     const rows = await userDailyActivityRepo.findRange(
       user.id,
       new Date("2026-04-20T00:00:00Z"),
-      new Date("2026-04-20T00:00:00Z")
+      new Date("2026-04-20T00:00:00Z"),
     );
 
     expect(rows).toHaveLength(1);
@@ -111,13 +111,13 @@ describe("updateUserStats — UTC date bucketing", () => {
       problemId: "prob_1",
       language: "cpp",
       sampleOnly: true,
-      status: "accepted"
+      status: "accepted",
     });
 
     const rows = await userDailyActivityRepo.findRange(
       user.id,
       new Date("2026-04-19T00:00:00Z"),
-      new Date("2026-04-21T00:00:00Z")
+      new Date("2026-04-21T00:00:00Z"),
     );
 
     expect(rows).toHaveLength(0);

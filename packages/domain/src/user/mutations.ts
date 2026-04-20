@@ -35,7 +35,7 @@ function createLocalUsername(userId: string) {
 export async function ensureUser(
   tx: TransactionClient,
   userId: string,
-  input: EnsureUserInput = {}
+  input: EnsureUserInput = {},
 ) {
   const existing = await userRepo.withTx(tx).findById(userId);
 
@@ -57,7 +57,7 @@ export async function ensureUser(
     name: input.displayName ?? createLocalDisplayName(userId),
     email: input.email ?? createLocalEmail(userId),
     username: input.username ?? createLocalUsername(userId),
-    platformRole: input.platformRole ?? "student"
+    platformRole: input.platformRole ?? "student",
   });
 }
 
@@ -75,7 +75,7 @@ export async function renameName(userId: string, newName: string): Promise<void>
 
 export async function renameUsername(
   userId: string,
-  newUsername: string
+  newUsername: string,
 ): Promise<{ merged: boolean }> {
   return runTransaction(async (tx) => {
     const user = await userRepo.withTx(tx).findById(userId);
@@ -111,7 +111,7 @@ export async function renameUsername(
     if (!conflict) {
       await userRepo.withTx(tx).update(userId, {
         username: normalized,
-        displayUsername: normalized
+        displayUsername: normalized,
       });
       return { merged: false };
     }
@@ -123,7 +123,7 @@ export async function renameUsername(
       // TAs/teachers attach through `attachPlaceholderToAuth` (OAuth/email).
       const elevatedMembership = await tx.courseMembership.findFirst({
         where: { userId: conflict.id, role: { in: ["teacher", "ta"] } },
-        select: { id: true }
+        select: { id: true },
       });
       if (elevatedMembership) {
         throw new ConflictError("TAKEN");
@@ -132,7 +132,7 @@ export async function renameUsername(
       await userRepo.attachPlaceholderInTx(tx, conflict.id, userId);
       await userRepo.withTx(tx).update(userId, {
         username: normalized,
-        displayUsername: normalized
+        displayUsername: normalized,
       });
       return { merged: true };
     }

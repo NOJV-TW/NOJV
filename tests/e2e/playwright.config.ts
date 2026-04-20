@@ -12,7 +12,7 @@ export default defineConfig({
     baseURL: "http://localhost:5173",
     locale: "en-US",
     trace: "on-first-retry",
-    actionTimeout: 15000
+    actionTimeout: 15000,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   globalSetup: "../setup/playwright-global-setup.ts",
@@ -20,6 +20,6 @@ export default defineConfig({
     command: "pnpm dev",
     url: "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
-    cwd: "../.."
-  }
+    cwd: "../..",
+  },
 });

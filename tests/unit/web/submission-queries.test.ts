@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { findById } = vi.hoisted(() => ({
-  findById: vi.fn()
+  findById: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
-    findById
+    findById,
   },
   assessmentRepo: {
-    findByCourseAndId: vi.fn()
+    findByCourseAndId: vi.fn(),
   },
   problemRepo: {
-    findById: vi.fn()
-  }
+    findById: vi.fn(),
+  },
 }));
 
 import { submissionDomain } from "@nojv/domain";
@@ -49,7 +49,7 @@ describe("getSubmissionForUser", () => {
     findById.mockResolvedValue(null);
 
     await expect(getSubmissionForUser("sub_missing", "user_alice", false)).rejects.toThrow(
-      NotFoundError
+      NotFoundError,
     );
   });
 
@@ -58,7 +58,7 @@ describe("getSubmissionForUser", () => {
     findById.mockResolvedValue(submission);
 
     await expect(getSubmissionForUser("sub_1", "user_alice", false)).rejects.toThrow(
-      NotFoundError
+      NotFoundError,
     );
   });
 });

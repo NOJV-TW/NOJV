@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { submissionCount, editorialUpsert } = vi.hoisted(() => ({
   submissionCount: vi.fn(),
-  editorialUpsert: vi.fn()
+  editorialUpsert: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: { count: submissionCount },
-  editorialRepo: { upsert: editorialUpsert }
+  editorialRepo: { upsert: editorialUpsert },
 }));
 
 import { problemDomain } from "@nojv/domain";
@@ -37,7 +37,7 @@ describe("hasUserAcProblem", () => {
       userId: "usr_1",
       problemId: "prob_1",
       status: "accepted",
-      sampleOnly: false
+      sampleOnly: false,
     });
   });
 });
@@ -52,7 +52,7 @@ describe("upsertEditorial", () => {
     expect(result).toBe(row);
     expect(editorialUpsert).toHaveBeenCalledWith("usr_1", "prob_1", {
       content: "markdown body",
-      language: "cpp"
+      language: "cpp",
     });
   });
 
@@ -63,11 +63,11 @@ describe("upsertEditorial", () => {
 
     expect(editorialUpsert).toHaveBeenNthCalledWith(1, "usr_1", "prob_1", {
       content: "cpp body",
-      language: "cpp"
+      language: "cpp",
     });
     expect(editorialUpsert).toHaveBeenNthCalledWith(2, "usr_1", "prob_1", {
       content: "python body",
-      language: "python"
+      language: "python",
     });
   });
 });

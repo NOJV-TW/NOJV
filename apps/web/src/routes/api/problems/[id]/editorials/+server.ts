@@ -13,7 +13,7 @@ const { hasUserAcProblem, upsertEditorial } = problemDomain;
 
 const editorialSubmitSchema = z.object({
   content: z.string().min(10).max(50000),
-  language: languageSchema
+  language: languageSchema,
 });
 
 // problemRepo.findById and hasUserAcProblem are independent — both accept
@@ -23,11 +23,11 @@ const editorialSubmitSchema = z.object({
 async function requireProblemWithAc(
   userId: string,
   problemId: string,
-  acError = "Solve this problem first to view editorials."
+  acError = "Solve this problem first to view editorials.",
 ) {
   const [problem, ac] = await Promise.all([
     problemRepo.findById(problemId),
-    hasUserAcProblem(userId, problemId)
+    hasUserAcProblem(userId, problemId),
   ]);
 
   if (!problem) throw new NotFoundError("Problem not found.");
@@ -46,7 +46,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   // no side effects, and on the common happy path we save another round-trip.
   const [, editorials] = await Promise.all([
     requireProblemWithAc(actor.userId, id),
-    editorialRepo.listByProblemId(id)
+    editorialRepo.listByProblemId(id),
   ]);
 
   return json(editorials);
@@ -61,7 +61,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const problem = await requireProblemWithAc(
     actor.userId,
     id,
-    "Solve this problem first to post an editorial."
+    "Solve this problem first to post an editorial.",
   );
   const payload = editorialSubmitSchema.parse(await event.request.json());
 
@@ -69,7 +69,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     actor.userId,
     problem.id,
     payload.content,
-    payload.language
+    payload.language,
   );
 
   return json(editorial, { status: 200 });

@@ -2,7 +2,7 @@ import {
   contestScoringModeSchema,
   languageSchema,
   scoreboardModeSchema,
-  slugSchema
+  slugSchema,
 } from "@nojv/core";
 import { z } from "zod";
 
@@ -19,5 +19,5 @@ export const contestFormSchema = z.object({
   startsAt: z.string().min(1),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
   summary: z.string().min(8).max(4_000),
-  title: z.string().min(3).max(120)
+  title: z.string().min(3).max(120),
 });

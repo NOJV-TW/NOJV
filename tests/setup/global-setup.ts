@@ -23,6 +23,6 @@ export default function globalSetup() {
   // Test DB data is ephemeral.
   execSync("pnpm --filter @nojv/db exec prisma db push --accept-data-loss", {
     stdio: "inherit",
-    env: { ...process.env }
+    env: { ...process.env },
   });
 }

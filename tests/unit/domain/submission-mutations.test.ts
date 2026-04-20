@@ -15,7 +15,7 @@ const {
   submissionCreate,
   examSessionFindActiveForUser,
   txAssessmentProblemFindFirst,
-  txContestProblemFindFirst
+  txContestProblemFindFirst,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -29,44 +29,44 @@ const {
   submissionCreate: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
-  txContestProblemFindFirst: vi.fn()
+  txContestProblemFindFirst: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
     problemRepo: {
-      withTx: () => ({ findById: problemFindById })
+      withTx: () => ({ findById: problemFindById }),
     },
     userRepo: {
       withTx: () => ({
         findById: userFindById,
         create: userCreate,
-        update: userUpdate
-      })
+        update: userUpdate,
+      }),
     },
     courseRepo: {
-      withTx: () => ({ findById: courseFindById })
+      withTx: () => ({ findById: courseFindById }),
     },
     courseMembershipRepo: {
-      withTx: () => ({ findByComposite: courseMembershipFindByComposite })
+      withTx: () => ({ findByComposite: courseMembershipFindByComposite }),
     },
     assessmentRepo: {
-      withTx: () => ({ findByCompositeId: assessmentFindByCompositeId })
+      withTx: () => ({ findByCompositeId: assessmentFindByCompositeId }),
     },
     contestRepo: {
-      withTx: () => ({ findById: vi.fn() })
+      withTx: () => ({ findById: vi.fn() }),
     },
     examSessionRepo: {
-      withTx: () => ({ findActiveForUser: examSessionFindActiveForUser })
+      withTx: () => ({ findActiveForUser: examSessionFindActiveForUser }),
     },
     problemWorkspaceFileRepo: {
-      findByProblemId: workspaceFindByProblemId
+      findByProblemId: workspaceFindByProblemId,
     },
     submissionRepo: {
       withTx: () => ({
         countForUserAndAssessmentSince: submissionCountForUserAndAssessmentSince,
-        create: submissionCreate
-      })
+        create: submissionCreate,
+      }),
     },
     // createQueuedSubmissionRecord now does direct prisma reads against
     // the assessment/contest problem-link tables for problem-in-context
@@ -75,12 +75,12 @@ vi.mock("@nojv/db", () => {
       fn: (tx: {
         courseAssessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
         contestProblem: { findFirst: typeof txContestProblemFindFirst };
-      }) => Promise<T>
+      }) => Promise<T>,
     ): Promise<T> =>
       fn({
         courseAssessmentProblem: { findFirst: txAssessmentProblemFindFirst },
-        contestProblem: { findFirst: txContestProblemFindFirst }
-      })
+        contestProblem: { findFirst: txContestProblemFindFirst },
+      }),
   };
 });
 
@@ -93,23 +93,23 @@ const fakeActor = {
   username: "student",
   platformRole: "student" as const,
   displayName: "Student One",
-  email: "student@example.com"
+  email: "student@example.com",
 };
 
 const fakeProblem = {
   id: "prob_warmup",
   type: "full_source",
-  authorId: "usr_teacher"
+  authorId: "usr_teacher",
 };
 
 const fakeCourse = {
-  id: "course_os-lab-spring-2026"
+  id: "course_os-lab-spring-2026",
 };
 
 const fakeAssessmentBase = {
   id: "ca_hw1",
   courseId: fakeCourse.id,
-  allowedLanguages: [] as string[]
+  allowedLanguages: [] as string[],
 };
 
 function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
@@ -118,11 +118,11 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
     name: fakeActor.displayName,
     email: fakeActor.email,
     username: fakeActor.username,
-    platformRole: fakeActor.platformRole
+    platformRole: fakeActor.platformRole,
   };
   problemFindById.mockResolvedValue({
     ...fakeProblem,
-    visibility: "public"
+    visibility: "public",
   });
   userFindById.mockResolvedValue(user);
   userUpdate.mockResolvedValue(user);
@@ -136,13 +136,13 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
     maxAttemptsPerDay,
     status: "published",
     opensAt: new Date("2026-01-01T00:00:00.000Z"),
-    closesAt: new Date("2026-12-31T23:59:59.000Z")
+    closesAt: new Date("2026-12-31T23:59:59.000Z"),
   });
   courseMembershipFindByComposite.mockResolvedValue({
     courseId: fakeCourse.id,
     userId: fakeActor.userId,
     status: "active",
-    role: "student"
+    role: "student",
   });
   // No active exam session → lockout doesn't trigger.
   examSessionFindActiveForUser.mockResolvedValue(null);
@@ -155,7 +155,7 @@ function setupSubmitPipelineDefaults(maxAttemptsPerDay: number | null) {
   workspaceFindByProblemId.mockResolvedValue([]);
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
-    ...(data as object)
+    ...(data as object),
   }));
 }
 
@@ -166,8 +166,8 @@ const baseDraft = {
   sampleOnly: false,
   assessment: {
     courseId: fakeCourse.id,
-    assessmentId: fakeAssessmentBase.id
-  }
+    assessmentId: fakeAssessmentBase.id,
+  },
 };
 
 describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
@@ -194,7 +194,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
 
     for (let i = 0; i < 3; i++) {
       await expect(
-        createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1")
+        createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
       ).resolves.toBeDefined();
     }
 
@@ -210,7 +210,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     submissionCountForUserAndAssessmentSince.mockResolvedValue(3);
 
     await expect(
-      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1")
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
     ).rejects.toBeInstanceOf(ConflictError);
 
     expect(submissionCreate).not.toHaveBeenCalled();
@@ -241,7 +241,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     submissionCountForUserAndAssessmentSince.mockResolvedValueOnce(3);
 
     await expect(
-      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1")
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(submissionCreate).not.toHaveBeenCalled();
 
@@ -251,7 +251,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     submissionCountForUserAndAssessmentSince.mockResolvedValueOnce(0);
 
     await expect(
-      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1")
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
     ).resolves.toBeDefined();
 
     // Second call should have used the new day's boundary.
@@ -277,7 +277,7 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
     await createQueuedSubmissionRecord(
       { ...baseDraft, sampleOnly: true },
       fakeActor,
-      "127.0.0.1"
+      "127.0.0.1",
     );
 
     expect(submissionCountForUserAndAssessmentSince).not.toHaveBeenCalled();

@@ -25,7 +25,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     const verdict = await proctoringDomain.checkProctoringGate({
       entityKind: "contest",
       entityId: contestId,
-      userId: actor.userId
+      userId: actor.userId,
     });
 
     if (!verdict.ok) {

@@ -65,7 +65,7 @@ export async function checkIpLock(
   config: IpLockConfig,
   clientIp: string,
   participation: { id: string; ipPin: string | null } | null,
-  context: { userId: string; examId: string }
+  context: { userId: string; examId: string },
 ): Promise<IpCheckResult> {
   // Whitelist check — when enabled, an empty list denies all (fail-closed).
   if (config.ipWhitelistEnabled) {
@@ -78,7 +78,7 @@ export async function checkIpLock(
         examId: context.examId,
         expectedIp: config.ipWhitelist.join(", "),
         userId: context.userId,
-        violationType: "whitelist"
+        violationType: "whitelist",
       });
     }
   }
@@ -95,7 +95,7 @@ export async function checkIpLock(
         examId: context.examId,
         expectedIp: participation.ipPin,
         userId: context.userId,
-        violationType: "binding"
+        violationType: "binding",
       });
     }
   }

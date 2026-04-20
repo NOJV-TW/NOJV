@@ -10,19 +10,19 @@ describe("aggregateByTag", () => {
     const rows = [
       { problem: { tags: ["dp", "graph"] } },
       { problem: { tags: ["dp", "math"] } },
-      { problem: { tags: ["graph"] } }
+      { problem: { tags: ["graph"] } },
     ];
     const result = aggregateByTag(rows);
     expect(result).toEqual([
       { tag: "dp", acCount: 2 },
       { tag: "graph", acCount: 2 },
-      { tag: "math", acCount: 1 }
+      { tag: "math", acCount: 1 },
     ]);
   });
 
   it("sorts descending by acCount and caps at 8 tags", () => {
     const rows = Array.from({ length: 12 }, (_, i) => ({
-      problem: { tags: [`tag${i}`] }
+      problem: { tags: [`tag${i}`] },
     }));
     rows.push({ problem: { tags: ["tag0"] } });
     rows.push({ problem: { tags: ["tag0"] } });
@@ -44,7 +44,7 @@ describe("aggregateByTag", () => {
     const rows = [
       { problem: { tags: ["alpha"] } },
       { problem: { tags: ["beta"] } },
-      { problem: { tags: ["gamma"] } }
+      { problem: { tags: ["gamma"] } },
     ];
     const first = aggregateByTag(rows);
     const second = aggregateByTag(rows);

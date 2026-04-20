@@ -34,7 +34,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     status: currentFilter,
     includeDrafts: isManager,
     forUserId: actor.userId,
-    limit: LIST_LIMIT
+    limit: LIST_LIMIT,
   });
 
   // totalStudents is stamped in once per page so every row can render
@@ -46,6 +46,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     exams: rowsWithTotal,
     counts,
     currentFilter,
-    canCreate: isManager
+    canCreate: isManager,
   };
 });

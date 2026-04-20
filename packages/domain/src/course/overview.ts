@@ -3,7 +3,7 @@ import { DEFAULT_LOCALE } from "@nojv/core";
 
 import {
   aggregateAssessmentClassStats,
-  aggregateAssessmentMyStatus
+  aggregateAssessmentMyStatus,
 } from "../shared/list-aggregations";
 
 export interface OverviewAnnouncement {
@@ -25,7 +25,7 @@ function pickInitial(name: string): string {
 
 export async function listRecentAnnouncementsForCourse(
   courseId: string,
-  limit: number
+  limit: number,
 ): Promise<OverviewAnnouncement[]> {
   const rows = await announcementRepo.listRecentForCourse(courseId, limit);
   return rows.map((row) => {
@@ -39,7 +39,7 @@ export async function listRecentAnnouncementsForCourse(
       content: localized.content,
       createdAt: row.createdAt.toISOString(),
       authorName,
-      authorInitial: pickInitial(authorName)
+      authorInitial: pickInitial(authorName),
     };
   });
 }
@@ -72,7 +72,7 @@ export interface ListOverviewOptions {
 function rankAssignment(
   status: AssignmentOverviewStatus,
   row: { opensAt: Date | null; closesAt: Date | null },
-  now: Date
+  now: Date,
 ): number {
   // Lower rank = higher priority. Bands: open (closesAt asc), upcoming, draft, closed (most recent first).
   if (status === "open") return row.closesAt ? row.closesAt.getTime() - now.getTime() : 0;
@@ -94,7 +94,7 @@ interface RawAssessmentRow {
 
 function mapAssessmentToOverviewRow(
   row: RawAssessmentRow,
-  now: Date
+  now: Date,
 ): { row: AssignmentOverviewRow; rank: number } {
   let status: AssignmentOverviewStatus;
   if (row.status === "draft") {
@@ -115,23 +115,23 @@ function mapAssessmentToOverviewRow(
     closesAt: status === "draft" ? null : row.closesAt.toISOString(),
     problemCount: row._count.problems,
     classStats: null,
-    myStatus: null
+    myStatus: null,
   };
   return {
     row: overviewRow,
-    rank: rankAssignment(status, { opensAt: row.opensAt, closesAt: row.closesAt }, now)
+    rank: rankAssignment(status, { opensAt: row.opensAt, closesAt: row.closesAt }, now),
   };
 }
 
 export async function listAssignmentOverviewForCourse(
   courseId: string,
-  options: ListOverviewOptions
+  options: ListOverviewOptions,
 ): Promise<AssignmentOverviewRow[]> {
   const now = options.now ?? new Date();
   const rows = await assessmentRepo.listForCourseOverview(
     courseId,
     options.isManager,
-    options.limit
+    options.limit,
   );
 
   const mapped = rows.map((row) => mapAssessmentToOverviewRow(row, now));
@@ -145,7 +145,7 @@ export async function listAssignmentOverviewForCourse(
 async function fillAssessmentStats(
   rows: AssignmentOverviewRow[],
   courseId: string,
-  options: { isManager: boolean; forUserId: string }
+  options: { isManager: boolean; forUserId: string },
 ): Promise<void> {
   if (rows.length === 0) return;
   const aggInput = rows.map((r) => ({ id: r.id, courseId, problemCount: r.problemCount }));
@@ -188,13 +188,13 @@ export interface ListAssignmentsForCourseOptions {
 // Fetches `limit * 3` superset and caps; for courses with more than ~150 assessments chip counts will underreport.
 export async function listAssignmentsForCourse(
   courseId: string,
-  options: ListAssignmentsForCourseOptions
+  options: ListAssignmentsForCourseOptions,
 ): Promise<AssignmentListResult> {
   const now = options.now ?? new Date();
   const rows = await assessmentRepo.listForCourse(
     courseId,
     options.includeDrafts,
-    options.limit * 3
+    options.limit * 3,
   );
 
   const mapped = rows.map((row) => mapAssessmentToOverviewRow(row, now));
@@ -204,7 +204,7 @@ export async function listAssignmentsForCourse(
     open: 0,
     upcoming: 0,
     closed: 0,
-    draft: options.includeDrafts ? 0 : null
+    draft: options.includeDrafts ? 0 : null,
   };
   for (const entry of mapped) {
     const s = entry.row.status;
@@ -229,12 +229,12 @@ export async function listAssignmentsForCourse(
   const visibleRows = filtered.slice(0, options.limit).map((entry) => entry.row);
   await fillAssessmentStats(visibleRows, courseId, {
     isManager: options.includeDrafts,
-    forUserId: options.forUserId
+    forUserId: options.forUserId,
   });
 
   return {
     rows: visibleRows,
-    counts
+    counts,
   };
 }
 
@@ -261,7 +261,7 @@ export interface ExamOverviewRow {
 function rankExam(
   status: ExamOverviewStatus,
   row: { startsAt: Date; endsAt: Date },
-  now: Date
+  now: Date,
 ): number {
   if (status === "running") return row.endsAt.getTime() - now.getTime();
   if (status === "upcoming")
@@ -272,7 +272,7 @@ function rankExam(
 
 export async function listExamOverviewForCourse(
   courseId: string,
-  options: ListOverviewOptions
+  options: ListOverviewOptions,
 ): Promise<ExamOverviewRow[]> {
   const now = options.now ?? new Date();
   const rows = await examRepo.listForCourseOverview(courseId, options.isManager, options.limit);
@@ -302,11 +302,11 @@ export async function listExamOverviewForCourse(
       problemCount: row._count.problems,
       scoringMode: row.scoringMode as "point_sum" | "problem_count",
       registeredCount: options.isManager ? row._count.participations : null,
-      totalStudents: null
+      totalStudents: null,
     };
     return {
       row: overviewRow,
-      rank: rankExam(status, { startsAt: row.startsAt, endsAt: row.endsAt }, now)
+      rank: rankExam(status, { startsAt: row.startsAt, endsAt: row.endsAt }, now),
     };
   });
 

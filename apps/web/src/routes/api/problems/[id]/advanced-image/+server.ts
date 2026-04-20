@@ -34,7 +34,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   await problemDomain.assertProblemEditAccess(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId
+    problemId,
   );
 
   const formData = await event.request.formData();
@@ -59,8 +59,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     problemId,
     {
       advancedImageSource: "tarball",
-      advancedImageRef: key
-    }
+      advancedImageRef: key,
+    },
   );
 
   return json({ key });

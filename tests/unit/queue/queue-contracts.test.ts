@@ -9,8 +9,8 @@ describe("queue contracts", () => {
         mode: "practice",
         problemId: "two-sum",
         language: "python",
-        sourceCode: "print('hello')"
-      }
+        sourceCode: "print('hello')",
+      },
     });
     expect(result.success).toBe(true);
   });

@@ -26,7 +26,7 @@ type AnyServerLoad<Event, Output> = (event: Event) => Output | Promise<Output>;
  * `redirect()`) are re-thrown untouched.
  */
 export function handleLoad<Event, Output>(
-  loader: AnyServerLoad<Event, Output>
+  loader: AnyServerLoad<Event, Output>,
 ): (event: Event) => Promise<Output> {
   return async (event: Event): Promise<Output> => {
     try {

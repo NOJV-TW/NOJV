@@ -6,7 +6,7 @@ import {
   problemStatusSchema,
   problemTypeSchema,
   problemVisibilitySchema,
-  type Language
+  type Language,
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
@@ -19,7 +19,7 @@ export type ProblemImageSource = z.infer<typeof problemImageSourceSchema>;
 
 export const problemSampleSchema = z.object({
   input: z.string().max(200_000),
-  output: z.string().max(200_000)
+  output: z.string().max(200_000),
 });
 
 export type ProblemSample = z.infer<typeof problemSampleSchema>;
@@ -39,12 +39,12 @@ export const problemWorkspaceFileSchema = z.object({
     .min(1)
     .max(500)
     .refine((p) => !p.startsWith("/") && !p.includes(".."), {
-      message: "path must be relative and must not contain .."
+      message: "path must be relative and must not contain ..",
     }),
   content: z.string().max(BLOB_FIELD_MAX_BYTES),
   visibility: workspaceFileVisibilitySchema,
   description: z.string().max(5_000).default(""),
-  orderIndex: z.number().int().nonnegative().default(0)
+  orderIndex: z.number().int().nonnegative().default(0),
 });
 
 export type ProblemWorkspaceFile = z.infer<typeof problemWorkspaceFileSchema>;
@@ -58,7 +58,7 @@ export function languageExtension(language: Language): string {
     javascript: "js",
     python: "py",
     rust: "rs",
-    typescript: "ts"
+    typescript: "ts",
   };
   return map[language];
 }
@@ -96,7 +96,7 @@ const problemCreateObjectSchema = z.object({
   // Sample IO + special_env image config
   samples: problemSamplesSchema.optional(),
   advancedImageRef: z.string().max(500).optional(),
-  advancedImageSource: problemImageSourceSchema.optional()
+  advancedImageSource: problemImageSourceSchema.optional(),
 });
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, ctx) => {
@@ -109,14 +109,14 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
       ctx.addIssue({
         code: "custom",
         path: ["advancedImageRef"],
-        message: "validation_required"
+        message: "validation_required",
       });
     }
     if (!hasImageSource) {
       ctx.addIssue({
         code: "custom",
         path: ["advancedImageSource"],
-        message: "validation_required"
+        message: "validation_required",
       });
     }
   } else {
@@ -125,14 +125,14 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
       ctx.addIssue({
         code: "custom",
         path: ["advancedImageRef"],
-        message: "validation_onlyAllowedForSpecialEnv"
+        message: "validation_onlyAllowedForSpecialEnv",
       });
     }
     if (hasImageSource) {
       ctx.addIssue({
         code: "custom",
         path: ["advancedImageSource"],
-        message: "validation_onlyAllowedForSpecialEnv"
+        message: "validation_onlyAllowedForSpecialEnv",
       });
     }
   }
@@ -142,7 +142,7 @@ export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
   output: z.string().max(BLOB_FIELD_MAX_BYTES),
-  input: z.string().max(BLOB_FIELD_MAX_BYTES)
+  input: z.string().max(BLOB_FIELD_MAX_BYTES),
 });
 
 export const problemJudgeTestcaseSchema = z.object({
@@ -150,20 +150,20 @@ export const problemJudgeTestcaseSchema = z.object({
   id: z.string().trim().min(1),
   inputFiles: z.record(z.string(), z.string().max(BLOB_FIELD_MAX_BYTES)).optional(),
   input: z.string().max(BLOB_FIELD_MAX_BYTES),
-  weight: z.coerce.number().int().min(1).max(100)
+  weight: z.coerce.number().int().min(1).max(100),
 });
 
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
   description: z.string().max(5_000).default(""),
   name: z.string().trim().min(1).max(120),
-  weight: z.coerce.number().int().min(1).max(100).default(1)
+  weight: z.coerce.number().int().min(1).max(100).default(1),
 });
 
 export const testcaseSetUpdateSchema = z.object({
   description: z.string().max(5_000).optional(),
   name: z.string().trim().min(1).max(120).optional(),
-  weight: z.coerce.number().int().min(0).max(100).optional()
+  weight: z.coerce.number().int().min(0).max(100).optional(),
 });
 
 export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
@@ -173,7 +173,7 @@ export const problemOverviewSchema = z.object({
   difficulty: problemDifficultySchema,
   id: z.string().min(1),
   title: z.string().min(1),
-  totalSubmissions: z.number().int().nonnegative()
+  totalSubmissions: z.number().int().nonnegative(),
 });
 
 export type ProblemCreate = z.infer<typeof problemCreateSchema>;

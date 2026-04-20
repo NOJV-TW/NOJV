@@ -9,7 +9,7 @@ import {
   runtimeSchema,
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
-  judgeConfigSchema
+  judgeConfigSchema,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
 import { superValidate } from "sveltekit-superforms";
@@ -35,14 +35,14 @@ const {
   updateTestcaseRecord,
   deleteTestcaseRecord,
   deleteProblemRecord,
-  convertProblemToAdvancedMode
+  convertProblemToAdvancedMode,
 } = problemDomain;
 
 const updateWorkspaceSchema = z.object({
   runtime: runtimeSchema.optional(),
   allowedLanguages: z.array(languageSchema).optional(),
   type: problemTypeSchema.optional(),
-  files: z.array(problemWorkspaceFileSchema).max(50)
+  files: z.array(problemWorkspaceFileSchema).max(50),
 });
 
 // Save payload: the image ref + source plus the time/memory limit columns.
@@ -51,7 +51,7 @@ const advancedImageSavePayloadSchema = z.object({
   source: problemImageSourceSchema,
   ref: z.string().min(1).max(500),
   timeLimitMs: z.coerce.number().int().min(1_000).max(300_000).optional(),
-  memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional()
+  memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional(),
 });
 
 export const load: PageServerLoad = handleLoad(
@@ -72,7 +72,7 @@ export const load: PageServerLoad = handleLoad(
     const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
       getProblemPageData(params.problemId),
       getProblemTestcaseSets(params.problemId),
-      problemWorkspaceFileRepo.findByProblemId(params.problemId)
+      problemWorkspaceFileRepo.findByProblemId(params.problemId),
     ]);
 
     // Hydrate every testcase + workspace blob from S3 in parallel. The
@@ -85,15 +85,15 @@ export const load: PageServerLoad = handleLoad(
           set.testcases.map(async (tc) => {
             const [inputText, outputText] = await Promise.all([
               getText(storage, tc.inputKey),
-              tc.outputKey ? getText(storage, tc.outputKey) : Promise.resolve(null)
+              tc.outputKey ? getText(storage, tc.outputKey) : Promise.resolve(null),
             ]);
             return {
               id: tc.id,
               ordinal: tc.ordinal,
               input: inputText,
-              output: outputText
+              output: outputText,
             };
-          })
+          }),
         );
         return {
           id: set.id,
@@ -102,9 +102,9 @@ export const load: PageServerLoad = handleLoad(
           weight: set.weight,
           ordinal: set.ordinal,
           scoringStrategy: set.scoringStrategy,
-          testcases
+          testcases,
         };
-      })
+      }),
     );
 
     const workspaceFiles = await Promise.all(
@@ -116,8 +116,8 @@ export const load: PageServerLoad = handleLoad(
         content: await getText(storage, f.contentKey),
         visibility: f.visibility,
         description: f.description,
-        orderIndex: f.orderIndex
-      }))
+        orderIndex: f.orderIndex,
+      })),
     );
 
     // For special_env problems include advancedImageRef/advancedImageSource so
@@ -142,11 +142,11 @@ export const load: PageServerLoad = handleLoad(
         ...(isAdvanced
           ? {
               advancedImageRef: problem.advancedImageRef ?? "",
-              advancedImageSource: problem.advancedImageSource ?? "registry"
+              advancedImageSource: problem.advancedImageSource ?? "registry",
             }
-          : {})
+          : {}),
       },
-      zod4(problemCreateSchema)
+      zod4(problemCreateSchema),
     );
 
     return {
@@ -159,11 +159,11 @@ export const load: PageServerLoad = handleLoad(
             source: problem.advancedImageSource ?? "registry",
             ref: problem.advancedImageRef ?? "",
             timeLimitMs: problem.timeLimitMs,
-            memoryLimitMb: problem.memoryLimitMb
+            memoryLimitMb: problem.memoryLimitMb,
           }
-        : null
+        : null,
     };
-  }
+  },
 );
 
 function problemEditAction<T>(
@@ -171,7 +171,7 @@ function problemEditAction<T>(
     actor: CompletedActorContext;
     problemId: string;
     event: RequestEvent;
-  }) => Promise<T>
+  }) => Promise<T>,
 ) {
   return async (event: RequestEvent) => {
     const limited = await consumeFormRateLimit(event);
@@ -270,8 +270,8 @@ export const actions: Actions = {
         path: f.path,
         content: f.content,
         visibility: f.visibility,
-        orderIndex: f.orderIndex
-      }))
+        orderIndex: f.orderIndex,
+      })),
     });
     return { success: true, fileCount: result.fileCount };
   }),
@@ -316,11 +316,11 @@ export const actions: Actions = {
         advancedImageRef: data.ref,
         advancedImageSource: data.source,
         ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
-        ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {})
+        ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {}),
       });
     } catch (err) {
       return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
     }
     return { success: true };
-  })
+  }),
 };

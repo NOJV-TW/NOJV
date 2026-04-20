@@ -15,10 +15,10 @@ export const ipViolationLogRepo = {
     return prisma.ipViolationLog.findMany({
       where: { examId: opts.examId },
       include: {
-        user: { select: { displayUsername: true, email: true, name: true } }
+        user: { select: { displayUsername: true, email: true, name: true } },
       },
       orderBy: { createdAt: "desc" },
-      take: opts.take
+      take: opts.take,
     });
   },
 
@@ -26,9 +26,9 @@ export const ipViolationLogRepo = {
     return {
       create(data: Prisma.IpViolationLogUncheckedCreateInput) {
         return tx.ipViolationLog.create({ data });
-      }
+      },
     };
-  }
+  },
 };
 
 export const examParticipationIpRepo = {
@@ -37,9 +37,9 @@ export const examParticipationIpRepo = {
       updateIpPin(id: string, ip: string) {
         return tx.examParticipation.update({
           where: { id },
-          data: { ipPin: ip }
+          data: { ipPin: ip },
         });
-      }
+      },
     };
-  }
+  },
 };

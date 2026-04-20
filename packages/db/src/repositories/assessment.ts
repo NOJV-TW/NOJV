@@ -5,7 +5,7 @@ import {
   courseMiniSelect,
   problemMiniSelect,
   problemPreviewSelect,
-  problemTeacherMiniSelect
+  problemTeacherMiniSelect,
 } from "./selects";
 
 type TxClient = TransactionClient;
@@ -14,7 +14,7 @@ export const assessmentRepo = {
   findByIdWithCourseId(id: string) {
     return prisma.courseAssessment.findUnique({
       where: { id },
-      include: { course: { select: { id: true } } }
+      include: { course: { select: { id: true } } },
     });
   },
 
@@ -22,9 +22,9 @@ export const assessmentRepo = {
     return prisma.courseAssessment.findFirst({
       where: {
         id: assessmentId,
-        courseId
+        courseId,
       },
-      select: { id: true }
+      select: { id: true },
     });
   },
 
@@ -35,13 +35,13 @@ export const assessmentRepo = {
         allowedLanguages: true,
         course: { select: { id: true, ownerId: true, archived: true } },
         opensAt: true,
-        closesAt: true
+        closesAt: true,
       },
       where: {
         courseId,
         id: assessmentId,
-        status: "published"
-      }
+        status: "published",
+      },
     });
   },
 
@@ -49,17 +49,17 @@ export const assessmentRepo = {
     return prisma.courseAssessment.findMany({
       include: {
         _count: { select: { problems: true } },
-        course: { select: courseMiniSelect }
+        course: { select: courseMiniSelect },
       },
       orderBy: { opensAt: "desc" },
       where: {
         course: {
           memberships: {
-            some: { userId, status: "active" }
-          }
+            some: { userId, status: "active" },
+          },
         },
-        status: "published"
-      }
+        status: "published",
+      },
     });
   },
 
@@ -73,9 +73,9 @@ export const assessmentRepo = {
         courseId: { in: courseIds },
         status: "published",
         opensAt: { lte: now },
-        closesAt: { gte: now }
+        closesAt: { gte: now },
       },
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -86,9 +86,9 @@ export const assessmentRepo = {
       by: ["courseId"],
       where: {
         courseId: { in: courseIds },
-        status: "draft"
+        status: "draft",
       },
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -96,14 +96,14 @@ export const assessmentRepo = {
   listForCourseOverview(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
-        _count: { select: { problems: true } }
+        _count: { select: { problems: true } },
       },
       orderBy: { opensAt: "desc" },
       where: {
         courseId,
-        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+        status: includeDrafts ? { in: ["draft", "published"] } : "published",
       },
-      take: take * 3
+      take: take * 3,
     });
   },
 
@@ -111,14 +111,14 @@ export const assessmentRepo = {
   listForCourse(courseId: string, includeDrafts: boolean, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
-        _count: { select: { problems: true } }
+        _count: { select: { problems: true } },
       },
       orderBy: { opensAt: "desc" },
       where: {
         courseId,
-        status: includeDrafts ? { in: ["draft", "published"] } : "published"
+        status: includeDrafts ? { in: ["draft", "published"] } : "published",
       },
-      take
+      take,
     });
   },
 
@@ -127,35 +127,35 @@ export const assessmentRepo = {
     return prisma.courseAssessment.findMany({
       include: {
         _count: { select: { problems: true } },
-        course: { select: courseMiniSelect }
+        course: { select: courseMiniSelect },
       },
       orderBy: { opensAt: "desc" },
       where: {
         OR: [
           { courseId: { in: allCourseIds }, status: "published" },
-          { courseId: { in: managerCourseIds }, status: "draft" }
-        ]
+          { courseId: { in: managerCourseIds }, status: "draft" },
+        ],
       },
-      take
+      take,
     });
   },
 
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.courseAssessment.findMany({
       include: {
-        course: { select: courseMiniSelect }
+        course: { select: courseMiniSelect },
       },
       orderBy: { opensAt: "asc" },
       where: {
         course: {
           memberships: {
-            some: { userId, status: "active" }
-          }
+            some: { userId, status: "active" },
+          },
         },
         closesAt: { gte: now },
-        status: "published"
+        status: "published",
       },
-      take
+      take,
     });
   },
 
@@ -167,11 +167,11 @@ export const assessmentRepo = {
         problems: {
           select: {
             problemId: true,
-            problem: { select: problemPreviewSelect }
+            problem: { select: problemPreviewSelect },
           },
-          orderBy: { ordinal: "asc" }
-        }
-      }
+          orderBy: { ordinal: "asc" },
+        },
+      },
     });
   },
 
@@ -180,9 +180,9 @@ export const assessmentRepo = {
       select: {
         closesAt: true,
         dueAt: true,
-        opensAt: true
+        opensAt: true,
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -205,10 +205,10 @@ export const assessmentRepo = {
           select: {
             ordinal: true,
             points: true,
-            problem: { select: problemTeacherMiniSelect }
-          }
-        }
-      }
+            problem: { select: problemTeacherMiniSelect },
+          },
+        },
+      },
     });
   },
 
@@ -219,7 +219,7 @@ export const assessmentRepo = {
   update(id: string, data: Prisma.CourseAssessmentUpdateInput) {
     return prisma.courseAssessment.update({
       data,
-      where: { id }
+      where: { id },
     });
   },
 
@@ -236,7 +236,7 @@ export const assessmentRepo = {
       // `courseId` is retained as a scoping guard (row must belong to that course).
       findByCompositeId(courseId: string, assessmentId: string) {
         return tx.courseAssessment.findFirst({
-          where: { id: assessmentId, courseId }
+          where: { id: assessmentId, courseId },
         });
       },
 
@@ -249,9 +249,9 @@ export const assessmentRepo = {
           include: {
             problems: {
               select: { problemId: true, ordinal: true, points: true },
-              orderBy: { ordinal: "asc" }
-            }
-          }
+              orderBy: { ordinal: "asc" },
+            },
+          },
         });
       },
 
@@ -262,22 +262,22 @@ export const assessmentRepo = {
       update(id: string, data: Prisma.CourseAssessmentUncheckedUpdateInput) {
         return tx.courseAssessment.update({
           data,
-          where: { id }
+          where: { id },
         });
       },
 
       delete(id: string) {
         return tx.courseAssessment.delete({ where: { id } });
-      }
+      },
     };
-  }
+  },
 };
 
 export const assessmentProblemRepo = {
   findByAssessmentId(assessmentId: string) {
     return prisma.courseAssessmentProblem.findMany({
       where: { assessmentId },
-      include: { problem: { select: problemMiniSelect } }
+      include: { problem: { select: problemMiniSelect } },
     });
   },
 
@@ -299,11 +299,11 @@ export const assessmentProblemRepo = {
             status: "published",
             closesAt: { lt: now },
             course: {
-              memberships: { some: { userId, status: "active" } }
-            }
-          }
+              memberships: { some: { userId, status: "active" } },
+            },
+          },
         },
-        select: { id: true }
+        select: { id: true },
       })
       .then((row) => row !== null);
   },
@@ -316,9 +316,9 @@ export const assessmentProblemRepo = {
 
       deleteByAssessmentId(assessmentId: string) {
         return tx.courseAssessmentProblem.deleteMany({
-          where: { assessmentId }
+          where: { assessmentId },
         });
-      }
+      },
     };
-  }
+  },
 };

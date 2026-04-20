@@ -3,7 +3,7 @@ import {
   courseMembershipRepo,
   examRepo,
   runTransaction,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 
 import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
@@ -53,14 +53,14 @@ export interface ProctoringGateInput {
  *   - IP whitelist + IP binding (exam only)
  */
 export async function checkProctoringGate(
-  input: ProctoringGateInput
+  input: ProctoringGateInput,
 ): Promise<ProctoringVerdict> {
   return runTransaction((tx) => checkProctoringGateInTx(tx, input));
 }
 
 export async function checkProctoringGateInTx(
   tx: TransactionClient,
-  input: ProctoringGateInput
+  input: ProctoringGateInput,
 ): Promise<ProctoringVerdict> {
   const now = input.now ?? new Date();
   const grace = input.startGraceMs ?? 0;
@@ -75,7 +75,7 @@ async function checkContestGate(
   tx: TransactionClient,
   input: ProctoringGateInput,
   now: Date,
-  grace: number
+  grace: number,
 ): Promise<ProctoringVerdict> {
   const contest = await contestRepo.withTx(tx).findById(input.entityId);
   if (!contest) return { ok: false, reason: "not_found" };
@@ -98,7 +98,7 @@ async function checkExamGate(
   tx: TransactionClient,
   input: ProctoringGateInput,
   now: Date,
-  grace: number
+  grace: number,
 ): Promise<ProctoringVerdict> {
   const exam = await examRepo.withTx(tx).findById(input.entityId);
   if (!exam) return { ok: false, reason: "not_found" };
@@ -108,8 +108,8 @@ async function checkExamGate(
     courseMembershipRepo.withTx(tx).findByComposite(exam.courseId, input.userId),
     tx.course.findUnique({
       select: { archived: true },
-      where: { id: exam.courseId }
-    })
+      where: { id: exam.courseId },
+    }),
   ]);
 
   if (membership?.status !== "active") {
@@ -129,7 +129,7 @@ async function checkExamGate(
   if (input.ip) {
     const participation = await tx.examParticipation.findUnique({
       select: { id: true, ipPin: true },
-      where: { examId_userId: { examId: input.entityId, userId: input.userId } }
+      where: { examId_userId: { examId: input.entityId, userId: input.userId } },
     });
 
     const ipResult: IpCheckResult = await checkIpLock(
@@ -138,17 +138,17 @@ async function checkExamGate(
         ipBindingEnabled: exam.ipBindingEnabled,
         ipViolationMode: exam.ipViolationMode,
         ipWhitelist: exam.ipWhitelist,
-        ipWhitelistEnabled: exam.ipWhitelistEnabled
+        ipWhitelistEnabled: exam.ipWhitelistEnabled,
       },
       input.ip,
       participation,
-      { userId: input.userId, examId: input.entityId }
+      { userId: input.userId, examId: input.entityId },
     );
 
     if (!ipResult.allowed) {
       return {
         ok: false,
-        reason: ipResult.violationType === "whitelist" ? "ip_whitelist" : "ip_binding"
+        reason: ipResult.violationType === "whitelist" ? "ip_whitelist" : "ip_binding",
       };
     }
   }

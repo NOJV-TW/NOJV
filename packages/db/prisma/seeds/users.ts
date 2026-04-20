@@ -10,10 +10,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "Admin",
       email: "admin@nojv.local",
       username: "admin",
-      platformRole: "admin"
+      platformRole: "admin",
     },
     update: {},
-    where: { username: "admin" }
+    where: { username: "admin" },
   });
 
   const teacher = await prisma.user.upsert({
@@ -21,10 +21,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "Teacher",
       email: "teacher@nojv.local",
       username: "teacher",
-      platformRole: "teacher"
+      platformRole: "teacher",
     },
     update: {},
-    where: { username: "teacher" }
+    where: { username: "teacher" },
   });
 
   const taStudent = await prisma.user.upsert({
@@ -32,10 +32,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "TA Student",
       email: "ta-student@nojv.local",
       username: "ta-student",
-      platformRole: "student"
+      platformRole: "student",
     },
     update: {},
-    where: { username: "ta-student" }
+    where: { username: "ta-student" },
   });
 
   const student = await prisma.user.upsert({
@@ -43,10 +43,10 @@ export async function seedUsers(prisma: PrismaClient) {
       name: "Student",
       email: "student@nojv.local",
       username: "student",
-      platformRole: "student"
+      platformRole: "student",
     },
     update: {},
-    where: { username: "student" }
+    where: { username: "student" },
   });
 
   // Kept out of any CourseMembership so the handle is claimable by a real login without the merge path.
@@ -59,10 +59,10 @@ export async function seedUsers(prisma: PrismaClient) {
       username: placeholderUsername,
       platformRole: "student",
       status: "pending_first_login",
-      emailVerified: false
+      emailVerified: false,
     },
     update: {},
-    where: { username: placeholderUsername }
+    where: { username: placeholderUsername },
   });
 
   const credentialedUsers = [admin, teacher, taStudent, student];
@@ -74,15 +74,15 @@ export async function seedUsers(prisma: PrismaClient) {
         accountId: u.id,
         providerId: "credential",
         userId: u.id,
-        password: passwordHash
+        password: passwordHash,
       },
       update: { password: passwordHash },
-      where: { id: `acct_${u.username}` }
+      where: { id: `acct_${u.username}` },
     });
   }
 
   console.log(
-    `  Users: ${credentialedUsers.length} credentialed + 1 pending_first_login placeholder upserted`
+    `  Users: ${credentialedUsers.length} credentialed + 1 pending_first_login placeholder upserted`,
   );
 
   return { admin, teacher, taStudent, student, placeholder };

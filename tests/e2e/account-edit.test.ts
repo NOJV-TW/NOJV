@@ -19,7 +19,7 @@ test.describe("/account edit", () => {
     await page.getByRole("button", { name: "Save" }).first().click();
 
     await expect(
-      page.getByRole("status").filter({ hasText: /Name updated|已更新姓名/ })
+      page.getByRole("status").filter({ hasText: /Name updated|已更新姓名/ }),
     ).toBeVisible({ timeout: 10000 });
 
     await context.close();

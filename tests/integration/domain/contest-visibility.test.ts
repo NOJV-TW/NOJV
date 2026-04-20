@@ -4,7 +4,7 @@ import {
   createTestContest,
   createTestProblem,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 import { contestDomain } from "@nojv/domain";
@@ -14,7 +14,7 @@ const { getContestDetail } = contestDomain;
 async function attachProblem(contestId: string, ordinal: number, points: number) {
   const problem = await createTestProblem();
   await testPrisma.contestProblem.create({
-    data: { contestId, problemId: problem.id, ordinal, points }
+    data: { contestId, problemId: problem.id, ordinal, points },
   });
   return problem;
 }
@@ -29,14 +29,14 @@ describe("getContestDetail visibility gating", () => {
     const contest = await createTestContest({
       visibility: "published",
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const stranger = await createTestUser();
     const result = await getContestDetail(contest.id, {
       userId: stranger.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result).not.toBeNull();
@@ -51,13 +51,13 @@ describe("getContestDetail visibility gating", () => {
       visibility: "published",
       createdByUserId: owner.id,
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const result = await getContestDetail(contest.id, {
       userId: owner.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result.problemsHidden).toBe(false);
@@ -69,14 +69,14 @@ describe("getContestDetail visibility gating", () => {
     const contest = await createTestContest({
       visibility: "published",
       startsAt: new Date("2020-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-01T00:00:00Z")
+      endsAt: new Date("2099-01-01T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
     const stranger = await createTestUser();
 
     const result = await getContestDetail(contest.id, {
       userId: stranger.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result.problemsHidden).toBe(false);
@@ -87,13 +87,13 @@ describe("getContestDetail visibility gating", () => {
     const contest = await createTestContest({
       visibility: "published",
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const result = await getContestDetail(contest.id, {
       userId: null,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result.problemsHidden).toBe(true);

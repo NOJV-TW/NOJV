@@ -59,7 +59,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     letter: letterFor(p.ordinal),
     ordinal: p.ordinal,
     title: p.problem.title,
-    points: p.points
+    points: p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 
@@ -68,7 +68,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
       problems,
       rows: [],
       totalPoints,
-      studentCount: students.length
+      studentCount: students.length,
     };
   }
 
@@ -82,14 +82,14 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     examId,
     userId: { in: studentIds },
     problemId: { in: problemIds },
-    sampleOnly: false
+    sampleOnly: false,
   });
 
   const scoreIndex = new Map<string, { best: number; count: number }>();
   for (const g of grouped) {
     scoreIndex.set(`${g.userId}::${g.problemId}`, {
       best: g._max.score ?? 0,
-      count: g._count.id
+      count: g._count.id,
     });
   }
 
@@ -97,7 +97,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
   // matrix (override wins over best-submission and can unlock an empty cell).
   const overrides = await resolveOverridesForContext({
     contextType: "exam",
-    contextId: examId
+    contextId: examId,
   });
 
   const rows: ExamMatrixRow[] = students.map((student) => {
@@ -114,7 +114,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
           problemId: problem.problemId,
           score: override,
           attempts: hit?.count ?? 0,
-          state
+          state,
         };
       }
       if (!hit || hit.count === 0) {
@@ -132,7 +132,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
       displayName: student.user.name,
       handle: student.user.username ?? "",
       cells,
-      total
+      total,
     };
   });
 
@@ -140,6 +140,6 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     problems,
     rows,
     totalPoints,
-    studentCount: students.length
+    studentCount: students.length,
   };
 }

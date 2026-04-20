@@ -27,7 +27,7 @@ const plagiarismSelect = {
   plagiarismMossReportUrl: true,
   plagiarismTriggeredAt: true,
   plagiarismCompletedAt: true,
-  plagiarismTriggeredById: true
+  plagiarismTriggeredById: true,
 } as const;
 
 interface PlagiarismRow {
@@ -47,7 +47,7 @@ function toSummary(row: PlagiarismRow | null): PlagiarismReportSummary | null {
     mossReportUrl: row.plagiarismMossReportUrl,
     triggeredAt: row.plagiarismTriggeredAt,
     completedAt: row.plagiarismCompletedAt,
-    triggeredById: row.plagiarismTriggeredById
+    triggeredById: row.plagiarismTriggeredById,
   };
 }
 
@@ -78,7 +78,7 @@ function toExamUpdate(input: PlagiarismUpsertInput): Prisma.ExamUncheckedUpdateI
 }
 
 function toAssessmentUpdate(
-  input: PlagiarismUpsertInput
+  input: PlagiarismUpsertInput,
 ): Prisma.CourseAssessmentUncheckedUpdateInput {
   const data: Prisma.CourseAssessmentUncheckedUpdateInput = {};
   if (input.status !== undefined) data.plagiarismStatus = input.status;
@@ -98,14 +98,14 @@ const clearInput: PlagiarismUpsertInput = {
   mossReportUrl: null,
   triggeredAt: null,
   completedAt: null,
-  triggeredById: null
+  triggeredById: null,
 };
 
 export const plagiarismRepo = {
   async findByContestId(contestId: string): Promise<PlagiarismReportSummary | null> {
     const row = await prisma.contest.findUnique({
       where: { id: contestId },
-      select: plagiarismSelect
+      select: plagiarismSelect,
     });
     return toSummary(row);
   },
@@ -113,17 +113,17 @@ export const plagiarismRepo = {
   async findByExamId(examId: string): Promise<PlagiarismReportSummary | null> {
     const row = await prisma.exam.findUnique({
       where: { id: examId },
-      select: plagiarismSelect
+      select: plagiarismSelect,
     });
     return toSummary(row);
   },
 
   async findByAssessmentId(
-    courseAssessmentId: string
+    courseAssessmentId: string,
   ): Promise<PlagiarismReportSummary | null> {
     const row = await prisma.courseAssessment.findUnique({
       where: { id: courseAssessmentId },
-      select: plagiarismSelect
+      select: plagiarismSelect,
     });
     return toSummary(row);
   },
@@ -132,7 +132,7 @@ export const plagiarismRepo = {
     return prisma.contest.update({
       where: { id: contestId },
       data: toContestUpdate(input),
-      select: plagiarismSelect
+      select: plagiarismSelect,
     });
   },
 
@@ -140,7 +140,7 @@ export const plagiarismRepo = {
     return prisma.exam.update({
       where: { id: examId },
       data: toExamUpdate(input),
-      select: plagiarismSelect
+      select: plagiarismSelect,
     });
   },
 
@@ -148,28 +148,28 @@ export const plagiarismRepo = {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
       data: toAssessmentUpdate(input),
-      select: plagiarismSelect
+      select: plagiarismSelect,
     });
   },
 
   clearForContest(contestId: string) {
     return prisma.contest.update({
       where: { id: contestId },
-      data: toContestUpdate(clearInput)
+      data: toContestUpdate(clearInput),
     });
   },
 
   clearForExam(examId: string) {
     return prisma.exam.update({
       where: { id: examId },
-      data: toExamUpdate(clearInput)
+      data: toExamUpdate(clearInput),
     });
   },
 
   clearForAssessment(courseAssessmentId: string) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
-      data: toAssessmentUpdate(clearInput)
+      data: toAssessmentUpdate(clearInput),
     });
-  }
+  },
 };

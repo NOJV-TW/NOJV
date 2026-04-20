@@ -2,7 +2,7 @@ import {
   contestRepo,
   contestParticipationRepo,
   scoreOverrideRepo,
-  submissionRepo
+  submissionRepo,
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
@@ -16,7 +16,7 @@ import {
   type ScoreboardEntry,
   type ScoreboardProblem,
   type SubmissionRow,
-  type TimedSession
+  type TimedSession,
 } from "../scoring";
 
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
@@ -65,7 +65,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
     for (const [, problemSubs] of byProblem) {
       const { solved, penaltySeconds } = computeProblemCountPenalty(
         problemSubs,
-        contest.startsAt
+        contest.startsAt,
       );
       if (solved) {
         solvedCount++;
@@ -75,7 +75,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
 
     await contestParticipationRepo.update(participation.id, {
       penaltySeconds: totalPenalty,
-      score: solvedCount
+      score: solvedCount,
     });
 
     const packedScore = solvedCount * 1e9 - totalPenalty;
@@ -107,7 +107,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
 
     await contestParticipationRepo.update(participation.id, {
       score: totalScore,
-      subtaskScores
+      subtaskScores,
     });
 
     await scoreboard.updateScoreboard(contest.id, participation.id, totalScore);
@@ -116,7 +116,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
 
 export async function getScoreboard(
   contestId: string,
-  options?: { unfrozen?: boolean; isPrivileged?: boolean }
+  options?: { unfrozen?: boolean; isPrivileged?: boolean },
 ): Promise<ScoreboardData> {
   const contest = await contestRepo.findForScoreboardById(contestId);
 
@@ -135,7 +135,7 @@ export async function getScoreboard(
     id: cp.problemId,
     ordinal: cp.ordinal,
     points: cp.points,
-    title: cp.problem.title
+    title: cp.problem.title,
   }));
 
   const scoringMode = contest.scoringMode as ContestScoringMode;
@@ -148,7 +148,7 @@ export async function getScoreboard(
       isFrozen: false,
       problems,
       scoreboardMode,
-      scoringMode
+      scoringMode,
     };
   }
 
@@ -159,7 +159,7 @@ export async function getScoreboard(
       isFrozen: showFrozen,
       problems,
       scoreboardMode,
-      scoringMode
+      scoringMode,
     };
   }
 
@@ -172,7 +172,7 @@ export async function getScoreboard(
     problemId: s.problemId,
     score: s.score,
     status: s.status,
-    userId: s.contestParticipation?.userId ?? ""
+    userId: s.contestParticipation?.userId ?? "",
   }));
 
   const participants: ParticipantRow[] = contest.participations;
@@ -181,7 +181,7 @@ export async function getScoreboard(
     id: contest.id,
     startsAt: contest.startsAt,
     endsAt: contest.endsAt,
-    frozenAt: contest.frozenAt
+    frozenAt: contest.frozenAt,
   };
 
   const entries = buildScoreboard(
@@ -190,7 +190,7 @@ export async function getScoreboard(
     participants,
     submissions,
     problems,
-    showFrozen
+    showFrozen,
   );
 
   return {
@@ -199,7 +199,7 @@ export async function getScoreboard(
     isFrozen: showFrozen,
     problems,
     scoreboardMode,
-    scoringMode
+    scoringMode,
   };
 }
 
@@ -237,7 +237,7 @@ export async function getScoreboardChart(contestId: string, topN: number): Promi
       problemId: sub.problemId,
       score: sub.score,
       status: sub.status,
-      userId
+      userId,
     };
     const existing = submissionsByUser.get(userId);
     if (existing) existing.push(row);
@@ -252,7 +252,7 @@ export async function getScoreboardChart(contestId: string, topN: number): Promi
     [...topUserIds],
     submissionsByUser,
     usernameMap,
-    pointsMap
+    pointsMap,
   );
 
   return { series };

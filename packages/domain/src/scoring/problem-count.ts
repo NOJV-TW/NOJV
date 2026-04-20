@@ -9,7 +9,7 @@ import {
   type ScoreboardEntry,
   type ScoreboardProblem,
   type SubmissionRow,
-  type TimedSession
+  type TimedSession,
 } from "./rank-util";
 
 export const PROBLEM_COUNT_PENALTY_PER_WRONG_SEC = 20 * 60;
@@ -29,7 +29,7 @@ export interface ProblemCountResult {
 // Single source of truth for ICPC per-problem penalty; shared with the DB-write path.
 export function computeProblemCountPenalty(
   submissions: readonly ProblemCountScoringSubmission[],
-  sessionStartsAt: Date
+  sessionStartsAt: Date,
 ): ProblemCountResult {
   let wrongAttempts = 0;
   for (const sub of submissions) {
@@ -39,13 +39,13 @@ export function computeProblemCountPenalty(
     if (sub.status === "accepted") {
       const firstAcTimeSec = Math.max(
         0,
-        Math.floor((sub.createdAt.getTime() - sessionStartsAt.getTime()) / 1000)
+        Math.floor((sub.createdAt.getTime() - sessionStartsAt.getTime()) / 1000),
       );
       return {
         solved: true,
         wrongAttempts,
         firstAcTimeSec,
-        penaltySeconds: firstAcTimeSec + wrongAttempts * PROBLEM_COUNT_PENALTY_PER_WRONG_SEC
+        penaltySeconds: firstAcTimeSec + wrongAttempts * PROBLEM_COUNT_PENALTY_PER_WRONG_SEC,
       };
     }
     wrongAttempts++;
@@ -54,7 +54,7 @@ export function computeProblemCountPenalty(
     solved: false,
     wrongAttempts,
     firstAcTimeSec: null,
-    penaltySeconds: 0
+    penaltySeconds: 0,
   };
 }
 
@@ -63,7 +63,7 @@ export function buildProblemCountScoreboard(
   participants: ParticipantRow[],
   submissions: SubmissionRow[],
   problems: ScoreboardProblem[],
-  showFrozen: boolean
+  showFrozen: boolean,
 ): ScoreboardEntry[] {
   const frozenAt = session.frozenAt;
 
@@ -104,11 +104,11 @@ export function buildProblemCountScoreboard(
         isFrozen,
         isPending: isFrozen,
         problemId: prob.id,
-        score
+        score,
       });
 
       isFirstBlood.push(
-        firstAcByProblem.get(prob.id) === p.userId && result.firstAcTimeSec != null
+        firstAcByProblem.get(prob.id) === p.userId && result.firstAcTimeSec != null,
       );
     }
 
@@ -120,7 +120,7 @@ export function buildProblemCountScoreboard(
       rank: 0,
       totalPenalty,
       totalScore,
-      userId: p.userId
+      userId: p.userId,
     };
   });
 
@@ -130,7 +130,7 @@ export function buildProblemCountScoreboard(
   assignRanks(
     entries,
     (prev, curr) =>
-      prev.totalScore === curr.totalScore && prev.totalPenalty === curr.totalPenalty
+      prev.totalScore === curr.totalScore && prev.totalPenalty === curr.totalPenalty,
   );
 
   return entries;

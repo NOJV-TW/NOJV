@@ -17,14 +17,14 @@ describe("health / DB connectivity", () => {
         email: "health@test.local",
         name: "Health Check",
         username: "healthcheck",
-        platformRole: "student"
-      }
+        platformRole: "student",
+      },
     });
 
     expect(user.id).toBe("health-check-user");
 
     const fetched = await testPrisma.user.findUnique({
-      where: { id: "health-check-user" }
+      where: { id: "health-check-user" },
     });
     expect(fetched).not.toBeNull();
     expect(fetched!.email).toBe("health@test.local");
@@ -37,8 +37,8 @@ describe("health / DB connectivity", () => {
         email: "truncate@test.local",
         name: "Truncate Me",
         username: "truncateme",
-        platformRole: "student"
-      }
+        platformRole: "student",
+      },
     });
 
     await truncateAllTables();

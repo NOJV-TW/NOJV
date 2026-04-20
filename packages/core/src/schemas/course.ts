@@ -5,17 +5,17 @@ import { adjustmentRuleSchema, adjustmentRulesSchema } from "./assessment-adjust
 
 export const courseCreateSchema = z.object({
   description: z.string().trim().min(8).max(2_000),
-  title: z.string().trim().min(3).max(120)
+  title: z.string().trim().min(3).max(120),
 });
 
 export const courseUpdateSchema = z.object({
   description: z.string().trim().min(8).max(2_000),
-  title: z.string().trim().min(3).max(120)
+  title: z.string().trim().min(3).max(120),
 });
 
 export const courseProblemAttachSchema = z.object({
   courseId: z.string().trim().min(1),
-  problemId: slugSchema
+  problemId: slugSchema,
 });
 
 export const manualCourseEnrollmentSchema = z.object({
@@ -28,14 +28,14 @@ export const manualCourseEnrollmentSchema = z.object({
     .min(3)
     .max(64)
     .regex(/^[a-z0-9._-]+$/),
-  role: courseRoleSchema.default("student")
+  role: courseRoleSchema.default("student"),
 });
 
 // Assessments are identified by (courseId, assessmentId). The id
 // carrier used to be the course slug; now it's the course cuid.
 export const assessmentContextSchema = z.object({
   assessmentId: slugSchema,
-  courseId: z.string().trim().min(1)
+  courseId: z.string().trim().min(1),
 });
 
 // Homework assessment: no scoreboard, no IP lock, no page lock
@@ -52,7 +52,7 @@ export const courseAssessmentCreateSchema = z
     problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
     id: slugSchema,
     summary: z.string().trim().min(8).max(2_000),
-    title: z.string().trim().min(3).max(120)
+    title: z.string().trim().min(3).max(120),
   })
   .superRefine((value, ctx) => {
     const opensAt = new Date(value.opensAt);
@@ -62,7 +62,7 @@ export const courseAssessmentCreateSchema = z
       ctx.addIssue({
         code: "custom",
         message: "closesAt must be later than opensAt",
-        path: ["closesAt"]
+        path: ["closesAt"],
       });
     }
 
@@ -72,14 +72,14 @@ export const courseAssessmentCreateSchema = z
         ctx.addIssue({
           code: "custom",
           message: "dueAt must be later than opensAt",
-          path: ["dueAt"]
+          path: ["dueAt"],
         });
       }
       if (!(dueAt <= closesAt)) {
         ctx.addIssue({
           code: "custom",
           message: "closesAt must be later than or equal to dueAt",
-          path: ["closesAt"]
+          path: ["closesAt"],
         });
       }
     }
@@ -97,7 +97,7 @@ export const courseAssignmentFormSchema = z
     opensAt: z.string().trim().min(1),
     problemIds: z.array(z.string().trim().min(1)).max(64).default([]),
     status: z.enum(["draft", "published"]).default("draft"),
-    title: z.string().trim().min(3).max(120)
+    title: z.string().trim().min(3).max(120),
   })
   .superRefine((value, ctx) => {
     const opensAt = new Date(value.opensAt);
@@ -121,14 +121,14 @@ export const courseAssignmentFormSchema = z
       ctx.addIssue({
         code: "custom",
         message: "dueAt must be later than opensAt",
-        path: ["dueAt"]
+        path: ["dueAt"],
       });
     }
     if (!(dueAt <= closesAt)) {
       ctx.addIssue({
         code: "custom",
         message: "closesAt must be later than or equal to dueAt",
-        path: ["closesAt"]
+        path: ["closesAt"],
       });
     }
   });
@@ -148,13 +148,13 @@ export const courseAssessmentUpdateSchema = z.object({
     .array(
       z.object({
         problemId: z.string().trim().min(1),
-        points: z.coerce.number().int().min(0).max(10_000)
-      })
+        points: z.coerce.number().int().min(0).max(10_000),
+      }),
     )
     .max(32)
     .optional(),
   summary: z.string().trim().max(2_000).optional(),
-  title: z.string().trim().min(3).max(120).optional()
+  title: z.string().trim().min(3).max(120).optional(),
 });
 
 // Superforms-facing schema used by the assignment settings tab. Strings
@@ -168,7 +168,7 @@ export const assessmentSettingsFormSchema = z.object({
   dueAt: z.string().trim().default(""),
   closesAt: z.string().trim().min(1),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
-  maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish()
+  maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
 });
 
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;

@@ -17,5 +17,5 @@ export const load: PageServerLoad = ({ locals }) => {
 };
 
 export const actions = {
-  sendVerification: handleSendVerificationAction
+  sendVerification: handleSendVerificationAction,
 } satisfies Actions;

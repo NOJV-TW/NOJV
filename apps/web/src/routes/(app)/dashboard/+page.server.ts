@@ -11,7 +11,7 @@ const ACTIVITY_DAYS = 30;
 function utcDayOffset(daysBack: number): Date {
   const now = new Date();
   return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack)
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysBack),
   );
 }
 
@@ -23,11 +23,11 @@ export const load: PageServerLoad = async (event) => {
 
   const [{ stats, recentSubmissions, analytics }, dailyActivity] = await Promise.all([
     getDashboardView(actor.userId),
-    userDailyActivityRepo.findRange(actor.userId, from, to)
+    userDailyActivityRepo.findRange(actor.userId, from, to),
   ]);
 
   const activityByDate = new Map(
-    dailyActivity.map((row) => [row.date.toISOString().slice(0, 10), row])
+    dailyActivity.map((row) => [row.date.toISOString().slice(0, 10), row]),
   );
 
   const filledActivity = Array.from({ length: ACTIVITY_DAYS }, (_, i) => {
@@ -38,7 +38,7 @@ export const load: PageServerLoad = async (event) => {
     return {
       date,
       acCount: row?.acCount ?? 0,
-      submissionCount: row?.submissionCount ?? 0
+      submissionCount: row?.submissionCount ?? 0,
     };
   });
 
@@ -47,6 +47,6 @@ export const load: PageServerLoad = async (event) => {
     recentSubmissions,
     username: actor.username,
     analytics,
-    dailyActivity: filledActivity
+    dailyActivity: filledActivity,
   };
 };

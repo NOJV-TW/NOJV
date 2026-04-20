@@ -107,8 +107,8 @@ await Promise.all([
   putText(storage, inputKey, input),
   output !== undefined ? putText(storage, outputKey!, output) : Promise.resolve(),
   ...Object.entries(inputFiles ?? {}).map(([name, content]) =>
-    putText(storage, testcaseInputFileKey(problemId, id, name), content)
-  )
+    putText(storage, testcaseInputFileKey(problemId, id, name), content),
+  ),
 ]);
 
 // 2. 單一 INSERT（DB）
@@ -124,11 +124,11 @@ await prisma.testcase.create({
         ? Object.fromEntries(
             Object.keys(inputFiles).map((name) => [
               name,
-              testcaseInputFileKey(problemId, id, name)
-            ])
+              testcaseInputFileKey(problemId, id, name),
+            ]),
           )
-        : null
-  }
+        : null,
+  },
 });
 ```
 
@@ -185,9 +185,9 @@ const [input, output, fileEntries] = await Promise.all([
   tc.outputKey ? getText(storage, tc.outputKey) : Promise.resolve(undefined),
   Promise.all(
     Object.entries((tc.inputFileKeys as Record<string, string> | null) ?? {}).map(
-      async ([name, key]) => [name, await getText(storage, key)] as const
-    )
-  )
+      async ([name, key]) => [name, await getText(storage, key)] as const,
+    ),
+  ),
 ]);
 const inputFiles = Object.fromEntries(fileEntries);
 ```

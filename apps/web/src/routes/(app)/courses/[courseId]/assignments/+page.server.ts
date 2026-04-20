@@ -34,13 +34,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     status: currentFilter,
     includeDrafts: isManager,
     forUserId: actor.userId,
-    limit: LIST_LIMIT
+    limit: LIST_LIMIT,
   });
 
   return {
     assignments,
     counts,
     currentFilter,
-    canCreate: isManager
+    canCreate: isManager,
   };
 });

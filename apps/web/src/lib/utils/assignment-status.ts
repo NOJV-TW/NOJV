@@ -12,7 +12,7 @@ export function deriveAssignmentLiveStatus(
   dbStatus: string,
   opensAtIso: string,
   closesAtIso: string,
-  now: Date = new Date()
+  now: Date = new Date(),
 ): AssignmentLiveStatus {
   if (dbStatus === "archived") return "archived";
   if (dbStatus === "draft") return "draft";

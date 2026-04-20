@@ -73,7 +73,7 @@ function resolveAnchor(
   startFrom: "due" | "final_day",
   dueAt: Date | null,
   finalDay: Date | null,
-  ruleType: AdjustmentRule["type"]
+  ruleType: AdjustmentRule["type"],
 ): Date | null {
   if (startFrom === "due") {
     if (!dueAt) {
@@ -95,7 +95,7 @@ function warnMissingAnchor(ruleType: AdjustmentRule["type"], anchor: "due" | "fi
   if (warnedAnchors.has(key)) return;
   warnedAnchors.add(key);
   console.warn(
-    `[adjustments] rule "${ruleType}" requested missing anchor "${anchor}" — skipping this rule for affected submissions`
+    `[adjustments] rule "${ruleType}" requested missing anchor "${anchor}" — skipping this rule for affected submissions`,
   );
 }
 

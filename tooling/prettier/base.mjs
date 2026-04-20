@@ -2,7 +2,7 @@ const config = {
   printWidth: 96,
   semi: true,
   singleQuote: false,
-  trailingComma: "none"
+  trailingComma: "all",
 };
 
 export default config;

@@ -650,7 +650,7 @@ pnpm test:unit -- exam-session
      const todayCount = await submissionRepo.countForUserAndAssessmentSince(
        userId,
        assessmentId,
-       startOfDay
+       startOfDay,
      );
      if (todayCount >= assessment.maxAttemptsPerDay) {
        throw new ConflictError("每日提交次數已達上限，請明天再試");
@@ -1085,7 +1085,7 @@ export const load: PageServerLoad = async (event) => {
   const submissions = await submissionDomain.listForUserExamProblem(
     actor.userId,
     examId,
-    current.problemId
+    current.problemId,
   );
 
   return {
@@ -1098,8 +1098,8 @@ export const load: PageServerLoad = async (event) => {
       examTitle: session.exam.title,
       countdownMs: session.exam.endsAt.getTime() - Date.now(),
       ipAddress: event.getClientAddress(),
-      userHandle: actor.handle ?? actor.email
-    }
+      userHandle: actor.handle ?? actor.email,
+    },
   };
 };
 ```

@@ -11,13 +11,13 @@ const bodySchema = z.discriminatedUnion("reason", [
   z.object({
     reason: z.literal("submitted"),
     examId: z.string().min(1),
-    userId: z.string().min(1).optional()
+    userId: z.string().min(1).optional(),
   }),
   z.object({
     reason: z.literal("released_by_instructor"),
     examId: z.string().min(1),
-    userId: z.string().min(1)
-  })
+    userId: z.string().min(1),
+  }),
 ]);
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
@@ -32,13 +32,13 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
     const updated = await examDomain.session.endSession(actor, {
       examId: body.examId,
-      reason: "submitted"
+      reason: "submitted",
     });
 
     return json({
       sessionId: updated.id,
       endedAt: (updated.endedAt ?? new Date()).toISOString(),
-      releaseReason: updated.releaseReason
+      releaseReason: updated.releaseReason,
     });
   }
 
@@ -46,12 +46,12 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   // that `userId` is present in this branch.
   const updated = await examDomain.session.releaseSessionAsInstructor(actor, {
     examId: body.examId,
-    targetUserId: body.userId
+    targetUserId: body.userId,
   });
 
   return json({
     sessionId: updated.id,
     endedAt: (updated.endedAt ?? new Date()).toISOString(),
-    releaseReason: updated.releaseReason
+    releaseReason: updated.releaseReason,
   });
 });

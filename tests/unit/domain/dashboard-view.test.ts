@@ -5,13 +5,13 @@ const {
   findDistinctAcByUser,
   count,
   groupByLanguageForUser,
-  groupByStatusForUser
+  groupByStatusForUser,
 } = vi.hoisted(() => ({
   findRecentByUser: vi.fn(),
   findDistinctAcByUser: vi.fn(),
   count: vi.fn(),
   groupByLanguageForUser: vi.fn(),
-  groupByStatusForUser: vi.fn()
+  groupByStatusForUser: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -20,9 +20,9 @@ vi.mock("@nojv/db", () => ({
     findDistinctAcByUser,
     count,
     groupByLanguageForUser,
-    groupByStatusForUser
+    groupByStatusForUser,
   },
-  userRepo: {}
+  userRepo: {},
 }));
 
 import { userDomain } from "@nojv/domain";
@@ -56,7 +56,7 @@ describe("getDashboardView — empty actor", () => {
     expect(view.analytics.byDifficulty).toEqual([
       { difficulty: "easy", acCount: 0 },
       { difficulty: "medium", acCount: 0 },
-      { difficulty: "hard", acCount: 0 }
+      { difficulty: "hard", acCount: 0 },
     ]);
   });
 });
@@ -67,7 +67,7 @@ describe("getDashboardView — populated actor", () => {
     findDistinctAcByUser.mockResolvedValue([
       { problem: { difficulty: "easy", tags: ["dp"] } },
       { problem: { difficulty: "medium", tags: ["dp", "graph"] } },
-      { problem: { difficulty: "medium", tags: ["math"] } }
+      { problem: { difficulty: "medium", tags: ["math"] } },
     ]);
     count.mockResolvedValue(17);
     groupByLanguageForUser.mockResolvedValue([]);
@@ -83,7 +83,7 @@ describe("getDashboardView — populated actor", () => {
     findDistinctAcByUser.mockResolvedValue([
       { problem: { difficulty: "hard", tags: [] } },
       { problem: { difficulty: "hard", tags: [] } },
-      { problem: { difficulty: "easy", tags: [] } }
+      { problem: { difficulty: "easy", tags: [] } },
     ]);
     count.mockResolvedValue(3);
     groupByLanguageForUser.mockResolvedValue([]);
@@ -94,7 +94,7 @@ describe("getDashboardView — populated actor", () => {
     expect(view.analytics.byDifficulty).toEqual([
       { difficulty: "easy", acCount: 1 },
       { difficulty: "medium", acCount: 0 },
-      { difficulty: "hard", acCount: 2 }
+      { difficulty: "hard", acCount: 2 },
     ]);
   });
 
@@ -104,22 +104,22 @@ describe("getDashboardView — populated actor", () => {
     count.mockResolvedValue(10);
     groupByLanguageForUser.mockResolvedValue([
       { language: "cpp", _count: { _all: 6 } },
-      { language: "python", _count: { _all: 4 } }
+      { language: "python", _count: { _all: 4 } },
     ]);
     groupByStatusForUser.mockResolvedValue([
       { status: "accepted", _count: { _all: 4 } },
-      { status: "wrong_answer", _count: { _all: 6 } }
+      { status: "wrong_answer", _count: { _all: 6 } },
     ]);
 
     const view = await getDashboardView("usr_1");
 
     expect(view.analytics.byLanguage).toEqual([
       { language: "cpp", count: 6 },
-      { language: "python", count: 4 }
+      { language: "python", count: 4 },
     ]);
     expect(view.analytics.byVerdict).toEqual([
       { status: "accepted", count: 4 },
-      { status: "wrong_answer", count: 6 }
+      { status: "wrong_answer", count: 6 },
     ]);
   });
 
@@ -127,8 +127,8 @@ describe("getDashboardView — populated actor", () => {
     findRecentByUser.mockResolvedValue([]);
     findDistinctAcByUser.mockResolvedValue(
       Array.from({ length: 12 }, (_, i) => ({
-        problem: { difficulty: "easy", tags: [`tag${i}`] }
-      }))
+        problem: { difficulty: "easy", tags: [`tag${i}`] },
+      })),
     );
     count.mockResolvedValue(12);
     groupByLanguageForUser.mockResolvedValue([]);

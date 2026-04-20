@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assessmentPresentation,
   deriveAssessmentWindowState,
-  windowStateColorClass
+  windowStateColorClass,
 } from "$lib/types";
 import { resolveCoursePermissionRole } from "$lib/server/auth";
 
@@ -12,8 +12,8 @@ describe("resolveCoursePermissionRole", () => {
     expect(
       resolveCoursePermissionRole({
         courseRole: "student",
-        platformRole: "admin"
-      })
+        platformRole: "admin",
+      }),
     ).toBe("admin");
   });
 
@@ -21,8 +21,8 @@ describe("resolveCoursePermissionRole", () => {
     expect(
       resolveCoursePermissionRole({
         courseRole: "teacher",
-        platformRole: "student"
-      })
+        platformRole: "student",
+      }),
     ).toBe("teacher");
   });
 
@@ -30,8 +30,8 @@ describe("resolveCoursePermissionRole", () => {
     expect(
       resolveCoursePermissionRole({
         courseRole: null,
-        platformRole: "student"
-      })
+        platformRole: "student",
+      }),
     ).toBeNull();
   });
 
@@ -39,8 +39,8 @@ describe("resolveCoursePermissionRole", () => {
     expect(
       resolveCoursePermissionRole({
         courseRole: null,
-        platformRole: "admin"
-      })
+        platformRole: "admin",
+      }),
     ).toBe("admin");
   });
 });
@@ -49,48 +49,48 @@ describe("deriveAssessmentWindowState", () => {
   const base = {
     closesAt: "2026-03-22T12:00:00.000Z",
     dueAt: "2026-03-20T12:00:00.000Z",
-    opensAt: "2026-03-18T12:00:00.000Z"
+    opensAt: "2026-03-18T12:00:00.000Z",
   };
 
   it("marks assignment windows as upcoming before opensAt", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-18T11:59:00.000Z" })).toBe(
-      "upcoming"
+      "upcoming",
     );
   });
 
   it("marks assignment windows as open between opensAt and dueAt", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-19T00:00:00.000Z" })).toBe(
-      "open"
+      "open",
     );
   });
 
   it("marks exactly at opensAt as open", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-18T12:00:00.000Z" })).toBe(
-      "open"
+      "open",
     );
   });
 
   it("marks exactly at dueAt as open", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-20T12:00:00.000Z" })).toBe(
-      "open"
+      "open",
     );
   });
 
   it("marks between dueAt and closesAt as grace", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-21T00:00:00.000Z" })).toBe(
-      "grace"
+      "grace",
     );
   });
 
   it("marks exactly at closesAt as grace", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-22T12:00:00.000Z" })).toBe(
-      "grace"
+      "grace",
     );
   });
 
   it("marks after closesAt as closed", () => {
     expect(deriveAssessmentWindowState({ ...base, now: "2026-03-22T12:00:01.000Z" })).toBe(
-      "closed"
+      "closed",
     );
   });
 });

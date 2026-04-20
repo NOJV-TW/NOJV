@@ -3,7 +3,7 @@ import {
   problemRepo,
   problemWorkspaceFileRepo,
   runTransaction,
-  testcaseSetRepo
+  testcaseSetRepo,
 } from "@nojv/db";
 
 import { ConflictError } from "../shared/errors";
@@ -16,7 +16,7 @@ import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 // discarded. The UI shows an explicit warning before calling this.
 export async function convertProblemToAdvancedMode(
   actor: ProblemActorContext,
-  problemId: string
+  problemId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
@@ -35,7 +35,7 @@ export async function convertProblemToAdvancedMode(
     // is `Json?` and other call sites still read it; write a minimal
     // valid value rather than leaving the previous standard-mode config.
     const resetJudgeConfig = {
-      type: "standard"
+      type: "standard",
     } satisfies Prisma.InputJsonValue;
 
     await problemRepo.withTx(tx).update(problem.id, {
@@ -43,7 +43,7 @@ export async function convertProblemToAdvancedMode(
       samples: Prisma.JsonNull,
       judgeConfig: resetJudgeConfig,
       advancedImageRef: "",
-      advancedImageSource: "registry"
+      advancedImageSource: "registry",
     });
   });
 

@@ -5,14 +5,14 @@ const { examFindDetailById, findStudents, groupByUserAndProblem, findAllOverride
     examFindDetailById: vi.fn(),
     findStudents: vi.fn(),
     groupByUserAndProblem: vi.fn(),
-    findAllOverrides: vi.fn(() => Promise.resolve([]))
+    findAllOverrides: vi.fn(() => Promise.resolve([])),
   }));
 
 vi.mock("@nojv/db", () => ({
   examRepo: { findDetailById: examFindDetailById },
   courseMembershipRepo: { findStudents },
   submissionRepo: { groupByUserAndProblem },
-  scoreOverrideRepo: { findAllByContext: findAllOverrides }
+  scoreOverrideRepo: { findAllByContext: findAllOverrides },
 }));
 
 import { examDomain, NotFoundError } from "@nojv/domain";
@@ -20,7 +20,7 @@ import { examDomain, NotFoundError } from "@nojv/domain";
 const { getExamSubmissionsMatrix } = examDomain;
 
 function fakeExam(
-  problems: { id: string; ordinal: number; points: number; title: string }[] = []
+  problems: { id: string; ordinal: number; points: number; title: string }[] = [],
 ) {
   return {
     id: "exam_1",
@@ -28,15 +28,15 @@ function fakeExam(
     problems: problems.map((p) => ({
       ordinal: p.ordinal,
       points: p.points,
-      problem: { id: p.id, title: p.title }
-    }))
+      problem: { id: p.id, title: p.title },
+    })),
   };
 }
 
 function fakeStudent(userId: string, name: string, username: string | null = null) {
   return {
     userId,
-    user: { id: userId, name, username }
+    user: { id: userId, name, username },
   };
 }
 
@@ -52,7 +52,7 @@ describe("getExamSubmissionsMatrix", () => {
 
   it("returns an empty matrix when the course has no students", async () => {
     examFindDetailById.mockResolvedValue(
-      fakeExam([{ id: "p1", ordinal: 1, points: 100, title: "A" }])
+      fakeExam([{ id: "p1", ordinal: 1, points: 100, title: "A" }]),
     );
     findStudents.mockResolvedValue([]);
 
@@ -82,17 +82,17 @@ describe("getExamSubmissionsMatrix", () => {
     examFindDetailById.mockResolvedValue(
       fakeExam([
         { id: "p1", ordinal: 1, points: 100, title: "A" },
-        { id: "p2", ordinal: 2, points: 100, title: "B" }
-      ])
+        { id: "p2", ordinal: 2, points: 100, title: "B" },
+      ]),
     );
     findStudents.mockResolvedValue([
       fakeStudent("u1", "Alice", "alice"),
-      fakeStudent("u2", "Bob", "bob")
+      fakeStudent("u2", "Bob", "bob"),
     ]);
     groupByUserAndProblem.mockResolvedValue([
       { userId: "u1", problemId: "p1", _max: { score: 100 }, _count: { id: 3 } },
       { userId: "u1", problemId: "p2", _max: { score: 40 }, _count: { id: 2 } },
-      { userId: "u2", problemId: "p1", _max: { score: 0 }, _count: { id: 5 } }
+      { userId: "u2", problemId: "p1", _max: { score: 0 }, _count: { id: 5 } },
     ]);
 
     const out = await getExamSubmissionsMatrix("exam_1");
@@ -105,13 +105,13 @@ describe("getExamSubmissionsMatrix", () => {
       problemId: "p1",
       score: 100,
       attempts: 3,
-      state: "ac"
+      state: "ac",
     });
     expect(alice.cells[1]).toMatchObject({
       problemId: "p2",
       score: 40,
       attempts: 2,
-      state: "partial"
+      state: "partial",
     });
     expect(alice.total).toBe(140);
     expect(alice.handle).toBe("alice");
@@ -128,8 +128,8 @@ describe("getExamSubmissionsMatrix", () => {
     examFindDetailById.mockResolvedValue(
       fakeExam([
         { id: "p1", ordinal: 1, points: 100, title: "A" },
-        { id: "p2", ordinal: 27, points: 100, title: "AA" }
-      ])
+        { id: "p2", ordinal: 27, points: 100, title: "AA" },
+      ]),
     );
     findStudents.mockResolvedValue([]);
 
@@ -140,7 +140,7 @@ describe("getExamSubmissionsMatrix", () => {
 
   it("falls back to an empty handle when the student has no username", async () => {
     examFindDetailById.mockResolvedValue(
-      fakeExam([{ id: "p1", ordinal: 1, points: 100, title: "A" }])
+      fakeExam([{ id: "p1", ordinal: 1, points: 100, title: "A" }]),
     );
     findStudents.mockResolvedValue([fakeStudent("u1", "Alice", null)]);
     groupByUserAndProblem.mockResolvedValue([]);

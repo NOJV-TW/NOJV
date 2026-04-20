@@ -9,7 +9,7 @@ const {
   overrideUpdate,
   overrideDelete,
   overrideFindById,
-  auditCreate
+  auditCreate,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
@@ -19,7 +19,7 @@ const {
   overrideUpdate: vi.fn(),
   overrideDelete: vi.fn(),
   overrideFindById: vi.fn(),
-  auditCreate: vi.fn()
+  auditCreate: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -33,12 +33,12 @@ vi.mock("@nojv/db", () => ({
     create: overrideCreate,
     update: overrideUpdate,
     delete: overrideDelete,
-    findById: overrideFindById
+    findById: overrideFindById,
   },
   scoreOverrideAuditLogRepo: {
-    create: auditCreate
+    create: auditCreate,
   },
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
 import { ForbiddenError, ValidationError, NotFoundError } from "@nojv/domain";
@@ -51,14 +51,14 @@ function actor(
   overrides: Partial<{
     userId: string;
     platformRole: "admin" | "teacher" | "student";
-  }> = {}
+  }> = {},
 ) {
   return {
     userId: overrides.userId ?? "usr_actor",
     username: "actor",
     platformRole: overrides.platformRole ?? ("teacher" as const),
     displayName: "Actor",
-    email: "actor@example.com"
+    email: "actor@example.com",
   };
 }
 
@@ -68,7 +68,7 @@ const baseInput = {
   contextType: "assignment" as const,
   contextId: "ca_hw1",
   overrideScore: 80,
-  reason: "Manual adjustment after grading dispute."
+  reason: "Manual adjustment after grading dispute.",
 };
 
 beforeEach(() => {
@@ -78,23 +78,23 @@ beforeEach(() => {
 describe("canSetScoreOverride", () => {
   it("admin is always permitted", async () => {
     expect(
-      await canSetScoreOverride(actor({ platformRole: "admin" }), "assignment", "ca_hw1")
+      await canSetScoreOverride(actor({ platformRole: "admin" }), "assignment", "ca_hw1"),
     ).toBe(true);
     expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "contest", "c_1")).toBe(
-      true
+      true,
     );
     expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "exam", "e_1")).toBe(
-      true
+      true,
     );
   });
 
   it("contest: only organizer allowed", async () => {
     contestFindById.mockResolvedValue({ id: "c_1", createdByUserId: "usr_org" });
     expect(await canSetScoreOverride(actor({ userId: "usr_org" }), "contest", "c_1")).toBe(
-      true
+      true,
     );
     expect(await canSetScoreOverride(actor({ userId: "usr_other" }), "contest", "c_1")).toBe(
-      false
+      false,
     );
   });
 
@@ -102,20 +102,20 @@ describe("canSetScoreOverride", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     expect(await canSetScoreOverride(actor({ userId: "usr_t" }), "assignment", "ca_1")).toBe(
-      true
+      true,
     );
 
     courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
     expect(await canSetScoreOverride(actor({ userId: "usr_s" }), "assignment", "ca_1")).toBe(
-      false
+      false,
     );
 
     courseMembershipFindByComposite.mockResolvedValue({ role: "ta", status: "active" });
     expect(await canSetScoreOverride(actor({ userId: "usr_ta" }), "assignment", "ca_1")).toBe(
-      true
+      true,
     );
   });
 
@@ -129,8 +129,8 @@ describe("canSetScoreOverride", () => {
       await canSetScoreOverride(
         actor({ userId: "usr_other", platformRole: "teacher" }),
         "exam",
-        "e_1"
-      )
+        "e_1",
+      ),
     ).toBe(false);
   });
 });
@@ -167,33 +167,33 @@ describe("createOverride", () => {
 
   it("rejects an empty reason", async () => {
     await expect(
-      createOverride(actor({ userId: "usr_t" }), { ...baseInput, reason: "   " })
+      createOverride(actor({ userId: "usr_t" }), { ...baseInput, reason: "   " }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(overrideCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a reason over 500 characters", async () => {
     await expect(
-      createOverride(actor({ userId: "usr_t" }), { ...baseInput, reason: "x".repeat(501) })
+      createOverride(actor({ userId: "usr_t" }), { ...baseInput, reason: "x".repeat(501) }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("rejects a negative score", async () => {
     await expect(
-      createOverride(actor({ userId: "usr_t" }), { ...baseInput, overrideScore: -1 })
+      createOverride(actor({ userId: "usr_t" }), { ...baseInput, overrideScore: -1 }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("rejects a non-integer score", async () => {
     await expect(
-      createOverride(actor({ userId: "usr_t" }), { ...baseInput, overrideScore: 1.5 })
+      createOverride(actor({ userId: "usr_t" }), { ...baseInput, overrideScore: 1.5 }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("denies non-staff non-admin callers", async () => {
     courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
     await expect(
-      createOverride(actor({ userId: "usr_stu", platformRole: "student" }), baseInput)
+      createOverride(actor({ userId: "usr_stu", platformRole: "student" }), baseInput),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(overrideCreate).not.toHaveBeenCalled();
   });
@@ -208,14 +208,14 @@ describe("updateOverride", () => {
       contextType: "assignment",
       contextId: "ca_hw1",
       overrideScore: 80,
-      reason: "Old reason"
+      reason: "Old reason",
     });
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     overrideUpdate.mockResolvedValue({
       id: "ov_1",
       overrideScore: 95,
-      reason: "New reason"
+      reason: "New reason",
     });
     auditCreate.mockResolvedValue({});
   });
@@ -223,7 +223,7 @@ describe("updateOverride", () => {
   it("writes an audit row with before/after values", async () => {
     await updateOverride(actor({ userId: "usr_t" }), "ov_1", {
       overrideScore: 95,
-      reason: "New reason"
+      reason: "New reason",
     });
 
     expect(overrideUpdate).toHaveBeenCalledTimes(1);
@@ -248,7 +248,7 @@ describe("updateOverride", () => {
   it("throws NotFoundError when the override is missing", async () => {
     overrideFindById.mockResolvedValue(null);
     await expect(
-      updateOverride(actor({ userId: "usr_t" }), "ov_missing", { overrideScore: 50 })
+      updateOverride(actor({ userId: "usr_t" }), "ov_missing", { overrideScore: 50 }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -262,7 +262,7 @@ describe("deleteOverride", () => {
       contextType: "assignment",
       contextId: "ca_hw1",
       overrideScore: 80,
-      reason: "Old reason"
+      reason: "Old reason",
     });
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
@@ -295,7 +295,7 @@ describe("deleteOverride", () => {
   it("throws NotFoundError when the override is missing", async () => {
     overrideFindById.mockResolvedValue(null);
     await expect(
-      deleteOverride(actor({ userId: "usr_t" }), "ov_missing")
+      deleteOverride(actor({ userId: "usr_t" }), "ov_missing"),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

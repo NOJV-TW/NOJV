@@ -6,7 +6,7 @@ import {
   createTestCourse,
   createTestExam,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 describe("examSessionRepo (real DB)", () => {
@@ -18,7 +18,7 @@ describe("examSessionRepo (real DB)", () => {
     // Start a session.
     const started = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id
+      examId: exam.id,
     });
     expect(started.endedAt).toBeNull();
 
@@ -26,22 +26,22 @@ describe("examSessionRepo (real DB)", () => {
     // wall-clock terms, then assert the list-by-occurredAt ordering.
     await examSessionRepo.recordEvent({
       sessionId: started.id,
-      eventType: "enter"
+      eventType: "enter",
     });
     await examSessionRepo.recordEvent({
       sessionId: started.id,
       eventType: "visibility_lost",
-      metadata: { durationMs: 1200 }
+      metadata: { durationMs: 1200 },
     });
     await examSessionRepo.recordEvent({
       sessionId: started.id,
-      eventType: "heartbeat"
+      eventType: "heartbeat",
     });
 
     // End the session.
     const ended = await examSessionRepo.endSession({
       sessionId: started.id,
-      reason: "submitted"
+      reason: "submitted",
     });
     expect(ended.endedAt).not.toBeNull();
     expect(ended.releaseReason).toBe("submitted");
@@ -49,7 +49,7 @@ describe("examSessionRepo (real DB)", () => {
     await examSessionRepo.recordEvent({
       sessionId: started.id,
       eventType: "release",
-      metadata: { reason: "submitted" }
+      metadata: { reason: "submitted" },
     });
 
     const events = await examSessionRepo.listEventsForSession(started.id);
@@ -60,7 +60,7 @@ describe("examSessionRepo (real DB)", () => {
       "enter",
       "visibility_lost",
       "heartbeat",
-      "release"
+      "release",
     ]);
     expect(events[1]!.metadata).toEqual({ durationMs: 1200 });
     expect(events[3]!.metadata).toEqual({ reason: "submitted" });
@@ -75,7 +75,7 @@ describe("examSessionRepo (real DB)", () => {
 
     const started = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id
+      examId: exam.id,
     });
 
     const active = await examSessionRepo.findActiveForUser(user.id);
@@ -83,7 +83,7 @@ describe("examSessionRepo (real DB)", () => {
 
     await examSessionRepo.endSession({
       sessionId: started.id,
-      reason: "time_up"
+      reason: "time_up",
     });
 
     expect(await examSessionRepo.findActiveForUser(user.id)).toBeNull();
@@ -96,17 +96,17 @@ describe("examSessionRepo (real DB)", () => {
 
     const first = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id
+      examId: exam.id,
     });
     const second = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id
+      examId: exam.id,
     });
 
     expect(second.id).toBe(first.id);
 
     const rows = await testPrisma.activeExamSession.findMany({
-      where: { userId: user.id, examId: exam.id }
+      where: { userId: user.id, examId: exam.id },
     });
     expect(rows).toHaveLength(1);
   });
@@ -118,7 +118,7 @@ describe("examSessionRepo (real DB)", () => {
 
     const started = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id
+      examId: exam.id,
     });
     const firstBeat = started.lastHeartbeatAt;
 
@@ -137,7 +137,7 @@ describe("examSessionRepo (real DB)", () => {
 
     const started = await examSessionRepo.startSession({
       userId: user.id,
-      examId: exam.id
+      examId: exam.id,
     });
     await examSessionRepo.recordEvent({ sessionId: started.id, eventType: "enter" });
     await examSessionRepo.recordEvent({ sessionId: started.id, eventType: "heartbeat" });
@@ -145,14 +145,14 @@ describe("examSessionRepo (real DB)", () => {
     // Sanity: rows exist.
     expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(1);
     expect(await testPrisma.examSessionEvent.count({ where: { sessionId: started.id } })).toBe(
-      2
+      2,
     );
 
     await testPrisma.exam.delete({ where: { id: exam.id } });
 
     expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(0);
     expect(await testPrisma.examSessionEvent.count({ where: { sessionId: started.id } })).toBe(
-      0
+      0,
     );
   });
 });

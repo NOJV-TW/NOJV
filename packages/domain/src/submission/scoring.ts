@@ -4,7 +4,7 @@ import { applyAdjustmentRules } from "./adjustments";
 import type {
   SubmissionJudgeContext,
   TestcaseSetGroup,
-  SubtaskStrategyMap
+  SubtaskStrategyMap,
 } from "./judge-context";
 
 export interface SubtaskResultItem {
@@ -21,14 +21,14 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   TLE: "time_limit_exceeded",
   MLE: "memory_limit_exceeded",
   RE: "runtime_error",
-  SE: "runtime_error"
+  SE: "runtime_error",
 };
 
 // `MINIMUM` collapses to `ALL_OR_NOTHING` — no partial-credit signal exists to take a minimum over today.
 export function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
-  strategies: SubtaskStrategyMap
+  strategies: SubtaskStrategyMap,
 ): SubtaskResultItem[] {
   let flatIndex = 0;
   const subtaskResults: SubtaskResultItem[] = [];
@@ -41,7 +41,7 @@ export function buildSubtaskResults(
         ordinal,
         runtimeMs: sandboxCase?.timeMs ?? 0,
         testcaseId: ts.testcases[ordinal]?.id ?? "",
-        verdict: sandboxCase?.verdict ?? "SE"
+        verdict: sandboxCase?.verdict ?? "SE",
       });
     }
 
@@ -68,7 +68,7 @@ export function buildSubtaskResults(
       passed: allPassed,
       rawScore,
       testcaseSetId: ts.id,
-      weight: ts.weight
+      weight: ts.weight,
     });
   }
 
@@ -78,14 +78,14 @@ export function buildSubtaskResults(
 export function mapResult(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
-  judgeContext: SubmissionJudgeContext
+  judgeContext: SubmissionJudgeContext,
 ): SubmissionResult {
   const caseResults = result.testcaseResults.map((t) => ({
     index: t.index,
     passed: t.verdict === "AC",
     ...(t.stderr ? { stderr: t.stderr } : {}),
     stdout: t.stdout,
-    timeMs: t.timeMs
+    timeMs: t.timeMs,
   }));
 
   if (result.compilationError) {
@@ -95,7 +95,7 @@ export function mapResult(
       feedback: result.compilationError,
       runtimeMs: 0,
       score: 0,
-      verdict: "compile_error"
+      verdict: "compile_error",
     };
   }
 
@@ -106,7 +106,7 @@ export function mapResult(
       feedback: `[Pipeline Error] ${result.pipelineError}`,
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
       score: 0,
-      verdict: "compile_error"
+      verdict: "compile_error",
     };
   }
 
@@ -114,7 +114,7 @@ export function mapResult(
   const subtaskResults = buildSubtaskResults(
     result,
     testcaseSets,
-    judgeContext.subtaskStrategies
+    judgeContext.subtaskStrategies,
   );
 
   const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
@@ -136,7 +136,7 @@ export function mapResult(
       rawScore: score,
       rules: adjustmentRules,
       runtimeMs,
-      submittedAt: judgeContext.adjustment.submittedAt
+      submittedAt: judgeContext.adjustment.submittedAt,
     });
     score = adjusted.score;
   }
@@ -151,7 +151,7 @@ export function mapResult(
       runtimeMs,
       score: result.customScore ?? score,
       subtaskResults,
-      verdict: "accepted"
+      verdict: "accepted",
     };
   }
 
@@ -166,7 +166,7 @@ export function mapResult(
       runtimeMs,
       score,
       subtaskResults,
-      verdict: "accepted"
+      verdict: "accepted",
     };
   }
 
@@ -184,7 +184,7 @@ export function mapResult(
         runtimeMs,
         score,
         subtaskResults,
-        verdict
+        verdict,
       };
     }
   }
@@ -196,6 +196,6 @@ export function mapResult(
     runtimeMs,
     score,
     subtaskResults,
-    verdict: "runtime_error" as const
+    verdict: "runtime_error" as const,
   };
 }

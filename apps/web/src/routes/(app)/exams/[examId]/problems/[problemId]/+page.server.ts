@@ -26,7 +26,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const view = await examDomain.getExamProblemViewByProblemId({
     examId,
     problemId,
-    actorUserId: actor.userId
+    actorUserId: actor.userId,
   });
 
   if (!view) {
@@ -56,7 +56,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       endsAt: view.exam.endsAt,
       countdownMs,
       userHandle: actor.username,
-      ipAddress: getClientIp(event)
-    }
+      ipAddress: getClientIp(event),
+    },
   };
 });

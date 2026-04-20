@@ -7,8 +7,8 @@ vi.mock("@temporalio/activity", () => ({
     warn: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
-    debug: vi.fn()
-  }
+    debug: vi.fn(),
+  },
 }));
 
 // Mock the plagiarism domain surface so the activity's side effects are
@@ -18,7 +18,7 @@ const { updateReportStatus, fetchSubmissionsForCheck, saveResults, markReportFai
     updateReportStatus: vi.fn(),
     fetchSubmissionsForCheck: vi.fn(),
     saveResults: vi.fn(),
-    markReportFailed: vi.fn()
+    markReportFailed: vi.fn(),
   }));
 
 vi.mock("@nojv/domain", () => ({
@@ -26,8 +26,8 @@ vi.mock("@nojv/domain", () => ({
     updateReportStatus,
     fetchSubmissionsForCheck,
     saveResults,
-    markReportFailed
-  }
+    markReportFailed,
+  },
 }));
 
 import { runPlagiarismCheck } from "../../../packages/temporal/src/activities/plagiarism";
@@ -57,7 +57,7 @@ function sub(userId: string, problemId: string, score: number, language = "cpp")
     problemId,
     score,
     language,
-    sourceCode: `// code ${userId} ${problemId} ${score}`
+    sourceCode: `// code ${userId} ${problemId} ${score}`,
   };
 }
 
@@ -80,7 +80,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
     fetchSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 50),
       sub("usr_a", "prob_1", 100), // wins over the 50 above
-      sub("usr_b", "prob_1", 80)
+      sub("usr_b", "prob_1", 80),
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
@@ -90,7 +90,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
     expect(results.pairs[0]).toMatchObject({
       userId1: "usr_a",
       userId2: "usr_b",
-      problemId: "prob_1"
+      problemId: "prob_1",
     });
   });
 
@@ -105,7 +105,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
     fetchSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "c"),
       sub("usr_b", "prob_1", 100, "go"),
-      sub("usr_c", "prob_1", 100, "rust")
+      sub("usr_c", "prob_1", 100, "rust"),
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
@@ -118,7 +118,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
   it("keeps cpp in the 'cc' bucket separate from the c-family bucket", async () => {
     fetchSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "c"),
-      sub("usr_b", "prob_1", 100, "cpp") // cpp → 'cc', a different bucket
+      sub("usr_b", "prob_1", 100, "cpp"), // cpp → 'cc', a different bucket
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
@@ -132,7 +132,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
     fetchSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "brainfuck"),
       sub("usr_b", "prob_1", 100, "cpp"),
-      sub("usr_c", "prob_1", 100, "cpp")
+      sub("usr_c", "prob_1", 100, "cpp"),
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
@@ -147,7 +147,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
     fetchSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "cpp"),
       sub("usr_b", "prob_1", 100, "cpp"),
-      sub("usr_c", "prob_2", 100, "cpp")
+      sub("usr_c", "prob_2", 100, "cpp"),
       // prob_2 is a singleton → no pair
     ]);
 
@@ -158,7 +158,7 @@ describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
     expect(results.pairs[0]).toMatchObject({
       problemId: "prob_1",
       userId1: "usr_a",
-      userId2: "usr_b"
+      userId2: "usr_b",
     });
   });
 });

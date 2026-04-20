@@ -27,7 +27,7 @@ test.describe("Teacher form error visibility", () => {
   });
 
   test("teacher sees a visible error banner when assessment creation fails", async ({
-    browser
+    browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
@@ -71,7 +71,7 @@ test.describe("Teacher form error visibility", () => {
     await page.getByRole("button", { name: /建立競賽/i }).click();
 
     await expect(page.getByText(`Contest "${title}" created.`)).toBeVisible({
-      timeout: 10_000
+      timeout: 10_000,
     });
     await context.close();
   });

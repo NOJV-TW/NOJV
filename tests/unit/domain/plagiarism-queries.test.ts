@@ -6,14 +6,14 @@ const {
   upsertForExam,
   upsertForAssessment,
   findByAssessmentId,
-  findByExamId
+  findByExamId,
 } = vi.hoisted(() => ({
   examFindByIdWithCourse: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
   upsertForExam: vi.fn(),
   upsertForAssessment: vi.fn(),
   findByAssessmentId: vi.fn(),
-  findByExamId: vi.fn()
+  findByExamId: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -23,10 +23,10 @@ vi.mock("@nojv/db", () => ({
     upsertForExam,
     upsertForAssessment,
     findByAssessmentId,
-    findByExamId
+    findByExamId,
   },
   assessmentProblemRepo: {},
-  submissionRepo: {}
+  submissionRepo: {},
 }));
 
 import { plagiarismDomain } from "@nojv/domain";
@@ -55,10 +55,10 @@ describe("resolvePlagiarismTarget", () => {
   it("throws 'Exam not found.' when type='exam' and the row is missing", async () => {
     examFindByIdWithCourse.mockResolvedValue(null);
     await expect(resolvePlagiarismTarget("exam_missing", "exam")).rejects.toThrow(
-      PlagiarismNotFoundError
+      PlagiarismNotFoundError,
     );
     await expect(resolvePlagiarismTarget("exam_missing", "exam")).rejects.toThrow(
-      "Exam not found."
+      "Exam not found.",
     );
   });
 
@@ -73,12 +73,12 @@ describe("resolvePlagiarismTarget", () => {
   it("resolves a missing type to a courseAssessment target", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({
       id: "asg_1",
-      course: { id: "crs_1" }
+      course: { id: "crs_1" },
     });
     const result = await resolvePlagiarismTarget("asg_1", null);
     expect(result).toEqual({
       courseId: "crs_1",
-      target: { id: "asg_1", type: "courseAssessment" }
+      target: { id: "asg_1", type: "courseAssessment" },
     });
     expect(examFindByIdWithCourse).not.toHaveBeenCalled();
   });
@@ -86,7 +86,7 @@ describe("resolvePlagiarismTarget", () => {
   it("throws 'Assessment not found.' when no type and the assessment is missing", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue(null);
     await expect(resolvePlagiarismTarget("asg_missing", null)).rejects.toThrow(
-      "Assessment not found."
+      "Assessment not found.",
     );
   });
 });
@@ -106,7 +106,7 @@ describe("createPlagiarismReport", () => {
       triggeredById: "usr_teacher",
       results: null,
       mossReportUrl: null,
-      completedAt: null
+      completedAt: null,
     });
     expect(input.triggeredAt).toBeInstanceOf(Date);
   });
@@ -121,7 +121,7 @@ describe("createPlagiarismReport", () => {
   it("throws when the subsequent findPlagiarismReport returns null", async () => {
     findByExamId.mockResolvedValue(null);
     await expect(
-      createPlagiarismReport({ id: "exam_1", type: "exam" }, "usr_teacher")
+      createPlagiarismReport({ id: "exam_1", type: "exam" }, "usr_teacher"),
     ).rejects.toThrow("Failed to persist plagiarism report state.");
   });
 });

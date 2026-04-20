@@ -203,7 +203,7 @@ import { plagiarismDomain } from "@nojv/domain";
 
 export async function runPlagiarismCheck(
   targetId: string,
-  targetType: "courseAssessment" | "exam"
+  targetType: "courseAssessment" | "exam",
 ): Promise<void> {
   const target = { type: targetType, id: targetId };
   await plagiarismDomain.updateReportStatus(target, "running");
@@ -230,8 +230,8 @@ export async function runPlagiarismCheck(
       const report = await dolos.analyze(
         group.subs.map((s) => ({
           path: `${s.userId}.${extensionForLang(group.language)}`,
-          content: s.sourceCode
-        }))
+          content: s.sourceCode,
+        })),
       );
 
       for (const pair of report.pairs) {
@@ -241,7 +241,7 @@ export async function runPlagiarismCheck(
           userId2: pair.rightFile.path.replace(/\..+$/, ""),
           similarity: pair.similarity * 100,
           longestFragment: pair.longestFragment,
-          totalOverlap: pair.totalOverlapTokens
+          totalOverlap: pair.totalOverlapTokens,
         });
       }
     }

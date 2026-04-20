@@ -24,19 +24,19 @@ const webEnvSchema = z
 
     // Email (optional)
     RESEND_API_KEY: z.string().optional(),
-    EMAIL_FROM_DOMAIN: z.string().optional()
+    EMAIL_FROM_DOMAIN: z.string().optional(),
   })
   .transform((val) => ({
     ...val,
     BETTER_AUTH_SECRET:
-      val.BETTER_AUTH_SECRET ?? (val.NODE_ENV === "production" ? undefined : DEV_AUTH_SECRET)
+      val.BETTER_AUTH_SECRET ?? (val.NODE_ENV === "production" ? undefined : DEV_AUTH_SECRET),
   }))
   .refine(
     (val) => typeof val.BETTER_AUTH_SECRET === "string" && val.BETTER_AUTH_SECRET.length > 0,
     {
       message: "BETTER_AUTH_SECRET is required in production",
-      path: ["BETTER_AUTH_SECRET"]
-    }
+      path: ["BETTER_AUTH_SECRET"],
+    },
   );
 
 export type WebEnv = z.output<typeof webEnvSchema>;

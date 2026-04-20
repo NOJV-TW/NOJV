@@ -18,12 +18,12 @@ export async function updateUserStats(submission: {
   // key is (userId, date) so callers must pre-truncate.
   const now = new Date();
   const dateOnly = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
 
   await userDailyActivityRepo.increment({
     userId: submission.userId,
     date: dateOnly,
-    isAc
+    isAc,
   });
 }

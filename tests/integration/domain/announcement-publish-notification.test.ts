@@ -26,7 +26,7 @@ describe("announcement publish fan-out", () => {
       title: "Welcome to the platform",
       content: "Hello world",
       pinned: false,
-      published: true
+      published: true,
     });
 
     for (const user of users) {
@@ -53,7 +53,7 @@ describe("announcement publish fan-out", () => {
       title: "Work in progress",
       content: "Not yet",
       pinned: false,
-      published: false
+      published: false,
     });
 
     for (const user of users) {
@@ -69,7 +69,7 @@ describe("announcement publish fan-out", () => {
       title: "Coming soon",
       content: "Stay tuned",
       pinned: false,
-      published: false
+      published: false,
     });
     for (const user of users) {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(0);
@@ -79,7 +79,7 @@ describe("announcement publish fan-out", () => {
       title: "Coming soon",
       content: "Stay tuned",
       pinned: false,
-      published: true
+      published: true,
     });
 
     for (const user of users) {
@@ -94,7 +94,7 @@ describe("announcement publish fan-out", () => {
       title: "Hello",
       content: "World",
       pinned: false,
-      published: true
+      published: true,
     });
     for (const user of users) {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(1);
@@ -105,7 +105,7 @@ describe("announcement publish fan-out", () => {
       title: "Hello (edited)",
       content: "World",
       pinned: false,
-      published: true
+      published: true,
     });
 
     for (const user of users) {
@@ -122,7 +122,7 @@ describe("announcement publish fan-out", () => {
       title: "Active only",
       content: "x",
       pinned: false,
-      published: true
+      published: true,
     });
 
     expect(await countNotificationsByType(active.id, "announcement_published")).toBe(1);
@@ -137,7 +137,7 @@ describe("announcement publish fan-out", () => {
       title: "Toggle title",
       content: "x",
       pinned: false,
-      published: false
+      published: false,
     });
     for (const user of users) {
       expect(await countNotificationsByType(user.id, "announcement_published")).toBe(0);

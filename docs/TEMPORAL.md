@@ -160,7 +160,7 @@ const client = await getTemporalClient();
 await client.workflow.start("submissionJudgeWorkflow", {
   taskQueue: JUDGE_TASK_QUEUE,
   workflowId: `judge-${submissionId}`,
-  args: [{ submissionId, draft }]
+  args: [{ submissionId, draft }],
 });
 ```
 

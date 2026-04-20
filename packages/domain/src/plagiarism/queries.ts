@@ -4,7 +4,7 @@ import {
   plagiarismRepo,
   assessmentProblemRepo,
   submissionRepo,
-  type PlagiarismReportSummary
+  type PlagiarismReportSummary,
 } from "@nojv/db";
 
 import { toJsonValue } from "../shared/to-json-value";
@@ -20,11 +20,11 @@ export interface PlagiarismSubmission {
 }
 
 export async function fetchSubmissionsForCheck(
-  target: PlagiarismTarget
+  target: PlagiarismTarget,
 ): Promise<PlagiarismSubmission[]> {
   return submissionRepo.findForPlagiarism({
     ...plagiarismTargetFilter(target),
-    status: "accepted"
+    status: "accepted",
   });
 }
 
@@ -34,7 +34,7 @@ type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 // `plagiarism*` columns — the parent id IS the report identity.
 async function writePlagiarismFields(
   target: PlagiarismTarget,
-  input: Parameters<typeof plagiarismRepo.upsertForExam>[1]
+  input: Parameters<typeof plagiarismRepo.upsertForExam>[1],
 ): Promise<void> {
   if (target.type === "exam") {
     await plagiarismRepo.upsertForExam(target.id, input);
@@ -45,7 +45,7 @@ async function writePlagiarismFields(
 
 export async function updateReportStatus(
   target: PlagiarismTarget,
-  status: PlagiarismReportStatus
+  status: PlagiarismReportStatus,
 ): Promise<void> {
   await writePlagiarismFields(target, { status });
 }
@@ -53,20 +53,20 @@ export async function updateReportStatus(
 export async function saveResults(
   target: PlagiarismTarget,
   results: PlagiarismResults,
-  mossReportUrl: string | null
+  mossReportUrl: string | null,
 ): Promise<void> {
   await writePlagiarismFields(target, {
     status: "completed",
     results: toJsonValue(results),
     mossReportUrl,
-    completedAt: new Date()
+    completedAt: new Date(),
   });
 }
 
 export async function markReportFailed(target: PlagiarismTarget): Promise<void> {
   await writePlagiarismFields(target, {
     status: "failed",
-    completedAt: new Date()
+    completedAt: new Date(),
   });
 }
 
@@ -92,7 +92,7 @@ export class PlagiarismForbiddenError extends Error {
 // `type` accepts both "exam" and legacy "contest" for backwards compat.
 export async function resolvePlagiarismTarget(
   assessmentId: string,
-  type: string | null
+  type: string | null,
 ): Promise<ResolvedPlagiarismTarget> {
   if (type === "exam" || type === "contest") {
     const exam = await examRepo.findByIdWithCourse(assessmentId);
@@ -104,13 +104,13 @@ export async function resolvePlagiarismTarget(
   if (!assessment) throw new PlagiarismNotFoundError("Assessment not found.");
   return {
     courseId: assessment.course.id,
-    target: { id: assessment.id, type: "courseAssessment" }
+    target: { id: assessment.id, type: "courseAssessment" },
   };
 }
 
 export async function createPlagiarismReport(
   target: PlagiarismTarget,
-  triggeredById: string
+  triggeredById: string,
 ): Promise<PlagiarismReportSummary> {
   await writePlagiarismFields(target, {
     status: "pending",
@@ -118,7 +118,7 @@ export async function createPlagiarismReport(
     triggeredAt: new Date(),
     results: null,
     mossReportUrl: null,
-    completedAt: null
+    completedAt: null,
   });
   const summary = await findPlagiarismReport(target);
   if (!summary) {
@@ -128,7 +128,7 @@ export async function createPlagiarismReport(
 }
 
 export async function findPlagiarismReport(
-  target: PlagiarismTarget
+  target: PlagiarismTarget,
 ): Promise<PlagiarismReportSummary | null> {
   if (target.type === "courseAssessment") {
     return plagiarismRepo.findByAssessmentId(target.id);
@@ -139,17 +139,17 @@ export async function findPlagiarismReport(
 export async function getPlagiarismSourceCode(
   target: PlagiarismTarget,
   userId: string,
-  problemId: string
+  problemId: string,
 ) {
   const submission = await submissionRepo.findMany({
     where: {
       ...plagiarismTargetFilter(target),
       problemId,
-      userId
+      userId,
     },
     orderBy: { score: "desc" },
     select: { sourceCode: true },
-    take: 1
+    take: 1,
   });
   return submission[0]?.sourceCode ?? null;
 }
@@ -157,7 +157,7 @@ export async function getPlagiarismSourceCode(
 // Returns 0 or 1 reports as an array so the route layer can keep its existing
 // list-style UI loop without a special empty-state branch.
 export async function listAssessmentPlagiarismReports(
-  assessmentId: string
+  assessmentId: string,
 ): Promise<PlagiarismReportSummary[]> {
   const report = await plagiarismRepo.findByAssessmentId(assessmentId);
   return report ? [report] : [];
@@ -168,7 +168,7 @@ export async function getAssessmentProblemMap(assessmentId: string) {
   return Object.fromEntries(
     assessmentProblems.map((ap) => [
       ap.problemId,
-      { id: ap.problem.id, title: ap.problem.title }
-    ])
+      { id: ap.problem.id, title: ap.problem.title },
+    ]),
   );
 }

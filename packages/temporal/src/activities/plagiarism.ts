@@ -27,7 +27,7 @@ const MOSS_LANGUAGE_MAP: Record<string, string> = {
   javascript: "javascript",
   python: "python",
   rust: "c",
-  typescript: "javascript"
+  typescript: "javascript",
 };
 
 function getMossLanguage(nojvLanguage: string): string | null {
@@ -43,7 +43,7 @@ function extensionForLang(language: string): string {
     javascript: "js",
     python: "py",
     rust: "rs",
-    typescript: "ts"
+    typescript: "ts",
   };
   return map[language] ?? "txt";
 }
@@ -52,7 +52,7 @@ function submitToMoss(
   userId: string,
   language: string,
   files: MossFile[],
-  maxMatches = 250
+  maxMatches = 250,
 ): Promise<MossResult> {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
@@ -96,7 +96,7 @@ function submitToMoss(
             fileIndex++;
             const size = Buffer.byteLength(file.content, "utf8");
             socket.write(
-              `file ${String(fileIndex)} ${language} ${String(size)} ${file.displayName}\n`
+              `file ${String(fileIndex)} ${language} ${String(size)} ${file.displayName}\n`,
             );
             socket.write(file.content);
           }
@@ -131,7 +131,7 @@ function submitToMoss(
 
 export async function runPlagiarismCheck(
   targetId: string,
-  targetType: PlagiarismTargetType
+  targetType: PlagiarismTargetType,
 ): Promise<void> {
   // Plagiarism state lives inline on `Contest` / `CourseAssessment`,
   // so the `(targetType, targetId)` tuple IS the report identity.
@@ -186,7 +186,7 @@ export async function runPlagiarismCheck(
       if (mossUserId) {
         const files: MossFile[] = group.subs.map((sub) => ({
           content: sub.sourceCode,
-          displayName: `${sub.userId}_${sub.problemId}.${extensionForLang(sub.language)}`
+          displayName: `${sub.userId}_${sub.problemId}.${extensionForLang(sub.language)}`,
         }));
 
         try {
@@ -198,7 +198,7 @@ export async function runPlagiarismCheck(
             problemId: group.problemId,
             mossLang: group.mossLang,
             submissions: group.subs.length,
-            err: err instanceof Error ? err.message : String(err)
+            err: err instanceof Error ? err.message : String(err),
           });
           continue;
         }
@@ -221,7 +221,7 @@ export async function runPlagiarismCheck(
             similarity1: 0,
             similarity2: 0,
             userId1: a.userId,
-            userId2: b.userId
+            userId2: b.userId,
           });
         }
       }
@@ -234,7 +234,7 @@ export async function runPlagiarismCheck(
         targetType: target.type,
         targetId: target.id,
         originalErr: err instanceof Error ? err.message : String(err),
-        markErr: markErr instanceof Error ? markErr.message : String(markErr)
+        markErr: markErr instanceof Error ? markErr.message : String(markErr),
       });
     });
 

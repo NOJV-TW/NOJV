@@ -76,7 +76,7 @@ function projectClarificationForViewer(clar, viewer) {
   return {
     ...clar,
     askedBy: canSeeAuthor ? clar.askedBy : null, // null → frontend renders "anonymous"
-    askedByUserId: canSeeAuthor ? clar.askedByUserId : null
+    askedByUserId: canSeeAuthor ? clar.askedByUserId : null,
   };
 }
 ```

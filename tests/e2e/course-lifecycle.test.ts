@@ -21,9 +21,9 @@ test.describe("Course Lifecycle", () => {
         title: COURSE_TITLE,
         slug: COURSE_SLUG,
         description: "Automated E2E test course for lifecycle verification.",
-        locale: "en"
+        locale: "en",
       },
-      headers: { origin: "http://localhost:5173" }
+      headers: { origin: "http://localhost:5173" },
     });
 
     const body = await res.json();

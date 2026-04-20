@@ -14,13 +14,13 @@ export const load: PageServerLoad = async (event) => {
 
   const [scoreboard, chart] = await Promise.all([
     getScoreboard(contestId, { isPrivileged: canUnfreeze }),
-    getScoreboardChart(contestId, 10)
+    getScoreboardChart(contestId, 10),
   ]);
 
   return {
     canUnfreeze,
     chart,
     contestId,
-    scoreboard
+    scoreboard,
   };
 };

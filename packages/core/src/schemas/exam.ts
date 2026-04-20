@@ -6,7 +6,7 @@ import {
   ipLockFormFields,
   isoDateTimeSchema,
   languageSchema,
-  scoreboardModeSchema
+  scoreboardModeSchema,
 } from "../types";
 
 // `published` schedules the auto-close workflow so sessions hard-stop at `endsAt`.
@@ -29,15 +29,15 @@ const examCreateBaseSchema = z.object({
   status: examPublishStatusSchema.default("draft"),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
   summary: z.string().trim().max(4_000).optional(),
-  title: z.string().trim().min(3).max(120)
+  title: z.string().trim().min(3).max(120),
 });
 
 export const examCreateSchema = examCreateBaseSchema.refine(
   (value) => new Date(value.endsAt) > new Date(value.startsAt),
   {
     message: "endsAt must be later than startsAt",
-    path: ["endsAt"]
-  }
+    path: ["endsAt"],
+  },
 );
 
 export const examUpdateSchema = examCreateBaseSchema.partial();
@@ -61,7 +61,7 @@ export const examSettingsFormSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   submitCooldownSec: z.coerce.number().int().min(0).max(600).default(0),
   pageLockEnabled: z.boolean().default(false),
-  ...ipLockFormFields
+  ...ipLockFormFields,
 });
 
 export type ExamSettingsForm = z.infer<typeof examSettingsFormSchema>;

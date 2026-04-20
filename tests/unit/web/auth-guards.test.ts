@@ -5,7 +5,7 @@ import {
   ForbiddenError,
   isCourseStaff,
   requirePlatformRole,
-  resolveCoursePermissionRole
+  resolveCoursePermissionRole,
 } from "$lib/server/auth";
 
 import type { ActorContext } from "$lib/server/auth";
@@ -17,7 +17,7 @@ function makeActor(overrides: Partial<ActorContext> = {}): ActorContext {
     username: "testuser",
     platformRole: "student",
     userId: "user-1",
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -46,25 +46,25 @@ describe("requirePlatformRole", () => {
 describe("resolveCoursePermissionRole", () => {
   it('returns "admin" when platformRole is admin regardless of courseRole', () => {
     expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: "student" })).toBe(
-      "admin"
+      "admin",
     );
     expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: null })).toBe(
-      "admin"
+      "admin",
     );
   });
 
   it("returns courseRole when platformRole is not admin and courseRole exists", () => {
     expect(
-      resolveCoursePermissionRole({ platformRole: "teacher", courseRole: "teacher" })
+      resolveCoursePermissionRole({ platformRole: "teacher", courseRole: "teacher" }),
     ).toBe("teacher");
     expect(resolveCoursePermissionRole({ platformRole: "student", courseRole: "ta" })).toBe(
-      "ta"
+      "ta",
     );
   });
 
   it("returns null when platformRole is not admin and courseRole is null", () => {
     expect(
-      resolveCoursePermissionRole({ platformRole: "student", courseRole: null })
+      resolveCoursePermissionRole({ platformRole: "student", courseRole: null }),
     ).toBeNull();
   });
 

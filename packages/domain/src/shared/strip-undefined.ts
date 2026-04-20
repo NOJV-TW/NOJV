@@ -4,7 +4,7 @@
  * The return type marks every key as optional since stripped keys are omitted.
  */
 export function stripUndefined<T extends Record<string, unknown>>(
-  obj: T
+  obj: T,
 ): Partial<{ [K in keyof T]: Exclude<T[K], undefined> }> {
   const out: Partial<Record<keyof T, unknown>> = {};
   for (const [key, value] of Object.entries(obj)) {

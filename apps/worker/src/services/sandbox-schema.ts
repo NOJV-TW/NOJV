@@ -9,7 +9,7 @@ const sandboxTestcaseResultSchema = z.object({
   exitCode: z.number(),
   timeMs: z.number(),
   score: z.number().optional(),
-  feedback: z.string().optional()
+  feedback: z.string().optional(),
 });
 
 const rawSchema = z.object({
@@ -17,11 +17,11 @@ const rawSchema = z.object({
   pipelineError: z.string().optional(),
   testcaseResults: z.array(sandboxTestcaseResultSchema),
   customScore: z.number().optional(),
-  scoringFeedback: z.string().optional()
+  scoringFeedback: z.string().optional(),
 });
 
 export function parseSandboxResult(
-  data: unknown
+  data: unknown,
 ): { success: true; data: SandboxResult } | { success: false } {
   const result = rawSchema.safeParse(data);
   if (!result.success) return { success: false };

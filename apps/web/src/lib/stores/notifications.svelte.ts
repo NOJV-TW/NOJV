@@ -48,9 +48,9 @@ class NotificationsStore {
         params: (payload.params ?? {}) as Record<string, unknown>,
         linkUrl: payload.linkUrl,
         readAt: null,
-        createdAt: payload.createdAt
+        createdAt: payload.createdAt,
       },
-      ...this.items
+      ...this.items,
     ].slice(0, 20);
     this.unreadCount += 1;
     this.triggerShake();

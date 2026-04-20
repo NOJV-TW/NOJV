@@ -256,8 +256,8 @@ const dolos = new Dolos({ language: group.language });
 const report = await dolos.analyze(
   group.subs.map((sub) => ({
     path: `${sub.userId}.${extensionForLang(group.language)}`,
-    content: sub.sourceCode
-  }))
+    content: sub.sourceCode,
+  })),
 );
 
 for (const pair of report.pairs) {
@@ -267,7 +267,7 @@ for (const pair of report.pairs) {
     userId2: pair.rightFile.path.replace(/\..+$/, ""),
     similarity: Math.round(pair.similarity * 100),
     longestFragment: pair.longestFragment,
-    totalOverlap: pair.totalOverlapTokens
+    totalOverlap: pair.totalOverlapTokens,
   });
 }
 ```
@@ -327,7 +327,7 @@ tree-sitter parsers. Example:
 ```ts
 const { analyze } = vi.hoisted(() => ({ analyze: vi.fn() }));
 vi.mock("@dodona/dolos-lib", () => ({
-  Dolos: vi.fn(() => ({ analyze }))
+  Dolos: vi.fn(() => ({ analyze })),
 }));
 ```
 

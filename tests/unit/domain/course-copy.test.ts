@@ -15,7 +15,7 @@ const {
   assessmentProblemCreate,
   examListWithProblems,
   examCreate,
-  examProblemCreate
+  examProblemCreate,
 } = vi.hoisted(() => ({
   courseFindById: vi.fn(),
   courseCreate: vi.fn(),
@@ -29,7 +29,7 @@ const {
   assessmentProblemCreate: vi.fn(),
   examListWithProblems: vi.fn(),
   examCreate: vi.fn(),
-  examProblemCreate: vi.fn()
+  examProblemCreate: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -39,55 +39,55 @@ vi.mock("@nojv/db", () => {
         findById: courseFindById,
         create: courseCreate,
         update: vi.fn(),
-        delete: vi.fn()
-      })
+        delete: vi.fn(),
+      }),
     },
     courseMembershipRepo: {
       withTx: () => ({
         findByComposite: membershipFindByComposite,
         create: membershipCreate,
-        upsert: vi.fn()
-      })
+        upsert: vi.fn(),
+      }),
     },
     userRepo: {
       withTx: () => ({
         findById: userFindById,
         create: userCreate,
-        update: userUpdate
-      })
+        update: userUpdate,
+      }),
     },
     assessmentRepo: {
       withTx: () => ({
         listByCourseIdAllWithProblems: assessmentListWithProblems,
         findByCompositeId: vi.fn(),
-        create: assessmentCreate
-      })
+        create: assessmentCreate,
+      }),
     },
     assessmentProblemRepo: {
       withTx: () => ({
-        create: assessmentProblemCreate
-      })
+        create: assessmentProblemCreate,
+      }),
     },
     examRepo: {
       withTx: () => ({
         findById: vi.fn(),
         listByCourseIdAllWithProblems: examListWithProblems,
         create: examCreate,
-        update: vi.fn()
-      })
+        update: vi.fn(),
+      }),
     },
     examProblemRepo: {
       withTx: () => ({
         create: examProblemCreate,
-        deleteByExamId: vi.fn()
-      })
+        deleteByExamId: vi.fn(),
+      }),
     },
     // `ensureUser` calls `problemRepo` transitively nowhere in this flow,
     // but the mutations.ts module top-level imports it so it has to resolve.
     problemRepo: {
-      withTx: () => ({})
+      withTx: () => ({}),
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({})
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
 });
 
@@ -100,7 +100,7 @@ const teacherActor = {
   username: "teacher",
   platformRole: "teacher" as const,
   displayName: "Mx Teacher",
-  email: "teacher@example.com"
+  email: "teacher@example.com",
 };
 
 const studentActor = {
@@ -108,7 +108,7 @@ const studentActor = {
   username: "student",
   platformRole: "user" as const,
   displayName: "Student One",
-  email: "student@example.com"
+  email: "student@example.com",
 };
 
 const adminActor = {
@@ -116,7 +116,7 @@ const adminActor = {
   username: "admin",
   platformRole: "admin" as const,
   displayName: "Admin",
-  email: "admin@example.com"
+  email: "admin@example.com",
 };
 
 const sourceCourse = {
@@ -126,7 +126,7 @@ const sourceCourse = {
   ownerId: "usr_teacher",
   archived: false,
   createdAt: new Date("2025-09-01T00:00:00Z"),
-  updatedAt: new Date("2025-09-01T00:00:00Z")
+  updatedAt: new Date("2025-09-01T00:00:00Z"),
 };
 
 // A single assessment with two problems.
@@ -145,8 +145,8 @@ const assessmentRow = {
   plagiarismStatus: null,
   problems: [
     { problemId: "prob_a", ordinal: 1, points: 100 },
-    { problemId: "prob_b", ordinal: 2, points: 200 }
-  ]
+    { problemId: "prob_b", ordinal: 2, points: 200 },
+  ],
 };
 
 // A single exam exercising every proctoring field so we catch drops.
@@ -167,7 +167,7 @@ const examRow = {
   ipBindingEnabled: false,
   ipWhitelist: ["10.0.0.0/8"],
   ipViolationMode: "block" as const,
-  problems: [{ problemId: "prob_c", ordinal: 1, points: 150 }]
+  problems: [{ problemId: "prob_c", ordinal: 1, points: 150 }],
 };
 
 function primeSuccessPath() {
@@ -177,7 +177,7 @@ function primeSuccessPath() {
     userId: teacherActor.userId,
     courseId: sourceCourse.id,
     role: "teacher",
-    status: "active"
+    status: "active",
   });
   // ensureUser finds the existing row and issues an update because the
   // ActorContext carries displayName/email/username/platformRole.
@@ -186,14 +186,14 @@ function primeSuccessPath() {
     username: teacherActor.username,
     email: teacherActor.email,
     name: teacherActor.displayName,
-    platformRole: teacherActor.platformRole
+    platformRole: teacherActor.platformRole,
   });
   userUpdate.mockResolvedValue({
     id: teacherActor.userId,
     username: teacherActor.username,
     email: teacherActor.email,
     name: teacherActor.displayName,
-    platformRole: teacherActor.platformRole
+    platformRole: teacherActor.platformRole,
   });
   courseCreate.mockResolvedValue({ id: "course_new", title: "Algorithms 101 (copy)" });
   membershipCreate.mockResolvedValue(undefined);
@@ -260,7 +260,7 @@ describe("copyCourse — happy path", () => {
     const calls = assessmentProblemCreate.mock.calls.map((c) => c[0]);
     expect(calls).toEqual([
       { assessmentId: "asm_new", ordinal: 1, points: 100, problemId: "prob_a" },
-      { assessmentId: "asm_new", ordinal: 2, points: 200, problemId: "prob_b" }
+      { assessmentId: "asm_new", ordinal: 2, points: 200, problemId: "prob_b" },
     ]);
   });
 
@@ -305,14 +305,14 @@ describe("copyCourse — happy path", () => {
       username: adminActor.username,
       email: adminActor.email,
       name: adminActor.displayName,
-      platformRole: adminActor.platformRole
+      platformRole: adminActor.platformRole,
     });
     userUpdate.mockResolvedValue({
       id: adminActor.userId,
       username: adminActor.username,
       email: adminActor.email,
       name: adminActor.displayName,
-      platformRole: adminActor.platformRole
+      platformRole: adminActor.platformRole,
     });
 
     const result = await copyCourse(adminActor, sourceCourse.id);
@@ -333,7 +333,7 @@ describe("copyCourse — authorization", () => {
       userId: studentActor.userId,
       courseId: sourceCourse.id,
       role: "student",
-      status: "active"
+      status: "active",
     });
 
     await expect(copyCourse(studentActor, sourceCourse.id)).rejects.toThrow(ForbiddenError);
@@ -354,7 +354,7 @@ describe("copyCourse — authorization", () => {
       userId: teacherActor.userId,
       courseId: sourceCourse.id,
       role: "teacher",
-      status: "removed"
+      status: "removed",
     });
 
     await expect(copyCourse(teacherActor, sourceCourse.id)).rejects.toThrow(ForbiddenError);
