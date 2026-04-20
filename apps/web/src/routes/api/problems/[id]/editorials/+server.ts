@@ -20,14 +20,18 @@ const editorialSubmitSchema = z.object({
 // the same problemId, and hasUserAcProblem is a count query that safely
 // returns false for an unknown problem. Fire them in parallel; the
 // NotFoundError still takes precedence over the ForbiddenError.
-async function requireProblemWithAc(userId: string, problemId: string) {
+async function requireProblemWithAc(
+  userId: string,
+  problemId: string,
+  acError = "Solve this problem first to view editorials."
+) {
   const [problem, ac] = await Promise.all([
     problemRepo.findById(problemId),
     hasUserAcProblem(userId, problemId)
   ]);
 
   if (!problem) throw new NotFoundError("Problem not found.");
-  if (!ac) throw new ForbiddenError("Solve this problem first to view editorials.");
+  if (!ac) throw new ForbiddenError(acError);
 
   return problem;
 }
@@ -54,7 +58,11 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing problem ID." }, { status: 400 });
 
-  const problem = await requireProblemWithAc(actor.userId, id);
+  const problem = await requireProblemWithAc(
+    actor.userId,
+    id,
+    "Solve this problem first to post an editorial."
+  );
   const payload = editorialSubmitSchema.parse(await event.request.json());
 
   const editorial = await upsertEditorial(

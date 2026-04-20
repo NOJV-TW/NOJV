@@ -82,7 +82,6 @@
 - Activity chart (daily submission history)
 - Language distribution statistics
 - Difficulty distribution statistics
-- Problem-solving recommendations
 
 ### Authentication
 

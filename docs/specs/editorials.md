@@ -77,9 +77,10 @@ answer." Content is markdown, rendered through the shared
 
 - GIVEN a student without AC on P,
   WHEN they POST an editorial,
-  THEN the same `ForbiddenError("Solve this problem first to view editorials.")`
-  fires (the gate helper is shared between GET and POST — the error
-  string intentionally says "view" even on the write path).
+  THEN `ForbiddenError("Solve this problem first to post an editorial.")`
+  fires. The shared `requireProblemWithAc` helper takes an optional
+  error-message override so the GET and POST paths can report
+  action-appropriate copy while reusing the same gate.
 
 ### Payload validation
 
@@ -217,6 +218,3 @@ answer." Content is markdown, rendered through the shared
 - Visibility loss after mass rejudge: if a problem's test cases change
   and the viewer's AC is overturned, their editorial list access
   silently disappears. No mitigation today.
-- Error string "Solve this problem first to view editorials." is shown
-  on the POST path too — a minor copy nit (should probably say "to post
-  an editorial" on writes).
