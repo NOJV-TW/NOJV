@@ -16,7 +16,7 @@ async function buildActor(overrides: ActorOverrides = {}) {
     username: user.username ?? user.id,
     displayName: user.name,
     email: user.email,
-    platformRole: user.platformRole
+    platformRole: user.platformRole,
   };
 }
 
@@ -30,7 +30,7 @@ describe("manuallyEnrollCourseMember notifications", () => {
       displayName: "Alice Student",
       email: "alice@test.local",
       username: "alice",
-      role: "student"
+      role: "student",
     });
 
     const rows = await notificationRepo.listRecent(membership.userId, 10);
@@ -52,7 +52,7 @@ describe("manuallyEnrollCourseMember notifications", () => {
       displayName: "Ted Teacher",
       email: "ted@test.local",
       username: "ted",
-      role: "teacher"
+      role: "teacher",
     });
 
     const rows = await notificationRepo.listRecent(membership.userId, 10);
@@ -68,7 +68,7 @@ describe("manuallyEnrollCourseMember notifications", () => {
       displayName: "Tara TA",
       email: "tara@test.local",
       username: "tara",
-      role: "ta"
+      role: "ta",
     });
 
     const rows = await notificationRepo.listRecent(membership.userId, 10);

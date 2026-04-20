@@ -3,7 +3,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
-  DeleteObjectsCommand
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 
@@ -23,8 +23,8 @@ export async function putText(client: S3Client, key: string, content: string): P
       Key: key,
       Body: body,
       ContentLength: body.byteLength,
-      ContentType: TEXT_CONTENT_TYPE
-    })
+      ContentType: TEXT_CONTENT_TYPE,
+    }),
   );
 }
 
@@ -32,8 +32,8 @@ export async function getText(client: S3Client, key: string): Promise<string> {
   const response = await client.send(
     new GetObjectCommand({
       Bucket: BUCKET,
-      Key: key
-    })
+      Key: key,
+    }),
   );
   const body = response.Body;
   if (!body) {
@@ -50,8 +50,8 @@ export async function deleteBlob(client: S3Client, key: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
       Bucket: BUCKET,
-      Key: key
-    })
+      Key: key,
+    }),
   );
 }
 
@@ -67,8 +67,8 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
       new ListObjectsV2Command({
         Bucket: BUCKET,
         Prefix: prefix,
-        ContinuationToken: continuationToken
-      })
+        ContinuationToken: continuationToken,
+      }),
     );
 
     const contents = listResponse.Contents ?? [];
@@ -83,9 +83,9 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
           Bucket: BUCKET,
           Delete: {
             Objects: batch.map((key) => ({ Key: key })),
-            Quiet: true
-          }
-        })
+            Quiet: true,
+          },
+        }),
       );
     }
 

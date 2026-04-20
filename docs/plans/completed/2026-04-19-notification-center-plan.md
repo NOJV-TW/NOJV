@@ -168,7 +168,7 @@ export const notificationRepo = {
     return prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: limit
+      take: limit,
     });
   },
 
@@ -184,8 +184,8 @@ export const notificationRepo = {
           userId: input.userId,
           type: input.type,
           params: input.params,
-          linkUrl: input.linkUrl ?? null
-        }
+          linkUrl: input.linkUrl ?? null,
+        },
       });
 
       // Delete anything beyond the retention cap for this user.
@@ -212,8 +212,8 @@ export const notificationRepo = {
         userId: i.userId,
         type: i.type,
         params: i.params as Prisma.InputJsonValue,
-        linkUrl: i.linkUrl ?? null
-      }))
+        linkUrl: i.linkUrl ?? null,
+      })),
     });
 
     // Capped cleanup is best-effort for batches: one pass per distinct userId.
@@ -236,7 +236,7 @@ export const notificationRepo = {
   async markRead(userId: string, notificationId: string) {
     const row = await prisma.notification.updateMany({
       where: { id: notificationId, userId, readAt: null },
-      data: { readAt: new Date() }
+      data: { readAt: new Date() },
     });
     return row.count;
   },
@@ -244,10 +244,10 @@ export const notificationRepo = {
   async markAllRead(userId: string) {
     const row = await prisma.notification.updateMany({
       where: { userId, readAt: null },
-      data: { readAt: new Date() }
+      data: { readAt: new Date() },
     });
     return row.count;
-  }
+  },
 };
 ```
 
@@ -344,7 +344,7 @@ describe("notificationDomain.createNotification", () => {
       userId: user.id,
       type: "course_enrolled",
       params: { courseSlug: "algo-101", courseName: "Algorithms" },
-      linkUrl: "/courses/algo-101"
+      linkUrl: "/courses/algo-101",
     });
     expect(row.userId).toBe(user.id);
     expect(row.type).toBe("course_enrolled");
@@ -357,7 +357,7 @@ describe("notificationDomain.createNotification", () => {
       await notificationDomain.createNotification({
         userId: user.id,
         type: "announcement_published",
-        params: { announcementId: `a${i}`, titleEn: `t${i}`, titleZhTw: `t${i}` }
+        params: { announcementId: `a${i}`, titleEn: `t${i}`, titleZhTw: `t${i}` },
       });
     }
     const rows = await notificationRepo.listRecent(user.id, 100);
@@ -420,7 +420,7 @@ function toSseEvent(row: {
     notificationType: row.type,
     params: row.params,
     linkUrl: row.linkUrl,
-    createdAt: row.createdAt.toISOString()
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -429,7 +429,7 @@ export async function createNotification(input: CreateNotificationInput) {
   try {
     await getRedis().publish(
       keys.notificationChannel(input.userId),
-      JSON.stringify(toSseEvent(row))
+      JSON.stringify(toSseEvent(row)),
     );
   } catch {
     // Best-effort; SSE delivery is eventually-consistent with the DB.
@@ -460,10 +460,10 @@ export async function createNotificationBatch(inputs: CreateNotificationInput[])
             type: SSE_NOTIFICATION,
             notificationType: input.type,
             params: input.params,
-            linkUrl: input.linkUrl ?? null
+            linkUrl: input.linkUrl ?? null,
             // id + createdAt are omitted on batch publish — clients refetch
             // /api/notifications/recent when they see a batch signal without id
-          })
+          }),
         );
       } catch {
         /* best-effort */
@@ -545,7 +545,7 @@ describe("notification publish", () => {
     await notificationDomain.createNotification({
       userId: user.id,
       type: "course_enrolled",
-      params: { courseSlug: "x", courseName: "X" }
+      params: { courseSlug: "x", courseName: "X" },
     });
 
     // Wait up to 1s for the message to arrive.
@@ -600,7 +600,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const limit = Number.isFinite(limitParam) ? limitParam : 20;
   const [items, unreadCount] = await Promise.all([
     notificationDomain.listRecent(actor.userId, limit),
-    notificationDomain.countUnread(actor.userId)
+    notificationDomain.countUnread(actor.userId),
   ]);
   return json({ items, unreadCount });
 });
@@ -757,7 +757,7 @@ describe("manuallyEnrollCourseMember emits notification", () => {
       /* actor */ { userId: teacher.id, platformRole: "teacher" /* fill remaining */ } as any,
       course.id,
       student.id,
-      "student"
+      "student",
     );
 
     const rows = await notificationRepo.listRecent(student.id, 10);
@@ -783,7 +783,7 @@ await notificationDomain.createNotification({
   userId: targetUserId,
   type: "course_enrolled",
   params: { courseSlug: course.slug, courseName: course.name },
-  linkUrl: `/courses/${course.slug}`
+  linkUrl: `/courses/${course.slug}`,
 });
 ```
 
@@ -874,9 +874,9 @@ export async function fanoutAssignmentDueSoon(assessmentId: string) {
       courseSlug: assessment.courseSlug,
       assessmentSlug: assessment.slug,
       title: assessment.title,
-      dueAt: assessment.closesAt!.toISOString()
+      dueAt: assessment.closesAt!.toISOString(),
     },
-    linkUrl: `/courses/${assessment.courseSlug}/assignments/${assessment.slug}`
+    linkUrl: `/courses/${assessment.courseSlug}/assignments/${assessment.slug}`,
   }));
   await notificationDomain.createNotificationBatch(inputs);
 }
@@ -970,9 +970,9 @@ class NotificationsStore {
         params: (payload.params ?? {}) as Record<string, unknown>,
         linkUrl: payload.linkUrl,
         readAt: null,
-        createdAt: payload.createdAt
+        createdAt: payload.createdAt,
       },
-      ...this.items
+      ...this.items,
     ].slice(0, 20);
     this.unreadCount += 1;
     this.triggerShake();

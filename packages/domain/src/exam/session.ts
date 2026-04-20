@@ -3,7 +3,7 @@ import {
   examRepo,
   examSessionRepo,
   runTransaction,
-  type Prisma
+  type Prisma,
 } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -39,7 +39,7 @@ export interface ActiveSessionContext {
 async function assertEnrolledInExamCourse(
   tx: Prisma.TransactionClient,
   userId: string,
-  examId: string
+  examId: string,
 ) {
   const exam = await examRepo.withTx(tx).findById(examId);
   if (!exam) {
@@ -48,7 +48,7 @@ async function assertEnrolledInExamCourse(
 
   const [membership, course] = await Promise.all([
     courseMembershipRepo.withTx(tx).findByComposite(exam.courseId, userId),
-    tx.course.findUnique({ where: { id: exam.courseId }, select: { archived: true } })
+    tx.course.findUnique({ where: { id: exam.courseId }, select: { archived: true } }),
   ]);
 
   if (membership?.status !== "active") {
@@ -82,13 +82,13 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
           startedAt: now,
           endedAt: null,
           releaseReason: null,
-          lastHeartbeatAt: now
+          lastHeartbeatAt: now,
         })
       : await examSessionRepo.withTx(tx).create({
           userId: actor.userId,
           examId,
           startedAt: now,
-          lastHeartbeatAt: now
+          lastHeartbeatAt: now,
         });
 
     await examSessionRepo.withTx(tx).recordEvent({ sessionId: session.id, eventType: "enter" });
@@ -99,7 +99,7 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
 
 export async function endSession(
   actor: ActorContext,
-  { examId, reason }: { examId: string; reason: ExamSessionReleaseReason }
+  { examId, reason }: { examId: string; reason: ExamSessionReleaseReason },
 ) {
   return runTransaction(async (tx) => {
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
@@ -112,13 +112,13 @@ export async function endSession(
 
     const updated = await examSessionRepo.withTx(tx).update(session.id, {
       endedAt: new Date(),
-      releaseReason: reason
+      releaseReason: reason,
     });
 
     await examSessionRepo.withTx(tx).recordEvent({
       sessionId: session.id,
       eventType: "release",
-      metadata: { reason }
+      metadata: { reason },
     });
 
     return updated;
@@ -131,12 +131,12 @@ export async function recordEvent(
   {
     examId,
     eventType,
-    metadata
+    metadata,
   }: {
     examId: string;
     eventType: ExamSessionEventType;
     metadata?: Prisma.InputJsonValue | null;
-  }
+  },
 ) {
   return runTransaction(async (tx) => {
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
@@ -150,7 +150,7 @@ export async function recordEvent(
     return examSessionRepo.withTx(tx).recordEvent({
       sessionId: session.id,
       eventType,
-      ...(metadata === undefined || metadata === null ? {} : { metadata })
+      ...(metadata === undefined || metadata === null ? {} : { metadata }),
     });
   });
 }
@@ -163,11 +163,11 @@ export async function heartbeat(userId: string, examId: string) {
     }
 
     await examSessionRepo.withTx(tx).update(session.id, {
-      lastHeartbeatAt: new Date()
+      lastHeartbeatAt: new Date(),
     });
     await examSessionRepo.withTx(tx).recordEvent({
       sessionId: session.id,
-      eventType: "heartbeat"
+      eventType: "heartbeat",
     });
 
     return session;
@@ -185,7 +185,7 @@ export async function autoCloseForExam(examId: string): Promise<{ closed: number
 }
 
 export async function getActiveSessionContext(
-  userId: string
+  userId: string,
 ): Promise<ActiveSessionContext | null> {
   const session = await examSessionRepo.findActiveForUser(userId);
   if (!session) return null;
@@ -193,7 +193,7 @@ export async function getActiveSessionContext(
   const exam = await examRepo.findByIdOrThrow(session.examId, {
     id: true,
     courseId: true,
-    title: true
+    title: true,
   });
 
   return {
@@ -201,16 +201,16 @@ export async function getActiveSessionContext(
       id: session.id,
       examId: session.examId,
       userId: session.userId,
-      startedAt: session.startedAt
+      startedAt: session.startedAt,
     },
     exam: {
       id: exam.id,
       courseId: exam.courseId,
-      title: exam.title
+      title: exam.title,
     },
     course: {
-      id: exam.courseId
-    }
+      id: exam.courseId,
+    },
   };
 }
 
@@ -252,7 +252,7 @@ export async function startSessionWithGate(
     examId: string;
     now?: Date;
     gracePeriodMs?: number;
-  }
+  },
 ): Promise<StartSessionResult> {
   const now = options.now ?? new Date();
   const grace = options.gracePeriodMs ?? START_GRACE_MS;
@@ -283,16 +283,16 @@ export async function startSessionWithGate(
       examId: session.examId,
       userId: session.userId,
       startedAt: session.startedAt,
-      endedAt: session.endedAt
+      endedAt: session.endedAt,
     },
     exam: { id: exam.id, endsAt: exam.endsAt },
-    created: !sameExamIdempotent
+    created: !sameExamIdempotent,
   };
 }
 
 export async function releaseSessionAsInstructor(
   actor: ActorContext,
-  { examId, targetUserId }: { examId: string; targetUserId: string }
+  { examId, targetUserId }: { examId: string; targetUserId: string },
 ) {
   return runTransaction(async (tx) => {
     const exam = await examRepo.withTx(tx).findById(examId);
@@ -317,7 +317,7 @@ export async function releaseSessionAsInstructor(
 
     const updated = await examSessionRepo.withTx(tx).update(session.id, {
       endedAt: new Date(),
-      releaseReason: "released_by_instructor"
+      releaseReason: "released_by_instructor",
     });
 
     await examSessionRepo.withTx(tx).recordEvent({
@@ -325,8 +325,8 @@ export async function releaseSessionAsInstructor(
       eventType: "release",
       metadata: {
         reason: "released_by_instructor",
-        endedByUserId: actor.userId
-      }
+        endedByUserId: actor.userId,
+      },
     });
 
     return updated;
@@ -337,7 +337,7 @@ export async function releaseSessionAsInstructor(
 export async function heartbeatWithThrottle(
   userId: string,
   examId: string,
-  options: { throttleMs?: number; now?: Date } = {}
+  options: { throttleMs?: number; now?: Date } = {},
 ): Promise<{ session: { id: string; lastHeartbeatAt: Date }; recordedEvent: boolean }> {
   const throttleMs = options.throttleMs ?? HEARTBEAT_EVENT_THROTTLE_MS;
   const now = options.now ?? new Date();
@@ -349,7 +349,7 @@ export async function heartbeatWithThrottle(
     }
 
     const updated = await examSessionRepo.withTx(tx).update(session.id, {
-      lastHeartbeatAt: now
+      lastHeartbeatAt: now,
     });
 
     const lastEvent = await examSessionRepo
@@ -362,13 +362,13 @@ export async function heartbeatWithThrottle(
     if (shouldRecord) {
       await examSessionRepo.withTx(tx).recordEvent({
         sessionId: session.id,
-        eventType: "heartbeat"
+        eventType: "heartbeat",
       });
     }
 
     return {
       session: { id: updated.id, lastHeartbeatAt: updated.lastHeartbeatAt },
-      recordedEvent: shouldRecord
+      recordedEvent: shouldRecord,
     };
   });
 }

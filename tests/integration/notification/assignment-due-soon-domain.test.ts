@@ -8,7 +8,7 @@ import {
   createTestProblem,
   createTestSubmission,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 // Notification is NOT in the shared TABLES list truncated by integration-setup,
@@ -35,14 +35,14 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
         summary: "Due soon test",
         status: "published",
         opensAt: new Date(Date.now() - 3600_000),
-        closesAt
-      }
+        closesAt,
+      },
     });
     await testPrisma.courseAssessmentProblem.createMany({
       data: [
         { assessmentId: assessment.id, problemId: problemA.id, ordinal: 1, points: 10 },
-        { assessmentId: assessment.id, problemId: problemB.id, ordinal: 2, points: 10 }
-      ]
+        { assessmentId: assessment.id, problemId: problemB.id, ordinal: 2, points: 10 },
+      ],
     });
 
     const studentA = await createTestUser({ platformRole: "student" });
@@ -54,8 +54,8 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
           courseId: course.id,
           userId: s.id,
           role: "student",
-          status: "active"
-        }
+          status: "active",
+        },
       });
     }
 
@@ -66,7 +66,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       courseId: course.id,
       courseAssessmentId: assessment.id,
       status: "accepted",
-      score: 10
+      score: 10,
     });
     await createTestSubmission({
       userId: studentA.id,
@@ -74,7 +74,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       courseId: course.id,
       courseAssessmentId: assessment.id,
       status: "accepted",
-      score: 10
+      score: 10,
     });
     // Student B partially scores (10 + 5 = 15).
     await createTestSubmission({
@@ -83,7 +83,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       courseId: course.id,
       courseAssessmentId: assessment.id,
       status: "accepted",
-      score: 10
+      score: 10,
     });
     await createTestSubmission({
       userId: studentB.id,
@@ -91,7 +91,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
       courseId: course.id,
       courseAssessmentId: assessment.id,
       status: "wrong_answer",
-      score: 5
+      score: 5,
     });
     // Student C makes no submissions (score 0).
 
@@ -125,7 +125,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     const course = await createTestCourse({ ownerId: teacher.id });
     const student = await createTestUser({ platformRole: "student" });
     await testPrisma.courseMembership.create({
-      data: { courseId: course.id, userId: student.id, role: "student", status: "active" }
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
     const assessment = await testPrisma.courseAssessment.create({
@@ -136,8 +136,8 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
         summary: "Closed already",
         status: "published",
         opensAt: new Date(Date.now() - 7 * 24 * 3600_000),
-        closesAt: new Date(Date.now() - 3600_000)
-      }
+        closesAt: new Date(Date.now() - 3600_000),
+      },
     });
 
     await notificationDomain.fanoutAssignmentDueSoon(assessment.id);
@@ -151,7 +151,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     const course = await createTestCourse({ ownerId: teacher.id });
     const student = await createTestUser({ platformRole: "student" });
     await testPrisma.courseMembership.create({
-      data: { courseId: course.id, userId: student.id, role: "student", status: "active" }
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
     });
 
     const assessment = await testPrisma.courseAssessment.create({
@@ -162,8 +162,8 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
         summary: "Not live yet",
         status: "draft",
         opensAt: new Date(Date.now() + 3600_000),
-        closesAt: new Date(Date.now() + 48 * 3600_000)
-      }
+        closesAt: new Date(Date.now() + 48 * 3600_000),
+      },
     });
 
     await notificationDomain.fanoutAssignmentDueSoon(assessment.id);

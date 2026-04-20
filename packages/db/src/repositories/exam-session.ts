@@ -8,20 +8,20 @@ export const examSessionRepo = {
   // Unique index is `(userId, examId)`; the `endedAt: null` filter is what makes "one active" safe.
   findActiveForUser(userId: string) {
     return prisma.activeExamSession.findFirst({
-      where: { userId, endedAt: null }
+      where: { userId, endedAt: null },
     });
   },
 
   findAllActiveForExam(examId: string) {
     return prisma.activeExamSession.findMany({
-      where: { examId, endedAt: null }
+      where: { examId, endedAt: null },
     });
   },
 
   // Idempotent: an unended row is returned untouched; an ended row is reopened by clearing `endedAt`.
   async startSession({ userId, examId }: { userId: string; examId: string }) {
     const existing = await prisma.activeExamSession.findUnique({
-      where: { userId_examId: { userId, examId } }
+      where: { userId_examId: { userId, examId } },
     });
 
     if (existing?.endedAt === null) {
@@ -36,8 +36,8 @@ export const examSessionRepo = {
           startedAt: now,
           endedAt: null,
           releaseReason: null,
-          lastHeartbeatAt: now
-        }
+          lastHeartbeatAt: now,
+        },
       });
     }
 
@@ -46,14 +46,14 @@ export const examSessionRepo = {
         userId,
         examId,
         startedAt: now,
-        lastHeartbeatAt: now
-      }
+        lastHeartbeatAt: now,
+      },
     });
   },
 
   async endSession({
     sessionId,
-    reason
+    reason,
   }: {
     sessionId: string;
     reason: "submitted" | "time_up" | "released_by_instructor";
@@ -62,8 +62,8 @@ export const examSessionRepo = {
       where: { id: sessionId },
       data: {
         endedAt: new Date(),
-        releaseReason: reason
-      }
+        releaseReason: reason,
+      },
     });
   },
 
@@ -71,14 +71,14 @@ export const examSessionRepo = {
   updateHeartbeat(sessionId: string) {
     return prisma.activeExamSession.update({
       where: { id: sessionId },
-      data: { lastHeartbeatAt: new Date() }
+      data: { lastHeartbeatAt: new Date() },
     });
   },
 
   recordEvent({
     sessionId,
     eventType,
-    metadata
+    metadata,
   }: {
     sessionId: string;
     eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat";
@@ -88,25 +88,25 @@ export const examSessionRepo = {
       data: {
         sessionId,
         eventType,
-        ...(metadata === undefined || metadata === null ? {} : { metadata })
-      }
+        ...(metadata === undefined || metadata === null ? {} : { metadata }),
+      },
     });
   },
 
   listEventsForSession(sessionId: string) {
     return prisma.examSessionEvent.findMany({
       where: { sessionId },
-      orderBy: { occurredAt: "asc" }
+      orderBy: { occurredAt: "asc" },
     });
   },
 
   findLatestEventOfType(
     sessionId: string,
-    eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat"
+    eventType: "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat",
   ) {
     return prisma.examSessionEvent.findFirst({
       where: { sessionId, eventType },
-      orderBy: { occurredAt: "desc" }
+      orderBy: { occurredAt: "desc" },
     });
   },
 
@@ -114,13 +114,13 @@ export const examSessionRepo = {
     return {
       findActiveForUser(userId: string) {
         return tx.activeExamSession.findFirst({
-          where: { userId, endedAt: null }
+          where: { userId, endedAt: null },
         });
       },
 
       findByUserAndExam(userId: string, examId: string) {
         return tx.activeExamSession.findUnique({
-          where: { userId_examId: { userId, examId } }
+          where: { userId_examId: { userId, examId } },
         });
       },
 
@@ -131,7 +131,7 @@ export const examSessionRepo = {
       update(id: string, data: Prisma.ActiveExamSessionUncheckedUpdateInput) {
         return tx.activeExamSession.update({
           where: { id },
-          data
+          data,
         });
       },
 
@@ -147,13 +147,13 @@ export const examSessionRepo = {
           | "visibility_lost"
           | "release"
           | "auto_close"
-          | "heartbeat"
+          | "heartbeat",
       ) {
         return tx.examSessionEvent.findFirst({
           where: { sessionId, eventType },
-          orderBy: { occurredAt: "desc" }
+          orderBy: { occurredAt: "desc" },
         });
-      }
+      },
     };
-  }
+  },
 };

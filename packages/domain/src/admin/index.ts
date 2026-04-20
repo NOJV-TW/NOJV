@@ -5,7 +5,7 @@ import {
   problemRepo,
   runTransaction,
   submissionRepo,
-  userRepo
+  userRepo,
 } from "@nojv/db";
 import { getRedis } from "@nojv/redis";
 
@@ -45,7 +45,7 @@ export async function getAdminDashboard() {
     statusGroups7d,
     failureGroups,
     dbOk,
-    recentErrors
+    recentErrors,
   ] = await Promise.all([
     userRepo.countAll(),
     userRepo.count({ disabled: true }),
@@ -61,13 +61,13 @@ export async function getAdminDashboard() {
       .healthCheck()
       .then(() => true)
       .catch(() => false),
-    submissionRepo.findRecentErrors(20)
+    submissionRepo.findRecentErrors(20),
   ]);
 
   const roleCounts = {
     admin: 0,
     teacher: 0,
-    student: 0
+    student: 0,
   };
 
   for (const row of roleGroups) {
@@ -94,7 +94,7 @@ export async function getAdminDashboard() {
     day,
     label: dayLabel(day),
     total: val.total,
-    accepted: val.accepted
+    accepted: val.accepted,
   }));
 
   const submissions7dTotal = statusGroups7d.reduce((sum, row) => sum + row._count._all, 0);
@@ -105,7 +105,7 @@ export async function getAdminDashboard() {
   const problemIds = failureGroups.map((row) => row.problemId);
   const failureProblems = problemIds.length > 0 ? await problemRepo.findByIds(problemIds) : [];
   const problemMap = new Map(
-    failureProblems.map((problem) => [problem.id, { id: problem.id, title: problem.title }])
+    failureProblems.map((problem) => [problem.id, { id: problem.id, title: problem.title }]),
   );
 
   const topFailingProblems = failureGroups.map((row) => {
@@ -114,7 +114,7 @@ export async function getAdminDashboard() {
       problemId: row.problemId,
       id: problem?.id ?? row.problemId,
       title: problem?.title ?? "Unknown problem",
-      errorCount: row._count._all
+      errorCount: row._count._all,
     };
   });
 
@@ -127,40 +127,40 @@ export async function getAdminDashboard() {
       totalContests,
       totalAssessments,
       submissions7dTotal,
-      acceptedRate7d
+      acceptedRate7d,
     },
     roleCounts,
     statusBreakdown: statusGroups7d.map((row) => ({
       name: row.status,
-      value: row._count._all
+      value: row._count._all,
     })),
     dailySeries,
     topFailingProblems,
     recentErrors,
-    dbOk
+    dbOk,
   };
 }
 
 export async function checkSystemHealth(
-  timeoutMs = 3000
+  timeoutMs = 3000,
 ): Promise<{ postgres: string; redis: string }> {
   function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return Promise.race([
       promise,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
     ]);
   }
 
   const [postgres, redis] = await Promise.all([
     withTimeout(
       runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
-      timeoutMs
+      timeoutMs,
     )
       .then(() => "ok" as string)
       .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`),
     withTimeout(getRedis().ping(), timeoutMs)
       .then(() => "ok" as string)
-      .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`)
+      .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`),
   ]);
 
   return { postgres, redis };

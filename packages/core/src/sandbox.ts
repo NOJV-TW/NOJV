@@ -107,7 +107,7 @@ export const sourceFileNames: Record<Language, string> = {
   javascript: "main.mjs",
   python: "main.py",
   rust: "main.rs",
-  typescript: "main.ts"
+  typescript: "main.ts",
 };
 
 export const sourceExtensions: Record<Language, string> = {
@@ -118,5 +118,5 @@ export const sourceExtensions: Record<Language, string> = {
   javascript: "mjs",
   python: "py",
   rust: "rs",
-  typescript: "ts"
+  typescript: "ts",
 };

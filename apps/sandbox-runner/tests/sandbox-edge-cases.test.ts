@@ -124,7 +124,7 @@ int main() { std::cout << "checker" << std::endl; return 0; }`;
       language: "python",
       judgeType: "standard",
       problemType: "full_source",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
+      limits: { timeoutMs: 5000, memoryMb: 256 },
     };
 
     const srcFile = join(workDir, "main.py");
@@ -152,7 +152,7 @@ int main() { std::cout << "checker" << std::endl; return 0; }`;
       language: "typescript",
       judgeType: "standard",
       problemType: "full_source",
-      limits: { timeoutMs: 5000, memoryMb: 256 }
+      limits: { timeoutMs: 5000, memoryMb: 256 },
     };
 
     const srcFile = join(workDir, "main.ts");
@@ -168,11 +168,11 @@ rl.on("line", (line: string) => {
   const [a, b]: number[] = line.trim().split(" ").map(Number);
   console.log(add(a, b));
   rl.close();
-});`
+});`,
     );
     await writeFile(
       helperFile,
-      `export function add(a: number, b: number): number { return a + b; }`
+      `export function add(a: number, b: number): number { return a + b; }`,
     );
 
     const compileResult = await compile(input, srcFile, workDir);
@@ -182,7 +182,7 @@ rl.on("line", (line: string) => {
     const verdict = await judgeStandard(
       compileResult.runCommand,
       { index: 0, input: "3 5\n", expected: "8\n", weight: 1, isSample: true },
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
     expect(verdict.verdict).toBe("AC");
   }, 30_000);
@@ -207,7 +207,7 @@ time.sleep(999)`;
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      SHORT_TIMEOUT_MS
+      SHORT_TIMEOUT_MS,
     );
 
     // When interactive judge times out, it returns TLE (not SE)
@@ -227,7 +227,7 @@ raise RuntimeError("interactor crashed")`;
     await writeFile(
       solutionFile,
       `n = int(input())
-print(n * 2)`
+print(n * 2)`,
     );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
@@ -235,7 +235,7 @@ print(n * 2)`
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     // Interactor exit code 1 (Python exception) → WA per protocol
@@ -256,7 +256,7 @@ sys.exit(1)`;
     await writeFile(
       solutionFile,
       `n = int(input())
-print(n * 2)`
+print(n * 2)`,
     );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
@@ -264,7 +264,7 @@ print(n * 2)`
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("WA");
@@ -286,7 +286,7 @@ sys.exit(0)`;
     await writeFile(
       solutionFile,
       `n = int(input())
-print(n * 2)`
+print(n * 2)`,
     );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
@@ -294,7 +294,7 @@ print(n * 2)`
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("AC");
@@ -316,7 +316,7 @@ sys.exit(0)`;
     await writeFile(
       solutionFile,
       `n = int(input())
-print(n * 2)`
+print(n * 2)`,
     );
 
     const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
@@ -324,7 +324,7 @@ print(n * 2)`
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("AC");
@@ -339,7 +339,7 @@ print(n * 2)`
       `import sys
 print(5, flush=True)
 response = input().strip()
-sys.exit(0)`
+sys.exit(0)`,
     );
 
     // Solution that crashes immediately
@@ -351,7 +351,7 @@ sys.exit(0)`
       ["python3", solutionFile],
       tc,
       ["python3", interactorFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("RE");
@@ -373,7 +373,7 @@ time.sleep(999)`;
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      SHORT_TIMEOUT_MS
+      SHORT_TIMEOUT_MS,
     );
 
     // When both timeout, verdict is TLE (not SE)
@@ -406,7 +406,7 @@ sys.exit(0)`;
     n = int(input())
     print(n * 2)
 except:
-    pass`
+    pass`,
     );
 
     // Testcase with empty input
@@ -415,7 +415,7 @@ except:
       ["python3", solutionFile],
       tc,
       ["python3", intFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     // Interactor exits with 1 → WA (interactor rejected the solution)
@@ -452,7 +452,7 @@ else:
       ["python3", solutionFile],
       tc,
       ["python3", checkerFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("AC");
@@ -483,7 +483,7 @@ else:
     await writeFile(
       solutionFile,
       `n = int(input())
-print(n * 2)`
+print(n * 2)`,
     );
 
     const tc: TestcaseFiles = {
@@ -491,13 +491,13 @@ print(n * 2)`
       input: "7",
       expected: "14",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
       ["python3", checkerFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("AC");
@@ -518,13 +518,13 @@ sys.exit(0)`;
       input: "",
       expected: "test",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
       ["python3", checkerFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("AC");
@@ -546,13 +546,13 @@ sys.exit(0)`;
       input: "",
       expected: "test",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
       ["python3", checkerFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("AC");
@@ -580,13 +580,13 @@ except Exception as e:
       input: "",
       expected: "test",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
     const verdict = await judgeChecker(
       ["python3", solutionFile],
       tc,
       ["python3", checkerFile],
-      TIMEOUT_MS
+      TIMEOUT_MS,
     );
 
     expect(verdict.verdict).toBe("WA");
@@ -621,7 +621,7 @@ describe("standard judge edge cases", () => {
       solutionFile,
       `import sys
 data = sys.stdin.read()
-print(len(data))`
+print(len(data))`,
     );
 
     const tc: TestcaseFiles = {
@@ -629,7 +629,7 @@ print(len(data))`
       input: largeInput,
       expected: `${largeInput.length}\n`,
       weight: 1,
-      isSample: false
+      isSample: false,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -647,7 +647,7 @@ print(len(data))`
       input: "",
       expected,
       weight: 1,
-      isSample: false
+      isSample: false,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -660,7 +660,7 @@ print(len(data))`
       solutionFile,
       `import sys
 line = sys.stdin.read()
-print(line.strip())`
+print(line.strip())`,
     );
 
     const unicodeText = "Hello 世界 🌍 Привет";
@@ -669,7 +669,7 @@ print(line.strip())`
       input: unicodeText,
       expected: unicodeText,
       weight: 1,
-      isSample: true
+      isSample: true,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -685,7 +685,7 @@ print(line.strip())`
       input: "",
       expected: "hello\tworld  test\n",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -698,7 +698,7 @@ print(line.strip())`
       solutionFile,
       `import sys
 sys.stderr.write("debug message\\n")
-print("")  # Empty output`
+print("")  # Empty output`,
     );
 
     const tc: TestcaseFiles = {
@@ -706,7 +706,7 @@ print("")  # Empty output`
       input: "",
       expected: "",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -723,7 +723,7 @@ print("")  # Empty output`
       input: "",
       expected: "line1\n\nline2\n",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -739,7 +739,7 @@ print("")  # Empty output`
       input: "",
       // expected is undefined
       weight: 1,
-      isSample: true
+      isSample: true,
     };
 
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
@@ -755,14 +755,14 @@ describe("multi-testcase scenarios", () => {
     await writeFile(
       solutionFile,
       `a, b = map(int, input().split())
-print(a + b)`
+print(a + b)`,
     );
 
     const testcases: TestcaseFiles[] = [
       { index: 0, input: "1 2", expected: "3", weight: 1, isSample: true },
       { index: 1, input: "10 20", expected: "30", weight: 1, isSample: false },
       { index: 2, input: "0 0", expected: "0", weight: 1, isSample: false },
-      { index: 3, input: "-5 5", expected: "0", weight: 2, isSample: false }
+      { index: 3, input: "-5 5", expected: "0", weight: 2, isSample: false },
     ];
 
     const results = [];
@@ -785,13 +785,13 @@ print(a + b)`
       `a, b = map(int, input().split())
 if a < 0 or b < 0:
     raise ValueError("negative")
-print(a + b)`
+print(a + b)`,
     );
 
     const testcases: TestcaseFiles[] = [
       { index: 0, input: "1 2", expected: "3", weight: 1, isSample: true },
       { index: 1, input: "-5 5", expected: "0", weight: 1, isSample: false },
-      { index: 2, input: "10 20", expected: "999", weight: 1, isSample: false }
+      { index: 2, input: "10 20", expected: "999", weight: 1, isSample: false },
     ];
 
     const results = [];
@@ -814,7 +814,7 @@ print(a + b)`
       input: "",
       expected: "42",
       weight: 10,
-      isSample: false
+      isSample: false,
     };
     const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);
 
@@ -834,7 +834,7 @@ describe("boundary and performance", () => {
       solutionFile,
       `import time
 time.sleep(0.2)
-print("done")`
+print("done")`,
     );
 
     const tc: TestcaseFiles = {
@@ -842,7 +842,7 @@ print("done")`
       input: "",
       expected: "done",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
     const verdict = await judgeStandard(["python3", solutionFile], tc, 100);
 
@@ -859,7 +859,7 @@ print("done")`
       input: "",
       expected: "test",
       weight: 1,
-      isSample: true
+      isSample: true,
     };
     // This will likely timeout immediately or run very fast
     const verdict = await judgeStandard(["python3", solutionFile], tc, 1);
@@ -880,7 +880,7 @@ print("done")`
         input: "",
         expected: "test",
         weight: 1,
-        isSample: true
+        isSample: true,
       };
 
       const verdict = await judgeStandard(["python3", solutionFile], tc, TIMEOUT_MS);

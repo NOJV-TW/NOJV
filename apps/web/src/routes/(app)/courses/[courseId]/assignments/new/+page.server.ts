@@ -23,9 +23,9 @@ export const load: PageServerLoad = async (event) => {
   const form = await superValidate(
     {
       courseId: course.id,
-      status: "draft"
+      status: "draft",
     },
-    zod4(courseAssignmentFormSchema)
+    zod4(courseAssignmentFormSchema),
   );
 
   const candidateProblems = await listEditableProblems(actor.userId);
@@ -46,7 +46,7 @@ async function submitAssignment(event: RequestEvent, status: "draft" | "publishe
   try {
     await createCourseAssessmentRecord(actor, courseId, {
       ...form.data,
-      status
+      status,
     });
   } catch (err) {
     const classified = classifyError(err);
@@ -58,5 +58,5 @@ async function submitAssignment(event: RequestEvent, status: "draft" | "publishe
 
 export const actions = {
   saveDraft: (event) => submitAssignment(event, "draft"),
-  publish: (event) => submitAssignment(event, "published")
+  publish: (event) => submitAssignment(event, "published"),
 } satisfies Actions;

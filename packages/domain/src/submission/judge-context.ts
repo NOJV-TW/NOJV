@@ -11,7 +11,7 @@ import type {
   Runtime,
   SubmissionDraft,
   SubmissionResult,
-  WorkspaceFileVisibility
+  WorkspaceFileVisibility,
 } from "@nojv/core";
 
 import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
@@ -84,7 +84,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const { problem } = submission;
   const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? {
-    type: "standard" as const
+    type: "standard" as const,
   };
 
   const testcaseSets: TestcaseSetGroup[] = await Promise.all(
@@ -94,24 +94,24 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
           const blobs = await readTestcaseBlobs({
             inputKey: testcase.inputKey,
             outputKey: testcase.outputKey,
-            inputFileKeys: (testcase.inputFileKeys as Record<string, string> | null) ?? null
+            inputFileKeys: (testcase.inputFileKeys as Record<string, string> | null) ?? null,
           });
           return {
             id: testcase.id,
             input: blobs.input,
             ...(blobs.output !== undefined ? { output: blobs.output } : {}),
             ...(blobs.inputFiles !== undefined ? { inputFiles: blobs.inputFiles } : {}),
-            weight: ts.weight
+            weight: ts.weight,
           };
-        })
+        }),
       );
       return {
         id: ts.id,
         name: ts.name,
         testcases,
-        weight: ts.weight
+        weight: ts.weight,
       };
-    })
+    }),
   );
 
   const samples = collectSamples(problem);
@@ -120,11 +120,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   const runtime: Runtime = judgeConfig.runtime ?? {
     env: {},
     memoryLimitMb: problem.memoryLimitMb,
-    timeLimitMs: problem.timeLimitMs
+    timeLimitMs: problem.timeLimitMs,
   };
 
   const subtaskStrategies: SubtaskStrategyMap = Object.fromEntries(
-    problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy])
+    problem.testcaseSets.map((ts) => [ts.id, ts.scoringStrategy]),
   );
 
   const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
@@ -133,9 +133,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
         content: await readWorkspaceFileBlob(f.contentKey),
         language: f.language,
         path: f.path,
-        visibility: f.visibility as WorkspaceFileVisibility
-      })
-    )
+        visibility: f.visibility as WorkspaceFileVisibility,
+      }),
+    ),
   );
 
   const assessment = submission.courseAssessment;
@@ -146,7 +146,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     assessmentAdjustmentRules: assessment?.adjustmentRules as AdjustmentRules | null,
     dueAt: assessment?.dueAt ?? contestEnd,
     finalDay: assessment?.closesAt ?? contestEnd,
-    submittedAt: submission.createdAt
+    submittedAt: submission.createdAt,
   };
 
   const problemType = problem.type as ProblemType;
@@ -157,8 +157,8 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
           imageSource: problem.advancedImageSource as ProblemImageSource,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
-            memoryMb: problem.memoryLimitMb
-          }
+            memoryMb: problem.memoryLimitMb,
+          },
         }
       : null;
 
@@ -173,7 +173,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     subtaskStrategies,
     testcaseSets,
     workspaceFiles,
-    advanced
+    advanced,
   };
 }
 
@@ -185,27 +185,27 @@ function collectSamples(problem: { samples: unknown }): ProblemSample[] {
         typeof s === "object" &&
         s !== null &&
         typeof (s as { input?: unknown }).input === "string" &&
-        typeof (s as { output?: unknown }).output === "string"
+        typeof (s as { output?: unknown }).output === "string",
     )
     .map((s) => ({ input: s.input, output: s.output }));
 }
 
 export async function updateSubmissionStatus(
   submissionId: string,
-  status: string
+  status: string,
 ): Promise<void> {
   await submissionRepo.updateStatus(submissionId, status);
 }
 
 export async function completeJudge(
   submissionId: string,
-  result: SubmissionResult
+  result: SubmissionResult,
 ): Promise<CompletedSubmission> {
   const submission = await submissionRepo.complete(submissionId, {
     runtimeMs: result.runtimeMs,
     score: result.score,
     status: result.verdict,
-    verdictDetail: toJsonValue(result)
+    verdictDetail: toJsonValue(result),
   });
 
   return {
@@ -216,7 +216,7 @@ export async function completeJudge(
     sampleOnly: submission.sampleOnly,
     score: submission.score,
     status: submission.status,
-    userId: submission.userId
+    userId: submission.userId,
   };
 }
 
@@ -231,7 +231,7 @@ export async function findForRejudge(input: {
 }): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
-    sampleOnly: false
+    sampleOnly: false,
   };
 
   if (input.contestId) {
@@ -249,7 +249,7 @@ export async function findForRejudge(input: {
   if (input.since || input.until) {
     where.createdAt = {
       ...(input.since ? { gte: input.since } : {}),
-      ...(input.until ? { lte: input.until } : {})
+      ...(input.until ? { lte: input.until } : {}),
     };
   }
 
@@ -261,13 +261,13 @@ export async function findForRejudge(input: {
       language: s.language,
       problemId: s.problemId,
       sampleOnly: s.sampleOnly,
-      sourceCode: s.sourceCode
-    }
+      sourceCode: s.sourceCode,
+    },
   }));
 }
 
 export async function findOneForRejudge(
-  submissionId: string
+  submissionId: string,
 ): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
@@ -277,7 +277,7 @@ export async function findOneForRejudge(
       language: submission.language,
       problemId: submission.problemId,
       sampleOnly: submission.sampleOnly,
-      sourceCode: submission.sourceCode
-    }
+      sourceCode: submission.sourceCode,
+    },
   };
 }

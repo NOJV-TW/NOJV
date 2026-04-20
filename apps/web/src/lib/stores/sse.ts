@@ -5,7 +5,7 @@ import {
   SSE_ASSIGNMENT_DEADLINE,
   SSE_NOTIFICATION,
   sseEventSchema,
-  type SSEEvent
+  type SSEEvent,
 } from "@nojv/core";
 import { notifications } from "./notifications.svelte";
 import { toasts } from "./toast";
@@ -108,7 +108,7 @@ function reconnectIfConnected(): void {
  */
 export function subscribeClarificationChannel(
   contextType: "contest" | "exam" | "assignment",
-  contextId: string
+  contextId: string,
 ): void {
   if (!browser) return;
   const key = `${contextType}:${contextId}`;
@@ -124,7 +124,7 @@ export function subscribeClarificationChannel(
  */
 export function unsubscribeClarificationChannel(
   contextType: "contest" | "exam" | "assignment",
-  contextId: string
+  contextId: string,
 ): void {
   if (!browser) return;
   const key = `${contextType}:${contextId}`;
@@ -151,7 +151,7 @@ function handleDefaultEvent(data: SSEEvent) {
       params: data.params,
       linkUrl: data.linkUrl,
       ...(data.id !== undefined && { id: data.id }),
-      ...(data.createdAt !== undefined && { createdAt: data.createdAt })
+      ...(data.createdAt !== undefined && { createdAt: data.createdAt }),
     });
   }
 }

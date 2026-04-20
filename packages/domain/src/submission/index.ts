@@ -1,7 +1,7 @@
 export { getSubmissionForUser, listProblemSubmissions, listUserSubmissions } from "./queries";
 export {
   createQueuedSubmissionRecord,
-  type ActorContext as SubmissionActorContext
+  type ActorContext as SubmissionActorContext,
 } from "./mutations";
 export {
   getJudgeContext,
@@ -14,13 +14,13 @@ export {
   type SubmissionJudgeContext,
   type SubtaskStrategyMap,
   type TestcaseSetGroup,
-  type WorkspaceFileEntry
+  type WorkspaceFileEntry,
 } from "./judge-context";
 export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
 export {
   canOperateOnSubmission,
   assertCanOperateOnSubmission,
-  assertBatchRejudgeAccess
+  assertBatchRejudgeAccess,
 } from "./authz";
 export { snapshotForRejudge, finalizeRejudgeLog } from "./rejudge-log";
 export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
@@ -28,5 +28,5 @@ export { deriveSubmissionMode } from "./mode";
 export {
   dispatchRejudge,
   dispatchSubmissionJudge,
-  querySubmissionStatus
+  querySubmissionStatus,
 } from "@nojv/job-dispatch";

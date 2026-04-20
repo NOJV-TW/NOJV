@@ -7,7 +7,7 @@ import {
   normalizeRelativePath,
   sourceFileNames,
   type SandboxRequest,
-  type SandboxResult
+  type SandboxResult,
 } from "@nojv/core";
 import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
@@ -43,7 +43,7 @@ export class AdvancedModeExecutor {
   async run(
     tempDir: string,
     request: SandboxRequest,
-    config: AdvancedModeConfig
+    config: AdvancedModeConfig,
   ): Promise<SandboxResult> {
     if (!request.advanced) {
       return sandboxSystemError("advanced-mode dispatch called without payload");
@@ -59,7 +59,7 @@ export class AdvancedModeExecutor {
       } catch (err) {
         return advancedFallbackResult(
           request,
-          `Failed to load advanced image tarball: ${err instanceof Error ? err.message : String(err)}`
+          `Failed to load advanced image tarball: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -85,12 +85,12 @@ export class AdvancedModeExecutor {
         (async () => {
           await mkdir(dirname(dest), { recursive: true });
           await writeFile(dest, sf.content, "utf8");
-        })()
+        })(),
       );
     }
     if (!wroteDefault && request.sourceCode) {
       fileWrites.push(
-        writeFile(join(submissionDir, defaultSourcePath), request.sourceCode, "utf8")
+        writeFile(join(submissionDir, defaultSourcePath), request.sourceCode, "utf8"),
       );
     }
 
@@ -101,11 +101,11 @@ export class AdvancedModeExecutor {
       submissionFiles: [defaultSourcePath],
       resourceLimits: {
         totalTimeMs: request.advanced.totalTimeMs,
-        memoryMb: request.advanced.memoryMb
-      }
+        memoryMb: request.advanced.memoryMb,
+      },
     };
     fileWrites.push(
-      writeFile(join(workspaceDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8")
+      writeFile(join(workspaceDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8"),
     );
 
     await Promise.all(fileWrites);
@@ -138,7 +138,7 @@ export class AdvancedModeExecutor {
       String(config.pidsLimit),
       "--workdir",
       "/workspace",
-      imageRef
+      imageRef,
     ];
 
     const outerTimeoutMs = request.advanced.totalTimeMs + 30_000;
@@ -200,7 +200,7 @@ export class AdvancedModeExecutor {
     } catch {
       return advancedFallbackResult(
         request,
-        `Advanced judge image did not write result.json. exit=${String(dockerOutcome.exitCode)}\n${dockerOutcome.stderr}`.trim()
+        `Advanced judge image did not write result.json. exit=${String(dockerOutcome.exitCode)}\n${dockerOutcome.stderr}`.trim(),
       );
     }
 
@@ -208,7 +208,7 @@ export class AdvancedModeExecutor {
     if (!parsed.success) {
       return advancedFallbackResult(
         request,
-        `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`
+        `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
       );
     }
 
@@ -230,7 +230,7 @@ export class AdvancedModeExecutor {
     const ref = await new Promise<string>((resolve, reject) => {
       const child = spawn("docker", ["load", "-q"], {
         env: process.env,
-        stdio: ["pipe", "pipe", "pipe"]
+        stdio: ["pipe", "pipe", "pipe"],
       });
       let stdout = "";
       let stderr = "";

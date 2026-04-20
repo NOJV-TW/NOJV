@@ -34,7 +34,7 @@ const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 export async function updateProblemWorkspace(
   actor: ProblemActorContext,
   problemId: string,
-  payload: UpdateWorkspacePayload
+  payload: UpdateWorkspacePayload,
 ) {
   // Workspace-mode invariant: every language present in the payload
   // must ship EXACTLY ONE editable file named `main.<ext>`. The judge
@@ -52,11 +52,11 @@ export async function updateProblemWorkspace(
     for (const [language, files] of filesByLanguage) {
       const entryPath = entryFileNameFor(language);
       const editableEntryCount = files.filter(
-        (f) => f.path === entryPath && f.visibility === "editable"
+        (f) => f.path === entryPath && f.visibility === "editable",
       ).length;
       if (editableEntryCount !== 1) {
         brokenLanguages.push(
-          `Language '${language}' must have exactly one editable file named '${entryPath}'`
+          `Language '${language}' must have exactly one editable file named '${entryPath}'`,
         );
       }
     }
@@ -82,7 +82,7 @@ export async function updateProblemWorkspace(
     const missing = payload.allowedLanguages.filter((lang) => !entryByLanguage.has(lang));
     if (missing.length > 0) {
       throw new ValidationError(
-        `Multi-file problems require an editable main file for every allowed language. Missing: ${missing.join(", ")}.`
+        `Multi-file problems require an editable main file for every allowed language. Missing: ${missing.join(", ")}.`,
       );
     }
   }
@@ -98,7 +98,7 @@ export async function updateProblemWorkspace(
   for (const [language, total] of totalsByLanguage) {
     if (total > MAX_WORKSPACE_BYTES_PER_LANGUAGE) {
       throw new ConflictError(
-        `Workspace files for language "${language}" exceed 1 MB limit (${String(total)} bytes).`
+        `Workspace files for language "${language}" exceed 1 MB limit (${String(total)} bytes).`,
       );
     }
   }
@@ -126,7 +126,7 @@ export async function updateProblemWorkspace(
       const id = randomUUID();
       const contentKey = await writeWorkspaceFileBlob(problemId, id, file.content);
       return { id, contentKey, file };
-    })
+    }),
   );
 
   // Read the existing file rows BEFORE the transaction so we can sweep
@@ -148,8 +148,8 @@ export async function updateProblemWorkspace(
           orderIndex: entry.file.orderIndex ?? index,
           path: entry.file.path,
           problemId: problem.id,
-          visibility: entry.file.visibility
-        })
+          visibility: entry.file.visibility,
+        }),
       );
       await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
     }
@@ -162,7 +162,7 @@ export async function updateProblemWorkspace(
       const currentConfig = (problem.judgeConfig as Record<string, unknown> | null) ?? {};
       updateData.judgeConfig = {
         ...currentConfig,
-        runtime: payload.runtime
+        runtime: payload.runtime,
       } as Prisma.InputJsonValue;
       updateData.memoryLimitMb = payload.runtime.memoryLimitMb;
       updateData.timeLimitMs = payload.runtime.timeLimitMs;
@@ -170,7 +170,7 @@ export async function updateProblemWorkspace(
     if (payload.type && payload.type !== problem.type) {
       if (payload.type === "special_env") {
         throw new ValidationError(
-          "Cannot switch to special_env via workspace update. Use convertToAdvanced instead."
+          "Cannot switch to special_env via workspace update. Use convertToAdvanced instead.",
         );
       }
       updateData.type = payload.type;

@@ -5,7 +5,7 @@ import {
   problemRepo,
   runTransaction,
   type Prisma,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 import type { CourseAssessmentUpdate, Language } from "@nojv/core";
 
@@ -28,7 +28,7 @@ async function requireAssessment(tx: TransactionClient, assessmentId: string) {
 async function assertAssessmentManager(
   tx: TransactionClient,
   actor: ActorContext,
-  assessment: { courseId: string; createdByUserId: string }
+  assessment: { courseId: string; createdByUserId: string },
 ) {
   if (actor.platformRole === "admin") return;
   if (assessment.createdByUserId === actor.userId) return;
@@ -38,7 +38,7 @@ async function assertAssessmentManager(
     .findByComposite(assessment.courseId, actor.userId);
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
-    membership?.role ?? null
+    membership?.role ?? null,
   );
   if (!canManageCourse(effectiveRole) || membership?.status !== "active") {
     throw new ForbiddenError("You do not have permission to edit this assignment.");
@@ -49,7 +49,7 @@ type AssessmentLiveStatus = "draft" | "upcoming" | "open" | "closed" | "archived
 
 function deriveLiveStatus(
   row: { status: string; opensAt: Date; closesAt: Date },
-  now: Date
+  now: Date,
 ): AssessmentLiveStatus {
   if (row.status === "archived") return "archived";
   if (row.status === "draft") return "draft";
@@ -65,7 +65,7 @@ function deriveLiveStatus(
 function assertFieldsAllowedForStatus(
   liveStatus: AssessmentLiveStatus,
   current: { opensAt: Date; dueAt: Date | null; closesAt: Date },
-  payload: CourseAssessmentUpdate
+  payload: CourseAssessmentUpdate,
 ): void {
   if (liveStatus === "closed") {
     throw new ValidationError("Closed assignments can only be archived.");
@@ -102,7 +102,7 @@ async function replaceAssessmentProblems(
   assessmentId: string,
   problemIds: string[],
   allowedLanguages: Language[],
-  pointsByProblem: Map<string, number>
+  pointsByProblem: Map<string, number>,
 ) {
   const problems =
     problemIds.length === 0
@@ -118,7 +118,7 @@ async function replaceAssessmentProblems(
 
   if (allowedLanguages.length > 0 && problemIds.length > 0) {
     await Promise.all(
-      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages))
+      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
     );
   }
 
@@ -130,9 +130,9 @@ async function replaceAssessmentProblems(
         assessmentId,
         ordinal: index + 1,
         points: pointsByProblem.get(id) ?? 100,
-        problemId: id
+        problemId: id,
       });
-    })
+    }),
   );
 }
 
@@ -145,7 +145,7 @@ async function replaceAssessmentProblems(
 export async function updateAssessmentRecord(
   actor: ActorContext,
   assessmentId: string,
-  payload: CourseAssessmentUpdate
+  payload: CourseAssessmentUpdate,
 ): Promise<{ id: string }> {
   return runTransaction(async (tx) => {
     const assessment = await requireAssessment(tx, assessmentId);
@@ -157,16 +157,16 @@ export async function updateAssessmentRecord(
       {
         opensAt: assessment.opensAt,
         dueAt: assessment.dueAt,
-        closesAt: assessment.closesAt
+        closesAt: assessment.closesAt,
       },
-      payload
+      payload,
     );
 
     const updateData: Prisma.CourseAssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
       summary: payload.summary,
       allowedLanguages: payload.allowedLanguages,
-      maxAttemptsPerDay: payload.maxAttemptsPerDay
+      maxAttemptsPerDay: payload.maxAttemptsPerDay,
     });
 
     if (payload.opensAt !== undefined) updateData.opensAt = new Date(payload.opensAt);
@@ -191,7 +191,7 @@ export async function updateAssessmentRecord(
         assessment.id,
         payload.problemIds,
         enforcedLanguages,
-        pointsByProblem
+        pointsByProblem,
       );
     }
 
@@ -206,7 +206,7 @@ export async function updateAssessmentRecord(
  */
 export async function publishAssessment(
   actor: ActorContext,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const assessment = await requireAssessment(tx, assessmentId);
@@ -252,7 +252,7 @@ export async function publishAssessment(
  */
 export async function deleteAssessmentDraft(
   actor: ActorContext,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const assessment = await requireAssessment(tx, assessmentId);
@@ -272,7 +272,7 @@ export async function deleteAssessmentDraft(
  */
 export async function archiveAssessment(
   actor: ActorContext,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const assessment = await requireAssessment(tx, assessmentId);
@@ -289,7 +289,7 @@ export async function archiveAssessment(
 /** Reverse of `archiveAssessment`. Returns the row to `published`. */
 export async function unarchiveAssessment(
   actor: ActorContext,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const assessment = await requireAssessment(tx, assessmentId);
@@ -306,7 +306,7 @@ export async function unarchiveAssessment(
 /** Flip status back to draft — only valid from `upcoming`. */
 export async function revertAssessmentToDraft(
   actor: ActorContext,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
     const assessment = await requireAssessment(tx, assessmentId);

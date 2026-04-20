@@ -159,7 +159,7 @@ for (const file of files) {
   for (const name of violations) {
     console.error(
       `${rel}: ${name} returns null. Throw NotFoundError instead, ` +
-        `or add a leading \`// ${TAG}: <why>\` comment.`
+        `or add a leading \`// ${TAG}: <why>\` comment.`,
     );
   }
 }
@@ -171,5 +171,5 @@ if (failed) {
 }
 
 console.log(
-  `check-query-returns: scanned ${String(files.length)} queries.ts file(s); no violations.`
+  `check-query-returns: scanned ${String(files.length)} queries.ts file(s); no violations.`,
 );

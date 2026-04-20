@@ -3,7 +3,7 @@ import {
   contestRepo,
   courseMembershipRepo,
   examRepo,
-  type OverrideContextType
+  type OverrideContextType,
 } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -33,7 +33,7 @@ async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<bo
 export async function canSetScoreOverride(
   actor: ActorContext,
   contextType: OverrideContextType,
-  contextId: string
+  contextId: string,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
 
@@ -58,7 +58,7 @@ export async function canSetScoreOverride(
 export async function assertCanSetScoreOverride(
   actor: ActorContext,
   contextType: OverrideContextType,
-  contextId: string
+  contextId: string,
 ): Promise<void> {
   if (!(await canSetScoreOverride(actor, contextType, contextId))) {
     throw new ForbiddenError("Not permitted to set score overrides for this context.");

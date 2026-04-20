@@ -10,7 +10,7 @@ import {
   languageSchema,
   scoreboardModeSchema,
   type ExamCreate,
-  type ExamPublishStatus
+  type ExamPublishStatus,
 } from "@nojv/core";
 import { canManageCourse, examDomain, problemDomain } from "@nojv/domain";
 
@@ -41,7 +41,7 @@ const examFormSchema = z.object({
   ipWhitelistText: z.string().max(50_000).default(""),
   scoringMode: contestScoringModeSchema.default("point_sum"),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
-  submitCooldownSec: z.coerce.number().int().min(0).max(3_600).default(0)
+  submitCooldownSec: z.coerce.number().int().min(0).max(3_600).default(0),
 });
 
 type ExamFormData = z.infer<typeof examFormSchema>;
@@ -73,11 +73,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         ipWhitelistText: "",
         scoringMode: "point_sum",
         scoreboardMode: "hidden",
-        submitCooldownSec: 0
+        submitCooldownSec: 0,
       },
-      zod4(examFormSchema)
+      zod4(examFormSchema),
     ),
-    listEditableProblems(actor.userId)
+    listEditableProblems(actor.userId),
   ]);
 
   return { form, candidateProblems };
@@ -115,7 +115,7 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
     status,
     submitCooldownSec: form.submitCooldownSec,
     summary: form.summary ? form.summary : undefined,
-    title: form.title
+    title: form.title,
   });
 }
 
@@ -140,7 +140,7 @@ async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
     return message<FormMessage>(
       form,
       { kind: "error", text: "Course mismatch." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -156,7 +156,7 @@ async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
     return message<FormMessage>(
       form,
       { kind: "error", text: classified.message },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -165,5 +165,5 @@ async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
 
 export const actions = {
   saveDraft: (event) => runCreateAction(event, "draft"),
-  publish: (event) => runCreateAction(event, "published")
+  publish: (event) => runCreateAction(event, "published"),
 } satisfies Actions;

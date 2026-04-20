@@ -6,7 +6,7 @@ import {
   normalizeRelativePath,
   sourceFileNames,
   type SandboxRequest,
-  type SandboxResult
+  type SandboxResult,
 } from "@nojv/core";
 
 import { forceRemoveContainer, sanitizeId } from "./docker-process";
@@ -23,7 +23,7 @@ export interface StandardModeConfig {
 export async function runStandardMode(
   tempDir: string,
   request: SandboxRequest,
-  config: StandardModeConfig
+  config: StandardModeConfig,
 ): Promise<SandboxResult> {
   await writeSubmissionFiles(tempDir, request);
   return await runContainer(tempDir, request, config);
@@ -52,7 +52,7 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
       (async () => {
         await mkdir(dirname(destination), { recursive: true });
         await writeFile(destination, sourceFile.content, "utf8");
-      })()
+      })(),
     );
   }
 
@@ -64,14 +64,14 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
     writeFile(
       join(tempDir, "config.json"),
       JSON.stringify(buildSandboxConfigJson(request, sourceFileMap)),
-      "utf8"
-    )
+      "utf8",
+    ),
   );
 
   if (request.judgeConfig.checkerScript) {
     const ext = sourceExtension(request.judgeConfig.checkerLanguage);
     fileWrites.push(
-      writeFile(join(tempDir, `checker.${ext}`), request.judgeConfig.checkerScript, "utf8")
+      writeFile(join(tempDir, `checker.${ext}`), request.judgeConfig.checkerScript, "utf8"),
     );
   }
 
@@ -81,8 +81,8 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
       writeFile(
         join(tempDir, `interactor.${ext}`),
         request.judgeConfig.interactorScript,
-        "utf8"
-      )
+        "utf8",
+      ),
     );
   }
 
@@ -100,7 +100,7 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
       if (tc.output !== undefined) {
         await writeFile(join(tcDir, "expected.txt"), tc.output, "utf8");
       }
-    })
+    }),
   );
 
   // Create artifacts directory
@@ -113,7 +113,7 @@ async function writeSubmissionFiles(tempDir: string, request: SandboxRequest): P
 async function runContainer(
   tempDir: string,
   request: SandboxRequest,
-  config: StandardModeConfig
+  config: StandardModeConfig,
 ): Promise<SandboxResult> {
   const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
   const workDir = join(tempDir, "_workspace");
@@ -152,7 +152,7 @@ async function runContainer(
     "HOME=/tmp",
     config.image,
     "node",
-    "/runner/index.js"
+    "/runner/index.js",
   ];
 
   // Outer timeout: container timeout + 30s grace for Docker overhead
@@ -204,7 +204,7 @@ async function runContainer(
 
       if (exitCode !== 0) {
         settle(
-          sandboxSystemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim())
+          sandboxSystemError(`Sandbox exited with code ${String(exitCode)}.\n${stderr}`.trim()),
         );
         return;
       }
@@ -215,14 +215,14 @@ async function runContainer(
           parsed.success
             ? parsed.data
             : sandboxSystemError(
-                `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`
-              )
+                `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`,
+              ),
         );
       } catch {
         settle(
           sandboxSystemError(
-            `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`
-          )
+            `Failed to parse sandbox output.\nstdout: ${stdout}\nstderr: ${stderr}`,
+          ),
         );
       }
     });

@@ -6,7 +6,7 @@ import {
   SSE_SUBMISSION_VERDICT,
   type ClarificationSSEEvent,
   type NotificationSSEEvent,
-  type SSEEvent
+  type SSEEvent,
 } from "@nojv/core";
 
 import { getRedis } from "./connection";
@@ -29,7 +29,7 @@ export async function publishVerdict(submission: {
       submissionId: submission.id,
       verdict: submission.status,
       score: submission.score,
-      problemId: submission.problemId
+      problemId: submission.problemId,
     });
   } catch {
     // Notifications are best-effort; swallow publish failures.
@@ -38,7 +38,7 @@ export async function publishVerdict(submission: {
 
 export async function publishContestEvent(
   contestId: string,
-  eventType: "starting" | "ending"
+  eventType: "starting" | "ending",
 ): Promise<void> {
   const event: SSEEvent =
     eventType === "starting" ? { type: SSE_CONTEST_STARTING } : { type: SSE_CONTEST_ENDING };
@@ -53,7 +53,7 @@ export async function publishContestEvent(
 export async function publishAssessmentDeadline(assessmentId: string): Promise<void> {
   try {
     await publishEvent(keys.assessmentChannel(assessmentId), {
-      type: SSE_ASSIGNMENT_DEADLINE
+      type: SSE_ASSIGNMENT_DEADLINE,
     });
   } catch {
     // best-effort; swallow publish failures.
@@ -62,7 +62,7 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
 
 export async function publishNotification(
   userId: string,
-  event: NotificationSSEEvent
+  event: NotificationSSEEvent,
 ): Promise<void> {
   try {
     await publishEvent(keys.notificationChannel(userId), event);
@@ -75,7 +75,7 @@ export async function publishNotification(
 export async function publishClarification(
   contextType: string,
   contextId: string,
-  event: ClarificationSSEEvent
+  event: ClarificationSSEEvent,
 ): Promise<void> {
   try {
     await publishEvent(keys.clarificationChannel(contextType, contextId), event);
@@ -91,14 +91,14 @@ export async function publishClarification(
 // SSE round-trip would be expensive.
 export async function publishNotificationBatchSignal(
   userId: string,
-  detail: { notificationType: string; params: unknown; linkUrl: string | null }
+  detail: { notificationType: string; params: unknown; linkUrl: string | null },
 ): Promise<void> {
   try {
     await publishEvent(keys.notificationChannel(userId), {
       type: SSE_NOTIFICATION,
       notificationType: detail.notificationType,
       params: detail.params,
-      linkUrl: detail.linkUrl
+      linkUrl: detail.linkUrl,
       // id + createdAt intentionally omitted — the client refetches on
       // any payload missing an id.
     } as NotificationSSEEvent);

@@ -12,7 +12,7 @@ type ApiHandler = (event: RequestEvent) => Promise<Response>;
 
 function wrapHandler(
   handler: ApiHandler,
-  rateLimiter: { consume: (key: string) => Promise<unknown> }
+  rateLimiter: { consume: (key: string) => Promise<unknown> },
 ): ApiHandler {
   return async (event) => {
     const ip = event.getClientAddress();
@@ -35,10 +35,10 @@ function wrapHandler(
           issues: error.issues.map((issue) => ({
             code: issue.code,
             message: issue.message,
-            path: issue.path.map((segment) => String(segment)).join(".")
+            path: issue.path.map((segment) => String(segment)).join("."),
           })),
           method: event.request.method,
-          url: event.url.pathname
+          url: event.url.pathname,
         });
         return json({ issues: error.issues }, { status: 400 });
       }
@@ -50,7 +50,7 @@ function wrapHandler(
           err: error instanceof Error ? error.message : String(error),
           method: event.request.method,
           stack: error instanceof Error ? error.stack : undefined,
-          url: event.url.pathname
+          url: event.url.pathname,
         });
       }
 

@@ -10,7 +10,7 @@ const PENALTY_PER_WRONG_SEC = 20 * 60;
 function sub(status: string, minutesAfterStart: number) {
   return {
     status,
-    createdAt: new Date(CONTEST_START.getTime() + minutesAfterStart * 60 * 1000)
+    createdAt: new Date(CONTEST_START.getTime() + minutesAfterStart * 60 * 1000),
   };
 }
 
@@ -20,7 +20,7 @@ describe("computeProblemCountPenalty", () => {
       solved: false,
       wrongAttempts: 0,
       firstAcTimeSec: null,
-      penaltySeconds: 0
+      penaltySeconds: 0,
     });
   });
 
@@ -30,7 +30,7 @@ describe("computeProblemCountPenalty", () => {
       solved: true,
       wrongAttempts: 0,
       firstAcTimeSec: 30 * 60,
-      penaltySeconds: 30 * 60
+      penaltySeconds: 30 * 60,
     });
   });
 
@@ -47,7 +47,7 @@ describe("computeProblemCountPenalty", () => {
       sub("memory_limit_exceeded", 2),
       sub("runtime_error", 3),
       sub("compile_error", 4),
-      sub("accepted", 5)
+      sub("accepted", 5),
     ];
     const r = computeProblemCountPenalty(subs, CONTEST_START);
     expect(r.solved).toBe(true);
@@ -60,7 +60,7 @@ describe("computeProblemCountPenalty", () => {
       sub("running", 8),
       sub("queued", 9),
       sub("compiling", 9),
-      sub("accepted", 10)
+      sub("accepted", 10),
     ];
     const r = computeProblemCountPenalty(subs, CONTEST_START);
     expect(r.solved).toBe(true);
@@ -73,7 +73,7 @@ describe("computeProblemCountPenalty", () => {
       sub("wrong_answer", 5),
       sub("accepted", 10),
       sub("wrong_answer", 15),
-      sub("accepted", 20)
+      sub("accepted", 20),
     ];
     const r = computeProblemCountPenalty(subs, CONTEST_START);
     expect(r.penaltySeconds).toBe(10 * 60 + 1 * PENALTY_PER_WRONG_SEC);
@@ -85,7 +85,7 @@ describe("computeProblemCountPenalty", () => {
       solved: false,
       wrongAttempts: 2,
       firstAcTimeSec: null,
-      penaltySeconds: 0
+      penaltySeconds: 0,
     });
   });
 
@@ -95,7 +95,7 @@ describe("computeProblemCountPenalty", () => {
       solved: false,
       wrongAttempts: 0,
       firstAcTimeSec: null,
-      penaltySeconds: 0
+      penaltySeconds: 0,
     });
   });
 
@@ -103,7 +103,7 @@ describe("computeProblemCountPenalty", () => {
     const preContest = new Date(CONTEST_START.getTime() - 5000);
     const r = computeProblemCountPenalty(
       [{ status: "accepted", createdAt: preContest }],
-      CONTEST_START
+      CONTEST_START,
     );
     expect(r.firstAcTimeSec).toBe(0);
     expect(r.penaltySeconds).toBe(0);
@@ -113,7 +113,7 @@ describe("computeProblemCountPenalty", () => {
     const almostOneMinute = new Date(CONTEST_START.getTime() + 59_999);
     const r = computeProblemCountPenalty(
       [{ status: "accepted", createdAt: almostOneMinute }],
-      CONTEST_START
+      CONTEST_START,
     );
     expect(r.penaltySeconds).toBe(59);
   });

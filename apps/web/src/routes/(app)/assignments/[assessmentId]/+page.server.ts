@@ -6,7 +6,7 @@ import {
   assessmentSettingsFormSchema,
   type AssessmentSettingsFormData,
   type CourseAssessmentUpdate,
-  type Language
+  type Language,
 } from "@nojv/core";
 import {
   assessmentDomain,
@@ -14,7 +14,7 @@ import {
   courseDomain,
   plagiarismDomain,
   problemDomain,
-  scoreOverrideDomain
+  scoreOverrideDomain,
 } from "@nojv/domain";
 
 import { requireAuth } from "$lib/server/auth";
@@ -31,7 +31,7 @@ const {
   publishAssessment,
   revertAssessmentToDraft,
   unarchiveAssessment,
-  updateAssessmentRecord
+  updateAssessmentRecord,
 } = assessmentDomain;
 
 // Strip timezone off an ISO string so <input type="datetime-local"> can prefill.
@@ -40,7 +40,7 @@ function toDateTimeLocal(iso: string | null): string {
   const d = new Date(iso);
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours()
+    d.getHours(),
   )}:${pad(d.getMinutes())}`;
 }
 
@@ -68,18 +68,18 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       candidateProblems,
       canSetOverride,
       canAskClar,
-      canAnswerClar
+      canAnswerClar,
     ] = await Promise.all([
       getAssignmentDetail(courseId, assessmentId, {
         viewerUserId: actor.userId,
-        isManager: true
+        isManager: true,
       }),
       buildSubmissionsMatrix(courseId, assessmentId),
       findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(() => null),
       listEditableProblems(actor.userId),
       scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId),
       clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
-      clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId)
+      clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId),
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -90,9 +90,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         dueAt: toDateTimeLocal(detail.dueAt),
         closesAt: toDateTimeLocal(detail.closesAt),
         allowedLanguages: detail.allowedLanguages as Language[],
-        maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null
+        maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
       },
-      zod4(assessmentSettingsFormSchema)
+      zod4(assessmentSettingsFormSchema),
     );
 
     return {
@@ -104,35 +104,35 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canSetOverride,
       clarification: {
         canAsk: canAskClar,
-        canAnswer: canAnswerClar
+        canAnswer: canAnswerClar,
       },
       plagiarism: plagiarism
         ? {
             status: plagiarism.status,
-            mossReportUrl: plagiarism.mossReportUrl,
+            reportUrl: plagiarism.reportUrl,
             triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
             completedAt: plagiarism.completedAt?.toISOString() ?? null,
-            results: plagiarism.results as unknown
+            results: plagiarism.results as unknown,
           }
-        : null
+        : null,
     };
   }
 
   const [detail, canAskClar, canAnswerClar] = await Promise.all([
     getAssignmentDetail(courseId, assessmentId, {
       viewerUserId: actor.userId,
-      isManager: false
+      isManager: false,
     }),
     clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
-    clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId)
+    clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId),
   ]);
   return {
     mode: "student" as const,
     detail,
     clarification: {
       canAsk: canAskClar,
-      canAnswer: canAnswerClar
-    }
+      canAnswer: canAnswerClar,
+    },
   };
 });
 
@@ -154,7 +154,7 @@ export const actions = {
       maxAttemptsPerDay: form.data.maxAttemptsPerDay ?? null,
       opensAt: localToIso(form.data.opensAt),
       closesAt: localToIso(form.data.closesAt),
-      dueAt: form.data.dueAt ? localToIso(form.data.dueAt) : null
+      dueAt: form.data.dueAt ? localToIso(form.data.dueAt) : null,
     };
 
     try {
@@ -198,7 +198,7 @@ export const actions = {
         const raw = pointsMap[id];
         const n = typeof raw === "number" && Number.isFinite(raw) ? raw : 100;
         return { problemId: id, points: n };
-      })
+      }),
     };
 
     try {
@@ -294,5 +294,5 @@ export const actions = {
     }
 
     redirect(303, "/assignments");
-  }
+  },
 } satisfies Actions;

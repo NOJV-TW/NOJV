@@ -96,7 +96,7 @@ export function getRedis(): Redis {
 
 export function createSubscriber(redisUrl?: string): Redis {
   const opts = parseRedisConnection(
-    redisUrl ?? process.env.REDIS_URL ?? "redis://localhost:6379"
+    redisUrl ?? process.env.REDIS_URL ?? "redis://localhost:6379",
   );
   return new Redis({ host: opts.host, port: opts.port, password: opts.password });
 }
@@ -118,7 +118,7 @@ export const keys = {
   scoreboard: (contestId: string) => `${PREFIX}:scoreboard:${contestId}`,
   scoreboardFrozen: (contestId: string) => `${PREFIX}:scoreboard:${contestId}:frozen`,
   cooldown: (userId: string, problemId: string) => `${PREFIX}:cooldown:${userId}:${problemId}`,
-  cache: (key: string) => `${PREFIX}:cache:${key}`
+  cache: (key: string) => `${PREFIX}:cache:${key}`,
 } as const;
 ```
 
@@ -138,7 +138,7 @@ import {
   SSE_ASSIGNMENT_DEADLINE,
   SSE_CONTEST_ENDING,
   SSE_CONTEST_STARTING,
-  SSE_SUBMISSION_VERDICT
+  SSE_SUBMISSION_VERDICT,
 } from "@nojv/core";
 
 import { getRedis } from "./connection";
@@ -163,7 +163,7 @@ export async function publishVerdict(submission: {
       verdict: submission.status,
       score: submission.score,
       problemId: submission.problemId,
-      problemSlug: submission.problemSlug
+      problemSlug: submission.problemSlug,
     });
   } catch {
     // Non-critical
@@ -172,7 +172,7 @@ export async function publishVerdict(submission: {
 
 export async function publishContestEvent(
   contestId: string,
-  eventType: "starting" | "ending"
+  eventType: "starting" | "ending",
 ): Promise<void> {
   const event: SSEEvent =
     eventType === "starting" ? { type: SSE_CONTEST_STARTING } : { type: SSE_CONTEST_ENDING };
@@ -211,14 +211,14 @@ import { keys } from "./keys";
 export async function setCooldown(
   userId: string,
   problemId: string,
-  seconds: number
+  seconds: number,
 ): Promise<boolean> {
   const result = await getRedis().set(
     keys.cooldown(userId, problemId),
     "1",
     "EX",
     seconds,
-    "NX"
+    "NX",
   );
   return result === "OK";
 }
@@ -237,7 +237,7 @@ import { keys } from "./keys";
 export async function updateScoreboard(
   contestId: string,
   participationId: string,
-  score: number
+  score: number,
 ): Promise<void> {
   await getRedis().zadd(keys.scoreboard(contestId), score.toString(), participationId);
 }
@@ -245,13 +245,13 @@ export async function updateScoreboard(
 export async function getScoreboard(
   contestId: string,
   start = 0,
-  stop = -1
+  stop = -1,
 ): Promise<{ participationId: string; score: number }[]> {
   const results = await getRedis().zrevrange(
     keys.scoreboard(contestId),
     start,
     stop,
-    "WITHSCORES"
+    "WITHSCORES",
   );
   const entries: { participationId: string; score: number }[] = [];
   for (let i = 0; i + 1 < results.length; i += 2) {
@@ -479,7 +479,7 @@ export async function submitJudge(payload: SubmissionJudgeJob): Promise<void> {
   await client.workflow.start("submissionJudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `judge-${validated.submissionId}`,
-    args: [{ submissionId: validated.submissionId, draft: validated.draft }]
+    args: [{ submissionId: validated.submissionId, draft: validated.draft }],
   });
 }
 
@@ -488,7 +488,7 @@ export async function startContestLifecycle(contestId: string): Promise<void> {
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${contestId}`,
-    args: [{ contestId }]
+    args: [{ contestId }],
   });
 }
 
@@ -497,7 +497,7 @@ export async function startAssessmentLifecycle(assessmentId: string): Promise<vo
   await client.workflow.start("assessmentLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `assessment-lifecycle-${assessmentId}`,
-    args: [{ assessmentId }]
+    args: [{ assessmentId }],
   });
 }
 
@@ -511,7 +511,7 @@ export async function triggerPlagiarismCheck(input: {
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `plagiarism-${input.reportId}`,
-    args: [input]
+    args: [input],
   });
 }
 
@@ -525,7 +525,7 @@ export async function startRejudge(input: {
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `rejudge-${id}-${Date.now()}`,
-    args: [input]
+    args: [input],
   });
 }
 ```
@@ -544,7 +544,7 @@ export {
   startContestLifecycle,
   startAssessmentLifecycle,
   triggerPlagiarismCheck,
-  startRejudge
+  startRejudge,
 } from "./dispatch";
 
 export { closeClient } from "./client";
@@ -639,11 +639,11 @@ export const submissionRepo = {
             templates: true,
             testcaseSets: {
               include: { testcases: { orderBy: { createdAt: "asc" } } },
-              orderBy: { createdAt: "asc" }
-            }
-          }
-        }
-      }
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
+      },
     });
   },
 
@@ -659,7 +659,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
-      take: opts?.take
+      take: opts?.take,
     });
   },
 
@@ -667,15 +667,15 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { contestParticipationId, sampleOnly: false },
       orderBy: { createdAt: "asc" },
-      select: { createdAt: true, problemId: true, score: true, status: true }
+      select: { createdAt: true, problemId: true, score: true, status: true },
     });
   },
 
   countAc(userId: string, problemId: string) {
     return prisma.submission.count({
-      where: { userId, problemId, status: "accepted", sampleOnly: false }
+      where: { userId, problemId, status: "accepted", sampleOnly: false },
     });
-  }
+  },
 
   // Add more methods as discovered during audit
 };
@@ -751,10 +751,10 @@ export const submissionRepo = {
     return {
       create(data: Prisma.SubmissionCreateInput) {
         return tx.submission.create({ data });
-      }
+      },
       // ... same methods but using tx instead of prisma
     };
-  }
+  },
 };
 ```
 
@@ -849,7 +849,7 @@ Run: `pnpm install`
 export class HttpError extends Error {
   constructor(
     message: string,
-    public readonly status: number
+    public readonly status: number,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -879,7 +879,7 @@ import type { CourseRole, EffectiveCourseRole, PlatformRole } from "@nojv/core";
 
 export function resolveEffectiveCourseRole(
   platformRole: PlatformRole,
-  courseRole: CourseRole | null
+  courseRole: CourseRole | null,
 ): EffectiveCourseRole | null {
   if (platformRole === "admin") return "admin";
   return courseRole;

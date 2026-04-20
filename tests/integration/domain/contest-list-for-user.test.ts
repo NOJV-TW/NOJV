@@ -16,11 +16,11 @@ describe("listContestsForUser", () => {
     const mine = await createTestContest({
       createdByUserId: user.id,
       visibility: "published",
-      title: "Mine"
+      title: "Mine",
     });
     await createTestContest({
       visibility: "published",
-      title: "Public"
+      title: "Public",
     });
 
     const result = await listContestsForUser(user.id);
@@ -37,7 +37,7 @@ describe("listContestsForUser", () => {
     const draft = await createTestContest({
       createdByUserId: user.id,
       visibility: "draft",
-      title: "Draft"
+      title: "Draft",
     });
 
     const result = await listContestsForUser(user.id);

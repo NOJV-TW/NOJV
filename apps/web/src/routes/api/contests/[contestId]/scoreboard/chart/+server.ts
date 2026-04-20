@@ -13,7 +13,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const topN = Math.min(
     Math.max(1, parseInt(event.url.searchParams.get("topN") ?? "10", 10) || 10),
-    50
+    50,
   );
 
   const chart = await getScoreboardChart(contestId, topN);

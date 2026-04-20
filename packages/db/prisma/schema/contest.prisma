@@ -115,7 +115,7 @@ model Contest {
   // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
   plagiarismStatus        PlagiarismReportStatus?
   plagiarismResults       Json?
-  plagiarismMossReportUrl String?
+  plagiarismReportUrl     String?
   plagiarismTriggeredAt   DateTime?
   plagiarismCompletedAt   DateTime?
   plagiarismTriggeredById String?
@@ -193,7 +193,7 @@ model Exam {
   // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
   plagiarismStatus        PlagiarismReportStatus?
   plagiarismResults       Json?
-  plagiarismMossReportUrl String?
+  plagiarismReportUrl     String?
   plagiarismTriggeredAt   DateTime?
   plagiarismCompletedAt   DateTime?
   plagiarismTriggeredById String?

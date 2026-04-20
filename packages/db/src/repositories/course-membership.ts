@@ -13,11 +13,11 @@ export const courseMembershipAdminRepo = {
             name: true,
             username: true,
             email: true,
-            status: true
-          }
-        }
+            status: true,
+          },
+        },
       },
-      orderBy: [{ role: "asc" }, { joinedAt: "asc" }]
+      orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
     });
   },
 
@@ -26,8 +26,8 @@ export const courseMembershipAdminRepo = {
       where: { courseId_userId: { courseId, userId } },
       data: {
         status: "removed",
-        removedAt: new Date()
-      }
+        removedAt: new Date(),
+      },
     });
   },
 
@@ -35,7 +35,7 @@ export const courseMembershipAdminRepo = {
   updateRole(courseId: string, userId: string, role: CourseRole) {
     return prisma.courseMembership.update({
       where: { courseId_userId: { courseId, userId } },
-      data: { role }
+      data: { role },
     });
-  }
+  },
 };

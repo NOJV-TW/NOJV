@@ -4,7 +4,7 @@ import {
   courseRepo,
   problemRepo,
   userRepo,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 
 import { NotFoundError } from "./errors";
@@ -52,7 +52,7 @@ export async function requireUser(tx: TransactionClient, userId: string) {
 export async function requireCourseAssessment(
   tx: TransactionClient,
   courseId: string,
-  assessmentId: string
+  assessmentId: string,
 ) {
   const course = await requireCourse(tx, courseId);
   const assessment = await assessmentRepo.withTx(tx).findByCompositeId(course.id, assessmentId);
@@ -63,6 +63,6 @@ export async function requireCourseAssessment(
 
   return {
     assessment,
-    course
+    course,
   };
 }

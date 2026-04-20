@@ -16,7 +16,7 @@ const SCHOOL_DOMAINS: Record<string, School> = {
   "ntu.edu.tw": "ntu",
   "g.ntu.edu.tw": "ntu",
   "mail.ntust.edu.tw": "ntust",
-  "gapps.ntust.edu.tw": "ntust"
+  "gapps.ntust.edu.tw": "ntust",
 };
 
 function isValidStudentIdForSchool(id: string, school: School): boolean {

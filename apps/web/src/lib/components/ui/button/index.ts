@@ -2,7 +2,7 @@ import Root, {
   type ButtonProps,
   type ButtonSize,
   type ButtonVariant,
-  buttonVariants
+  buttonVariants,
 } from "./button.svelte";
 import IconButton, { type IconButtonProps, type IconButtonSize } from "./IconButton.svelte";
 import LinkButton, { type LinkButtonProps } from "./LinkButton.svelte";
@@ -20,5 +20,5 @@ export {
   type ButtonVariant,
   type IconButtonProps,
   type IconButtonSize,
-  type LinkButtonProps
+  type LinkButtonProps,
 };

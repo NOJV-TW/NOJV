@@ -4,13 +4,13 @@ export {
   deleteProblemImage,
   uploadAdvancedImageTarball,
   deleteAdvancedImageTarball,
-  downloadAdvancedImageTarball
+  downloadAdvancedImageTarball,
 } from "./images";
 export {
   testcaseInputKey,
   testcaseOutputKey,
   testcaseInputFileKey,
   workspaceFileKey,
-  problemPrefix
+  problemPrefix,
 } from "./keys";
 export { putText, getText, deleteBlob, deleteBlobsByPrefix } from "./blobs";

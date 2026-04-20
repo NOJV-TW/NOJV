@@ -5,7 +5,7 @@ export { clarificationRepo } from "./clarification";
 export type {
   ClarificationRow,
   ClarificationCreateInput,
-  ClarificationAnswerUpdate
+  ClarificationAnswerUpdate,
 } from "./clarification";
 export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
@@ -19,14 +19,14 @@ export type { NotificationCreateInput } from "./notification";
 export {
   plagiarismRepo,
   type PlagiarismReportSummary,
-  type PlagiarismUpsertInput
+  type PlagiarismUpsertInput,
 } from "./plagiarism";
 export {
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,
   testcaseSetRepo,
-  testcaseRepo
+  testcaseRepo,
 } from "./problem";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export {
@@ -35,13 +35,13 @@ export {
   type ScoreOverrideCompositeKey,
   type ScoreOverrideCreateData,
   type ScoreOverrideUpdateData,
-  type ScoreOverrideAuditCreateData
+  type ScoreOverrideAuditCreateData,
 } from "./score-override";
 export { submissionRepo } from "./submission";
 export { submissionRejudgeLogRepo } from "./submission-rejudge-log";
 export type {
   SubmissionRejudgeLogCreateInput,
-  SubmissionRejudgeLogUpdateInput
+  SubmissionRejudgeLogUpdateInput,
 } from "./submission-rejudge-log";
 export { userRepo } from "./user";
 export { userDailyActivityRepo } from "./user-daily-activity";

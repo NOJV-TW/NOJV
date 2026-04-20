@@ -4,7 +4,7 @@ import {
   contestRepo,
   courseMembershipRepo,
   examParticipationRepo,
-  examRepo
+  examRepo,
 } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -38,7 +38,7 @@ async function hasExamParticipation(userId: string, examId: string): Promise<boo
 
 async function isActiveStudentInAssessment(
   userId: string,
-  assessmentId: string
+  assessmentId: string,
 ): Promise<boolean> {
   const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
   if (!assessment) return false;
@@ -59,7 +59,7 @@ async function isActiveStudentInAssessment(
 export async function canAskClarification(
   actor: ActorContext,
   contextType: ClarificationContextType,
-  contextId: string
+  contextId: string,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return false;
 
@@ -85,7 +85,7 @@ export async function canAskClarification(
 export async function canAnswerInContext(
   actor: ActorContext,
   contextType: ClarificationContextType,
-  contextId: string
+  contextId: string,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
 
@@ -116,7 +116,7 @@ export const canSeeAuthor = canAnswerInContext;
 export async function assertCanAskClarification(
   actor: ActorContext,
   contextType: ClarificationContextType,
-  contextId: string
+  contextId: string,
 ): Promise<void> {
   if (!(await canAskClarification(actor, contextType, contextId))) {
     throw new ForbiddenError("Only participants may ask clarifications.");
@@ -126,7 +126,7 @@ export async function assertCanAskClarification(
 export async function assertCanAnswerInContext(
   actor: ActorContext,
   contextType: ClarificationContextType,
-  contextId: string
+  contextId: string,
 ): Promise<void> {
   if (!(await canAnswerInContext(actor, contextType, contextId))) {
     throw new ForbiddenError("Not permitted to answer clarifications in this context.");

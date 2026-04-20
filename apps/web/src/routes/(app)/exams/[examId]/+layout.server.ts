@@ -6,7 +6,7 @@ import {
   ForbiddenError,
   NotFoundError,
   proctoringDomain,
-  resolveEffectiveCourseRole
+  resolveEffectiveCourseRole,
 } from "@nojv/domain";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
@@ -39,7 +39,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const membership = course.memberships[0] ?? null;
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
-    membership?.role ?? null
+    membership?.role ?? null,
   );
   const isCourseOwner = course.ownerId === actor.userId;
   const isManager = canManageCourse(effectiveRole) || isCourseOwner;
@@ -51,7 +51,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       entityKind: "exam",
       entityId: examId,
       userId: actor.userId,
-      ip: getClientIp(event)
+      ip: getClientIp(event),
     });
 
     if (!verdict.ok) {
@@ -84,13 +84,13 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     exam: {
       id: exam.id,
       courseId,
-      title: exam.title
+      title: exam.title,
     },
     course: {
       id: course.id,
       title: course.title,
-      archived: course.archived
+      archived: course.archived,
     },
-    isManager
+    isManager,
   };
 });

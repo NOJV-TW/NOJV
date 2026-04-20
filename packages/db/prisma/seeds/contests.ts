@@ -10,10 +10,10 @@ export async function seedContests(prisma: PrismaClient) {
       startsAt: new Date("2026-03-15T14:00:00+08:00"),
       summary: "Qualifier contest with a frozen board in the final hour.",
       title: "Spring Qualifier 2026",
-      visibility: "published"
+      visibility: "published",
     },
     update: {},
-    where: { id: "spring-qualifier-2026" }
+    where: { id: "spring-qualifier-2026" },
   });
 
   // Link problems to contests
@@ -22,14 +22,14 @@ export async function seedContests(prisma: PrismaClient) {
       contestId: springQualifier.id,
       problemId: "problem_warmup-sum",
       ordinal: 1,
-      points: 100
+      points: 100,
     },
     {
       contestId: springQualifier.id,
       problemId: "problem_graph-docking",
       ordinal: 2,
-      points: 300
-    }
+      points: 300,
+    },
   ];
 
   for (const link of contestProblemLinks) {
@@ -38,18 +38,18 @@ export async function seedContests(prisma: PrismaClient) {
         contestId: link.contestId,
         ordinal: link.ordinal,
         points: link.points,
-        problemId: link.problemId
+        problemId: link.problemId,
       },
       update: {
         ordinal: link.ordinal,
-        points: link.points
+        points: link.points,
       },
       where: {
         contestId_problemId: {
           contestId: link.contestId,
-          problemId: link.problemId
-        }
-      }
+          problemId: link.problemId,
+        },
+      },
     });
   }
 

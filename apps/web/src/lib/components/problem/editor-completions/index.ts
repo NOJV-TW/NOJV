@@ -26,7 +26,7 @@ const kindMap: Record<CompletionEntry["kind"], Monaco.languages.CompletionItemKi
   Function: 1,
   Keyword: 17,
   Module: 8,
-  Snippet: 27
+  Snippet: 27,
 };
 
 const INSERT_AS_SNIPPET: Monaco.languages.CompletionItemInsertTextRule = 4;
@@ -39,7 +39,7 @@ const completionsByLanguage: Record<string, CompletionEntry[]> = {
   javascript: jsCompletions,
   python: pythonCompletions,
   rust: rustCompletions,
-  typescript: tsCompletions
+  typescript: tsCompletions,
 };
 
 let registered = false;
@@ -56,7 +56,7 @@ export function registerCompletionProviders(monaco: typeof Monaco) {
           startLineNumber: position.lineNumber,
           endLineNumber: position.lineNumber,
           startColumn: word.startColumn,
-          endColumn: word.endColumn
+          endColumn: word.endColumn,
         };
 
         const suggestions: Monaco.languages.CompletionItem[] = entries.map((e) => ({
@@ -65,11 +65,11 @@ export function registerCompletionProviders(monaco: typeof Monaco) {
           insertText: e.insertText,
           ...(e.isSnippet ? { insertTextRules: INSERT_AS_SNIPPET } : {}),
           ...(e.detail ? { detail: e.detail } : {}),
-          range
+          range,
         }));
 
         return { suggestions };
-      }
+      },
     });
   }
 }

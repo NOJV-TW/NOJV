@@ -62,9 +62,9 @@ export function createStorageClient() {
     region: process.env.S3_REGION ?? "auto",
     credentials: {
       accessKeyId: process.env.S3_ACCESS_KEY!,
-      secretAccessKey: process.env.S3_SECRET_KEY!
+      secretAccessKey: process.env.S3_SECRET_KEY!,
     },
-    forcePathStyle: true
+    forcePathStyle: true,
   });
 }
 ```
@@ -80,7 +80,7 @@ export async function uploadProblemImage(
   client: S3Client,
   problemId: string,
   file: Buffer,
-  mimeType: string
+  mimeType: string,
 ) {
   const ext = mimeType.split("/")[1];
   const key = `problems/${problemId}/images/${randomUUID()}.${ext}`;
@@ -90,8 +90,8 @@ export async function uploadProblemImage(
       Bucket: BUCKET,
       Key: key,
       Body: file,
-      ContentType: mimeType
-    })
+      ContentType: mimeType,
+    }),
   );
 
   const baseUrl = process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT;

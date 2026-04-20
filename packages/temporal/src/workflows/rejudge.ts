@@ -36,10 +36,10 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
         await executeChild(submissionJudgeWorkflow, {
           workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
           taskQueue: JUDGE_TASK_QUEUE,
-          args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }]
+          args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }],
         });
         completed++;
-      })
+      }),
     );
   }
 }

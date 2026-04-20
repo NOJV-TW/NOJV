@@ -18,18 +18,18 @@ describe("problem seed hardening", () => {
           judgeConfig: { type: "interactive" },
           statements: {
             "zh-TW": { title: "壞題", body: "壞題" },
-            en: { title: "Broken", body: "Broken" }
+            en: { title: "Broken", body: "Broken" },
           },
           testcases: {
             sample: {
-              cases: [{ input: "1", output: "" }]
+              cases: [{ input: "1", output: "" }],
             },
             hidden: {
-              cases: [{ input: "2", output: "" }]
-            }
-          }
-        }
-      ])
+              cases: [{ input: "2", output: "" }],
+            },
+          },
+        },
+      ]),
     ).toThrow(/Interactive judge requires interactorScript/);
   });
 
@@ -48,18 +48,18 @@ describe("problem seed hardening", () => {
           judgeConfig: { type: "checker" },
           statements: {
             "zh-TW": { title: "壞題", body: "壞題" },
-            en: { title: "Broken", body: "Broken" }
+            en: { title: "Broken", body: "Broken" },
           },
           testcases: {
             sample: {
-              cases: [{ input: "1", output: "" }]
+              cases: [{ input: "1", output: "" }],
             },
             hidden: {
-              cases: [{ input: "2", output: "" }]
-            }
-          }
-        }
-      ])
+              cases: [{ input: "2", output: "" }],
+            },
+          },
+        },
+      ]),
     ).toThrow(/Checker judge requires checkerScript/);
   });
 });

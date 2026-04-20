@@ -76,7 +76,7 @@ function mapExamListItem(e: ExamWithCounts): ExamListItem {
     startsAt: e.startsAt.toISOString(),
     status: e.status,
     summary: e.summary,
-    title: e.title
+    title: e.title,
   };
 }
 
@@ -103,7 +103,7 @@ function mapExamDetail(exam: ExamDetailRow): ExamDetailBase {
       id: ep.problem.id,
       ordinal: ep.ordinal,
       points: ep.points,
-      title: ep.problem.title
+      title: ep.problem.title,
     })),
     scoreboardMode: exam.scoreboardMode as ScoreboardMode,
     scoringMode: exam.scoringMode as ContestScoringMode,
@@ -111,7 +111,7 @@ function mapExamDetail(exam: ExamDetailRow): ExamDetailBase {
     status: exam.status,
     submitCooldownSec: exam.submitCooldownSec,
     summary: exam.summary,
-    title: exam.title
+    title: exam.title,
   };
 }
 
@@ -182,7 +182,7 @@ type ExamListRawRow = Awaited<ReturnType<typeof examRepo.listForCourse>>[number]
 function rankExamRow(
   status: ExamRowStatus,
   row: { startsAt: Date; endsAt: Date },
-  now: Date
+  now: Date,
 ): number {
   // Lower rank = higher priority: running, upcoming, draft, ended.
   if (status === "running") return row.endsAt.getTime() - now.getTime();
@@ -195,7 +195,7 @@ function rankExamRow(
 function mapExamRow(
   raw: ExamListRawRow,
   includeManagerData: boolean,
-  now: Date
+  now: Date,
 ): { row: ExamListRow; rank: number } {
   let status: ExamRowStatus;
   if (raw.status === "draft") {
@@ -224,24 +224,24 @@ function mapExamRow(
     proctoring: {
       pageLock: raw.pageLockEnabled,
       ipBinding: raw.ipBindingEnabled,
-      ipWhitelist: raw.ipWhitelistEnabled
+      ipWhitelist: raw.ipWhitelistEnabled,
     },
     registeredCount: includeManagerData ? raw._count.participations : null,
     totalStudents: null,
     classStats: null,
-    myStatus: null
+    myStatus: null,
   };
 
   return {
     row,
-    rank: rankExamRow(status, { startsAt: raw.startsAt, endsAt: raw.endsAt }, now)
+    rank: rankExamRow(status, { startsAt: raw.startsAt, endsAt: raw.endsAt }, now),
   };
 }
 
 // For courses with more than ~50 exams the chip counts will underreport — acceptable at current scale.
 export async function listForCourse(
   courseId: string,
-  options: ListForCourseOptions
+  options: ListForCourseOptions,
 ): Promise<ExamListResult> {
   const now = options.now ?? new Date();
   const raws = await examRepo.listForCourse(courseId, options.includeDrafts, options.limit);
@@ -253,7 +253,7 @@ export async function listForCourse(
     upcoming: 0,
     running: 0,
     ended: 0,
-    draft: options.includeDrafts ? 0 : null
+    draft: options.includeDrafts ? 0 : null,
   };
   for (const entry of mapped) {
     const s = entry.row.status;
@@ -275,7 +275,7 @@ export async function listForCourse(
   const aggInput = visibleRows.map((r) => ({
     id: r.id,
     courseId,
-    problemCount: r.problemCount
+    problemCount: r.problemCount,
   }));
   if (options.includeDrafts) {
     const stats = await aggregateExamClassStats(aggInput);
@@ -287,7 +287,7 @@ export async function listForCourse(
 
   return {
     rows: visibleRows,
-    counts
+    counts,
   };
 }
 
@@ -310,28 +310,28 @@ function resolveVisibility(
   userId: string | null,
   exam: { createdByUserId: string | null; courseId: string; startsAt: Date },
   memberships: Awaited<ReturnType<typeof courseMembershipRepo.listActiveForUser>>,
-  now: Date
+  now: Date,
 ): { isManager: boolean; problemsHidden: boolean } {
   const isManager = canManageExam(
     userId,
     { createdByUserId: exam.createdByUserId, courseId: exam.courseId },
-    memberships
+    memberships,
   );
   return {
     isManager,
-    problemsHidden: !isManager && now < exam.startsAt
+    problemsHidden: !isManager && now < exam.startsAt,
   };
 }
 
 export async function getExamDetail(
   examId: string,
-  options: ExamDetailOptions
+  options: ExamDetailOptions,
 ): Promise<ExamDetailData> {
   const [exam, memberships] = await Promise.all([
     examRepo.findDetailById(examId),
     options.userId === null
       ? Promise.resolve([])
-      : courseMembershipRepo.listActiveForUser(options.userId)
+      : courseMembershipRepo.listActiveForUser(options.userId),
   ]);
   if (exam?.status !== "published") {
     throw new NotFoundError(`Exam not found: ${examId}`);
@@ -341,7 +341,7 @@ export async function getExamDetail(
     options.userId,
     exam,
     memberships,
-    options.now
+    options.now,
   );
 
   const base = mapExamDetail(exam);
@@ -349,7 +349,7 @@ export async function getExamDetail(
     ...base,
     isManager,
     problemsHidden,
-    problems: problemsHidden ? null : base.problems
+    problems: problemsHidden ? null : base.problems,
   };
 }
 
@@ -363,7 +363,7 @@ export async function checkExamIpAccess(
   clientIp: string,
   examId: string,
   userId: string,
-  participation: { id: string; ipPin: string | null } | null
+  participation: { id: string; ipPin: string | null } | null,
 ): Promise<IpCheckResult> {
   return runTransaction(async (tx) => {
     return checkIpLock(tx, config, clientIp, participation, { userId, examId });

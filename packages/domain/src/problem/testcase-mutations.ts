@@ -11,7 +11,7 @@ import {
   bestEffortDeleteTestcaseBlobs,
   overwriteTestcaseField,
   writeTestcaseBlobs,
-  type TestcaseBlobKeys
+  type TestcaseBlobKeys,
 } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
 
@@ -20,7 +20,7 @@ const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
   problemId: string,
-  payload: ProblemTestcaseSetCreate
+  payload: ProblemTestcaseSetCreate,
 ) {
   // 1. Pre-allocate testcase ids so we can compute stable S3 keys, then
   //    upload the blobs OUTSIDE the DB transaction. Upload failure throws
@@ -37,10 +37,10 @@ export async function createProblemTestcaseSetRecord(
         problemId,
         testcaseId: id,
         input: tc.input,
-        output: tc.output
+        output: tc.output,
       });
       return { id, blobKeys };
-    })
+    }),
   );
 
   // 2. Now the transaction: ownership check, set creation, and createMany.
@@ -51,11 +51,11 @@ export async function createProblemTestcaseSetRecord(
     assertProblemOwnership(problem, actor);
 
     const existingCount = await tx.testcaseSet.count({
-      where: { problemId: problem.id }
+      where: { problemId: problem.id },
     });
     if (existingCount >= MAX_TESTCASE_SETS_PER_PROBLEM) {
       throw new ConflictError(
-        `A problem can have at most ${String(MAX_TESTCASE_SETS_PER_PROBLEM)} testcase sets.`
+        `A problem can have at most ${String(MAX_TESTCASE_SETS_PER_PROBLEM)} testcase sets.`,
       );
     }
 
@@ -64,7 +64,7 @@ export async function createProblemTestcaseSetRecord(
     // next slot by reading the current max within the transaction.
     const { _max } = await tx.testcaseSet.aggregate({
       where: { problemId: problem.id },
-      _max: { ordinal: true }
+      _max: { ordinal: true },
     });
     const nextOrdinal = (_max.ordinal ?? -1) + 1;
 
@@ -72,7 +72,7 @@ export async function createProblemTestcaseSetRecord(
       name: payload.name,
       problemId: problem.id,
       weight: payload.weight,
-      ordinal: nextOrdinal
+      ordinal: nextOrdinal,
     });
 
     const rows: Prisma.TestcaseCreateManyInput[] = prepared.map((entry, index) => {
@@ -80,7 +80,7 @@ export async function createProblemTestcaseSetRecord(
         id: entry.id,
         ordinal: index + 1,
         testcaseSetId: testcaseSet.id,
-        inputKey: entry.blobKeys.inputKey
+        inputKey: entry.blobKeys.inputKey,
       };
       if (entry.blobKeys.outputKey !== null) row.outputKey = entry.blobKeys.outputKey;
       if (entry.blobKeys.inputFileKeys !== null) {
@@ -93,7 +93,7 @@ export async function createProblemTestcaseSetRecord(
     return {
       caseCount: payload.cases.length,
       id: testcaseSet.id,
-      name: testcaseSet.name
+      name: testcaseSet.name,
     };
   });
 }
@@ -102,7 +102,7 @@ export async function updateTestcaseSetRecord(
   actor: ProblemActorContext,
   problemId: string,
   setId: string,
-  payload: TestcaseSetUpdate
+  payload: TestcaseSetUpdate,
 ) {
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
@@ -115,7 +115,7 @@ export async function updateTestcaseSetRecord(
 export async function deleteTestcaseSetRecord(
   actor: ProblemActorContext,
   problemId: string,
-  setId: string
+  setId: string,
 ) {
   // Fetch the set's testcase ids first so we know which S3 prefixes to
   // sweep after the DB delete commits. Each testcase has a stable prefix
@@ -142,7 +142,7 @@ export async function updateTestcaseRecord(
   actor: ProblemActorContext,
   problemId: string,
   testcaseId: string,
-  payload: TestcaseUpdate
+  payload: TestcaseUpdate,
 ) {
   // Authorize first so unauthorised callers can't trigger S3 traffic.
   await runTransaction(async (tx) => {
@@ -169,7 +169,7 @@ export async function updateTestcaseRecord(
 export async function deleteTestcaseRecord(
   actor: ProblemActorContext,
   problemId: string,
-  testcaseId: string
+  testcaseId: string,
 ) {
   await runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);

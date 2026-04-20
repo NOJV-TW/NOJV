@@ -74,7 +74,7 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
     scoringMode: c.scoringMode,
     startsAt: c.startsAt.toISOString(),
     summary: c.summary,
-    title: c.title
+    title: c.title,
   };
 }
 
@@ -98,14 +98,14 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
       id: cp.problem.id,
       ordinal: cp.ordinal,
       points: cp.points,
-      title: cp.problem.title
+      title: cp.problem.title,
     })),
     scoreboardMode: contest.scoreboardMode as ScoreboardMode,
     scoringMode: contest.scoringMode,
     startsAt: contest.startsAt.toISOString(),
     submitCooldownSec: contest.submitCooldownSec,
     summary: contest.summary,
-    title: contest.title
+    title: contest.title,
   };
 }
 
@@ -115,7 +115,7 @@ export async function listPublicContests(): Promise<ContestListItem[]> {
 }
 
 export async function listContestsForUser(
-  userId: string | null
+  userId: string | null,
 ): Promise<ContestListForUserResult> {
   if (userId === null) {
     const rows = await contestRepo.listParticipable();
@@ -124,7 +124,7 @@ export async function listContestsForUser(
 
   const [managedRows, participableRows] = await Promise.all([
     contestRepo.listManagedForUser(userId),
-    contestRepo.listParticipable()
+    contestRepo.listParticipable(),
   ]);
 
   const managedIds = new Set(managedRows.map((c) => c.id));
@@ -134,7 +134,7 @@ export async function listContestsForUser(
 
   const managed: ContestListItemForUser[] = managedRows.map((row) => ({
     ...mapContestListItem(row),
-    visibility: row.visibility
+    visibility: row.visibility,
   }));
 
   return { managed, participable };
@@ -151,22 +151,22 @@ function resolveVisibility(
   userId: string | null,
   platformRole: PlatformRole | null,
   contest: { createdByUserId: string | null; startsAt: Date },
-  now: Date
+  now: Date,
 ): { isManager: boolean; problemsHidden: boolean } {
   const isManager = canManageContest(
     userId,
     { createdByUserId: contest.createdByUserId },
-    platformRole
+    platformRole,
   );
   return {
     isManager,
-    problemsHidden: !isManager && now < contest.startsAt
+    problemsHidden: !isManager && now < contest.startsAt,
   };
 }
 
 export async function getContestDetail(
   contestId: string,
-  options: ContestDetailOptions
+  options: ContestDetailOptions,
 ): Promise<ContestDetailData> {
   const contest = await contestRepo.findDetailById(contestId);
   if (contest?.visibility !== "published") {
@@ -177,7 +177,7 @@ export async function getContestDetail(
     options.userId,
     options.platformRole ?? null,
     contest,
-    options.now
+    options.now,
   );
 
   const base = mapContestDetail(contest);
@@ -185,14 +185,14 @@ export async function getContestDetail(
     ...base,
     isManager,
     problemsHidden,
-    problems: problemsHidden ? null : base.problems
+    problems: problemsHidden ? null : base.problems,
   };
 }
 
 export async function getContestWorkspaceData(
   contestId: string,
   userId: string,
-  options: { now: Date; platformRole?: PlatformRole | null }
+  options: { now: Date; platformRole?: PlatformRole | null },
 ): Promise<ContestWorkspaceData> {
   const contest = await contestRepo.findWorkspaceById(contestId, userId);
   if (contest?.visibility !== "published") {
@@ -203,7 +203,7 @@ export async function getContestWorkspaceData(
     userId,
     options.platformRole ?? null,
     contest,
-    options.now
+    options.now,
   );
 
   const base = mapContestDetail(contest);
@@ -219,9 +219,9 @@ export async function getContestWorkspaceData(
           penaltySeconds: participation.penaltySeconds,
           score: participation.score,
           startedAt: participation.startedAt?.toISOString() ?? null,
-          status: participation.status
+          status: participation.status,
         }
-      : null
+      : null,
   };
 }
 
@@ -245,7 +245,7 @@ export interface ContestContextResult {
 // intentional-nullable: paired with getAssessmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
 export async function getContestContext(
   contestId: string,
-  options: GetContestContextOptions
+  options: GetContestContextOptions,
 ): Promise<ContestContextResult | null> {
   const contest = await contestRepo.findById(contestId);
   if (contest?.visibility !== "published") return null;
@@ -257,7 +257,7 @@ export async function getContestContext(
   const viewerIsManager = canManageContest(
     options.viewerUserId,
     { createdByUserId: contest.createdByUserId },
-    options.viewerPlatformRole
+    options.viewerPlatformRole,
   );
 
   // Non-managers must hit a live time window; pre-start leaks problem
@@ -269,7 +269,7 @@ export async function getContestContext(
     allowedLanguages: contest.allowedLanguages as Language[],
     id: contest.id,
     timeStatus,
-    viewerIsManager
+    viewerIsManager,
   };
 }
 

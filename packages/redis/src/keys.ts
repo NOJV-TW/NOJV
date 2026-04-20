@@ -13,5 +13,5 @@ export const keys = {
   contestChannel: (contestId: string) => `contest:${contestId}`,
   assessmentChannel: (assessmentId: string) => `assessment:${assessmentId}`,
   clarificationChannel: (contextType: string, contextId: string) =>
-    `clarification:${contextType}:${contextId}`
+    `clarification:${contextType}:${contextId}`,
 } as const;

@@ -35,16 +35,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     {
       userId,
       username: actor.username ?? "",
-      platformRole: actor.platformRole
+      platformRole: actor.platformRole,
     },
-    { contextIncludesProblem: false }
+    { contextIncludesProblem: false },
   );
 
   // Now that we've confirmed view access, load the display payload +
   // testcase summaries (never leak hidden I/O — stripped at line below).
   const [problem, fullTestcaseSets] = await Promise.all([
     getProblemPageData(problemId),
-    getProblemTestcaseSets(problemId)
+    getProblemTestcaseSets(problemId),
   ]);
 
   // Testcase set summaries strip the actual input/output payloads —
@@ -55,7 +55,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     description: set.description,
     weight: set.weight,
     ordinal: set.ordinal,
-    caseCount: set.testcases.length
+    caseCount: set.testcases.length,
   }));
 
   const submissions = await listProblemSubmissions(userId, problemId);
@@ -69,7 +69,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problemId,
     contestId: null,
     courseAssessmentId: null,
-    examId: null
+    examId: null,
   });
 
   return {
@@ -80,6 +80,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     contestId: undefined,
     problem,
     submissions,
-    testcaseSets: testcaseSetSummaries
+    testcaseSets: testcaseSetSummaries,
   };
 });

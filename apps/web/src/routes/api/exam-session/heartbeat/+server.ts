@@ -8,7 +8,7 @@ import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { examDomain } from "@nojv/domain";
 
 const bodySchema = z.object({
-  examId: z.string().min(1)
+  examId: z.string().min(1),
 });
 
 // Returns 204 when the caller has no active session so the client can treat it as "released".
@@ -21,7 +21,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     const result = await examDomain.session.heartbeatWithThrottle(actor.userId, body.examId);
     return json({
       ok: true,
-      lastHeartbeatAt: result.session.lastHeartbeatAt.toISOString()
+      lastHeartbeatAt: result.session.lastHeartbeatAt.toISOString(),
     });
   } catch (error) {
     if (error instanceof NotFoundError) {

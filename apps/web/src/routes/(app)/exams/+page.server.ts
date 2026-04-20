@@ -23,12 +23,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const currentFilter = parseStatusFilter(event.url.searchParams.get("tab"));
 
   const { rows, counts } = await listExamsAcrossCoursesForUser(actor.userId, {
-    status: currentFilter
+    status: currentFilter,
   });
 
   return {
     exams: rows,
     counts,
-    currentFilter
+    currentFilter,
   };
 });

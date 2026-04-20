@@ -8,6 +8,6 @@ export const GET: RequestHandler = async () => {
 
   return json(
     { status: healthy ? "healthy" : "unhealthy", checks },
-    { status: healthy ? 200 : 503 }
+    { status: healthy ? 200 : 503 },
   );
 };

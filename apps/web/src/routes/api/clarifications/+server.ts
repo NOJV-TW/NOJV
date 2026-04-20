@@ -12,14 +12,14 @@ const contextTypeSchema = z.enum(["contest", "exam", "assignment"]);
 const listQuerySchema = z.object({
   contextType: contextTypeSchema,
   contextId: z.string().min(1),
-  since: z.iso.datetime().optional()
+  since: z.iso.datetime().optional(),
 });
 
 const askSchema = z.object({
   contextType: contextTypeSchema,
   contextId: z.string().min(1),
   problemId: z.string().min(1).optional().nullable(),
-  questionText: z.string().min(10).max(1000)
+  questionText: z.string().min(10).max(1000),
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -27,7 +27,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const parsed = listQuerySchema.parse({
     contextType: event.url.searchParams.get("contextType"),
     contextId: event.url.searchParams.get("contextId"),
-    since: event.url.searchParams.get("since") ?? undefined
+    since: event.url.searchParams.get("since") ?? undefined,
   });
 
   const since = parsed.since ? new Date(parsed.since) : undefined;
@@ -35,7 +35,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     actor,
     parsed.contextType,
     parsed.contextId,
-    since
+    since,
   );
   return json({ items });
 });
@@ -47,7 +47,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     contextType: body.contextType,
     contextId: body.contextId,
     problemId: body.problemId ?? null,
-    questionText: body.questionText
+    questionText: body.questionText,
   });
   return json(row, { status: 201 });
 });

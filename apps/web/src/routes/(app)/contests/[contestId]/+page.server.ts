@@ -15,7 +15,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const contest = await getContestDetail(params.contestId, {
     userId: user?.id ?? null,
     platformRole: locals.sessionUser?.platformRole ?? null,
-    now
+    now,
   });
 
   // Staff-only data for the score-override drawer. Students don't see the
@@ -28,13 +28,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     if (actor && hasActorUsername(actor)) {
       const [allowed, participants] = await Promise.all([
         scoreOverrideDomain.canSetScoreOverride(actor, "contest", contest.id),
-        contestParticipationRepo.listParticipantsWithUser(contest.id)
+        contestParticipationRepo.listParticipantsWithUser(contest.id),
       ]);
       canSetOverride = allowed;
       overrideStudents = participants.map((p) => ({
         id: p.user.id,
         username: p.user.username ?? "",
-        name: p.user.name
+        name: p.user.name,
       }));
     }
   }
@@ -47,7 +47,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   if (actor && hasActorUsername(actor)) {
     [canAskClar, canAnswerClar] = await Promise.all([
       clarificationDomain.canAskClarification(actor, "contest", contest.id),
-      clarificationDomain.canAnswerInContext(actor, "contest", contest.id)
+      clarificationDomain.canAnswerInContext(actor, "contest", contest.id),
     ]);
   }
 
@@ -57,7 +57,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     overrideStudents,
     clarification: {
       canAsk: canAskClar,
-      canAnswer: canAnswerClar
-    }
+      canAnswer: canAnswerClar,
+    },
   };
 });

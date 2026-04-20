@@ -68,13 +68,13 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
 
   const input: SubmissionJudgeInput = {
     submissionId: validated.submissionId,
-    draft: validated.draft
+    draft: validated.draft,
   };
 
   await client.workflow.start("submissionJudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `judge-${validated.submissionId}`,
-    args: [input]
+    args: [input],
   });
 }
 
@@ -88,7 +88,7 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<void> {
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
     workflowId: `rejudge-${suffix}-${String(Date.now())}`,
-    args: [input]
+    args: [input],
   });
 }
 
@@ -98,19 +98,19 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${input.contestId}`,
-    args: [input]
+    args: [input],
   });
 }
 
 export async function dispatchAssessmentLifecycle(
-  input: AssessmentLifecycleInput
+  input: AssessmentLifecycleInput,
 ): Promise<void> {
   const client = await getClient();
 
   await client.workflow.start("assessmentLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `assessment-lifecycle-${input.assessmentId}`,
-    args: [input]
+    args: [input],
   });
 }
 
@@ -122,7 +122,7 @@ export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `exam-auto-close-${input.examId}`,
     workflowIdConflictPolicy: "TERMINATE_EXISTING",
-    args: [input]
+    args: [input],
   });
 }
 
@@ -132,19 +132,19 @@ export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Prom
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: plagiarismWorkflowId(input.targetType, input.targetId),
-    args: [input]
+    args: [input],
   });
 }
 
 function plagiarismWorkflowId(
   targetType: PlagiarismCheckInput["targetType"],
-  targetId: string
+  targetId: string,
 ): string {
   return `plagiarism-${targetType}-${targetId}`;
 }
 
 export async function querySubmissionStatus(
-  submissionId: string
+  submissionId: string,
 ): Promise<SubmissionJudgeStatus> {
   const client = await getClient();
   const handle = client.workflow.getHandle(`judge-${submissionId}`);
@@ -159,7 +159,7 @@ export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeP
 
 export async function queryPlagiarismStatus(
   targetType: PlagiarismCheckInput["targetType"],
-  targetId: string
+  targetId: string,
 ): Promise<PlagiarismCheckStatus> {
   const client = await getClient();
   const handle = client.workflow.getHandle(plagiarismWorkflowId(targetType, targetId));

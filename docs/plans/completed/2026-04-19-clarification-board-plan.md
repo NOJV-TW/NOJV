@@ -149,7 +149,7 @@ export const clarificationRepo = {
   },
   countInWindow(userId, contextType, contextId, windowStart) {
     /* for rate limiter */
-  }
+  },
 };
 ```
 
@@ -277,7 +277,7 @@ export async function ask(actor, input: { contextType; contextId; problemId?; qu
     actor.userId,
     input.contextType,
     input.contextId,
-    windowStart
+    windowStart,
   );
   if (recent >= 5) throw new ConflictError("Too many questions in the last 10 minutes.");
 
@@ -286,7 +286,7 @@ export async function ask(actor, input: { contextType; contextId; problemId?; qu
     contextId: input.contextId,
     problemId: input.problemId ?? null,
     askedByUserId: actor.userId,
-    questionText: input.questionText
+    questionText: input.questionText,
   });
   await publishClarificationEvent("created", row);
   return row;
@@ -304,7 +304,7 @@ export async function answer(actor, id, { answerText }) {
     answerText,
     answeredByUserId: actor.userId,
     state: "answered",
-    answeredAt: row.state === "pending" ? new Date() : row.answeredAt // preserve first-answered time on edit
+    answeredAt: row.state === "pending" ? new Date() : row.answeredAt, // preserve first-answered time on edit
   });
   await publishClarificationEvent("updated", updated);
   // Fan out notification only on pending → answered transition
@@ -316,9 +316,9 @@ export async function answer(actor, id, { answerText }) {
         contextType: row.contextType,
         contextId: row.contextId,
         clarificationId: row.id,
-        questionPreview: row.questionText.slice(0, 80)
+        questionPreview: row.questionText.slice(0, 80),
       },
-      linkUrl: buildClarificationLink(row.contextType, row.contextId, row.id)
+      linkUrl: buildClarificationLink(row.contextType, row.contextId, row.id),
     });
   }
   return updated;
@@ -346,7 +346,7 @@ function projectRow(row, canSeeAuthor: boolean) {
   return {
     ...row,
     askedByUserId: canSeeAuthor ? row.askedByUserId : null,
-    askedBy: canSeeAuthor ? row.askedBy : null
+    askedBy: canSeeAuthor ? row.askedBy : null,
   };
 }
 
@@ -370,7 +370,7 @@ async function publishClarificationEvent(action, row) {
     // We publish the staff projection; the SSE bridge re-masks per subscriber.
     await getRedis().publish(
       keys.clarificationChannel(row.contextType, row.contextId),
-      JSON.stringify({ type: SSE_CLARIFICATION, action, payload: projectRow(row, true) })
+      JSON.stringify({ type: SSE_CLARIFICATION, action, payload: projectRow(row, true) }),
     );
   } catch {
     /* best-effort */
@@ -442,7 +442,7 @@ export function createClarificationsStore(contextType: string, contextId: string
 
   async function init() {
     const r = await fetch(
-      `/api/clarifications?contextType=${contextType}&contextId=${contextId}`
+      `/api/clarifications?contextType=${contextType}&contextId=${contextId}`,
     );
     if (r.ok) items.splice(0, items.length, ...(await r.json()).items);
   }
@@ -457,7 +457,7 @@ export function createClarificationsStore(contextType: string, contextId: string
     const r = await fetch("/api/clarifications", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contextType, contextId, problemId, questionText })
+      body: JSON.stringify({ contextType, contextId, problemId, questionText }),
     });
     if (!r.ok) throw new Error("Ask failed");
     // SSE will deliver the row; UI doesn't need to optimistically insert.
@@ -474,7 +474,7 @@ export function createClarificationsStore(contextType: string, contextId: string
   }
 
   const unreadCount = $derived(
-    lastSeen ? items.filter((i) => i.createdAt > lastSeen).length : 0
+    lastSeen ? items.filter((i) => i.createdAt > lastSeen).length : 0,
   );
 
   function markTabVisited() {
@@ -589,7 +589,7 @@ it("ask publishes SSE event; answer publishes event + notification", async () =>
   const asked = await clarificationDomain.ask(actorFor(contestant), {
     contextType: "contest",
     contextId: contest.id,
-    questionText: "Is this modular arithmetic?"
+    questionText: "Is this modular arithmetic?",
   });
 
   // Expect a "created" SSE event
@@ -597,7 +597,7 @@ it("ask publishes SSE event; answer publishes event + notification", async () =>
   expect(events[0].payload.askedByUserId).toBe(contestant.id);
 
   await clarificationDomain.answer(actorFor(organizer), asked.id, {
-    answerText: "Yes, mod 1e9+7."
+    answerText: "Yes, mod 1e9+7.",
   });
 
   // Expect "updated" SSE event + a clarification_answered notification for the asker

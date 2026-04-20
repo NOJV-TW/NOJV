@@ -43,5 +43,5 @@ export const actions = {
     }
 
     redirect(303, `/courses/${createdCourseId}`);
-  }
+  },
 } satisfies Actions;

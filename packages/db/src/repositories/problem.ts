@@ -14,25 +14,25 @@ export const problemRepo = {
     return prisma.problem.findUnique({
       include: {
         _count: {
-          select: { submissions: true }
+          select: { submissions: true },
         },
         author: { select: { username: true } },
         statements: true,
         workspaceFiles: {
-          orderBy: [{ language: "asc" }, { orderIndex: "asc" }, { path: "asc" }]
+          orderBy: [{ language: "asc" }, { orderIndex: "asc" }, { path: "asc" }],
         },
         testcaseSets: {
           include: {
             _count: { select: { testcases: true } },
             testcases: {
               orderBy: { ordinal: "asc" },
-              take: 10
-            }
+              take: 10,
+            },
           },
-          orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }]
-        }
+          orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }],
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -55,19 +55,19 @@ export const problemRepo = {
   listWithCounts(opts: { where: Prisma.ProblemWhereInput; skip: number; take: number }) {
     return prisma.problem.findMany({
       include: {
-        _count: { select: { submissions: true, workspaceFiles: true } }
+        _count: { select: { submissions: true, workspaceFiles: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: opts.skip,
       take: opts.take,
-      where: opts.where
+      where: opts.where,
     });
   },
 
   listEditable(userId: string) {
     return prisma.problem.findMany({
       include: {
-        _count: { select: { workspaceFiles: true } }
+        _count: { select: { workspaceFiles: true } },
       },
       orderBy: { createdAt: "desc" },
       where: {
@@ -82,16 +82,16 @@ export const problemRepo = {
                       some: {
                         userId,
                         role: { in: ["teacher", "ta"] },
-                        status: "active"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        ]
-      }
+                        status: "active",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
     });
   },
 
@@ -103,21 +103,21 @@ export const problemRepo = {
         ...(opts.excludeIds && opts.excludeIds.length > 0
           ? { id: { notIn: opts.excludeIds } }
           : {}),
-        ...(opts.tags && opts.tags.length > 0 ? { tags: { hasSome: opts.tags } } : {})
+        ...(opts.tags && opts.tags.length > 0 ? { tags: { hasSome: opts.tags } } : {}),
       },
       select: {
         id: true,
         title: true,
-        tags: true
+        tags: true,
       },
-      take: opts.take
+      take: opts.take,
     });
   },
 
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
-      select: problemMiniSelect
+      select: problemMiniSelect,
     });
   },
 
@@ -138,15 +138,15 @@ export const problemRepo = {
       update(id: string, data: Prisma.ProblemUpdateInput) {
         return tx.problem.update({
           data,
-          where: { id }
+          where: { id },
         });
       },
 
       lockForUpdate(problemId: string) {
         return tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${problemId} FOR UPDATE`;
-      }
+      },
     };
-  }
+  },
 };
 
 export const problemStatementRepo = {
@@ -164,9 +164,9 @@ export const problemStatementRepo = {
       where: {
         OR: [
           { title: { contains: query, mode: "insensitive" } },
-          { bodyMarkdown: { contains: query, mode: "insensitive" } }
-        ]
-      }
+          { bodyMarkdown: { contains: query, mode: "insensitive" } },
+        ],
+      },
     });
   },
 
@@ -180,16 +180,16 @@ export const problemStatementRepo = {
         problemId: string,
         locale: string,
         createData: Prisma.ProblemStatementI18nUncheckedCreateInput,
-        updateData: Prisma.ProblemStatementI18nUncheckedUpdateInput
+        updateData: Prisma.ProblemStatementI18nUncheckedUpdateInput,
       ) {
         return tx.problemStatementI18n.upsert({
           create: createData,
           update: updateData,
-          where: { problemId_locale: { locale, problemId } }
+          where: { problemId_locale: { locale, problemId } },
         });
-      }
+      },
     };
-  }
+  },
 };
 
 export const problemWorkspaceFileRepo = {
@@ -199,8 +199,8 @@ export const problemWorkspaceFileRepo = {
       orderBy: [
         { language: "asc" as const },
         { orderIndex: "asc" as const },
-        { path: "asc" as const }
-      ]
+        { path: "asc" as const },
+      ],
     });
   },
 
@@ -212,9 +212,9 @@ export const problemWorkspaceFileRepo = {
 
       createMany(data: Prisma.ProblemWorkspaceFileCreateManyInput[]) {
         return tx.problemWorkspaceFile.createMany({ data });
-      }
+      },
     };
-  }
+  },
 };
 
 export const testcaseSetRepo = {
@@ -222,14 +222,14 @@ export const testcaseSetRepo = {
     return prisma.testcaseSet.findMany({
       where: { problemId },
       include: { testcases: { orderBy: { ordinal: "asc" } } },
-      orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }]
+      orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }],
     });
   },
 
   findById(id: string) {
     return prisma.testcaseSet.findUnique({
       where: { id },
-      include: { testcases: { orderBy: { ordinal: "asc" } } }
+      include: { testcases: { orderBy: { ordinal: "asc" } } },
     });
   },
 
@@ -240,7 +240,7 @@ export const testcaseSetRepo = {
   async updateScoringStrategy(setId: string, strategy: SubtaskScoringStrategy): Promise<void> {
     await prisma.testcaseSet.update({
       where: { id: setId },
-      data: { scoringStrategy: strategy }
+      data: { scoringStrategy: strategy },
     });
   },
 
@@ -256,9 +256,9 @@ export const testcaseSetRepo = {
 
       deleteByProblemId(problemId: string) {
         return tx.testcaseSet.deleteMany({ where: { problemId } });
-      }
+      },
     };
-  }
+  },
 };
 
 export const testcaseRepo = {
@@ -274,7 +274,7 @@ export const testcaseRepo = {
     return {
       createMany(data: Prisma.TestcaseCreateManyInput[]) {
         return tx.testcase.createMany({ data });
-      }
+      },
     };
-  }
+  },
 };

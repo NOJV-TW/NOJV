@@ -6,7 +6,7 @@ import {
   sourceCodeSchema,
   submissionModeSchema,
   submissionOperationStatusSchema,
-  submissionVerdictSchema
+  submissionVerdictSchema,
 } from "../types";
 import { assessmentContextSchema } from "./course";
 
@@ -17,7 +17,7 @@ const sourceFileSchema = z.object({
     .min(1)
     .max(300)
     .refine((value) => !value.includes("\0"), "File path must not contain NUL bytes."),
-  content: z.string().max(500_000)
+  content: z.string().max(500_000),
 });
 
 // Problem IDs use underscores (e.g. "problem_noisy-oracle-hunt"), not just slug chars.
@@ -35,7 +35,7 @@ const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
 export const runCaseSchema = z.object({
   input: z.string().max(MAX_RUN_CASE_FIELD_LEN),
-  expectedOutput: z.string().max(MAX_RUN_CASE_FIELD_LEN).optional()
+  expectedOutput: z.string().max(MAX_RUN_CASE_FIELD_LEN).optional(),
 });
 
 export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
@@ -50,15 +50,15 @@ export const submissionDraftSchema = z
     runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
     sampleOnly: z.boolean().optional(),
     sourceCode: sourceCodeSchema,
-    sourceFiles: z.array(sourceFileSchema).max(200).optional()
+    sourceFiles: z.array(sourceFileSchema).max(200).optional(),
   })
   .refine(
     (draft) =>
       draft.runCases === undefined || draft.runCases.length === 0 || draft.sampleOnly === true,
     {
       message: "runCases is only allowed on sample-only (Run) submissions",
-      path: ["runCases"]
-    }
+      path: ["runCases"],
+    },
   );
 
 // Defense-in-depth against a compromised sandbox-runner (runner already caps at 16 MB).
@@ -72,7 +72,7 @@ export const testcaseResultItemSchema = z.object({
   passed: z.boolean(),
   stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
   stdout: z.string().max(MAX_CASE_STDOUT_BYTES),
-  timeMs: z.number().int().nonnegative()
+  timeMs: z.number().int().nonnegative(),
 });
 
 export const subtaskCaseResultSchema = z.object({
@@ -81,7 +81,7 @@ export const subtaskCaseResultSchema = z.object({
   runtimeMs: z.number().int().nonnegative(),
   testcaseId: z.string(),
   // Sandbox verdict string ("AC"/"WA"/...); mapped to DB enum in judge activity.
-  verdict: z.string().max(16)
+  verdict: z.string().max(16),
 });
 
 export const subtaskResultItemSchema = z.object({
@@ -89,7 +89,7 @@ export const subtaskResultItemSchema = z.object({
   label: z.string().max(MAX_SUBTASK_LABEL_LEN),
   passed: z.boolean(),
   testcaseSetId: z.string(),
-  weight: z.number().int().min(1)
+  weight: z.number().int().min(1),
 });
 
 export const submissionResultSchema = z.object({
@@ -99,19 +99,19 @@ export const submissionResultSchema = z.object({
   runtimeMs: z.number().int().nonnegative(),
   score: z.number().int().min(0).max(100),
   subtaskResults: z.array(subtaskResultItemSchema).max(1_000).optional(),
-  verdict: submissionVerdictSchema
+  verdict: submissionVerdictSchema,
 });
 
 export const submissionDispatchResponseSchema = z.object({
   pollUrl: z.string().min(1),
   status: submissionOperationStatusSchema,
-  submissionId: z.string().min(1)
+  submissionId: z.string().min(1),
 });
 
 export const submissionOperationSchema = z.object({
   result: submissionResultSchema.nullable(),
   status: submissionOperationStatusSchema,
-  submissionId: z.string().min(1)
+  submissionId: z.string().min(1),
 });
 
 export type SubtaskCaseResult = z.infer<typeof subtaskCaseResultSchema>;

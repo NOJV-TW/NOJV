@@ -19,7 +19,7 @@ test.describe("Contest problem visibility", () => {
 
     await expect(page.getByText("Problems are not yet available")).toBeVisible();
     await expect(
-      page.getByText("Problems will be revealed when the contest starts.")
+      page.getByText("Problems will be revealed when the contest starts."),
     ).toBeVisible();
     // Seeded problem title that would leak if hiding is broken.
     await expect(page.getByText(SEEDED_PROBLEM_TITLE)).toHaveCount(0);

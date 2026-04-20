@@ -11,7 +11,7 @@ import type { CompletedActorContext } from "../auth";
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: CompletedActorContext,
-  clientIp: string
+  clientIp: string,
 ) {
   return submissionDomain.createQueuedSubmissionRecord(
     payload,
@@ -20,8 +20,8 @@ export async function createQueuedSubmissionRecord(
       email: actor.email,
       username: actor.username,
       platformRole: actor.platformRole,
-      userId: actor.userId
+      userId: actor.userId,
     },
-    clientIp
+    clientIp,
   );
 }

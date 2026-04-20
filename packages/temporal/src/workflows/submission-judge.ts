@@ -10,7 +10,7 @@ import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 // Judging can take a few minutes (compilation + testcases); keep a wider timeout.
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
-  retry: { maximumAttempts: 3 }
+  retry: { maximumAttempts: 3 },
 });
 
 const stats = proxyActivities<typeof statsActivities>(SHORT_ACTIVITY);
@@ -33,7 +33,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   if (input.forRejudge) {
     const snap = await judge.snapshotSubmissionForRejudge(
       input.submissionId,
-      input.forRejudge.triggeredByUserId
+      input.forRejudge.triggeredByUserId,
     );
     rejudgeLogId = snap?.logId ?? null;
   }
@@ -53,14 +53,14 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   status = "completed";
   await Promise.all([
     stats.updateUserStats(submission),
-    notification.publishVerdict(submission)
+    notification.publishVerdict(submission),
   ]);
 
   if (rejudgeLogId) {
     await judge.finalizeRejudgeLog(
       input.submissionId,
       input.forRejudge?.triggeredByUserId ?? null,
-      rejudgeLogId
+      rejudgeLogId,
     );
   }
 }

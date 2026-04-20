@@ -23,8 +23,8 @@ export const submissionRejudgeLogRepo = {
         rejudgedByUserId: input.rejudgedByUserId,
         oldVerdict: input.oldVerdict,
         oldScore: input.oldScore,
-        oldResultJson: input.oldResultJson ?? Prisma.JsonNull
-      }
+        oldResultJson: input.oldResultJson ?? Prisma.JsonNull,
+      },
     });
   },
 
@@ -34,15 +34,15 @@ export const submissionRejudgeLogRepo = {
       data: {
         newVerdict: input.newVerdict,
         newScore: input.newScore,
-        newResultJson: input.newResultJson ?? Prisma.JsonNull
-      }
+        newResultJson: input.newResultJson ?? Prisma.JsonNull,
+      },
     });
   },
 
   listBySubmission(submissionId: string) {
     return prisma.submissionRejudgeLog.findMany({
       where: { submissionId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
-  }
+  },
 };

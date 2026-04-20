@@ -6,7 +6,7 @@ import {
   submissionResultSchema,
   type Language,
   type SubmissionResult,
-  type SubmissionRunCase
+  type SubmissionRunCase,
 } from "@nojv/core";
 
 export interface SubmissionAssessmentContext {
@@ -57,7 +57,7 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
     language: request.language,
     mode,
     problemId: request.problemId,
-    sampleOnly: request.sampleOnly ?? false
+    sampleOnly: request.sampleOnly ?? false,
   };
 
   if (
@@ -72,20 +72,20 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
     return {
       ...commonFields,
       sourceCode: request.sourceCode,
-      sourceFiles: request.sourceFiles
+      sourceFiles: request.sourceFiles,
     };
   }
 
   return {
     ...commonFields,
-    sourceCode: request.sourceCode
+    sourceCode: request.sourceCode,
   };
 }
 
 // Resolves with `null` when the signal aborts mid-flight; throws on server errors, parse failures, or timeout.
 export async function executeSubmission(
   request: SubmissionRequest,
-  options: ExecuteSubmissionOptions = {}
+  options: ExecuteSubmissionOptions = {},
 ): Promise<SubmissionResult | null> {
   const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, onOperationUpdate } = options;
 
@@ -94,7 +94,7 @@ export async function executeSubmission(
   const postInit: RequestInit = {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
-    method: "POST"
+    method: "POST",
   };
   if (signal) postInit.signal = signal;
 

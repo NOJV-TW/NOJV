@@ -135,7 +135,7 @@ export const submissionRepo = {
   },
   updateVerdict(id: string, data: UpdateVerdictData) {
     return prisma.submission.update({ where: { id }, data });
-  }
+  },
 };
 
 // packages/db/src/index.ts — public API

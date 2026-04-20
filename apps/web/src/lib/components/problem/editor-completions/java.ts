@@ -7,7 +7,7 @@ export const javaCompletions: CompletionEntry[] = [
     kind: "Class",
     insertText: "Scanner ${1:sc} = new Scanner(System.in);",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "BufferedReader",
@@ -15,48 +15,48 @@ export const javaCompletions: CompletionEntry[] = [
     insertText:
       "BufferedReader ${1:br} = new BufferedReader(new InputStreamReader(System.in));",
     detail: "java.io",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "PrintWriter",
     kind: "Class",
     insertText: "PrintWriter ${1:out} = new PrintWriter(new BufferedOutputStream(System.out));",
     detail: "java.io",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "System.out.println",
     kind: "Function",
     insertText: "System.out.println(${1});",
     detail: "output",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "System.out.print",
     kind: "Function",
     insertText: "System.out.print(${1});",
     detail: "output",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "StringBuilder",
     kind: "Class",
     insertText: "StringBuilder ${1:sb} = new StringBuilder();",
     detail: "java.lang",
-    isSnippet: true
+    isSnippet: true,
   },
   // Imports
   {
     label: "import java.util.*",
     kind: "Snippet",
     insertText: "import java.util.*;",
-    detail: "import"
+    detail: "import",
   },
   {
     label: "import java.io.*",
     kind: "Snippet",
     insertText: "import java.io.*;",
-    detail: "import"
+    detail: "import",
   },
   // Collections
   {
@@ -64,49 +64,49 @@ export const javaCompletions: CompletionEntry[] = [
     kind: "Class",
     insertText: "ArrayList<${1:Integer}> ${2:list} = new ArrayList<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "LinkedList",
     kind: "Class",
     insertText: "LinkedList<${1:Integer}> ${2:list} = new LinkedList<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "HashMap",
     kind: "Class",
     insertText: "HashMap<${1:Integer}, ${2:Integer}> ${3:map} = new HashMap<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "TreeMap",
     kind: "Class",
     insertText: "TreeMap<${1:Integer}, ${2:Integer}> ${3:map} = new TreeMap<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "HashSet",
     kind: "Class",
     insertText: "HashSet<${1:Integer}> ${2:set} = new HashSet<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "TreeSet",
     kind: "Class",
     insertText: "TreeSet<${1:Integer}> ${2:set} = new TreeSet<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "PriorityQueue",
     kind: "Class",
     insertText: "PriorityQueue<${1:Integer}> ${2:pq} = new PriorityQueue<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "PriorityQueue (reverse)",
@@ -114,21 +114,21 @@ export const javaCompletions: CompletionEntry[] = [
     insertText:
       "PriorityQueue<${1:Integer}> ${2:pq} = new PriorityQueue<>(Collections.reverseOrder());",
     detail: "max-heap",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "ArrayDeque",
     kind: "Class",
     insertText: "ArrayDeque<${1:Integer}> ${2:dq} = new ArrayDeque<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Stack",
     kind: "Class",
     insertText: "Stack<${1:Integer}> ${2:st} = new Stack<>();",
     detail: "java.util",
-    isSnippet: true
+    isSnippet: true,
   },
   // Arrays / Collections utilities
   {
@@ -136,35 +136,35 @@ export const javaCompletions: CompletionEntry[] = [
     kind: "Function",
     insertText: "Arrays.sort(${1:arr});",
     detail: "java.util.Arrays",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Arrays.fill",
     kind: "Function",
     insertText: "Arrays.fill(${1:arr}, ${2:val});",
     detail: "java.util.Arrays",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Arrays.binarySearch",
     kind: "Function",
     insertText: "Arrays.binarySearch(${1:arr}, ${2:key})",
     detail: "java.util.Arrays",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Collections.sort",
     kind: "Function",
     insertText: "Collections.sort(${1:list});",
     detail: "java.util.Collections",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Collections.reverse",
     kind: "Function",
     insertText: "Collections.reverse(${1:list});",
     detail: "java.util.Collections",
-    isSnippet: true
+    isSnippet: true,
   },
   // Math
   {
@@ -172,53 +172,53 @@ export const javaCompletions: CompletionEntry[] = [
     kind: "Function",
     insertText: "Math.min(${1:a}, ${2:b})",
     detail: "java.lang.Math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Math.max",
     kind: "Function",
     insertText: "Math.max(${1:a}, ${2:b})",
     detail: "java.lang.Math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Math.abs",
     kind: "Function",
     insertText: "Math.abs(${1:x})",
     detail: "java.lang.Math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Math.pow",
     kind: "Function",
     insertText: "Math.pow(${1:base}, ${2:exp})",
     detail: "java.lang.Math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Math.sqrt",
     kind: "Function",
     insertText: "Math.sqrt(${1:x})",
     detail: "java.lang.Math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "Integer.MAX_VALUE",
     kind: "Constant",
     insertText: "Integer.MAX_VALUE",
-    detail: "java.lang"
+    detail: "java.lang",
   },
   {
     label: "Integer.MIN_VALUE",
     kind: "Constant",
     insertText: "Integer.MIN_VALUE",
-    detail: "java.lang"
+    detail: "java.lang",
   },
   {
     label: "Long.MAX_VALUE",
     kind: "Constant",
     insertText: "Long.MAX_VALUE",
-    detail: "java.lang"
+    detail: "java.lang",
   },
   // String
   {
@@ -226,13 +226,13 @@ export const javaCompletions: CompletionEntry[] = [
     kind: "Function",
     insertText: "Integer.parseInt(${1:s})",
     detail: "java.lang",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "String.valueOf",
     kind: "Function",
     insertText: "String.valueOf(${1:x})",
     detail: "java.lang",
-    isSnippet: true
-  }
+    isSnippet: true,
+  },
 ];

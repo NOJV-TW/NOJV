@@ -2,7 +2,7 @@ import Root, {
   cardVariants,
   type CardProps,
   type CardVariant,
-  type CardSize
+  type CardSize,
 } from "./card.svelte";
 import Content from "./card-content.svelte";
 import Description from "./card-description.svelte";
@@ -31,5 +31,5 @@ export {
   cardVariants,
   type CardProps,
   type CardVariant,
-  type CardSize
+  type CardSize,
 };

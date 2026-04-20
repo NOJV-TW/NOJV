@@ -6,7 +6,7 @@ import {
   examParticipationRepo,
   examRepo,
   notificationRepo,
-  type NotificationCreateInput
+  type NotificationCreateInput,
 } from "@nojv/db";
 import { pubsub } from "@nojv/redis";
 import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
@@ -28,7 +28,7 @@ function toSseEvent(row: {
     notificationType: row.type,
     params: row.params,
     linkUrl: row.linkUrl,
-    createdAt: row.createdAt.toISOString()
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -58,7 +58,7 @@ export async function createNotificationBatch(inputs: CreateNotificationInput[])
     await pubsub.publishNotificationBatchSignal(userId, {
       notificationType: sample.type,
       params: sample.params,
-      linkUrl: sample.linkUrl ?? null
+      linkUrl: sample.linkUrl ?? null,
     });
   }
 
@@ -111,10 +111,10 @@ export async function fanoutAssignmentDueSoon(assessmentId: string): Promise<voi
         courseId: assessment.courseId,
         assessmentId: assessment.id,
         title: assessment.title,
-        dueAt: dueAtIso
+        dueAt: dueAtIso,
       },
-      linkUrl: `/assignments/${assessment.id}`
-    }))
+      linkUrl: `/assignments/${assessment.id}`,
+    })),
   );
 }
 
@@ -145,10 +145,10 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
         courseId: exam.courseId,
         examId: exam.id,
         title: exam.title,
-        startsAt: startsAtIso
+        startsAt: startsAtIso,
       },
-      linkUrl: `/exams/${exam.id}`
-    }))
+      linkUrl: `/exams/${exam.id}`,
+    })),
   );
 }
 
@@ -175,9 +175,9 @@ export async function fanoutContestStartingSoon(contestId: string): Promise<void
       params: {
         contestId: contest.id,
         title: contest.title,
-        startsAt: startsAtIso
+        startsAt: startsAtIso,
       },
-      linkUrl: `/contests/${contest.id}`
-    }))
+      linkUrl: `/contests/${contest.id}`,
+    })),
   );
 }
