@@ -249,13 +249,13 @@ button.
 
 ### Tests
 
-- **Gap**: no dedicated `plagiarism*.test.ts`. Target coverage:
-  - Domain: `resolvePlagiarismTarget` for exam / assessment / legacy
-    contest remap / not-found paths.
-  - Domain: `createPlagiarismReport` pre-wipes prior results.
-  - Activity: best-score dedup + MOSS language bucketing +
-    skip-single-file groups.
-  - Route: permission gate for trigger + view + source fetch.
+- `tests/unit/domain/plagiarism-queries.test.ts` — covers
+  `resolvePlagiarismTarget` (exam / courseAssessment / legacy-contest
+  remap / not-found paths) and `createPlagiarismReport` (pre-wipe
+  contract + persistence-failure throw).
+- **Still missing**: MOSS activity tests (best-score dedup + language
+  bucketing + skip-single-file groups) and route-level tests
+  (permission gate for trigger / view / source fetch).
 
 ## Open Questions / TODO
 

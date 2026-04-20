@@ -220,15 +220,17 @@ in Open Questions.
 
 ### Tests
 
-- **Gap**: no dedicated `dashboard*.test.ts`.
-  `tests/unit/web/db-read-model.test.ts` covers a different
-  `getDashboardStats()` (platform-wide counts), which is unrelated.
-  Target coverage:
-  - Domain: `getDashboardView` fan-out shape.
-  - Domain: `aggregateByTag` top-8 cut + stable order on ties.
-  - Integration: `updateUserStats` upsert across the UTC midnight
-    boundary.
-  - E2E: empty-state rendering for a brand-new user.
+- `tests/unit/domain/dashboard-view.test.ts` — covers
+  `getDashboardView` zero-submission baseline, totalAc / totalAttempts
+  derivation, fixed easy→medium→hard ordering, language / verdict
+  group-row flattening, and byTag top-8 cut.
+- `tests/unit/domain/user-analytics-helpers.test.ts` — covers
+  `aggregateByTag` including the stable-sort-on-ties invariant.
+- **Still missing**: integration coverage for `updateUserStats` upsert
+  across the UTC midnight boundary, and an E2E test for empty-state
+  rendering on a brand-new user. The platform-wide
+  `tests/unit/web/db-read-model.test.ts` tests a different
+  `getDashboardStats()` — unrelated to this surface.
 
 ## Open Questions / TODO
 

@@ -197,13 +197,14 @@ answer." Content is markdown, rendered through the shared
 
 ### Tests
 
-- **Gap**: no dedicated `editorial*.test.ts`. Target coverage:
-  - Domain: `hasUserAcProblem` true / false branches.
-  - Domain: `upsertEditorial` insert + update + two-language
-    coexistence.
-  - Route: AC gate (403) for GET and POST without AC.
-  - Integration: XSS payload is sanitized end-to-end through
-    `MarkdownRenderer`.
+- `tests/unit/domain/editorial-queries.test.ts` — covers
+  `hasUserAcProblem` true/false branches with the
+  `status='accepted'` + `sampleOnly=false` filter and
+  `upsertEditorial`'s composite-key payload forwarding (including
+  the two-language coexistence call pattern).
+- **Still missing**: route-level AC gate tests (403 for GET and POST
+  without AC) and an integration test that round-trips an XSS payload
+  through `MarkdownRenderer` to confirm DOMPurify strips it.
 
 ## Open Questions / TODO
 
