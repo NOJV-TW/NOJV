@@ -137,7 +137,7 @@ Advanced Mode (`Problem.type === "special_env"`) does not use `TestcaseSet` / `T
 
 ### PlagiarismReport
 
-Tracks MOSS plagiarism detection runs. Created by web endpoint, processed by Temporal workflow. Links to either `CourseAssessment` or `Contest`.
+Tracks Dolos plagiarism detection runs. Created by web endpoint, processed by Temporal workflow. Links to either `CourseAssessment` or `Contest`.
 
 ## JSON Columns
 
@@ -149,7 +149,7 @@ Tracks MOSS plagiarism detection runs. Created by web endpoint, processed by Tem
 | `Contest.adjustmentRules`            | `AdjustmentRule[]`      | Same as above, applied to contest submissions                         |
 | `Submission.verdictDetail`           | Full `SubmissionResult` | Per-case + per-subtask results, compiler output, scoring feedback     |
 | `ContestParticipation.subtaskScores` | Score breakdown         | Per-subtask contest scores                                            |
-| `PlagiarismReport.results`           | MOSS result array       | Similarity pairs and percentages                                      |
+| `PlagiarismReport.results`           | Dolos result array      | Similarity pairs (similarity, longest, overlap)                       |
 
 ## Seed Data
 

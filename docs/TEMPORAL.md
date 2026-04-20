@@ -122,7 +122,7 @@ Plagiarism state lives inline on `Contest` / `CourseAssessment`, so the `(target
 **Plagiarism**:
 | Activity | Purpose |
 |----------|---------|
-| `runPlagiarismCheck` | Fetch submissions, group by problem/language, submit to MOSS, save report |
+| `runPlagiarismCheck` | Fetch submissions, group by problem/language, run Dolos per group, save report |
 
 **Notification**:
 | Activity | Purpose |

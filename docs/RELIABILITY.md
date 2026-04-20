@@ -102,7 +102,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 1. `PlagiarismReport` record created in DB before Temporal workflow starts.
 2. Report ID passed to workflow to avoid duplicate record creation.
-3. MOSS submission is not idempotent — retries may create duplicate MOSS runs.
+3. Dolos runs entirely in-process; retries are idempotent and produce the same pair set on the same input.
 4. Results stored in `PlagiarismReport.results` JSON column.
 
 ## Validation Requirements

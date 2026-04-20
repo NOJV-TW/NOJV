@@ -66,7 +66,7 @@
 
 ### Plagiarism Detection
 
-- MOSS-based similarity detection
+- Dolos-based AST similarity detection (self-hosted, in-process)
 - Triggered per assessment or contest (admin/teacher)
 - Results stored as JSON in PostgreSQL
 - Dedicated plagiarism report view per assessment

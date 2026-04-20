@@ -1,6 +1,6 @@
 # Feature: Plagiarism Detection
 
-Acceptance spec for MOSS-based plagiarism detection on Exam and
+Acceptance spec for Dolos-based plagiarism detection on Exam and
 CourseAssessment. Triggered by course staff; report state is inlined on
 the parent row (no dedicated `PlagiarismReport` table). Runs as a
 Temporal workflow keyed on target id — re-running terminates any
@@ -17,8 +17,8 @@ button.
   check on a closed assignment or exam, so that I can catch copy-paste
   submissions before finalizing grades.
 - As a **teacher** or **TA**, I want to see similarity pairs (user A vs
-  user B on problem P) with links back to MOSS, so that I can manually
-  review flagged cases.
+  user B on problem P) with a numeric similarity score, so that I can
+  rank and manually review flagged cases.
 - As a **teacher**, I want re-running a plagiarism check to replace the
   previous result rather than stack up duplicates, so that the UI always
   reflects the latest run.
@@ -35,9 +35,11 @@ button.
 
 - Inline report state on `CourseAssessment.plagiarism*` and
   `Exam.plagiarism*` fields — six columns: `plagiarismStatus`,
-  `plagiarismResults` (Json), `plagiarismMossReportUrl`,
+  `plagiarismResults` (Json), `plagiarismReportUrl`,
   `plagiarismTriggeredAt`, `plagiarismCompletedAt`,
-  `plagiarismTriggeredById`.
+  `plagiarismTriggeredById`. `plagiarismReportUrl` is always `null` for
+  Dolos runs (everything is in-memory); the column is retained for
+  schema stability and historical MOSS-era rows.
 - State lifecycle `pending → running → completed | failed`, written by
   the Temporal activity at phase boundaries.
 - POST `/api/plagiarism/[assessmentId]` (optional `?type=exam`)
@@ -46,22 +48,23 @@ button.
   `?source=true&userId&problemId` returns a single source-code string.
 - Permission gate `canManageCourse` (admin, platform teacher, course
   teacher, course TA) on both trigger and view paths.
-- MOSS language mapping: `c/go/rust → c`, `cpp → cc`, `java → java`,
-  `javascript/typescript → javascript`, `python → python`; any other
-  `SupportedLanguage` value is silently skipped. MOSS treats `c` and
-  `cc` as distinct languages, so C++ submissions never pair against C,
-  Go, or Rust even on the same problem.
-- Pre-MOSS deduplication: per `(userId, problemId)` keep only the
+- Per-language native tree-sitter parser via Dolos: every
+  `SupportedLanguage` (c, cpp, go, java, javascript, python, rust,
+  typescript) maps to its own dedicated parser. No shared buckets.
+- Pre-analysis deduplication: per `(userId, problemId)` keep only the
   highest-scoring `accepted` submission.
 - Cross-group pairing is forbidden: submissions only compare against
-  other submissions in the same `(problemId, MOSS language bucket)`.
+  other submissions in the same `(problemId, language)`.
 - Results shape `{ pairs: SimilarityPair[] }` with each pair carrying
-  both user ids, `problemId`, `similarity1`, `similarity2`,
-  `linesMatched`, and `mossUrl`.
+  `problemId`, `userId1`, `userId2`, `similarity` (0–100, symmetric),
+  `longest` (longest common AST fragment in tokens), and `overlap`
+  (total overlapping AST tokens).
 - Workflow id scheme `plagiarism-${targetType}-${targetId}` on
   `PLATFORM_TASK_QUEUE`; same-id redispatch terminates the prior run.
 - Retry policy on the activity: `startToCloseTimeout: "10m"`,
   `maximumAttempts: 3`.
+- Detection runs entirely in-process inside the worker container. No
+  third-party network egress.
 
 ### Out of scope
 
@@ -71,8 +74,10 @@ button.
 - **Automatic scoring penalty**: detection only — rejecting a submission
   or zeroing a score is a separate manual action (rejudge or score
   override, see their specs).
-- **Cross-assessment comparison**: MOSS runs per target; submissions
+- **Cross-assessment comparison**: Dolos runs per target; submissions
   from different assessments are never compared against each other.
+- **Cross-language pairing**: Dolos analyses one language per group;
+  a Python submission never pairs against a Java submission.
 - **Scheduled trigger**: no Temporal schedule fires plagiarism on
   assessment close; staff must click the button.
 - **Push notification / email on completion**: UI polls.
@@ -113,7 +118,7 @@ button.
 - GIVEN a successful trigger,
   WHEN `createPlagiarismReport(target, triggeredById)` writes the row,
   THEN `plagiarismStatus = pending`, `plagiarismResults` /
-  `plagiarismMossReportUrl` / `plagiarismCompletedAt` are nulled, and
+  `plagiarismReportUrl` / `plagiarismCompletedAt` are nulled, and
   `plagiarismTriggeredAt` + `plagiarismTriggeredById` are recorded.
 - GIVEN a second POST for the same target while a run is in flight,
   WHEN `dispatchPlagiarismCheck` fires with the same workflow id,
@@ -122,34 +127,35 @@ button.
 - GIVEN the activity begins,
   WHEN `updateReportStatus(target, "running")` writes,
   THEN subsequent GETs return `status: "running"`.
-- GIVEN MOSS completes successfully,
-  WHEN the activity calls `saveResults(target, { pairs }, mossReportUrl)`,
+- GIVEN Dolos completes successfully,
+  WHEN the activity calls `saveResults(target, { pairs }, null)`,
   THEN `plagiarismStatus = completed`,
   `plagiarismCompletedAt = now()`, `plagiarismResults` holds the pair
-  list, and `plagiarismMossReportUrl` is set.
-- GIVEN the activity throws (MOSS socket error, persist failure, etc.),
+  list, and `plagiarismReportUrl` stays `null`.
+- GIVEN the activity throws (native addon load failure, persist
+  failure, etc.),
   WHEN the catch block runs,
   THEN `markReportFailed(target)` sets `plagiarismStatus = failed` and
   the workflow rethrows. After 3 retry attempts the workflow terminates
   in failed state.
 
-### MOSS language mapping + grouping
+### Language grouping
 
 - GIVEN submissions in `c`, `go`, `rust`,
-  WHEN the activity groups by MOSS language,
-  THEN they all bucket under `c` and are compared jointly per problem.
+  WHEN the activity groups by language,
+  THEN each forms its own group and is parsed by its dedicated
+  tree-sitter grammar. A C submission never pairs against a Go or Rust
+  submission.
 - GIVEN `cpp` submissions,
   WHEN grouping runs,
-  THEN they land in the separate `cc` bucket — MOSS treats C and C++ as
-  distinct languages, so C++ submissions never pair against C / Go /
-  Rust even on the same problem.
-- GIVEN submissions in an unmapped `SupportedLanguage`,
+  THEN they land in their own `cpp` group with a dedicated C++ parser.
+- GIVEN submissions in an unsupported `SupportedLanguage` value,
   WHEN grouping runs,
   THEN those submissions are silently skipped (no error, no failure).
 - GIVEN only one submission survives a `(problem, language)` group after
   dedup,
   WHEN the activity iterates groups,
-  THEN the group is skipped (MOSS needs ≥2 files); no pair is emitted.
+  THEN the group is skipped (Dolos needs ≥2 files); no pair is emitted.
 
 ### Results retrieval
 
@@ -173,8 +179,9 @@ button.
   non-empty `pairs` list,
   WHEN the Plagiarism tab renders,
   THEN pairs are bucketed into High (similarity ≥ 70), Medium
-  (50 ≤ sim < 70), and Low (< 50), rendered as histogram + table with
-  the MOSS URL.
+  (50 ≤ sim < 70), and Low (< 50), rendered as histogram + table. The
+  per-pair action opens a side-by-side source-code dialog fed by the
+  `?source=true` GET endpoint.
 - GIVEN `report === null` (never triggered),
   WHEN the tab renders,
   THEN a "Run plagiarism check" CTA is shown.
@@ -185,13 +192,16 @@ button.
 
 ## Edge Cases & Failure Modes
 
-- **MOSS rate-limited / user id rejected**: activity throws
-  `"MOSS rejected the language or user ID"`; Temporal retries up to 3
-  times with exponential backoff; final state `failed`, staff can retry
-  manually.
-- **MOSS socket disconnect mid-response**:
-  `"MOSS connection timed out"` or `"MOSS connection error"` — same
-  retry path.
+- **Native addon load failure**: Dolos's tree-sitter grammars are
+  prebuilt N-API addons. If the worker image ships without a matching
+  prebuild (libc or arch drift), `new Dolos({ language })` throws at
+  construction; the activity's catch block marks the report `failed`,
+  Temporal retries up to 3 times, then gives up. Operator fix: rebuild
+  the worker image for the deploy target.
+- **Single Dolos instance per group**: each `(problemId, language)`
+  group gets a fresh `Dolos` instance; parser state is not shared
+  across groups. This isolates parser crashes to a single group but
+  does mean a problem with many languages spawns several instances.
 - **Re-trigger mid-flight**: `createPlagiarismReport` wipes prior
   results before the new workflow starts; no merging with a prior run.
 - **Assessment deleted while workflow running**: parent row cascade
@@ -208,6 +218,11 @@ button.
 - **Hand-crafted POST to `/api/plagiarism/[contestId]?type=contest`**:
   remapped to `type: exam` — unless the id collides with an `Exam.id`
   the response is `PlagiarismNotFoundError("Exam not found.")`.
+- **Legacy MOSS-era rows**: reports that completed before the Dolos
+  migration still carry the old pair shape (`similarity1`,
+  `similarity2`, `linesMatched`, `mossUrl`). The UI must either
+  tolerate the old shape or require staff to re-trigger; re-triggering
+  overwrites with the new shape.
 
 ## Implementation References
 
@@ -219,6 +234,8 @@ button.
   `updateReportStatus`, `saveResults`, `markReportFailed`,
   `getPlagiarismSourceCode`, `listAssessmentPlagiarismReports`,
   `getAssessmentProblemMap`.
+- `packages/domain/src/plagiarism/types.ts` — `SimilarityPair` (Dolos
+  shape: `similarity`, `longest`, `overlap`).
 - `packages/domain/src/shared/permissions.ts` —
   `resolveEffectiveCourseRole`, `canManageCourse`.
 
@@ -232,15 +249,20 @@ button.
   unused `Contest.plagiarism*` columns.
 - `packages/db/src/repositories/plagiarism.ts` — per-target
   `findBy*` / `upsertFor*` / `clearFor*` methods.
+- Migration `20260420000000_rename_plagiarism_report_url` renamed the
+  legacy `plagiarismMossReportUrl` column to `plagiarismReportUrl` on
+  `CourseAssessment`, `Exam`, and `Contest`.
 
 ### Temporal
 
 - `packages/temporal/src/workflows/plagiarism-check.ts` — workflow +
   `getPlagiarismStatusQuery`.
 - `packages/temporal/src/activities/plagiarism.ts` —
-  `runPlagiarismCheck`, MOSS socket protocol, language mapping.
-- `packages/temporal/src/activity-options.ts` —
-  `startToCloseTimeout: "10m"`, `maximumAttempts: 3`.
+  `runPlagiarismCheck`, Dolos analyze loop, language grouping. Depends
+  on `@dodona/dolos-lib` and `@dodona/dolos-core`.
+- `packages/temporal/src/workflows/activity-options.ts` —
+  `PLAGIARISM_ACTIVITY` sets `startToCloseTimeout: "10m"`,
+  `maximumAttempts: 3`.
 - `packages/job-dispatch/src/dispatch.ts` —
   `dispatchPlagiarismCheck` (workflow-id scheme).
 
@@ -252,7 +274,8 @@ button.
   — loads report for staff via
   `findPlagiarismReport(...).catch(() => null)`.
 - `apps/web/src/lib/components/.../AssignmentPlagiarismReport.svelte` —
-  histogram + table UI, bucketed by similarity.
+  histogram + table UI, bucketed by similarity, with in-product
+  side-by-side source dialog.
 
 ### Tests
 
@@ -260,12 +283,11 @@ button.
   `resolvePlagiarismTarget` (exam / courseAssessment / legacy-contest
   remap / not-found paths) and `createPlagiarismReport` (pre-wipe
   contract + persistence-failure throw).
-- `tests/unit/temporal/plagiarism-activity.test.ts` — covers the
-  `runPlagiarismCheck` activity with the domain layer mocked: status
-  bookkeeping, empty-submission short-circuit, best-score dedup, C /
-  Go / Rust → `c` bucketing, cpp's separate `cc` bucket,
-  skip-single-submission groups, unmapped-language skip, and the
-  failure path that calls `markReportFailed` + rethrows.
+- `tests/unit/temporal/plagiarism-activity.test.ts` — real-Dolos
+  integration test of `runPlagiarismCheck` with the domain layer
+  mocked: status bookkeeping, empty-submission short-circuit,
+  best-score dedup, per-language grouping, single-submission skip, and
+  the failure path that calls `markReportFailed` + rethrows.
 - **Still missing**: route-level tests (permission gate for trigger /
   view / source fetch).
 
@@ -276,9 +298,6 @@ button.
 - Re-triggering silently discards prior pair data with no audit trail.
   If "did someone wipe evidence?" becomes a governance question, a
   `PlagiarismTriggerLog` table is needed.
-- The activity currently writes placeholder `0, 0` similarity scores —
-  actual MOSS report-URL scraping is still TODO. Until that lands, the
-  UI's High/Medium/Low buckets will all report Low.
-- MOSS is a third-party service with no SLA. A self-hosted fallback
-  (e.g. JPlag) would remove the external dependency, at the cost of
-  running and maintaining the binary in-house.
+- Dolos is self-hosted and in-process, so there is no external
+  dependency to fall back from. If a tree-sitter grammar regresses on
+  a future upgrade, JPlag remains a plausible secondary backend.
