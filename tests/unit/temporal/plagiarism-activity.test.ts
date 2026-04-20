@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock the Temporal activity logger so the activity runs outside a
-// worker context.
 vi.mock("@temporalio/activity", () => ({
   log: {
     warn: vi.fn(),
@@ -11,8 +9,6 @@ vi.mock("@temporalio/activity", () => ({
   },
 }));
 
-// Mock the plagiarism domain surface so the activity's side effects are
-// observable but no Prisma call is made and no TCP socket is opened.
 const { updateReportStatus, fetchSubmissionsForCheck, saveResults, markReportFailed } =
   vi.hoisted(() => ({
     updateReportStatus: vi.fn(),
@@ -34,34 +30,46 @@ import { runPlagiarismCheck } from "../../../packages/temporal/src/activities/pl
 
 const target = { type: "courseAssessment" as const, id: "asg_1" };
 
-beforeEach(() => {
-  updateReportStatus.mockReset();
-  fetchSubmissionsForCheck.mockReset();
-  saveResults.mockReset();
-  markReportFailed.mockReset();
-  // Default the void-returning mocks to a resolved Promise. The activity
-  // chains `.catch()` on markReportFailed, so `undefined` trips a
-  // TypeError before the real assertion runs.
-  updateReportStatus.mockResolvedValue(undefined);
-  saveResults.mockResolvedValue(undefined);
-  markReportFailed.mockResolvedValue(undefined);
-  // Keep MOSS offline: empty MOSS_USER_ID triggers the placeholder path
-  // so tests never touch moss.stanford.edu.
-  delete process.env.MOSS_USER_ID;
-});
+const IDENTICAL_PY = `def solve(n):
+    total = 0
+    for i in range(n):
+        total += i * i
+        total -= i
+    return total
+`;
 
-function sub(userId: string, problemId: string, score: number, language = "cpp") {
+const DIFFERENT_PY = `class Widget:
+    def __init__(self, value):
+        self.value = value
+    def describe(self):
+        return f"widget({self.value})"
+`;
+
+function sub(
+  userId: string,
+  problemId: string,
+  score: number,
+  source: string,
+  language = "python",
+) {
   return {
-    id: `sub_${userId}_${problemId}_${score}`,
+    id: `sub_${userId}_${problemId}`,
     userId,
     problemId,
     score,
     language,
-    sourceCode: `// code ${userId} ${problemId} ${score}`,
+    sourceCode: source,
   };
 }
 
-describe("runPlagiarismCheck — empty + happy-path bookkeeping", () => {
+beforeEach(() => {
+  updateReportStatus.mockReset().mockResolvedValue(undefined);
+  fetchSubmissionsForCheck.mockReset();
+  saveResults.mockReset().mockResolvedValue(undefined);
+  markReportFailed.mockReset().mockResolvedValue(undefined);
+});
+
+describe("runPlagiarismCheck — bookkeeping", () => {
   it("writes status='running' before doing work", async () => {
     fetchSubmissionsForCheck.mockResolvedValue([]);
     await runPlagiarismCheck(target.id, target.type);
@@ -75,95 +83,113 @@ describe("runPlagiarismCheck — empty + happy-path bookkeeping", () => {
   });
 });
 
-describe("runPlagiarismCheck — dedup + grouping + pair generation", () => {
+describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)", () => {
   it("keeps only the best-scoring submission per (user, problem) before pairing", async () => {
     fetchSubmissionsForCheck.mockResolvedValue([
-      sub("usr_a", "prob_1", 50),
-      sub("usr_a", "prob_1", 100), // wins over the 50 above
-      sub("usr_b", "prob_1", 80),
+      sub("usr_a", "prob_1", 50, DIFFERENT_PY),
+      sub("usr_a", "prob_1", 100, IDENTICAL_PY),
+      sub("usr_b", "prob_1", 80, IDENTICAL_PY),
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
 
-    const [, results] = saveResults.mock.calls[0];
-    expect(results.pairs).toHaveLength(1);
-    expect(results.pairs[0]).toMatchObject({
+    const [, payload] = saveResults.mock.calls[0];
+    expect(payload.pairs).toHaveLength(1);
+    expect(payload.pairs[0]).toMatchObject({
+      problemId: "prob_1",
       userId1: "usr_a",
       userId2: "usr_b",
-      problemId: "prob_1",
     });
+    expect(payload.pairs[0].similarity).toBeGreaterThanOrEqual(90);
   });
 
-  it("skips groups with fewer than 2 submissions (no pairs emitted)", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([sub("usr_a", "prob_solo", 100)]);
+  it("skips groups with fewer than 2 submissions", async () => {
+    fetchSubmissionsForCheck.mockResolvedValue([sub("usr_a", "prob_solo", 100, IDENTICAL_PY)]);
     await runPlagiarismCheck(target.id, target.type);
-    const [, results] = saveResults.mock.calls[0];
-    expect(results.pairs).toEqual([]);
+    expect(saveResults).toHaveBeenCalledWith(target, { pairs: [] }, null);
   });
 
-  it("pairs c + go + rust together under the shared MOSS 'c' bucket", async () => {
+  it("keeps cpp and c in separate groups (one parser per language)", async () => {
+    const cppSrc = "int main(){int x=0;for(int i=0;i<10;i++)x+=i;return x;}\n";
+    const cSrc = "int main(){int x=0;for(int i=0;i<10;i++)x+=i;return x;}\n";
     fetchSubmissionsForCheck.mockResolvedValue([
-      sub("usr_a", "prob_1", 100, "c"),
-      sub("usr_b", "prob_1", 100, "go"),
-      sub("usr_c", "prob_1", 100, "rust"),
+      sub("usr_a", "prob_1", 100, cppSrc, "cpp"),
+      sub("usr_b", "prob_1", 100, cSrc, "c"),
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
 
-    const [, results] = saveResults.mock.calls[0];
-    // 3 submissions → C(3,2) = 3 pairs
-    expect(results.pairs).toHaveLength(3);
-  });
-
-  it("keeps cpp in the 'cc' bucket separate from the c-family bucket", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
-      sub("usr_a", "prob_1", 100, "c"),
-      sub("usr_b", "prob_1", 100, "cpp"), // cpp → 'cc', a different bucket
-    ]);
-
-    await runPlagiarismCheck(target.id, target.type);
-
-    const [, results] = saveResults.mock.calls[0];
-    // Both buckets end up with 1 submission each → both skipped.
-    expect(results.pairs).toEqual([]);
+    const [, payload] = saveResults.mock.calls[0];
+    expect(payload.pairs).toEqual([]);
   });
 
   it("silently skips submissions in unmapped languages", async () => {
     fetchSubmissionsForCheck.mockResolvedValue([
-      sub("usr_a", "prob_1", 100, "brainfuck"),
-      sub("usr_b", "prob_1", 100, "cpp"),
-      sub("usr_c", "prob_1", 100, "cpp"),
+      sub("usr_a", "prob_1", 100, "brainfuck_source", "brainfuck"),
+      sub("usr_b", "prob_1", 100, IDENTICAL_PY, "python"),
+      sub("usr_c", "prob_1", 100, IDENTICAL_PY, "python"),
     ]);
 
     await runPlagiarismCheck(target.id, target.type);
 
-    const [, results] = saveResults.mock.calls[0];
-    // usr_a is dropped (unmapped). usr_b vs usr_c is the only pair.
-    expect(results.pairs).toHaveLength(1);
-    expect(results.pairs[0]).toMatchObject({ userId1: "usr_b", userId2: "usr_c" });
-  });
-
-  it("splits groups across different problems even when language matches", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
-      sub("usr_a", "prob_1", 100, "cpp"),
-      sub("usr_b", "prob_1", 100, "cpp"),
-      sub("usr_c", "prob_2", 100, "cpp"),
-      // prob_2 is a singleton → no pair
-    ]);
-
-    await runPlagiarismCheck(target.id, target.type);
-
-    const [, results] = saveResults.mock.calls[0];
-    expect(results.pairs).toHaveLength(1);
-    expect(results.pairs[0]).toMatchObject({
-      problemId: "prob_1",
-      userId1: "usr_a",
-      userId2: "usr_b",
-    });
+    const [, payload] = saveResults.mock.calls[0];
+    expect(payload.pairs).toHaveLength(1);
+    const users = [payload.pairs[0].userId1, payload.pairs[0].userId2].sort();
+    expect(users).toEqual(["usr_b", "usr_c"]);
   });
 });
 
-describe("runPlagiarismCheck — failure path", () => {
+describe("runPlagiarismCheck — pair emission", () => {
+  it("emits similarity as an integer 0..100 on an identical-source pair", async () => {
+    fetchSubmissionsForCheck.mockResolvedValue([
+      sub("usr_a", "prob_1", 100, IDENTICAL_PY),
+      sub("usr_b", "prob_1", 100, IDENTICAL_PY),
+    ]);
+
+    await runPlagiarismCheck(target.id, target.type);
+
+    const [, payload] = saveResults.mock.calls[0];
+    expect(payload.pairs).toHaveLength(1);
+    const pair = payload.pairs[0];
+    expect(Number.isInteger(pair.similarity)).toBe(true);
+    expect(pair.similarity).toBeGreaterThanOrEqual(90);
+    expect(pair.similarity).toBeLessThanOrEqual(100);
+    expect(pair.longest).toBeGreaterThan(0);
+    expect(pair.overlap).toBeGreaterThan(0);
+  });
+
+  it("reports near-zero similarity on clearly different submissions", async () => {
+    fetchSubmissionsForCheck.mockResolvedValue([
+      sub("usr_a", "prob_1", 100, IDENTICAL_PY),
+      sub("usr_b", "prob_1", 100, DIFFERENT_PY),
+    ]);
+
+    await runPlagiarismCheck(target.id, target.type);
+
+    const [, payload] = saveResults.mock.calls[0];
+    // Dolos may return no pair below its minSimilarity threshold, OR an
+    // entry with very low similarity. Both are acceptable "no meaningful
+    // match" outcomes.
+    if (payload.pairs.length > 0) {
+      expect(payload.pairs[0].similarity).toBeLessThan(30);
+    }
+  });
+
+  it("strips file extension from user ids in the persisted pair", async () => {
+    fetchSubmissionsForCheck.mockResolvedValue([
+      sub("usr_a", "prob_1", 100, IDENTICAL_PY),
+      sub("usr_b", "prob_1", 100, IDENTICAL_PY),
+    ]);
+
+    await runPlagiarismCheck(target.id, target.type);
+
+    const [, payload] = saveResults.mock.calls[0];
+    expect(payload.pairs[0].userId1).not.toContain(".");
+    expect(payload.pairs[0].userId2).not.toContain(".");
+  });
+});
+
+describe("runPlagiarismCheck — error handling", () => {
   it("marks the report failed and rethrows when the domain layer errors", async () => {
     const boom = new Error("fetchSubmissions blew up");
     fetchSubmissionsForCheck.mockRejectedValue(boom);

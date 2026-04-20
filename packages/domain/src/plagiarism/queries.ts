@@ -53,12 +53,12 @@ export async function updateReportStatus(
 export async function saveResults(
   target: PlagiarismTarget,
   results: PlagiarismResults,
-  mossReportUrl: string | null,
+  reportUrl: string | null,
 ): Promise<void> {
   await writePlagiarismFields(target, {
     status: "completed",
     results: toJsonValue(results),
-    mossReportUrl,
+    reportUrl,
     completedAt: new Date(),
   });
 }
@@ -117,7 +117,7 @@ export async function createPlagiarismReport(
     triggeredById,
     triggeredAt: new Date(),
     results: null,
-    mossReportUrl: null,
+    reportUrl: null,
     completedAt: null,
   });
   const summary = await findPlagiarismReport(target);

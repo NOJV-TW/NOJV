@@ -109,7 +109,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       plagiarism: plagiarism
         ? {
             status: plagiarism.status,
-            mossReportUrl: plagiarism.mossReportUrl,
+            reportUrl: plagiarism.reportUrl,
             triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
             completedAt: plagiarism.completedAt?.toISOString() ?? null,
             results: plagiarism.results as unknown,

@@ -105,7 +105,7 @@ describe("createPlagiarismReport", () => {
       status: "pending",
       triggeredById: "usr_teacher",
       results: null,
-      mossReportUrl: null,
+      reportUrl: null,
       completedAt: null,
     });
     expect(input.triggeredAt).toBeInstanceOf(Date);

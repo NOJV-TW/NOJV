@@ -2,11 +2,10 @@ import { prisma } from "../client";
 import { Prisma } from "../../generated/prisma/client";
 import type { PlagiarismReportStatus } from "../../generated/prisma/enums";
 
-// State is inlined as `plagiarism*` columns on Contest/CourseAssessment; re-running MOSS updates the row in place.
 export interface PlagiarismReportSummary {
   status: PlagiarismReportStatus;
   results: Prisma.JsonValue | null;
-  mossReportUrl: string | null;
+  reportUrl: string | null;
   triggeredAt: Date | null;
   completedAt: Date | null;
   triggeredById: string | null;
@@ -15,7 +14,7 @@ export interface PlagiarismReportSummary {
 export interface PlagiarismUpsertInput {
   status?: PlagiarismReportStatus | null;
   results?: Prisma.InputJsonValue | null;
-  mossReportUrl?: string | null;
+  reportUrl?: string | null;
   triggeredAt?: Date | null;
   completedAt?: Date | null;
   triggeredById?: string | null;
@@ -24,7 +23,7 @@ export interface PlagiarismUpsertInput {
 const plagiarismSelect = {
   plagiarismStatus: true,
   plagiarismResults: true,
-  plagiarismMossReportUrl: true,
+  plagiarismReportUrl: true,
   plagiarismTriggeredAt: true,
   plagiarismCompletedAt: true,
   plagiarismTriggeredById: true,
@@ -33,7 +32,7 @@ const plagiarismSelect = {
 interface PlagiarismRow {
   plagiarismStatus: PlagiarismReportStatus | null;
   plagiarismResults: Prisma.JsonValue | null;
-  plagiarismMossReportUrl: string | null;
+  plagiarismReportUrl: string | null;
   plagiarismTriggeredAt: Date | null;
   plagiarismCompletedAt: Date | null;
   plagiarismTriggeredById: string | null;
@@ -44,7 +43,7 @@ function toSummary(row: PlagiarismRow | null): PlagiarismReportSummary | null {
   return {
     status: row.plagiarismStatus,
     results: row.plagiarismResults,
-    mossReportUrl: row.plagiarismMossReportUrl,
+    reportUrl: row.plagiarismReportUrl,
     triggeredAt: row.plagiarismTriggeredAt,
     completedAt: row.plagiarismCompletedAt,
     triggeredById: row.plagiarismTriggeredById,
@@ -57,7 +56,7 @@ function toContestUpdate(input: PlagiarismUpsertInput): Prisma.ContestUncheckedU
   if (input.results !== undefined) {
     data.plagiarismResults = input.results ?? Prisma.JsonNull;
   }
-  if (input.mossReportUrl !== undefined) data.plagiarismMossReportUrl = input.mossReportUrl;
+  if (input.reportUrl !== undefined) data.plagiarismReportUrl = input.reportUrl;
   if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
   if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
   if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
@@ -70,7 +69,7 @@ function toExamUpdate(input: PlagiarismUpsertInput): Prisma.ExamUncheckedUpdateI
   if (input.results !== undefined) {
     data.plagiarismResults = input.results ?? Prisma.JsonNull;
   }
-  if (input.mossReportUrl !== undefined) data.plagiarismMossReportUrl = input.mossReportUrl;
+  if (input.reportUrl !== undefined) data.plagiarismReportUrl = input.reportUrl;
   if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
   if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
   if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
@@ -85,7 +84,7 @@ function toAssessmentUpdate(
   if (input.results !== undefined) {
     data.plagiarismResults = input.results ?? Prisma.JsonNull;
   }
-  if (input.mossReportUrl !== undefined) data.plagiarismMossReportUrl = input.mossReportUrl;
+  if (input.reportUrl !== undefined) data.plagiarismReportUrl = input.reportUrl;
   if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
   if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
   if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
@@ -95,7 +94,7 @@ function toAssessmentUpdate(
 const clearInput: PlagiarismUpsertInput = {
   status: null,
   results: null,
-  mossReportUrl: null,
+  reportUrl: null,
   triggeredAt: null,
   completedAt: null,
   triggeredById: null,
