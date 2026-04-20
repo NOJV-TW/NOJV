@@ -33,8 +33,8 @@ async function fanoutAnnouncementPublished(announcementId: string, title: string
       userId: u.id,
       type: "announcement_published" as const,
       params: { announcementId, titleEn: title, titleZhTw: title },
-      linkUrl: null
-    }))
+      linkUrl: null,
+    })),
   );
 }
 
@@ -44,12 +44,12 @@ export async function createAnnouncement(data: AnnouncementCreatePayload) {
   const announcement = await announcementRepo.create({
     pinned: data.pinned,
     status: data.published ? "published" : "draft",
-    publishedAt: data.published ? new Date() : null
+    publishedAt: data.published ? new Date() : null,
   });
 
   await announcementTranslationRepo.upsert(announcement.id, DEFAULT_LOCALE, {
     title: data.title,
-    content: data.content
+    content: data.content,
   });
 
   if (data.published) {
@@ -70,12 +70,12 @@ export async function updateAnnouncement(id: string, data: AnnouncementUpdatePay
   const updated = await announcementRepo.update(id, {
     pinned: data.pinned,
     status: data.published ? "published" : "draft",
-    publishedAt: data.published ? new Date() : null
+    publishedAt: data.published ? new Date() : null,
   });
 
   await announcementTranslationRepo.upsert(id, DEFAULT_LOCALE, {
     title: data.title,
-    content: data.content
+    content: data.content,
   });
 
   if (data.published && prior?.status !== "published") {
@@ -101,7 +101,7 @@ export async function toggleAnnouncementPublish(id: string) {
   const next = announcement.status === "published" ? "draft" : "published";
   const updated = await announcementRepo.update(id, {
     status: next,
-    publishedAt: next === "published" ? new Date() : null
+    publishedAt: next === "published" ? new Date() : null,
   });
 
   if (next === "published") {

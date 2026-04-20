@@ -6,7 +6,7 @@ describe("pickProblemStatement", () => {
   it("returns localized statement when matching locale exists", () => {
     const statements = [
       { bodyMarkdown: "English body", locale: "en", title: "English Title" },
-      { bodyMarkdown: "Chinese body", locale: "zh-TW", title: "Chinese Title" }
+      { bodyMarkdown: "Chinese body", locale: "zh-TW", title: "Chinese Title" },
     ];
 
     const result = pickProblemStatement(statements, "zh-TW", "Fallback", "Fallback body");
@@ -18,7 +18,7 @@ describe("pickProblemStatement", () => {
   it("falls back to first statement when locale doesn't match", () => {
     const statements = [
       { bodyMarkdown: "English body", locale: "en", title: "English Title" },
-      { bodyMarkdown: "Chinese body", locale: "zh-TW", title: "Chinese Title" }
+      { bodyMarkdown: "Chinese body", locale: "zh-TW", title: "Chinese Title" },
     ];
 
     const result = pickProblemStatement(statements, "ja", "Fallback", "Fallback body");
@@ -48,8 +48,8 @@ describe("pickProblemStatement", () => {
         inputFormat: "Two integers",
         locale: "en",
         outputFormat: "One integer",
-        title: "Title"
-      }
+        title: "Title",
+      },
     ];
 
     const result = pickProblemStatement(statements, "en", "Fallback", "Fallback body");

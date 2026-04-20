@@ -6,40 +6,40 @@ const {
   membershipFindByComposite,
   txCourseFindUnique,
   txExamParticipationFindUnique,
-  checkIpLockMock
+  checkIpLockMock,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   contestFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   txCourseFindUnique: vi.fn(),
   txExamParticipationFindUnique: vi.fn(),
-  checkIpLockMock: vi.fn()
+  checkIpLockMock: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   examRepo: {
-    withTx: () => ({ findById: examFindById })
+    withTx: () => ({ findById: examFindById }),
   },
   contestRepo: {
-    withTx: () => ({ findById: contestFindById })
+    withTx: () => ({ findById: contestFindById }),
   },
   courseMembershipRepo: {
-    withTx: () => ({ findByComposite: membershipFindByComposite })
+    withTx: () => ({ findByComposite: membershipFindByComposite }),
   },
   runTransaction: async <T>(
     fn: (tx: {
       course: { findUnique: typeof txCourseFindUnique };
       examParticipation: { findUnique: typeof txExamParticipationFindUnique };
-    }) => Promise<T>
+    }) => Promise<T>,
   ): Promise<T> =>
     fn({
       course: { findUnique: txCourseFindUnique },
-      examParticipation: { findUnique: txExamParticipationFindUnique }
-    })
+      examParticipation: { findUnique: txExamParticipationFindUnique },
+    }),
 }));
 
 vi.mock("../../../packages/domain/src/shared/ip-utils", () => ({
-  checkIpLock: checkIpLockMock
+  checkIpLock: checkIpLockMock,
 }));
 
 const { checkProctoringGate } = await import("../../../packages/domain/src/proctoring/gate");
@@ -58,14 +58,14 @@ const baseExam = {
   ipBindingEnabled: false,
   ipWhitelistEnabled: false,
   ipWhitelist: [] as string[],
-  ipViolationMode: "block"
+  ipViolationMode: "block",
 };
 
 const baseContest = {
   id: "spring-qualifier-2026",
   visibility: "published" as const,
   startsAt: examStart,
-  endsAt: examEnd
+  endsAt: examEnd,
 };
 
 beforeEach(() => {
@@ -84,7 +84,7 @@ describe("checkProctoringGate — exam", () => {
       entityKind: "exam",
       entityId: baseExam.id,
       userId: "usr_student",
-      now
+      now,
     });
 
     expect(verdict).toEqual({ ok: true });
@@ -101,7 +101,7 @@ describe("checkProctoringGate — exam", () => {
       entityId: baseExam.id,
       userId: "usr_student",
       ip: "10.0.0.1",
-      now
+      now,
     });
 
     expect(verdict).toEqual({ ok: false, reason: "ip_binding" });
@@ -116,7 +116,7 @@ describe("checkProctoringGate — exam", () => {
       entityKind: "exam",
       entityId: baseExam.id,
       userId: "usr_student",
-      now
+      now,
     });
 
     expect(verdict).toEqual({ ok: false, reason: "not_enrolled" });
@@ -131,7 +131,7 @@ describe("checkProctoringGate — exam", () => {
       entityKind: "exam",
       entityId: baseExam.id,
       userId: "usr_student",
-      now: new Date("2026-05-01T08:30:00.000Z")
+      now: new Date("2026-05-01T08:30:00.000Z"),
     });
 
     expect(verdict).toEqual({ ok: false, reason: "not_started" });
@@ -149,7 +149,7 @@ describe("checkProctoringGate — contest", () => {
       entityId: baseContest.id,
       userId: "usr_student",
       ip: "10.0.0.1",
-      now
+      now,
     });
 
     expect(verdict).toEqual({ ok: true });
@@ -164,7 +164,7 @@ describe("checkProctoringGate — contest", () => {
       entityKind: "contest",
       entityId: "missing",
       userId: "usr_student",
-      now
+      now,
     });
 
     expect(verdict).toEqual({ ok: false, reason: "not_found" });
@@ -177,7 +177,7 @@ describe("checkProctoringGate — contest", () => {
       entityKind: "contest",
       entityId: baseContest.id,
       userId: "usr_student",
-      now
+      now,
     });
 
     expect(verdict).toEqual({ ok: false, reason: "not_published" });
@@ -190,7 +190,7 @@ describe("checkProctoringGate — contest", () => {
       entityKind: "contest",
       entityId: baseContest.id,
       userId: "usr_student",
-      now: new Date("2026-05-01T13:00:00.000Z")
+      now: new Date("2026-05-01T13:00:00.000Z"),
     });
 
     expect(verdict).toEqual({ ok: false, reason: "ended" });
@@ -203,7 +203,7 @@ describe("checkProctoringGate — contest", () => {
       entityKind: "contest",
       entityId: baseContest.id,
       userId: "usr_student",
-      now: new Date("2026-05-01T08:30:00.000Z")
+      now: new Date("2026-05-01T08:30:00.000Z"),
     });
 
     expect(verdict).toEqual({ ok: false, reason: "not_started" });

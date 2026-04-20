@@ -6,138 +6,138 @@ export const goCompletions: CompletionEntry[] = [
     kind: "Function",
     insertText: "fmt.Println(${1})",
     detail: "fmt",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "fmt.Printf",
     kind: "Function",
     insertText: 'fmt.Printf("${1:%d}\\n", ${2:x})',
     detail: "fmt",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "fmt.Scanf",
     kind: "Function",
     insertText: 'fmt.Scanf("${1:%d}", &${2:x})',
     detail: "fmt",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "fmt.Sscanf",
     kind: "Function",
     insertText: 'fmt.Sscanf(${1:s}, "${2:%d}", &${3:x})',
     detail: "fmt",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "fmt.Scan",
     kind: "Function",
     insertText: "fmt.Scan(&${1:x})",
     detail: "fmt",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "bufio.NewReader",
     kind: "Function",
     insertText: "bufio.NewReader(os.Stdin)",
-    detail: "bufio"
+    detail: "bufio",
   },
   {
     label: "bufio.NewScanner",
     kind: "Function",
     insertText: "bufio.NewScanner(os.Stdin)",
-    detail: "bufio"
+    detail: "bufio",
   },
   {
     label: "sort.Ints",
     kind: "Function",
     insertText: "sort.Ints(${1:arr})",
     detail: "sort",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "sort.Strings",
     kind: "Function",
     insertText: "sort.Strings(${1:arr})",
     detail: "sort",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "sort.Slice",
     kind: "Function",
     insertText: "sort.Slice(${1:s}, func(i, j int) bool {\n\treturn ${1:s}[i] < ${1:s}[j]\n})",
     detail: "sort",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "sort.Search",
     kind: "Function",
     insertText: "sort.Search(${1:n}, func(i int) bool {\n\treturn ${2:condition}\n})",
     detail: "sort",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "strconv.Atoi",
     kind: "Function",
     insertText: "strconv.Atoi(${1:s})",
     detail: "strconv",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "strconv.Itoa",
     kind: "Function",
     insertText: "strconv.Itoa(${1:n})",
     detail: "strconv",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "strings.Split",
     kind: "Function",
     insertText: 'strings.Split(${1:s}, "${2: }")',
     detail: "strings",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "strings.Join",
     kind: "Function",
     insertText: 'strings.Join(${1:arr}, "${2: }")',
     detail: "strings",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "strings.Contains",
     kind: "Function",
     insertText: 'strings.Contains(${1:s}, "${2:sub}")',
     detail: "strings",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "math.Max",
     kind: "Function",
     insertText: "math.Max(${1:a}, ${2:b})",
     detail: "math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "math.Min",
     kind: "Function",
     insertText: "math.Min(${1:a}, ${2:b})",
     detail: "math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "math.Abs",
     kind: "Function",
     insertText: "math.Abs(${1:x})",
     detail: "math",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "math.Sqrt",
     kind: "Function",
     insertText: "math.Sqrt(${1:x})",
     detail: "math",
-    isSnippet: true
+    isSnippet: true,
   },
   { label: "math.MaxInt64", kind: "Constant", insertText: "math.MaxInt64", detail: "math" },
   {
@@ -145,34 +145,34 @@ export const goCompletions: CompletionEntry[] = [
     kind: "Snippet",
     insertText: "make([]${1:int}, ${2:n})",
     detail: "builtin",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "make (map)",
     kind: "Snippet",
     insertText: "make(map[${1:string}]${2:int})",
     detail: "builtin",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "append",
     kind: "Function",
     insertText: "append(${1:slice}, ${2:val})",
     detail: "builtin",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "len",
     kind: "Function",
     insertText: "len(${1})",
     detail: "builtin",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "cap",
     kind: "Function",
     insertText: "cap(${1})",
     detail: "builtin",
-    isSnippet: true
-  }
+    isSnippet: true,
+  },
 ];

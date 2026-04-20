@@ -11,7 +11,7 @@ import {
   type ScoreboardEntry,
   type ScoreboardProblem,
   type SubmissionRow,
-  type TimedSession
+  type TimedSession,
 } from "../scoring";
 
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
@@ -39,15 +39,15 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
     where: {
       examId: exam.id,
       userId: participation.userId,
-      sampleOnly: false
+      sampleOnly: false,
     },
     orderBy: { createdAt: "asc" },
     select: {
       createdAt: true,
       problemId: true,
       score: true,
-      status: true
-    }
+      status: true,
+    },
   });
 
   const examProblems = new Map(exam.problems.map((p) => [p.problemId, p]));
@@ -74,7 +74,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 
     await examParticipationRepo.update(participation.id, {
       penaltySeconds: totalPenalty,
-      score: solvedCount
+      score: solvedCount,
     });
 
     const packedScore = solvedCount * 1e9 - totalPenalty;
@@ -104,7 +104,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 
     await examParticipationRepo.update(participation.id, {
       score: totalScore,
-      subtaskScores
+      subtaskScores,
     });
 
     await scoreboard.updateScoreboard(exam.id, participation.id, totalScore);
@@ -113,7 +113,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 
 export async function getExamScoreboard(
   examId: string,
-  options?: { unfrozen?: boolean; isPrivileged?: boolean }
+  options?: { unfrozen?: boolean; isPrivileged?: boolean },
 ): Promise<ExamScoreboardData> {
   const exam = await examRepo.findForScoreboard(examId);
 
@@ -132,7 +132,7 @@ export async function getExamScoreboard(
     id: ep.problemId,
     ordinal: ep.ordinal,
     points: ep.points,
-    title: ep.problem.title
+    title: ep.problem.title,
   }));
 
   const scoringMode = exam.scoringMode as ContestScoringMode;
@@ -144,7 +144,7 @@ export async function getExamScoreboard(
       isFrozen: false,
       problems,
       scoreboardMode,
-      scoringMode
+      scoringMode,
     };
   }
 
@@ -155,7 +155,7 @@ export async function getExamScoreboard(
       isFrozen: showFrozen,
       problems,
       scoreboardMode,
-      scoringMode
+      scoringMode,
     };
   }
 
@@ -163,7 +163,7 @@ export async function getExamScoreboard(
   const rawSubmissions = await submissionRepo.findMany({
     where: {
       examId: exam.id,
-      sampleOnly: false
+      sampleOnly: false,
     },
     orderBy: { createdAt: "asc" },
     select: {
@@ -171,8 +171,8 @@ export async function getExamScoreboard(
       problemId: true,
       score: true,
       status: true,
-      userId: true
-    }
+      userId: true,
+    },
   });
 
   const submissions: SubmissionRow[] = rawSubmissions.map((s) => ({
@@ -180,7 +180,7 @@ export async function getExamScoreboard(
     problemId: s.problemId,
     score: s.score,
     status: s.status,
-    userId: s.userId
+    userId: s.userId,
   }));
 
   const participants: ParticipantRow[] = exam.participations;
@@ -189,7 +189,7 @@ export async function getExamScoreboard(
     id: exam.id,
     startsAt: exam.startsAt,
     endsAt: exam.endsAt,
-    frozenAt: exam.frozenAt
+    frozenAt: exam.frozenAt,
   };
 
   const entries = buildScoreboard(
@@ -198,7 +198,7 @@ export async function getExamScoreboard(
     participants,
     submissions,
     problems,
-    showFrozen
+    showFrozen,
   );
 
   return {
@@ -207,7 +207,7 @@ export async function getExamScoreboard(
     isFrozen: showFrozen,
     problems,
     scoreboardMode,
-    scoringMode
+    scoringMode,
   };
 }
 
@@ -221,7 +221,7 @@ export interface ExamChartData {
 
 export async function getExamScoreboardChart(
   examId: string,
-  topN: number
+  topN: number,
 ): Promise<ExamChartData> {
   const scoreboardData = await getExamScoreboard(examId, { unfrozen: false });
 
@@ -240,7 +240,7 @@ export async function getExamScoreboardChart(
     where: {
       examId,
       sampleOnly: false,
-      userId: { in: [...topUserIds] }
+      userId: { in: [...topUserIds] },
     },
     orderBy: { createdAt: "asc" },
     select: {
@@ -248,8 +248,8 @@ export async function getExamScoreboardChart(
       problemId: true,
       score: true,
       status: true,
-      userId: true
-    }
+      userId: true,
+    },
   });
 
   const submissionsByUser = new Map<string, SubmissionRow[]>();
@@ -259,7 +259,7 @@ export async function getExamScoreboardChart(
       problemId: sub.problemId,
       score: sub.score,
       status: sub.status,
-      userId: sub.userId
+      userId: sub.userId,
     };
     const existing = submissionsByUser.get(sub.userId);
     if (existing) existing.push(row);
@@ -274,7 +274,7 @@ export async function getExamScoreboardChart(
     [...topUserIds],
     submissionsByUser,
     usernameMap,
-    pointsMap
+    pointsMap,
   );
 
   return { series };

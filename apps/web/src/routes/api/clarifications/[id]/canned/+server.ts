@@ -19,11 +19,11 @@ const CANNED_TEMPLATES = {
   noComment: "No comment.",
   readProblem: "Please re-read the problem statement.",
   yes: "Yes.",
-  no: "No."
+  no: "No.",
 } as const;
 
 const cannedSchema = z.object({
-  templateKey: z.enum(["noComment", "readProblem", "yes", "no"])
+  templateKey: z.enum(["noComment", "readProblem", "yes", "no"]),
 });
 
 function requireId(event: { params: { id?: string } }): string {

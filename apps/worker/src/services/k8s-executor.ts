@@ -9,7 +9,7 @@ import {
   sourceFileNames,
   type SandboxExecutor,
   type SandboxRequest,
-  type SandboxResult
+  type SandboxResult,
 } from "@nojv/core";
 import { parseSandboxResult } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
@@ -71,7 +71,7 @@ export class K8sExecutor implements SandboxExecutor {
   private async createConfigMap(
     name: string,
     namespace: string,
-    request: SandboxRequest
+    request: SandboxRequest,
   ): Promise<void> {
     const data: Record<string, string> = {};
     const sourceFileMap: { path: string; key: string }[] = [];
@@ -122,8 +122,8 @@ export class K8sExecutor implements SandboxExecutor {
       namespace,
       body: {
         metadata: { name, namespace },
-        data
-      }
+        data,
+      },
     });
   }
 
@@ -136,7 +136,7 @@ export class K8sExecutor implements SandboxExecutor {
         metadata: {
           name: jobName,
           namespace,
-          labels: { app: "nojv-sandbox" }
+          labels: { app: "nojv-sandbox" },
         },
         spec: {
           ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
@@ -147,7 +147,7 @@ export class K8sExecutor implements SandboxExecutor {
             // what the sandbox NetworkPolicy podSelector matches — Job labels
             // do not propagate to the pod template.
             metadata: {
-              labels: { app: "nojv-sandbox", "nojv-role": "sandbox" }
+              labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
             },
             spec: {
               restartPolicy: "Never",
@@ -161,13 +161,13 @@ export class K8sExecutor implements SandboxExecutor {
                   key: "nojv-role",
                   operator: "Equal",
                   value: "sandbox",
-                  effect: "NoSchedule"
-                }
+                  effect: "NoSchedule",
+                },
               ],
               securityContext: {
                 runAsUser: 10001,
                 runAsGroup: 10001,
-                seccompProfile: { type: "RuntimeDefault" }
+                seccompProfile: { type: "RuntimeDefault" },
               },
               containers: [
                 {
@@ -177,60 +177,60 @@ export class K8sExecutor implements SandboxExecutor {
                   resources: {
                     requests: {
                       cpu: this.config.cpuRequest,
-                      memory: this.config.memoryRequest
+                      memory: this.config.memoryRequest,
                     },
                     limits: {
                       cpu: this.config.cpuLimit,
-                      memory: this.config.memoryLimit
-                    }
+                      memory: this.config.memoryLimit,
+                    },
                   },
                   securityContext: {
                     allowPrivilegeEscalation: false,
                     capabilities: { drop: ["ALL"] },
-                    readOnlyRootFilesystem: true
+                    readOnlyRootFilesystem: true,
                   },
                   volumeMounts: [
                     {
                       name: "submission-data",
                       mountPath: "/submission",
-                      readOnly: true
+                      readOnly: true,
                     },
                     { name: "workspace", mountPath: "/workspace" },
-                    { name: "tmp", mountPath: "/tmp" }
-                  ]
-                }
+                    { name: "tmp", mountPath: "/tmp" },
+                  ],
+                },
               ],
               volumes: [
                 {
                   name: "submission-data",
-                  configMap: { name: jobName }
+                  configMap: { name: jobName },
                 },
                 {
                   name: "workspace",
-                  emptyDir: { sizeLimit: "128Mi" }
+                  emptyDir: { sizeLimit: "128Mi" },
                 },
                 {
                   name: "tmp",
-                  emptyDir: { sizeLimit: "64Mi" }
-                }
-              ]
-            }
-          }
-        }
-      }
+                  emptyDir: { sizeLimit: "64Mi" },
+                },
+              ],
+            },
+          },
+        },
+      },
     });
   }
 
   private async waitForJobCompletion(
     jobName: string,
-    namespace: string
+    namespace: string,
   ): Promise<"succeeded" | "failed"> {
     const deadline = Date.now() + JOB_DEADLINE_SECONDS * 1_000;
 
     while (Date.now() < deadline) {
       const job = await this.batchApi.readNamespacedJob({
         name: jobName,
-        namespace
+        namespace,
       });
 
       if (job.status?.succeeded) return "succeeded";
@@ -245,7 +245,7 @@ export class K8sExecutor implements SandboxExecutor {
   private async getPodLogs(jobName: string, namespace: string): Promise<string> {
     const pods = await this.coreApi.listNamespacedPod({
       namespace,
-      labelSelector: `job-name=${jobName}`
+      labelSelector: `job-name=${jobName}`,
     });
 
     const podName = pods.items[0]?.metadata?.name;
@@ -256,7 +256,7 @@ export class K8sExecutor implements SandboxExecutor {
     return this.coreApi.readNamespacedPodLog({
       container: "runner",
       name: podName,
-      namespace
+      namespace,
     });
   }
 
@@ -290,7 +290,7 @@ export class K8sExecutor implements SandboxExecutor {
     try {
       await this.coreApi.deleteNamespacedConfigMap({
         name: jobName,
-        namespace
+        namespace,
       });
     } catch {
       // Best-effort cleanup; ignore errors
@@ -301,7 +301,7 @@ export class K8sExecutor implements SandboxExecutor {
       await this.batchApi.deleteNamespacedJob({
         name: jobName,
         namespace,
-        propagationPolicy: "Background"
+        propagationPolicy: "Background",
       });
     } catch {
       // Best-effort cleanup; ignore errors

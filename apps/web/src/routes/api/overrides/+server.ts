@@ -11,7 +11,7 @@ const contextTypeSchema = z.enum(["assignment", "exam", "contest"]);
 
 const listQuerySchema = z.object({
   contextType: contextTypeSchema,
-  contextId: z.string().min(1)
+  contextId: z.string().min(1),
 });
 
 const createSchema = z.object({
@@ -20,7 +20,7 @@ const createSchema = z.object({
   contextType: contextTypeSchema,
   contextId: z.string().min(1),
   overrideScore: z.number().int().min(0),
-  reason: z.string().min(1).max(500)
+  reason: z.string().min(1).max(500),
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -28,7 +28,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const parsed = listQuerySchema.parse({
     contextType: event.url.searchParams.get("contextType"),
-    contextId: event.url.searchParams.get("contextId")
+    contextId: event.url.searchParams.get("contextId"),
   });
 
   // Listing surfaces the staff-only `reason` field, so gate on the same
@@ -36,7 +36,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   await scoreOverrideDomain.assertCanSetScoreOverride(
     actor,
     parsed.contextType,
-    parsed.contextId
+    parsed.contextId,
   );
 
   const items = await scoreOverrideDomain.listByContext(parsed.contextType, parsed.contextId);

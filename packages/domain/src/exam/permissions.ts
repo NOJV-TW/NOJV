@@ -15,7 +15,7 @@ export interface CourseMembershipRow {
 export function canManageExam(
   userId: string | null,
   exam: ExamPermissionInput,
-  courseMemberships: CourseMembershipRow[]
+  courseMemberships: CourseMembershipRow[],
 ): boolean {
   if (userId === null) return false;
   if (exam.createdByUserId === userId) return true;
@@ -23,6 +23,6 @@ export function canManageExam(
     (m) =>
       m.courseId === exam.courseId &&
       m.status === "active" &&
-      (m.role === "teacher" || m.role === "ta")
+      (m.role === "teacher" || m.role === "ta"),
   );
 }

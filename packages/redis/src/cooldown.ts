@@ -4,7 +4,7 @@ import { keys } from "./keys";
 export async function setCooldown(
   userId: string,
   problemId: string,
-  seconds: number
+  seconds: number,
 ): Promise<boolean> {
   const key = keys.cooldown(userId, problemId);
   const result = await getRedis().set(key, "1", "EX", seconds, "NX");

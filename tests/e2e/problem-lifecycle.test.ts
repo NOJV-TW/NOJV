@@ -81,7 +81,7 @@ test.describe("Problem Lifecycle", () => {
     // Delete via form action (must send as form data with origin header)
     const deleteRes = await page.request.post(`/problems/${deleteId}/edit?/deleteProblem`, {
       form: {},
-      headers: { origin: "http://localhost:5173" }
+      headers: { origin: "http://localhost:5173" },
     });
     const body = await deleteRes.json();
     expect(body.type).toBe("redirect");

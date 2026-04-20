@@ -8,7 +8,7 @@ import {
   testcaseInputFileKey,
   testcaseInputKey,
   testcaseOutputKey,
-  workspaceFileKey
+  workspaceFileKey,
 } from "@nojv/storage";
 
 // Inferred to avoid pulling @aws-sdk/client-s3 into @nojv/domain.
@@ -46,8 +46,8 @@ export async function writeTestcaseBlobs(input: TestcaseBlobInputs): Promise<Tes
       ? Object.fromEntries(
           Object.keys(input.inputFiles).map((name) => [
             name,
-            testcaseInputFileKey(input.problemId, input.testcaseId, name)
-          ])
+            testcaseInputFileKey(input.problemId, input.testcaseId, name),
+          ]),
         )
       : null;
 
@@ -83,7 +83,7 @@ export async function readTestcaseBlobs(row: {
   const [input, output, fileContents] = await Promise.all([
     getText(client, row.inputKey),
     row.outputKey ? getText(client, row.outputKey) : Promise.resolve(undefined),
-    Promise.all(fileEntries.map(([, key]) => getText(client, key)))
+    Promise.all(fileEntries.map(([, key]) => getText(client, key))),
   ]);
 
   let inputFiles: Record<string, string> | undefined;
@@ -106,7 +106,7 @@ export async function overwriteTestcaseField(
   problemId: string,
   testcaseId: string,
   field: "input" | "output",
-  content: string
+  content: string,
 ): Promise<void> {
   const key =
     field === "input"
@@ -122,7 +122,7 @@ export async function bestEffortDeleteProblemBlobs(problemId: string): Promise<v
   } catch (err) {
     console.warn(
       `[problem-blobs] orphan S3 blobs after problem delete: problemId=${problemId}`,
-      err
+      err,
     );
   }
 }
@@ -137,7 +137,7 @@ export async function bestEffortDeleteProblemStandardBlobs(problemId: string): P
     } catch (err) {
       console.warn(
         `[problem-blobs] orphan S3 blobs after standard-mode cleanup: problemId=${problemId} prefix=${prefix}`,
-        err
+        err,
       );
     }
   }
@@ -145,28 +145,28 @@ export async function bestEffortDeleteProblemStandardBlobs(problemId: string): P
 
 export async function bestEffortDeleteTestcaseBlobs(
   problemId: string,
-  testcaseId: string
+  testcaseId: string,
 ): Promise<void> {
   try {
     await deleteBlobsByPrefix(getClient(), `problems/${problemId}/testcases/${testcaseId}/`);
   } catch (err) {
     console.warn(
       `[problem-blobs] orphan S3 blobs after testcase delete: problemId=${problemId} testcaseId=${testcaseId}`,
-      err
+      err,
     );
   }
 }
 
 export async function bestEffortDeleteWorkspaceBlob(
   problemId: string,
-  fileId: string
+  fileId: string,
 ): Promise<void> {
   try {
     await deleteBlob(getClient(), workspaceFileKey(problemId, fileId));
   } catch (err) {
     console.warn(
       `[problem-blobs] orphan S3 blob after workspace file delete: problemId=${problemId} fileId=${fileId}`,
-      err
+      err,
     );
   }
 }
@@ -175,7 +175,7 @@ export async function bestEffortDeleteWorkspaceBlob(
 export async function writeWorkspaceFileBlob(
   problemId: string,
   fileId: string,
-  content: string
+  content: string,
 ): Promise<string> {
   const key = workspaceFileKey(problemId, fileId);
   await putText(getClient(), key, content);

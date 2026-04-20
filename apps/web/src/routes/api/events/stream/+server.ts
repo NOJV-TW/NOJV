@@ -41,7 +41,7 @@ function parseClarificationSubs(url: URL): ClarificationSub[] {
 const logger = createLogger("sse-stream");
 
 const sseEnvSchema = z.object({
-  REDIS_URL: z.url()
+  REDIS_URL: z.url(),
 });
 
 const MAX_DURATION_MS = 600_000; // 10 min
@@ -93,7 +93,7 @@ export const GET: RequestHandler = async (event) => {
   for (const sub of requestedSubs) {
     const [canAsk, canAnswer] = await Promise.all([
       clarificationDomain.canAskClarification(actor, sub.contextType, sub.contextId),
-      clarificationDomain.canAnswerInContext(actor, sub.contextType, sub.contextId)
+      clarificationDomain.canAnswerInContext(actor, sub.contextType, sub.contextId),
     ]);
     if (canAsk || canAnswer) {
       authorizedClarChannels.push(keys.clarificationChannel(sub.contextType, sub.contextId));
@@ -115,7 +115,7 @@ export const GET: RequestHandler = async (event) => {
       const channels = [
         userChannel(userId),
         keys.notificationChannel(userId),
-        ...authorizedClarChannels
+        ...authorizedClarChannels,
       ];
 
       function send(data: string) {
@@ -165,14 +165,14 @@ export const GET: RequestHandler = async (event) => {
 
       // Handle client disconnect
       event.request.signal.addEventListener("abort", cleanup);
-    }
+    },
   });
 
   return new Response(stream, {
     headers: {
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
-      "Content-Type": "text/event-stream"
-    }
+      "Content-Type": "text/event-stream",
+    },
   });
 };

@@ -12,17 +12,17 @@ function synthesizePlaceholderEmail(username: string): string {
 async function attachPlaceholderInTx(
   tx: TxClient,
   placeholderId: string,
-  realUserId: string
+  realUserId: string,
 ): Promise<void> {
   // Walk each membership so a single `(courseId, userId)` conflict doesn't kill the whole batch.
   const placeholderMemberships = await tx.courseMembership.findMany({
     where: { userId: placeholderId },
-    select: { id: true, courseId: true }
+    select: { id: true, courseId: true },
   });
   for (const mem of placeholderMemberships) {
     const existing = await tx.courseMembership.findUnique({
       where: { courseId_userId: { courseId: mem.courseId, userId: realUserId } },
-      select: { id: true }
+      select: { id: true },
     });
     if (existing) {
       // Real user already in this course — drop the placeholder row.
@@ -30,14 +30,14 @@ async function attachPlaceholderInTx(
     } else {
       await tx.courseMembership.update({
         where: { id: mem.id },
-        data: { userId: realUserId }
+        data: { userId: realUserId },
       });
     }
   }
 
   await tx.courseMembership.updateMany({
     where: { addedByUserId: placeholderId },
-    data: { addedByUserId: realUserId }
+    data: { addedByUserId: realUserId },
   });
 
   await tx.user.delete({ where: { id: placeholderId } });
@@ -62,11 +62,11 @@ export const userRepo = {
         name: true,
         platformRole: true,
         disabled: true,
-        createdAt: true
+        createdAt: true,
       },
       orderBy: { createdAt: "desc" },
       take: opts.take,
-      skip: opts.skip
+      skip: opts.skip,
     });
   },
 
@@ -81,7 +81,7 @@ export const userRepo = {
   groupByRole() {
     return prisma.user.groupBy({
       by: ["platformRole"],
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -90,21 +90,21 @@ export const userRepo = {
   listActiveIds() {
     return prisma.user.findMany({
       where: { status: "active" },
-      select: { id: true }
+      select: { id: true },
     });
   },
 
   update(id: string, data: Prisma.UserUpdateInput) {
     return prisma.user.update({
       where: { id },
-      data
+      data,
     });
   },
 
   findDisabledStatus(id: string) {
     return prisma.user.findUnique({
       where: { id },
-      select: { disabled: true }
+      select: { disabled: true },
     });
   },
 
@@ -119,8 +119,8 @@ export const userRepo = {
         status: "pending_first_login",
         // Placeholders cannot sign in (no Account row); `disabled` stays false so they show as pending, not locked.
         disabled: false,
-        platformRole: "student"
-      }
+        platformRole: "student",
+      },
     });
   },
 
@@ -159,7 +159,7 @@ export const userRepo = {
 
       update(id: string, data: Prisma.UserUpdateInput) {
         return tx.user.update({ data, where: { id } });
-      }
+      },
     };
-  }
+  },
 };

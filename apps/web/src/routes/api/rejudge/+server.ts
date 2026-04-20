@@ -10,7 +10,7 @@ import { submissionDomain } from "@nojv/domain";
 
 const singleSchema = z.object({
   mode: z.literal("single"),
-  submissionId: z.string().min(1)
+  submissionId: z.string().min(1),
 });
 
 const batchSchema = z.object({
@@ -21,7 +21,7 @@ const batchSchema = z.object({
   examId: z.string().optional(),
   userIds: z.array(z.string()).optional(),
   since: z.iso.datetime().optional(),
-  until: z.iso.datetime().optional()
+  until: z.iso.datetime().optional(),
 });
 
 const bodySchema = z.discriminatedUnion("mode", [singleSchema, batchSchema]);
@@ -38,7 +38,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     await submissionDomain.dispatchRejudge({
       mode: "single",
       submissionId: submission.id,
-      triggeredByUserId: actor.userId
+      triggeredByUserId: actor.userId,
     });
 
     return json({ queued: 1 });
@@ -55,7 +55,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     ...(body.examId !== undefined ? { examId: body.examId } : {}),
     ...(body.userIds !== undefined ? { userIds: body.userIds } : {}),
     ...(body.since !== undefined ? { since: body.since } : {}),
-    ...(body.until !== undefined ? { until: body.until } : {})
+    ...(body.until !== undefined ? { until: body.until } : {}),
   };
 
   await submissionDomain.assertBatchRejudgeAccess(actor, batchInput);

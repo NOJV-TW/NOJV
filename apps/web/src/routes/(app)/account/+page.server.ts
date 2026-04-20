@@ -19,7 +19,7 @@ const ERROR_STATUS: Record<string, number> = {
   TAKEN: 409,
   RESERVED_FORMAT: 409,
   INVALID_FORMAT: 400,
-  INVALID_NAME: 400
+  INVALID_NAME: 400,
 };
 
 function classifyDomainError(err: unknown): { code: string; status: number } {
@@ -56,7 +56,7 @@ export const load: PageServerLoad = async (event) => {
     name: locals.user.name,
     platformRole,
     nameForm,
-    usernameForm
+    usernameForm,
   };
 };
 
@@ -80,7 +80,7 @@ export const actions = {
       return message<FormMessage>(
         form,
         { kind: "error", text: code },
-        { status: status as 400 | 403 | 409 | 500 }
+        { status: status as 400 | 403 | 409 | 500 },
       );
     }
 
@@ -106,13 +106,13 @@ export const actions = {
       return message<FormMessage>(
         form,
         { kind: "error", text: code },
-        { status: status as 400 | 403 | 409 | 500 }
+        { status: status as 400 | 403 | 409 | 500 },
       );
     }
 
     return message<FormMessage>(form, {
       kind: "success",
-      text: merged ? "MERGED" : "OK"
+      text: merged ? "MERGED" : "OK",
     });
-  }
+  },
 } satisfies Actions;

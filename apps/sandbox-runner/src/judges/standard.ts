@@ -33,7 +33,7 @@ export function compareOutputs(actual: string, expected: string): boolean {
 export async function judgeStandard(
   runCommand: string[],
   testcase: TestcaseFiles,
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestcaseResult> {
   const result = await runProcess(runCommand, { stdin: testcase.input, timeoutMs });
 
@@ -50,6 +50,6 @@ export async function judgeStandard(
     stderr: result.stderr,
     exitCode: result.exitCode,
     timeMs: result.timeMs,
-    score: verdict === "AC" ? 100 : 0
+    score: verdict === "AC" ? 100 : 0,
   };
 }

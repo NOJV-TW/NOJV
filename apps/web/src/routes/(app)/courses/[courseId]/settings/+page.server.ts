@@ -30,15 +30,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const form = await superValidate(
     {
       description: fullCourse.description,
-      title: fullCourse.title
+      title: fullCourse.title,
     },
-    zod4(courseUpdateSchema)
+    zod4(courseUpdateSchema),
   );
 
   return {
     form,
     courseDescription: fullCourse.description,
-    archived: fullCourse.archived
+    archived: fullCourse.archived,
   };
 });
 
@@ -129,5 +129,5 @@ export const actions = {
     }
 
     redirect(303, "/courses");
-  }
+  },
 } satisfies Actions;

@@ -3,7 +3,7 @@ import {
   defineSignal,
   setHandler,
   sleep,
-  condition
+  condition,
 } from "@temporalio/workflow";
 import type { ContestLifecycleInput, AdminOverrideSignal } from "../types";
 import type * as contestActivities from "../activities/contest";

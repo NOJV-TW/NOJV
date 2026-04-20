@@ -13,7 +13,7 @@ function writeJson(response: ServerResponse, statusCode: number, payload: unknow
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
   ]);
 }
 
@@ -21,7 +21,7 @@ async function checkPostgres(): Promise<string> {
   try {
     await withTimeout(
       runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
-      CHECK_TIMEOUT_MS
+      CHECK_TIMEOUT_MS,
     );
     return "ok";
   } catch (err) {
@@ -57,7 +57,7 @@ async function handleHealthz(deps: HealthDeps, response: ServerResponse): Promis
 
   writeJson(response, healthy ? 200 : 503, {
     status: healthy ? "healthy" : "unhealthy",
-    checks
+    checks,
   });
 }
 

@@ -39,7 +39,7 @@ const KATEX_TAGS = [
   "semantics",
   "annotation",
   "annotation-xml",
-  "span"
+  "span",
 ];
 
 const KATEX_ATTRS = [
@@ -80,12 +80,12 @@ const KATEX_ATTRS = [
   "symmetric",
   "voffset",
   "width",
-  "xmlns"
+  "xmlns",
 ];
 
 export const PURIFY_CONFIG = {
   ADD_TAGS: KATEX_TAGS,
-  ADD_ATTR: KATEX_ATTRS
+  ADD_ATTR: KATEX_ATTRS,
 };
 
 export { marked };

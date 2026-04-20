@@ -8,13 +8,13 @@ export const announcementTranslationRepo = {
   findByAnnouncementId(announcementId: string) {
     return prisma.announcementTranslation.findMany({
       where: { announcementId },
-      orderBy: { locale: "asc" }
+      orderBy: { locale: "asc" },
     });
   },
 
   findByLocale(announcementId: string, locale: string) {
     return prisma.announcementTranslation.findUnique({
-      where: { announcementId_locale: { announcementId, locale } }
+      where: { announcementId_locale: { announcementId, locale } },
     });
   },
 
@@ -22,13 +22,13 @@ export const announcementTranslationRepo = {
     return prisma.announcementTranslation.upsert({
       where: { announcementId_locale: { announcementId, locale } },
       create: { announcementId, locale, title: data.title, content: data.content },
-      update: { title: data.title, content: data.content }
+      update: { title: data.title, content: data.content },
     });
   },
 
   delete(announcementId: string, locale: string) {
     return prisma.announcementTranslation.delete({
-      where: { announcementId_locale: { announcementId, locale } }
+      where: { announcementId_locale: { announcementId, locale } },
     });
   },
 
@@ -40,7 +40,7 @@ export const announcementTranslationRepo = {
 
       deleteByAnnouncementId(announcementId: string) {
         return tx.announcementTranslation.deleteMany({
-          where: { announcementId }
+          where: { announcementId },
         });
       },
 
@@ -51,11 +51,11 @@ export const announcementTranslationRepo = {
             announcementId,
             locale,
             title: data.title,
-            content: data.content
+            content: data.content,
           },
-          update: { title: data.title, content: data.content }
+          update: { title: data.title, content: data.content },
         });
-      }
+      },
     };
-  }
+  },
 };

@@ -3,7 +3,7 @@ export {
   activateContest,
   freezeScoreboard,
   finalizeContest,
-  updateContestScores
+  updateContestScores,
 } from "./contest";
 
 export { getAssessmentInfo, activateAssessment, closeAssessment } from "./assessment";
@@ -18,7 +18,7 @@ export {
   publishAssessmentDeadline,
   fanoutAssignmentDueSoon,
   fanoutExamStartingSoon,
-  fanoutContestStartingSoon
+  fanoutContestStartingSoon,
 } from "./notification";
 
 export {
@@ -29,5 +29,5 @@ export {
   checkCooldown,
   cacheGet,
   cacheSet,
-  cacheDel
+  cacheDel,
 } from "./redis";

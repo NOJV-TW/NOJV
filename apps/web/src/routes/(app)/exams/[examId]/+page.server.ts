@@ -6,7 +6,7 @@ import {
   examSettingsFormSchema,
   examUpdateSchema,
   type ExamSettingsForm,
-  type ExamUpdate
+  type ExamUpdate,
 } from "@nojv/core";
 import { clarificationDomain, examDomain, HttpError, scoreOverrideDomain } from "@nojv/domain";
 
@@ -24,7 +24,7 @@ const {
   publishExam,
   setExamBoardFrozen,
   unarchiveExam,
-  updateExamRecord
+  updateExamRecord,
 } = examDomain;
 
 function toDateTimeLocal(iso: string): string {
@@ -55,7 +55,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const [detail, matrix, canSetOverride, canAskClar, canAnswerClar] = await Promise.all([
     getExamDetailPage(event.params.examId, {
       viewerUserId: actor.userId,
-      isManager
+      isManager,
     }),
     // Manager-only aggregation; null for students keeps the hydration payload slim.
     isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null),
@@ -63,7 +63,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", event.params.examId)
       : Promise.resolve(false),
     clarificationDomain.canAskClarification(actor, "exam", event.params.examId),
-    clarificationDomain.canAnswerInContext(actor, "exam", event.params.examId)
+    clarificationDomain.canAnswerInContext(actor, "exam", event.params.examId),
   ]);
 
   // The layout gate already accepted this exam for the viewer; treat a
@@ -92,9 +92,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             ipBindingEnabled: detail.ipBindingEnabled,
             ipViolationMode: detail.ipViolationMode,
             ipWhitelistEnabled: detail.ipWhitelistEnabled,
-            ipWhitelistText: detail.manager.ipWhitelist.join("\n")
+            ipWhitelistText: detail.manager.ipWhitelist.join("\n"),
           },
-          zod4(examSettingsFormSchema)
+          zod4(examSettingsFormSchema),
         )
       : null;
 
@@ -107,8 +107,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     settingsForm,
     clarification: {
       canAsk: canAskClar,
-      canAnswer: canAnswerClar
-    }
+      canAnswer: canAnswerClar,
+    },
   };
 });
 
@@ -132,7 +132,7 @@ export const actions = {
     const actor = requireAuth(event);
     try {
       await examDomain.session.startSessionWithGate(actor, {
-        examId: event.params.examId
+        examId: event.params.examId,
       });
     } catch (err) {
       if (err instanceof HttpError) {
@@ -147,7 +147,7 @@ export const actions = {
     const actor = requireAuth(event);
     const form = await superValidate<ExamSettingsForm, FormMessage>(
       event,
-      zod4(examSettingsFormSchema)
+      zod4(examSettingsFormSchema),
     );
     if (!form.valid) {
       return fail(400, { form });
@@ -166,7 +166,9 @@ export const actions = {
       ipBindingEnabled: form.data.ipBindingEnabled,
       ipViolationMode: form.data.ipViolationMode,
       ipWhitelistEnabled: form.data.ipWhitelistEnabled,
-      ipWhitelist: form.data.ipWhitelistEnabled ? parseWhitelist(form.data.ipWhitelistText) : []
+      ipWhitelist: form.data.ipWhitelistEnabled
+        ? parseWhitelist(form.data.ipWhitelistText)
+        : [],
     });
 
     try {
@@ -176,13 +178,13 @@ export const actions = {
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return message<FormMessage>(form, {
       kind: "success",
-      text: "Saved."
+      text: "Saved.",
     });
   },
 
@@ -265,5 +267,5 @@ export const actions = {
     }
 
     return { success: true };
-  }
+  },
 } satisfies Actions;

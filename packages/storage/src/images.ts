@@ -8,7 +8,7 @@ export async function uploadProblemImage(
   client: S3Client,
   problemId: string,
   file: Buffer,
-  mimeType: string
+  mimeType: string,
 ): Promise<string> {
   const ext = mimeType.split("/")[1] ?? "bin";
   const key = `problems/${problemId}/images/${randomUUID()}.${ext}`;
@@ -18,8 +18,8 @@ export async function uploadProblemImage(
       Bucket: BUCKET,
       Key: key,
       Body: file,
-      ContentType: mimeType
-    })
+      ContentType: mimeType,
+    }),
   );
 
   const baseUrl = process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT ?? "";
@@ -34,8 +34,8 @@ export async function deleteProblemImage(client: S3Client, imageUrl: string): Pr
   await client.send(
     new DeleteObjectCommand({
       Bucket: BUCKET,
-      Key: key
-    })
+      Key: key,
+    }),
   );
 }
 
@@ -46,7 +46,7 @@ export async function deleteProblemImage(client: S3Client, imageUrl: string): Pr
 export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,
-  file: Buffer
+  file: Buffer,
 ): Promise<string> {
   const key = `problems/${problemId}/advanced-images/${randomUUID()}.tar`;
 
@@ -55,8 +55,8 @@ export async function uploadAdvancedImageTarball(
       Bucket: BUCKET,
       Key: key,
       Body: file,
-      ContentType: "application/x-tar"
-    })
+      ContentType: "application/x-tar",
+    }),
   );
 
   return key;
@@ -66,20 +66,20 @@ export async function deleteAdvancedImageTarball(client: S3Client, key: string):
   await client.send(
     new DeleteObjectCommand({
       Bucket: BUCKET,
-      Key: key
-    })
+      Key: key,
+    }),
   );
 }
 
 export async function downloadAdvancedImageTarball(
   client: S3Client,
-  key: string
+  key: string,
 ): Promise<Buffer> {
   const response = await client.send(
     new GetObjectCommand({
       Bucket: BUCKET,
-      Key: key
-    })
+      Key: key,
+    }),
   );
   const body = response.Body;
   if (!body) {

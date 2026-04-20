@@ -6,7 +6,7 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 const {
   listRecentAnnouncementsForCourse,
   listAssignmentOverviewForCourse,
-  listExamOverviewForCourse
+  listExamOverviewForCourse,
 } = courseDomain;
 
 const ANNOUNCEMENT_LIMIT = 5;
@@ -24,26 +24,26 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       limit: ASSESSMENT_LIMIT,
       isManager,
       forUserId: actor.userId,
-      now
+      now,
     }),
     listExamOverviewForCourse(course.id, {
       limit: ASSESSMENT_LIMIT,
       isManager,
       forUserId: actor.userId,
-      now
-    })
+      now,
+    }),
   ]);
 
   const totalStudents = counts.members;
   const examsWithClassTotals = exams.map((exam) => ({
     ...exam,
-    totalStudents
+    totalStudents,
   }));
 
   return {
     announcements,
     assignments,
     exams: examsWithClassTotals,
-    totalStudents
+    totalStudents,
   };
 });

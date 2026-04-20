@@ -6,7 +6,7 @@ import {
   type SandboxInput,
   type SandboxOutput,
   type TestcaseFiles,
-  type TestcaseResult
+  type TestcaseResult,
 } from "./types.js";
 import { compile, compileChecker, sourceFileName } from "./compiler.js";
 import { pathExists } from "./utils.js";
@@ -31,10 +31,11 @@ async function readConfig(): Promise<SandboxInput> {
 /** Read the user's source code file. */
 async function readSourceCode(
   language: SandboxInput["language"],
-  entryFile?: string
+  entryFile?: string,
 ): Promise<string> {
   const fileCandidates = [entryFile, sourceFileName(language)].filter(
-    (value, index, values): value is string => Boolean(value) && values.indexOf(value) === index
+    (value, index, values): value is string =>
+      Boolean(value) && values.indexOf(value) === index,
   );
 
   for (const fileName of fileCandidates) {
@@ -51,7 +52,7 @@ async function readSourceCode(
 async function writeWorkFile(
   workDir: string,
   relativePath: string,
-  content: string
+  content: string,
 ): Promise<void> {
   const fullPath = path.join(workDir, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -60,7 +61,7 @@ async function writeWorkFile(
 
 async function materializeConfiguredSources(
   config: SandboxInput,
-  workDir: string
+  workDir: string,
 ): Promise<void> {
   for (const sourceFile of config.sourceFiles ?? []) {
     const normalizedPath = normalizeRelativePath(sourceFile.path);
@@ -114,7 +115,7 @@ async function loadTestcases(): Promise<TestcaseFiles[]> {
 /** Docker volume mount layout: /submission/testcases/{index}/input.txt */
 async function loadTestcasesFromDirs(
   testcasesDir: string,
-  dirs: string[]
+  dirs: string[],
 ): Promise<TestcaseFiles[]> {
   const testcases: TestcaseFiles[] = [];
 
@@ -144,7 +145,7 @@ async function loadTestcasesFromDirs(
       input,
       expected,
       weight: meta.weight ?? 1,
-      isSample: meta.isSample ?? false
+      isSample: meta.isSample ?? false,
     });
   }
 
@@ -172,7 +173,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
     try {
       expected = await fs.readFile(
         path.join(SUBMISSION_DIR, `testcase-${String(index)}-expected.txt`),
-        "utf-8"
+        "utf-8",
       );
     } catch {
       // expected is optional
@@ -195,7 +196,7 @@ async function findScript(prefix: string): Promise<string | null> {
 function emit(overrides: Partial<SandboxOutput>): void {
   const output: SandboxOutput = {
     testcaseResults: [],
-    ...overrides
+    ...overrides,
   };
   process.stdout.write(JSON.stringify(output));
 }
@@ -229,7 +230,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     const checkerPath = await findScript("checker");
     if (!checkerPath) {
       emit({
-        compilationError: "Checker judge requires a checker script in /submission/."
+        compilationError: "Checker judge requires a checker script in /submission/.",
       });
       return;
     }
@@ -238,7 +239,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     const checkerResult = await compileChecker(checkerPath, checkerLang, workDir, "checker");
     if (!checkerResult.success) {
       emit({
-        compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`
+        compilationError: `Checker compilation failed: ${checkerResult.error ?? "unknown error"}`,
       });
       return;
     }
@@ -249,7 +250,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
     const interactorPath = await findScript("interactor");
     if (!interactorPath) {
       emit({
-        compilationError: "Interactive judge requires an interactor script in /submission/."
+        compilationError: "Interactive judge requires an interactor script in /submission/.",
       });
       return;
     }
@@ -259,11 +260,11 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
       interactorPath,
       interactorLang,
       workDir,
-      "interactor"
+      "interactor",
     );
     if (!interactorResult.success) {
       emit({
-        compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`
+        compilationError: `Interactor compilation failed: ${interactorResult.error ?? "unknown error"}`,
       });
       return;
     }
@@ -286,7 +287,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
         result = await judgeStandard(
           compileResult.runCommand,
           testcase,
-          config.limits.timeoutMs
+          config.limits.timeoutMs,
         );
         break;
 
@@ -295,7 +296,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
           compileResult.runCommand,
           testcase,
           checkerCommand!,
-          config.limits.timeoutMs
+          config.limits.timeoutMs,
         );
         break;
 
@@ -304,7 +305,7 @@ async function runJudge(workDir: string, config: SandboxInput): Promise<void> {
           compileResult.runCommand,
           testcase,
           interactorCommand!,
-          config.limits.timeoutMs
+          config.limits.timeoutMs,
         );
         break;
     }
@@ -320,7 +321,7 @@ async function main(): Promise<void> {
   log("Reading config...");
   const config = await readConfig();
   log(
-    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`
+    `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`,
   );
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
@@ -344,9 +345,9 @@ main().catch((err) => {
         stdout: "",
         stderr: message,
         exitCode: -1,
-        timeMs: 0
-      }
-    ]
+        timeMs: 0,
+      },
+    ],
   };
   process.stdout.write(JSON.stringify(output));
   process.exit(1);

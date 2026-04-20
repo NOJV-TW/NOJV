@@ -16,7 +16,7 @@ interface ProblemStatement {
  */
 function selectStatement(
   statements: ProblemStatement[] | undefined,
-  locale: string
+  locale: string,
 ): ProblemStatement | null {
   if (!statements) return null;
   const match = statements.find((statement) => statement.locale === locale);
@@ -28,7 +28,7 @@ export function pickProblemStatement(
   statements: ProblemStatement[] | undefined,
   locale: string,
   fallbackTitle: string,
-  fallbackStatement: string
+  fallbackStatement: string,
 ) {
   const localized = selectStatement(statements, locale);
 
@@ -36,7 +36,7 @@ export function pickProblemStatement(
     inputFormat: localized?.inputFormat ?? "",
     outputFormat: localized?.outputFormat ?? "",
     statement: localized?.bodyMarkdown ?? fallbackStatement,
-    title: localized?.title ?? fallbackTitle
+    title: localized?.title ?? fallbackTitle,
   };
 }
 
@@ -48,7 +48,7 @@ export function pickProblemStatement(
  */
 export function localizeProblem(
   problem: { id: string; title: string; statements?: ProblemStatement[] },
-  locale: string = DEFAULT_LOCALE
+  locale: string = DEFAULT_LOCALE,
 ) {
   return pickProblemStatement(problem.statements, locale, problem.title, problem.title);
 }

@@ -57,7 +57,7 @@ function rankRow(row: ExamAcrossRow, now: Date): number {
 // N+1 fetch (one `listByCourseId` per course) is acceptable: typical users are in <10 courses.
 export async function listExamsAcrossCoursesForUser(
   userId: string,
-  options: ListExamsAcrossCoursesOptions = {}
+  options: ListExamsAcrossCoursesOptions = {},
 ): Promise<ExamAcrossResult> {
   const now = options.now ?? new Date();
   const filter: ExamAcrossStatusFilter = options.status ?? "all";
@@ -68,7 +68,7 @@ export async function listExamsAcrossCoursesForUser(
   if (courseIds.length === 0) {
     return {
       rows: [],
-      counts: { all: 0, running: 0, upcoming: 0, ended: 0 }
+      counts: { all: 0, running: 0, upcoming: 0, ended: 0 },
     };
   }
 
@@ -90,7 +90,7 @@ export async function listExamsAcrossCoursesForUser(
       endsAt: e.endsAt.toISOString(),
       durationMinutes,
       scoringMode: e.scoringMode as ContestScoringMode,
-      problemCount: e._count.problems
+      problemCount: e._count.problems,
     };
   });
 
@@ -98,7 +98,7 @@ export async function listExamsAcrossCoursesForUser(
     all: rows.length,
     running: rows.filter((r) => r.status === "running").length,
     upcoming: rows.filter((r) => r.status === "upcoming").length,
-    ended: rows.filter((r) => r.status === "ended").length
+    ended: rows.filter((r) => r.status === "ended").length,
   };
 
   const filtered = filter === "all" ? rows : rows.filter((r) => r.status === filter);

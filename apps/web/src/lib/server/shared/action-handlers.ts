@@ -9,7 +9,7 @@ type RateLimitFailure = NonNullable<Awaited<ReturnType<typeof consumeFormRateLim
  * directly; otherwise invokes the handler.
  */
 export function withRateLimit<R>(
-  handler: (event: RequestEvent) => Promise<R>
+  handler: (event: RequestEvent) => Promise<R>,
 ): (event: RequestEvent) => Promise<R | RateLimitFailure> {
   return async (event) => {
     const limited = await consumeFormRateLimit(event);

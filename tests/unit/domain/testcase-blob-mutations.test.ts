@@ -25,7 +25,7 @@ const {
   testcaseSetDelete,
   testcaseSetCount,
   testcaseSetMaxOrdinal,
-  problemFindById
+  problemFindById,
 } = vi.hoisted(() => ({
   putText: vi.fn(),
   getText: vi.fn(),
@@ -38,7 +38,7 @@ const {
   testcaseSetDelete: vi.fn(),
   testcaseSetCount: vi.fn(),
   testcaseSetMaxOrdinal: vi.fn(),
-  problemFindById: vi.fn()
+  problemFindById: vi.fn(),
 }));
 
 vi.mock("@nojv/storage", () => ({
@@ -55,18 +55,18 @@ vi.mock("@nojv/storage", () => ({
     `problems/${problemId}/testcases/${testcaseId}/files/${filename}`,
   workspaceFileKey: (problemId: string, fileId: string) =>
     `problems/${problemId}/workspace/${fileId}`,
-  problemPrefix: (problemId: string) => `problems/${problemId}/`
+  problemPrefix: (problemId: string) => `problems/${problemId}/`,
 }));
 
 vi.mock("@nojv/db", () => {
   const tx = {
     testcaseSet: {
       count: testcaseSetCount,
-      aggregate: testcaseSetMaxOrdinal
+      aggregate: testcaseSetMaxOrdinal,
     },
     problem: {
-      findUnique: problemFindById
-    }
+      findUnique: problemFindById,
+    },
   };
 
   return {
@@ -74,22 +74,22 @@ vi.mock("@nojv/db", () => {
     runTransaction: async <T>(fn: (txClient: unknown) => Promise<T>): Promise<T> => fn(tx),
     problemRepo: {
       withTx: () => ({
-        findById: problemFindById
-      })
+        findById: problemFindById,
+      }),
     },
     testcaseSetRepo: {
       findById: testcaseFindById,
       delete: testcaseSetDelete,
       withTx: () => ({
-        create: testcaseSetCreate
-      })
+        create: testcaseSetCreate,
+      }),
     },
     testcaseRepo: {
       delete: testcaseDelete,
       withTx: () => ({
-        createMany: testcaseCreateMany
-      })
-    }
+        createMany: testcaseCreateMany,
+      }),
+    },
   };
 });
 
@@ -99,13 +99,13 @@ const {
   createProblemTestcaseSetRecord,
   updateTestcaseRecord,
   deleteTestcaseRecord,
-  deleteTestcaseSetRecord
+  deleteTestcaseSetRecord,
 } = problemDomain;
 
 const actor = {
   userId: "usr_author",
   username: "author",
-  platformRole: "teacher" as const
+  platformRole: "teacher" as const,
 };
 
 beforeEach(() => {
@@ -114,14 +114,14 @@ beforeEach(() => {
   problemFindById.mockResolvedValue({
     id: "prob_1",
     authorId: "usr_author",
-    judgeConfig: null
+    judgeConfig: null,
   });
   testcaseSetCount.mockResolvedValue(0);
   testcaseSetMaxOrdinal.mockResolvedValue({ _max: { ordinal: null } });
   testcaseSetCreate.mockResolvedValue({
     id: "set_1",
     name: "sample",
-    problemId: "prob_1"
+    problemId: "prob_1",
   });
   testcaseCreateMany.mockResolvedValue({ count: 1 });
   putText.mockResolvedValue(undefined);
@@ -148,8 +148,8 @@ describe("createProblemTestcaseSetRecord", () => {
       description: "",
       cases: [
         { input: "1 2", output: "3" },
-        { input: "5 5", output: "10" }
-      ]
+        { input: "5 5", output: "10" },
+      ],
     });
 
     // Two cases × two fields (input + output) = four putText calls.
@@ -168,8 +168,8 @@ describe("createProblemTestcaseSetRecord", () => {
         name: "sample",
         weight: 1,
         description: "",
-        cases: [{ input: "1", output: "1" }]
-      })
+        cases: [{ input: "1", output: "1" }],
+      }),
     ).rejects.toThrow(/S3 503/);
 
     expect(testcaseSetCreate).not.toHaveBeenCalled();
@@ -184,8 +184,8 @@ describe("createProblemTestcaseSetRecord", () => {
         name: "sample",
         weight: 1,
         description: "",
-        cases: [{ input: "1", output: "1" }]
-      })
+        cases: [{ input: "1", output: "1" }],
+      }),
     ).rejects.toThrow(/unique constraint/);
 
     // S3 puts ran (the orphans the design accepts).
@@ -197,7 +197,7 @@ describe("createProblemTestcaseSetRecord", () => {
       name: "sample",
       weight: 1,
       description: "",
-      cases: [{ input: "1 1", output: "2" }]
+      cases: [{ input: "1 1", output: "2" }],
     });
 
     expect(testcaseCreateMany).toHaveBeenCalledTimes(1);
@@ -208,10 +208,10 @@ describe("createProblemTestcaseSetRecord", () => {
     }>;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.inputKey).toMatch(
-      new RegExp(`^problems/prob_1/testcases/${rows[0]!.id}/input$`)
+      new RegExp(`^problems/prob_1/testcases/${rows[0]!.id}/input$`),
     );
     expect(rows[0]!.outputKey).toMatch(
-      new RegExp(`^problems/prob_1/testcases/${rows[0]!.id}/output$`)
+      new RegExp(`^problems/prob_1/testcases/${rows[0]!.id}/output$`),
     );
   });
 });
@@ -224,7 +224,7 @@ describe("updateTestcaseRecord", () => {
     expect(putText).toHaveBeenCalledWith(
       expect.anything(),
       "problems/prob_1/testcases/tc_1/input",
-      "new"
+      "new",
     );
   });
 
@@ -278,7 +278,7 @@ describe("deleteTestcaseSetRecord", () => {
   it("sweeps S3 prefixes for every testcase in the set after the DB delete commits", async () => {
     testcaseFindById.mockResolvedValueOnce({
       id: "set_1",
-      testcases: [{ id: "tc_a" }, { id: "tc_b" }, { id: "tc_c" }]
+      testcases: [{ id: "tc_a" }, { id: "tc_b" }, { id: "tc_c" }],
     });
 
     await deleteTestcaseSetRecord(actor, "prob_1", "set_1");
@@ -291,7 +291,7 @@ describe("deleteTestcaseSetRecord", () => {
     expect(sweptPrefixes).toEqual([
       "problems/prob_1/testcases/tc_a/",
       "problems/prob_1/testcases/tc_b/",
-      "problems/prob_1/testcases/tc_c/"
+      "problems/prob_1/testcases/tc_c/",
     ]);
   });
 });

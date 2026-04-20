@@ -27,12 +27,12 @@ async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Pr
     // and the course members UI see the expected username.
     await userRepo.update(newUser.id, {
       username: handle,
-      displayUsername: handle
+      displayUsername: handle,
     });
     authLogger.info("Merged placeholder user into OAuth signup", {
       placeholderId: placeholder.id,
       userId: newUser.id,
-      handle
+      handle,
     });
   } catch (err) {
     // Fail open: if the merge crashes we leave both rows in place so
@@ -41,7 +41,7 @@ async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Pr
       placeholderId: placeholder.id,
       userId: newUser.id,
       handle,
-      err: err instanceof Error ? err.message : String(err)
+      err: err instanceof Error ? err.message : String(err),
     });
   }
 }
@@ -54,13 +54,13 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
 
   if ((githubId && !githubSecret) || (!githubId && githubSecret)) {
     throw new Error(
-      "GitHub OAuth config is incomplete: set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET"
+      "GitHub OAuth config is incomplete: set both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET",
     );
   }
 
   if ((googleId && !googleSecret) || (!googleId && googleSecret)) {
     throw new Error(
-      "Google OAuth config is incomplete: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+      "Google OAuth config is incomplete: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET",
     );
   }
 
@@ -69,18 +69,18 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
       ? {
           github: {
             clientId: githubId,
-            clientSecret: githubSecret
-          }
+            clientSecret: githubSecret,
+          },
         }
       : {}),
     ...(googleId && googleSecret
       ? {
           google: {
             clientId: googleId,
-            clientSecret: googleSecret
-          }
+            clientSecret: googleSecret,
+          },
         }
-      : {})
+      : {}),
   };
 }
 
@@ -96,19 +96,19 @@ function createAuth() {
       // Seeded credential accounts store bcrypt hashes; configure auth to match.
       password: {
         hash: async (plain) => bcrypt.hash(plain, 10),
-        verify: async ({ hash, password }) => bcrypt.compare(password, hash)
-      }
+        verify: async ({ hash, password }) => bcrypt.compare(password, hash),
+      },
     },
     socialProviders: buildSocialProviders(env),
     user: {
       additionalFields: {
         disabled: { type: "boolean", defaultValue: false, input: false },
         platformRole: { type: "string", defaultValue: "student", input: false },
-        status: { type: "string", defaultValue: "active", input: false }
-      }
+        status: { type: "string", defaultValue: "active", input: false },
+      },
     },
     account: {
-      accountLinking: { enabled: true }
+      accountLinking: { enabled: true },
     },
     databaseHooks: {
       user: {
@@ -119,18 +119,18 @@ function createAuth() {
             if (user.id && typeof user.email === "string") {
               await mergePlaceholderIfAny({ id: user.id, email: user.email });
             }
-          }
-        }
-      }
+          },
+        },
+      },
     },
     plugins: [
       username({
         maxUsernameLength: 64,
         usernameValidator: (candidate) => {
           return /^[a-z0-9._-]+$/.test(candidate);
-        }
-      })
-    ]
+        },
+      }),
+    ],
   });
 }
 

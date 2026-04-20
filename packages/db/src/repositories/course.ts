@@ -16,20 +16,20 @@ export const courseRepo = {
         _count: {
           select: {
             assessments: { where: { status: "published" } },
-            memberships: { where: { status: "active" } }
-          }
-        }
+            memberships: { where: { status: "active" } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       ...(userId
         ? {
             where: {
               memberships: {
-                some: { userId, status: "active" }
-              }
-            }
+                some: { userId, status: "active" },
+              },
+            },
           }
-        : {})
+        : {}),
     });
   },
 
@@ -39,9 +39,9 @@ export const courseRepo = {
       include: {
         memberships: {
           where: { userId },
-          take: 1
-        }
-      }
+          take: 1,
+        },
+      },
     });
   },
 
@@ -52,16 +52,16 @@ export const courseRepo = {
         owner: { select: { name: true } },
         memberships: {
           where: { userId },
-          take: 1
+          take: 1,
         },
         _count: {
           select: {
             memberships: { where: { role: "student", status: "active" } },
             assessments: { where: { status: "published" } },
-            exams: { where: { status: "published" } }
-          }
-        }
-      }
+            exams: { where: { status: "published" } },
+          },
+        },
+      },
     });
     // `archived` is a scalar field on Course and is included by default.
   },
@@ -77,10 +77,10 @@ export const courseRepo = {
           select: {
             memberships: { where: { role: "student", status: "active" } },
             assessments: { where: { status: "published" } },
-            exams: { where: { status: "published" } }
-          }
-        }
-      }
+            exams: { where: { status: "published" } },
+          },
+        },
+      },
     });
   },
 
@@ -104,9 +104,9 @@ export const courseRepo = {
 
       delete(id: string) {
         return tx.course.delete({ where: { id } });
-      }
+      },
     };
-  }
+  },
 };
 
 export const courseMembershipRepo = {
@@ -115,8 +115,8 @@ export const courseMembershipRepo = {
       where: {
         courseId: { in: courseIds },
         role: "student",
-        status: "active"
-      }
+        status: "active",
+      },
     });
   },
 
@@ -127,9 +127,9 @@ export const courseMembershipRepo = {
       where: {
         courseId: { in: courseIds },
         role: "student",
-        status: "active"
+        status: "active",
       },
-      _count: { _all: true }
+      _count: { _all: true },
     });
     return new Map(rows.map((r) => [r.courseId, r._count._all]));
   },
@@ -140,8 +140,8 @@ export const courseMembershipRepo = {
         courseId: { in: courseIds },
         status: "published",
         opensAt: { lte: now },
-        closesAt: { gte: now }
-      }
+        closesAt: { gte: now },
+      },
     });
   },
 
@@ -150,22 +150,22 @@ export const courseMembershipRepo = {
       where: { courseId, role: "student", status: "active" },
       select: {
         userId: true,
-        user: { select: userPublicSelect }
+        user: { select: userPublicSelect },
       },
-      orderBy: { user: { username: "asc" } }
+      orderBy: { user: { username: "asc" } },
     });
   },
 
   listActiveForUser(userId: string) {
     return prisma.courseMembership.findMany({
       where: { userId, status: "active" },
-      select: { courseId: true, role: true, status: true }
+      select: { courseId: true, role: true, status: true },
     });
   },
 
   findByComposite(courseId: string, userId: string) {
     return prisma.courseMembership.findUnique({
-      where: { courseId_userId: { courseId, userId } }
+      where: { courseId_userId: { courseId, userId } },
     });
   },
 
@@ -173,7 +173,7 @@ export const courseMembershipRepo = {
     return {
       findByComposite(courseId: string, userId: string) {
         return tx.courseMembership.findUnique({
-          where: { courseId_userId: { courseId, userId } }
+          where: { courseId_userId: { courseId, userId } },
         });
       },
 
@@ -185,14 +185,14 @@ export const courseMembershipRepo = {
         courseId: string,
         userId: string,
         createData: Prisma.CourseMembershipUncheckedCreateInput,
-        updateData: Prisma.CourseMembershipUncheckedUpdateInput
+        updateData: Prisma.CourseMembershipUncheckedUpdateInput,
       ) {
         return tx.courseMembership.upsert({
           create: createData,
           update: updateData,
-          where: { courseId_userId: { courseId, userId } }
+          where: { courseId_userId: { courseId, userId } },
         });
-      }
+      },
     };
-  }
+  },
 };

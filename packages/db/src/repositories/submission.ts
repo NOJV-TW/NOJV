@@ -6,7 +6,7 @@ import {
   courseMiniSelect,
   problemMiniSelect,
   userMiniSelect,
-  userPublicSelect
+  userPublicSelect,
 } from "./selects";
 
 type TxClient = TransactionClient;
@@ -32,9 +32,9 @@ export const submissionRepo = {
         contestParticipationId: true,
         courseAssessmentId: true,
         courseId: true,
-        verdictDetail: true
+        verdictDetail: true,
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -45,32 +45,32 @@ export const submissionRepo = {
           select: {
             contestId: true,
             contest: {
-              select: { endsAt: true, startsAt: true }
-            }
-          }
+              select: { endsAt: true, startsAt: true },
+            },
+          },
         },
         courseAssessment: {
-          select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true }
+          select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true },
         },
         problem: {
           include: {
             testcaseSets: {
               include: {
-                testcases: { orderBy: { ordinal: "asc" as const } }
+                testcases: { orderBy: { ordinal: "asc" as const } },
               },
-              orderBy: [{ ordinal: "asc" as const }, { createdAt: "asc" as const }]
+              orderBy: [{ ordinal: "asc" as const }, { createdAt: "asc" as const }],
             },
             workspaceFiles: {
               orderBy: [
                 { language: "asc" as const },
                 { orderIndex: "asc" as const },
-                { path: "asc" as const }
-              ]
-            }
-          }
-        }
+                { path: "asc" as const },
+              ],
+            },
+          },
+        },
       },
-      where: { id }
+      where: { id },
     });
   },
 
@@ -87,7 +87,7 @@ export const submissionRepo = {
         userId: opts.userId,
         sampleOnly: false,
         status: { in: opts.statusIn },
-        ...(opts.courseAssessmentId ? { courseAssessmentId: opts.courseAssessmentId } : {})
+        ...(opts.courseAssessmentId ? { courseAssessmentId: opts.courseAssessmentId } : {}),
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -97,9 +97,9 @@ export const submissionRepo = {
         score: true,
         status: true,
         runtimeMs: true,
-        verdictDetail: true
+        verdictDetail: true,
       },
-      take: opts.take ?? 50
+      take: opts.take ?? 50,
     });
   },
 
@@ -107,7 +107,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: {
         userId: opts.userId,
-        sampleOnly: false
+        sampleOnly: false,
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -117,9 +117,9 @@ export const submissionRepo = {
         score: true,
         status: true,
         runtimeMs: true,
-        problem: { select: problemMiniSelect }
+        problem: { select: problemMiniSelect },
       },
-      take: opts.take ?? 50
+      take: opts.take ?? 50,
     });
   },
 
@@ -131,7 +131,7 @@ export const submissionRepo = {
     return prisma.submission.findFirst({
       where,
       orderBy: { createdAt: "desc" },
-      select: select ?? { createdAt: true }
+      select: select ?? { createdAt: true },
     });
   },
 
@@ -144,7 +144,7 @@ export const submissionRepo = {
       by: ["userId", "problemId"],
       where,
       _max: { score: true },
-      _count: { id: true }
+      _count: { id: true },
     });
   },
 
@@ -152,7 +152,7 @@ export const submissionRepo = {
     return prisma.submission.groupBy({
       by: ["problemId"],
       _count: true,
-      where: { problemId: { in: problemIds }, status: "accepted" }
+      where: { problemId: { in: problemIds }, status: "accepted" },
     });
   },
 
@@ -163,8 +163,8 @@ export const submissionRepo = {
       _max: { score: true },
       where: {
         courseAssessmentId: { in: assessmentIds },
-        sampleOnly: false
-      }
+        sampleOnly: false,
+      },
     });
   },
 
@@ -177,8 +177,8 @@ export const submissionRepo = {
         courseAssessmentId: { in: opts.assessmentIds },
         userId: opts.userId,
         sampleOnly: false,
-        status: "accepted"
-      }
+        status: "accepted",
+      },
     });
   },
 
@@ -189,8 +189,8 @@ export const submissionRepo = {
       _max: { score: true },
       where: {
         examId: { in: examIds },
-        sampleOnly: false
-      }
+        sampleOnly: false,
+      },
     });
   },
 
@@ -203,8 +203,8 @@ export const submissionRepo = {
         examId: { in: opts.examIds },
         userId: opts.userId,
         sampleOnly: false,
-        status: "accepted"
-      }
+        status: "accepted",
+      },
     });
   },
 
@@ -215,8 +215,8 @@ export const submissionRepo = {
       where: {
         problemId: { in: problemIds },
         sampleOnly: false,
-        userId
-      }
+        userId,
+      },
     });
   },
 
@@ -232,9 +232,9 @@ export const submissionRepo = {
         status: true,
         runtimeMs: true,
         problem: { select: problemMiniSelect },
-        user: { select: userMiniSelect }
+        user: { select: userMiniSelect },
       },
-      take: opts.take ?? 100
+      take: opts.take ?? 100,
     });
   },
 
@@ -250,9 +250,9 @@ export const submissionRepo = {
         status: true,
         runtimeMs: true,
         problem: { select: problemMiniSelect },
-        user: { select: userMiniSelect }
+        user: { select: userMiniSelect },
       },
-      take: opts.take ?? 100
+      take: opts.take ?? 100,
     });
   },
 
@@ -264,12 +264,12 @@ export const submissionRepo = {
         createdAt: true,
         problemId: true,
         score: true,
-        status: true
+        status: true,
       },
       where: {
         contestParticipationId: { in: participationIds },
-        sampleOnly: false
-      }
+        sampleOnly: false,
+      },
     });
   },
 
@@ -281,12 +281,12 @@ export const submissionRepo = {
         createdAt: true,
         problemId: true,
         score: true,
-        status: true
+        status: true,
       },
       where: {
         contestParticipationId: { in: participationIds },
-        sampleOnly: false
-      }
+        sampleOnly: false,
+      },
     });
   },
 
@@ -297,12 +297,12 @@ export const submissionRepo = {
         createdAt: true,
         problemId: true,
         score: true,
-        status: true
+        status: true,
       },
       where: {
         contestParticipationId: participationId,
-        sampleOnly: false
-      }
+        sampleOnly: false,
+      },
     });
   },
 
@@ -313,9 +313,9 @@ export const submissionRepo = {
         language: true,
         problemId: true,
         sampleOnly: true,
-        sourceCode: true
+        sourceCode: true,
       },
-      where
+      where,
     });
   },
 
@@ -330,10 +330,10 @@ export const submissionRepo = {
         OR: [
           { contestId: { not: null } },
           { courseAssessmentId: { not: null } },
-          { examId: { not: null } }
-        ]
+          { examId: { not: null } },
+        ],
       },
-      select: { id: true }
+      select: { id: true },
     });
     return row !== null;
   },
@@ -347,9 +347,9 @@ export const submissionRepo = {
         problemId: true,
         score: true,
         sourceCode: true,
-        userId: true
+        userId: true,
       },
-      orderBy: { score: "desc" }
+      orderBy: { score: "desc" },
     });
   },
 
@@ -363,8 +363,8 @@ export const submissionRepo = {
         status: true,
         language: true,
         createdAt: true,
-        problem: { select: problemMiniSelect }
-      }
+        problem: { select: problemMiniSelect },
+      },
     });
   },
 
@@ -373,9 +373,9 @@ export const submissionRepo = {
       where: { userId, status: "accepted", sampleOnly: false },
       select: {
         problemId: true,
-        problem: { select: { tags: true, difficulty: true } }
+        problem: { select: { tags: true, difficulty: true } },
       },
-      distinct: ["problemId"] as const
+      distinct: ["problemId"] as const,
     });
   },
 
@@ -383,7 +383,7 @@ export const submissionRepo = {
     return prisma.submission.groupBy({
       by: ["language"],
       where: { userId, sampleOnly: false },
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -391,7 +391,7 @@ export const submissionRepo = {
     return prisma.submission.groupBy({
       by: ["status"],
       where: { userId, sampleOnly: false },
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -400,8 +400,13 @@ export const submissionRepo = {
       where: {
         sampleOnly: false,
         status: {
-          in: ["compile_error", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded"]
-        }
+          in: [
+            "compile_error",
+            "runtime_error",
+            "time_limit_exceeded",
+            "memory_limit_exceeded",
+          ],
+        },
       },
       orderBy: { createdAt: "desc" },
       take,
@@ -411,15 +416,15 @@ export const submissionRepo = {
         language: true,
         createdAt: true,
         user: { select: userPublicSelect },
-        problem: { select: problemMiniSelect }
-      }
+        problem: { select: problemMiniSelect },
+      },
     });
   },
 
   findInDateRange(from: Date) {
     return prisma.submission.findMany({
       where: { sampleOnly: false, createdAt: { gte: from } },
-      select: { createdAt: true, status: true }
+      select: { createdAt: true, status: true },
     });
   },
 
@@ -427,7 +432,7 @@ export const submissionRepo = {
     return prisma.submission.groupBy({
       by: ["status"],
       where: { sampleOnly: false, createdAt: { gte: from } },
-      _count: { _all: true }
+      _count: { _all: true },
     });
   },
 
@@ -437,7 +442,7 @@ export const submissionRepo = {
         sampleOnly: false,
         createdAt: { gte: from },
         courseId: { in: courseIds },
-        courseAssessmentId: { not: null }
+        courseAssessmentId: { not: null },
       },
       select: {
         status: true,
@@ -446,10 +451,10 @@ export const submissionRepo = {
           select: {
             id: true,
             title: true,
-            course: { select: courseMiniSelect }
-          }
-        }
-      }
+            course: { select: courseMiniSelect },
+          },
+        },
+      },
     });
   },
 
@@ -463,8 +468,8 @@ export const submissionRepo = {
         courseAssessmentId: opts.assessmentId,
         sampleOnly: false,
         userId: { in: opts.studentIds },
-        problemId: { in: opts.problemIds }
-      }
+        problemId: { in: opts.problemIds },
+      },
     });
   },
 
@@ -475,26 +480,31 @@ export const submissionRepo = {
         sampleOnly: false,
         createdAt: { gte: from },
         status: {
-          in: ["compile_error", "runtime_error", "time_limit_exceeded", "memory_limit_exceeded"]
-        }
+          in: [
+            "compile_error",
+            "runtime_error",
+            "time_limit_exceeded",
+            "memory_limit_exceeded",
+          ],
+        },
       },
       _count: { _all: true },
       orderBy: { _count: { problemId: "desc" } },
-      take
+      take,
     });
   },
 
   updateStatus(id: string, status: string) {
     return prisma.submission.update({
       data: { status } as Prisma.SubmissionUncheckedUpdateInput,
-      where: { id }
+      where: { id },
     });
   },
 
   complete(id: string, data: Prisma.SubmissionUpdateInput) {
     return prisma.submission.update({
       data,
-      where: { id }
+      where: { id },
     });
   },
 
@@ -515,15 +525,15 @@ export const submissionRepo = {
       countForUserAndAssessmentSince(
         userId: string,
         courseAssessmentId: string,
-        sinceTime: Date
+        sinceTime: Date,
       ) {
         return tx.submission.count({
           where: {
             userId,
             courseAssessmentId,
             sampleOnly: false,
-            createdAt: { gte: sinceTime }
-          }
+            createdAt: { gte: sinceTime },
+          },
         });
       },
 
@@ -531,13 +541,13 @@ export const submissionRepo = {
         return tx.submission.findFirst({
           where,
           orderBy: { createdAt: "desc" },
-          select: select ?? { createdAt: true }
+          select: select ?? { createdAt: true },
         });
       },
 
       create(data: Prisma.SubmissionUncheckedCreateInput) {
         return tx.submission.create({ data });
-      }
+      },
     };
-  }
+  },
 };

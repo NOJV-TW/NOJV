@@ -7,7 +7,7 @@ const config = {
   kit: {
     adapter: adapter(),
     alias: {
-      $lib: "src/lib"
+      $lib: "src/lib",
     },
     // Content Security Policy. SvelteKit generates a per-request nonce and
     // substitutes it into `app.html` (the inline theme-bootstrap script uses
@@ -34,10 +34,10 @@ const config = {
         "frame-ancestors": ["none"],
         "base-uri": ["self"],
         "object-src": ["none"],
-        "form-action": ["self"]
-      }
-    }
-  }
+        "form-action": ["self"],
+      },
+    },
+  },
 };
 
 export default config;

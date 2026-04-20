@@ -23,13 +23,13 @@ export interface ResolvedScore {
 export async function resolveFinalScore(
   userId: string,
   problemId: string,
-  context: ResolvedScoreContext
+  context: ResolvedScoreContext,
 ): Promise<ResolvedScore> {
   const override = await scoreOverrideRepo.findUnique({
     userId,
     problemId,
     contextType: context.contextType,
-    contextId: context.contextId
+    contextId: context.contextId,
   });
   if (override) {
     return { score: override.overrideScore, source: "override" };
@@ -39,13 +39,13 @@ export async function resolveFinalScore(
   const whereByType: Record<OverrideContextType, Record<string, unknown>> = {
     assignment: { courseAssessmentId: context.contextId },
     exam: { examId: context.contextId },
-    contest: { contestId: context.contextId }
+    contest: { contestId: context.contextId },
   };
   const grouped = await submissionRepo.groupByUserAndProblem({
     userId,
     problemId,
     sampleOnly: false,
-    ...whereByType[context.contextType]
+    ...whereByType[context.contextType],
   });
   const best = grouped[0]?._max.score ?? 0;
   return { score: best, source: "submission" };
@@ -59,7 +59,7 @@ export async function resolveFinalScore(
  * without adding a per-cell round trip.
  */
 export async function resolveOverridesForContext(
-  context: ResolvedScoreContext
+  context: ResolvedScoreContext,
 ): Promise<Map<string, number>> {
   const rows = await scoreOverrideRepo.findAllByContext(context.contextType, context.contextId);
   const map = new Map<string, number>();

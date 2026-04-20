@@ -3,7 +3,7 @@ import {
   examSessionRepo,
   problemWorkspaceFileRepo,
   runTransaction,
-  submissionRepo
+  submissionRepo,
 } from "@nojv/db";
 import { entryFileNameFor, type SubmissionDraft } from "@nojv/core";
 
@@ -19,7 +19,7 @@ export type { ActorContext };
 export async function createQueuedSubmissionRecord(
   payload: SubmissionDraft,
   actor: ActorContext,
-  clientIp: string
+  clientIp: string,
 ) {
   return runTransaction(async (tx) => {
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
@@ -28,11 +28,11 @@ export async function createQueuedSubmissionRecord(
         ? requireCourseAssessment(
             tx,
             payload.assessment.courseId,
-            payload.assessment.assessmentId
+            payload.assessment.assessmentId,
           )
         : null,
       ensureUser(tx, actor.userId, actor),
-      examSessionRepo.withTx(tx).findActiveForUser(actor.userId)
+      examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
     // ── Active exam lockout: forbid piping a submission through any
@@ -43,7 +43,7 @@ export async function createQueuedSubmissionRecord(
     if (activeExamSession && actor.platformRole !== "admin") {
       if (courseContext || payload.contestId) {
         throw new ForbiddenError(
-          "You are in an active exam — submissions cannot carry an external assessment or contest context."
+          "You are in an active exam — submissions cannot carry an external assessment or contest context.",
         );
       }
     }
@@ -80,7 +80,7 @@ export async function createQueuedSubmissionRecord(
       // counted against this assignment's attempts/scoreboard.
       const link = await tx.courseAssessmentProblem.findFirst({
         where: { assessmentId: assessment.id, problemId: problem.id },
-        select: { id: true }
+        select: { id: true },
       });
       if (!link) {
         throw new ForbiddenError("This problem is not part of the assignment.");
@@ -90,7 +90,7 @@ export async function createQueuedSubmissionRecord(
     const contestResult = payload.contestId
       ? await ensureContestParticipation(tx, user.id, payload.contestId, {
           problemId: problem.id,
-          sampleOnly: payload.sampleOnly ?? false
+          sampleOnly: payload.sampleOnly ?? false,
         })
       : null;
     const contestParticipation = contestResult?.participation ?? null;
@@ -101,7 +101,7 @@ export async function createQueuedSubmissionRecord(
     if (contestResult) {
       const link = await tx.contestProblem.findFirst({
         where: { contestId: contestResult.contest.id, problemId: problem.id },
-        select: { id: true }
+        select: { id: true },
       });
       if (!link) {
         throw new ForbiddenError("This problem is not part of the contest.");
@@ -142,7 +142,7 @@ export async function createQueuedSubmissionRecord(
           (f) =>
             f.language === payload.language &&
             f.path === entryPath &&
-            f.visibility === "editable"
+            f.visibility === "editable",
         );
         if (!hasEntry) {
           throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
@@ -160,7 +160,7 @@ export async function createQueuedSubmissionRecord(
         contestResult.contest.id,
         user.id,
         problem.id,
-        contestResult.contest.submitCooldownSec
+        contestResult.contest.submitCooldownSec,
       );
     }
 
@@ -171,7 +171,7 @@ export async function createQueuedSubmissionRecord(
       if (maxAttemptsPerDay != null) {
         const now = new Date();
         const startOfDayUtc = new Date(
-          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+          Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
         );
 
         const todayCount = await submissionRepo
@@ -200,7 +200,7 @@ export async function createQueuedSubmissionRecord(
       sampleOnly: payload.sampleOnly ?? false,
       sourceCode: payload.sourceCode,
       status: "queued",
-      userId: user.id
+      userId: user.id,
     });
   });
 }

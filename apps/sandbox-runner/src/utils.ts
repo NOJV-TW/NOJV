@@ -69,6 +69,6 @@ export function createBoundedBuffer(capBytes = DEFAULT_OUTPUT_CAP_BYTES): Bounde
     },
     get truncated() {
       return truncated;
-    }
+    },
   };
 }

@@ -13,25 +13,25 @@ function createMockPrisma() {
       findUnique: async (args: { where: { id: string } }) => {
         const id = String(args.where.id);
         return problemById.get(id) ?? null;
-      }
+      },
     },
     problemStatementI18n: {
-      upsert: async () => ({})
+      upsert: async () => ({}),
     },
     testcaseSet: {
       upsert: async (args: { create: { problemId: string; name: string } }) => ({
-        id: `${String(args.create.problemId)}:${String(args.create.name)}`
-      })
+        id: `${String(args.create.problemId)}:${String(args.create.name)}`,
+      }),
     },
     testcase: {
       deleteMany: async () => ({ count: 0 }),
       create: async () => ({}),
-      createMany: async () => ({ count: 0 })
+      createMany: async () => ({ count: 0 }),
     },
     problemWorkspaceFile: {
       deleteMany: async () => ({ count: 0 }),
-      createMany: async () => ({ count: 0 })
-    }
+      createMany: async () => ({ count: 0 }),
+    },
   };
 }
 
@@ -39,7 +39,7 @@ function createMockPrisma() {
 // succeed without making a real network call. The validator only cares
 // about schema/definition shape, not blob persistence.
 const stubStorage: SeedStorageClient = {
-  send: async () => ({})
+  send: async () => ({}),
 };
 
 async function main() {

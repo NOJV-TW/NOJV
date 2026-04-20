@@ -18,7 +18,7 @@ export const testcaseOutputKey = (problemId: string, testcaseId: string): string
 export const testcaseInputFileKey = (
   problemId: string,
   testcaseId: string,
-  filename: string
+  filename: string,
 ): string => `problems/${problemId}/testcases/${testcaseId}/files/${filename}`;
 
 export const workspaceFileKey = (problemId: string, fileId: string): string =>

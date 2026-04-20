@@ -15,7 +15,7 @@ export interface CourseMembershipRow {
 export function canManageContest(
   userId: string | null,
   contest: ContestPermissionInput,
-  platformRole?: PlatformRole | null
+  platformRole?: PlatformRole | null,
 ): boolean {
   if (userId === null) return false;
   if (platformRole === "admin") return true;

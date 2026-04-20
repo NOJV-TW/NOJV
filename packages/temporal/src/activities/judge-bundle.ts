@@ -9,7 +9,7 @@ export {
   fetchSingleSubmissionForRejudge,
   snapshotSubmissionForRejudge,
   finalizeRejudgeLog,
-  setExecutor
+  setExecutor,
 } from "./judge";
 
 export { updateUserStats } from "./stats";
@@ -26,5 +26,5 @@ export {
   checkCooldown,
   cacheGet,
   cacheSet,
-  cacheDel
+  cacheDel,
 } from "./redis";

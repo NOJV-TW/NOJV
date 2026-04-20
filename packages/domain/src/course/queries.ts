@@ -4,7 +4,7 @@ import {
   courseMembershipRepo,
   courseRepo,
   examRepo,
-  problemRepo
+  problemRepo,
 } from "@nojv/db";
 import type { CourseRole, Language, PlatformRole } from "@nojv/core";
 
@@ -44,7 +44,7 @@ export async function listCourseCards(userId?: string) {
     assessmentCount: course._count.assessments,
     memberCount: course._count.memberships,
     id: course.id,
-    title: course.title
+    title: course.title,
   }));
 }
 
@@ -85,13 +85,13 @@ export async function listForUserWithCards(userId: string): Promise<{
     courseRepo.findManyForCards(courseIds),
     assessmentRepo.groupOpenCountsByCourse(courseIds, now),
     assessmentRepo.groupDraftCountsByCourse(courseIds),
-    examRepo.groupUpcomingCountsByCourse(courseIds, now)
+    examRepo.groupUpcomingCountsByCourse(courseIds, now),
   ]);
 
   const openByCourseId = new Map(openGroups.map((g) => [g.courseId, g._count._all]));
   const draftByCourseId = new Map(draftGroups.map((g) => [g.courseId, g._count._all]));
   const upcomingExamsByCourseId = new Map(
-    upcomingExamGroups.map((g) => [g.courseId, g._count._all])
+    upcomingExamGroups.map((g) => [g.courseId, g._count._all]),
   );
 
   const cards: CourseListingCard[] = courses.map((course) => {
@@ -119,7 +119,7 @@ export async function listForUserWithCards(userId: string): Promise<{
       upcomingExams,
       myDueCount,
       myUpcomingCount,
-      myAllCaughtUp: myDueCount === 0 && myUpcomingCount === 0
+      myAllCaughtUp: myDueCount === 0 && myUpcomingCount === 0,
     };
   });
 
@@ -145,14 +145,14 @@ export async function listUserAssessments(userId: string) {
     opensAt: a.opensAt.toISOString(),
     problemCount: a._count.problems,
     summary: a.summary,
-    title: a.title
+    title: a.title,
   }));
 }
 
 export async function getDashboardStats() {
   const [problems, courses] = await Promise.all([
     problemRepo.countPublic(),
-    courseRepo.count()
+    courseRepo.count(),
   ]);
 
   return { courses, problems };
@@ -172,7 +172,7 @@ export async function listUpcomingAssessments(userId: string) {
     dueAt: a.dueAt?.toISOString() ?? null,
     id: a.id,
     opensAt: a.opensAt.toISOString(),
-    title: a.title
+    title: a.title,
   }));
 }
 
@@ -211,7 +211,7 @@ export interface AssessmentContextResult {
 export async function getAssessmentContext(
   courseId: string,
   assessmentId: string,
-  options: GetAssessmentContextOptions
+  options: GetAssessmentContextOptions,
 ): Promise<AssessmentContextResult | null> {
   const assessment = await assessmentRepo.findPublishedContextById(courseId, assessmentId);
   if (!assessment) return null;
@@ -223,7 +223,7 @@ export async function getAssessmentContext(
   const isAdmin = options.viewerPlatformRole === "admin";
   const membership = await courseMembershipRepo.findByComposite(
     assessment.course.id,
-    options.viewerUserId
+    options.viewerUserId,
   );
   const isCourseOwner = assessment.course.ownerId === options.viewerUserId;
   const isCourseManager =
@@ -253,6 +253,6 @@ export async function getAssessmentContext(
     assessmentId: assessment.id,
     courseId: assessment.course.id,
     timeStatus,
-    viewerIsManager
+    viewerIsManager,
   };
 }

@@ -19,7 +19,7 @@ describe("userRepo.findByUsername + createPlaceholder", () => {
 
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
-      addedByUserId: null
+      addedByUserId: null,
     });
 
     expect(placeholder.username).toBe(handle);
@@ -38,7 +38,7 @@ describe("userRepo.findByUsername + createPlaceholder", () => {
     const handle = uniqueHandle();
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
-      addedByUserId: null
+      addedByUserId: null,
     });
     const accounts = await testPrisma.account.findMany({ where: { userId: placeholder.id } });
     expect(accounts).toHaveLength(0);
@@ -54,7 +54,7 @@ describe("userRepo.attachPlaceholderToAuth", () => {
     const course = await createTestCourse({ ownerId: teacher.id });
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
-      addedByUserId: teacher.id
+      addedByUserId: teacher.id,
     });
     await testPrisma.courseMembership.create({
       data: {
@@ -62,15 +62,15 @@ describe("userRepo.attachPlaceholderToAuth", () => {
         userId: placeholder.id,
         role: "student",
         status: "active",
-        addedByUserId: teacher.id
-      }
+        addedByUserId: teacher.id,
+      },
     });
 
     // Student signs in via OAuth; better-auth creates a real user.
     const realUser = await createTestUser({
       email: "student@example.com",
       username: null,
-      name: "Real Student"
+      name: "Real Student",
     });
 
     await userRepo.attachPlaceholderToAuth(placeholder.id, realUser.id);
@@ -80,7 +80,7 @@ describe("userRepo.attachPlaceholderToAuth", () => {
 
     // Membership now points at the real user.
     const memberships = await testPrisma.courseMembership.findMany({
-      where: { courseId: course.id }
+      where: { courseId: course.id },
     });
     expect(memberships).toHaveLength(1);
     expect(memberships[0]!.userId).toBe(realUser.id);
@@ -98,15 +98,15 @@ describe("userRepo.attachPlaceholderToAuth", () => {
         courseId: course.id,
         userId: realUser.id,
         role: "student",
-        status: "active"
-      }
+        status: "active",
+      },
     });
 
     // Teacher unknowingly pastes the handle too, creating a placeholder
     // + second membership row.
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
-      addedByUserId: teacher.id
+      addedByUserId: teacher.id,
     });
     await testPrisma.courseMembership.create({
       data: {
@@ -114,15 +114,15 @@ describe("userRepo.attachPlaceholderToAuth", () => {
         userId: placeholder.id,
         role: "student",
         status: "active",
-        addedByUserId: teacher.id
-      }
+        addedByUserId: teacher.id,
+      },
     });
 
     await userRepo.attachPlaceholderToAuth(placeholder.id, realUser.id);
 
     // Exactly one membership for the real user survives.
     const memberships = await testPrisma.courseMembership.findMany({
-      where: { courseId: course.id, userId: realUser.id }
+      where: { courseId: course.id, userId: realUser.id },
     });
     expect(memberships).toHaveLength(1);
     // Placeholder row is gone.
@@ -137,7 +137,7 @@ describe("userRepo.attachPlaceholderToAuth", () => {
     // to rewrite the FK so we can delete the placeholder cleanly.
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
-      addedByUserId: null
+      addedByUserId: null,
     });
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
@@ -148,15 +148,15 @@ describe("userRepo.attachPlaceholderToAuth", () => {
         userId: someoneElse.id,
         role: "student",
         status: "active",
-        addedByUserId: placeholder.id
-      }
+        addedByUserId: placeholder.id,
+      },
     });
 
     const realUser = await createTestUser({ email: "real@example.com", username: null });
     await userRepo.attachPlaceholderToAuth(placeholder.id, realUser.id);
 
     const updated = await testPrisma.courseMembership.findFirst({
-      where: { courseId: course.id, userId: someoneElse.id }
+      where: { courseId: course.id, userId: someoneElse.id },
     });
     expect(updated?.addedByUserId).toBe(realUser.id);
   });
@@ -165,10 +165,10 @@ describe("userRepo.attachPlaceholderToAuth", () => {
     const handle = uniqueHandle();
     const placeholder = await userRepo.createPlaceholder({
       username: handle,
-      addedByUserId: null
+      addedByUserId: null,
     });
     await expect(
-      userRepo.attachPlaceholderToAuth(placeholder.id, placeholder.id)
+      userRepo.attachPlaceholderToAuth(placeholder.id, placeholder.id),
     ).rejects.toThrow();
   });
 });

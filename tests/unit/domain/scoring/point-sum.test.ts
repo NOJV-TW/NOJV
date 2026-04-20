@@ -11,13 +11,13 @@ const session = {
   id: "session_1",
   startsAt: SESSION_START,
   endsAt: SESSION_END,
-  frozenAt: null as Date | null
+  frozenAt: null as Date | null,
 };
 
 function mkParticipant(userId: string, name = userId) {
   return {
     userId,
-    user: { username: userId, displayUsername: null, name }
+    user: { username: userId, displayUsername: null, name },
   };
 }
 
@@ -30,14 +30,14 @@ function mkSub(
   problemId: string,
   score: number,
   minutesAfterStart: number,
-  status = "accepted"
+  status = "accepted",
 ) {
   return {
     userId,
     problemId,
     score,
     status,
-    createdAt: new Date(SESSION_START.getTime() + minutesAfterStart * 60 * 1000)
+    createdAt: new Date(SESSION_START.getTime() + minutesAfterStart * 60 * 1000),
   };
 }
 
@@ -53,7 +53,7 @@ describe("buildPointSumScoreboard", () => {
       [mkParticipant("u1")],
       [],
       [mkProblem("P1", 1)],
-      false
+      false,
     );
     expect(board).toHaveLength(1);
     const entry = board[0]!;
@@ -69,14 +69,14 @@ describe("buildPointSumScoreboard", () => {
     const submissions = [
       mkSub("u1", "P1", 40, 5, "wrong_answer"),
       mkSub("u1", "P1", 70, 15, "wrong_answer"),
-      mkSub("u1", "P1", 50, 25, "wrong_answer")
+      mkSub("u1", "P1", 50, 25, "wrong_answer"),
     ];
     const board = buildPointSumScoreboard(
       session,
       [mkParticipant("u1")],
       submissions,
       problems,
-      false
+      false,
     );
     expect(board[0]!.totalScore).toBe(70);
     expect(board[0]!.problems[0]!.score).toBe(70);
@@ -89,7 +89,7 @@ describe("buildPointSumScoreboard", () => {
     const participants = [
       mkParticipant("fast"),
       mkParticipant("slow"),
-      mkParticipant("leader")
+      mkParticipant("leader"),
     ];
     const submissions = [
       mkSub("fast", "P1", 60, 5),
@@ -97,7 +97,7 @@ describe("buildPointSumScoreboard", () => {
       mkSub("slow", "P1", 60, 20),
       mkSub("slow", "P2", 60, 40),
       mkSub("leader", "P1", 100, 30),
-      mkSub("leader", "P2", 100, 60)
+      mkSub("leader", "P2", 100, 60),
     ];
     const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     // Order in the array reflects the comparator: higher score first,
@@ -117,13 +117,13 @@ describe("buildPointSumScoreboard", () => {
     const submissions = [
       mkSub("a", "P1", 50, 5),
       mkSub("b", "P1", 50, 20),
-      mkSub("c", "P1", 80, 10)
+      mkSub("c", "P1", 80, 10),
     ];
     const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     expect(board.map((e) => [e.userId, e.rank, e.totalScore])).toEqual([
       ["c", 1, 80],
       ["a", 2, 50],
-      ["b", 2, 50]
+      ["b", 2, 50],
     ]);
   });
 
@@ -134,7 +134,7 @@ describe("buildPointSumScoreboard", () => {
       mkSub("early", "P1", 100, 5),
       mkSub("late", "P1", 100, 10),
       mkSub("late", "P2", 100, 15),
-      mkSub("early", "P2", 100, 20)
+      mkSub("early", "P2", 100, 20),
     ];
     const board = buildPointSumScoreboard(session, participants, submissions, problems, false);
     const early = board.find((e) => e.userId === "early")!;
@@ -158,14 +158,14 @@ describe("buildPointSumScoreboard", () => {
     const participants = [mkParticipant("u1")];
     const submissions = [
       mkSub("u1", "P1", 50, 10, "wrong_answer"),
-      mkSub("u1", "P1", 90, 40, "wrong_answer")
+      mkSub("u1", "P1", 90, 40, "wrong_answer"),
     ];
     const board = buildPointSumScoreboard(
       sessionFrozen,
       participants,
       submissions,
       problems,
-      true
+      true,
     );
     const cell = board[0]!.problems[0]!;
     expect(cell.score).toBe(50);
@@ -180,14 +180,14 @@ describe("buildPointSumScoreboard", () => {
     const participants = [mkParticipant("u1")];
     const submissions = [
       mkSub("u1", "P1", 50, 10, "wrong_answer"),
-      mkSub("u1", "P1", 90, 40, "wrong_answer")
+      mkSub("u1", "P1", 90, 40, "wrong_answer"),
     ];
     const board = buildPointSumScoreboard(
       sessionFrozen,
       participants,
       submissions,
       problems,
-      false
+      false,
     );
     const cell = board[0]!.problems[0]!;
     expect(cell.score).toBe(90);
@@ -198,15 +198,15 @@ describe("buildPointSumScoreboard", () => {
     const participants = [
       {
         userId: "u1",
-        user: { username: "u1", displayUsername: "DisplayName", name: "Real Name" }
-      }
+        user: { username: "u1", displayUsername: "DisplayName", name: "Real Name" },
+      },
     ];
     const board = buildPointSumScoreboard(
       session,
       participants,
       [],
       [mkProblem("P1", 1)],
-      false
+      false,
     );
     expect(board[0]!.username).toBe("DisplayName");
     expect(board[0]!.displayName).toBe("Real Name");

@@ -11,7 +11,7 @@ const {
   sessionUpdate,
   sessionRecordEvent,
   membershipFindByComposite,
-  txCourseFindUnique
+  txCourseFindUnique,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -21,14 +21,14 @@ const {
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
   membershipFindByComposite: vi.fn(),
-  txCourseFindUnique: vi.fn()
+  txCourseFindUnique: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
     examRepo: {
       withTx: () => ({ findById: examFindById }),
-      findByIdOrThrow: examFindByIdOrThrow
+      findByIdOrThrow: examFindByIdOrThrow,
     },
     examSessionRepo: {
       findActiveForUser: sessionFindActiveForUser,
@@ -36,17 +36,17 @@ vi.mock("@nojv/db", () => {
         findByUserAndExam: sessionFindByUserAndExam,
         create: sessionCreate,
         update: sessionUpdate,
-        recordEvent: sessionRecordEvent
-      })
+        recordEvent: sessionRecordEvent,
+      }),
     },
     courseMembershipRepo: {
-      withTx: () => ({ findByComposite: membershipFindByComposite })
+      withTx: () => ({ findByComposite: membershipFindByComposite }),
     },
     // assertEnrolledInExamCourse now reads `tx.course` directly to check
     // course.archived alongside membership; provide a tx mock that exposes it.
     runTransaction: async <T>(
-      fn: (tx: { course: { findUnique: typeof txCourseFindUnique } }) => Promise<T>
-    ): Promise<T> => fn({ course: { findUnique: txCourseFindUnique } })
+      fn: (tx: { course: { findUnique: typeof txCourseFindUnique } }) => Promise<T>,
+    ): Promise<T> => fn({ course: { findUnique: txCourseFindUnique } }),
   };
 });
 
@@ -57,7 +57,7 @@ const { session } = examDomain;
 const fakeExam = {
   id: "exam_midterm",
   courseId: "course_os_lab",
-  title: "Midterm"
+  title: "Midterm",
 };
 
 const fakeActor = {
@@ -65,7 +65,7 @@ const fakeActor = {
   username: "student",
   displayName: "Student One",
   email: "student@example.com",
-  platformRole: "student" as const
+  platformRole: "student" as const,
 };
 
 function setupEnrolledStudent({ archived = false }: { archived?: boolean } = {}) {
@@ -74,7 +74,7 @@ function setupEnrolledStudent({ archived = false }: { archived?: boolean } = {})
     courseId: fakeExam.courseId,
     userId: fakeActor.userId,
     status: "active",
-    role: "student"
+    role: "student",
   });
   txCourseFindUnique.mockResolvedValue({ archived });
 }
@@ -91,11 +91,11 @@ describe("examDomain.session.startSession", () => {
       id: "sess_1",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     });
 
     const result = await session.startSession(fakeActor, {
-      examId: fakeExam.id
+      examId: fakeExam.id,
     });
 
     expect(result.id).toBe("sess_1");
@@ -103,12 +103,12 @@ describe("examDomain.session.startSession", () => {
     expect(sessionCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: fakeActor.userId,
-        examId: fakeExam.id
-      })
+        examId: fakeExam.id,
+      }),
     );
     expect(sessionRecordEvent).toHaveBeenCalledTimes(1);
     expect(sessionRecordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: "sess_1", eventType: "enter" })
+      expect.objectContaining({ sessionId: "sess_1", eventType: "enter" }),
     );
   });
 
@@ -118,7 +118,7 @@ describe("examDomain.session.startSession", () => {
       id: "sess_existing",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     };
     sessionFindByUserAndExam.mockResolvedValue(existing);
 
@@ -137,13 +137,13 @@ describe("examDomain.session.startSession", () => {
       userId: fakeActor.userId,
       examId: fakeExam.id,
       endedAt: new Date("2026-04-13T10:00:00.000Z"),
-      releaseReason: "submitted"
+      releaseReason: "submitted",
     });
     sessionUpdate.mockResolvedValue({
       id: "sess_old",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     });
 
     await session.startSession(fakeActor, { examId: fakeExam.id });
@@ -152,11 +152,11 @@ describe("examDomain.session.startSession", () => {
       "sess_old",
       expect.objectContaining({
         endedAt: null,
-        releaseReason: null
-      })
+        releaseReason: null,
+      }),
     );
     expect(sessionRecordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: "sess_old", eventType: "enter" })
+      expect.objectContaining({ sessionId: "sess_old", eventType: "enter" }),
     );
   });
 
@@ -165,7 +165,7 @@ describe("examDomain.session.startSession", () => {
     membershipFindByComposite.mockResolvedValue(null);
 
     await expect(
-      session.startSession(fakeActor, { examId: fakeExam.id })
+      session.startSession(fakeActor, { examId: fakeExam.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
     expect(sessionCreate).not.toHaveBeenCalled();
@@ -178,11 +178,11 @@ describe("examDomain.session.startSession", () => {
       courseId: fakeExam.courseId,
       userId: fakeActor.userId,
       status: "removed",
-      role: "student"
+      role: "student",
     });
 
     await expect(
-      session.startSession(fakeActor, { examId: fakeExam.id })
+      session.startSession(fakeActor, { examId: fakeExam.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -190,7 +190,7 @@ describe("examDomain.session.startSession", () => {
     examFindById.mockResolvedValue(null);
 
     await expect(
-      session.startSession(fakeActor, { examId: "exam_ghost" })
+      session.startSession(fakeActor, { examId: "exam_ghost" }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -206,11 +206,11 @@ describe("examDomain.session.endSession", () => {
       id: "sess_1",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     });
     sessionUpdate.mockImplementation(async (id: string, data: unknown) => ({
       id,
-      ...(data as object)
+      ...(data as object),
     }));
 
     await session.endSession(fakeActor, { examId: fakeExam.id, reason: "submitted" });
@@ -223,8 +223,8 @@ describe("examDomain.session.endSession", () => {
       expect.objectContaining({
         sessionId: "sess_1",
         eventType: "release",
-        metadata: { reason: "submitted" }
-      })
+        metadata: { reason: "submitted" },
+      }),
     );
   });
 
@@ -233,7 +233,7 @@ describe("examDomain.session.endSession", () => {
     sessionFindByUserAndExam.mockResolvedValue(null);
 
     await expect(
-      session.endSession(fakeActor, { examId: fakeExam.id, reason: "time_up" })
+      session.endSession(fakeActor, { examId: fakeExam.id, reason: "time_up" }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
     expect(sessionUpdate).not.toHaveBeenCalled();
@@ -251,13 +251,13 @@ describe("examDomain.session.recordEvent", () => {
       id: "sess_1",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     });
 
     await session.recordEvent(fakeActor, {
       examId: fakeExam.id,
       eventType: "visibility_lost",
-      metadata: { durationMs: 3200 }
+      metadata: { durationMs: 3200 },
     });
 
     expect(sessionUpdate).not.toHaveBeenCalled();
@@ -265,8 +265,8 @@ describe("examDomain.session.recordEvent", () => {
       expect.objectContaining({
         sessionId: "sess_1",
         eventType: "visibility_lost",
-        metadata: { durationMs: 3200 }
-      })
+        metadata: { durationMs: 3200 },
+      }),
     );
   });
 
@@ -276,12 +276,12 @@ describe("examDomain.session.recordEvent", () => {
       id: "sess_1",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     });
 
     await session.recordEvent(fakeActor, {
       examId: fakeExam.id,
-      eventType: "leave"
+      eventType: "leave",
     });
 
     const call = sessionRecordEvent.mock.calls[0]![0] as Record<string, unknown>;
@@ -301,7 +301,7 @@ describe("examDomain.session.heartbeat", () => {
       id: "sess_1",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: null
+      endedAt: null,
     });
     sessionUpdate.mockResolvedValue({ id: "sess_1" });
 
@@ -314,7 +314,7 @@ describe("examDomain.session.heartbeat", () => {
     expect(updateData).not.toHaveProperty("endedAt");
     expect(updateData).not.toHaveProperty("releaseReason");
     expect(sessionRecordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId: "sess_1", eventType: "heartbeat" })
+      expect.objectContaining({ sessionId: "sess_1", eventType: "heartbeat" }),
     );
   });
 
@@ -322,7 +322,7 @@ describe("examDomain.session.heartbeat", () => {
     sessionFindByUserAndExam.mockResolvedValue(null);
 
     await expect(session.heartbeat(fakeActor.userId, fakeExam.id)).rejects.toBeInstanceOf(
-      NotFoundError
+      NotFoundError,
     );
 
     expect(sessionUpdate).not.toHaveBeenCalled();
@@ -333,11 +333,11 @@ describe("examDomain.session.heartbeat", () => {
       id: "sess_old",
       userId: fakeActor.userId,
       examId: fakeExam.id,
-      endedAt: new Date()
+      endedAt: new Date(),
     });
 
     await expect(session.heartbeat(fakeActor.userId, fakeExam.id)).rejects.toBeInstanceOf(
-      NotFoundError
+      NotFoundError,
     );
 
     expect(sessionUpdate).not.toHaveBeenCalled();
@@ -363,7 +363,7 @@ describe("examDomain.session.getActiveSessionContext", () => {
       userId: fakeActor.userId,
       examId: fakeExam.id,
       startedAt: new Date("2026-04-14T09:00:00.000Z"),
-      endedAt: null
+      endedAt: null,
     });
     examFindByIdOrThrow.mockResolvedValue(fakeExam);
 
@@ -375,7 +375,7 @@ describe("examDomain.session.getActiveSessionContext", () => {
     expect(result!.exam).toEqual({
       id: fakeExam.id,
       courseId: fakeExam.courseId,
-      title: fakeExam.title
+      title: fakeExam.title,
     });
     expect(result!.course).toEqual({ id: fakeExam.courseId });
   });

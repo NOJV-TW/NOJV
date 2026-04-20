@@ -186,7 +186,7 @@ print(a + b)
 1. 在 `Demo HW Live` 點 `Run Plagiarism Check`
 2. 口述狀態變化：`Starting -> Pending -> Running -> Completed`
 3. 點 `View Results`
-4. 若未接 MOSS，將 similarity threshold 調到 `0`
+4. 若 Dolos 未找到高相似度配對，將 similarity threshold 調到 `0`
 5. 點 `Compare` 開啟並排原始碼
 
 台詞：

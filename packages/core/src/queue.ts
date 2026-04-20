@@ -27,7 +27,7 @@ const submissionVerdictEventSchema = z.object({
   submissionId: z.string(),
   verdict: z.string(),
   score: z.number(),
-  problemId: z.string()
+  problemId: z.string(),
 });
 
 const contestStartingEventSchema = z.object({ type: z.literal(SSE_CONTEST_STARTING) });
@@ -40,7 +40,7 @@ export const notificationEventSchema = z.object({
   notificationType: z.string(),
   params: z.unknown(),
   linkUrl: z.string().nullable(),
-  createdAt: z.string().optional() // omitted on batch signals
+  createdAt: z.string().optional(), // omitted on batch signals
 });
 
 export const clarificationEventSchema = z.object({
@@ -59,7 +59,7 @@ export const clarificationEventSchema = z.object({
       .object({
         id: z.string(),
         username: z.string(),
-        name: z.string()
+        name: z.string(),
       })
       .nullable(),
     answeredByUserId: z.string().nullable(),
@@ -69,12 +69,12 @@ export const clarificationEventSchema = z.object({
       .object({
         id: z.string(),
         username: z.string(),
-        name: z.string()
+        name: z.string(),
       })
       .nullable(),
     answeredAt: z.string().nullable(),
-    createdAt: z.string()
-  })
+    createdAt: z.string(),
+  }),
 });
 
 export const sseEventSchema = z.discriminatedUnion("type", [
@@ -83,7 +83,7 @@ export const sseEventSchema = z.discriminatedUnion("type", [
   contestEndingEventSchema,
   assignmentDeadlineEventSchema,
   notificationEventSchema,
-  clarificationEventSchema
+  clarificationEventSchema,
 ]);
 
 export type SubmissionVerdictEvent = z.infer<typeof submissionVerdictEventSchema>;
@@ -95,7 +95,7 @@ export type SSEEvent = z.infer<typeof sseEventSchema>;
 
 export const submissionJudgeJobSchema = z.object({
   draft: submissionDraftSchema,
-  submissionId: z.string().trim().min(1)
+  submissionId: z.string().trim().min(1),
 });
 
 export type SubmissionJudgeJob = z.infer<typeof submissionJudgeJobSchema>;
@@ -111,6 +111,6 @@ export function parseRedisConnection(redisUrl: string): RedisConnectionOptions {
   return {
     host: url.hostname,
     password: url.password || undefined,
-    port: Number(url.port || "6379")
+    port: Number(url.port || "6379"),
   };
 }

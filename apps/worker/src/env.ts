@@ -14,7 +14,7 @@ const baseEnvSchema = z.object({
   SANDBOX_MEMORY_MB: z.coerce.number().int().min(128).max(4096),
   SANDBOX_PIDS_LIMIT: z.coerce.number().int().min(16).max(512),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64),
-  WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all")
+  WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all"),
 });
 
 const dockerEnvSchema = baseEnvSchema.extend({
@@ -23,7 +23,7 @@ const dockerEnvSchema = baseEnvSchema.extend({
   K8S_CPU_REQUEST: z.string().trim().optional(),
   K8S_CPU_LIMIT: z.string().trim().optional(),
   K8S_MEMORY_REQUEST: z.string().trim().optional(),
-  K8S_MEMORY_LIMIT: z.string().trim().optional()
+  K8S_MEMORY_LIMIT: z.string().trim().optional(),
 });
 
 const kubernetesEnvSchema = baseEnvSchema.extend({
@@ -32,12 +32,12 @@ const kubernetesEnvSchema = baseEnvSchema.extend({
   K8S_CPU_REQUEST: z.string().trim().min(1),
   K8S_CPU_LIMIT: z.string().trim().min(1),
   K8S_MEMORY_REQUEST: z.string().trim().min(1),
-  K8S_MEMORY_LIMIT: z.string().trim().min(1)
+  K8S_MEMORY_LIMIT: z.string().trim().min(1),
 });
 
 export const workerEnvSchema = z.discriminatedUnion("EXECUTION_BACKEND", [
   dockerEnvSchema,
-  kubernetesEnvSchema
+  kubernetesEnvSchema,
 ]);
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

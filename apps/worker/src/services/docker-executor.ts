@@ -25,7 +25,7 @@ export class DockerExecutor implements SandboxExecutor {
 
   async execute(request: SandboxRequest): Promise<SandboxResult> {
     const tempDir = await mkdtemp(
-      join(tmpdir(), `nojv-judge-${sanitizeId(request.submissionId)}-`)
+      join(tmpdir(), `nojv-judge-${sanitizeId(request.submissionId)}-`),
     );
 
     try {
@@ -35,7 +35,7 @@ export class DockerExecutor implements SandboxExecutor {
       if (request.advanced) {
         return await this.advanced.run(tempDir, request, {
           cpuLimit: this.config.cpuLimit,
-          pidsLimit: this.config.pidsLimit
+          pidsLimit: this.config.pidsLimit,
         });
       }
       return await runStandardMode(tempDir, request, this.config);

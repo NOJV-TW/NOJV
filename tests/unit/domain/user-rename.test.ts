@@ -7,14 +7,14 @@ const {
   userWithTxFindByUsername,
   userWithTxUpdate,
   attachPlaceholderInTx,
-  courseMembershipFindFirst
+  courseMembershipFindFirst,
 } = vi.hoisted(() => ({
   userUpdate: vi.fn(),
   userWithTxFindById: vi.fn(),
   userWithTxFindByUsername: vi.fn(),
   userWithTxUpdate: vi.fn(),
   attachPlaceholderInTx: vi.fn(),
-  courseMembershipFindFirst: vi.fn()
+  courseMembershipFindFirst: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -27,11 +27,11 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({
         findById: userWithTxFindById,
         findByUsername: userWithTxFindByUsername,
-        update: userWithTxUpdate
+        update: userWithTxUpdate,
       }),
-      attachPlaceholderInTx
+      attachPlaceholderInTx,
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn(tx)
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn(tx),
   };
 });
 
@@ -49,7 +49,7 @@ function fakeUser(overrides: { id?: string; username?: string | null; status?: s
   return {
     id: overrides.id ?? "usr_actor",
     username: overrides.username === undefined ? "oldname" : overrides.username,
-    status: overrides.status ?? "active"
+    status: overrides.status ?? "active",
   };
 }
 
@@ -86,7 +86,7 @@ describe("renameUsername", () => {
     expect(result).toEqual({ merged: false });
     expect(userWithTxUpdate).toHaveBeenCalledWith("usr_actor", {
       username: "newname",
-      displayUsername: "newname"
+      displayUsername: "newname",
     });
     expect(attachPlaceholderInTx).not.toHaveBeenCalled();
   });
@@ -102,7 +102,7 @@ describe("renameUsername", () => {
 
   it("placeholder user throws PLACEHOLDER_LOCKED", async () => {
     userWithTxFindById.mockResolvedValueOnce(
-      fakeUser({ username: "somehandle", status: "pending_first_login" })
+      fakeUser({ username: "somehandle", status: "pending_first_login" }),
     );
 
     const err = await renameUsername("usr_actor", "newname").catch((e) => e);
@@ -149,7 +149,7 @@ describe("renameUsername", () => {
     userWithTxFindByUsername.mockResolvedValueOnce({
       id: "usr_other",
       username: "newname",
-      status: "active"
+      status: "active",
     });
 
     const err = await renameUsername("usr_actor", "newname").catch((e) => e);
@@ -161,12 +161,12 @@ describe("renameUsername", () => {
 
   it("new username matches a student-only placeholder — merges memberships, deletes placeholder, merged: true", async () => {
     userWithTxFindById.mockResolvedValueOnce(
-      fakeUser({ id: "usr_actor", username: "oldname" })
+      fakeUser({ id: "usr_actor", username: "oldname" }),
     );
     userWithTxFindByUsername.mockResolvedValueOnce({
       id: "usr_placeholder",
       username: "newname",
-      status: "pending_first_login"
+      status: "pending_first_login",
     });
     courseMembershipFindFirst.mockResolvedValueOnce(null);
 
@@ -175,16 +175,16 @@ describe("renameUsername", () => {
     expect(result).toEqual({ merged: true });
     expect(courseMembershipFindFirst).toHaveBeenCalledWith({
       where: { userId: "usr_placeholder", role: { in: ["teacher", "ta"] } },
-      select: { id: true }
+      select: { id: true },
     });
     expect(attachPlaceholderInTx).toHaveBeenCalledWith(
       expect.anything(),
       "usr_placeholder",
-      "usr_actor"
+      "usr_actor",
     );
     expect(userWithTxUpdate).toHaveBeenCalledWith("usr_actor", {
       username: "newname",
-      displayUsername: "newname"
+      displayUsername: "newname",
     });
   });
 
@@ -197,7 +197,7 @@ describe("renameUsername", () => {
     userWithTxFindByUsername.mockResolvedValueOnce({
       id: "usr_placeholder",
       username: "alice_ta2026",
-      status: "pending_first_login"
+      status: "pending_first_login",
     });
     courseMembershipFindFirst.mockResolvedValueOnce({ id: "cm_elevated" });
 
@@ -214,7 +214,7 @@ describe("renameUsername", () => {
     userWithTxFindByUsername.mockResolvedValueOnce({
       id: "usr_placeholder",
       username: "prof_x",
-      status: "pending_first_login"
+      status: "pending_first_login",
     });
     courseMembershipFindFirst.mockResolvedValueOnce({ id: "cm_elevated" });
 

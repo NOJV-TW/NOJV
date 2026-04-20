@@ -14,7 +14,7 @@ export async function judgeChecker(
   runCommand: string[],
   testcase: TestcaseFiles,
   checkerCommand: string[],
-  timeoutMs: number
+  timeoutMs: number,
 ): Promise<TestcaseResult> {
   const solution = await runProcess(runCommand, { stdin: testcase.input, timeoutMs });
 
@@ -30,12 +30,12 @@ export async function judgeChecker(
     await Promise.all([
       fs.writeFile(inputFile, testcase.input),
       fs.writeFile(expectedFile, testcase.expected ?? ""),
-      fs.writeFile(userOutputFile, solution.stdout)
+      fs.writeFile(userOutputFile, solution.stdout),
     ]);
 
     const checkerResult = await runProcess(
       [...checkerCommand, inputFile, expectedFile, userOutputFile],
-      { timeoutMs: CHECKER_TIMEOUT_MS }
+      { timeoutMs: CHECKER_TIMEOUT_MS },
     );
 
     // Checker infrastructure failures → SE (not the user's fault)
@@ -47,7 +47,7 @@ export async function judgeChecker(
         stderr: `Checker error: ${checkerResult.stderr}`,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
-        feedback: "Checker failed to start (system error)."
+        feedback: "Checker failed to start (system error).",
       };
     }
 
@@ -59,7 +59,7 @@ export async function judgeChecker(
         stderr: solution.stderr,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
-        feedback: "Checker timed out (system error)."
+        feedback: "Checker timed out (system error).",
       };
     }
 
@@ -72,14 +72,14 @@ export async function judgeChecker(
         stderr: `Checker crashed with signal ${checkerResult.signal}.\n${checkerResult.stderr}`,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
-        feedback: `Checker crashed (${checkerResult.signal}).`
+        feedback: `Checker crashed (${checkerResult.signal}).`,
       };
     }
 
     const parsed = parseJudgeOutput(
       checkerResult.exitCode,
       checkerResult.stdout,
-      checkerResult.stderr
+      checkerResult.stderr,
     );
 
     const result: TestcaseResult = {
@@ -89,7 +89,7 @@ export async function judgeChecker(
       stderr: solution.stderr,
       exitCode: solution.exitCode,
       timeMs: solution.timeMs + checkerResult.timeMs,
-      score: parsed.score
+      score: parsed.score,
     };
     if (parsed.feedback) {
       result.feedback = parsed.feedback;

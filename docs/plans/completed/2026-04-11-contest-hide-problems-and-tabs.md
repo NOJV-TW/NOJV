@@ -71,42 +71,42 @@ describe("canManageContest", () => {
 
   it("returns true for an active teacher of the course", () => {
     const memberships = [
-      { courseId: "course-1", role: "teacher" as const, status: "active" as const }
+      { courseId: "course-1", role: "teacher" as const, status: "active" as const },
     ];
     expect(canManageContest("teacher-1", courseContest, memberships)).toBe(true);
   });
 
   it("returns true for an active TA of the course", () => {
     const memberships = [
-      { courseId: "course-1", role: "ta" as const, status: "active" as const }
+      { courseId: "course-1", role: "ta" as const, status: "active" as const },
     ];
     expect(canManageContest("ta-1", courseContest, memberships)).toBe(true);
   });
 
   it("returns false for a student of the course", () => {
     const memberships = [
-      { courseId: "course-1", role: "student" as const, status: "active" as const }
+      { courseId: "course-1", role: "student" as const, status: "active" as const },
     ];
     expect(canManageContest("student-1", courseContest, memberships)).toBe(false);
   });
 
   it("returns false for a removed teacher membership", () => {
     const memberships = [
-      { courseId: "course-1", role: "teacher" as const, status: "removed" as const }
+      { courseId: "course-1", role: "teacher" as const, status: "removed" as const },
     ];
     expect(canManageContest("teacher-1", courseContest, memberships)).toBe(false);
   });
 
   it("returns false when teacher membership is for a different course", () => {
     const memberships = [
-      { courseId: "course-other", role: "teacher" as const, status: "active" as const }
+      { courseId: "course-other", role: "teacher" as const, status: "active" as const },
     ];
     expect(canManageContest("teacher-1", courseContest, memberships)).toBe(false);
   });
 
   it("returns false when standalone contest has no course to teach", () => {
     const memberships = [
-      { courseId: "course-1", role: "teacher" as const, status: "active" as const }
+      { courseId: "course-1", role: "teacher" as const, status: "active" as const },
     ];
     expect(canManageContest("teacher-1", standalone, memberships)).toBe(false);
   });
@@ -147,7 +147,7 @@ export type CourseMembershipRow = {
 export function canManageContest(
   userId: string | null,
   contest: ContestPermissionInput,
-  courseMemberships: CourseMembershipRow[]
+  courseMemberships: CourseMembershipRow[],
 ): boolean {
   if (userId === null) return false;
   if (contest.createdByUserId === userId) return true;
@@ -156,7 +156,7 @@ export function canManageContest(
     (m) =>
       m.courseId === contest.courseId &&
       m.status === "active" &&
-      (m.role === "teacher" || m.role === "ta")
+      (m.role === "teacher" || m.role === "ta"),
   );
 }
 ```
@@ -243,7 +243,7 @@ import {
   createTestContest,
   createTestProblem,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 import { contestDomain } from "@nojv/domain";
@@ -253,7 +253,7 @@ const { getContestDetail } = contestDomain;
 async function attachProblem(contestId: string, ordinal: number, points: number) {
   const problem = await createTestProblem();
   await testPrisma.contestProblem.create({
-    data: { contestId, problemId: problem.id, ordinal, points }
+    data: { contestId, problemId: problem.id, ordinal, points },
   });
   return problem;
 }
@@ -263,14 +263,14 @@ describe("getContestDetail visibility gating", () => {
     const contest = await createTestContest({
       visibility: "published",
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const stranger = await createTestUser();
     const result = await getContestDetail(contest.slug, {
       userId: stranger.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result).not.toBeNull();
@@ -285,13 +285,13 @@ describe("getContestDetail visibility gating", () => {
       visibility: "published",
       createdByUserId: owner.id,
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const result = await getContestDetail(contest.slug, {
       userId: owner.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result!.problemsHidden).toBe(false);
@@ -309,23 +309,23 @@ describe("getContestDetail visibility gating", () => {
         description: "",
         locale: "en",
         visibility: "listed",
-        ownerId: teacher.id
-      }
+        ownerId: teacher.id,
+      },
     });
     await testPrisma.courseMembership.create({
-      data: { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" }
+      data: { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" },
     });
     const contest = await createTestContest({
       visibility: "published",
       courseId: course.id,
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const result = await getContestDetail(contest.slug, {
       userId: teacher.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result!.problemsHidden).toBe(false);
@@ -336,14 +336,14 @@ describe("getContestDetail visibility gating", () => {
     const contest = await createTestContest({
       visibility: "published",
       startsAt: new Date("2020-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-01T00:00:00Z")
+      endsAt: new Date("2099-01-01T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
     const stranger = await createTestUser();
 
     const result = await getContestDetail(contest.slug, {
       userId: stranger.id,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result!.problemsHidden).toBe(false);
@@ -354,13 +354,13 @@ describe("getContestDetail visibility gating", () => {
     const contest = await createTestContest({
       visibility: "published",
       startsAt: new Date("2099-01-01T00:00:00Z"),
-      endsAt: new Date("2099-01-02T00:00:00Z")
+      endsAt: new Date("2099-01-02T00:00:00Z"),
     });
     await attachProblem(contest.id, 1, 100);
 
     const result = await getContestDetail(contest.slug, {
       userId: null,
-      now: new Date("2026-01-01T00:00:00Z")
+      now: new Date("2026-01-01T00:00:00Z"),
     });
 
     expect(result!.problemsHidden).toBe(true);
@@ -413,7 +413,7 @@ export type ContestDetailOptions = {
 
 export async function getContestDetail(
   contestSlug: string,
-  options: ContestDetailOptions
+  options: ContestDetailOptions,
 ): Promise<ContestDetailData | null> {
   const contest = await contestRepo.findDetailBySlug(contestSlug);
   if (contest?.visibility !== "published") return null;
@@ -424,7 +424,7 @@ export async function getContestDetail(
   const isManager = canManageContest(
     options.userId,
     { createdByUserId: contest.createdByUserId, courseId: contest.courseId },
-    memberships
+    memberships,
   );
 
   const problemsHidden = !isManager && options.now < contest.startsAt;
@@ -434,7 +434,7 @@ export async function getContestDetail(
     ...base,
     isManager,
     problemsHidden,
-    problems: problemsHidden ? null : base.problems
+    problems: problemsHidden ? null : base.problems,
   };
 }
 ```
@@ -445,7 +445,7 @@ export async function getContestDetail(
 export async function getContestWorkspaceData(
   contestSlug: string,
   userId: string,
-  options: { now: Date }
+  options: { now: Date },
 ): Promise<ContestWorkspaceData | null> {
   const contest = await contestRepo.findWorkspaceBySlug(contestSlug, userId);
   if (contest?.visibility !== "published") return null;
@@ -455,7 +455,7 @@ export async function getContestWorkspaceData(
   const isManager = canManageContest(
     userId,
     { createdByUserId: contest.createdByUserId, courseId: contest.courseId },
-    memberships
+    memberships,
   );
 
   const problemsHidden = !isManager && options.now < contest.startsAt;
@@ -473,9 +473,9 @@ export async function getContestWorkspaceData(
           penaltySeconds: participation.penaltySeconds,
           score: participation.score,
           startedAt: participation.startedAt?.toISOString() ?? null,
-          status: participation.status
+          status: participation.status,
         }
-      : null
+      : null,
   };
 }
 ```
@@ -533,7 +533,7 @@ export const load: PageServerLoad = async ({ params, locals, request }) => {
 
   const contest = await getContestDetail(params.slug, {
     userId: user?.id ?? null,
-    now
+    now,
   });
 
   if (!contest) {
@@ -551,7 +551,7 @@ export const load: PageServerLoad = async ({ params, locals, request }) => {
         clientIp,
         contest.id,
         user.id,
-        participation
+        participation,
       );
 
       if (!ipResult.allowed && contest.ipViolationMode === "block") {
@@ -559,7 +559,7 @@ export const load: PageServerLoad = async ({ params, locals, request }) => {
           403,
           ipResult.violationType === "whitelist"
             ? "Your IP address is not in the allowed range for this contest."
-            : "Your IP address does not match the one bound to your session."
+            : "Your IP address does not match the one bound to your session.",
         );
       }
     }
@@ -762,7 +762,7 @@ export const load: PageServerLoad = async (event) => {
   const [contestData, problem, submissions] = await Promise.all([
     getContestWorkspaceData(contestSlug, actor.userId, { now }),
     getProblemPageData(problemId),
-    listProblemSubmissions(actor.userId, problemId)
+    listProblemSubmissions(actor.userId, problemId),
   ]);
 
   if (!contestData) {
@@ -795,7 +795,7 @@ export const load: PageServerLoad = async (event) => {
     contestData,
     contestSlug,
     problem,
-    submissions
+    submissions,
   };
 };
 ```
@@ -906,7 +906,7 @@ const { listContestsForUser } = contestDomain;
 async function createCourseWithMember(
   role: "teacher" | "ta" | "student",
   userId: string,
-  slug: string
+  slug: string,
 ) {
   const course = await testPrisma.course.create({
     data: {
@@ -916,11 +916,11 @@ async function createCourseWithMember(
       description: "",
       locale: "en",
       visibility: "listed",
-      ownerId: userId
-    }
+      ownerId: userId,
+    },
   });
   await testPrisma.courseMembership.create({
-    data: { courseId: course.id, userId, role, status: "active" }
+    data: { courseId: course.id, userId, role, status: "active" },
   });
   return course;
 }
@@ -931,11 +931,11 @@ describe("listContestsForUser", () => {
     const mine = await createTestContest({
       createdByUserId: user.id,
       visibility: "published",
-      title: "Mine"
+      title: "Mine",
     });
     await createTestContest({
       visibility: "published",
-      title: "Public"
+      title: "Public",
     });
 
     const result = await listContestsForUser(user.id, new Date());
@@ -952,7 +952,7 @@ describe("listContestsForUser", () => {
     const draft = await createTestContest({
       createdByUserId: user.id,
       visibility: "draft",
-      title: "Draft"
+      title: "Draft",
     });
 
     const result = await listContestsForUser(user.id, new Date());
@@ -964,7 +964,7 @@ describe("listContestsForUser", () => {
     const course = await createCourseWithMember("teacher", teacher.id, "course-t1");
     const contest = await createTestContest({
       visibility: "published",
-      courseId: course.id
+      courseId: course.id,
     });
 
     const result = await listContestsForUser(teacher.id, new Date());
@@ -977,7 +977,7 @@ describe("listContestsForUser", () => {
     const course = await createCourseWithMember("ta", ta.id, "course-ta1");
     const contest = await createTestContest({
       visibility: "published",
-      courseId: course.id
+      courseId: course.id,
     });
 
     const result = await listContestsForUser(ta.id, new Date());
@@ -989,7 +989,7 @@ describe("listContestsForUser", () => {
     const course = await createCourseWithMember("student", student.id, "course-s1");
     const contest = await createTestContest({
       visibility: "published",
-      courseId: course.id
+      courseId: course.id,
     });
 
     const result = await listContestsForUser(student.id, new Date());
@@ -1003,7 +1003,7 @@ describe("listContestsForUser", () => {
     const contest = await createTestContest({
       createdByUserId: user.id,
       visibility: "published",
-      courseId: course.id
+      courseId: course.id,
     });
 
     const result = await listContestsForUser(user.id, new Date());
@@ -1046,7 +1046,7 @@ export type ContestListForUserResult = {
 
 export async function listContestsForUser(
   userId: string | null,
-  _now: Date
+  _now: Date,
 ): Promise<ContestListForUserResult> {
   if (userId === null) {
     const rows = await contestRepo.listParticipableForUser([]);
@@ -1063,7 +1063,7 @@ export async function listContestsForUser(
 
   const [managedRows, participableRows] = await Promise.all([
     contestRepo.listManagedForUser(userId, teacherOrTaCourseIds),
-    contestRepo.listParticipableForUser(studentCourseIds)
+    contestRepo.listParticipableForUser(studentCourseIds),
   ]);
 
   const managedIds = new Set(managedRows.map((c) => c.id));
@@ -1073,7 +1073,7 @@ export async function listContestsForUser(
 
   const managed = managedRows.map((row) => ({
     ...mapContestListItem(row),
-    visibility: row.visibility
+    visibility: row.visibility,
   }));
 
   return { managed, participable };
@@ -1116,7 +1116,7 @@ export const load: PageServerLoad = async (event) => {
   const now = new Date();
   const { managed, participable } = await contestDomain.listContestsForUser(
     actor?.userId ?? null,
-    now
+    now,
   );
   return { managed, participable, loggedIn: actor != null };
 };
@@ -1162,7 +1162,7 @@ import { goto } from "$app/navigation";
 let { data } = $props();
 
 let tabValue = $state<"participable" | "managed">(
-  $page.url.searchParams.get("tab") === "managed" ? "managed" : "participable"
+  $page.url.searchParams.get("tab") === "managed" ? "managed" : "participable",
 );
 
 function onTabChange(value: string) {
@@ -1281,7 +1281,7 @@ test.describe("Contest problem visibility", () => {
 
     await expect(page.getByText("Problems are not yet available")).toBeVisible();
     await expect(
-      page.getByText("Problems will be revealed when the contest starts.")
+      page.getByText("Problems will be revealed when the contest starts."),
     ).toBeVisible();
     // Seeded problem title that would leak if hiding is broken
     await expect(page.getByText("Two Sum")).toHaveCount(0);

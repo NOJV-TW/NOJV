@@ -4,7 +4,7 @@ import {
   createTestCourse,
   createTestProblem,
   createTestUser,
-  testPrisma
+  testPrisma,
 } from "../../fixtures/factories";
 
 import { courseDomain } from "@nojv/domain";
@@ -34,8 +34,8 @@ describe("course queries (real DB)", () => {
           userId: student.id,
           role: "student",
           status: "active",
-          joinedAt: new Date()
-        }
+          joinedAt: new Date(),
+        },
       });
 
       const cards = await listCourseCards(student.id);
@@ -53,8 +53,8 @@ describe("course queries (real DB)", () => {
           userId: student.id,
           role: "student",
           status: "removed",
-          joinedAt: new Date()
-        }
+          joinedAt: new Date(),
+        },
       });
 
       const cards = await listCourseCards(student.id);
@@ -72,8 +72,8 @@ describe("course queries (real DB)", () => {
           userId: teacher.id,
           role: "teacher",
           status: "active",
-          joinedAt: new Date()
-        }
+          joinedAt: new Date(),
+        },
       });
 
       // Published assessment
@@ -86,8 +86,8 @@ describe("course queries (real DB)", () => {
           opensAt: new Date(),
           dueAt: new Date(Date.now() + 86400000),
           closesAt: new Date(Date.now() + 86400000),
-          status: "published"
-        }
+          status: "published",
+        },
       });
 
       const cards = await listCourseCards();
@@ -111,8 +111,8 @@ describe("course queries (real DB)", () => {
         data: [
           { courseId: studentCourse.id, userId: user.id, role: "student", status: "active" },
           { courseId: teacherCourse.id, userId: user.id, role: "teacher", status: "active" },
-          { courseId: taCourse.id, userId: user.id, role: "ta", status: "active" }
-        ]
+          { courseId: taCourse.id, userId: user.id, role: "ta", status: "active" },
+        ],
       });
 
       const { enrolled, managing } = await listForUserWithCards(user.id);
@@ -134,8 +134,8 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           userId: user.id,
           role: "student",
-          status: "removed"
-        }
+          status: "removed",
+        },
       });
 
       const { enrolled, managing } = await listForUserWithCards(user.id);
@@ -159,8 +159,8 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           userId: teacher.id,
           role: "teacher",
-          status: "active"
-        }
+          status: "active",
+        },
       });
 
       const now = Date.now();
@@ -175,8 +175,8 @@ describe("course queries (real DB)", () => {
           status: "published",
           opensAt: new Date(now - 60_000),
           dueAt: new Date(now + 86_400_000),
-          closesAt: new Date(now + 86_400_000)
-        }
+          closesAt: new Date(now + 86_400_000),
+        },
       });
 
       // Draft assignment.
@@ -188,8 +188,8 @@ describe("course queries (real DB)", () => {
           summary: "draft",
           status: "draft",
           opensAt: new Date(now),
-          closesAt: new Date(now + 86_400_000)
-        }
+          closesAt: new Date(now + 86_400_000),
+        },
       });
 
       // Upcoming exam.
@@ -201,8 +201,8 @@ describe("course queries (real DB)", () => {
           summary: "upcoming exam",
           status: "published",
           startsAt: new Date(now + 3_600_000),
-          endsAt: new Date(now + 3_600_000 * 2)
-        }
+          endsAt: new Date(now + 3_600_000 * 2),
+        },
       });
 
       const { managing } = await listForUserWithCards(teacher.id);
@@ -227,8 +227,8 @@ describe("course queries (real DB)", () => {
           courseId: course.id,
           userId: student.id,
           role: "student",
-          status: "active"
-        }
+          status: "active",
+        },
       });
 
       const now = Date.now();
@@ -240,8 +240,8 @@ describe("course queries (real DB)", () => {
           summary: "open",
           status: "published",
           opensAt: new Date(now - 60_000),
-          closesAt: new Date(now + 86_400_000)
-        }
+          closesAt: new Date(now + 86_400_000),
+        },
       });
 
       const { enrolled } = await listForUserWithCards(student.id);

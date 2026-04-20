@@ -15,7 +15,7 @@ export async function getAssessmentInfo(assessmentId: string): Promise<Assessmen
   return {
     closesAt: assessment.closesAt.toISOString(),
     dueAt: assessment.dueAt?.toISOString() ?? null,
-    opensAt: assessment.opensAt.toISOString()
+    opensAt: assessment.opensAt.toISOString(),
   };
 }
 
@@ -38,7 +38,7 @@ export async function closeAssessment(assessmentId: string): Promise<void> {
  */
 export async function listStudentsBelowMaxScore(
   assessmentId: string,
-  userIds: string[]
+  userIds: string[],
 ): Promise<string[]> {
   if (userIds.length === 0) return [];
 
@@ -52,7 +52,7 @@ export async function listStudentsBelowMaxScore(
   const grouped = await submissionRepo.groupBestScores({
     assessmentId,
     studentIds: userIds,
-    problemIds: problems.map((p) => p.problemId)
+    problemIds: problems.map((p) => p.problemId),
   });
 
   const sumByUser = new Map<string, number>();

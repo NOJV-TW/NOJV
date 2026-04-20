@@ -18,7 +18,7 @@ export interface RunProcessResult {
  */
 export function runProcess(
   command: string[],
-  options: { stdin?: string; timeoutMs: number }
+  options: { stdin?: string; timeoutMs: number },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -32,7 +32,7 @@ export function runProcess(
         timeMs: 0,
         timedOut: false,
         signal: null,
-        spawnError: true
+        spawnError: true,
       });
       return;
     }
@@ -42,7 +42,7 @@ export function runProcess(
     const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
     const proc = spawn(wrappedCmd!, wrappedArgs, {
       stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
-      timeout: options.timeoutMs
+      timeout: options.timeoutMs,
     });
 
     const stdoutBuf = createBoundedBuffer();
@@ -82,7 +82,7 @@ export function runProcess(
         timeMs: Math.round(elapsedMs),
         timedOut: killed || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
-        spawnError: false
+        spawnError: false,
       });
     });
 
@@ -95,7 +95,7 @@ export function runProcess(
         timeMs: Math.round(performance.now() - startTime),
         timedOut: false,
         signal: null,
-        spawnError: true
+        spawnError: true,
       });
     });
   });
@@ -104,14 +104,14 @@ export function runProcess(
 /** Classify a solution run into an error verdict (SE/TLE/MLE/RE), or `null` if it succeeded. */
 export function classifySolutionVerdict(
   result: RunProcessResult,
-  testcaseIndex: number
+  testcaseIndex: number,
 ): TestcaseResult | null {
   const base = {
     index: testcaseIndex,
     stdout: result.stdout,
     stderr: result.stderr,
     exitCode: result.exitCode,
-    timeMs: result.timeMs
+    timeMs: result.timeMs,
   };
 
   if (result.spawnError) return { ...base, verdict: "SE" };
@@ -126,7 +126,7 @@ export function classifySolutionVerdict(
 export function parseJudgeOutput(
   exitCode: number,
   scoreText: string,
-  feedbackText: string
+  feedbackText: string,
 ): { accepted: boolean; score: number; feedback: string } {
   const accepted = exitCode === 0;
   const feedback = feedbackText.trim();

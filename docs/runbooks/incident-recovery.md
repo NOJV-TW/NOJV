@@ -19,7 +19,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 - Submissions stay in `queued` forever — verdict never arrives via SSE or polling.
 - Scoreboard stops updating despite new ACs.
 - Contest / assessment lifecycle timers silently miss (no auto-close, no transitions from `open` → `due`).
-- Plagiarism report requests never produce a MOSS run.
+- Plagiarism report requests never advance beyond `pending`.
 
 ### Detection
 

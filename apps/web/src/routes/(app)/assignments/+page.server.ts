@@ -24,13 +24,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const { rows, counts, hasNoCourses } = await listAssignmentsAcrossCoursesForUser(
     actor.userId,
-    { status: currentFilter }
+    { status: currentFilter },
   );
 
   return {
     assignments: rows,
     counts,
     currentFilter,
-    hasNoCourses
+    hasNoCourses,
   };
 });

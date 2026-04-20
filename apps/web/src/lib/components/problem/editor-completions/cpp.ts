@@ -6,31 +6,31 @@ export const cppCompletions: CompletionEntry[] = [
     label: "#include <bits/stdc++.h>",
     kind: "Snippet",
     insertText: "#include <bits/stdc++.h>",
-    detail: "all-in-one header"
+    detail: "all-in-one header",
   },
   {
     label: "#include <iostream>",
     kind: "Snippet",
     insertText: "#include <iostream>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <vector>",
     kind: "Snippet",
     insertText: "#include <vector>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <algorithm>",
     kind: "Snippet",
     insertText: "#include <algorithm>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <string>",
     kind: "Snippet",
     insertText: "#include <string>",
-    detail: "header"
+    detail: "header",
   },
   { label: "#include <map>", kind: "Snippet", insertText: "#include <map>", detail: "header" },
   { label: "#include <set>", kind: "Snippet", insertText: "#include <set>", detail: "header" },
@@ -38,37 +38,37 @@ export const cppCompletions: CompletionEntry[] = [
     label: "#include <queue>",
     kind: "Snippet",
     insertText: "#include <queue>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <stack>",
     kind: "Snippet",
     insertText: "#include <stack>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <unordered_map>",
     kind: "Snippet",
     insertText: "#include <unordered_map>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <unordered_set>",
     kind: "Snippet",
     insertText: "#include <unordered_set>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "#include <numeric>",
     kind: "Snippet",
     insertText: "#include <numeric>",
-    detail: "header"
+    detail: "header",
   },
   {
     label: "using namespace std;",
     kind: "Snippet",
     insertText: "using namespace std;",
-    detail: "namespace"
+    detail: "namespace",
   },
   // I/O
   {
@@ -76,27 +76,27 @@ export const cppCompletions: CompletionEntry[] = [
     kind: "Keyword",
     insertText: "cin >> ${1:x};",
     detail: "iostream",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "cout",
     kind: "Keyword",
     insertText: 'cout << ${1:x} << "\\n";',
     detail: "iostream",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "getline",
     kind: "Function",
     insertText: "getline(cin, ${1:s});",
     detail: "string",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "ios::sync_with_stdio",
     kind: "Snippet",
     insertText: "ios::sync_with_stdio(false);\ncin.tie(nullptr);",
-    detail: "fast I/O"
+    detail: "fast I/O",
   },
   // Containers
   {
@@ -104,91 +104,91 @@ export const cppCompletions: CompletionEntry[] = [
     kind: "Class",
     insertText: "vector<${1:int}> ${2:v};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "map",
     kind: "Class",
     insertText: "map<${1:int}, ${2:int}> ${3:mp};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "set",
     kind: "Class",
     insertText: "set<${1:int}> ${2:st};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "unordered_map",
     kind: "Class",
     insertText: "unordered_map<${1:int}, ${2:int}> ${3:mp};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "unordered_set",
     kind: "Class",
     insertText: "unordered_set<${1:int}> ${2:st};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "priority_queue",
     kind: "Class",
     insertText: "priority_queue<${1:int}> ${2:pq};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "priority_queue (min)",
     kind: "Class",
     insertText: "priority_queue<${1:int}, vector<${1:int}>, greater<${1:int}>> ${2:pq};",
     detail: "min-heap",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "queue",
     kind: "Class",
     insertText: "queue<${1:int}> ${2:q};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "stack",
     kind: "Class",
     insertText: "stack<${1:int}> ${2:st};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "deque",
     kind: "Class",
     insertText: "deque<${1:int}> ${2:dq};",
     detail: "STL container",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "pair",
     kind: "Class",
     insertText: "pair<${1:int}, ${2:int}>",
     detail: "STL utility",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "make_pair",
     kind: "Function",
     insertText: "make_pair(${1:a}, ${2:b})",
     detail: "STL utility",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "tuple",
     kind: "Class",
     insertText: "tuple<${1:int}, ${2:int}, ${3:int}>",
     detail: "STL utility",
-    isSnippet: true
+    isSnippet: true,
   },
   // Algorithms
   {
@@ -196,105 +196,105 @@ export const cppCompletions: CompletionEntry[] = [
     kind: "Function",
     insertText: "sort(${1:v}.begin(), ${1:v}.end());",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "reverse",
     kind: "Function",
     insertText: "reverse(${1:v}.begin(), ${1:v}.end());",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "lower_bound",
     kind: "Function",
     insertText: "lower_bound(${1:v}.begin(), ${1:v}.end(), ${2:val})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "upper_bound",
     kind: "Function",
     insertText: "upper_bound(${1:v}.begin(), ${1:v}.end(), ${2:val})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "binary_search",
     kind: "Function",
     insertText: "binary_search(${1:v}.begin(), ${1:v}.end(), ${2:val})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "next_permutation",
     kind: "Function",
     insertText: "next_permutation(${1:v}.begin(), ${1:v}.end())",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "max_element",
     kind: "Function",
     insertText: "max_element(${1:v}.begin(), ${1:v}.end())",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "min_element",
     kind: "Function",
     insertText: "min_element(${1:v}.begin(), ${1:v}.end())",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "accumulate",
     kind: "Function",
     insertText: "accumulate(${1:v}.begin(), ${1:v}.end(), ${2:0})",
     detail: "numeric",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "gcd",
     kind: "Function",
     insertText: "gcd(${1:a}, ${2:b})",
     detail: "numeric (C++17)",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "lcm",
     kind: "Function",
     insertText: "lcm(${1:a}, ${2:b})",
     detail: "numeric (C++17)",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "unique",
     kind: "Function",
     insertText: "unique(${1:v}.begin(), ${1:v}.end())",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "fill",
     kind: "Function",
     insertText: "fill(${1:v}.begin(), ${1:v}.end(), ${2:0});",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "count",
     kind: "Function",
     insertText: "count(${1:v}.begin(), ${1:v}.end(), ${2:val})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "find",
     kind: "Function",
     insertText: "find(${1:v}.begin(), ${1:v}.end(), ${2:val})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   // Math & limits
   { label: "INT_MAX", kind: "Constant", insertText: "INT_MAX", detail: "climits" },
@@ -306,34 +306,34 @@ export const cppCompletions: CompletionEntry[] = [
     kind: "Function",
     insertText: "abs(${1:x})",
     detail: "cstdlib",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "min",
     kind: "Function",
     insertText: "min(${1:a}, ${2:b})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "max",
     kind: "Function",
     insertText: "max(${1:a}, ${2:b})",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "swap",
     kind: "Function",
     insertText: "swap(${1:a}, ${2:b});",
     detail: "algorithm",
-    isSnippet: true
+    isSnippet: true,
   },
   {
     label: "memset",
     kind: "Function",
     insertText: "memset(${1:arr}, ${2:0}, sizeof(${1:arr}));",
     detail: "cstring",
-    isSnippet: true
-  }
+    isSnippet: true,
+  },
 ];

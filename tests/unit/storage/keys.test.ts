@@ -5,7 +5,7 @@ import {
   testcaseOutputKey,
   testcaseInputFileKey,
   workspaceFileKey,
-  problemPrefix
+  problemPrefix,
 } from "../../../packages/storage/src/keys";
 
 describe("storage key builders", () => {
@@ -19,7 +19,7 @@ describe("storage key builders", () => {
 
   it("testcaseInputFileKey embeds the filename verbatim", () => {
     expect(testcaseInputFileKey("prob_1", "tc_1", "graph.txt")).toBe(
-      "problems/prob_1/testcases/tc_1/files/graph.txt"
+      "problems/prob_1/testcases/tc_1/files/graph.txt",
     );
   });
 

@@ -8,7 +8,7 @@ export const supportedLanguages = [
   "javascript",
   "python",
   "rust",
-  "typescript"
+  "typescript",
 ] as const;
 
 export const platformRoles = ["admin", "teacher", "student"] as const;
@@ -32,7 +32,7 @@ export const submissionVerdicts = [
   "compile_error",
   "runtime_error",
   "time_limit_exceeded",
-  "memory_limit_exceeded"
+  "memory_limit_exceeded",
 ] as const;
 export const submissionOperationStatuses = [
   "queued",
@@ -42,7 +42,7 @@ export const submissionOperationStatuses = [
   "compile_error",
   "runtime_error",
   "time_limit_exceeded",
-  "memory_limit_exceeded"
+  "memory_limit_exceeded",
 ] as const;
 
 export const localeCodes = ["en", "zh-TW"] as const;
@@ -117,7 +117,7 @@ export const ipLockFields = {
     .array(z.string().trim().min(1).max(MAX_CIDR_LEN))
     .max(MAX_WHITELIST_ENTRIES)
     .default([]),
-  ipWhitelistEnabled: z.boolean().default(false)
+  ipWhitelistEnabled: z.boolean().default(false),
 } as const;
 
 /** Shared Zod fields for IP lock form (textarea variant for whitelist). */
@@ -125,7 +125,7 @@ export const ipLockFormFields = {
   ipBindingEnabled: z.boolean().default(false),
   ipViolationMode: ipViolationModeSchema.default("block"),
   ipWhitelistEnabled: z.boolean().default(false),
-  ipWhitelistText: z.string().max(MAX_WHITELIST_TEXT_LEN).default("")
+  ipWhitelistText: z.string().max(MAX_WHITELIST_TEXT_LEN).default(""),
 } as const;
 
 export const sessionUserSchema = z.object({
@@ -136,19 +136,19 @@ export const sessionUserSchema = z.object({
   id: z.string(),
   name: z.string(),
   platformRole: platformRoleSchema,
-  status: userStatusSchema.default("active")
+  status: userStatusSchema.default("active"),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 
 export const apiErrorSchema = z.object({
-  message: z.string()
+  message: z.string(),
 });
 
 export const actionErrorSchema = z.object({
-  error: z.string()
+  error: z.string(),
 });
 
 export const broadcastVerifiedSchema = z.object({
-  type: z.literal("verified")
+  type: z.literal("verified"),
 });

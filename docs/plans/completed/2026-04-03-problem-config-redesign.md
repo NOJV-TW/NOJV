@@ -42,14 +42,14 @@ const judgeConfigSchema = z.object({
   // === Pipeline override (optional, defaults to compile→execute→check) ===
   pipeline: z
     .object({
-      stages: z.array(pipelineStageSchema).min(1).max(20)
+      stages: z.array(pipelineStageSchema).min(1).max(20),
     })
     .optional(),
 
   // === Advanced features (optional) ===
   staticAnalysis: staticAnalysisConfigSchema.optional(),
   artifacts: artifactConfigSchema.optional(),
-  networkAccess: networkAccessConfigSchema.optional()
+  networkAccess: networkAccessConfigSchema.optional(),
 });
 ```
 

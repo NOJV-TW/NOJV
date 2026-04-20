@@ -12,14 +12,14 @@ const baseContestInput = {
   startsAt: "2026-05-03T14:00:00.000Z",
   submitCooldownSec: 0,
   summary: "Midterm exam covering sorting and searching.",
-  title: "Midterm 2026"
+  title: "Midterm 2026",
 };
 
 describe("contestCreateSchema", () => {
   it("accepts problemIds containing underscores (actual DB ids like problem_warmup-sum)", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"]
+      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
     });
 
     expect(result.success).toBe(true);
@@ -28,7 +28,7 @@ describe("contestCreateSchema", () => {
   it("rejects empty problemIds array", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: []
+      problemIds: [],
     });
 
     expect(result.success).toBe(false);
@@ -37,7 +37,7 @@ describe("contestCreateSchema", () => {
   it("rejects problemIds whose entries are empty strings", () => {
     const result = contestCreateSchema.safeParse({
       ...baseContestInput,
-      problemIds: [""]
+      problemIds: [""],
     });
 
     expect(result.success).toBe(false);
@@ -48,7 +48,7 @@ describe("contestCreateSchema", () => {
       ...baseContestInput,
       problemIds: ["problem_warmup-sum"],
       startsAt: "2026-05-03T17:00:00.000Z",
-      endsAt: "2026-05-03T14:00:00.000Z"
+      endsAt: "2026-05-03T14:00:00.000Z",
     });
 
     expect(result.success).toBe(false);

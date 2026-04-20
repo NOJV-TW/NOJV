@@ -7,25 +7,25 @@ export const editorialRepo = {
     return prisma.editorial.findMany({
       where: { problemId },
       orderBy: { createdAt: "desc" },
-      include: { user: { select: userPublicSelect } }
+      include: { user: { select: userPublicSelect } },
     });
   },
 
   upsert(
     userId: string,
     problemId: string,
-    data: { content: string; language: Prisma.EditorialCreateInput["language"] }
+    data: { content: string; language: Prisma.EditorialCreateInput["language"] },
   ) {
     return prisma.editorial.upsert({
       where: {
         userId_problemId_language: {
           userId,
           problemId,
-          language: data.language
-        }
+          language: data.language,
+        },
       },
       create: { userId, problemId, content: data.content, language: data.language },
-      update: { content: data.content }
+      update: { content: data.content },
     });
-  }
+  },
 };

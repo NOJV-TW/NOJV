@@ -38,7 +38,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
       for (const key of Array.from(testBlobs.keys())) {
         if (key.startsWith(prefix)) testBlobs.delete(key);
       }
-    }
+    },
   };
 });
 

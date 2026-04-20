@@ -3,7 +3,7 @@ import {
   problemRepo,
   problemStatementRepo,
   runTransaction,
-  type TransactionClient
+  type TransactionClient,
 } from "@nojv/db";
 import type {
   ProblemCreate,
@@ -11,7 +11,7 @@ import type {
   ProblemStatus,
   ProblemType,
   ProblemUpdate,
-  ProblemVisibility
+  ProblemVisibility,
 } from "@nojv/core";
 import type { ProblemDifficulty } from "@nojv/core";
 import { DEFAULT_LOCALE } from "@nojv/core";
@@ -43,7 +43,7 @@ export interface CreateProblemDefinitionInput {
 
 export async function createProblemDefinition(
   tx: TransactionClient,
-  input: CreateProblemDefinitionInput
+  input: CreateProblemDefinitionInput,
 ) {
   const type: ProblemType = input.type ?? "full_source";
 
@@ -57,7 +57,7 @@ export async function createProblemDefinition(
     tags: input.tags ?? [],
     timeLimitMs: input.timeLimitMs ?? 1_000,
     type,
-    visibility: input.visibility ?? "public"
+    visibility: input.visibility ?? "public",
   };
   if (input.judgeConfig !== undefined) {
     createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
@@ -75,7 +75,7 @@ export async function createProblemDefinition(
       locale: DEFAULT_LOCALE,
       outputFormat: input.outputFormat ?? "",
       problemId: problem.id,
-      title: input.title
+      title: input.title,
     });
   }
 
@@ -114,7 +114,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
       type: payload.type,
-      visibility: payload.visibility
+      visibility: payload.visibility,
     });
 
     return problem;
@@ -124,7 +124,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
 export async function updateProblemRecord(
   actor: ProblemActorContext,
   problemId: string,
-  payload: ProblemUpdate
+  payload: ProblemUpdate,
 ) {
   return runTransaction(async (tx) => {
     const problem = await requireProblem(tx, problemId);
@@ -156,12 +156,12 @@ export async function updateProblemRecord(
     const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);
     if (mergedType === "special_env" && !hasImage) {
       throw new ValidationError(
-        "special_env problems require both advancedImageRef and advancedImageSource."
+        "special_env problems require both advancedImageRef and advancedImageSource.",
       );
     }
     if (mergedType !== "special_env" && hasImage) {
       throw new ValidationError(
-        "advancedImageRef / advancedImageSource are only allowed on special_env problems."
+        "advancedImageRef / advancedImageSource are only allowed on special_env problems.",
       );
     }
 
@@ -187,14 +187,14 @@ export async function updateProblemRecord(
           locale: DEFAULT_LOCALE,
           outputFormat: payload.outputFormat ?? "",
           problemId: problem.id,
-          title: payload.title ?? problem.title
+          title: payload.title ?? problem.title,
         },
         {
           ...(payload.statement !== undefined ? { bodyMarkdown: payload.statement } : {}),
           ...(payload.inputFormat !== undefined ? { inputFormat: payload.inputFormat } : {}),
           ...(payload.outputFormat !== undefined ? { outputFormat: payload.outputFormat } : {}),
-          ...(payload.title !== undefined ? { title: payload.title } : {})
-        }
+          ...(payload.title !== undefined ? { title: payload.title } : {}),
+        },
       );
     }
 

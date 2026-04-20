@@ -6,14 +6,14 @@ const {
   assessmentFindByIdWithCourseId,
   courseMembershipFindByComposite,
   contestListParticipantUserIds,
-  examListParticipantUserIds
+  examListParticipantUserIds,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   examFindById: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
   contestListParticipantUserIds: vi.fn(),
-  examListParticipantUserIds: vi.fn()
+  examListParticipantUserIds: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -22,27 +22,27 @@ vi.mock("@nojv/db", () => ({
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
   contestParticipationRepo: { listParticipantUserIds: contestListParticipantUserIds },
-  examParticipationRepo: { listParticipantUserIds: examListParticipantUserIds }
+  examParticipationRepo: { listParticipantUserIds: examListParticipantUserIds },
 }));
 
 import {
   canAskClarification,
   canAnswerInContext,
-  canSeeAuthor
+  canSeeAuthor,
 } from "../../../packages/domain/src/clarification/authz";
 
 function actor(
   overrides: Partial<{
     userId: string;
     platformRole: "admin" | "teacher" | "student";
-  }> = {}
+  }> = {},
 ) {
   return {
     userId: overrides.userId ?? "usr_actor",
     username: "actor",
     platformRole: overrides.platformRole ?? ("student" as const),
     displayName: "Actor",
-    email: "actor@example.com"
+    email: "actor@example.com",
   };
 }
 
@@ -63,14 +63,14 @@ describe("canAskClarification — contest", () => {
   it("allows a participant", async () => {
     contestListParticipantUserIds.mockResolvedValue(["usr_student", "usr_other"]);
     expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1")
+      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1"),
     ).toBe(true);
   });
 
   it("denies a non-participant", async () => {
     contestListParticipantUserIds.mockResolvedValue(["usr_other"]);
     expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1")
+      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1"),
     ).toBe(false);
   });
 });
@@ -79,14 +79,14 @@ describe("canAskClarification — exam", () => {
   it("allows a participant", async () => {
     examListParticipantUserIds.mockResolvedValue(["usr_student"]);
     expect(await canAskClarification(actor({ userId: "usr_student" }), "exam", "exm_1")).toBe(
-      true
+      true,
     );
   });
 
   it("denies a non-participant", async () => {
     examListParticipantUserIds.mockResolvedValue(["usr_other"]);
     expect(await canAskClarification(actor({ userId: "usr_student" }), "exam", "exm_1")).toBe(
-      false
+      false,
     );
   });
 });
@@ -98,10 +98,10 @@ describe("canAskClarification — assignment", () => {
       courseId: "crs_1",
       userId: "usr_student",
       role: "student",
-      status: "active"
+      status: "active",
     });
     expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1")
+      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1"),
     ).toBe(true);
   });
 
@@ -111,14 +111,14 @@ describe("canAskClarification — assignment", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     expect(
       await canAskClarification(
         actor({ userId: "usr_teacher", platformRole: "teacher" }),
         "assignment",
-        "ca_1"
-      )
+        "ca_1",
+      ),
     ).toBe(false);
   });
 
@@ -128,10 +128,10 @@ describe("canAskClarification — assignment", () => {
       courseId: "crs_1",
       userId: "usr_student",
       role: "student",
-      status: "removed"
+      status: "removed",
     });
     expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1")
+      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1"),
     ).toBe(false);
   });
 
@@ -139,14 +139,14 @@ describe("canAskClarification — assignment", () => {
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue(null);
     expect(
-      await canAskClarification(actor({ userId: "usr_stranger" }), "assignment", "ca_1")
+      await canAskClarification(actor({ userId: "usr_stranger" }), "assignment", "ca_1"),
     ).toBe(false);
   });
 
   it("denies when the assessment is missing", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue(null);
     expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_missing")
+      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_missing"),
     ).toBe(false);
   });
 });
@@ -164,21 +164,21 @@ describe("canAnswerInContext — contest", () => {
   it("allows the organizer", async () => {
     contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "usr_organizer" });
     expect(
-      await canAnswerInContext(actor({ userId: "usr_organizer" }), "contest", "ctst_1")
+      await canAnswerInContext(actor({ userId: "usr_organizer" }), "contest", "ctst_1"),
     ).toBe(true);
   });
 
   it("denies a non-organizer", async () => {
     contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "usr_organizer" });
     expect(
-      await canAnswerInContext(actor({ userId: "usr_stranger" }), "contest", "ctst_1")
+      await canAnswerInContext(actor({ userId: "usr_stranger" }), "contest", "ctst_1"),
     ).toBe(false);
   });
 
   it("denies when contest is missing", async () => {
     contestFindById.mockResolvedValue(null);
     expect(await canAnswerInContext(actor({ userId: "usr_x" }), "contest", "ctst_gone")).toBe(
-      false
+      false,
     );
   });
 });
@@ -190,14 +190,14 @@ describe("canAnswerInContext — exam", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     expect(
       await canAnswerInContext(
         actor({ userId: "usr_teacher", platformRole: "teacher" }),
         "exam",
-        "exm_1"
-      )
+        "exm_1",
+      ),
     ).toBe(true);
   });
 
@@ -207,7 +207,7 @@ describe("canAnswerInContext — exam", () => {
       courseId: "crs_1",
       userId: "usr_ta",
       role: "ta",
-      status: "active"
+      status: "active",
     });
     expect(await canAnswerInContext(actor({ userId: "usr_ta" }), "exam", "exm_1")).toBe(true);
   });
@@ -218,10 +218,10 @@ describe("canAnswerInContext — exam", () => {
       courseId: "crs_1",
       userId: "usr_student",
       role: "student",
-      status: "active"
+      status: "active",
     });
     expect(await canAnswerInContext(actor({ userId: "usr_student" }), "exam", "exm_1")).toBe(
-      false
+      false,
     );
   });
 });
@@ -233,14 +233,14 @@ describe("canAnswerInContext — assignment", () => {
       courseId: "crs_1",
       userId: "usr_teacher",
       role: "teacher",
-      status: "active"
+      status: "active",
     });
     expect(
       await canAnswerInContext(
         actor({ userId: "usr_teacher", platformRole: "teacher" }),
         "assignment",
-        "ca_1"
-      )
+        "ca_1",
+      ),
     ).toBe(true);
   });
 
@@ -250,10 +250,10 @@ describe("canAnswerInContext — assignment", () => {
       courseId: "crs_1",
       userId: "usr_student",
       role: "student",
-      status: "active"
+      status: "active",
     });
     expect(
-      await canAnswerInContext(actor({ userId: "usr_student" }), "assignment", "ca_1")
+      await canAnswerInContext(actor({ userId: "usr_student" }), "assignment", "ca_1"),
     ).toBe(false);
   });
 });

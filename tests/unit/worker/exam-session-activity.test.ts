@@ -5,9 +5,9 @@ const autoCloseForExamMock = vi.hoisted(() => vi.fn());
 vi.mock("@nojv/domain", () => ({
   examDomain: {
     session: {
-      autoCloseForExam: autoCloseForExamMock
-    }
-  }
+      autoCloseForExam: autoCloseForExamMock,
+    },
+  },
 }));
 
 import { closeActiveSessionsForExam } from "../../../packages/temporal/src/activities/exam-session";

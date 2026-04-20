@@ -76,7 +76,7 @@ function deriveStatus(
   raw: "draft" | "published" | "archived",
   startsAt: Date,
   endsAt: Date,
-  now: Date
+  now: Date,
 ): ExamDetailStatus {
   if (raw === "draft") return "draft";
   if (raw === "archived") return "archived";
@@ -88,7 +88,7 @@ function deriveStatus(
 // Returns null when the exam is missing OR the viewer shouldn't see it — caller converts to 404 without leaking.
 export async function getExamDetailPage(
   examId: string,
-  options: GetExamDetailPageOptions
+  options: GetExamDetailPageOptions,
 ): Promise<ExamDetailPageData | null> {
   const now = options.now ?? new Date();
   const exam = await examRepo.findDetailForRegistrationPage(examId);
@@ -105,7 +105,7 @@ export async function getExamDetailPage(
     options.isManager
       ? examParticipationRepo.listForExamWithUser(examId)
       : Promise.resolve(null),
-    courseMembershipRepo.findStudents(exam.courseId)
+    courseMembershipRepo.findStudents(exam.courseId),
   ]);
 
   const derivedStatus = deriveStatus(exam.status, exam.startsAt, exam.endsAt, now);
@@ -128,7 +128,7 @@ export async function getExamDetailPage(
         difficulty: ep.problem.difficulty,
         points: ep.points,
         ordinal: ep.ordinal,
-        letter: letterFromOrdinal(ep.ordinal)
+        letter: letterFromOrdinal(ep.ordinal),
       }));
 
   const rosterMapped: ExamRosterEntry[] | null =
@@ -138,7 +138,7 @@ export async function getExamDetailPage(
           userId: p.user.id,
           name: p.user.name,
           handle: p.user.username,
-          status: p.status
+          status: p.status,
         }));
 
   const manager: ExamDetailManagerFields | null = options.isManager
@@ -147,7 +147,7 @@ export async function getExamDetailPage(
         frozenBoard: exam.frozenBoard,
         ipWhitelist: exam.ipWhitelist,
         allowedLanguages: exam.allowedLanguages as Language[],
-        submitCooldownSec: exam.submitCooldownSec
+        submitCooldownSec: exam.submitCooldownSec,
       }
     : null;
 
@@ -170,6 +170,6 @@ export async function getExamDetailPage(
     registeredCount: exam._count.participations,
     totalStudents: students.length,
     roster: rosterMapped,
-    manager
+    manager,
   };
 }

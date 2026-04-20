@@ -46,7 +46,7 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 | **Contests**    | Timed competitions with scoreboard, freeze, IP lock, page lock           |
 | **Courses**     | Course management, memberships, join tokens, assessments                 |
 | **Auth**        | Email/password + OAuth (GitHub, Google), session management, roles       |
-| **Plagiarism**  | MOSS-based similarity detection for assessments and contests             |
+| **Plagiarism**  | Dolos-based AST similarity detection for assessments and contests        |
 | **Stats**       | Per-user statistics: AC count, language distribution, daily activity     |
 
 ## Package Structure
@@ -183,7 +183,7 @@ Stable dispatch API wrapping Temporal client. Contains:
 - `submitJudge()` — dispatch submission judge workflow
 - `startContestLifecycle()` — dispatch contest lifecycle workflow
 - `startAssessmentLifecycle()` — dispatch assessment lifecycle workflow
-- `triggerPlagiarismCheck()` — dispatch MOSS plagiarism workflow
+- `triggerPlagiarismCheck()` — dispatch Dolos plagiarism workflow
 - `startRejudge()` — dispatch rejudge workflow
 
 Domain and web layers never see Temporal internals (workflow IDs, task queues, gRPC).

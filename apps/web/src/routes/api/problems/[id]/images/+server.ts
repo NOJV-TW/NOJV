@@ -48,7 +48,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   await problemDomain.assertProblemEditAccess(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId
+    problemId,
   );
 
   const formData = await event.request.formData();

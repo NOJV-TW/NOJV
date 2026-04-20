@@ -5,6 +5,6 @@ export default defineConfig({
   format: "esm",
   clean: true,
   deps: {
-    neverBundle: ["@prisma/client", "@prisma/adapter-pg"]
-  }
+    neverBundle: ["@prisma/client", "@prisma/adapter-pg"],
+  },
 });

@@ -9,7 +9,7 @@ import { scoreOverrideDomain } from "@nojv/domain";
 
 const patchSchema = z.object({
   overrideScore: z.number().int().min(0).optional(),
-  reason: z.string().min(1).max(500).optional()
+  reason: z.string().min(1).max(500).optional(),
 });
 
 function requireId(event: { params: { id?: string } }): string {
@@ -26,7 +26,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   // the Partial<Pick<OverrideInput, ...>> contract.
   const patch: Parameters<typeof scoreOverrideDomain.updateOverride>[2] = {
     ...(raw.overrideScore !== undefined ? { overrideScore: raw.overrideScore } : {}),
-    ...(raw.reason !== undefined ? { reason: raw.reason } : {})
+    ...(raw.reason !== undefined ? { reason: raw.reason } : {}),
   };
   const updated = await scoreOverrideDomain.updateOverride(actor, id, patch);
   return json(updated);

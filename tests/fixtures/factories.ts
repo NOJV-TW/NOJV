@@ -7,7 +7,7 @@ import {
   putText,
   testcaseInputKey,
   testcaseOutputKey,
-  workspaceFileKey
+  workspaceFileKey,
 } from "@nojv/storage";
 import { PrismaClient, type Prisma } from "../../packages/db/generated/prisma/client";
 
@@ -31,7 +31,7 @@ function buildDefaultVerdictDetail(status: SubmissionVerdict): Prisma.InputJsonV
     feedback: status.replace(/_/g, " "),
     runtimeMs: 0,
     score: status === "accepted" ? 100 : 0,
-    verdict: status
+    verdict: status,
   };
 }
 
@@ -57,8 +57,8 @@ export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> 
       name: overrides.name ?? `Test User ${id}`,
       username: overrides.username ?? id,
       platformRole: overrides.platformRole ?? "student",
-      ...overrides
-    }
+      ...overrides,
+    },
   });
 }
 
@@ -107,8 +107,8 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
       status: overrides.status ?? "published",
       samples: overrides.samples ?? [{ input: "1 2", output: "3" }],
       ...rest,
-      authorId
-    }
+      authorId,
+    },
   });
 
   // Create a default statement
@@ -119,8 +119,8 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
       title: problem.title,
       bodyMarkdown: "Test problem body",
       inputFormat: "Test input format",
-      outputFormat: "Test output format"
-    }
+      outputFormat: "Test output format",
+    },
   });
 
   // Create a default testcase set with one testcase
@@ -128,8 +128,8 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     data: {
       problemId: problem.id,
       name: "sample",
-      weight: 1
-    }
+      weight: 1,
+    },
   });
 
   const testcaseId = randomUUID();
@@ -142,8 +142,8 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
       testcaseSetId: testcaseSet.id,
       ordinal: 1,
       inputKey,
-      outputKey
-    }
+      outputKey,
+    },
   });
 
   return problem;
@@ -153,7 +153,7 @@ export async function createTestProblemWorkspaceFile(
   overrides: Omit<Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>, "contentKey"> & {
     problemId: string;
     content?: string;
-  }
+  },
 ) {
   const fileId = randomUUID();
   const contentKey = workspaceFileKey(overrides.problemId, fileId);
@@ -166,14 +166,14 @@ export async function createTestProblemWorkspaceFile(
       contentKey,
       visibility: overrides.visibility ?? "editable",
       orderIndex: overrides.orderIndex ?? 0,
-      problemId: overrides.problemId
-    }
+      problemId: overrides.problemId,
+    },
   });
 }
 
 // --- Contest (standalone, no course binding) ---
 export async function createTestContest(
-  overrides: Partial<Prisma.ContestUncheckedCreateInput> = {}
+  overrides: Partial<Prisma.ContestUncheckedCreateInput> = {},
 ) {
   const id = uid();
   return testPrisma.contest.create({
@@ -184,8 +184,8 @@ export async function createTestContest(
       visibility: overrides.visibility ?? "published",
       startsAt: overrides.startsAt ?? new Date("2026-01-01T00:00:00Z"),
       endsAt: overrides.endsAt ?? new Date("2026-12-31T23:59:59Z"),
-      ...overrides
-    }
+      ...overrides,
+    },
   });
 }
 
@@ -193,7 +193,7 @@ export async function createTestContest(
 export async function createTestExam(
   overrides: Omit<Partial<Prisma.ExamUncheckedCreateInput>, "courseId"> & {
     courseId: string;
-  }
+  },
 ) {
   const id = uid();
   return testPrisma.exam.create({
@@ -204,14 +204,14 @@ export async function createTestExam(
       status: overrides.status ?? "published",
       startsAt: overrides.startsAt ?? new Date("2026-01-01T00:00:00Z"),
       endsAt: overrides.endsAt ?? new Date("2026-12-31T23:59:59Z"),
-      ...overrides
-    }
+      ...overrides,
+    },
   });
 }
 
 // --- Course ---
 export async function createTestCourse(
-  overrides: Partial<Prisma.CourseUncheckedCreateInput> = {}
+  overrides: Partial<Prisma.CourseUncheckedCreateInput> = {},
 ) {
   const id = uid();
   let ownerId = overrides.ownerId;
@@ -226,14 +226,14 @@ export async function createTestCourse(
       title: overrides.title ?? `Test Course ${id}`,
       description: overrides.description ?? "A test course",
       ...overrides,
-      ownerId
-    }
+      ownerId,
+    },
   });
 }
 
 // --- Submission ---
 export async function createTestSubmission(
-  overrides: Partial<Prisma.SubmissionUncheckedCreateInput> = {}
+  overrides: Partial<Prisma.SubmissionUncheckedCreateInput> = {},
 ) {
   const id = uid();
   let userId = overrides.userId;
@@ -262,7 +262,7 @@ export async function createTestSubmission(
       ...(defaultVerdictDetail !== undefined ? { verdictDetail: defaultVerdictDetail } : {}),
       ...overrides,
       userId,
-      problemId
-    }
+      problemId,
+    },
   });
 }

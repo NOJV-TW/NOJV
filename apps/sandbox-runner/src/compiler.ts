@@ -38,7 +38,7 @@ export function sourceFileName(language: SandboxInput["language"]): string {
 export async function compile(
   input: SandboxInput,
   sourcePath: string,
-  workDir: string
+  workDir: string,
 ): Promise<CompileResult> {
   switch (input.language) {
     case "c": {
@@ -50,10 +50,10 @@ export async function compile(
           "-std=c17",
           "-o",
           path.join(workDir, "main"),
-          ...(cSources.length > 0 ? cSources : [sourcePath])
+          ...(cSources.length > 0 ? cSources : [sourcePath]),
         ],
         [path.join(workDir, "main")],
-        workDir
+        workDir,
       );
     }
     case "cpp": {
@@ -65,10 +65,10 @@ export async function compile(
           "-std=c++20",
           "-o",
           path.join(workDir, "main"),
-          ...(cppSources.length > 0 ? cppSources : [sourcePath])
+          ...(cppSources.length > 0 ? cppSources : [sourcePath]),
         ],
         [path.join(workDir, "main")],
-        workDir
+        workDir,
       );
     }
     case "go": {
@@ -86,7 +86,7 @@ export async function compile(
       return compileWithCommand(
         ["javac", "-d", workDir, ...(javaSources.length > 0 ? javaSources : [sourcePath])],
         ["java", "-cp", workDir, "Main"],
-        workDir
+        workDir,
       );
     }
     case "javascript":
@@ -97,7 +97,7 @@ export async function compile(
       return compileWithCommand(
         ["rustc", "-O", "-o", path.join(workDir, "main"), sourcePath],
         [path.join(workDir, "main")],
-        workDir
+        workDir,
       );
     case "typescript":
       return { success: true, runCommand: ["node", "--experimental-strip-types", sourcePath] };
@@ -122,7 +122,7 @@ export async function compileChecker(
   scriptPath: string,
   language: JudgeScriptLanguage,
   workDir: string,
-  mode: ScriptMode
+  mode: ScriptMode,
 ): Promise<CompileResult> {
   if (language === "python") {
     const userSource = await fs.readFile(scriptPath, "utf-8");
@@ -137,14 +137,14 @@ export async function compileChecker(
   return compileWithCommand(
     ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
     [outPath],
-    workDir
+    workDir,
   );
 }
 
 function compileWithCommand(
   compileArgs: string[],
   runCommand: string[],
-  workDir: string
+  workDir: string,
 ): Promise<CompileResult> {
   return new Promise((resolve) => {
     const [cmd, ...args] = compileArgs;
@@ -158,7 +158,7 @@ function compileWithCommand(
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],
       // 90s covers Go/Rust/Java cold compiles on CI where toolchain priming can eat 30s+.
-      timeout: 90_000
+      timeout: 90_000,
     });
 
     const stderrBuf = createBoundedBuffer();
@@ -173,7 +173,7 @@ function compileWithCommand(
         const stderr = stderrBuf.toString().trim();
         resolve({
           success: false,
-          error: stderr || `Compiler exited with code ${String(code ?? "unknown")}.`
+          error: stderr || `Compiler exited with code ${String(code ?? "unknown")}.`,
         });
       }
     });
@@ -181,7 +181,7 @@ function compileWithCommand(
     proc.on("error", (err) => {
       resolve({
         success: false,
-        error: `Failed to spawn compiler: ${err.message}`
+        error: `Failed to spawn compiler: ${err.message}`,
       });
     });
   });
