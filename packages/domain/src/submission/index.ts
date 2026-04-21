@@ -1,4 +1,10 @@
-export { getSubmissionForUser, listProblemSubmissions, listUserSubmissions } from "./queries";
+export {
+  getSubmissionDetail,
+  getSubmissionForUser,
+  getSubmissionById,
+  listProblemSubmissions,
+  listUserSubmissions,
+} from "./queries";
 export {
   createQueuedSubmissionRecord,
   type ActorContext as SubmissionActorContext,

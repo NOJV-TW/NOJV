@@ -43,6 +43,32 @@ describe("isIpInCidr", () => {
   it("rejects malformed IPs", () => {
     expect(isIpInCidr("not.an.ip.address", "10.0.0.0/8")).toBe(false);
   });
+
+  it("matches a native IPv6 address inside a /32 range", () => {
+    expect(isIpInCidr("2001:db8:1:2::1", "2001:db8::/32")).toBe(true);
+  });
+
+  it("rejects a native IPv6 address outside a /32 range", () => {
+    expect(isIpInCidr("2001:dead::1", "2001:db8::/32")).toBe(false);
+  });
+
+  it("matches the IPv6 loopback inside ::1/128", () => {
+    expect(isIpInCidr("::1", "::1/128")).toBe(true);
+  });
+
+  it("treats ::/0 as match-everything for IPv6", () => {
+    expect(isIpInCidr("2001:db8::42", "::/0")).toBe(true);
+  });
+
+  it("rejects when the IP family does not match the CIDR family", () => {
+    expect(isIpInCidr("2001:db8::1", "10.0.0.0/8")).toBe(false);
+    expect(isIpInCidr("10.0.0.1", "2001:db8::/32")).toBe(false);
+  });
+
+  it("rejects malformed CIDR prefixes", () => {
+    expect(isIpInCidr("2001:db8::1", "2001:db8::/129")).toBe(false);
+    expect(isIpInCidr("10.0.0.1", "10.0.0.0/33")).toBe(false);
+  });
 });
 
 describe("isIpInWhitelist", () => {

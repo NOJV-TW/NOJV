@@ -325,7 +325,7 @@
               class={monoTextareaClassName}
               bind:value={$form.ipWhitelistText}
               disabled={!editableProctoring}
-              placeholder="10.0.0.0/24&#10;192.168.1.5/32"
+              placeholder="10.0.0.0/24&#10;192.168.1.5/32&#10;2001:db8::/32"
             ></textarea>
           </div>
         {/if}

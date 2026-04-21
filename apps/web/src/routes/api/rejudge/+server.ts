@@ -5,7 +5,6 @@ import type { RequestHandler } from "./$types";
 
 import { NotFoundError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { submissionRepo } from "@nojv/db";
 import { submissionDomain } from "@nojv/domain";
 
 const singleSchema = z.object({
@@ -31,7 +30,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const body = bodySchema.parse(await event.request.json());
 
   if (body.mode === "single") {
-    const submission = await submissionRepo.findById(body.submissionId);
+    const submission = await submissionDomain.getSubmissionById(body.submissionId);
     if (!submission) throw new NotFoundError("Submission not found.");
 
     await submissionDomain.assertCanOperateOnSubmission(actor, submission);

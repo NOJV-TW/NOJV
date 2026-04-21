@@ -21,12 +21,12 @@ import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
-import { problemWorkspaceFileRepo, testcaseSetRepo, SubtaskScoringStrategy } from "@nojv/db";
 import { createStorageClient, getText } from "@nojv/storage";
 
 const {
   getProblemPageData,
   getProblemTestcaseSets,
+  listProblemWorkspaceFiles,
   updateProblemRecord,
   updateProblemWorkspace,
   createProblemTestcaseSetRecord,
@@ -36,6 +36,7 @@ const {
   deleteTestcaseRecord,
   deleteProblemRecord,
   convertProblemToAdvancedMode,
+  setTestcaseSetScoringStrategy,
 } = problemDomain;
 
 const updateWorkspaceSchema = z.object({
@@ -72,7 +73,7 @@ export const load: PageServerLoad = handleLoad(
     const [problem, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
       getProblemPageData(params.problemId),
       getProblemTestcaseSets(params.problemId),
-      problemWorkspaceFileRepo.findByProblemId(params.problemId),
+      listProblemWorkspaceFiles(params.problemId),
     ]);
 
     // Hydrate every testcase + workspace blob from S3 in parallel. The
@@ -249,12 +250,7 @@ export const actions: Actions = {
     const formData = await event.request.formData();
     const setId = readStringField(formData.get("setId"), "setId");
     const rawStrategy = readStringField(formData.get("strategy"), "strategy");
-    const validValues = Object.values(SubtaskScoringStrategy);
-    if (!validValues.includes(rawStrategy as SubtaskScoringStrategy)) {
-      error(400, "Invalid scoring strategy");
-    }
-    await problemDomain.assertProblemEditAccess(actor, problemId);
-    await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy as SubtaskScoringStrategy);
+    await setTestcaseSetScoringStrategy(actor, problemId, setId, rawStrategy);
     return { success: true };
   }),
 

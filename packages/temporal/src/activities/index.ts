@@ -10,7 +10,7 @@ export {
 } from "./judge";
 export type { CompletedSubmission, SubmissionJudgeContext, TestcaseSetGroup } from "./judge";
 
-export { updateUserStats } from "./stats";
+export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
 
 export {
   getContestInfo,

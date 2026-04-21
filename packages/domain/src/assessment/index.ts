@@ -2,6 +2,27 @@ import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db"
 
 export * from "./mutations";
 
+/**
+ * Load the assessment row with its course id, used by shell loaders to
+ * derive the `courseId` for the URL params. Returns null when missing;
+ * callers surface that as a 404.
+ */
+export async function getAssessmentWithCourseId(assessmentId: string) {
+  return assessmentRepo.findByIdWithCourseId(assessmentId);
+}
+
+/**
+ * Existence check for an assessment-problem attach row. Used by the
+ * assignment problem-solve loader so we don't leak whether the problem
+ * exists outside the assignment scope.
+ */
+export async function isProblemInAssessment(
+  assessmentId: string,
+  problemId: string,
+): Promise<boolean> {
+  return assessmentProblemRepo.exists(assessmentId, problemId);
+}
+
 export interface AssessmentInfo {
   closesAt: string;
   /** Nullable: assessments without a soft deadline have no late penalty. */

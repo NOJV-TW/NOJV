@@ -2,9 +2,13 @@ import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { problemDomain, submissionDomain } from "@nojv/domain";
-import { problemRepo } from "@nojv/db";
 
-const { assertProblemViewAccess, getProblemPageData, getProblemTestcaseSets } = problemDomain;
+const {
+  assertProblemViewAccess,
+  getProblemPageData,
+  getProblemRowById,
+  getProblemTestcaseSets,
+} = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -24,7 +28,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // Practice mode only — assignment/contest/exam solves now have their
   // own route trees (`/assignments/[assessmentId]/problems/...`,
   // `/contests/[contestId]/problems/...`, `/exams/[examId]/problems/...`).
-  const problemRow = await problemRepo.findById(problemId);
+  const problemRow = await getProblemRowById(problemId);
 
   if (!problemRow) {
     error(404, "Problem not found");
