@@ -65,10 +65,7 @@ describe("adjustUserStatsForRejudge — acCount delta", () => {
   });
 
   it("WA → WA is a no-op (delta = 0, repo not called)", async () => {
-    await adjustUserStatsForRejudge(
-      baseSubmission({ status: "wrong_answer" }),
-      "wrong_answer",
-    );
+    await adjustUserStatsForRejudge(baseSubmission({ status: "wrong_answer" }), "wrong_answer");
 
     expect(adjustAcCount).not.toHaveBeenCalled();
   });
@@ -142,10 +139,7 @@ describe("adjustUserStatsForRejudge — acCount delta", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-01T12:00:00Z"));
     try {
-      await adjustUserStatsForRejudge(
-        baseSubmission({ status: "wrong_answer" }),
-        "accepted",
-      );
+      await adjustUserStatsForRejudge(baseSubmission({ status: "wrong_answer" }), "accepted");
     } finally {
       vi.useRealTimers();
     }
@@ -164,8 +158,6 @@ describe("adjustUserStatsForRejudge — acCount delta", () => {
     // driving the row negative.
     await adjustUserStatsForRejudge(baseSubmission({ status: "wrong_answer" }), "accepted");
 
-    expect(adjustAcCount).toHaveBeenCalledWith(
-      expect.objectContaining({ delta: -1 }),
-    );
+    expect(adjustAcCount).toHaveBeenCalledWith(expect.objectContaining({ delta: -1 }));
   });
 });

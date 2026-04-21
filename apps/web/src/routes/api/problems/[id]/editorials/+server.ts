@@ -8,12 +8,8 @@ import { requireApiAuth, ForbiddenError, NotFoundError } from "$lib/server/auth"
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
 
-const {
-  getProblemRowById,
-  hasUserAcProblem,
-  listProblemEditorials,
-  upsertEditorial,
-} = problemDomain;
+const { getProblemRowById, hasUserAcProblem, listProblemEditorials, upsertEditorial } =
+  problemDomain;
 
 const editorialSubmitSchema = z.object({
   content: z.string().min(10).max(50000),
