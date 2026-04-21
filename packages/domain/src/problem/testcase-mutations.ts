@@ -1,9 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import { runTransaction, testcaseRepo, testcaseSetRepo, type Prisma } from "@nojv/db";
+import {
+  runTransaction,
+  SubtaskScoringStrategy,
+  testcaseRepo,
+  testcaseSetRepo,
+  type Prisma,
+} from "@nojv/db";
 import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
 
-import { ConflictError } from "../shared/errors";
+import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 
@@ -13,7 +19,11 @@ import {
   writeTestcaseBlobs,
   type TestcaseBlobKeys,
 } from "./blobs";
-import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
+import {
+  assertProblemEditAccess,
+  assertProblemOwnership,
+  type ProblemActorContext,
+} from "./helpers";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
@@ -180,4 +190,21 @@ export async function deleteTestcaseRecord(
 
   // DB committed — best-effort S3 cleanup.
   await bestEffortDeleteTestcaseBlobs(problemId, testcaseId);
+}
+
+// Validates the raw string against the SubtaskScoringStrategy enum and runs
+// the edit-access check before writing. Keeps route handlers out of the
+// business of enumerating the enum values themselves.
+export async function setTestcaseSetScoringStrategy(
+  actor: ProblemActorContext,
+  problemId: string,
+  setId: string,
+  rawStrategy: string,
+): Promise<void> {
+  const validValues = Object.values(SubtaskScoringStrategy);
+  if (!validValues.includes(rawStrategy as SubtaskScoringStrategy)) {
+    throw new ValidationError("Invalid scoring strategy");
+  }
+  await assertProblemEditAccess(actor, problemId);
+  await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy as SubtaskScoringStrategy);
 }

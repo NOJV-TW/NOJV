@@ -1,11 +1,10 @@
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { contestParticipationRepo } from "@nojv/db";
 import { clarificationDomain, contestDomain, scoreOverrideDomain } from "@nojv/domain";
 
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-const { getContestDetail } = contestDomain;
+const { getContestDetail, listContestParticipantsWithUser } = contestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const { params, locals } = event;
@@ -28,7 +27,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     if (actor && hasActorUsername(actor)) {
       const [allowed, participants] = await Promise.all([
         scoreOverrideDomain.canSetScoreOverride(actor, "contest", contest.id),
-        contestParticipationRepo.listParticipantsWithUser(contest.id),
+        listContestParticipantsWithUser(contest.id),
       ]);
       canSetOverride = allowed;
       overrideStudents = participants.map((p) => ({

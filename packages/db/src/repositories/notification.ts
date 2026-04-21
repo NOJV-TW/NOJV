@@ -1,5 +1,5 @@
 import { prisma } from "../client";
-import type { Prisma, NotificationType } from "../../generated/prisma/client";
+import { Prisma, type NotificationType } from "../../generated/prisma/client";
 
 export const NOTIFICATION_RETENTION_PER_USER = 50;
 
@@ -62,17 +62,7 @@ export const notificationRepo = {
     });
 
     const userIds = Array.from(new Set(inputs.map((i) => i.userId)));
-    for (const userId of userIds) {
-      await prisma.$executeRaw`
-        DELETE FROM "Notification"
-        WHERE "id" IN (
-          SELECT "id" FROM "Notification"
-          WHERE "userId" = ${userId}
-          ORDER BY "createdAt" DESC
-          OFFSET ${NOTIFICATION_RETENTION_PER_USER}
-        )
-      `;
-    }
+    await capRetentionForUsers(userIds);
 
     return result.count;
   },
@@ -90,6 +80,24 @@ export const notificationRepo = {
       where: { userId, readAt: null },
       data: { readAt: new Date() },
     });
+    await capRetentionForUsers([userId]);
     return row.count;
   },
 };
+
+// Set-based DELETE via ROW_NUMBER() — one query for N users, not N OFFSET scans.
+async function capRetentionForUsers(userIds: string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await prisma.$executeRaw`
+    DELETE FROM "Notification"
+    WHERE "id" IN (
+      SELECT "id" FROM (
+        SELECT "id",
+          ROW_NUMBER() OVER (PARTITION BY "userId" ORDER BY "createdAt" DESC) AS rn
+        FROM "Notification"
+        WHERE "userId" IN (${Prisma.join(userIds)})
+      ) ranked
+      WHERE rn > ${NOTIFICATION_RETENTION_PER_USER}
+    )
+  `;
+}

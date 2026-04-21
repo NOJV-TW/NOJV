@@ -27,3 +27,31 @@ export async function updateUserStats(submission: {
     isAc,
   });
 }
+
+export async function adjustUserStatsForRejudge(
+  submission: {
+    createdAt: Date;
+    sampleOnly: boolean;
+    status: string;
+    userId: string;
+  },
+  oldStatus: string,
+): Promise<void> {
+  if (submission.sampleOnly) return;
+
+  const wasAc = oldStatus === "accepted";
+  const isAc = submission.status === "accepted";
+  const delta = (isAc ? 1 : 0) - (wasAc ? 1 : 0);
+  if (delta === 0) return;
+
+  const created = submission.createdAt;
+  const dateOnly = new Date(
+    Date.UTC(created.getUTCFullYear(), created.getUTCMonth(), created.getUTCDate()),
+  );
+
+  await userDailyActivityRepo.adjustAcCount({
+    userId: submission.userId,
+    date: dateOnly,
+    delta,
+  });
+}

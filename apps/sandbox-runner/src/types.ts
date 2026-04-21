@@ -50,6 +50,15 @@ export const SandboxInputSchema = z.object({
 
 export type SandboxInput = z.infer<typeof SandboxInputSchema>;
 
+// Optional per-testcase metadata sitting next to input/expected on disk.
+// Both fields default to loader-level values when missing or invalid.
+export const TestcaseMetaSchema = z.object({
+  weight: z.number().optional(),
+  isSample: z.boolean().optional(),
+});
+
+export type TestcaseMeta = z.infer<typeof TestcaseMetaSchema>;
+
 // Testcase files read from disk (not from config.json)
 export interface TestcaseFiles {
   index: number;

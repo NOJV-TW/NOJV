@@ -271,6 +271,12 @@ export const examProblemRepo = {
     return prisma.examProblem.count({ where: { examId } });
   },
 
+  exists(examId: string, problemId: string) {
+    return prisma.examProblem
+      .findFirst({ where: { examId, problemId }, select: { id: true } })
+      .then((row) => row !== null);
+  },
+
   // Practice-after-close: a registered participant of a published exam
   // that has ended retains read/submit access to the exam's problems —
   // for practice only, no scoring.

@@ -7,6 +7,7 @@ import {
   type PlagiarismReportSummary,
 } from "@nojv/db";
 
+import { NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
@@ -75,20 +76,6 @@ export interface ResolvedPlagiarismTarget {
   courseId: string;
 }
 
-export class PlagiarismNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "PlagiarismNotFoundError";
-  }
-}
-
-export class PlagiarismForbiddenError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "PlagiarismForbiddenError";
-  }
-}
-
 // `type` accepts both "exam" and legacy "contest" for backwards compat.
 export async function resolvePlagiarismTarget(
   assessmentId: string,
@@ -96,12 +83,12 @@ export async function resolvePlagiarismTarget(
 ): Promise<ResolvedPlagiarismTarget> {
   if (type === "exam" || type === "contest") {
     const exam = await examRepo.findByIdWithCourse(assessmentId);
-    if (!exam) throw new PlagiarismNotFoundError("Exam not found.");
+    if (!exam) throw new NotFoundError("Exam not found.");
     return { courseId: exam.courseId, target: { id: exam.id, type: "exam" } };
   }
 
   const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
-  if (!assessment) throw new PlagiarismNotFoundError("Assessment not found.");
+  if (!assessment) throw new NotFoundError("Assessment not found.");
   return {
     courseId: assessment.course.id,
     target: { id: assessment.id, type: "courseAssessment" },

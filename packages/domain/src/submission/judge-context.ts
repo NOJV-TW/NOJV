@@ -68,6 +68,7 @@ export interface SubmissionJudgeContext {
 
 export interface CompletedSubmission {
   contestParticipationId: string | null;
+  createdAt: Date;
   id: string;
   language: string;
   problemId: string;
@@ -210,6 +211,7 @@ export async function completeJudge(
 
   return {
     contestParticipationId: submission.contestParticipationId,
+    createdAt: submission.createdAt,
     id: submission.id,
     language: submission.language,
     problemId: submission.problemId,

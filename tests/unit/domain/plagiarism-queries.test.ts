@@ -29,10 +29,9 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {},
 }));
 
-import { plagiarismDomain } from "@nojv/domain";
+import { NotFoundError, plagiarismDomain } from "@nojv/domain";
 
-const { resolvePlagiarismTarget, createPlagiarismReport, PlagiarismNotFoundError } =
-  plagiarismDomain;
+const { resolvePlagiarismTarget, createPlagiarismReport } = plagiarismDomain;
 
 beforeEach(() => {
   examFindByIdWithCourse.mockReset();
@@ -55,7 +54,7 @@ describe("resolvePlagiarismTarget", () => {
   it("throws 'Exam not found.' when type='exam' and the row is missing", async () => {
     examFindByIdWithCourse.mockResolvedValue(null);
     await expect(resolvePlagiarismTarget("exam_missing", "exam")).rejects.toThrow(
-      PlagiarismNotFoundError,
+      NotFoundError,
     );
     await expect(resolvePlagiarismTarget("exam_missing", "exam")).rejects.toThrow(
       "Exam not found.",

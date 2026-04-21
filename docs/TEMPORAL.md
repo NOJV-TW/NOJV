@@ -90,6 +90,26 @@ start → sleep(opensAt) → activateAssessment
 
 Plagiarism state lives inline on `Contest` / `CourseAssessment`, so the `(targetType, targetId)` tuple identifies the report.
 
+### examAutoCloseWorkflow
+
+**Queue**: `platform`
+**Input**: `{ examId, startsAt, endsAt }` (timestamps are ISO-8601 strings for deterministic payload serialization)
+**Workflow ID**: `exam-auto-close-{examId}`
+**Conflict policy**: `TERMINATE_EXISTING` — re-dispatching for the same `examId` (e.g. after the teacher edits `endsAt`) terminates the pending run so the new schedule wins.
+
+```
+start → sleep(startsAt - 15min) → fanoutExamStartingSoon
+                                         │
+                              sleep(endsAt) → closeActiveSessionsForExam
+```
+
+Standalone from `assessmentLifecycleWorkflow` / `contestLifecycleWorkflow` — it is dispatched when an exam is published (or re-published after a schedule edit) via `dispatchExamAutoClose` in `@nojv/job-dispatch`. Two responsibilities:
+
+1. **15-minute pre-start reminder**: calls the `fanoutExamStartingSoon` notification activity, which writes `Notification` rows for every enrolled student and fans out via chunked Redis pub/sub. The domain helper no-ops if the exam was unpublished or the start time already passed.
+2. **Auto-close at `endsAt`**: calls `closeActiveSessionsForExam` to force-release every active `ActiveExamSession` row so the Phase 4 exam lock disengages and students stop being pinned to the exam landing page.
+
+Submit-time closing (student clicks submit) is still handled inline by the web app — this workflow is the hard-deadline fallback.
+
 ## Activities
 
 ### Judge Activities (judge queue)
@@ -130,6 +150,12 @@ Plagiarism state lives inline on `Contest` / `CourseAssessment`, so the `(target
 | `publishVerdict` | Publish submission verdict via Redis pub/sub |
 | `publishContestEvent` | Publish contest starting/ending events |
 | `publishAssessmentDeadline` | Publish assessment deadline warning |
+| `fanoutExamStartingSoon` | Persist `Notification` rows + chunked Redis pub/sub fan-out 15min before an exam opens |
+
+**Exam session**:
+| Activity | Purpose |
+|----------|---------|
+| `closeActiveSessionsForExam` | Force-release every open `ActiveExamSession` for an exam at hard-close deadline |
 
 **Redis**:
 | Activity | Purpose |

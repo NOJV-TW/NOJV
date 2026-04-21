@@ -103,11 +103,11 @@ button.
   THEN `resolvePlagiarismTarget` returns `{ target: { type: "exam", id } }`.
 - GIVEN `?type=exam` with an unknown id,
   WHEN the route resolves,
-  THEN `PlagiarismNotFoundError("Exam not found.")`.
+  THEN it throws 404 `Exam not found.`.
 - GIVEN no `?type` query param (default `courseAssessment`) with an
   unknown id,
   WHEN the route resolves,
-  THEN `PlagiarismNotFoundError("Assessment not found.")`.
+  THEN it throws 404 `Assessment not found.`.
 - GIVEN `?type=contest` (legacy value),
   WHEN the route resolves,
   THEN it is remapped to `type: exam` — contests no longer have a
@@ -217,7 +217,7 @@ button.
   unavailable" placeholder.
 - **Hand-crafted POST to `/api/plagiarism/[contestId]?type=contest`**:
   remapped to `type: exam` — unless the id collides with an `Exam.id`
-  the response is `PlagiarismNotFoundError("Exam not found.")`.
+  the response is 404 `Exam not found.`.
 - **Legacy MOSS-era rows**: reports that completed before the Dolos
   migration still carry the old pair shape (`similarity1`,
   `similarity2`, `linesMatched`, `mossUrl`). The UI must either

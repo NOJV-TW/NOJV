@@ -1,8 +1,8 @@
 import { error } from "@sveltejs/kit";
-import { examRepo } from "@nojv/db";
 import {
   canManageCourse,
   courseDomain,
+  examDomain,
   ForbiddenError,
   NotFoundError,
   proctoringDomain,
@@ -23,7 +23,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
 
   // Look up the exam first so we can derive the courseId — same approach
   // as the id-unified assignment shell.
-  const exam = await examRepo.findById(examId);
+  const exam = await examDomain.getExamById(examId);
   if (!exam) {
     throw new NotFoundError("Exam not found.");
   }
