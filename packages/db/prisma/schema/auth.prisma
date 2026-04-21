@@ -64,7 +64,6 @@ model User {
   createdContests                Contest[]                 @relation("ContestCreator")
   createdExams                   Exam[]                    @relation("ExamCreator")
   createdAnnouncements           Announcement[]            @relation("AnnouncementCreator")
-  triggeredContestPlagiarisms    Contest[]                 @relation("ContestPlagiarismTriggerer")
   triggeredExamPlagiarisms       Exam[]                    @relation("ExamPlagiarismTriggerer")
   triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
   editorials                     Editorial[]
