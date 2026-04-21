@@ -6,6 +6,7 @@ export {
   updateUserRole,
   toggleUserDisabled,
   getDashboardView,
+  getDailyActivity,
   type UserAnalytics,
   type DashboardView,
 } from "./queries";

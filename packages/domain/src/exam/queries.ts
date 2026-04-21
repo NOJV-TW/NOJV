@@ -353,6 +353,14 @@ export async function getExamDetail(
   };
 }
 
+/**
+ * Thin wrapper around `examRepo.findById` — used by the exam shell layout
+ * to derive `courseId`. Returns null on miss; callers surface a 404.
+ */
+export async function getExamById(id: string) {
+  return examRepo.findById(id);
+}
+
 export async function checkExamIpAccess(
   config: {
     ipWhitelistEnabled: boolean;

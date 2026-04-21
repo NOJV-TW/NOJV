@@ -7,9 +7,13 @@ import type { RequestHandler } from "./$types";
 import { requireApiAuth, ForbiddenError, NotFoundError } from "$lib/server/auth";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { problemDomain } from "@nojv/domain";
-import { editorialRepo, problemRepo } from "@nojv/db";
 
-const { hasUserAcProblem, upsertEditorial } = problemDomain;
+const {
+  getProblemRowById,
+  hasUserAcProblem,
+  listProblemEditorials,
+  upsertEditorial,
+} = problemDomain;
 
 const editorialSubmitSchema = z.object({
   content: z.string().min(10).max(50000),
@@ -26,7 +30,7 @@ async function requireProblemWithAc(
   acError = "Solve this problem first to view editorials.",
 ) {
   const [problem, ac] = await Promise.all([
-    problemRepo.findById(problemId),
+    getProblemRowById(problemId),
     hasUserAcProblem(userId, problemId),
   ]);
 
@@ -46,7 +50,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   // no side effects, and on the common happy path we save another round-trip.
   const [, editorials] = await Promise.all([
     requireProblemWithAc(actor.userId, id),
-    editorialRepo.listByProblemId(id),
+    listProblemEditorials(id),
   ]);
 
   return json(editorials);

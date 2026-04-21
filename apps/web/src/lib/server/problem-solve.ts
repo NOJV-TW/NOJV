@@ -1,10 +1,14 @@
 import { error } from "@sveltejs/kit";
 
 import { problemDomain, submissionDomain } from "@nojv/domain";
-import { problemRepo } from "@nojv/db";
 import type { Language } from "@nojv/core";
 
-const { assertProblemViewAccess, getProblemPageData, getProblemTestcaseSets } = problemDomain;
+const {
+  assertProblemViewAccess,
+  getProblemPageData,
+  getProblemRowById,
+  getProblemTestcaseSets,
+} = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 
 import type { ActorContext } from "$lib/server/auth";
@@ -93,7 +97,7 @@ export async function loadProblemSolveData(
   // check; the two calls hit different tables so running them in parallel
   // is a small win.
   const [problemRow, problem] = await Promise.all([
-    problemRepo.findById(problemId),
+    getProblemRowById(problemId),
     getProblemPageData(problemId),
   ]);
 

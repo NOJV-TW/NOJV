@@ -2,12 +2,22 @@ import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
+import { z } from "zod";
 import {
   assessmentSettingsFormSchema,
   type AssessmentSettingsFormData,
   type CourseAssessmentUpdate,
   type Language,
 } from "@nojv/core";
+
+// Body of the `updateProblems` action — posted by the client as a single
+// JSON field so we can ship problem IDs plus the matching points map in
+// one round trip. Validate here so downstream code can rely on the
+// narrowed types instead of re-filtering.
+const updateProblemsPayloadSchema = z.object({
+  problemIds: z.array(z.string()).default([]),
+  points: z.record(z.string(), z.unknown()).default({}),
+});
 import {
   assessmentDomain,
   clarificationDomain,
@@ -112,6 +122,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             reportUrl: plagiarism.reportUrl,
             triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
             completedAt: plagiarism.completedAt?.toISOString() ?? null,
+            // `results` is `Prisma.JsonValue | null` on the domain side; the
+            // consumer (AssignmentPlagiarismReport) accepts `unknown` and
+            // defensively parses `pairs` at render time. Widening to
+            // `unknown` here keeps the prop contract loose on purpose.
             results: plagiarism.results as unknown,
           }
         : null,
@@ -178,19 +192,15 @@ export const actions = {
     const payloadRaw = formData.get("payload");
     if (typeof payloadRaw !== "string") return fail(400, { error: "missing_payload" });
 
-    let parsed: { problemIds?: unknown; points?: Record<string, unknown> };
+    let rawJson: unknown;
     try {
-      parsed = JSON.parse(payloadRaw) as {
-        problemIds?: unknown;
-        points?: Record<string, unknown>;
-      };
+      rawJson = JSON.parse(payloadRaw);
     } catch {
       return fail(400, { error: "invalid_payload" });
     }
-    const problemIds: string[] = Array.isArray(parsed.problemIds)
-      ? parsed.problemIds.filter((x): x is string => typeof x === "string")
-      : [];
-    const pointsMap = parsed.points ?? {};
+    const parsed = updateProblemsPayloadSchema.safeParse(rawJson);
+    if (!parsed.success) return fail(400, { error: "invalid_payload" });
+    const { problemIds, points: pointsMap } = parsed.data;
 
     const payload: CourseAssessmentUpdate = {
       problemIds,
