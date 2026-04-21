@@ -38,6 +38,49 @@ export const submissionRepo = {
     });
   },
 
+  findByIdForDetail(id: string) {
+    return prisma.submission.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        problemId: true,
+        contestId: true,
+        courseId: true,
+        courseAssessmentId: true,
+        examId: true,
+        sampleOnly: true,
+        language: true,
+        sourceCode: true,
+        status: true,
+        score: true,
+        runtimeMs: true,
+        memoryKb: true,
+        verdictDetail: true,
+        createdAt: true,
+        user: { select: userMiniSelect },
+        problem: { select: { id: true, title: true } },
+        contest: { select: { id: true, title: true } },
+        courseAssessment: {
+          select: {
+            id: true,
+            title: true,
+            courseId: true,
+            course: { select: { id: true, title: true } },
+          },
+        },
+        exam: {
+          select: {
+            id: true,
+            title: true,
+            courseId: true,
+            course: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+  },
+
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {
