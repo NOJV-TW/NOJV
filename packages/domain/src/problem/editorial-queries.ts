@@ -19,3 +19,7 @@ export async function upsertEditorial(
 ) {
   return editorialRepo.upsert(userId, problemId, { content, language });
 }
+
+export async function listProblemEditorials(problemId: string) {
+  return editorialRepo.listByProblemId(problemId);
+}

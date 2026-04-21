@@ -6,7 +6,9 @@ import {
   submissionVerdictSchema,
 } from "@nojv/core";
 
+import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
+import { canOperateOnSubmission } from "./authz";
 
 export async function getSubmissionForUser(
   submissionId: string,
@@ -24,6 +26,111 @@ export async function getSubmissionForUser(
   }
 
   return submission;
+}
+
+/**
+ * Thin wrapper around `submissionRepo.findById` — used by the rejudge
+ * endpoint to load the submission row before the authz check. Returns
+ * null on miss; callers surface a 404.
+ */
+export async function getSubmissionById(id: string) {
+  return submissionRepo.findById(id);
+}
+
+/**
+ * Full detail payload for the submission dashboard page.
+ *
+ * Access rule:
+ *   - submission owner → always
+ *   - else → delegates to `canOperateOnSubmission` (admin / contest
+ *     organizer / course staff / problem author)
+ *
+ * Staff-only flag `viewerIsStaff` tells the UI whether to expose the
+ * submitter's identity; the owner viewing their own submission doesn't
+ * see that section.
+ */
+export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
+  const submission = await submissionRepo.findByIdForDetail(submissionId);
+  if (!submission) throw new NotFoundError("Submission not found.");
+
+  const isOwner = submission.userId === actor.userId;
+  const viewerIsStaff = !isOwner && (await canOperateOnSubmission(actor, submission));
+
+  if (!isOwner && !viewerIsStaff) {
+    throw new NotFoundError("Submission not found.");
+  }
+
+  const language = languageSchema.parse(submission.language);
+  submissionVerdictSchema.parse(submission.status);
+
+  // Pre-terminal submissions (queued/compiling/running) have no verdictDetail.
+  const parsedResult = submissionResultSchema.safeParse(submission.verdictDetail);
+  const result = parsedResult.success ? parsedResult.data : null;
+
+  return {
+    id: submission.id,
+    createdAt: submission.createdAt.toISOString(),
+    language,
+    sourceCode: submission.sourceCode,
+    status: submission.status,
+    score: submission.score,
+    runtimeMs: submission.runtimeMs,
+    memoryKb: submission.memoryKb,
+    sampleOnly: submission.sampleOnly,
+    result,
+    problem: submission.problem,
+    context: buildSubmissionContext(submission),
+    submitter: viewerIsStaff
+      ? { name: submission.user.name, username: submission.user.username }
+      : null,
+    viewerIsStaff,
+  };
+}
+
+function buildSubmissionContext(submission: {
+  contestId: string | null;
+  contest: { id: string; title: string } | null;
+  courseAssessmentId: string | null;
+  courseAssessment: {
+    id: string;
+    title: string;
+    courseId: string;
+    course: { id: string; title: string };
+  } | null;
+  examId: string | null;
+  exam: {
+    id: string;
+    title: string;
+    courseId: string;
+    course: { id: string; title: string };
+  } | null;
+}) {
+  if (submission.contest) {
+    return {
+      kind: "contest" as const,
+      contestId: submission.contest.id,
+      contestTitle: submission.contest.title,
+    };
+  }
+  if (submission.courseAssessment) {
+    return {
+      kind: "assessment" as const,
+      assessmentId: submission.courseAssessment.id,
+      assessmentTitle: submission.courseAssessment.title,
+      courseId: submission.courseAssessment.course.id,
+      courseTitle: submission.courseAssessment.course.title,
+    };
+  }
+  if (submission.exam) {
+    return {
+      kind: "exam" as const,
+      examId: submission.exam.id,
+      examTitle: submission.exam.title,
+      courseId: submission.exam.course.id,
+      courseTitle: submission.exam.course.title,
+    };
+  }
+  return { kind: "practice" as const };
 }
 
 export async function listUserSubmissions(userId: string) {

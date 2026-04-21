@@ -18,7 +18,7 @@ import { toJsonValue } from "../shared/to-json-value";
 export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
-): Promise<{ logId: string } | null> {
+): Promise<{ logId: string; oldStatus: string } | null> {
   const current = await submissionRepo.findById(submissionId);
   if (!current) return null;
 
@@ -30,7 +30,7 @@ export async function snapshotForRejudge(
     oldResultJson: current.verdictDetail === null ? null : toJsonValue(current.verdictDetail),
   });
 
-  return { logId: row.id };
+  return { logId: row.id, oldStatus: current.status };
 }
 
 export async function finalizeRejudgeLog(

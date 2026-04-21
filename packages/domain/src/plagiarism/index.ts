@@ -17,7 +17,5 @@ export {
   getAssessmentProblemMap,
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,
-  PlagiarismNotFoundError,
-  PlagiarismForbiddenError,
 } from "./queries";
 export { dispatchPlagiarismCheck } from "@nojv/job-dispatch";

@@ -156,6 +156,15 @@ export const courseMembershipRepo = {
     });
   },
 
+  listActiveStudentUserIds(courseId: string) {
+    return prisma.courseMembership
+      .findMany({
+        where: { courseId, role: "student", status: "active" },
+        select: { userId: true },
+      })
+      .then((rows) => rows.map((r) => r.userId));
+  },
+
   listActiveForUser(userId: string) {
     return prisma.courseMembership.findMany({
       where: { userId, status: "active" },

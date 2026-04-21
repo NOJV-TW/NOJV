@@ -1,4 +1,4 @@
-import { submissionRepo, userRepo, type Prisma } from "@nojv/db";
+import { submissionRepo, userDailyActivityRepo, userRepo, type Prisma } from "@nojv/db";
 import { aggregateByTag } from "./analytics-helpers";
 import * as notificationDomain from "../notification";
 
@@ -116,4 +116,12 @@ export async function getDashboardView(userId: string): Promise<DashboardView> {
     recentSubmissions,
     analytics,
   };
+}
+
+/**
+ * Contribution-grid rows for the dashboard. Caller truncates `from`/`to`
+ * to UTC day boundaries to stay aligned with the unique key `(userId, date)`.
+ */
+export async function getDailyActivity(userId: string, from: Date, to: Date) {
+  return userDailyActivityRepo.findRange(userId, from, to);
 }
