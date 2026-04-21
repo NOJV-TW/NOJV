@@ -16,12 +16,14 @@
   import { Lock, X } from "@lucide/svelte";
 
   import { m } from "$lib/paraglide/messages.js";
+  import { formatIpForDisplay } from "$lib/utils/format-ip";
 
   interface Props {
     context: ExamTopStripContext;
   }
 
   let { context }: Props = $props();
+  let displayIp = $derived(formatIpForDisplay(context.ipAddress));
 
   let now = $state(Date.now());
   let ending = $state(false);
@@ -123,9 +125,10 @@
     <div class="flex items-center gap-2 text-body-sm text-muted-foreground">
       <span>{context.userHandle}</span>
       <code
-        class="rounded-xs border border-border bg-background/70 px-2 py-0.5 font-mono"
+        class="rounded-xs border border-border bg-background/70 px-2 py-0.5 font-mono break-all"
+        title={context.ipAddress}
       >
-        {context.ipAddress}
+        {displayIp}
       </code>
     </div>
     <button

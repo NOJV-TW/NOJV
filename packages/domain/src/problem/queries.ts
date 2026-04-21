@@ -1,6 +1,7 @@
 import {
   problemRepo,
   problemStatementRepo,
+  problemWorkspaceFileRepo,
   submissionRepo,
   testcaseSetRepo,
   type Prisma,
@@ -381,4 +382,17 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
 
 export async function getProblemTestcaseSets(problemId: string) {
   return testcaseSetRepo.findByProblemId(problemId);
+}
+
+/** Thin wrapper around `problemRepo.findById` — used where callers need the
+ *  raw problem row (e.g. to pass `authorId` / `visibility` into a view-access
+ *  check). Returns null when the row is missing; callers decide how to map
+ *  that to a 404. */
+export async function getProblemRowById(id: string) {
+  return problemRepo.findById(id);
+}
+
+/** Workspace files for the edit page load. */
+export async function listProblemWorkspaceFiles(problemId: string) {
+  return problemWorkspaceFileRepo.findByProblemId(problemId);
 }

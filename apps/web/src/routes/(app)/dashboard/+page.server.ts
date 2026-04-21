@@ -1,10 +1,9 @@
 import { requireAuth } from "$lib/server/auth";
 import { userDomain } from "@nojv/domain";
-import { userDailyActivityRepo } from "@nojv/db";
 
 import type { PageServerLoad } from "./$types";
 
-const { getDashboardView } = userDomain;
+const { getDashboardView, getDailyActivity } = userDomain;
 
 const ACTIVITY_DAYS = 30;
 
@@ -23,7 +22,7 @@ export const load: PageServerLoad = async (event) => {
 
   const [{ stats, recentSubmissions, analytics }, dailyActivity] = await Promise.all([
     getDashboardView(actor.userId),
-    userDailyActivityRepo.findRange(actor.userId, from, to),
+    getDailyActivity(actor.userId, from, to),
   ]);
 
   const activityByDate = new Map(

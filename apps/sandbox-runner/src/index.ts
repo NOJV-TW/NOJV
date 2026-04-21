@@ -3,9 +3,11 @@ import * as path from "node:path";
 import * as os from "node:os";
 import {
   SandboxInputSchema,
+  TestcaseMetaSchema,
   type SandboxInput,
   type SandboxOutput,
   type TestcaseFiles,
+  type TestcaseMeta,
   type TestcaseResult,
 } from "./types.js";
 import { compile, compileChecker, sourceFileName } from "./compiler.js";
@@ -132,10 +134,13 @@ async function loadTestcasesFromDirs(
       // expected is optional (e.g., for interactive/checker judges)
     }
 
-    let meta: { weight?: number; isSample?: boolean } = {};
+    let meta: TestcaseMeta = {};
     try {
       const metaRaw = await fs.readFile(path.join(tcDir, "meta.json"), "utf-8");
-      meta = JSON.parse(metaRaw) as typeof meta;
+      const parsed = TestcaseMetaSchema.safeParse(JSON.parse(metaRaw));
+      if (parsed.success) meta = parsed.data;
+      // If parsing fails (malformed JSON or wrong shape), fall through to
+      // defaults below — meta.json is advisory, not load-bearing.
     } catch {
       // meta.json is optional, defaults below
     }

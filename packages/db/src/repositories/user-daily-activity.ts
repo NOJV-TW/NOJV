@@ -35,6 +35,22 @@ export const userDailyActivityRepo = {
     });
   },
 
+  // Decrement is clamped at 0 via `acCount >= -delta` — repeated flips cannot drive it negative.
+  async adjustAcCount(opts: { userId: string; date: Date; delta: number }) {
+    if (opts.delta === 0) return;
+    if (opts.delta > 0) {
+      await prisma.userDailyActivity.updateMany({
+        where: { userId: opts.userId, date: opts.date },
+        data: { acCount: { increment: opts.delta } },
+      });
+    } else {
+      await prisma.userDailyActivity.updateMany({
+        where: { userId: opts.userId, date: opts.date, acCount: { gte: -opts.delta } },
+        data: { acCount: { increment: opts.delta } },
+      });
+    }
+  },
+
   withTx(tx: TxClient) {
     return {
       increment(opts: { userId: string; date: Date; isAc: boolean }) {

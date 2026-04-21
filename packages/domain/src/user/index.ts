@@ -1,11 +1,12 @@
 export { ensureUser, renameName, renameUsername, type EnsureUserInput } from "./mutations";
 export { isReservedUsername } from "./reserved-username";
-export { updateUserStats } from "./stats";
+export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
 export {
   listUsersPaginated,
   updateUserRole,
   toggleUserDisabled,
   getDashboardView,
+  getDailyActivity,
   type UserAnalytics,
   type DashboardView,
 } from "./queries";

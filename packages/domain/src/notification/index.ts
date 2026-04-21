@@ -95,8 +95,7 @@ export async function fanoutAssignmentDueSoon(assessmentId: string): Promise<voi
   if (assessment.status !== "published") return;
   if (assessment.closesAt.getTime() <= Date.now()) return;
 
-  const members = await courseMembershipRepo.findStudents(assessment.courseId);
-  const studentIds = members.map((m) => m.userId);
+  const studentIds = await courseMembershipRepo.listActiveStudentUserIds(assessment.courseId);
   if (studentIds.length === 0) return;
 
   const notYetMaxed = await listStudentsBelowMaxScore(assessmentId, studentIds);

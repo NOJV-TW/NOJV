@@ -1,4 +1,4 @@
-import { contestRepo } from "@nojv/db";
+import { contestParticipationRepo, contestRepo } from "@nojv/db";
 import type { ContestScoringMode, Language, PlatformRole, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -278,4 +278,13 @@ export async function unfreezeContest(contestId: string) {
   if (!contest) return null;
   await contestRepo.update(contest.id, { frozenAt: null });
   return { ok: true };
+}
+
+/**
+ * Return the participant roster with user mini-profiles for the score-override
+ * drawer. Caller is responsible for verifying the actor may manage the contest
+ * before invoking.
+ */
+export async function listContestParticipantsWithUser(contestId: string) {
+  return contestParticipationRepo.listParticipantsWithUser(contestId);
 }

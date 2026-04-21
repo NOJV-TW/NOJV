@@ -179,7 +179,7 @@ export async function createQueuedSubmissionRecord(
           .countForUserAndAssessmentSince(user.id, courseContext.assessment.id, startOfDayUtc);
 
         if (todayCount >= maxAttemptsPerDay) {
-          throw new ConflictError("每日提交次數已達上限，請明天再試");
+          throw new ConflictError("Daily submission limit reached. Please try again tomorrow.");
         }
       }
     }

@@ -50,19 +50,6 @@ function toSummary(row: PlagiarismRow | null): PlagiarismReportSummary | null {
   };
 }
 
-function toContestUpdate(input: PlagiarismUpsertInput): Prisma.ContestUncheckedUpdateInput {
-  const data: Prisma.ContestUncheckedUpdateInput = {};
-  if (input.status !== undefined) data.plagiarismStatus = input.status;
-  if (input.results !== undefined) {
-    data.plagiarismResults = input.results ?? Prisma.JsonNull;
-  }
-  if (input.reportUrl !== undefined) data.plagiarismReportUrl = input.reportUrl;
-  if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
-  if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
-  if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
-  return data;
-}
-
 function toExamUpdate(input: PlagiarismUpsertInput): Prisma.ExamUncheckedUpdateInput {
   const data: Prisma.ExamUncheckedUpdateInput = {};
   if (input.status !== undefined) data.plagiarismStatus = input.status;
@@ -101,14 +88,6 @@ const clearInput: PlagiarismUpsertInput = {
 };
 
 export const plagiarismRepo = {
-  async findByContestId(contestId: string): Promise<PlagiarismReportSummary | null> {
-    const row = await prisma.contest.findUnique({
-      where: { id: contestId },
-      select: plagiarismSelect,
-    });
-    return toSummary(row);
-  },
-
   async findByExamId(examId: string): Promise<PlagiarismReportSummary | null> {
     const row = await prisma.exam.findUnique({
       where: { id: examId },
@@ -127,14 +106,6 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
-  upsertForContest(contestId: string, input: PlagiarismUpsertInput) {
-    return prisma.contest.update({
-      where: { id: contestId },
-      data: toContestUpdate(input),
-      select: plagiarismSelect,
-    });
-  },
-
   upsertForExam(examId: string, input: PlagiarismUpsertInput) {
     return prisma.exam.update({
       where: { id: examId },
@@ -148,13 +119,6 @@ export const plagiarismRepo = {
       where: { id: courseAssessmentId },
       data: toAssessmentUpdate(input),
       select: plagiarismSelect,
-    });
-  },
-
-  clearForContest(contestId: string) {
-    return prisma.contest.update({
-      where: { id: contestId },
-      data: toContestUpdate(clearInput),
     });
   },
 

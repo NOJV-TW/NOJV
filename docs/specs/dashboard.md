@@ -170,12 +170,12 @@ in Open Questions.
 
 - **Brand-new user, zero submissions**: all charts render empty states;
   no errors.
-- **Submission rejudged from AC to WA**: `totalAc` reflects the
-  up-to-date state because it's queried, not cached. However,
-  `UserDailyActivity.acCount` for that day does not decrement — rejudge
-  does NOT fire `updateUserStats` for the verdict flip. This is a known
-  minor drift: correct values live on the `byVerdict` query; the
-  heatmap's `acCount` is best-effort.
+- **Submission rejudged (AC↔non-AC)**: the rejudge path calls
+  `adjustUserStatsForRejudge(submission, oldStatus)` instead of
+  `updateUserStats`, which delta-adjusts `acCount` on the submission's
+  ORIGINAL `createdAt` day (not today) and does NOT increment
+  `submissionCount`. Decrement is clamped at 0. The heatmap stays
+  accurate across verdict flips.
 - **Timezone != UTC**: heatmap cells are UTC-aligned. Users outside UTC
   may see "today" as yesterday depending on local time. No override.
 - **User deleted**: `UserDailyActivity.user` has `onDelete: Cascade` —
@@ -192,22 +192,25 @@ in Open Questions.
 - `packages/domain/src/user/queries.ts` — `getDashboardView`.
 - `packages/domain/src/user/analytics-helpers.ts` — `aggregateByTag`
   (top-8 cut, stable sort).
-- `packages/domain/src/user/stats.ts` — `updateUserStats` (called from
-  the Temporal activity).
+- `packages/domain/src/user/stats.ts` — `updateUserStats` (new
+  submissions) and `adjustUserStatsForRejudge` (rejudge verdict flip),
+  both called from Temporal activities.
 
 ### Schema
 
 - `packages/db/prisma/schema/submission.prisma` — `UserDailyActivity`
   (composite PK `(userId, date)`, `submissionCount`, `acCount`).
 - `packages/db/src/repositories/user-daily-activity.ts` — `findRange`,
-  `increment`.
+  `increment`, `adjustAcCount` (delta-only, decrement clamped at 0).
 
 ### Temporal
 
 - `packages/temporal/src/workflows/submission-judge.ts` — calls
-  `stats.updateUserStats` after the verdict write.
-- `packages/temporal/src/activities/stats.ts` — thin re-export of the
-  domain function.
+  `stats.updateUserStats` on normal submissions or
+  `stats.adjustUserStatsForRejudge(submission, snap.oldStatus)` on the
+  rejudge branch.
+- `packages/temporal/src/activities/stats.ts` — thin re-exports of both
+  domain functions.
 
 ### Routes / API
 
@@ -239,10 +242,6 @@ in Open Questions.
 - **Doc drift**: `PRODUCT_SENSE.md § User Dashboard` mentions
   "problem-solving recommendations" — not shipped. Either build the
   recommender or strike the bullet from PRODUCT_SENSE.md.
-- **Rejudge drift**: rejudge does not fire `updateUserStats`, so
-  `UserDailyActivity.acCount` silently drifts when rejudges overturn
-  verdicts. Consider a delta-update on verdict-change in the rejudge
-  path, or document the drift as intentional.
 - **Timezone handling**: a per-user timezone setting (or client-side
   UTC→local conversion) would make the heatmap more meaningful for
   non-UTC users.

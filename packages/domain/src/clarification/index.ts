@@ -1,7 +1,10 @@
 import {
   assessmentRepo,
+  assessmentProblemRepo,
   clarificationRepo,
+  contestProblemRepo,
   contestRepo,
+  examProblemRepo,
   examRepo,
   type ClarificationRow,
 } from "@nojv/db";
@@ -89,6 +92,9 @@ export async function ask(
     throw new ForbiddenError("Only participants may ask clarifications.");
   }
   await assertContextActiveForAsk(input.contextType, input.contextId);
+  if (input.problemId) {
+    await assertProblemInContext(input.contextType, input.contextId, input.problemId);
+  }
 
   const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
   const recent = await clarificationRepo.countInWindow(
@@ -249,6 +255,28 @@ async function publishClarificationEvent(
     await pubsub.publishClarification(row.contextType, row.contextId, event);
   } catch {
     // Best-effort; the DB write has already happened.
+  }
+}
+
+async function assertProblemInContext(
+  contextType: ClarificationContextType,
+  contextId: string,
+  problemId: string,
+): Promise<void> {
+  let belongs = false;
+  switch (contextType) {
+    case "contest":
+      belongs = await contestProblemRepo.existsById(contextId, problemId);
+      break;
+    case "exam":
+      belongs = await examProblemRepo.exists(contextId, problemId);
+      break;
+    case "assignment":
+      belongs = await assessmentProblemRepo.exists(contextId, problemId);
+      break;
+  }
+  if (!belongs) {
+    throw new ConflictError("The selected problem does not belong to this context.");
   }
 }
 

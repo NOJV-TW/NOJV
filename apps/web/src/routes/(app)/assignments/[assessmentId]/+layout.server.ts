@@ -1,6 +1,6 @@
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
-import { assessmentRepo } from "@nojv/db";
 import {
+  assessmentDomain,
   courseDomain,
   NotFoundError,
   ForbiddenError,
@@ -20,7 +20,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   // Look up the assessment first — this mirrors the old `/courses/[courseId]/…`
   // tree where courseId was in the URL.  In the id-unified tree we derive it
   // from the assessment row.
-  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
+  const assessment = await assessmentDomain.getAssessmentWithCourseId(assessmentId);
   if (!assessment) {
     throw new NotFoundError("Assignment not found.");
   }
