@@ -35,13 +35,11 @@
   }
 </script>
 
-<div class="w-full px-6">
-  <CourseHero course={data.course} isManager={data.isManager} />
-  <CourseTabBar
-    courseId={data.course.id}
-    {active}
-    counts={data.counts}
-    showSettings={data.isManager}
-  />
-  {@render children?.()}
-</div>
+<CourseHero course={data.course} isManager={data.isManager} />
+<CourseTabBar
+  courseId={data.course.id}
+  {active}
+  counts={data.counts}
+  showSettings={data.isManager}
+/>
+{@render children?.()}

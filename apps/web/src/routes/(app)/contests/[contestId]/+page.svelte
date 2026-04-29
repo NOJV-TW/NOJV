@@ -4,6 +4,7 @@
   import { Card } from "$lib/components/ui/card/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button";
+  import PageHero from "$lib/components/layout/PageHero.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import Lock from "@lucide/svelte/icons/lock";
@@ -69,49 +70,71 @@
   }
 </script>
 
-<div class="space-y-8">
-  <!-- Hero -->
-  <Card variant="elevated" size="hero">
-    <div class="flex items-center gap-2 flex-wrap justify-between">
-      <div class="flex items-center gap-2 flex-wrap">
-        <Badge variant="muted">{contest.scoringMode}</Badge>
-        {#if isActive}
-          <Badge variant="success">{m.contests_statusActive()}</Badge>
-        {:else if !hasStarted}
-          <Badge variant="info">{m.contests_statusUpcoming()}</Badge>
-        {:else}
-          <Badge variant="muted">{m.contests_statusEnded()}</Badge>
+<div class="space-y-8 pb-20">
+  {#snippet contestMeta()}
+    <Badge variant="muted" size="sm">{contest.scoringMode}</Badge>
+  {/snippet}
+
+  {#snippet contestActions()}
+    {#if canSetOverride}
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onclick={() => (showOverrideDrawer = true)}
+      >
+        {m.override_staff_buttonLabel()}
+      </Button>
+    {/if}
+  {/snippet}
+
+  {#snippet contestRibbon()}
+    <div
+      class="grid items-center gap-6 rounded-3xl border border-border bg-[color:var(--color-panel)] px-8 py-7 shadow-rest sm:grid-cols-[1fr_auto]"
+    >
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          {#if isActive}
+            <Badge variant="success" dot size="sm">{m.contests_statusActive()}</Badge>
+          {:else if !hasStarted}
+            <Badge variant="info" dot size="sm">{m.contests_statusUpcoming()}</Badge>
+          {:else}
+            <Badge variant="muted" size="sm">{m.contests_statusEnded()}</Badge>
+          {/if}
+        </div>
+        {#if contest.summary}
+          <p class="mt-3 max-w-prose text-body text-muted-foreground [text-wrap:pretty]">
+            {contest.summary}
+          </p>
         {/if}
       </div>
-      {#if canSetOverride}
-        <Button
-          variant="outline"
-          size="sm"
-          type="button"
-          onclick={() => (showOverrideDrawer = true)}
+      {#if !hasEnded}
+        <div
+          class="rounded-2xl bg-[color:var(--color-panel-strong)] px-6 py-5 text-right"
         >
-          {m.override_staff_buttonLabel()}
-        </Button>
+          <p
+            class="text-caption font-medium uppercase tracking-[0.12em] text-muted-foreground"
+          >
+            {!hasStarted ? m.contests_startsIn() : m.contests_timeRemaining()}
+          </p>
+          <p class="mt-1 font-mono text-headline tabular-nums font-semibold">
+            {formatDuration(remainingMs)}
+          </p>
+        </div>
       {/if}
     </div>
-    <h1 class="font-display text-title-lg font-semibold [text-wrap:balance]">
-      {contest.title}
-    </h1>
-    {#if contest.summary}
-      <p class="text-body text-muted-foreground [text-wrap:pretty]">{contest.summary}</p>
-    {/if}
+  {/snippet}
 
-    {#if !hasEnded}
-      <div class="rounded-sm bg-[color:var(--color-panel-strong)] px-5 py-4 mt-2">
-        <p class="text-caption font-medium uppercase tracking-wide text-muted-foreground">
-          {!hasStarted ? m.contests_startsIn() : m.contests_timeRemaining()}
-        </p>
-        <p class="mt-1 font-mono text-headline tabular-nums font-semibold">
-          {formatDuration(remainingMs)}
-        </p>
-      </div>
-    {/if}
-  </Card>
+  <PageHero
+    variant="workspace"
+    breadcrumbHref="/contests"
+    breadcrumbLabel={m.navigation_contests()}
+    eyebrow={m.contestDetail_eyebrow()}
+    title={contest.title}
+    meta={contestMeta}
+    actions={canSetOverride ? contestActions : undefined}
+    ribbon={contestRibbon}
+  />
 
   <!-- Contest info grid -->
   <div class="grid gap-4 sm:grid-cols-3">

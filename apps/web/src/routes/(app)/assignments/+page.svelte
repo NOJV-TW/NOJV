@@ -5,6 +5,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
@@ -66,26 +68,19 @@
   }
 </script>
 
-<div class="pb-24">
-  <!-- Page head -->
-  <header class="animate-in mb-8">
-    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
-      {m.assignmentsTop_eyebrow()}
-    </p>
-    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
-      {m.navigation_assignments()}
-    </h1>
-    <p class="mt-2 text-body text-muted-foreground">
-      {m.assignmentsTop_subtitle()}
-    </p>
-  </header>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.assignmentsTop_eyebrow()}
+    title={m.navigation_assignments()}
+    description={m.assignmentsTop_subtitle()}
+  />
 
   <!-- Tab row -->
-  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
+  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
     <div
       role="tablist"
       aria-label={m.navigation_assignments()}
-      class="flex flex-1 items-center gap-1"
+      class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
     >
       {#each tabs as tab (tab.key)}
         {@const isActive = tab.key === currentFilter}
@@ -149,7 +144,7 @@
               : 0}
           <a
             href={`/assignments/${assignment.id}`}
-            class="group relative grid grid-cols-[1fr_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
+            class="group relative grid grid-cols-1 items-center gap-y-3 rounded-2xl border bg-[color:var(--color-panel)] px-5 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest sm:grid-cols-[1fr_auto] sm:gap-x-6 sm:px-6 {assignment.status ===
             'draft'
               ? 'border-dashed bg-transparent'
               : 'border-border'}"
@@ -202,7 +197,7 @@
               </div>
             </div>
 
-            <div class="flex items-center gap-5">
+            <div class="flex flex-wrap items-center gap-3 sm:gap-5">
               <!-- Progress ring (personal completion %). `myStatus` is
                    populated by `listAssignmentsAcrossCoursesForUser` for
                    student rows; manager rows (teacher/TA in the course)
@@ -242,4 +237,4 @@
         {/each}
       </div>
   {/if}
-</div>
+</PageContainer>

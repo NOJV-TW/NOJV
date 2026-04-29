@@ -27,6 +27,11 @@ export {
   type PlagiarismUpsertInput,
 } from "./plagiarism";
 export {
+  plagiarismPairFlagRepo,
+  type PlagiarismContext,
+  type PlagiarismPairFlagRow,
+} from "./plagiarism-pair-flag";
+export {
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,

@@ -31,6 +31,15 @@ answer." Content is markdown, rendered through the shared
   problem when the viewer has AC; otherwise 403.
 - POST `/api/problems/[id]/editorials` — upserts by
   `(userId, problemId, language)` when the poster has AC; otherwise 403.
+- PUT `/api/editorials/[id]` — author or admin only; updates content /
+  language. Same length + enum validation as POST.
+- DELETE `/api/editorials/[id]` — author or admin only; soft-delete
+  (`deletedAt = now()`). Soft-deleted rows are filtered out of every
+  list / fetch path.
+- `/(app)/problems/[problemId]/editorials` — paginated list page,
+  AC-gated.
+- `/(app)/editorials/[id]/edit` — edit page; 404 for non-author
+  non-admin.
 - Content validation: markdown, 10–50000 characters, `SupportedLanguage`
   enum.
 - Render path: `marked.parse(content, { async: false })` →
@@ -50,7 +59,6 @@ answer." Content is markdown, rendered through the shared
 - Teacher-curated "official" editorials — everything is community.
 - Flag / report workflow for inappropriate content.
 - Per-editorial revision history.
-- Delete endpoint — users can only overwrite (minimum 10 chars).
 - Search / filter by tag within editorials.
 - Per-language ordering (e.g. "promote C++ to the top for this
   viewer").
@@ -167,21 +175,30 @@ answer." Content is markdown, rendered through the shared
 ### Domain
 
 - `packages/domain/src/problem/editorial-queries.ts` —
-  `hasUserAcProblem`, `upsertEditorial`.
+  `hasUserAcProblem`, `upsertEditorial`, `listEditorialsPage`,
+  `getEditorialById`, `updateEditorial`, `softDeleteEditorial`.
 - `packages/db/src/repositories/editorial.ts` — `listByProblemId`,
-  `upsert`.
+  `listByProblemIdPaged`, `countByProblemId`, `findById`, `upsert`,
+  `update`, `softDelete`. All read paths filter `deletedAt: null`.
 
 ### Schema
 
 - `packages/db/prisma/schema/submission.prisma` — `Editorial` model with
-  `@@unique([userId, problemId, language])` and
-  `@@index([problemId, createdAt])`.
+  `@@unique([userId, problemId, language])`,
+  `@@index([problemId, createdAt])`, and nullable `deletedAt` for
+  soft-delete (migration `20260430000000_editorial_soft_delete`).
 
 ### Routes / API
 
 - `apps/web/src/routes/api/problems/[id]/editorials/+server.ts` — GET
   (list) + POST (upsert); local `requireProblemWithAc()` gate and
   inline `editorialSubmitSchema`.
+- `apps/web/src/routes/api/editorials/[id]/+server.ts` — PUT (update)
+  - DELETE (soft-delete); author + admin gated via domain helpers.
+- `apps/web/src/routes/(app)/problems/[problemId]/editorials/` —
+  paginated list page (AC-gated).
+- `apps/web/src/routes/(app)/editorials/[id]/edit/` — single-editorial
+  edit form (author / admin only).
 - `apps/web/src/lib/components/problem/ProblemLeftPanel.svelte` —
   Editorial tab, form, and list.
 - `apps/web/src/lib/components/layout/MarkdownRenderer.svelte` —
@@ -202,17 +219,19 @@ answer." Content is markdown, rendered through the shared
   `status='accepted'` + `sampleOnly=false` filter and
   `upsertEditorial`'s composite-key payload forwarding (including
   the two-language coexistence call pattern).
+- `tests/unit/domain/editorial-mutations.test.ts` — covers
+  `getEditorialById` (missing / soft-deleted = null), `updateEditorial`
+  (author-only / admin-can-edit-others / NotFoundError on tombstone),
+  `softDeleteEditorial` (idempotent double-delete = NotFoundError).
 - **Still missing**: route-level AC gate tests (403 for GET and POST
   without AC) and an integration test that round-trips an XSS payload
   through `MarkdownRenderer` to confirm DOMPurify strips it.
 
 ## Open Questions / TODO
 
-- No moderation surface. If bad-actor editorials (spam, vent posts)
-  become a real problem, staff have no in-product remediation beyond
-  direct DB access.
-- No DELETE route — users can only overwrite (minimum 10 chars). The
-  closest workaround is a placeholder "[removed]" content.
+- No moderation surface beyond admin soft-delete. If bad-actor
+  editorials (spam, vent posts) become a real problem, admin can
+  hard-delete via DB; in-product moderation queue still missing.
 - `editorialSubmitSchema` lives at the route level; promoting it to
   `@nojv/core` would be consistent with other schemas once the domain
   module grows.

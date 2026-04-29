@@ -1,12 +1,13 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { ChevronLeft, ChevronRight, GripVertical, Info, Plus, Search, X } from "@lucide/svelte";
+  import { ChevronRight, GripVertical, Info, Plus, Search, X } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import FormError from "$lib/components/ui/FormError.svelte";
+  import PageHero from "$lib/components/layout/PageHero.svelte";
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule
   } from "$lib/components/course/LatePenaltyRuleBuilder.svelte";
@@ -120,23 +121,17 @@
   const courseId = $derived(data.form.data.courseId ?? "");
 </script>
 
-<div class="mx-auto w-full max-w-4xl px-6 pb-24">
-  <!-- Page head -->
-  <section class="animate-in mb-8">
-    <a
-      href={`/courses/${courseId}/assignments`}
-      class="inline-flex items-center gap-1 text-body-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground"
-    >
-      <ChevronLeft class="size-4" aria-hidden="true" />
-      <span>{m.assignmentCreate_breadcrumb()}</span>
-    </a>
-    <h1 class="mt-3 font-display text-display font-medium tracking-tight">
-      {m.assignmentCreate_title()}
-    </h1>
-    <p class="mt-2 max-w-2xl text-body-sm text-muted-foreground">
-      {m.assignmentCreate_subtitle()}
-    </p>
-  </section>
+<div class="mx-auto w-full max-w-4xl pb-24">
+  <PageHero
+    variant="workspace"
+    breadcrumbHref={`/courses/${courseId}/assignments`}
+    breadcrumbLabel={m.assignmentCreate_breadcrumb()}
+    eyebrow={m.assignmentCreate_eyebrow()}
+    title={m.assignmentCreate_title()}
+  />
+  <p class="animate-in mt-4 mb-8 max-w-2xl text-body-sm text-muted-foreground">
+    {m.assignmentCreate_subtitle()}
+  </p>
 
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
