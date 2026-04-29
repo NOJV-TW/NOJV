@@ -457,6 +457,8 @@
       {:else if activeSubTab === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}
+          flags={data.plagiarismFlags ?? []}
+          assessmentId={detail.id}
           problems={detail.problems.map((p) => ({
             problemId: p.problemId,
             letter: p.letter,

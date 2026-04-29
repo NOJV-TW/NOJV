@@ -19,3 +19,11 @@ export {
   type ResolvedPlagiarismTarget,
 } from "./queries";
 export { dispatchPlagiarismCheck } from "@nojv/job-dispatch";
+export {
+  buildPairKey,
+  flagPair,
+  unflagPair,
+  listFlagsForContext,
+  type FlagPairInput,
+  type PlagiarismContext,
+} from "./flags";
