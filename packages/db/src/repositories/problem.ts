@@ -109,6 +109,7 @@ export const problemRepo = {
         id: true,
         title: true,
         tags: true,
+        difficulty: true,
       },
       take: opts.take,
     });

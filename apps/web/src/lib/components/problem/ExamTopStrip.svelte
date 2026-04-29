@@ -76,7 +76,7 @@
 </script>
 
 <header
-  class="relative grid grid-cols-[auto_1fr_auto] items-center gap-6 border-b border-primary/30 bg-gradient-to-r from-primary/10 to-primary/[0.03] px-6 py-2.5 shadow-rest"
+  class="relative flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-primary/30 bg-gradient-to-r from-primary/10 to-primary/[0.03] px-4 py-2.5 shadow-rest sm:px-6 md:grid md:grid-cols-[auto_1fr_auto]"
 >
   <!-- left accent bar -->
   <div class="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true"></div>

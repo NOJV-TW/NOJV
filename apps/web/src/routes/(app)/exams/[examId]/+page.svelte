@@ -1,6 +1,5 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import Lock from "@lucide/svelte/icons/lock";
   import Link2 from "@lucide/svelte/icons/link-2";
   import Shield from "@lucide/svelte/icons/shield";
@@ -8,6 +7,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import PageHero from "$lib/components/layout/PageHero.svelte";
   import TeacherBadge from "$lib/components/common/TeacherBadge.svelte";
   import ExamSubmissionsMatrix from "$lib/components/course/exam/ExamSubmissionsMatrix.svelte";
   import ExamSettingsTab from "$lib/components/course/exam/ExamSettingsTab.svelte";
@@ -147,76 +147,51 @@
 </script>
 
 <div class="space-y-6 pb-20">
-  <!-- HERO -->
-  <section class="animate-in animate-in-1 border-b border-border pb-9 pt-2">
-    <a
-      href={examsListHref}
-      class="inline-flex items-center gap-1 text-body-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground"
-    >
-      <ChevronLeft class="size-4" aria-hidden="true" />
-      <span>{m.examShell_breadcrumb()}</span>
-    </a>
-
-    <div class="mt-4 flex flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0 flex-1">
-        <div class="text-caption font-semibold uppercase tracking-[0.12em] text-primary">
-          {m.examDetail_eyebrow()}
-        </div>
-        <h1
-          class="mt-2 font-display text-display font-normal leading-none tracking-[-0.025em]"
-        >
-          {detail.title}
-        </h1>
-        <div
-          class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-body-sm text-muted-foreground"
-        >
-          <Badge variant={statusVariant(liveStatus)} dot size="sm">
-            {statusLabel(liveStatus)}
-          </Badge>
-          <span
-            class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-            aria-hidden="true"
-          ></span>
-          <span class="font-mono tabular-nums">
-            {formatRange(detail.startsAt, detail.endsAt)}
-          </span>
-          <span
-            class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-            aria-hidden="true"
-          ></span>
-          <span>{m.examDetail_durationMinutes({ count: durationMinutes })}</span>
-          <span
-            class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-            aria-hidden="true"
-          ></span>
-          <span>
-            {#if isManager}
-              {m.examDetail_problemCount({ count: detail.problems.length })} ·
-            {/if}
-            {scoringLabel(detail.scoringMode)}
-          </span>
-        </div>
-      </div>
+  {#snippet examMeta()}
+    <Badge variant={statusVariant(liveStatus)} dot size="sm">
+      {statusLabel(liveStatus)}
+    </Badge>
+    <span
+      class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+      aria-hidden="true"
+    ></span>
+    <span class="font-mono tabular-nums">
+      {formatRange(detail.startsAt, detail.endsAt)}
+    </span>
+    <span
+      class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+      aria-hidden="true"
+    ></span>
+    <span>{m.examDetail_durationMinutes({ count: durationMinutes })}</span>
+    <span
+      class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+      aria-hidden="true"
+    ></span>
+    <span>
       {#if isManager}
-        <div class="flex shrink-0 items-center gap-2">
-          {#if canSetOverride}
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onclick={() => (showOverrideDrawer = true)}
-            >
-              {m.override_staff_buttonLabel()}
-            </Button>
-          {/if}
-          <TeacherBadge role="teacher" />
-        </div>
+        {m.examDetail_problemCount({ count: detail.problems.length })} ·
       {/if}
-    </div>
+      {scoringLabel(detail.scoringMode)}
+    </span>
+  {/snippet}
 
-    <!-- COUNTDOWN CARD -->
+  {#snippet examActions()}
+    {#if canSetOverride}
+      <Button
+        variant="outline"
+        size="sm"
+        type="button"
+        onclick={() => (showOverrideDrawer = true)}
+      >
+        {m.override_staff_buttonLabel()}
+      </Button>
+    {/if}
+    <TeacherBadge role="teacher" />
+  {/snippet}
+
+  {#snippet countdownRibbon()}
     <div
-      class="countdown-card animate-in animate-in-2 mt-8 grid items-center gap-8 rounded-3xl border px-10 py-10 shadow-rest"
+      class="countdown-card animate-in animate-in-2 grid items-center gap-8 rounded-3xl border px-10 py-10 shadow-rest"
     >
       <div>
         <div class="text-caption font-semibold uppercase tracking-[0.12em] text-primary">
@@ -292,21 +267,31 @@
         {/if}
       </div>
     </div>
+  {/snippet}
 
-    <!-- Placeholder banner surfaced when the start action returns fail() -->
-    {#if form?.error}
-      <div
-        role="alert"
-        class="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-body-sm text-warning"
-      >
-        {form.error}
-      </div>
-    {/if}
+  <PageHero
+    variant="workspace"
+    breadcrumbHref={examsListHref}
+    breadcrumbLabel={m.examShell_breadcrumb()}
+    eyebrow={m.examDetail_eyebrow()}
+    title={detail.title}
+    meta={examMeta}
+    actions={isManager ? examActions : undefined}
+    ribbon={countdownRibbon}
+  />
 
-    <!-- PROCTOR INFO ROW -->
+  {#if form?.error}
     <div
-      class="mt-6 grid gap-5 rounded-2xl border border-border bg-[color:var(--color-panel)]/60 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4"
+      role="alert"
+      class="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-body-sm text-warning"
     >
+      {form.error}
+    </div>
+  {/if}
+
+  <div
+    class="grid gap-5 rounded-2xl border border-border bg-[color:var(--color-panel)]/60 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4"
+  >
       <div class="flex items-start gap-3">
         <span
           class="flex size-9 shrink-0 items-center justify-center rounded-md bg-[color:var(--color-primary)]/14 text-primary"
@@ -378,7 +363,6 @@
         </div>
       </div>
     </div>
-  </section>
 
   <!-- TEACHER SUB-TABS + TWO COLUMNS -->
   {#if isManager}

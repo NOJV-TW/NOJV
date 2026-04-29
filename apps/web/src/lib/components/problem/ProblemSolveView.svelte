@@ -6,6 +6,7 @@
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary
   } from "$lib/types";
+  import MobileWorkspaceBlocker from "../layout/MobileWorkspaceBlocker.svelte";
   import AdvancedModeWorkspace from "./advanced/AdvancedModeWorkspace.svelte";
   import ProblemWorkspace from "./Workspace.svelte";
 
@@ -115,8 +116,15 @@
   );
 </script>
 
+<!-- Mobile (< md): the Monaco editor + submit form are hidden behind a
+     blocker. Statement remains accessible via the blocker's fullscreen
+     viewer. Server-side IP/page-lock checks are unchanged. -->
+<div class="md:hidden">
+  <MobileWorkspaceBlocker {problem} />
+</div>
+
 <div
-  class="flex h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-border shadow-rest"
+  class="hidden h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-border shadow-rest md:flex"
 >
   {#if showSiblingRail && siblingProblems}
     <!-- Exam-mode sibling problem navigator. Practice mode never renders this. -->

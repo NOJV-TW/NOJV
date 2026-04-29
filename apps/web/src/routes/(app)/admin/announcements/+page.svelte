@@ -3,7 +3,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Button, IconButton } from "$lib/components/ui/button";
   import { Card } from "$lib/components/ui/card";
-  import Section from "$lib/components/ui/Section.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import FormField from "$lib/components/ui/FormField.svelte";
   import { Input } from "$lib/components/ui/input";
@@ -25,25 +25,27 @@
   let showCreateForm = $state(false);
 </script>
 
-<Section class="space-y-6">
-  {#snippet header()}
-    <h2 class="inline-flex items-center gap-3">
-      {m.admin_announcementsTitle()}
-      <Badge variant="muted" size="sm">{data.announcements.length}</Badge>
-    </h2>
-    <p>{m.admin_announcementsSubtitle()}</p>
-  {/snippet}
-  {#snippet actions()}
-    <Button
-      variant="default"
-      size="default"
-      type="button"
-      onclick={() => (showCreateForm = !showCreateForm)}
-    >
-      <Plus class="h-4 w-4" />
-      {m.admin_announcementsNew()}
-    </Button>
-  {/snippet}
+{#snippet announcementsActions()}
+  <Badge variant="muted" size="sm">{data.announcements.length}</Badge>
+  <Button
+    variant="default"
+    size="default"
+    type="button"
+    onclick={() => (showCreateForm = !showCreateForm)}
+  >
+    <Plus class="h-4 w-4" />
+    {m.admin_announcementsNew()}
+  </Button>
+{/snippet}
+
+<PageHeader
+  eyebrow={m.admin_eyebrow()}
+  title={m.admin_announcementsTitle()}
+  description={m.admin_announcementsSubtitle()}
+  actions={announcementsActions}
+/>
+
+<div class="space-y-6">
 
   {#if showCreateForm}
     <Card variant="flat" size="md">
@@ -268,4 +270,4 @@
       </div>
     {/if}
   </Card>
-</Section>
+</div>

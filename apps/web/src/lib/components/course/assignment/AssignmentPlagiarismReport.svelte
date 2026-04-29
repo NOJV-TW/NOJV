@@ -28,21 +28,42 @@
     displayName: string;
     handle: string;
   }
+
+  export interface PlagiarismFlagEntry {
+    id: string;
+    pairKey: string;
+    flaggedBy: string;
+    flaggedAt: string;
+    note: string | null;
+  }
+
+  /** Match the server's `buildPairKey`: sort users, then `userA|userB|problemId`. */
+  export function pairKeyOf(pair: PlagiarismReportPair): string {
+    const [a, b] = [pair.userId1, pair.userId2].sort();
+    return `${a}|${b}|${pair.problemId}`;
+  }
 </script>
 
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/ui/button";
+  import { Button, LinkButton } from "$lib/components/ui/button";
   import { cn } from "$lib/utils.js";
 
   interface Props {
     report: PlagiarismReportData | null;
     problems: PlagiarismProblemEntry[];
     students: PlagiarismStudentEntry[];
+    flags?: PlagiarismFlagEntry[];
+    /** Used to build the per-pair diff route. */
+    assessmentId?: string;
     class?: string;
   }
 
-  let { report, problems, students, class: className }: Props = $props();
+  let { report, problems, students, flags = [], assessmentId, class: className }: Props = $props();
+
+  let showFlagged = $state(false);
+
+  const flaggedKeys = $derived(new Set(flags.map((f) => f.pairKey)));
 
   const problemsById = $derived(new Map(problems.map((p) => [p.problemId, p])));
   const studentsById = $derived(new Map(students.map((s) => [s.userId, s])));
@@ -82,15 +103,35 @@
     return copy;
   });
 
-  const highPairs = $derived(sortedPairs.filter((p) => p.similarity >= 70));
-  const mediumPairs = $derived(
-    sortedPairs.filter((p) => p.similarity >= 50 && p.similarity < 70),
+  // When `showFlagged` is false (default) we hide pairs that staff has marked
+  // as a false positive; when true we show them at reduced opacity so the
+  // grader can still review the decision.
+  const visiblePairs = $derived.by(() => {
+    if (showFlagged) return sortedPairs;
+    return sortedPairs.filter((p) => !flaggedKeys.has(pairKeyOf(p)));
+  });
+  const flaggedHiddenCount = $derived(
+    sortedPairs.filter((p) => flaggedKeys.has(pairKeyOf(p))).length,
   );
-  const totalPairs = $derived(sortedPairs.length);
+
+  function isFlagged(p: PlagiarismReportPair): boolean {
+    return flaggedKeys.has(pairKeyOf(p));
+  }
+
+  function diffHrefFor(p: PlagiarismReportPair): string | null {
+    if (!assessmentId) return null;
+    return `/assignments/${assessmentId}/plagiarism/pairs/${encodeURIComponent(pairKeyOf(p))}`;
+  }
+
+  const highPairs = $derived(visiblePairs.filter((p) => p.similarity >= 70));
+  const mediumPairs = $derived(
+    visiblePairs.filter((p) => p.similarity >= 50 && p.similarity < 70),
+  );
+  const totalPairs = $derived(visiblePairs.length);
 
   const histogram = $derived.by(() => {
     const buckets = new Array(10).fill(0);
-    for (const p of sortedPairs) {
+    for (const p of visiblePairs) {
       const idx = Math.min(9, Math.max(0, Math.floor(p.similarity / 10)));
       buckets[idx] += 1;
     }
@@ -131,7 +172,7 @@
 </script>
 
 <section data-slot="assignment-plagiarism" class={cn("space-y-5", className)}>
-  <div class="flex items-baseline justify-between gap-4">
+  <div class="flex flex-wrap items-baseline justify-between gap-4">
     <div>
       <h2 class="font-display text-title font-medium leading-tight">
         {m.assignmentDetail_plagHeading()}
@@ -142,6 +183,22 @@
         </p>
       {/if}
     </div>
+    {#if report?.status === "completed" && (flags.length > 0 || flaggedHiddenCount > 0)}
+      <label class="flex cursor-pointer items-center gap-2 text-body-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          class="h-4 w-4 accent-primary"
+          checked={showFlagged}
+          onchange={(e) => (showFlagged = (e.currentTarget as HTMLInputElement).checked)}
+        />
+        <span>
+          {m.plagiarism_showFlagged()}
+          {#if flaggedHiddenCount > 0 && !showFlagged}
+            <span class="ml-1 text-muted-foreground">({flaggedHiddenCount})</span>
+          {/if}
+        </span>
+      </label>
+    {/if}
   </div>
 
   {#if !report}
@@ -247,8 +304,15 @@
           {#each highPairs as pair, i (pairKey(pair))}
             {@const key = pairKey(pair)}
             {@const expanded = i === 0 || expandedPairKeys.has(key)}
-            <div class="rounded-lg border border-destructive/40 bg-destructive/[0.04] px-6 py-5">
-              <div class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4">
+            {@const flagged = isFlagged(pair)}
+            {@const diffHref = diffHrefFor(pair)}
+            <div
+              class={cn(
+                "rounded-lg border border-destructive/40 bg-destructive/[0.04] px-6 py-5",
+                flagged && "opacity-50",
+              )}
+            >
+              <div class="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4">
                 <div
                   class="min-w-[100px] font-display text-display font-medium leading-[0.9] tracking-[-0.03em] text-destructive"
                 >
@@ -270,12 +334,24 @@
                       {studentHandle(pair.userId2)}
                     </div>
                   </div>
+                  {#if flagged}
+                    <span
+                      class="ml-2 inline-flex items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-warning"
+                    >
+                      {m.plagiarism_flaggedBadge()}
+                    </span>
+                  {/if}
                 </div>
                 <span
                   class="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-caption font-semibold text-muted-foreground"
                 >
                   {problemLetter(pair.problemId)} · {problemTitle(pair.problemId)}
                 </span>
+                {#if diffHref}
+                  <LinkButton href={diffHref} variant="outline" size="sm">
+                    {m.plagiarism_openDiff()}
+                  </LinkButton>
+                {/if}
                 <Button
                   variant={i === 0 ? "default" : "outline"}
                   size="sm"
@@ -339,8 +415,15 @@
         </p>
         <div class="space-y-3">
           {#each mediumPairs as pair (pairKey(pair))}
-            <div class="rounded-lg border border-warning/30 bg-warning/[0.04] px-6 py-5">
-              <div class="grid grid-cols-[auto_1fr_auto] items-center gap-4">
+            {@const flagged = isFlagged(pair)}
+            {@const diffHref = diffHrefFor(pair)}
+            <div
+              class={cn(
+                "rounded-lg border border-warning/30 bg-warning/[0.04] px-6 py-5",
+                flagged && "opacity-50",
+              )}
+            >
+              <div class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4">
                 <div
                   class="min-w-[100px] font-display text-display font-medium leading-[0.9] tracking-[-0.03em] text-warning"
                 >
@@ -362,12 +445,24 @@
                       {studentHandle(pair.userId2)}
                     </div>
                   </div>
+                  {#if flagged}
+                    <span
+                      class="ml-2 inline-flex items-center rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-micro font-semibold uppercase tracking-wide text-warning"
+                    >
+                      {m.plagiarism_flaggedBadge()}
+                    </span>
+                  {/if}
                 </div>
                 <span
                   class="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1 text-caption font-semibold text-muted-foreground"
                 >
                   {problemLetter(pair.problemId)} · {problemTitle(pair.problemId)}
                 </span>
+                {#if diffHref}
+                  <LinkButton href={diffHref} variant="outline" size="sm">
+                    {m.plagiarism_openDiff()}
+                  </LinkButton>
+                {/if}
               </div>
             </div>
           {/each}
