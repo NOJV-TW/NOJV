@@ -69,7 +69,7 @@ behavior:
   hidden. Component shows "請使用桌面版瀏覽器作答" + button to open the
   problem statement in fullscreen reading mode.
 - Implementation: pure CSS `hidden md:block` on the workspace section
-  + visible blocker. No JS-side route guard needed.
+  - visible blocker. No JS-side route guard needed.
 - Sweep pass: every `(app)` page must work at `sm` width — fix any
   overflow / clipping / unreadable nav. Manual smoke test list at
   bottom of plan.
