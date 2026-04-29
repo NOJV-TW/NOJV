@@ -24,9 +24,30 @@ spec:
       # on a separate tainted pool so they can never starve the worker.
       nodeSelector:
         nojv-role: worker
+      # Pod-level: refuse to run as root, apply container runtime's default
+      # seccomp profile. uid/gid 1001 matches `USER appuser` in
+      # infra/docker/worker.Dockerfile — keep these in sync if the Dockerfile
+      # ever switches user/uid.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: worker
           image: asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:latest
+          # Container-level hardening. /tmp + the Node ipc socket need to be
+          # writable, so we keep the rootfs read-only and back the writable
+          # paths with emptyDir volumes below.
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           env:
             - name: PORT
               value: "8080"
@@ -76,3 +97,7 @@ spec:
             limits:
               cpu: "2"
               memory: 1Gi
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
