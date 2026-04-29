@@ -66,7 +66,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 ### Worker Unavailable
 
 **Impact**: No submission judging, no lifecycle transitions.
-**Mitigation**: Temporal retries activities when workers reconnect. KEDA auto-scales in production.
+**Mitigation**: Temporal retries activities when workers reconnect. Workers run as a static GKE Deployment with a PodDisruptionBudget (KEDA-based autoscaling removed in commit `c1ed096`); pending workflows queue in Temporal until capacity returns.
 **Recovery**: Start new worker. Temporal automatically dispatches pending activities.
 
 ### Sandbox Failure
