@@ -85,11 +85,9 @@
 
 ### Authentication
 
-- Email/password sign-in (bcrypt)
-- GitHub OAuth
-- Google OAuth
-- Profile completion and email verification flow
-- Admin-specific sign-in page
+- Third-party sign-in only — GitHub OAuth + Google OAuth (no public email/password flow)
+- Profile completion and email verification flow on first OAuth sign-in
+- Admin-specific sign-in page (seeded credentials only — no self-serve email/password registration, no password-reset flow)
 
 ### Administration
 
