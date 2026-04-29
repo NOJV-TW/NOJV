@@ -12,6 +12,8 @@ export {
 } from "./queries";
 export { aggregateByTag } from "./analytics-helpers";
 export type { TagAcCount } from "./analytics-helpers";
+export { getStreakDays, getSuggestedProblems } from "./analytics";
+export type { SuggestedProblem } from "./analytics";
 export {
   initiateSchoolVerification,
   processSchoolVerification,
