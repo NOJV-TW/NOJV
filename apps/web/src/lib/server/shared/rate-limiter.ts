@@ -17,16 +17,18 @@ interface RateLimiterLike {
   consume: (key: string) => Promise<unknown>;
 }
 
-const FAIL_CLOSED_ERROR = Object.freeze({
-  msBeforeNext: 60_000,
-  remainingPoints: 0,
-  consumedPoints: 1,
-  isFirstInDuration: false,
-});
+class RateLimiterFailClosedError extends Error {
+  readonly msBeforeNext = 60_000;
+  readonly remainingPoints = 0;
+  constructor() {
+    super("Rate limiter unavailable — failing closed");
+    this.name = "RateLimiterFailClosedError";
+  }
+}
 
 const failClosedLimiter: RateLimiterLike = {
-  async consume() {
-    throw FAIL_CLOSED_ERROR;
+  consume() {
+    return Promise.reject(new RateLimiterFailClosedError());
   },
 };
 
@@ -68,7 +70,7 @@ export async function consumeFormRateLimit(event: {
     await formActionRateLimiter.consume(event.getClientAddress());
     return null;
   } catch (err) {
-    if (err instanceof RateLimiterRes || err === FAIL_CLOSED_ERROR) {
+    if (err instanceof RateLimiterRes || err instanceof RateLimiterFailClosedError) {
       return fail(429, { error: "Too many requests. Please try again later." });
     }
     throw err;
@@ -77,4 +79,4 @@ export async function consumeFormRateLimit(event: {
 
 // Exposed for tests so they can assert fail-closed behaviour without spinning
 // up a real Redis. Production code should not import this.
-export const __test = { createRateLimiter, FAIL_CLOSED_ERROR };
+export const __test = { createRateLimiter, RateLimiterFailClosedError };

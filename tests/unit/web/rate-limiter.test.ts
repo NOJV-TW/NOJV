@@ -38,9 +38,11 @@ describe("rate limiter fail-closed in production", () => {
 
     const mod = await import("$lib/server/shared/rate-limiter");
     // Every consume should reject — no in-memory fallback in production.
-    await expect(mod.apiRateLimiter.consume("ip-prod")).rejects.toBe(mod.__test.FAIL_CLOSED_ERROR);
-    await expect(mod.writeApiRateLimiter.consume("ip-prod")).rejects.toBe(
-      mod.__test.FAIL_CLOSED_ERROR,
+    await expect(mod.apiRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
+      mod.__test.RateLimiterFailClosedError,
+    );
+    await expect(mod.writeApiRateLimiter.consume("ip-prod")).rejects.toBeInstanceOf(
+      mod.__test.RateLimiterFailClosedError,
     );
   });
 

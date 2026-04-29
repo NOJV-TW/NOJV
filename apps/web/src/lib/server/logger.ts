@@ -3,12 +3,12 @@ import type { RequestEvent } from "@sveltejs/kit";
 
 const base = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
-export type Logger = {
+export interface Logger {
   debug: (message: string, data?: Record<string, unknown>) => void;
   info: (message: string, data?: Record<string, unknown>) => void;
   warn: (message: string, data?: Record<string, unknown>) => void;
   error: (message: string, data?: Record<string, unknown>) => void;
-};
+}
 
 function wrap(child: pino.Logger): Logger {
   return {
