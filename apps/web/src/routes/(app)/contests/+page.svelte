@@ -164,11 +164,11 @@
     description={m.contests_subtitle()}
   />
 
-  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
+  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
     <div
       role="tablist"
       aria-label={m.navigation_contests()}
-      class="flex flex-1 items-center gap-1"
+      class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
     >
       {#each [{ key: "participable" as const, label: m.contests_tabParticipable(), count: tabCounts.participable }, { key: "managed" as const, label: m.contests_tabManaged(), count: tabCounts.managed }] as tab (tab.key)}
         {@const isActive = tab.key === tabValue}

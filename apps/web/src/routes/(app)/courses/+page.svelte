@@ -50,8 +50,8 @@
     description={m.courses_subtitle()}
   />
 
-  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
-    <div role="tablist" aria-label="Course tabs" class="flex flex-1 items-center gap-1">
+  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
+    <div role="tablist" aria-label="Course tabs" class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {#each [{ key: "enrolled" as const, label: m.courses_tabEnrolled(), count: tabCounts.enrolled }, { key: "managing" as const, label: m.courses_tabManaging(), count: tabCounts.managing }] as tab (tab.key)}
         {@const isActive = tab.key === activeTab}
         <button
