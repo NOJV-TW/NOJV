@@ -8,6 +8,9 @@
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/layout/PageHeader.svelte";
+  import StreakCard from "$lib/components/dashboard/StreakCard.svelte";
+  import WeeklyTrendCard from "$lib/components/dashboard/WeeklyTrendCard.svelte";
+  import SuggestedProblemsCard from "$lib/components/dashboard/SuggestedProblemsCard.svelte";
   import { formatVerdictLabel } from "$lib/types";
   import type { BadgeVariant } from "$lib/components/ui/badge";
   import type { EChartsOption } from "echarts";
@@ -239,6 +242,12 @@
     {/if}
   </Card>
 
+  <!-- Section 2.5 — Streak + Weekly Trend -->
+  <div class="grid gap-4 md:grid-cols-2">
+    <StreakCard streakDays={data.streakDays} />
+    <WeeklyTrendCard data={data.weeklyTrend} />
+  </div>
+
   <!-- Section 3 — Ability Profile -->
   <div class="grid gap-4">
     <Card variant="surface" size="lg">
@@ -329,5 +338,8 @@
       />
     {/if}
   </Card>
+
+  <!-- Section 5 — Suggested problems -->
+  <SuggestedProblemsCard problems={data.suggestedProblems} />
   </div>
 </PageContainer>
