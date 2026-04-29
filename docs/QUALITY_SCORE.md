@@ -18,6 +18,14 @@ Track documentation quality and implementation legibility as an honest ledger.
 
 ## Doc Drift Status
 
+- 2026-04-29 production-readiness pass: 4 parallel agent worktrees merged into main covering security, reliability, tests, deployment.
+  - Security: rate-limiter `fail-closed` in production (`apps/web/src/lib/server/shared/rate-limiter.ts`); `/api/**` mutations require `X-Requested-With: fetch` (CSRF), 13 client call sites updated; new `RateLimiterFailClosedError`.
+  - Observability: per-request `requestId` (inbound `X-Request-Id` reused if safe, else `crypto.randomUUID()`) on `event.locals` + response header; `getLogger(context, event)` pino child; `/api/healthz` now probes Temporal (2 s timeout, informational); GCP Cloud Logging-compatible JSON output in production for `apps/web` + `apps/worker` loggers (severity, message, timestamp, base: null).
+  - Reliability: `ContestParticipation.version` optimistic lock + `updateWithVersion` repo method + retry-up-to-3 in `updateContestScores`; new migration `20260429000000_add_contest_participation_version`.
+  - Tests: 47 new tests — `build-subtask-results`, `judge-context`, `submission-mutations-boundaries` (unit) + `submission-judge-flow` (integration); 1 race-condition unit test for the optimistic lock.
+  - Deployment: `worker.deployment.yaml` now sets `runAsNonRoot/runAsUser=1001/readOnlyRootFilesystem/drop ALL caps/seccompProfile=RuntimeDefault` + 64Mi tmp emptyDir; `docs/DEPLOYMENT.md` rewrites the KEDA-era scaling story to static replicas + PDB; new `docs/runbooks/backup-restore.md` linked from `CLAUDE.md` + incident-recovery; same-day cleanup of stale KEDA references in `docs/THREAT_MODEL.md:193` + `docs/RELIABILITY.md:69`.
+  - Verification: `pnpm -w typecheck` 17/17, `pnpm lint` 18/18, `pnpm test:unit` 547/547, prettier clean.
+
 - 2026-04-20 targeted bug + perf sweep: fixed six audit findings — (1)
   rejudge path now calls `adjustUserStatsForRejudge` so
   `UserDailyActivity.acCount` delta-adjusts on the submission's original

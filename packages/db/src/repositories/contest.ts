@@ -5,6 +5,25 @@ import { problemMiniSelect, userMiniSelect, userScoreboardSelect } from "./selec
 
 type TxClient = TransactionClient;
 
+/**
+ * Thrown by `contestParticipationRepo.updateWithVersion` when the row's
+ * `version` column has moved on since the caller read it (Prisma surfaces
+ * this as P2025). The domain layer catches this and retries on a fresh read.
+ */
+export class ParticipationVersionConflict extends Error {
+  readonly participationId: string;
+  readonly expectedVersion: number;
+
+  constructor(participationId: string, expectedVersion: number) {
+    super(
+      `ContestParticipation ${participationId} version ${String(expectedVersion)} no longer current.`,
+    );
+    this.name = "ParticipationVersionConflict";
+    this.participationId = participationId;
+    this.expectedVersion = expectedVersion;
+  }
+}
+
 const contestListInclude = {
   _count: { select: { participations: true, problems: true } },
 } as const;
@@ -245,6 +264,31 @@ export const contestParticipationRepo = {
       data,
       where: { id },
     });
+  },
+
+  /**
+   * Optimistic-lock update: only writes when the current row's `version`
+   * still matches `expectedVersion`, and bumps it by one in the same
+   * statement. If another writer raced ahead, Prisma's `update` raises
+   * P2025 (record not found) — we translate that to `ParticipationVersionConflict`
+   * so callers can retry on a fresh read.
+   */
+  async updateWithVersion(
+    id: string,
+    expectedVersion: number,
+    data: Prisma.ContestParticipationUpdateInput,
+  ) {
+    try {
+      return await prisma.contestParticipation.update({
+        data: { ...data, version: { increment: 1 } },
+        where: { id, version: expectedVersion },
+      });
+    } catch (err) {
+      if (err instanceof Error && (err as { code?: string }).code === "P2025") {
+        throw new ParticipationVersionConflict(id, expectedVersion);
+      }
+      throw err;
+    }
   },
 
   // Id-only lookup — used by score-override invalidation so we can call

@@ -7,7 +7,12 @@ export type {
   ClarificationCreateInput,
   ClarificationAnswerUpdate,
 } from "./clarification";
-export { contestRepo, contestProblemRepo, contestParticipationRepo } from "./contest";
+export {
+  contestRepo,
+  contestProblemRepo,
+  contestParticipationRepo,
+  ParticipationVersionConflict,
+} from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";

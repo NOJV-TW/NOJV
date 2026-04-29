@@ -59,7 +59,7 @@
     try {
       const res = await fetch("/api/exam-session/end", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ examId: context.examId, reason: "submitted" })
       });
       if (!res.ok) {

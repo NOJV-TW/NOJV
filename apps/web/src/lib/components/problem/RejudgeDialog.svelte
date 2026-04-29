@@ -89,7 +89,7 @@
     try {
       const res = await fetch("/api/rejudge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify(payload)
       });
       if (res.ok) {

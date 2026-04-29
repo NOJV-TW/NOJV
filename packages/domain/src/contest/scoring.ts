@@ -1,13 +1,14 @@
 import {
   contestRepo,
   contestParticipationRepo,
+  ParticipationVersionConflict,
   scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
 import type { ContestScoringMode, ScoreboardMode } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
 
-import { NotFoundError } from "../shared/errors";
+import { ConflictError, NotFoundError } from "../shared/errors";
 import {
   buildScoreboard,
   buildScoreboardChartSeries,
@@ -38,80 +39,118 @@ export interface ChartData {
   }[];
 }
 
+const SCORE_UPDATE_MAX_ATTEMPTS = 3;
+
+/**
+ * Recompute and persist a participant's score / penalty / per-problem
+ * subtotals from their submissions and any active overrides.
+ *
+ * Concurrency: multiple Temporal workflows can call this for the same
+ * participation in parallel (rejudge fan-out, override edits, late
+ * submissions). The repo enforces optimistic locking on the participation
+ * row's `version` column; on conflict we re-read submissions+overrides
+ * and recompute, up to SCORE_UPDATE_MAX_ATTEMPTS. If we still lose
+ * the race, we throw `ConflictError` and let the workflow retry policy
+ * take over.
+ */
 export async function updateContestScores(contestParticipationId: string): Promise<void> {
-  const participation =
-    await contestParticipationRepo.findByIdWithContest(contestParticipationId);
+  for (let attempt = 1; attempt <= SCORE_UPDATE_MAX_ATTEMPTS; attempt++) {
+    const participation =
+      await contestParticipationRepo.findByIdWithContest(contestParticipationId);
 
-  if (!participation) return;
+    if (!participation) return;
 
-  const { contest } = participation;
+    const { contest } = participation;
 
-  const allSubmissions = await submissionRepo.findForParticipationScoring(participation.id);
+    const allSubmissions = await submissionRepo.findForParticipationScoring(participation.id);
 
-  const contestProblems = new Map(contest.problems.map((p) => [p.problemId, p]));
+    const contestProblems = new Map(contest.problems.map((p) => [p.problemId, p]));
 
-  if (contest.scoringMode === "problem_count") {
-    let solvedCount = 0;
-    let totalPenalty = 0;
+    try {
+      if (contest.scoringMode === "problem_count") {
+        let solvedCount = 0;
+        let totalPenalty = 0;
 
-    const byProblem = new Map<string, typeof allSubmissions>();
-    for (const sub of allSubmissions) {
-      if (!contestProblems.has(sub.problemId)) continue;
-      const existing = byProblem.get(sub.problemId) ?? [];
-      existing.push(sub);
-      byProblem.set(sub.problemId, existing);
-    }
+        const byProblem = new Map<string, typeof allSubmissions>();
+        for (const sub of allSubmissions) {
+          if (!contestProblems.has(sub.problemId)) continue;
+          const existing = byProblem.get(sub.problemId) ?? [];
+          existing.push(sub);
+          byProblem.set(sub.problemId, existing);
+        }
 
-    for (const [, problemSubs] of byProblem) {
-      const { solved, penaltySeconds } = computeProblemCountPenalty(
-        problemSubs,
-        contest.startsAt,
-      );
-      if (solved) {
-        solvedCount++;
-        totalPenalty += penaltySeconds;
+        for (const [, problemSubs] of byProblem) {
+          const { solved, penaltySeconds } = computeProblemCountPenalty(
+            problemSubs,
+            contest.startsAt,
+          );
+          if (solved) {
+            solvedCount++;
+            totalPenalty += penaltySeconds;
+          }
+        }
+
+        await contestParticipationRepo.updateWithVersion(
+          participation.id,
+          participation.version,
+          {
+            penaltySeconds: totalPenalty,
+            score: solvedCount,
+          },
+        );
+
+        const packedScore = solvedCount * 1e9 - totalPenalty;
+        await scoreboard.updateScoreboard(contest.id, participation.id, packedScore);
+      } else {
+        const bestByProblem = new Map<string, number>();
+        for (const sub of allSubmissions) {
+          if (!contestProblems.has(sub.problemId)) continue;
+          const current = bestByProblem.get(sub.problemId) ?? 0;
+          if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
+        }
+
+        // Overlay any per-problem overrides for this participant — overrides
+        // win over the best-submission aggregate, even for problems they
+        // never submitted to.
+        const overrideRows = await scoreOverrideRepo.findAllByContext("contest", contest.id);
+        for (const row of overrideRows) {
+          if (row.userId !== participation.userId) continue;
+          if (!contestProblems.has(row.problemId)) continue;
+          bestByProblem.set(row.problemId, row.overrideScore);
+        }
+
+        let totalScore = 0;
+        const subtaskScores: Record<string, number> = {};
+        for (const [problemId, best] of bestByProblem) {
+          totalScore += best;
+          subtaskScores[problemId] = best;
+        }
+
+        await contestParticipationRepo.updateWithVersion(
+          participation.id,
+          participation.version,
+          {
+            score: totalScore,
+            subtaskScores,
+          },
+        );
+
+        await scoreboard.updateScoreboard(contest.id, participation.id, totalScore);
       }
+
+      return;
+    } catch (err) {
+      if (err instanceof ParticipationVersionConflict) {
+        // Another writer landed first — retry on a fresh read.
+        continue;
+      }
+      throw err;
     }
-
-    await contestParticipationRepo.update(participation.id, {
-      penaltySeconds: totalPenalty,
-      score: solvedCount,
-    });
-
-    const packedScore = solvedCount * 1e9 - totalPenalty;
-    await scoreboard.updateScoreboard(contest.id, participation.id, packedScore);
-  } else {
-    const bestByProblem = new Map<string, number>();
-    for (const sub of allSubmissions) {
-      if (!contestProblems.has(sub.problemId)) continue;
-      const current = bestByProblem.get(sub.problemId) ?? 0;
-      if (sub.score > current) bestByProblem.set(sub.problemId, sub.score);
-    }
-
-    // Overlay any per-problem overrides for this participant — overrides
-    // win over the best-submission aggregate, even for problems they
-    // never submitted to.
-    const overrideRows = await scoreOverrideRepo.findAllByContext("contest", contest.id);
-    for (const row of overrideRows) {
-      if (row.userId !== participation.userId) continue;
-      if (!contestProblems.has(row.problemId)) continue;
-      bestByProblem.set(row.problemId, row.overrideScore);
-    }
-
-    let totalScore = 0;
-    const subtaskScores: Record<string, number> = {};
-    for (const [problemId, best] of bestByProblem) {
-      totalScore += best;
-      subtaskScores[problemId] = best;
-    }
-
-    await contestParticipationRepo.update(participation.id, {
-      score: totalScore,
-      subtaskScores,
-    });
-
-    await scoreboard.updateScoreboard(contest.id, participation.id, totalScore);
   }
+
+  throw new ConflictError(
+    `Could not persist score for participation ${contestParticipationId} after ${String(SCORE_UPDATE_MAX_ATTEMPTS)} attempts.`,
+  );
 }
 
 export async function getScoreboard(
