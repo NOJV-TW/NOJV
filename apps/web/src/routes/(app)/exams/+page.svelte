@@ -5,6 +5,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -87,23 +89,16 @@
   }
 </script>
 
-<div class="pb-24">
-  <!-- Page head -->
-  <header class="animate-in mb-8">
-    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
-      {m.examsTop_eyebrow()}
-    </p>
-    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
-      {m.navigation_exams()}
-    </h1>
-    <p class="mt-2 text-body text-muted-foreground">
-      {m.examsTop_subtitle()}
-    </p>
-  </header>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.examsTop_eyebrow()}
+    title={m.navigation_exams()}
+    description={m.examsTop_subtitle()}
+  />
 
   <!-- Tab row -->
-  <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
-    <div role="tablist" aria-label={m.navigation_exams()} class="flex flex-1 items-center gap-1">
+  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
+    <div role="tablist" aria-label={m.navigation_exams()} class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
       {#each [{ key: "all", label: m.examsTop_filterAll(), count: counts.all }, { key: "running", label: m.examsTop_filterRunning(), count: counts.running }, { key: "upcoming", label: m.examsTop_filterUpcoming(), count: counts.upcoming }, { key: "ended", label: m.examsTop_filterEnded(), count: counts.ended }] as tab (tab.key)}
         {@const isActive = tab.key === currentFilter}
         <button
@@ -163,7 +158,7 @@
             : "bg-muted-foreground"}
         <a
           href={`/exams/${exam.id}`}
-          class="group relative grid grid-cols-[auto_1fr_auto] items-center gap-6 overflow-hidden rounded-2xl border border-border bg-[color:var(--color-panel)] px-7 py-6 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest"
+          class="group relative grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3 overflow-hidden rounded-2xl border border-border bg-[color:var(--color-panel)] px-5 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest sm:grid-cols-[auto_1fr_auto] sm:gap-6 sm:px-7 sm:py-6"
         >
           <!-- Left status accent bar (always visible, color by status) -->
           <span
@@ -251,7 +246,7 @@
           </div>
 
           <!-- Right block -->
-          <div class="flex items-center gap-4">
+          <div class="col-span-2 flex flex-wrap items-center gap-3 sm:col-span-1 sm:gap-4">
             {#if exam.status === "running"}
               {#if hint}
                 <div
@@ -277,8 +272,7 @@
       {/each}
     </div>
   {/if}
-
-</div>
+</PageContainer>
 
 <style>
   .exam-live-dot {

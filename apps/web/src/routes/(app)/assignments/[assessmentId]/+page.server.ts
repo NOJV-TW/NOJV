@@ -33,7 +33,7 @@ import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
-const { findPlagiarismReport } = plagiarismDomain;
+const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
 const { listEditableProblems } = problemDomain;
 const {
   archiveAssessment,
@@ -75,6 +75,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       detail,
       matrix,
       plagiarism,
+      plagiarismFlags,
       candidateProblems,
       canSetOverride,
       canAskClar,
@@ -86,6 +87,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       }),
       buildSubmissionsMatrix(courseId, assessmentId),
       findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(() => null),
+      listFlagsForContext("assessment", assessmentId).catch(() => []),
       listEditableProblems(actor.userId),
       scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId),
       clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
@@ -129,6 +131,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             results: plagiarism.results as unknown,
           }
         : null,
+      plagiarismFlags: plagiarismFlags.map((f) => ({
+        id: f.id,
+        pairKey: f.pairKey,
+        flaggedBy: f.flaggedBy,
+        flaggedAt: f.flaggedAt.toISOString(),
+        note: f.note,
+      })),
     };
   }
 

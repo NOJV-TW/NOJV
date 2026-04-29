@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { Users } from "@lucide/svelte";
   import { Card } from "$lib/components/ui/card";
-  import Section from "$lib/components/ui/Section.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import SystemTextToggle, {
     type UiLang
@@ -30,22 +30,18 @@
   }
 </script>
 
-<Section class="space-y-4">
-  {#snippet header()}
-    <h2 class="inline-flex items-center gap-2">
-      <Users class="h-5 w-5 text-muted-foreground" />
-      {m.admin_usersTitle()}
-    </h2>
-    <p>
-      {data.totalCount}
-      {data.totalCount === 1 ? labels.userFound : labels.usersFound} &middot;
-      {labels.page} {data.page} {labels.of} {data.totalPages}
-    </p>
-  {/snippet}
-  {#snippet actions()}
-    <SystemTextToggle bind:value={uiLang} label={labels.systemText} />
-  {/snippet}
+{#snippet usersActions()}
+  <SystemTextToggle bind:value={uiLang} label={labels.systemText} />
+{/snippet}
 
+<PageHeader
+  eyebrow={m.admin_eyebrow()}
+  title={m.admin_usersTitle()}
+  description={`${data.totalCount} ${data.totalCount === 1 ? labels.userFound : labels.usersFound} · ${labels.page} ${data.page} ${labels.of} ${data.totalPages}`}
+  actions={usersActions}
+/>
+
+<div class="space-y-4">
   <FilterBar
     bind:search={searchValue}
     bind:role={roleValue}
@@ -73,4 +69,4 @@
     roleFilter={data.roleFilter}
     {labels}
   />
-</Section>
+</div>

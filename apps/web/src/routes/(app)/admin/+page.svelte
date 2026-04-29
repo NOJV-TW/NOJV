@@ -1,7 +1,6 @@
 <script lang="ts">
   import { browser } from "$app/environment";
   import {
-    Activity,
     AlertTriangle,
     BarChart3,
     BookOpen,
@@ -17,10 +16,11 @@
   import EChart from "$lib/components/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
   import { onMount } from "svelte";
-  import Section from "$lib/components/ui/Section.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import StatCard from "$lib/components/ui/StatCard.svelte";
   import { Card } from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
+  import { m } from "$lib/paraglide/messages.js";
 
   let { data }: { data: any } = $props();
 
@@ -206,37 +206,37 @@
 
 </script>
 
-<Section class="space-y-6">
-  {#snippet header()}
-    <h2 class="inline-flex items-center gap-2">
-      <Activity class="h-5 w-5 text-muted-foreground" />
-      {t("overview")}
-    </h2>
-    <p>{t("overviewSubtitle")}</p>
-  {/snippet}
-  {#snippet actions()}
-    <div class="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-muted/30 p-1">
-      <span class="inline-flex items-center gap-1 px-2 text-caption text-muted-foreground">
-        <Languages class="h-3.5 w-3.5" />
-        {t("systemText")}
-      </span>
-      <button
-        type="button"
-        class="min-h-9 rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}"
-        onclick={() => setUiLang("zh")}
-      >
-        {t("zh")}
-      </button>
-      <button
-        type="button"
-        class="min-h-9 rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}"
-        onclick={() => setUiLang("en")}
-      >
-        {t("english")}
-      </button>
-    </div>
-  {/snippet}
+{#snippet langToggle()}
+  <div class="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-muted/30 p-1">
+    <span class="inline-flex items-center gap-1 px-2 text-caption text-muted-foreground">
+      <Languages class="h-3.5 w-3.5" />
+      {t("systemText")}
+    </span>
+    <button
+      type="button"
+      class="min-h-9 rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {uiLang === 'zh' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => setUiLang("zh")}
+    >
+      {t("zh")}
+    </button>
+    <button
+      type="button"
+      class="min-h-9 rounded-full px-3 py-1 text-caption font-medium transition-colors duration-fast ease-out-soft {uiLang === 'en' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}"
+      onclick={() => setUiLang("en")}
+    >
+      {t("english")}
+    </button>
+  </div>
+{/snippet}
 
+<PageHeader
+  eyebrow={m.admin_eyebrow()}
+  title={t("overview")}
+  description={t("overviewSubtitle")}
+  actions={langToggle}
+/>
+
+<div class="space-y-6">
   <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
     <StatCard
       label={t("users")}
@@ -376,5 +376,4 @@
       {/if}
     </Card>
   </section>
-
-</Section>
+</div>
