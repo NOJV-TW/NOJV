@@ -147,7 +147,22 @@ async function getCachedActiveExamContext(userId: string): Promise<ActiveExamCon
   return context;
 }
 
+/**
+ * Reuse an inbound `X-Request-Id` only if it looks safe (printable ASCII,
+ * <= 128 chars). Otherwise mint a fresh UUID. This protects logs and
+ * downstream systems from header-injected control characters.
+ */
+function deriveRequestId(headers: Headers): string {
+  const incoming = headers.get("x-request-id");
+  if (incoming && incoming.length > 0 && incoming.length <= 128 && /^[\w.-]+$/.test(incoming)) {
+    return incoming;
+  }
+  return crypto.randomUUID();
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
+  event.locals.requestId = deriveRequestId(event.request.headers);
+
   const cleanPath = stripLocalePrefix(event.url.pathname);
 
   if (
@@ -156,7 +171,10 @@ export const handle: Handle = async ({ event, resolve }) => {
   ) {
     const origin = event.request.headers.get("origin");
     if (origin && origin !== event.url.origin) {
-      return new Response("CSRF validation failed", { status: 403 });
+      return new Response("CSRF validation failed", {
+        status: 403,
+        headers: { "x-request-id": event.locals.requestId },
+      });
     }
 
     // Require an `X-Requested-With: fetch` header on /api/** mutations.
@@ -172,7 +190,13 @@ export const handle: Handle = async ({ event, resolve }) => {
       if (xrw !== "fetch") {
         return new Response(
           JSON.stringify({ message: "CSRF token required", code: "csrf_required" }),
-          { status: 403, headers: { "content-type": "application/json" } },
+          {
+            status: 403,
+            headers: {
+              "content-type": "application/json",
+              "x-request-id": event.locals.requestId,
+            },
+          },
         );
       }
     }
@@ -180,7 +204,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // Let better-auth own the callback/sign-in flow without additional middleware.
   if (cleanPath.startsWith("/api/auth")) {
-    return resolve(event);
+    const response = await resolve(event);
+    response.headers.set("x-request-id", event.locals.requestId);
+    return response;
   }
 
   const session = await getAuth().api.getSession({
@@ -263,6 +289,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.request = request;
     const response = await resolve(event);
     setSecurityHeaders(response);
+    response.headers.set("x-request-id", event.locals.requestId);
     return response;
   });
 };
@@ -270,11 +297,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 // Expected domain errors are wrapped by `handleLoad`; anything reaching here is an unexpected throw.
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
   const classified = classifyError(error);
+  const requestId = event.locals.requestId;
 
   // An "http" classification here is a domain HttpError that escaped an unwrapped load function.
   if (classified.type === "http") {
     errorLogger.warn("Unwrapped domain HttpError reached handleError", {
       method: event.request.method,
+      requestId,
       status: classified.status,
       url: event.url.pathname,
     });
@@ -284,6 +313,7 @@ export const handleError: HandleServerError = ({ error, event, status, message }
   errorLogger.error("Unhandled server error", {
     err: error instanceof Error ? error.message : String(error),
     method: event.request.method,
+    requestId,
     stack: error instanceof Error ? error.stack : undefined,
     status,
     url: event.url.pathname,
