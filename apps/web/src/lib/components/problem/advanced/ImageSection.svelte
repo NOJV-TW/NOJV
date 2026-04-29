@@ -40,6 +40,7 @@
       body.set("tarball", file);
       const res = await fetch(`/api/problems/${problemId}/advanced-image`, {
         method: "POST",
+        headers: { "X-Requested-With": "fetch" },
         body,
       });
       if (!res.ok) {

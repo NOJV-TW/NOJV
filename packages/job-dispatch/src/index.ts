@@ -22,4 +22,4 @@ export type {
   RejudgeProgress,
 } from "./dispatch";
 
-export { closeClient } from "./client";
+export { closeClient, getClient as getTemporalClient } from "./client";

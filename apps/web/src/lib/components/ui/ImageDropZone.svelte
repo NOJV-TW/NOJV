@@ -32,6 +32,7 @@
 
         const res = await fetch(`/api/problems/${problemId}/images`, {
           method: "POST",
+          headers: { "X-Requested-With": "fetch" },
           body: form,
         });
 
