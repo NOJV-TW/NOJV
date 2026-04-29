@@ -13,6 +13,7 @@
   import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/ui/button";
   import FormError from "$lib/components/ui/FormError.svelte";
+  import PageHero from "$lib/components/layout/PageHero.svelte";
   import { inputClassName, toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
@@ -87,18 +88,16 @@
 </script>
 
 <div class="space-y-6 pb-20">
-  <!-- Page head -->
-  <section class="animate-in space-y-2">
-    <a
-      class="inline-flex items-center gap-1 text-body-sm text-muted-foreground no-underline hover:text-foreground"
-      href={`/courses/${courseId}/exams`}
-    >
-      <ChevronLeft class="h-4 w-4" />
-      {m.examCreate_breadcrumb()}
-    </a>
-    <h1 class="font-display text-title-lg">{m.examCreate_title()}</h1>
-    <p class="text-body-sm text-muted-foreground">{m.examCreate_subtitle()}</p>
-  </section>
+  <PageHero
+    variant="workspace"
+    breadcrumbHref={`/courses/${courseId}/exams`}
+    breadcrumbLabel={m.examCreate_breadcrumb()}
+    eyebrow={m.examCreate_eyebrow()}
+    title={m.examCreate_title()}
+  />
+  <p class="animate-in max-w-2xl text-body-sm text-muted-foreground">
+    {m.examCreate_subtitle()}
+  </p>
 
   {#if $formMessage?.kind === "success"}
     <p class="text-body-sm text-success">{$formMessage.text}</p>

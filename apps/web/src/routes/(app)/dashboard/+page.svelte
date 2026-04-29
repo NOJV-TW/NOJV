@@ -6,6 +6,8 @@
   import { Card } from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import { formatVerdictLabel } from "$lib/types";
   import type { BadgeVariant } from "$lib/components/ui/badge";
   import type { EChartsOption } from "echarts";
@@ -168,52 +170,57 @@
   }
 </script>
 
-<div class="space-y-6">
-  <!-- Section 1 — Hero Bar -->
-  <Card variant="surface" size="lg">
-    <div class="flex flex-col gap-6">
-      <div class="flex items-baseline justify-between gap-4">
-        <h1 class="text-title-sm font-semibold">
-          {m.dashboard_welcome({ username: data.username })}
-        </h1>
-        <span class="text-caption text-muted-foreground">
-          {m.dashboard_last30Days()}
-        </span>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.dashboard_eyebrow()}
+    title={m.dashboard_welcome({ username: data.username })}
+    description={m.dashboard_subtitle()}
+  />
+
+  <div class="space-y-6">
+    <!-- Section 1 — Stat strip (kept here so Phase 5 can revisit; only the
+         eyebrow/title above moved into <PageHeader>). -->
+    <Card variant="surface" size="lg">
+      <div class="flex flex-col gap-6">
+        <div class="flex items-baseline justify-end gap-4">
+          <span class="text-caption text-muted-foreground">
+            {m.dashboard_last30Days()}
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
+          <div class="flex flex-col gap-1">
+            <span class="text-caption text-muted-foreground">
+              {m.dashboard_totalAc()}
+            </span>
+            <span class="text-headline font-semibold tabular-nums">
+              {stats.totalAc}
+            </span>
+          </div>
+          <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
+            <span class="text-caption text-muted-foreground">
+              {m.dashboard_totalAttempts()}
+            </span>
+            <span class="text-headline font-semibold tabular-nums">
+              {stats.totalAttempts}
+            </span>
+          </div>
+          <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
+            <span class="text-caption text-muted-foreground">
+              {m.dashboard_acRate()}
+            </span>
+            <span class="text-headline font-semibold tabular-nums">{acRate}</span>
+          </div>
+          <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
+            <span class="text-caption text-muted-foreground">
+              {m.dashboard_practiceDays()}
+            </span>
+            <span class="text-headline font-semibold tabular-nums">
+              {practiceDays}
+            </span>
+          </div>
+        </div>
       </div>
-      <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-caption text-muted-foreground">
-            {m.dashboard_totalAc()}
-          </span>
-          <span class="text-headline font-semibold tabular-nums">
-            {stats.totalAc}
-          </span>
-        </div>
-        <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-          <span class="text-caption text-muted-foreground">
-            {m.dashboard_totalAttempts()}
-          </span>
-          <span class="text-headline font-semibold tabular-nums">
-            {stats.totalAttempts}
-          </span>
-        </div>
-        <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-          <span class="text-caption text-muted-foreground">
-            {m.dashboard_acRate()}
-          </span>
-          <span class="text-headline font-semibold tabular-nums">{acRate}</span>
-        </div>
-        <div class="flex flex-col gap-1 md:border-l md:border-border-subtle md:pl-6">
-          <span class="text-caption text-muted-foreground">
-            {m.dashboard_practiceDays()}
-          </span>
-          <span class="text-headline font-semibold tabular-nums">
-            {practiceDays}
-          </span>
-        </div>
-      </div>
-    </div>
-  </Card>
+    </Card>
 
   <!-- Section 2 — Activity Heatmap -->
   <Card variant="surface" size="lg">
@@ -322,4 +329,5 @@
       />
     {/if}
   </Card>
-</div>
+  </div>
+</PageContainer>

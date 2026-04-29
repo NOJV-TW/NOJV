@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
-  import Section from "$lib/components/ui/Section.svelte";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
 
   let { children } = $props();
 
@@ -20,16 +20,9 @@
   let currentPath = $derived($page.url.pathname);
 </script>
 
-<div class="space-y-6">
-  <Section>
-    {#snippet header()}
-      <h1>{m.admin_panelTitle()}</h1>
-      <p>{m.admin_panelSubtitle()}</p>
-    {/snippet}
-  </Section>
-
+<PageContainer>
   <nav
-    class="flex flex-wrap gap-1 rounded-full border border-border-subtle bg-[color:var(--color-sidebar)] p-1"
+    class="animate-in animate-in-1 mb-6 flex flex-wrap gap-1 rounded-full border border-border-subtle bg-[color:var(--color-sidebar)] p-1"
     aria-label={m.admin_panelTitle()}
   >
     {#each tabs as tab (tab.href)}
@@ -50,4 +43,4 @@
   </nav>
 
   {@render children()}
-</div>
+</PageContainer>
