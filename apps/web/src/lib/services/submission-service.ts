@@ -93,7 +93,7 @@ export async function executeSubmission(
 
   const postInit: RequestInit = {
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
     method: "POST",
   };
   if (signal) postInit.signal = signal;

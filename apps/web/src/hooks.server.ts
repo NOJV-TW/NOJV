@@ -158,6 +158,24 @@ export const handle: Handle = async ({ event, resolve }) => {
     if (origin && origin !== event.url.origin) {
       return new Response("CSRF validation failed", { status: 403 });
     }
+
+    // Require an `X-Requested-With: fetch` header on /api/** mutations.
+    // Browsers add this to non-simple cross-origin requests, which forces a
+    // CORS preflight that our server will reject (no CORS config). On
+    // same-origin calls our own client code adds it explicitly. A classic
+    // form-submission CSRF (from <form action> on an attacker page) cannot
+    // set custom headers, so it's blocked even when Origin is missing.
+    // better-auth lives at /api/auth and is exempt — it has its own CSRF
+    // defenses and is hit by external OAuth callbacks.
+    if (!cleanPath.startsWith("/api/auth")) {
+      const xrw = event.request.headers.get("x-requested-with");
+      if (xrw !== "fetch") {
+        return new Response(
+          JSON.stringify({ message: "CSRF token required", code: "csrf_required" }),
+          { status: 403, headers: { "content-type": "application/json" } },
+        );
+      }
+    }
   }
 
   // Let better-auth own the callback/sign-in flow without additional middleware.
