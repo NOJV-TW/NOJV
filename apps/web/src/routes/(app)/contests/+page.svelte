@@ -10,6 +10,8 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
 
   type ParticipableContest = (typeof data)["participable"][number];
   type ManagedContest = (typeof data)["managed"][number];
@@ -155,18 +157,12 @@
   {/if}
 {/snippet}
 
-<div class="pb-24">
-  <header class="animate-in mb-8">
-    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
-      {m.contests_eyebrow()}
-    </p>
-    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
-      {m.navigation_contests()}
-    </h1>
-    <p class="mt-2 text-body text-muted-foreground">
-      {m.contests_subtitle()}
-    </p>
-  </header>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.contests_eyebrow()}
+    title={m.navigation_contests()}
+    description={m.contests_subtitle()}
+  />
 
   <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
     <div
@@ -244,4 +240,4 @@
       </form>
     </Dialog.Content>
   </Dialog.Root>
-</div>
+</PageContainer>
