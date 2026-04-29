@@ -55,7 +55,10 @@
     deleting = true;
     const id = pendingDeleteId;
     try {
-      const res = await fetch(`/api/overrides/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/overrides/${id}`, {
+        method: "DELETE",
+        headers: { "X-Requested-With": "fetch" },
+      });
       if (res.ok) {
         toasts.add({ type: "success", message: m.override_staff_toastDeleted() });
         ondelete();

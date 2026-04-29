@@ -42,6 +42,7 @@ when working on a specific area, open the listed doc first.
 | Multi-step work needing checkpoints                  | [Planning System](docs/PLANS.md) → write plan in `docs/plans/active/` |
 | Local dev setup, first run, troubleshooting          | [Getting Started](docs/runbooks/getting-started.md)                   |
 | Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)               |
+| Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                   |
 | Cross-cutting quality / tech debt                    | [Quality Ledger](docs/QUALITY_SCORE.md)                               |
 | Overall system map, layer boundaries                 | [Architecture Overview](ARCHITECTURE.md)                              |
 | Feature acceptance specs (assignments, exams, etc.)  | [Feature Specs](docs/specs/) — per-feature Given/When/Then            |

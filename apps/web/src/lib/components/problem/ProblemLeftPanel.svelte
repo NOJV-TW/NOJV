@@ -87,7 +87,7 @@
     try {
       const res = await fetch("/api/rejudge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ mode: "single", submissionId })
       });
       if (res.ok) {
@@ -137,7 +137,7 @@
     try {
       const res = await fetch(`/api/problems/${problem.id}/editorials`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ content: editorialContent, language: editorialLanguage })
       });
       if (res.ok) {
