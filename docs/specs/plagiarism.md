@@ -81,8 +81,9 @@ button.
 - **Scheduled trigger**: no Temporal schedule fires plagiarism on
   assessment close; staff must click the button.
 - **Push notification / email on completion**: UI polls.
-- **Pair-level moderation state (false positive, reviewed, etc.)**: the
-  current row is a snapshot, not a review workflow.
+- **Pair-level diff for exam / contest contexts**: the side-by-side
+  Monaco diff route exists for assessments only; exam + contest reports
+  surface the flag toggle but no dedicated diff page yet.
 
 ## Acceptance Criteria
 
@@ -234,6 +235,10 @@ button.
   `updateReportStatus`, `saveResults`, `markReportFailed`,
   `getPlagiarismSourceCode`, `listAssessmentPlagiarismReports`,
   `getAssessmentProblemMap`.
+- `packages/domain/src/plagiarism/flags.ts` — `buildPairKey`,
+  `flagPair`, `unflagPair`, `listFlagsForContext`. Pair-key shape:
+  `[userA, userB].sort()` joined by `|` then `|problemId`. Unique on
+  `(contextType, contextId, pairKey)`.
 - `packages/domain/src/plagiarism/types.ts` — `SimilarityPair` (Dolos
   shape: `similarity`, `longest`, `overlap`).
 - `packages/domain/src/shared/permissions.ts` —
@@ -249,9 +254,16 @@ button.
   unused `Contest.plagiarism*` columns.
 - `packages/db/src/repositories/plagiarism.ts` — per-target
   `findBy*` / `upsertFor*` / `clearFor*` methods.
+- `packages/db/src/repositories/plagiarism-pair-flag.ts` — `upsert`,
+  `findById`, `delete`, `listForContext` for `PlagiarismPairFlag`.
+- `packages/db/prisma/schema/plagiarism.prisma` — `PlagiarismContext`
+  enum + `PlagiarismPairFlag` model with FK to `User.flaggedBy` and
+  unique `(contextType, contextId, pairKey)`.
 - Migration `20260420000000_rename_plagiarism_report_url` renamed the
   legacy `plagiarismMossReportUrl` column to `plagiarismReportUrl` on
   `CourseAssessment`, `Exam`, and `Contest`.
+- Migration `20260430000000_add_plagiarism_pair_flag` introduces the
+  pair-flag table.
 
 ### Temporal
 
@@ -270,12 +282,19 @@ button.
 
 - `apps/web/src/routes/api/plagiarism/[assessmentId]/+server.ts` — POST
   trigger + GET report + GET source code.
+- `apps/web/src/routes/api/plagiarism/flag/+server.ts` — POST flag a
+  pair as false-positive.
+- `apps/web/src/routes/api/plagiarism/flag/[id]/+server.ts` — DELETE
+  unflag.
 - `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.server.ts`
-  — loads report for staff via
-  `findPlagiarismReport(...).catch(() => null)`.
+  — loads report + flag list for staff via
+  `findPlagiarismReport(...).catch(() => null)` and
+  `listFlagsForContext("assessment", assessmentId)`.
+- `apps/web/src/routes/(app)/assignments/[assessmentId]/plagiarism/pairs/[pairId]/+page.svelte`
+  — staff-only Monaco diff editor with mark / unmark controls.
 - `apps/web/src/lib/components/.../AssignmentPlagiarismReport.svelte` —
   histogram + table UI, bucketed by similarity, with in-product
-  side-by-side source dialog.
+  side-by-side source dialog and "顯示已標記為誤判" toggle.
 
 ### Tests
 
@@ -288,6 +307,11 @@ button.
   mocked: status bookkeeping, empty-submission short-circuit,
   best-score dedup, per-language grouping, single-submission skip, and
   the failure path that calls `markReportFailed` + rethrows.
+- `tests/unit/domain/plagiarism-flags.test.ts` — pair-key sorting +
+  validation; admin / teacher / TA / student / inactive permission for
+  each context type; organizer / non-organizer for contest; missing
+  exam → forbidden; repeated upsert dedup; unflag NotFound / admin /
+  non-staff / teacher branches; list delegation.
 - **Still missing**: route-level tests (permission gate for trigger /
   view / source fetch).
 
