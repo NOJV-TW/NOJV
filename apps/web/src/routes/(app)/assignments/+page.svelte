@@ -5,6 +5,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
@@ -66,19 +68,12 @@
   }
 </script>
 
-<div class="pb-24">
-  <!-- Page head -->
-  <header class="animate-in mb-8">
-    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
-      {m.assignmentsTop_eyebrow()}
-    </p>
-    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
-      {m.navigation_assignments()}
-    </h1>
-    <p class="mt-2 text-body text-muted-foreground">
-      {m.assignmentsTop_subtitle()}
-    </p>
-  </header>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.assignmentsTop_eyebrow()}
+    title={m.navigation_assignments()}
+    description={m.assignmentsTop_subtitle()}
+  />
 
   <!-- Tab row -->
   <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
@@ -242,4 +237,4 @@
         {/each}
       </div>
   {/if}
-</div>
+</PageContainer>

@@ -9,6 +9,7 @@
   import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
   import { Button } from "$lib/components/ui/button";
+  import PageHero from "$lib/components/layout/PageHero.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
@@ -165,67 +166,62 @@
 </script>
 
 <div class="space-y-6 pb-20">
-  <!-- Assignment-specific hero (title + status + meta). Back link lives in the layout. -->
-  <section class="animate-in border-b border-border pb-7 pt-6">
-    <div class="flex flex-wrap items-start justify-between gap-4">
-      <div class="min-w-0 flex-1">
-        <h1
-          class="font-display text-display font-normal leading-none tracking-[-0.025em]"
-        >
-          {detail.title}
-        </h1>
-        <div
-          class="mt-3.5 flex flex-wrap items-center gap-3 text-body-sm text-muted-foreground"
-        >
-          <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
-          <span
-            class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-            aria-hidden="true"
-          ></span>
-          <span class="font-mono tabular-nums"
-            >{formatTimeRangeCompact(detail.opensAt, detail.closesAt)}</span
-          >
-          {#if hint}
-            <span
-              class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-              aria-hidden="true"
-            ></span>
-            <span>{hint}</span>
-          {/if}
-          {#if data.mode === "teacher"}
-            <span
-              class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-              aria-hidden="true"
-            ></span>
-            <span>{m.assignmentDetail_metaProblemCount({ count: detail.problemCount })}</span>
-          {/if}
-          <span
-            class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
-            aria-hidden="true"
-          ></span>
-          <span>
-            {#if detail.maxAttemptsPerDay}
-              {m.assignmentDetail_metaAttemptsPerDay({ count: detail.maxAttemptsPerDay })}
-            {:else}
-              {m.assignmentDetail_metaAttemptsUnlimited()}
-            {/if}
-          </span>
-        </div>
-      </div>
-      {#if canSetOverride}
-        <div class="flex shrink-0 items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            onclick={() => (showOverrideDrawer = true)}
-          >
-            {m.override_staff_buttonLabel()}
-          </Button>
-        </div>
+  {#snippet assignmentMeta()}
+    <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
+    <span
+      class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+      aria-hidden="true"
+    ></span>
+    <span class="font-mono tabular-nums"
+      >{formatTimeRangeCompact(detail.opensAt, detail.closesAt)}</span
+    >
+    {#if hint}
+      <span
+        class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+        aria-hidden="true"
+      ></span>
+      <span>{hint}</span>
+    {/if}
+    {#if data.mode === "teacher"}
+      <span
+        class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+        aria-hidden="true"
+      ></span>
+      <span>{m.assignmentDetail_metaProblemCount({ count: detail.problemCount })}</span>
+    {/if}
+    <span
+      class="inline-block size-[3px] shrink-0 rounded-full bg-muted-foreground"
+      aria-hidden="true"
+    ></span>
+    <span>
+      {#if detail.maxAttemptsPerDay}
+        {m.assignmentDetail_metaAttemptsPerDay({ count: detail.maxAttemptsPerDay })}
+      {:else}
+        {m.assignmentDetail_metaAttemptsUnlimited()}
       {/if}
-    </div>
-  </section>
+    </span>
+  {/snippet}
+
+  {#snippet assignmentActions()}
+    <Button
+      variant="outline"
+      size="sm"
+      type="button"
+      onclick={() => (showOverrideDrawer = true)}
+    >
+      {m.override_staff_buttonLabel()}
+    </Button>
+  {/snippet}
+
+  <PageHero
+    variant="workspace"
+    breadcrumbHref={`/courses/${data.course.id}`}
+    breadcrumbLabel={m.assignmentShell_backToCourse({ course: data.course.title })}
+    eyebrow={m.assignmentDetail_eyebrow()}
+    title={detail.title}
+    meta={assignmentMeta}
+    actions={canSetOverride ? assignmentActions : undefined}
+  />
 
   {#if data.mode === "student"}
     <!-- ══════ STUDENT VIEW ══════ -->

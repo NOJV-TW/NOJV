@@ -5,6 +5,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import TeacherBadge from "$lib/components/common/TeacherBadge.svelte";
   import type { PageData } from "./$types";
 
@@ -41,18 +43,12 @@
   }
 </script>
 
-<div class="pb-24">
-  <header class="animate-in mb-8">
-    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
-      {m.courses_eyebrow()}
-    </p>
-    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
-      {m.navigation_courses()}
-    </h1>
-    <p class="mt-2 text-body text-muted-foreground">
-      {m.courses_subtitle()}
-    </p>
-  </header>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.courses_eyebrow()}
+    title={m.navigation_courses()}
+    description={m.courses_subtitle()}
+  />
 
   <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
     <div role="tablist" aria-label="Course tabs" class="flex flex-1 items-center gap-1">
@@ -210,4 +206,4 @@
       {/each}
     </div>
   {/if}
-</div>
+</PageContainer>

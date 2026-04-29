@@ -5,6 +5,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -87,19 +89,12 @@
   }
 </script>
 
-<div class="pb-24">
-  <!-- Page head -->
-  <header class="animate-in mb-8">
-    <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
-      {m.examsTop_eyebrow()}
-    </p>
-    <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
-      {m.navigation_exams()}
-    </h1>
-    <p class="mt-2 text-body text-muted-foreground">
-      {m.examsTop_subtitle()}
-    </p>
-  </header>
+<PageContainer>
+  <PageHeader
+    eyebrow={m.examsTop_eyebrow()}
+    title={m.navigation_exams()}
+    description={m.examsTop_subtitle()}
+  />
 
   <!-- Tab row -->
   <div class="animate-in animate-in-1 mb-6 flex items-center gap-4 border-b border-border">
@@ -277,8 +272,7 @@
       {/each}
     </div>
   {/if}
-
-</div>
+</PageContainer>
 
 <style>
   .exam-live-dot {
