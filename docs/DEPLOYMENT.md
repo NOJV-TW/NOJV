@@ -141,25 +141,81 @@ Local dev uses Garage. Production can use GCS (S3-compatible mode), Cloudflare R
 
 ### Service Mapping
 
-| Component | GCP Service         | Scaling                     |
-| --------- | ------------------- | --------------------------- |
-| web       | Cloud Run           | Automatic (request-based)   |
-| worker    | GKE Deployment      | KEDA (Temporal queue depth) |
-| migrator  | Cloud Run Job       | One-shot per deployment     |
-| sandbox   | GKE Kubernetes Jobs | Per-submission              |
-| postgres  | Cloud SQL           | Vertical (manual)           |
-| redis     | Memorystore         | Vertical (manual)           |
-| temporal  | GKE Deployment      | Manual                      |
-| images    | Artifact Registry   | —                           |
-| secrets   | Secret Manager      | —                           |
+| Component | GCP Service         | Scaling                                      |
+| --------- | ------------------- | -------------------------------------------- |
+| web       | Cloud Run           | Automatic (request-based, min 1 / max 15)    |
+| worker    | GKE Deployment      | Static 2 replicas + PodDisruptionBudget      |
+| migrator  | Cloud Run Job       | One-shot per deployment                      |
+| sandbox   | GKE Kubernetes Jobs | Per-submission, capped by sandbox quota (50) |
+| postgres  | Cloud SQL           | Vertical (manual)                            |
+| redis     | Memorystore         | Vertical (manual)                            |
+| temporal  | GKE Deployment      | Manual                                       |
+| images    | Artifact Registry   | —                                            |
+| secrets   | Secret Manager      | —                                            |
 
-### Deployment Command
+> The worker previously used KEDA scaled against BullMQ queue length. BullMQ
+> was replaced by Temporal and the KEDA `ScaledObject` was removed in commit
+> `c1ed096`. Worker throughput is now gated by the `nojv-sandbox`
+> ResourceQuota (50 pods / 25 CPU), not orchestrator count — two static
+> workers comfortably saturate that ceiling. Re-introduce autoscaling only
+> when a real metric (Temporal task-queue backlog or activity
+> schedule-to-start latency) shows the worker layer is the bottleneck.
+
+### Deployment Flow
+
+The canonical entry point is `infra/gcp/deploy.sh`. It orchestrates the full
+pipeline:
 
 ```bash
-# Build and push images via Cloud Build (manual, optional)
+export PROJECT_ID=...
+export DATABASE_URL=...
+export REDIS_URL=...
+export BETTER_AUTH_SECRET=...
+export BETTER_AUTH_URL=...
+
+bash infra/gcp/deploy.sh
+```
+
+The script:
+
+1. Enables required GCP APIs (Artifact Registry, Cloud Build, Cloud Run, Secret Manager).
+2. Ensures the Artifact Registry repository exists.
+3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, plus optional OAuth secrets).
+4. Submits Cloud Build (`infra/gcp/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, and `migrator` images.
+5. Deploys the migrator Cloud Run Job and runs it (Prisma migrations).
+6. Deploys `web` to Cloud Run.
+7. Verifies the web URL is serving and prints the worker + sandbox image refs for the GKE rollout.
+
+The image tag defaults to the short git SHA (with a `-dirty-<timestamp>`
+suffix when the worktree is dirty) — override with `IMAGE_TAG=...` for
+release tags.
+
+The worker is **not** rolled out by `deploy.sh` because it lives on GKE.
+After `deploy.sh` finishes, apply the GKE manifests separately — see
+[GKE Worker Rollout](#gke-worker-rollout) below.
+
+To run only the build step manually:
+
+```bash
 gcloud builds submit --config infra/gcp/cloudbuild.yaml \
   --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260312
 ```
+
+### GKE Worker Rollout
+
+1. Patch the image refs in `infra/gcp/gke/worker.deployment.yaml` (the
+   `deploy.sh` output prints the canonical refs).
+2. Apply the worker bundle: `kubectl apply -k infra/gcp/gke` (namespace,
+   ServiceAccount + RBAC, Deployment, PodDisruptionBudget).
+3. Apply the sandbox namespace guardrails: `kubectl apply -f infra/k8s/sandbox`
+   (namespace, NetworkPolicy, ResourceQuota, LimitRange).
+
+Pre-requisites: two GKE node pools `pool-worker` (untainted) and
+`pool-sandbox` (tainted `nojv-role=sandbox:NoSchedule`). The worker pins to
+the worker pool via `nodeSelector: nojv-role=worker`; sandbox Jobs are
+created with a matching toleration so a runaway submission can never starve
+the orchestrator. Full `gcloud container node-pools create` recipes live in
+[`infra/gcp/gke/README.md`](../infra/gcp/gke/README.md).
 
 ### Dockerfiles
 
@@ -275,10 +331,16 @@ environment:
 ### Scaling Strategy
 
 ```
-Submission load ──► Scale judge workers (KEDA on Temporal queue depth)
-Contest count   ──► Platform workers handle lifecycle (low overhead)
-                    Typically 1-2 platform workers suffice
+Submission load ──► Capped by nojv-sandbox ResourceQuota (50 pods, 25 CPU).
+                    Worker count is static (2 replicas) — orchestrator work
+                    is I/O bound and cheap; throughput is gated by the
+                    sandbox quota, not by worker fan-out.
+Contest count   ──► Platform workers handle lifecycle (low overhead).
+                    Typically 1-2 platform workers suffice.
 ```
+
+To raise the sandbox throughput ceiling, edit `infra/k8s/sandbox/resource-quota.yaml`
+and the `pool-sandbox` autoscaler max-nodes, not the worker replica count.
 
 ## Database Migrations
 

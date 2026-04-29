@@ -188,4 +188,5 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 - [Reliability Invariants](../RELIABILITY.md)
 - [Temporal Workflows](../TEMPORAL.md)
 - [Deployment Guide](../DEPLOYMENT.md)
+- [Backup & Restore](backup-restore.md) — durability incidents (PITR, snapshot recovery, accidental deletes)
 - [Getting Started](getting-started.md)
