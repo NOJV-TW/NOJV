@@ -183,6 +183,13 @@ model Editorial {
   language  SupportedLanguage
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  /// Soft-delete tombstone. All read paths must filter `deletedAt: null`.
+  /// Hard-deleting would lose history and break the upsert composite
+  /// key when an author later re-publishes in the same language; the
+  /// soft-delete row stays so the unique index keeps protecting against
+  /// concurrent re-creates while the author can still restore by
+  /// posting fresh content (handled at the domain layer).
+  deletedAt DateTime?
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
 

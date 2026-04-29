@@ -3,9 +3,10 @@ import { userDomain } from "@nojv/domain";
 
 import type { PageServerLoad } from "./$types";
 
-const { getDashboardView, getDailyActivity } = userDomain;
+const { getDashboardView, getDailyActivity, getStreakDays, getSuggestedProblems } = userDomain;
 
 const ACTIVITY_DAYS = 30;
+const TREND_DAYS = 7;
 
 function utcDayOffset(daysBack: number): Date {
   const now = new Date();
@@ -20,9 +21,16 @@ export const load: PageServerLoad = async (event) => {
   const from = utcDayOffset(ACTIVITY_DAYS - 1);
   const to = utcDayOffset(0);
 
-  const [{ stats, recentSubmissions, analytics }, dailyActivity] = await Promise.all([
+  const [
+    { stats, recentSubmissions, analytics },
+    dailyActivity,
+    streakDays,
+    suggestedProblems,
+  ] = await Promise.all([
     getDashboardView(actor.userId),
     getDailyActivity(actor.userId, from, to),
+    getStreakDays(actor.userId),
+    getSuggestedProblems(actor.userId),
   ]);
 
   const activityByDate = new Map(
@@ -41,11 +49,18 @@ export const load: PageServerLoad = async (event) => {
     };
   });
 
+  // Last 7 days subset — same UTC-day rows the activity grid already
+  // computed, so we don't need to re-query.
+  const weeklyTrend = filledActivity.slice(ACTIVITY_DAYS - TREND_DAYS);
+
   return {
     stats,
     recentSubmissions,
     username: actor.username,
     analytics,
     dailyActivity: filledActivity,
+    streakDays,
+    weeklyTrend,
+    suggestedProblems,
   };
 };

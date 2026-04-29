@@ -77,6 +77,7 @@ model User {
   editedScoreOverrides           ScoreOverride[]           @relation("ScoreOverrideEditor")
   scoreOverrideAuditChanges      ScoreOverrideAuditLog[]   @relation("ScoreOverrideAuditChanger")
   clarificationsAsked            Clarification[]           @relation("ClarificationAsker")
+  plagiarismPairFlags            PlagiarismPairFlag[]      @relation("PlagiarismPairFlagFlagger")
   clarificationsAnswered         Clarification[]           @relation("ClarificationAnswerer")
 }
 

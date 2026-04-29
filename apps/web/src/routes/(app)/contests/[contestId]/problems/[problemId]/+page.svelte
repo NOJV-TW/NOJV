@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MobileWorkspaceBlocker from "$lib/components/layout/MobileWorkspaceBlocker.svelte";
   import ProblemWorkspace from "$lib/components/problem/Workspace.svelte";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -28,9 +29,9 @@
 
 <!-- Contest timer bar -->
 <div
-  class="flex items-center justify-between border-b border-border-subtle bg-[color:var(--color-panel)] px-4 py-2 text-caption backdrop-blur-sm"
+  class="flex flex-wrap items-center justify-between gap-y-1 border-b border-border-subtle bg-[color:var(--color-panel)] px-4 py-2 text-caption backdrop-blur-sm"
 >
-  <div class="flex items-center gap-3">
+  <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
     <a
       class="text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/contests/{data.contestId}"
@@ -62,7 +63,13 @@
   </div>
 </div>
 
-<div class="flex h-[calc(100vh-9.5rem)] overflow-hidden rounded-2xl border border-border-subtle shadow-rest">
+<!-- Mobile (< md): blocker replaces the editor. Statement is accessible via
+     the blocker's fullscreen viewer. Server-side checks are unaffected. -->
+<div class="md:hidden">
+  <MobileWorkspaceBlocker problem={data.problem} />
+</div>
+
+<div class="hidden h-[calc(100vh-9.5rem)] overflow-hidden rounded-2xl border border-border-subtle shadow-rest md:flex">
   <ProblemWorkspace
     allowedLanguages={data.contestData.allowedLanguages}
     backLink={{ href: `/contests/${data.contestId}`, type: "contest" }}
