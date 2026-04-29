@@ -70,18 +70,25 @@
 - Triggered per assessment or contest (admin/teacher)
 - Results stored as JSON in PostgreSQL
 - Dedicated plagiarism report view per assessment
+- Side-by-side Monaco diff viewer for any flagged pair (assessment context)
+- Staff can mark pairs as false positives (`PlagiarismPairFlag`); flagged pairs hidden from list by default with toggle to reveal
 
 ### Editorials
 
 - Community-contributed editorials per problem
 - AC-gated: only visible after solving the problem
-- Create and read via API endpoints
+- Create / read / edit / soft-delete via API; soft-deleted rows filtered from every read path
+- Dedicated paginated list page (`/(app)/problems/[problemId]/editorials`)
+- Per-editorial edit page; author or admin only
 
 ### User Dashboard
 
 - Activity chart (daily submission history)
 - Language distribution statistics
 - Difficulty distribution statistics
+- Streak card — consecutive days with at least one AC (today's grace day applies)
+- Last-7-days submission trend
+- Suggested problems — top 5 unsolved problems whose tags overlap with the user's most-AC'd tags
 
 ### Authentication
 
@@ -115,6 +122,10 @@
 - No real-time collaborative editing of problems
 - No multi-tenant deployment (single institution per instance)
 - No mobile-native application
+- No mobile workspace — phones can browse the site (statements, scoreboards, lists, editorials, dashboard) but the Monaco editor + submission form are hidden below `md` and replaced by `<MobileWorkspaceBlocker>` directing users to the desktop
+- No public email/password registration or self-serve password reset; admin uses seeded credentials only, all other users sign in via GitHub or Google
+- No bulk operations (no bulk session release, no CSV user import, no submission zip export)
+- No editorial voting / comments / moderation queue beyond admin soft-delete
 
 ## Related Docs
 
