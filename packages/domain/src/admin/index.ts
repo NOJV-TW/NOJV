@@ -8,6 +8,7 @@ import {
   userRepo,
 } from "@nojv/db";
 import { getRedis } from "@nojv/redis";
+import { getTemporalClient } from "@nojv/job-dispatch";
 
 function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -141,9 +142,13 @@ export async function getAdminDashboard() {
   };
 }
 
-export async function checkSystemHealth(
-  timeoutMs = 3000,
-): Promise<{ postgres: string; redis: string }> {
+export interface SystemHealth {
+  postgres: string;
+  redis: string;
+  temporal: string;
+}
+
+export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth> {
   function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return Promise.race([
       promise,
@@ -151,7 +156,16 @@ export async function checkSystemHealth(
     ]);
   }
 
-  const [postgres, redis] = await Promise.all([
+  // Temporal gets a tighter 2 s budget so a stuck connection doesn't make
+  // /healthz hang for the full 3 s redis/postgres budget.
+  const TEMPORAL_TIMEOUT_MS = Math.min(timeoutMs, 2000);
+
+  async function probeTemporal(): Promise<void> {
+    const client = await getTemporalClient();
+    await client.connection.workflowService.getSystemInfo({});
+  }
+
+  const [postgres, redis, temporal] = await Promise.all([
     withTimeout(
       runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
       timeoutMs,
@@ -161,7 +175,10 @@ export async function checkSystemHealth(
     withTimeout(getRedis().ping(), timeoutMs)
       .then(() => "ok" as string)
       .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`),
+    withTimeout(probeTemporal(), TEMPORAL_TIMEOUT_MS)
+      .then(() => "ok" as string)
+      .catch((err: unknown) => `down: ${err instanceof Error ? err.message : String(err)}`),
   ]);
 
-  return { postgres, redis };
+  return { postgres, redis, temporal };
 }

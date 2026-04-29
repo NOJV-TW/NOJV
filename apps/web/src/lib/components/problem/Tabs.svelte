@@ -23,7 +23,7 @@
     try {
       const res = await fetch("/api/problems/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ mode })
       });
       if (!res.ok) throw new Error("Failed to create problem");

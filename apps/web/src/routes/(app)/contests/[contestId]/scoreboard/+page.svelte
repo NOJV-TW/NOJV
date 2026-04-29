@@ -38,7 +38,8 @@
     unfreezing = true;
     try {
       const res = await fetch(`/api/contests/${contestId}/scoreboard/unfreeze`, {
-        method: "POST"
+        method: "POST",
+        headers: { "X-Requested-With": "fetch" }
       });
       if (res.ok) {
         await invalidateAll();

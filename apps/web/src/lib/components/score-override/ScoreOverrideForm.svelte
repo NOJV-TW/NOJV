@@ -90,7 +90,7 @@
       if (mode === "create") {
         res = await fetch("/api/overrides", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
           body: JSON.stringify({
             userId,
             problemId,
@@ -108,7 +108,7 @@
         }
         res = await fetch(`/api/overrides/${existing.id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
           body: JSON.stringify({ overrideScore, reason })
         });
       }

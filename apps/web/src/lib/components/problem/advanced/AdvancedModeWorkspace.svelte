@@ -252,7 +252,7 @@
     try {
       const response = await fetch("/api/submissions", {
         body: JSON.stringify(body),
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         method: "POST",
         signal
       });
