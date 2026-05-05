@@ -6,7 +6,6 @@
     Archive,
     ArchiveRestore,
     Copy,
-    Eye,
     Info,
     Save,
     Settings,
@@ -163,65 +162,9 @@
     </form>
   </section>
 
-  <!-- 2. Default policies — placeholder -->
+  <!-- 2. Archive (reversible, separate from danger zone) -->
   <section
     class="animate-in animate-in-2 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
-  >
-    <div class="mb-6 flex items-start gap-3.5">
-      <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
-        aria-hidden="true"
-      >
-        <Info class="h-5 w-5" />
-      </span>
-      <div>
-        <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
-          {m.courseSettings_policiesCardTitle()}
-        </h2>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.courseSettings_policiesCardDesc()}
-        </p>
-      </div>
-    </div>
-
-    <div
-      class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/40 px-5 py-6 text-body-sm text-muted-foreground"
-    >
-      {m.courseSettings_policiesPlaceholder()}
-    </div>
-  </section>
-
-  <!-- 3. Visibility — placeholder -->
-  <section
-    class="animate-in animate-in-3 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
-  >
-    <div class="mb-6 flex items-start gap-3.5">
-      <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
-        aria-hidden="true"
-      >
-        <Eye class="h-5 w-5" />
-      </span>
-      <div>
-        <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
-          {m.courseSettings_visibilityCardTitle()}
-        </h2>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.courseSettings_visibilityCardDesc()}
-        </p>
-      </div>
-    </div>
-
-    <div
-      class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/40 px-5 py-6 text-body-sm text-muted-foreground"
-    >
-      {m.courseSettings_visibilityPlaceholder()}
-    </div>
-  </section>
-
-  <!-- 4. Archive (reversible, separate from danger zone) -->
-  <section
-    class="animate-in animate-in-3 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
   >
     <div class="mb-6 flex items-start gap-3.5">
       <span
@@ -276,9 +219,9 @@
     </form>
   </section>
 
-  <!-- 5. Danger zone -->
+  <!-- 3. Danger zone -->
   <section
-    class="animate-in animate-in-4 rounded-2xl border p-7"
+    class="animate-in animate-in-3 rounded-2xl border p-7"
     style="background: rgba(184, 55, 42, 0.04); border-color: rgba(184, 55, 42, 0.28);"
   >
     <div class="mb-6 flex items-start gap-3.5">
