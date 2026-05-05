@@ -19,7 +19,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const now = new Date();
 
   const [announcements, assignments, exams] = await Promise.all([
-    listRecentAnnouncementsForCourse(course.id, ANNOUNCEMENT_LIMIT),
+    listRecentAnnouncementsForCourse(course.id, ANNOUNCEMENT_LIMIT, actor),
     listAssignmentOverviewForCourse(course.id, {
       limit: ASSESSMENT_LIMIT,
       isManager,

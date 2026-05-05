@@ -2,6 +2,7 @@ import type { PageServerLoad } from "./$types";
 
 import { courseDomain } from "@nojv/domain";
 import { DEFAULT_LOCALE } from "@nojv/core";
+import { getActorContext } from "$lib/server/auth";
 
 const { listAnnouncements, listUpcomingAssessments } = courseDomain;
 import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
@@ -35,9 +36,10 @@ function flattenAnnouncement(announcement: {
 
 export const load: PageServerLoad = async (event) => {
   const user = event.locals.user;
+  const actor = getActorContext(event);
 
   if (!user) {
-    const announcements = await listAnnouncements();
+    const announcements = await listAnnouncements(actor);
     return {
       announcements: announcements.map(flattenAnnouncement),
       assessments: [],
@@ -46,7 +48,7 @@ export const load: PageServerLoad = async (event) => {
 
   const now = new Date().toISOString();
   const [announcements, rawAssessments] = await Promise.all([
-    listAnnouncements(),
+    listAnnouncements(actor),
     listUpcomingAssessments(user.id),
   ]);
 

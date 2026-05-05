@@ -206,7 +206,6 @@ model Exam {
   ipViolationLogs       IpViolationLog[]
   activeSessions        ActiveExamSession[]
 
-  @@index([courseId])
   @@index([courseId, status])
 }
 
@@ -233,7 +232,6 @@ model ExamParticipation {
   startedAt          DateTime?
   submittedAt        DateTime?
   disqualifiedAt     DateTime?
-  disqualifiedReason String?
   score              Int                     @default(0)
   penaltySeconds     Int                     @default(0)
   subtaskScores      Json?

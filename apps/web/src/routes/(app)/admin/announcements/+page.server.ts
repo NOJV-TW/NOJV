@@ -1,9 +1,25 @@
 import { fail } from "@sveltejs/kit";
-import { DEFAULT_LOCALE } from "@nojv/core";
+import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
+import type { AnnouncementAudience } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { announcementDomain } from "@nojv/domain";
+
+function readAudience(formData: FormData): AnnouncementAudience {
+  const raw = formData.get("audience");
+  const parsed = announcementAudienceSchema.safeParse(
+    typeof raw === "string" ? raw : undefined,
+  );
+  return parsed.success ? parsed.data : "all";
+}
+
+function readExpiresAt(formData: FormData): Date | null {
+  const raw = formData.get("expiresAt");
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 const {
   listAllAnnouncements,
@@ -40,6 +56,8 @@ export const load: PageServerLoad = async () => {
         content: localized.content,
         pinned: a.pinned,
         published: a.status === "published",
+        audience: a.audience,
+        expiresAt: a.expiresAt?.toISOString() ?? null,
         createdAt: a.createdAt,
         updatedAt: a.updatedAt,
       };
@@ -62,6 +80,8 @@ export const actions = {
       content,
       pinned: readCheckbox(formData, "pinned"),
       published: readCheckbox(formData, "published"),
+      audience: readAudience(formData),
+      expiresAt: readExpiresAt(formData),
     });
 
     return { success: true };
@@ -82,6 +102,8 @@ export const actions = {
       content,
       pinned: readCheckbox(formData, "pinned"),
       published: readCheckbox(formData, "published"),
+      audience: readAudience(formData),
+      expiresAt: readExpiresAt(formData),
     });
 
     return { success: true };

@@ -1,6 +1,6 @@
 # Database Schema
 
-PostgreSQL 18 with Prisma 7. Schema split across `packages/db/prisma/schema/*.prisma` (auth, clarification, config, contest, course, notification, ops, problem, submission).
+PostgreSQL 18 with Prisma 7. Schema split across `packages/db/prisma/schema/*.prisma` (auth, clarification, config, contest, course, notification, ops, plagiarism, problem, submission).
 
 ## Domain Model Overview
 
@@ -133,9 +133,12 @@ Per-language files that make up a Standard Mode problem's workspace. Columns: `l
 
 Advanced Mode (`Problem.type === "special_env"`) does not use `TestcaseSet` / `Testcase` rows — the TA-provided Docker image bundles its own testcases and writes a structured `result.json`. See [Judge Pipeline](JUDGE_PIPELINE.md#advanced-mode-pipeline).
 
-### Plagiarism state (inlined)
+### Plagiarism state
 
-Plagiarism reports are not a separate model — the six `plagiarism*` columns (`plagiarismStatus`, `plagiarismResults`, `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`) live directly on `CourseAssessment`, `Exam`, and `Contest`. One latest run per parent row; re-running upserts in place. Created by the web endpoint, processed by the Temporal plagiarism activity.
+Two-part structure:
+
+- **Inline columns on the parent row** (`CourseAssessment`, `Exam`, `Contest`): the six `plagiarism*` columns (`plagiarismStatus`, `plagiarismResults`, `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`) hold the latest report — one run per parent row, re-running upserts in place. Created by the web endpoint, processed by the Temporal plagiarism activity.
+- **`PlagiarismPairFlag` table** (`schema/plagiarism.prisma`): per-pair staff review state — flag a similarity pair as confirmed cheating or false positive, with reviewer + note. Keyed on `(target, userA, userB, problemId)`.
 
 ### Clarification
 

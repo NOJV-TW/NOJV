@@ -54,6 +54,7 @@ export const load: PageServerLoad = async (event) => {
     isSchoolVerified,
     canEditUsername,
     name: locals.user.name,
+    image: (locals.user as { image?: string | null }).image ?? null,
     platformRole,
     nameForm,
     usernameForm,
