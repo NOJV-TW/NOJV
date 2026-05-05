@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
+  import AvatarUploader from "$lib/components/account/AvatarUploader.svelte";
   import SchoolVerificationSection from "$lib/components/auth/SchoolVerification.svelte";
   import Section from "$lib/components/ui/Section.svelte";
   import { Card } from "$lib/components/ui/card";
@@ -109,6 +110,8 @@
             {m.account_profileHint()}
           </p>
         </div>
+
+        <AvatarUploader image={data.image} name={data.name} />
 
         <dl class="grid gap-4 sm:grid-cols-2">
           <div class="flex flex-col gap-1">

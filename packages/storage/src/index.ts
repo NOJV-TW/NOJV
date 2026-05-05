@@ -6,6 +6,7 @@ export {
   deleteAdvancedImageTarball,
   downloadAdvancedImageTarball,
 } from "./images";
+export { uploadUserAvatar, deleteUserAvatar } from "./avatar";
 export {
   testcaseInputKey,
   testcaseOutputKey,
