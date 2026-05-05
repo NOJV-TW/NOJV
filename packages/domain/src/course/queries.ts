@@ -1,5 +1,4 @@
 import {
-  announcementRepo,
   assessmentRepo,
   courseMembershipRepo,
   courseRepo,
@@ -7,6 +6,12 @@ import {
   problemRepo,
 } from "@nojv/db";
 import type { CourseRole, Language, PlatformRole } from "@nojv/core";
+
+import * as announcementDomain from "../announcement";
+
+interface ActorRoleHint {
+  platformRole: PlatformRole;
+}
 
 export interface CourseMemberRecord {
   courseRole: CourseRole;
@@ -158,8 +163,8 @@ export async function getDashboardStats() {
   return { courses, problems };
 }
 
-export async function listAnnouncements() {
-  return announcementRepo.listPublished(20);
+export async function listAnnouncements(actor?: ActorRoleHint | null) {
+  return announcementDomain.listPublicAnnouncements(actor);
 }
 
 export async function listUpcomingAssessments(userId: string) {

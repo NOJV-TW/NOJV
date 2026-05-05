@@ -73,6 +73,11 @@ export async function renameName(userId: string, newName: string): Promise<void>
   await userRepo.update(userId, { name: trimmed });
 }
 
+/** Persist (or clear) the avatar URL on `User.image`. */
+export async function setUserAvatar(userId: string, imageUrl: string | null): Promise<void> {
+  await userRepo.update(userId, { image: imageUrl });
+}
+
 export async function renameUsername(
   userId: string,
   newUsername: string,
