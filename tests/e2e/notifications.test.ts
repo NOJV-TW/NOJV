@@ -1,0 +1,98 @@
+import { test, expect } from "@playwright/test";
+
+import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
+
+test.describe("Notifications API", () => {
+  test("unauthenticated user cannot list recent notifications", async ({ page }) => {
+    const res = await page.request.get(`/api/notifications/recent`);
+    expect(res.status()).toBe(401);
+  });
+
+  test("unauthenticated user cannot read unread count", async ({ page }) => {
+    const res = await page.request.get(`/api/notifications/unread-count`);
+    expect(res.status()).toBe(401);
+  });
+
+  test("authenticated student gets a well-shaped recent payload", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    const res = await page.request.get(`/api/notifications/recent`);
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(typeof body.unreadCount).toBe("number");
+    expect(body.unreadCount).toBeGreaterThanOrEqual(0);
+    await context.close();
+  });
+
+  test("limit query is clamped server-side", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    const res = await page.request.get(`/api/notifications/recent?limit=999999`);
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    // Server clamps to <= 100; we just check the response remains a sane array.
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.items.length).toBeLessThanOrEqual(100);
+    await context.close();
+  });
+
+  test("unread-count returns a number for an authenticated user", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    const res = await page.request.get(`/api/notifications/unread-count`);
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(typeof body.count).toBe("number");
+    await context.close();
+  });
+
+  test("read-all is idempotent and returns updated count", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    const res = await page.request.post(`/api/notifications/read-all`, {
+      headers: apiWriteHeaders,
+      data: {},
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(typeof body.updated).toBe("number");
+    expect(body.updated).toBeGreaterThanOrEqual(0);
+    await context.close();
+  });
+
+  test("marking a nonexistent id as read is harmless", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    const res = await page.request.post(`/api/notifications/nonexistent-id/read`, {
+      headers: apiWriteHeaders,
+      data: {},
+    });
+    // Endpoint reports `updated` count; with an unknown id it should
+    // still be a 2xx with `updated: 0`, never a 5xx.
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.updated).toBe(0);
+    await context.close();
+  });
+
+  test("read-all rejects unauthenticated callers", async ({ page }) => {
+    const res = await page.request.post(`/api/notifications/read-all`, {
+      headers: apiWriteHeaders,
+      data: {},
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("CSRF gate blocks read-all without X-Requested-With", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: teacherAuth });
+    const page = await context.newPage();
+    const res = await page.request.post(`/api/notifications/read-all`, {
+      data: {},
+      // Intentionally omit `x-requested-with: fetch` to exercise the CSRF gate.
+      headers: { origin: "http://localhost:5173" },
+    });
+    expect(res.status()).toBe(403);
+    await context.close();
+  });
+});

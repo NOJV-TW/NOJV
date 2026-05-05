@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
+import { apiWriteHeaders } from "./_shared";
+
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 // Use a known seeded problem with testcases
@@ -14,6 +16,7 @@ test.describe("Submission Validation", () => {
         language: "python",
         sourceCode: "print(1)",
       },
+      headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(401);
   });
@@ -27,6 +30,7 @@ test.describe("Submission Validation", () => {
         language: "python",
         sourceCode: "",
       },
+      headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(400);
     await context.close();
@@ -41,6 +45,7 @@ test.describe("Submission Validation", () => {
         language: "brainfuck",
         sourceCode: "print(1)",
       },
+      headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(400);
     await context.close();
@@ -55,6 +60,7 @@ test.describe("Submission Validation", () => {
         language: "python",
         sourceCode: "print(1)",
       },
+      headers: apiWriteHeaders,
     });
     // Should be 404 or 500 (problem not found)
     expect(res.status()).toBeGreaterThanOrEqual(400);

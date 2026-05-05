@@ -15,33 +15,42 @@ test.describe("Courses", () => {
     await context.close();
   });
 
-  test("teacher sees all courses and create button", async ({ browser }) => {
+  test("teacher sees managed courses and create link under the managing tab", async ({
+    browser,
+  }) => {
+    // Listing splits into "enrolled" (default) and "managing" tabs. The
+    // teacher's owned course is on the managing tab and the create
+    // entrypoint (an anchor styled as a button) only renders there.
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto("/courses");
+    await page.goto("/courses?tab=managing");
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();
-    // Teacher should see the create course button
-    await expect(page.getByRole("button", { name: /create/i })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /new course|create your first/i }),
+    ).toBeVisible();
     await context.close();
   });
 
   test("can view course detail page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    await page.goto("/courses/os-lab-spring-2026");
+    // Seeded id is `course_os-lab-spring-2026` — including the `course_`
+    // prefix matters since detail routes match by id, not by slug.
+    await page.goto("/courses/course_os-lab-spring-2026");
     await expect(page.getByRole("main")).toBeVisible();
-    // Course title should be visible
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();
     await context.close();
   });
 
-  test("student does not see create course button", async ({ browser }) => {
+  test("student does not see the new-course link", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    await page.goto("/courses");
+    await page.goto("/courses?tab=managing");
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByRole("button", { name: /create/i })).not.toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /new course|create your first/i }),
+    ).not.toBeVisible();
     await context.close();
   });
 });
