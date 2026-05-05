@@ -13,6 +13,16 @@ function getAuthHandler(): RequestHandler {
   return _authHandler;
 }
 
+const REDACTED_QUERY_KEYS = new Set(["code", "state", "token", "id_token", "access_token"]);
+
+function redactQuery(params: URLSearchParams): string {
+  const safe = new URLSearchParams();
+  for (const [key, value] of params) {
+    safe.append(key, REDACTED_QUERY_KEYS.has(key.toLowerCase()) ? "[REDACTED]" : value);
+  }
+  return safe.toString();
+}
+
 const handleAuth: RequestHandler = async (event) => {
   try {
     return await getAuthHandler()(event);
@@ -22,7 +32,7 @@ const handleAuth: RequestHandler = async (event) => {
       method: event.request.method,
       path: event.url.pathname,
       provider: event.url.pathname.split("/").at(-1) ?? null,
-      query: event.url.searchParams.toString(),
+      query: redactQuery(event.url.searchParams),
       stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
