@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { RadioGroup } from "bits-ui";
   import { Badge } from "$lib/components/ui/badge";
   import { Button, IconButton } from "$lib/components/ui/button";
   import { Card } from "$lib/components/ui/card";
@@ -23,6 +24,35 @@
 
   let editingId = $state<string | null>(null);
   let showCreateForm = $state(false);
+
+  type Audience = "all" | "students" | "teachers";
+
+  const AUDIENCE_OPTIONS: { value: Audience; label: () => string }[] = [
+    { value: "all", label: () => m.admin_announcement_audience_all() },
+    { value: "students", label: () => m.admin_announcement_audience_students() },
+    { value: "teachers", label: () => m.admin_announcement_audience_teachers() }
+  ];
+
+  function audienceBadgeVariant(audience: Audience): "muted" | "info" | "secondary" {
+    if (audience === "students") return "info";
+    if (audience === "teachers") return "secondary";
+    return "muted";
+  }
+
+  function audienceLabel(audience: Audience) {
+    if (audience === "students") return m.admin_announcement_audience_students();
+    if (audience === "teachers") return m.admin_announcement_audience_teachers();
+    return m.admin_announcement_audience_all();
+  }
+
+  /** Format an ISO date string for `<input type="datetime-local">` (local-tz, minute resolution). */
+  function toLocalInput(iso: string | null): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 </script>
 
 {#snippet announcementsActions()}
@@ -73,6 +103,38 @@
             required
             rows="4"
           ></textarea>
+        </FormField>
+        <FormField label={m.admin_announcement_audience_label()} for="create-audience-all">
+          <RadioGroup.Root
+            name="audience"
+            value="all"
+            class="flex flex-wrap gap-3"
+            orientation="horizontal"
+          >
+            {#each AUDIENCE_OPTIONS as opt (opt.value)}
+              <label class="flex items-center gap-2 text-body-sm">
+                <RadioGroup.Item
+                  id="create-audience-{opt.value}"
+                  value={opt.value}
+                  class="grid size-4 place-items-center rounded-full border border-input data-[state=checked]:border-primary"
+                >
+                  {#snippet children({ checked })}
+                    {#if checked}
+                      <span class="size-2 rounded-full bg-primary"></span>
+                    {/if}
+                  {/snippet}
+                </RadioGroup.Item>
+                {opt.label()}
+              </label>
+            {/each}
+          </RadioGroup.Root>
+        </FormField>
+        <FormField
+          label={m.admin_announcement_expiresAt_label()}
+          hint={m.admin_announcement_expiresAt_helper()}
+          for="create-expiresAt"
+        >
+          <Input id="create-expiresAt" type="datetime-local" name="expiresAt" />
         </FormField>
         <div class="flex flex-wrap items-center gap-4">
           <label class="flex items-center gap-2 text-body-sm">
@@ -148,6 +210,46 @@
                     required
                   >{ann.content}</textarea>
                 </FormField>
+                <FormField
+                  label={m.admin_announcement_audience_label()}
+                  for="edit-audience-{ann.id}-all"
+                >
+                  <RadioGroup.Root
+                    name="audience"
+                    value={ann.audience}
+                    class="flex flex-wrap gap-3"
+                    orientation="horizontal"
+                  >
+                    {#each AUDIENCE_OPTIONS as opt (opt.value)}
+                      <label class="flex items-center gap-2 text-body-sm">
+                        <RadioGroup.Item
+                          id="edit-audience-{ann.id}-{opt.value}"
+                          value={opt.value}
+                          class="grid size-4 place-items-center rounded-full border border-input data-[state=checked]:border-primary"
+                        >
+                          {#snippet children({ checked })}
+                            {#if checked}
+                              <span class="size-2 rounded-full bg-primary"></span>
+                            {/if}
+                          {/snippet}
+                        </RadioGroup.Item>
+                        {opt.label()}
+                      </label>
+                    {/each}
+                  </RadioGroup.Root>
+                </FormField>
+                <FormField
+                  label={m.admin_announcement_expiresAt_label()}
+                  hint={m.admin_announcement_expiresAt_helper()}
+                  for="edit-expiresAt-{ann.id}"
+                >
+                  <Input
+                    id="edit-expiresAt-{ann.id}"
+                    type="datetime-local"
+                    name="expiresAt"
+                    value={toLocalInput(ann.expiresAt)}
+                  />
+                </FormField>
                 <div class="flex flex-wrap items-center gap-4">
                   <label class="flex items-center gap-2 text-body-sm">
                     <input type="checkbox" name="pinned" checked={ann.pinned} class="size-4" />
@@ -190,6 +292,9 @@
                     {:else}
                       <Badge variant="outline" size="xs">{m.admin_announcementsDraft()}</Badge>
                     {/if}
+                    <Badge variant={audienceBadgeVariant(ann.audience)} size="xs">
+                      {audienceLabel(ann.audience)}
+                    </Badge>
                   </div>
                   <p class="mt-2 text-body-sm whitespace-pre-wrap text-muted-foreground">
                     {ann.content.length > 200 ? ann.content.slice(0, 200) + "..." : ann.content}
@@ -197,6 +302,10 @@
                   <p class="mt-2 text-caption text-muted-foreground">
                     {m.admin_announcementsCreated()}: {new Date(ann.createdAt).toLocaleString()} &middot;
                     {m.admin_announcementsUpdated()}: {new Date(ann.updatedAt).toLocaleString()}
+                    {#if ann.expiresAt}
+                      &middot;
+                      {m.admin_announcement_expired_at()}: {new Date(ann.expiresAt).toLocaleString()}
+                    {/if}
                   </p>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">

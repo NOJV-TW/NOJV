@@ -1,10 +1,16 @@
-import { announcementRepo, assessmentRepo, examRepo } from "@nojv/db";
+import { assessmentRepo, examRepo } from "@nojv/db";
 import { DEFAULT_LOCALE } from "@nojv/core";
+import type { PlatformRole } from "@nojv/core";
 
+import * as announcementDomain from "../announcement";
 import {
   aggregateAssessmentClassStats,
   aggregateAssessmentMyStatus,
 } from "../shared/list-aggregations";
+
+interface ActorRoleHint {
+  platformRole: PlatformRole;
+}
 
 export interface OverviewAnnouncement {
   id: string;
@@ -26,8 +32,13 @@ function pickInitial(name: string): string {
 export async function listRecentAnnouncementsForCourse(
   courseId: string,
   limit: number,
+  actor?: ActorRoleHint | null,
 ): Promise<OverviewAnnouncement[]> {
-  const rows = await announcementRepo.listRecentForCourse(courseId, limit);
+  const rows = await announcementDomain.listPublicAnnouncementsForCourse(
+    courseId,
+    actor,
+    limit,
+  );
   return rows.map((row) => {
     const translations = row.translations;
     const localized = translations.find((t) => t.locale === DEFAULT_LOCALE) ??

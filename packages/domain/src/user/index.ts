@@ -1,4 +1,10 @@
-export { ensureUser, renameName, renameUsername, type EnsureUserInput } from "./mutations";
+export {
+  ensureUser,
+  renameName,
+  renameUsername,
+  setUserAvatar,
+  type EnsureUserInput,
+} from "./mutations";
 export { isReservedUsername } from "./reserved-username";
 export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
 export {

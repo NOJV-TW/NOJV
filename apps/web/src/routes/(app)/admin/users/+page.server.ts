@@ -34,6 +34,9 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
+    if (actor.platformRole !== "admin") {
+      return fail(403, { error: "Admin access required." });
+    }
     const formData = await event.request.formData();
     const userId = readString(formData, "userId");
     const role = readString(formData, "role");
@@ -54,6 +57,9 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
+    if (actor.platformRole !== "admin") {
+      return fail(403, { error: "Admin access required." });
+    }
     const userId = readString(await event.request.formData(), "userId");
 
     if (!userId) {
