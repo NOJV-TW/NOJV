@@ -1,14 +1,15 @@
 import { prisma } from "../client";
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma, AnnouncementAudience } from "../../generated/prisma/client";
 
 export const announcementRepo = {
   // Platform-wide announcements only (courseId null). Course-scoped rows belong to `listRecentForCourse`.
-  listPublished(take: number) {
+  listPublished(take: number, audiences?: AnnouncementAudience[]) {
     const now = new Date();
     return prisma.announcement.findMany({
       where: {
         status: "published",
         courseId: null,
+        ...(audiences && audiences.length > 0 ? { audience: { in: audiences } } : {}),
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
@@ -17,12 +18,13 @@ export const announcementRepo = {
     });
   },
 
-  listRecentForCourse(courseId: string, take: number) {
+  listRecentForCourse(courseId: string, take: number, audiences?: AnnouncementAudience[]) {
     const now = new Date();
     return prisma.announcement.findMany({
       where: {
         status: "published",
         courseId,
+        ...(audiences && audiences.length > 0 ? { audience: { in: audiences } } : {}),
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
