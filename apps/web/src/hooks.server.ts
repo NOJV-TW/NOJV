@@ -14,6 +14,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
+import { apiRequestDuration, statusClass } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 
 // Validate environment variables eagerly on startup.
@@ -289,7 +290,16 @@ export const handle: Handle = async ({ event, resolve }) => {
   return paraglideMiddleware(event.request, async ({ request }) => {
     // Update the event request with the (potentially de-localized) request
     event.request = request;
+    const startMs = performance.now();
     const response = await resolve(event);
+    const routeId = event.route.id ?? "unmatched";
+    if (!routeId.endsWith("/stream")) {
+      apiRequestDuration.record((performance.now() - startMs) / 1000, {
+        route: routeId,
+        method: event.request.method,
+        status_class: statusClass(response.status),
+      });
+    }
     setSecurityHeaders(response);
     response.headers.set("x-request-id", event.locals.requestId);
     return response;
