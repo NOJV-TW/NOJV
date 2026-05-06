@@ -1,0 +1,123 @@
+{
+  "uid": "nojv-time-breakdown",
+  "title": "NOJV — Where Is The Time Going?",
+  "description": "Breakdown of request time across application code (manual instrumentation) vs HTTP server (auto), DB client (pg auto), and Redis client (ioredis auto). PromQL queries may need metric-name adjustment after first verification — check Grafana Explore for actually-exported names. Common variants seen across OTel SDK versions: http.server.request.duration may be exported as http_server_request_duration_seconds OR http_server_duration_milliseconds; db.client.operation.duration similarly varies between *_seconds and *_milliseconds.",
+  "tags": ["nojv", "diagnostic", "auto-instrumentation"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "label": "Datasource",
+        "query": "prometheus",
+        "current": {
+          "text": "grafanacloud-takalawang-prom",
+          "value": "grafanacloud-takalawang-prom"
+        },
+        "hide": 0,
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About this dashboard",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "## Where Is The Time Going?\n\nCompares **manual app-level latency** (`api_request_duration_seconds` — measured around our route handlers) against **auto-instrumented component latencies** (HTTP server, Postgres client, Redis client) so we can attribute total request time to the right layer.\n\n### Caveat — auto-instrumentation metric names vary by OTel SDK version\n\nOpen Grafana Explore on the Hosted Prometheus datasource and confirm the actual exported names before trusting these panels:\n\n- HTTP server: try `http_server_request_duration_seconds_bucket` first; fallback `http_server_duration_milliseconds_bucket` (older SDKs).\n- Postgres pg client: try `db_client_operation_duration_seconds_bucket`; fallback `db_client_operation_duration_milliseconds_bucket`.\n- ioredis client: try `redis_client_duration_seconds_bucket`; fallback `redis_client_command_duration_milliseconds_bucket` or `db_client_operation_duration_*` (some setups label-tag redis under the same db.client metric with `db.system=\"redis\"`).\n\nIf a panel shows \"No data\", edit the panel target — the bucket suffix is the only thing that should change. If unit is milliseconds, divide by 1000 inside the histogram_quantile call."
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "p95: app-level vs HTTP server",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "app handler (manual)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "http server (auto)",
+          "refId": "B"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "p95: Postgres client operation duration (auto)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(db_client_operation_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 (all ops)",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "p95: Redis client operation duration (auto)",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(redis_client_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 (all commands)",
+          "refId": "A"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    }
+  ]
+}
