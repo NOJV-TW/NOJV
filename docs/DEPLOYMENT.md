@@ -108,6 +108,36 @@ Local dev uses Garage. Production can use GCS (S3-compatible mode), Cloudflare R
 | `K8S_MEMORY_REQUEST` | Memory request per sandbox pod        |
 | `K8S_MEMORY_LIMIT`   | Memory limit per sandbox pod          |
 
+## Observability
+
+Metrics flow Node app → OpenTelemetry SDK → OTLP HTTP → Grafana Cloud Hosted Prometheus (region `prod-ap-northeast-0`, free tier). Dashboards at <https://takalawang.grafana.net>.
+
+### Required env vars (production)
+
+Inject via GCP Secret Manager → Cloud Run (web) / GKE Secret (worker):
+
+| Var                                      | Description                                                 |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| `GRAFANA_OTLP_ENDPOINT`                  | `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` |
+| `GRAFANA_OTLP_INSTANCE_ID`               | Grafana Cloud stack instance ID (numeric)                   |
+| `GRAFANA_OTLP_TOKEN`                     | `glc_*` push token, scope `metrics:write`                   |
+| `OTEL_SERVICE_NAME_WEB` (web only)       | Default `nojv-web`                                          |
+| `OTEL_SERVICE_NAME_WORKER` (worker only) | Default `nojv-worker`                                       |
+
+If any of the 3 push vars are unset/empty, the SDK no-ops. CI and tests run without these.
+
+### First-time stack setup
+
+See [Observability Setup Runbook](runbooks/observability-setup.md).
+
+### Dashboard updates
+
+`pnpm grafana:provision` (idempotent, `overwrite:true`) reads dashboard JSONs from `infra/grafana/dashboards/` and uploads via the Grafana API. Requires `GRAFANA_STACK_URL` + `GRAFANA_SA_TOKEN` (Admin role) in env.
+
+### Worker shutdown hook
+
+`apps/worker/src/index.ts` `gracefulShutdown` awaits `shutdownOtel()` after `app.shutdown()` so the last 30s metric interval is flushed before `process.exit(0)`. Web relies on adapter-node lifecycle and may lose 0–30s on shutdown (accepted trade-off).
+
 ## GCP Production Architecture
 
 ```

@@ -20,6 +20,7 @@
     "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:e2e",
     "typecheck": "turbo typecheck",
     "sandbox:build": "docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:local .",
+    "grafana:provision": "tsx infra/grafana/provision.ts",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "ci:verify": "pnpm format && pnpm lint:domain-queries && pnpm db:generate && turbo run build typecheck lint test",
