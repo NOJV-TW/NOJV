@@ -95,7 +95,12 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "stacking": { "mode": "normal" } }
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "stacking": { "mode": "normal" }
+          }
         },
         "overrides": []
       },

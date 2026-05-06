@@ -325,7 +325,10 @@ git commit -m "feat(observability): boot OTel SDK at process start"
 ```typescript
 // tests/unit/temporal/activities/metrics.test.ts
 import { describe, it, expect } from "vitest";
-import { judgeLatencyHistogram, recordJudgeLatency } from "../../../../packages/temporal/src/activities/metrics";
+import {
+  judgeLatencyHistogram,
+  recordJudgeLatency,
+} from "../../../../packages/temporal/src/activities/metrics";
 
 describe("judge latency metric", () => {
   it("records latency in seconds with mode + verdict labels", () => {
@@ -333,7 +336,12 @@ describe("judge latency metric", () => {
     const fakeHistogram = {
       record: (value: number, attrs: Record<string, string>) => observed.push({ value, attrs }),
     } as unknown as typeof judgeLatencyHistogram;
-    recordJudgeLatency(fakeHistogram, { startedAt: 1000, completedAt: 4500, mode: "standard", verdict: "AC" });
+    recordJudgeLatency(fakeHistogram, {
+      startedAt: 1000,
+      completedAt: 4500,
+      mode: "standard",
+      verdict: "AC",
+    });
     expect(observed).toEqual([{ value: 3.5, attrs: { mode: "standard", verdict: "AC" } }]);
   });
 });
@@ -360,7 +368,12 @@ export const judgeLatencyHistogram = meter.createHistogram("judge_latency_second
 
 export function recordJudgeLatency(
   hist: typeof judgeLatencyHistogram,
-  args: { startedAt: number; completedAt: number; mode: "standard" | "advanced"; verdict: string },
+  args: {
+    startedAt: number;
+    completedAt: number;
+    mode: "standard" | "advanced";
+    verdict: string;
+  },
 ): void {
   const seconds = (args.completedAt - args.startedAt) / 1000;
   hist.record(seconds, { mode: args.mode, verdict: args.verdict });
@@ -530,7 +543,9 @@ import { uploadDashboard } from "./provision";
 
 describe("provisionDashboard", () => {
   it("POSTs to /api/dashboards/db with overwrite:true", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('{"status":"success","uid":"nojv-judge-latency"}'));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('{"status":"success","uid":"nojv-judge-latency"}'));
     await uploadDashboard(
       { stackUrl: "https://x.grafana.net", saToken: "glsa_x" },
       { uid: "nojv-judge-latency", title: "T", panels: [] },
@@ -648,13 +663,13 @@ Manually verify in Grafana Cloud:
 
 ## Risks
 
-| Risk                                          | Mitigation                                                                              |
-| --------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Cardinality explosion (10k free tier)         | All `userId` / `submissionId` labels banned. Route templates only. Audit after 1 week.  |
-| OTel SDK init too late                        | Top-of-file import in entry points; verified in Task 4 smoke test.                      |
-| OTLP endpoint wrong region                    | Region encoded in token metadata (`prod-ap-northeast-0`). Use exact endpoint from spec. |
-| Dashboard JSON drift vs schema                | Tests in `provision.test.ts` validate POST contract. Manual verify in UI.               |
-| Token leak via logs                           | Auth header set at exporter init only; pino redacts via existing config.                |
+| Risk                                  | Mitigation                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| Cardinality explosion (10k free tier) | All `userId` / `submissionId` labels banned. Route templates only. Audit after 1 week.  |
+| OTel SDK init too late                | Top-of-file import in entry points; verified in Task 4 smoke test.                      |
+| OTLP endpoint wrong region            | Region encoded in token metadata (`prod-ap-northeast-0`). Use exact endpoint from spec. |
+| Dashboard JSON drift vs schema        | Tests in `provision.test.ts` validate POST contract. Manual verify in UI.               |
+| Token leak via logs                   | Auth header set at exporter init only; pino redacts via existing config.                |
 
 ---
 

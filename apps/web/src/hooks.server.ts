@@ -14,11 +14,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
-import {
-  apiRequestDuration,
-  statusClass,
-  type ApiRequestLabels,
-} from "$lib/server/metrics";
+import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 
 // Validate environment variables eagerly on startup.
@@ -190,10 +186,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 };
 
-const runHandle = async ({
-  event,
-  resolve,
-}: Parameters<Handle>[0]): Promise<Response> => {
+const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Response> => {
   event.locals.requestId = deriveRequestId(event.request.headers);
 
   const cleanPath = stripLocalePrefix(event.url.pathname);

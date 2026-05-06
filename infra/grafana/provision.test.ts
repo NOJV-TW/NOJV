@@ -5,7 +5,11 @@ describe("uploadDashboard", () => {
   it("POSTs to /api/dashboards/db with overwrite:true and Bearer SA token", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ status: "success", uid: "nojv-judge-latency", url: "/d/nojv-judge-latency/..." }),
+        JSON.stringify({
+          status: "success",
+          uid: "nojv-judge-latency",
+          url: "/d/nojv-judge-latency/...",
+        }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
