@@ -46,6 +46,9 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   status = "running";
   const result = await judge.executeSandbox(input.submissionId, input.draft, judgeContext);
 
+  // Inlined: workflow sandbox can't import @nojv/domain (would pull Prisma into
+  // the workflow bundle). Mirrors `submissionDomain.deriveJudgeMode` — kept in
+  // sync by the unit test on `deriveJudgeMode` covering the same condition.
   const mode: "standard" | "advanced" =
     judgeContext.problemType === "special_env" && judgeContext.advanced !== null
       ? "advanced"

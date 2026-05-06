@@ -97,8 +97,7 @@ export async function executeSandbox(
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
   const useSamples = draft.sampleOnly === true;
-  const useAdvanced =
-    judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
+  const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
   const hasRunCases =
     useSamples && !useAdvanced && draft.runCases !== undefined && draft.runCases.length > 0;
 

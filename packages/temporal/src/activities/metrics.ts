@@ -15,6 +15,7 @@ export type JudgeLatencyArgs = {
 };
 
 export function recordJudgeLatency(hist: Histogram, args: JudgeLatencyArgs): void {
+  // Clamp negative durations from clock skew to 0; not expected in practice.
   const seconds = Math.max(0, (args.completedAtMs - args.startedAtMs) / 1000);
   hist.record(seconds, { mode: args.mode, verdict: args.verdict });
 }
