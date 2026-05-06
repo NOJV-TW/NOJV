@@ -153,6 +153,15 @@ test.describe("Advanced Mode — required-paths flow", () => {
   test("student upload missing the required file is blocked client-side", async ({
     browser,
   }) => {
+    // Own our preconditions: install required paths via the form action
+    // before exercising the student flow. Without this, running this test
+    // in isolation (-g filter) would hit a problem with `[]` paths and
+    // pass for the wrong reason.
+    const teacherCtx = await browser.newContext({ storageState: teacherAuth });
+    const teacherPage = await teacherCtx.newPage();
+    await setRequiredPaths(teacherPage, [REQUIRED_FILE, REQUIRED_FOLDER]);
+    await teacherCtx.close();
+
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
 
@@ -199,6 +208,12 @@ test.describe("Advanced Mode — required-paths flow", () => {
   });
 
   test("student upload that satisfies required paths submits", async ({ browser }) => {
+    // Own our preconditions — see scenario above for rationale.
+    const teacherCtx = await browser.newContext({ storageState: teacherAuth });
+    const teacherPage = await teacherCtx.newPage();
+    await setRequiredPaths(teacherPage, [REQUIRED_FILE, REQUIRED_FOLDER]);
+    await teacherCtx.close();
+
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
 
@@ -235,7 +250,7 @@ test.describe("Advanced Mode — required-paths flow", () => {
 
     // Drop-zone copy switches to staged metadata, including the file count.
     // This is the visible-to-the-user proof that staging completed.
-    await expect(page.getByText(/extracted 3 files|展開 3 個檔案/i)).toBeVisible();
+    await expect(page.getByText(/extracted 3 files|已解壓 3 個檔案/i)).toBeVisible();
 
     // Click Submit and assert the dispatch POST. /api/submissions persists
     // the Submission row and queues the Temporal workflow; the endpoint
