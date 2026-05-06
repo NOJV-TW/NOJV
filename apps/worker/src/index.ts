@@ -1,3 +1,6 @@
+import { startOtel } from "./otel.js";
+startOtel();
+
 import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";
 import { WorkerApp } from "./worker-app";

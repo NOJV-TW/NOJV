@@ -1,3 +1,6 @@
+import { startOtel } from "$lib/server/otel";
+startOtel();
+
 import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import { examDomain } from "@nojv/domain";

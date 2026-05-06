@@ -13,6 +13,11 @@ export function startOtel(): void {
 	const token = process.env.GRAFANA_OTLP_TOKEN;
 	if (!endpoint || !instanceId || !token) return;
 
+	if (!URL.canParse(endpoint)) {
+		console.warn(`[otel] Invalid GRAFANA_OTLP_ENDPOINT: ${endpoint}`);
+		return;
+	}
+
 	const auth = Buffer.from(`${instanceId}:${token}`).toString("base64");
 
 	const exporter = new OTLPMetricExporter({
@@ -30,6 +35,7 @@ export function startOtel(): void {
 			exporter,
 			exportIntervalMillis: 30_000,
 		}),
+		spanProcessors: [],
 		instrumentations: [
 			getNodeAutoInstrumentations({
 				"@opentelemetry/instrumentation-fs": { enabled: false },
@@ -41,7 +47,7 @@ export function startOtel(): void {
 	sdk.start();
 	started = true;
 
-	process.on("SIGTERM", () => {
+	process.once("SIGTERM", () => {
 		sdk?.shutdown().catch(() => undefined);
 	});
 }
