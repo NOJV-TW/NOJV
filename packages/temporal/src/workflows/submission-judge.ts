@@ -46,7 +46,11 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   status = "running";
   const result = await judge.executeSandbox(input.submissionId, input.draft, judgeContext);
 
-  const submission = await judge.completeSubmission(input.submissionId, result);
+  const mode: "standard" | "advanced" =
+    judgeContext.problemType === "special_env" && judgeContext.advanced !== null
+      ? "advanced"
+      : "standard";
+  const submission = await judge.completeSubmission(input.submissionId, result, mode);
 
   if (submission.contestParticipationId) {
     await contest.updateContestScores(submission.contestParticipationId);

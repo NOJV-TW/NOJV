@@ -436,6 +436,9 @@ importers:
       '@nojv/redis':
         specifier: workspace:*
         version: link:../redis
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
       '@temporalio/activity':
         specifier: ^1.15.0
         version: 1.15.0
