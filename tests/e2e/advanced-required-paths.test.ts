@@ -237,16 +237,34 @@ test.describe("Advanced Mode — required-paths flow", () => {
     // This is the visible-to-the-user proof that staging completed.
     await expect(page.getByText(/extracted 3 files|展開 3 個檔案/i)).toBeVisible();
 
-    // We deliberately stop short of clicking Submit. The submission
-    // dispatch path is already covered end-to-end by
-    // submission-lifecycle.test.ts; what's specific to this spec is the
-    // staging gate (covered above) and the server-side re-check, which
-    // is covered separately by domain unit tests in @nojv/domain. The
-    // worker boundary for Advanced Mode requires a real Docker image
-    // pull (`ghcr.io/nojv/demo-judge-shell:latest`) that the local dev
-    // setup may not have, so a click here would either hang or produce
-    // a system_error verdict — neither of which validates anything
-    // about required paths.
+    // Click Submit and assert the dispatch POST. /api/submissions persists
+    // the Submission row and queues the Temporal workflow; the endpoint
+    // returns BEFORE judging actually runs (judging needs the demo-judge
+    // image, which local dev may lack — but that's a separate phase).
+    // A 2xx here proves:
+    //   1. Staging passed the client-side required-paths check (above).
+    //   2. The server-side defense-in-depth re-check inside
+    //      createQueuedSubmissionRecord did NOT throw — exactly Task C's
+    //      contract for the happy path.
+    //   3. The submission row exists.
+    // Pollution: the Submission row lingers in the DB. No precedent for
+    // E2E-level submission cleanup (submission-lifecycle.test.ts also
+    // leaves rows behind); db:seed resets the schema between sessions.
+    const responsePromise = page.waitForResponse(
+      (r) => r.url().endsWith("/api/submissions") && r.request().method() === "POST",
+    );
+    await submitBtn.click();
+    const response = await responsePromise;
+    expect(response.ok()).toBe(true);
+    const body = await response.json();
+    expect(body.submissionId).toBeTruthy();
+    expect(body.pollUrl).toContain(body.submissionId);
+
+    // After dispatch, the workspace polls /api/submissions/{id} until the
+    // verdict arrives or times out. Navigate away so that polling loop
+    // unmounts cleanly before context.close() — otherwise the in-flight
+    // fetch races with teardown.
+    await page.goto("/");
 
     await context.close();
   });
