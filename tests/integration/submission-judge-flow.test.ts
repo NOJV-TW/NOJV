@@ -281,7 +281,12 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       verdict: "wrong_answer",
     });
     await contestDomain.updateContestScores(participation.id);
-    expect(updateScoreboardMock).toHaveBeenLastCalledWith(contest.id, participation.id, 0, "ioi");
+    expect(updateScoreboardMock).toHaveBeenLastCalledWith(
+      contest.id,
+      participation.id,
+      0,
+      "ioi",
+    );
 
     // Rejudge: same row gets overwritten with AC, score 100.
     await submissionDomain.completeJudge(submission.id, {
@@ -293,7 +298,12 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       verdict: "accepted",
     });
     await contestDomain.updateContestScores(participation.id);
-    expect(updateScoreboardMock).toHaveBeenLastCalledWith(contest.id, participation.id, 100, "ioi");
+    expect(updateScoreboardMock).toHaveBeenLastCalledWith(
+      contest.id,
+      participation.id,
+      100,
+      "ioi",
+    );
 
     // Final scoreboard sees the higher score.
     const updated = await testPrisma.contestParticipation.findUnique({
