@@ -55,6 +55,7 @@ export interface ProblemDetail {
   }[];
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
+  advancedRequiredPaths: string[];
 }
 
 // Duplicated from apps/web/src/lib/types.ts to avoid a UI→domain import.
@@ -155,6 +156,7 @@ async function mapPersistedProblemDetail(
     type?: ProblemType;
     advancedImageRef?: string | null;
     advancedImageSource?: ProblemImageSource | null;
+    advancedRequiredPaths?: string[];
     workspaceFiles?: {
       language: string;
       path: string;
@@ -219,6 +221,7 @@ async function mapPersistedProblemDetail(
     workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
     advancedImageSource: problem.advancedImageSource ?? null,
+    advancedRequiredPaths: problem.advancedRequiredPaths ?? [],
   };
 }
 
