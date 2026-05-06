@@ -10,6 +10,7 @@
   import WorkspaceSection from "$lib/components/problem/sections/WorkspaceSection.svelte";
   import ImageSection from "$lib/components/problem/advanced/ImageSection.svelte";
   import ContainerContractSection from "$lib/components/problem/advanced/ContainerContractSection.svelte";
+  import RequiredPathsSection from "$lib/components/problem/advanced/RequiredPathsSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import RejudgeDialog from "$lib/components/problem/RejudgeDialog.svelte";
   import { Badge } from "$lib/components/ui/badge";
@@ -39,6 +40,11 @@
   );
   let advancedMemoryLimitMb = $state<number>(
     untrack(() => data.imageConfig?.memoryLimitMb ?? 1_024)
+  );
+
+  // Advanced-mode required paths — persists separately from the image config.
+  let requiredPaths = $state<string[]>(
+    untrack(() => data.problem.advancedRequiredPaths ?? [])
   );
 
   // Publish requires: at least one testcase set
@@ -140,6 +146,16 @@
       type: res.ok ? "success" : "error"
     });
   }
+
+  async function saveRequiredPaths() {
+    const fd = new FormData();
+    fd.append("data", JSON.stringify({ paths: requiredPaths }));
+    const res = await fetch("?/updateRequiredPaths", { method: "POST", body: fd });
+    toasts.add({
+      message: res.ok ? m.advancedRequiredPaths_savedToast() : m.admin_imageConfigFailed(),
+      type: res.ok ? "success" : "error"
+    });
+  }
 </script>
 
 <div class="space-y-6">
@@ -197,6 +213,14 @@
         bind:timeLimitMs={advancedTimeLimitMs}
         bind:memoryLimitMb={advancedMemoryLimitMb}
         onsave={saveImage}
+      />
+    </section>
+
+    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+      <RequiredPathsSection
+        value={requiredPaths}
+        onchange={(next) => (requiredPaths = next)}
+        onsave={saveRequiredPaths}
       />
     </section>
   {:else}
