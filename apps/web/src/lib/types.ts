@@ -85,6 +85,7 @@ export interface ProblemDetail extends ProblemOverview {
   visibility: ProblemVisibility;
   advancedImageRef: string | null;
   advancedImageSource: ProblemImageSource | null;
+  advancedRequiredPaths: string[];
   // Hidden files have `content === ""`; the domain layer blanks them before they leave the server.
   workspaceFiles: {
     language: string;

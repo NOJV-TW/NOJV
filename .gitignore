@@ -41,6 +41,9 @@ yarn-error.log*
 .env*.local
 .env
 
+# local secrets (Grafana Cloud tokens, GCP SA keys, etc.) — NEVER commit
+.secrets/
+
 # vercel
 .vercel
 

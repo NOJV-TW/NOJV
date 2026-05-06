@@ -334,11 +334,17 @@ export async function releaseSessionAsInstructor(
 }
 
 // Always bumps `lastHeartbeatAt`; throttles the audit-event insert to avoid flooding `ExamSessionEvent`.
+// `previousHeartbeatAt` is the pre-update timestamp — callers (e.g. observability)
+// use it to detect cadence misses regardless of whether the audit event was throttled.
 export async function heartbeatWithThrottle(
   userId: string,
   examId: string,
   options: { throttleMs?: number; now?: Date } = {},
-): Promise<{ session: { id: string; lastHeartbeatAt: Date }; recordedEvent: boolean }> {
+): Promise<{
+  session: { id: string; lastHeartbeatAt: Date };
+  previousHeartbeatAt: Date;
+  recordedEvent: boolean;
+}> {
   const throttleMs = options.throttleMs ?? HEARTBEAT_EVENT_THROTTLE_MS;
   const now = options.now ?? new Date();
 
@@ -347,6 +353,8 @@ export async function heartbeatWithThrottle(
     if (session?.endedAt !== null) {
       throw new NotFoundError("No active exam session to heartbeat.");
     }
+
+    const previousHeartbeatAt = session.lastHeartbeatAt;
 
     const updated = await examSessionRepo.withTx(tx).update(session.id, {
       lastHeartbeatAt: now,
@@ -368,6 +376,7 @@ export async function heartbeatWithThrottle(
 
     return {
       session: { id: updated.id, lastHeartbeatAt: updated.lastHeartbeatAt },
+      previousHeartbeatAt,
       recordedEvent: shouldRecord,
     };
   });

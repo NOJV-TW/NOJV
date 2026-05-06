@@ -9,6 +9,7 @@ const {
   workspaceCreateMany,
   problemFindById,
   problemUpdate,
+  problemUpdateAdvancedRequiredPaths,
   PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
@@ -17,6 +18,7 @@ const {
   workspaceCreateMany: vi.fn(),
   problemFindById: vi.fn(),
   problemUpdate: vi.fn(),
+  problemUpdateAdvancedRequiredPaths: vi.fn(),
   // Sentinel for Prisma.JsonNull — we only need identity equality in assertions.
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
@@ -66,6 +68,7 @@ vi.mock("@nojv/db", () => {
       withTx: () => withTx,
       findById: problemFindById,
       delete: vi.fn(),
+      updateAdvancedRequiredPaths: problemUpdateAdvancedRequiredPaths,
     },
     problemStatementRepo: {
       withTx: () => statementWithTx,
@@ -82,7 +85,8 @@ vi.mock("@nojv/db", () => {
 
 import { ConflictError, problemDomain } from "@nojv/domain";
 
-const { createProblemDefinition, updateProblemWorkspace } = problemDomain;
+const { createProblemDefinition, updateProblemWorkspace, updateAdvancedRequiredPaths } =
+  problemDomain;
 
 const fakeTx = {} as never;
 
@@ -279,5 +283,64 @@ describe("updateProblemWorkspace — 1 MB per-language quota", () => {
         ],
       }),
     ).rejects.toThrow(/python.*1 MB limit.*1100000 bytes/);
+  });
+});
+
+describe("updateAdvancedRequiredPaths — special_env type guard", () => {
+  const actor = {
+    userId: "usr_author",
+    username: "author",
+    platformRole: "teacher" as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemUpdateAdvancedRequiredPaths.mockResolvedValue(undefined);
+  });
+
+  it("rejects non-empty paths on a non-special_env problem with ConflictError", async () => {
+    // problemUpdateSchema.partial() drops the create-time superRefine arm,
+    // so the canonical guard for partial updates lives in the mutation
+    // itself. This is the regression test for that guard.
+    problemFindById.mockResolvedValue({
+      id: "prob_full",
+      authorId: "usr_author",
+      type: "full_source",
+    });
+
+    await expect(
+      updateAdvancedRequiredPaths(actor, "prob_full", ["src/main.c"]),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(problemUpdateAdvancedRequiredPaths).not.toHaveBeenCalled();
+  });
+
+  it("persists non-empty paths on a special_env problem", async () => {
+    problemFindById.mockResolvedValue({
+      id: "prob_se",
+      authorId: "usr_author",
+      type: "special_env",
+    });
+
+    await expect(
+      updateAdvancedRequiredPaths(actor, "prob_se", ["src/main.c", "src/"]),
+    ).resolves.toBeUndefined();
+    expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledTimes(1);
+    expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledWith("prob_se", [
+      "src/main.c",
+      "src/",
+    ]);
+  });
+
+  it("allows clearing (empty array) on a non-special_env problem — idempotent", async () => {
+    // Clearing must always succeed regardless of type so that callers can
+    // safely call this on any problem to reset the column.
+    problemFindById.mockResolvedValue({
+      id: "prob_full",
+      authorId: "usr_author",
+      type: "full_source",
+    });
+
+    await expect(updateAdvancedRequiredPaths(actor, "prob_full", [])).resolves.toBeUndefined();
+    expect(problemUpdateAdvancedRequiredPaths).toHaveBeenCalledWith("prob_full", []);
   });
 });

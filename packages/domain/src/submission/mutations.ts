@@ -5,7 +5,7 @@ import {
   runTransaction,
   submissionRepo,
 } from "@nojv/db";
-import { entryFileNameFor, type SubmissionDraft } from "@nojv/core";
+import { entryFileNameFor, validateRequiredPaths, type SubmissionDraft } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
@@ -147,6 +147,17 @@ export async function createQueuedSubmissionRecord(
         if (!hasEntry) {
           throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
         }
+      }
+    }
+
+    // Pre-flight already runs in the browser, but the API can be called
+    // directly. Re-validate the structural contract here as defense-in-depth.
+    if (problem.type === "special_env" && problem.advancedRequiredPaths.length > 0) {
+      const uploaded = (payload.sourceFiles ?? []).map((f) => f.path);
+      const result = validateRequiredPaths(uploaded, problem.advancedRequiredPaths);
+      if (!result.ok) {
+        const missing = result.errors.map((e) => e.path).join(", ");
+        throw new ConflictError(`Submission missing required paths: ${missing}`);
       }
     }
 

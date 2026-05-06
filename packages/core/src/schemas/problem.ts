@@ -10,6 +10,7 @@ import {
 } from "../types";
 
 import { judgeConfigSchema } from "./judge-config";
+import { requiredPathsSchema } from "./required-paths";
 
 // 16 MB cap on blob-backed fields: API payload safety, not a storage bound.
 const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
@@ -97,6 +98,7 @@ const problemCreateObjectSchema = z.object({
   samples: problemSamplesSchema.optional(),
   advancedImageRef: z.string().max(500).optional(),
   advancedImageSource: problemImageSourceSchema.optional(),
+  advancedRequiredPaths: requiredPathsSchema.optional(),
 });
 
 export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, ctx) => {
@@ -132,6 +134,13 @@ export const problemCreateSchema = problemCreateObjectSchema.superRefine((data, 
       ctx.addIssue({
         code: "custom",
         path: ["advancedImageSource"],
+        message: "validation_onlyAllowedForSpecialEnv",
+      });
+    }
+    if ((data.advancedRequiredPaths ?? []).length > 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["advancedRequiredPaths"],
         message: "validation_onlyAllowedForSpecialEnv",
       });
     }

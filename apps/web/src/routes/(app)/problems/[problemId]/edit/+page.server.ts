@@ -6,6 +6,7 @@ import {
   problemTestcaseSetCreateSchema,
   problemTypeSchema,
   problemWorkspaceFileSchema,
+  requiredPathsSchema,
   runtimeSchema,
   testcaseSetUpdateSchema,
   testcaseUpdateSchema,
@@ -37,6 +38,7 @@ const {
   deleteProblemRecord,
   convertProblemToAdvancedMode,
   setTestcaseSetScoringStrategy,
+  updateAdvancedRequiredPaths,
 } = problemDomain;
 
 const updateWorkspaceSchema = z.object({
@@ -53,6 +55,10 @@ const advancedImageSavePayloadSchema = z.object({
   ref: z.string().min(1).max(500),
   timeLimitMs: z.coerce.number().int().min(1_000).max(300_000).optional(),
   memoryLimitMb: z.coerce.number().int().min(16).max(4_096).optional(),
+});
+
+const advancedRequiredPathsSavePayloadSchema = z.object({
+  paths: requiredPathsSchema,
 });
 
 export const load: PageServerLoad = handleLoad(
@@ -314,6 +320,17 @@ export const actions: Actions = {
         ...(data.timeLimitMs !== undefined ? { timeLimitMs: data.timeLimitMs } : {}),
         ...(data.memoryLimitMb !== undefined ? { memoryLimitMb: data.memoryLimitMb } : {}),
       });
+    } catch (err) {
+      return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
+    }
+    return { success: true };
+  }),
+
+  updateRequiredPaths: problemEditAction(async ({ actor, problemId, event }) => {
+    const formData = await event.request.formData();
+    const data = parseJsonField(formData.get("data"), advancedRequiredPathsSavePayloadSchema);
+    try {
+      await updateAdvancedRequiredPaths(actor, problemId, data.paths);
     } catch (err) {
       return fail(400, { message: err instanceof Error ? err.message : "Update failed" });
     }

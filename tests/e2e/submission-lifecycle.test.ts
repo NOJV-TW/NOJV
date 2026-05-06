@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
+import { apiWriteHeaders } from "./_shared";
+
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -217,7 +219,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    const res = await page.request.post("/api/problems/create");
+    const res = await page.request.post("/api/problems/create", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const body = await res.json();
     problemId = body.id;
@@ -366,6 +368,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
           { path: "parallelogram.c", content: PARALLELOGRAM_C },
         ],
       },
+      headers: apiWriteHeaders,
     });
     expect(createRes.status()).toBe(202);
     const created = await createRes.json();
@@ -373,10 +376,12 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     expect(created.status).toBe("queued");
     expect(created.pollUrl).toBe(`/api/submissions/${created.submissionId}`);
 
-    // Poll for verdict up to ~60s. Judge runs in Docker sandbox; if the
+    // Poll for verdict up to ~30s. Judge runs in Docker sandbox; if the
     // sandbox isn't available locally the submission may stay queued — we
     // still assert a valid polling response and record the last known state.
-    const deadline = Date.now() + 60_000;
+    // Cap at half the per-test timeout so the loop exits cleanly before
+    // Playwright kills the test.
+    const deadline = Date.now() + 30_000;
     let lastStatus = created.status as string;
     while (Date.now() < deadline) {
       const pollRes = await page.request.get(created.pollUrl);
