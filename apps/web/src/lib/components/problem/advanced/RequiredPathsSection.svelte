@@ -104,6 +104,7 @@
             autocomplete="off"
             placeholder={m.advancedRequiredPaths_addPlaceholder()}
             disabled={atCap}
+            data-testid="required-paths-input"
             bind:value={draft}
             onkeydown={onKeydown}
             oninput={() => (error = null)}
@@ -136,6 +137,9 @@
         {#each value as path, i (path)}
           <li
             class="inline-flex items-center gap-2 rounded-full border border-border bg-muted/40 py-1 pl-3 pr-1 text-body-sm"
+            data-testid="required-paths-chip"
+            data-path={path}
+            data-kind={isFolder(path) ? "folder" : "file"}
           >
             {#if isFolder(path)}
               <Folder

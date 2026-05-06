@@ -431,7 +431,10 @@
       </div>
 
       {#if stagingError}
-        <div class="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-body-sm text-destructive">
+        <div
+          class="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+          data-testid="advanced-staging-error"
+        >
           {stagingError}
         </div>
       {/if}
