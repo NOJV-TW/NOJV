@@ -398,6 +398,9 @@ importers:
       '@nojv/core':
         specifier: workspace:*
         version: link:../core
+      '@opentelemetry/api':
+        specifier: ^1.9.1
+        version: 1.9.1
       ioredis:
         specifier: ^5.10.1
         version: 5.10.1
