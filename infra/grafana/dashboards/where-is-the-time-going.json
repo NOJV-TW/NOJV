@@ -1,7 +1,7 @@
 {
   "uid": "nojv-time-breakdown",
   "title": "NOJV — Where Is The Time Going?",
-  "description": "Breakdown of request time across application code (manual instrumentation) vs HTTP server (auto), DB client (pg auto), and Redis client (ioredis auto). PromQL queries may need metric-name adjustment after first verification — check Grafana Explore for actually-exported names. Common variants seen across OTel SDK versions: http.server.request.duration may be exported as http_server_request_duration_seconds OR http_server_duration_milliseconds; db.client.operation.duration similarly varies between *_seconds and *_milliseconds.",
+  "description": "Breakdown of request time across application code (manual instrumentation) vs HTTP server (auto), Postgres client (auto), and Redis client (auto). Verified against OTel SDK 0.216 export shape: http.server.duration uses milliseconds (divided by 1000 here for s-uniform comparison); db.client.operation.duration is unified across drivers and uses db_system label to distinguish postgresql/redis. ioredis spans only appear once Redis traffic actually flows.",
   "tags": ["nojv", "diagnostic", "auto-instrumentation"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -36,7 +36,7 @@
       "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
       "options": {
         "mode": "markdown",
-        "content": "## Where Is The Time Going?\n\nCompares **manual app-level latency** (`api_request_duration_seconds` — measured around our route handlers) against **auto-instrumented component latencies** (HTTP server, Postgres client, Redis client) so we can attribute total request time to the right layer.\n\n### Caveat — auto-instrumentation metric names vary by OTel SDK version\n\nOpen Grafana Explore on the Hosted Prometheus datasource and confirm the actual exported names before trusting these panels:\n\n- HTTP server: try `http_server_request_duration_seconds_bucket` first; fallback `http_server_duration_milliseconds_bucket` (older SDKs).\n- Postgres pg client: try `db_client_operation_duration_seconds_bucket`; fallback `db_client_operation_duration_milliseconds_bucket`.\n- ioredis client: try `redis_client_duration_seconds_bucket`; fallback `redis_client_command_duration_milliseconds_bucket` or `db_client_operation_duration_*` (some setups label-tag redis under the same db.client metric with `db.system=\"redis\"`).\n\nIf a panel shows \"No data\", edit the panel target — the bucket suffix is the only thing that should change. If unit is milliseconds, divide by 1000 inside the histogram_quantile call."
+        "content": "## Where Is The Time Going?\n\nCompares **manual app-level latency** (`api_request_duration_seconds` — measured around our route handlers) against **auto-instrumented component latencies** so we can attribute total request time to the right layer.\n\n### Metric layout (verified against this stack)\n\n| Source | Metric | Unit | Notes |\n|---|---|---|---|\n| Manual handler timing | `api_request_duration_seconds_bucket` | seconds | recorded in `apps/web/src/hooks.server.ts` |\n| HTTP server (auto) | `http_server_duration_milliseconds_bucket` | **milliseconds** | divide by 1000 for s-uniform comparison |\n| Postgres client (auto, pg) | `db_client_operation_duration_seconds_bucket{db_system=\"postgresql\"}` | seconds | OTel pg instrumentation |\n| Redis client (auto, ioredis) | `db_client_operation_duration_seconds_bucket{db_system=\"redis\"}` | seconds | OTel ioredis instrumentation — series only appears once Redis traffic flows |\n\nUnified `db.client.operation.duration` covers both Postgres and Redis; the `db_system` label distinguishes drivers. Older OTel SDK versions exported `redis_client_duration_*` separately — not the case in 0.216.x."
       }
     },
     {
@@ -51,7 +51,7 @@
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket[5m]))) / 1000",
           "legendFormat": "http server (auto)",
           "refId": "B"
         }
@@ -76,7 +76,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(db_client_operation_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(db_client_operation_duration_seconds_bucket{db_system=\"postgresql\"}[5m])))",
           "legendFormat": "p95 (all ops)",
           "refId": "A"
         }
@@ -101,7 +101,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(redis_client_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(db_client_operation_duration_seconds_bucket{db_system=\"redis\"}[5m])))",
           "legendFormat": "p95 (all commands)",
           "refId": "A"
         }
