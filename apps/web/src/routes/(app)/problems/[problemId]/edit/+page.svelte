@@ -152,7 +152,9 @@
     fd.append("data", JSON.stringify({ paths: requiredPaths }));
     const res = await fetch("?/updateRequiredPaths", { method: "POST", body: fd });
     toasts.add({
-      message: res.ok ? m.advancedRequiredPaths_savedToast() : m.admin_imageConfigFailed(),
+      message: res.ok
+        ? m.advancedRequiredPaths_savedToast()
+        : m.advancedRequiredPaths_saveFailedToast(),
       type: res.ok ? "success" : "error"
     });
   }
