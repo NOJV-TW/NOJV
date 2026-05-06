@@ -1,5 +1,4 @@
-import { startOtel } from "$lib/server/otel";
-startOtel();
+import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
 
 import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";

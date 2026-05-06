@@ -46,8 +46,19 @@ export function startOtel(): void {
 
 	sdk.start();
 	started = true;
-
-	process.once("SIGTERM", () => {
-		sdk?.shutdown().catch(() => undefined);
-	});
 }
+
+export async function shutdownOtel(): Promise<void> {
+	if (!sdk) return;
+	try {
+		await sdk.shutdown();
+	} catch {
+		// best-effort flush; swallow errors so caller's shutdown sequence isn't blocked
+	}
+}
+
+// Self-execute at module load so that a side-effect-only `import "./otel.js"`
+// (placed as the very first import in index.ts) registers import-in-the-middle
+// hooks BEFORE pg/ioredis/etc. are evaluated by subsequent imports. The
+// `started` flag keeps this idempotent.
+startOtel();

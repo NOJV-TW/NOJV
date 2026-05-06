@@ -1,5 +1,5 @@
-import { startOtel } from "./otel.js";
-startOtel();
+import "./otel.js"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
+import { shutdownOtel } from "./otel.js"; // named export for shutdown wiring; ESM caches the module so this does not re-evaluate
 
 import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";
@@ -32,10 +32,12 @@ const app = new WorkerApp(env);
 // Node behavior (immediate kill) to handle every SIGTERM/SIGINT in
 // production. That would skip closeServerSafely, skip worker.shutdown(),
 // and leave in-flight activities without the chance to drain.
-const gracefulShutdown = (signal: string) => {
-  void app.shutdown(signal).then(() => process.exit(0));
+const gracefulShutdown = async (signal: string) => {
+  await app.shutdown(signal);
+  await shutdownOtel();
+  process.exit(0);
 };
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => void gracefulShutdown("SIGTERM"));
 
 await app.start();
