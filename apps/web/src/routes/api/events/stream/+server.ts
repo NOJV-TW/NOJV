@@ -4,6 +4,11 @@ import { createSubscriber, keys } from "@nojv/redis";
 import { userChannel } from "@nojv/core";
 import { clarificationDomain } from "@nojv/domain";
 import { createLogger } from "$lib/server/logger";
+import {
+  sseConnectionDuration,
+  sseConnectionDroppedTotal,
+  type SseCloseReason,
+} from "$lib/server/metrics";
 import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
@@ -118,6 +123,12 @@ export const GET: RequestHandler = async (event) => {
         ...authorizedClarChannels,
       ];
 
+      const startMs = performance.now();
+      let closed = false;
+      // Subscribe failures keep the connection alive (keepalives, no events)
+      // but flag the connection so cleanup attributes the close to the fault.
+      let droppedFault = false;
+
       function send(data: string) {
         try {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
@@ -129,6 +140,10 @@ export const GET: RequestHandler = async (event) => {
       subscriber.subscribe(...channels).catch((err: unknown) => {
         // Subscription failed — the client will receive keepalives but no events.
         // Log so operators can see the degradation instead of debugging silently.
+        if (!droppedFault) {
+          droppedFault = true;
+          sseConnectionDroppedTotal.add(1);
+        }
         logger.warn("Redis subscribe failed", { userId, err });
       });
 
@@ -141,16 +156,18 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
         } catch {
-          cleanup();
+          cleanup("controller_error");
         }
       }, KEEPALIVE_MS);
 
       // Timeout
       const timeout = setTimeout(() => {
-        cleanup();
+        cleanup("timeout");
       }, MAX_DURATION_MS);
 
-      function cleanup() {
+      function cleanup(reason: SseCloseReason) {
+        if (closed) return;
+        closed = true;
         releaseOnce();
         clearInterval(keepalive);
         clearTimeout(timeout);
@@ -161,10 +178,18 @@ export const GET: RequestHandler = async (event) => {
         } catch {
           // Already closed
         }
+
+        const finalReason: SseCloseReason = droppedFault ? "subscribe_failed" : reason;
+        sseConnectionDuration.record((performance.now() - startMs) / 1000, {
+          close_reason: finalReason,
+        });
+        if (reason === "controller_error" && !droppedFault) {
+          sseConnectionDroppedTotal.add(1);
+        }
       }
 
       // Handle client disconnect
-      event.request.signal.addEventListener("abort", cleanup);
+      event.request.signal.addEventListener("abort", () => cleanup("client_abort"));
     },
   });
 

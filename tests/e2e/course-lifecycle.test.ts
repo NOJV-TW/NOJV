@@ -6,36 +6,43 @@ const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/s
 const adminAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/admin.json");
 
 const timestamp = Date.now();
-const COURSE_SLUG = `e2e-${timestamp}`;
 const COURSE_TITLE = `E2E Course ${timestamp}`;
+
+// Course id is server-assigned (cuid) on create; the legacy slug knob
+// was removed during the schema redesign. We capture it from the redirect
+// location in the create step and reuse it across the rest of the spec.
+let createdCourseId = "";
 
 test.describe("Course Lifecycle", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("teacher can create a new course via form action", async ({ browser }) => {
+  test("teacher can create a new course via the default form action", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    const res = await page.request.post("/courses?/create", {
+    // Action lives at /courses/new (no named action — `default`). Schema is
+    // { title, description } only.
+    const res = await page.request.post("/courses/new", {
       form: {
         title: COURSE_TITLE,
-        slug: COURSE_SLUG,
         description: "Automated E2E test course for lifecycle verification.",
-        locale: "en",
       },
       headers: { origin: "http://localhost:5173" },
     });
 
-    const body = await res.json();
-    expect(body.type).not.toBe("error");
+    const body = (await res.json()) as { type: string; location?: string };
+    expect(body.type).toBe("redirect");
+    expect(body.location).toMatch(/^\/courses\//);
+    createdCourseId = body.location!.replace(/^\/courses\//, "");
+    expect(createdCourseId).toBeTruthy();
 
     await context.close();
   });
 
-  test("created course appears in course list", async ({ browser }) => {
+  test("created course appears in the managing tab", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto("/courses");
+    await page.goto("/courses?tab=managing");
     await expect(page.getByText(COURSE_TITLE)).toBeVisible();
     await context.close();
   });
@@ -43,54 +50,44 @@ test.describe("Course Lifecycle", () => {
   test("teacher can access course detail page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto(`/courses/${COURSE_SLUG}`);
+    await page.goto(`/courses/${createdCourseId}`);
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByText(COURSE_TITLE)).toBeVisible();
-    await context.close();
-  });
-
-  test("teacher can access manage overview", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: teacherAuth });
-    const page = await context.newPage();
-    await page.goto(`/courses/${COURSE_SLUG}/manage`);
-    await expect(page.getByRole("main")).toBeVisible();
     await context.close();
   });
 
   test("teacher can access members page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto(`/courses/${COURSE_SLUG}/manage/members`);
+    await page.goto(`/courses/${createdCourseId}/members`);
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();
   });
 
-  // NOTE: `/courses/[slug]/manage/problems` was removed in commit b21759a
-  // (schema redesign — problems are managed via the global /problems page
-  // now). The corresponding test was kept in-file as a stub for history.
-
-  test("teacher can access assessments page", async ({ browser }) => {
+  test("teacher can access assignments page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto(`/courses/${COURSE_SLUG}/manage/assessments`);
+    await page.goto(`/courses/${createdCourseId}/assignments`);
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();
   });
 
-  test("student cannot access course manage page", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: studentAuth });
-    const page = await context.newPage();
-    const res = await page.goto(`/courses/${COURSE_SLUG}/manage`);
-    const status = res?.status() ?? 0;
-    expect(status === 403 || status === 404 || page.url().includes("/courses")).toBe(true);
-    await context.close();
-  });
-
-  test("admin can access any course manage page", async ({ browser }) => {
+  test("admin can access any course detail", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto(`/courses/${COURSE_SLUG}/manage`);
+    await page.goto(`/courses/${createdCourseId}`);
     await expect(page.getByRole("main")).toBeVisible();
+    await context.close();
+  });
+
+  test("non-enrolled student does not see the new course on the enrolled tab", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await page.goto("/courses");
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByText(COURSE_TITLE)).not.toBeVisible();
     await context.close();
   });
 });

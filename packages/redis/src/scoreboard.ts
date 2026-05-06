@@ -2,6 +2,7 @@ import type Redis from "ioredis";
 
 import { getRedis } from "./connection";
 import { keys } from "./keys";
+import { scoreboardUpdateLatency, type ScoreboardUpdateMode } from "./metrics";
 
 // TTL refreshed on every write so active contests stay alive; ended ones expire.
 const SCOREBOARD_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
@@ -17,14 +18,21 @@ export async function updateScoreboard(
   contestId: string,
   participationId: string,
   score: number,
+  mode: ScoreboardUpdateMode,
 ): Promise<void> {
   const key = keys.scoreboard(contestId);
-  await execPipeline(
-    getRedis()
-      .pipeline()
-      .zadd(key, score.toString(), participationId)
-      .expire(key, SCOREBOARD_TTL_SECONDS),
-  );
+  const startMs = performance.now();
+  try {
+    await execPipeline(
+      getRedis()
+        .pipeline()
+        .zadd(key, score.toString(), participationId)
+        .expire(key, SCOREBOARD_TTL_SECONDS),
+    );
+  } finally {
+    // try/finally so failure latency is still recorded — useful for the dashboard.
+    scoreboardUpdateLatency.record((performance.now() - startMs) / 1000, { mode });
+  }
 }
 
 /** Returns the frozen snapshot if present, otherwise the live board. */

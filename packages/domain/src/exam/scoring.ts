@@ -78,7 +78,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
     });
 
     const packedScore = solvedCount * 1e9 - totalPenalty;
-    await scoreboard.updateScoreboard(exam.id, participation.id, packedScore);
+    await scoreboard.updateScoreboard(exam.id, participation.id, packedScore, "icpc");
   } else {
     const bestByProblem = new Map<string, number>();
     for (const sub of allSubmissions) {
@@ -107,7 +107,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
       subtaskScores,
     });
 
-    await scoreboard.updateScoreboard(exam.id, participation.id, totalScore);
+    await scoreboard.updateScoreboard(exam.id, participation.id, totalScore, "ioi");
   }
 }
 

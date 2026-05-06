@@ -10,6 +10,7 @@ export {
   type ActorContext as SubmissionActorContext,
 } from "./mutations";
 export {
+  deriveJudgeMode,
   getJudgeContext,
   updateSubmissionStatus,
   completeJudge,
