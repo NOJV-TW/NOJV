@@ -66,6 +66,15 @@ export interface SubmissionJudgeContext {
   advanced: AdvancedModeContext | null;
 }
 
+/** Derive whether this submission runs in standard or advanced (custom-image) sandbox mode. */
+export function deriveJudgeMode(
+  context: Pick<SubmissionJudgeContext, "problemType" | "advanced">,
+): "standard" | "advanced" {
+  return context.problemType === "special_env" && context.advanced !== null
+    ? "advanced"
+    : "standard";
+}
+
 export interface CompletedSubmission {
   contestParticipationId: string | null;
   createdAt: Date;

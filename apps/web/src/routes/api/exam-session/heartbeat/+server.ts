@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { RequestHandler } from "./$types";
 
 import { NotFoundError, requireApiAuth } from "$lib/server/auth";
+import { examHeartbeatMissTotal, heartbeatGapBucket } from "$lib/server/metrics";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { examDomain } from "@nojv/domain";
 
@@ -19,6 +20,11 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   try {
     const result = await examDomain.session.heartbeatWithThrottle(actor.userId, body.examId);
+    const gapSec = (Date.now() - result.previousHeartbeatAt.getTime()) / 1000;
+    const bucket = heartbeatGapBucket(gapSec);
+    if (bucket) {
+      examHeartbeatMissTotal.add(1, { gap_bucket: bucket });
+    }
     return json({
       ok: true,
       lastHeartbeatAt: result.session.lastHeartbeatAt.toISOString(),

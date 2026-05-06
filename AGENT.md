@@ -43,6 +43,7 @@ when working on a specific area, open the listed doc first.
 | Local dev setup, first run, troubleshooting          | [Getting Started](docs/runbooks/getting-started.md)                    |
 | Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)                |
 | Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                    |
+| Setting up or updating Grafana metrics dashboards    | [Observability Setup](docs/runbooks/observability-setup.md)            |
 | Live demo / showcase walkthrough                     | [Exhibition Demo Playbook](docs/playbooks/exhibition-demo-playbook.md) |
 | Cross-cutting quality / tech debt                    | [Quality Ledger](docs/QUALITY_SCORE.md)                                |
 | Overall system map, layer boundaries                 | [Architecture Overview](ARCHITECTURE.md)                               |

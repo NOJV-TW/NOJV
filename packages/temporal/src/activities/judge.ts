@@ -9,6 +9,7 @@ import {
 import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
+import { judgeLatencyHistogram, recordJudgeLatency } from "./metrics";
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
 
@@ -96,8 +97,7 @@ export async function executeSandbox(
   await submissionDomain.updateSubmissionStatus(submissionId, "running");
 
   const useSamples = draft.sampleOnly === true;
-  const useAdvanced =
-    judgeContext.problemType === "special_env" && judgeContext.advanced !== null;
+  const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
   const hasRunCases =
     useSamples && !useAdvanced && draft.runCases !== undefined && draft.runCases.length > 0;
 
@@ -184,8 +184,16 @@ export async function executeSandbox(
 export async function completeSubmission(
   submissionId: string,
   result: SubmissionResult,
+  mode: "standard" | "advanced",
 ): Promise<submissionDomain.CompletedSubmission> {
-  return submissionDomain.completeJudge(submissionId, result);
+  const completed = await submissionDomain.completeJudge(submissionId, result);
+  recordJudgeLatency(judgeLatencyHistogram, {
+    startedAtMs: completed.createdAt.getTime(),
+    completedAtMs: Date.now(),
+    mode,
+    verdict: completed.status,
+  });
+  return completed;
 }
 
 export async function fetchSubmissionIdsForRejudge(

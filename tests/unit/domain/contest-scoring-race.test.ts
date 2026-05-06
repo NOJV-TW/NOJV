@@ -130,7 +130,7 @@ describe("updateContestScores — optimistic locking", () => {
 
     // Scoreboard reflects the value that actually landed.
     expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(CONTEST_ID, PARTICIPATION_ID, 80);
+    expect(updateScoreboardMock).toHaveBeenCalledWith(CONTEST_ID, PARTICIPATION_ID, 80, "ioi");
   });
 
   it("throws ConflictError after exhausting all retry attempts", async () => {

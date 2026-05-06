@@ -74,6 +74,12 @@ model Problem {
   advancedImageRef    String?
   advancedImageSource ProblemImageSource?
 
+  /// special_env only. Each entry is a literal path; trailing "/" means
+  /// "this folder must exist" (i.e. at least one uploaded file's path
+  /// starts with this prefix). Validated by Zod refine: must be empty when
+  /// type !== 'special_env'. See packages/core/src/schemas/required-paths.ts.
+  advancedRequiredPaths String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
