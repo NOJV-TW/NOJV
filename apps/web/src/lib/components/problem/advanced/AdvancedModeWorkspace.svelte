@@ -6,6 +6,7 @@
     submissionDispatchResponseSchema,
     submissionOperationSchema,
     submissionResultSchema,
+    validateRequiredPaths,
     type Language,
     type SubmissionResult
   } from "@nojv/core";
@@ -29,6 +30,8 @@
     contestId?: string | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
+    /** TA-configured paths the student's ZIP must contain. Empty array = no constraint. */
+    requiredPaths?: string[];
     testcaseSets?: ProblemTestcaseSetSummary[];
   }
 
@@ -39,6 +42,7 @@
     contestId,
     initialSubmissions,
     problem,
+    requiredPaths = [],
     testcaseSets = []
   }: Props = $props();
 
@@ -178,6 +182,15 @@
           stagingError = `ZIP content exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`;
           return;
         }
+        const requiredCheck = validateRequiredPaths(
+          entries.map((e) => e.path),
+          requiredPaths
+        );
+        if (!requiredCheck.ok) {
+          const missingList = requiredCheck.errors.map((e) => e.path).join(", ");
+          stagingError = m.advancedRequiredPaths_missingList({ paths: missingList });
+          return;
+        }
         entries.sort((a, b) => a.path.localeCompare(b.path));
         staged = { kind: "zip", file, sourceFiles: entries };
         return;
@@ -187,6 +200,12 @@
         const content = await file.text();
         if (content.length > MAX_TOTAL_BYTES) {
           stagingError = `File exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`;
+          return;
+        }
+        const requiredCheck = validateRequiredPaths([file.name], requiredPaths);
+        if (!requiredCheck.ok) {
+          const missingList = requiredCheck.errors.map((e) => e.path).join(", ");
+          stagingError = m.advancedRequiredPaths_missingList({ paths: missingList });
           return;
         }
         staged = {
