@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   const saToken = process.env.GRAFANA_SA_TOKEN;
   if (!stackUrl || !saToken) {
     console.error("Missing GRAFANA_STACK_URL or GRAFANA_SA_TOKEN env vars");
-    console.error("Source .secrets/grafana.env first");
+    console.error("Set them in .env (see .env.example for the full list)");
     process.exit(1);
   }
 

@@ -63,7 +63,10 @@ under **Cloud Portal → Access policies**.
    **Connections → OpenTelemetry → OTLP** page. Gateway URL for our region
    is `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp`.
 
-### Populate `.secrets/grafana.env`
+### Populate `.env`
+
+Append the five Grafana keys to your existing root-level `.env` (see
+`.env.example` for the full set):
 
 ```env
 # OTLP push (consumed by apps/web + apps/worker on boot)
@@ -76,16 +79,16 @@ GRAFANA_STACK_URL=https://takalawang.grafana.net
 GRAFANA_SA_TOKEN=glsa_...
 ```
 
-`.secrets/` is git-ignored. Never check these in.
+`.env` is git-ignored. Never check these in.
 
 ## Local development
 
-Source the env file and start the dev servers:
-
 ```bash
-set -a; source .secrets/grafana.env; set +a
 pnpm dev
 ```
+
+Both `apps/web` (Vite) and `apps/worker` (`node --env-file=.env`) load
+`.env` automatically, so no manual sourcing is needed.
 
 Both apps detect the three `GRAFANA_OTLP_*` vars on boot and start the
 SDK. To verify the SDK is actually exporting:
@@ -210,9 +213,11 @@ cardinality low while preserving signal.
 Dashboard JSON lives at `infra/grafana/dashboards/`. To roll out edits:
 
 ```bash
-set -a; source .secrets/grafana.env; set +a
 pnpm grafana:provision
 ```
+
+The script self-loads `.env` via `node --env-file=.env`, so it picks up
+`GRAFANA_STACK_URL` and `GRAFANA_SA_TOKEN` without any extra sourcing.
 
 The provisioning script POSTs each JSON to `/api/dashboards/db` with
 `overwrite: true`, so reruns are idempotent — same UID gets updated in
@@ -239,8 +244,8 @@ curl -s -H "Authorization: Bearer $GRAFANA_SA_TOKEN" \
 
 1. Grafana UI → **Administration → Service accounts → nojv-provision →
    Add service account token** → create the new token.
-2. Update `GRAFANA_SA_TOKEN` in `.secrets/grafana.env` (local) and in GCP
-   Secret Manager (production).
+2. Update `GRAFANA_SA_TOKEN` in `.env` (local) and in GCP Secret Manager
+   (production).
 3. Run `pnpm grafana:provision` once with the new token to confirm it
    works.
 4. Revoke the old token from the same Service Account page.
