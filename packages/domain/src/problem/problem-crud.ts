@@ -16,7 +16,7 @@ import type {
 import type { ProblemDifficulty } from "@nojv/core";
 import { DEFAULT_LOCALE } from "@nojv/core";
 
-import { NotFoundError, ValidationError } from "../shared/errors";
+import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 
@@ -200,4 +200,27 @@ export async function updateProblemRecord(
 
     return { id: problem.id };
   });
+}
+
+/**
+ * Update the `advancedRequiredPaths` array on a special_env problem.
+ *
+ * The create-time `superRefine` arm on `problemCreateSchema` enforces that
+ * non-special_env problems can't carry required paths, but
+ * `problemUpdateSchema.partial()` strips that refine, so we re-check here.
+ */
+export async function updateAdvancedRequiredPaths(
+  actor: ProblemActorContext,
+  problemId: string,
+  paths: string[],
+): Promise<void> {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  assertProblemOwnership(problem, actor);
+
+  if (problem.type !== "special_env" && paths.length > 0) {
+    throw new ConflictError("Required paths can only be set on special_env problems.");
+  }
+
+  await problemRepo.updateAdvancedRequiredPaths(problemId, paths);
 }

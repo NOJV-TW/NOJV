@@ -122,6 +122,13 @@ export const problemRepo = {
     });
   },
 
+  async updateAdvancedRequiredPaths(id: string, paths: string[]): Promise<void> {
+    await prisma.problem.update({
+      where: { id },
+      data: { advancedRequiredPaths: paths },
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       findById(id: string) {
