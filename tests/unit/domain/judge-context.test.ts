@@ -25,7 +25,7 @@ vi.mock("../../../packages/domain/src/problem/blobs", () => ({
 
 import { submissionDomain, NotFoundError } from "@nojv/domain";
 
-const { getJudgeContext } = submissionDomain;
+const { getJudgeContext, deriveJudgeMode } = submissionDomain;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -321,6 +321,29 @@ describe("getJudgeContext", () => {
 
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.advanced).toBeNull();
+    });
+  });
+
+  describe("deriveJudgeMode", () => {
+    it('returns "advanced" for special_env with non-null advanced context', () => {
+      expect(
+        deriveJudgeMode({
+          problemType: "special_env",
+          advanced: {
+            imageRef: "registry.example.com/judge:v1",
+            imageSource: "registry",
+            resourceLimits: { totalTimeMs: 5000, memoryMb: 1024 },
+          },
+        }),
+      ).toBe("advanced");
+    });
+
+    it('returns "standard" for non-special_env problems', () => {
+      expect(deriveJudgeMode({ problemType: "full_source", advanced: null })).toBe("standard");
+    });
+
+    it('returns "standard" when problemType is special_env but advanced is null', () => {
+      expect(deriveJudgeMode({ problemType: "special_env", advanced: null })).toBe("standard");
     });
   });
 

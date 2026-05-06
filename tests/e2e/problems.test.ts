@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
+import { apiWriteHeaders } from "./_shared";
+
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -26,7 +28,7 @@ test.describe("Problems", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     // Create via API
-    const res = await page.request.post("/api/problems/create");
+    const res = await page.request.post("/api/problems/create", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const { id } = await res.json();
     expect(id).toBeTruthy();

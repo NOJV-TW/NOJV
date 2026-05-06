@@ -100,7 +100,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
         );
 
         const packedScore = solvedCount * 1e9 - totalPenalty;
-        await scoreboard.updateScoreboard(contest.id, participation.id, packedScore);
+        await scoreboard.updateScoreboard(contest.id, participation.id, packedScore, "icpc");
       } else {
         const bestByProblem = new Map<string, number>();
         for (const sub of allSubmissions) {
@@ -135,7 +135,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
           },
         );
 
-        await scoreboard.updateScoreboard(contest.id, participation.id, totalScore);
+        await scoreboard.updateScoreboard(contest.id, participation.id, totalScore, "ioi");
       }
 
       return;

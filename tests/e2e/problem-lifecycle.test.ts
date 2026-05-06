@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
+import { apiWriteHeaders } from "./_shared";
+
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -12,7 +14,7 @@ test.describe("Problem Lifecycle", () => {
   test("teacher can create a problem via API", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post("/api/problems/create");
+    const res = await page.request.post("/api/problems/create", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const body = await res.json();
     problemId = body.id;
@@ -74,7 +76,9 @@ test.describe("Problem Lifecycle", () => {
     const page = await context.newPage();
 
     // Create a throwaway problem
-    const createRes = await page.request.post("/api/problems/create");
+    const createRes = await page.request.post("/api/problems/create", {
+      headers: apiWriteHeaders,
+    });
     const { id: deleteId } = await createRes.json();
     expect(deleteId).toBeTruthy();
 

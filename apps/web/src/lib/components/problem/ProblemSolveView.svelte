@@ -175,6 +175,7 @@
       {contestId}
       initialSubmissions={submissions}
       {problem}
+      requiredPaths={problem.advancedRequiredPaths ?? []}
       {testcaseSets}
     />
   {:else}

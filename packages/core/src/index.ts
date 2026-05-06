@@ -8,6 +8,8 @@ export * from "./schemas/judge-config";
 export * from "./schemas/assessment-adjustments";
 export * from "./schemas/advanced-mode";
 export * from "./schemas/user";
+export * from "./schemas/required-paths";
+export * from "./validation/required-paths";
 export * from "./queue";
 export * from "./sandbox";
 export * from "./reserved-username";

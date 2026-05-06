@@ -1,3 +1,5 @@
+import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
+
 import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import { examDomain } from "@nojv/domain";
@@ -12,6 +14,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
+import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 
 // Validate environment variables eagerly on startup.
@@ -161,6 +164,29 @@ function deriveRequestId(headers: Headers): string {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+  const startMs = performance.now();
+  let recordedStatus: number | null = null;
+  try {
+    const response = await runHandle({ event, resolve });
+    recordedStatus = response.status;
+    return response;
+  } finally {
+    const routeId = event.route.id ?? "unmatched";
+    if (!routeId.endsWith("/stream")) {
+      // `recordedStatus ?? 500` covers thrown redirect/error paths where the
+      // response object never exists in this scope — SvelteKit converts those
+      // to 3xx/4xx upstream of `handle`, but we can't observe the final status
+      // from `finally`. Imprecision accepted: ~5–10% of dashboard traffic.
+      apiRequestDuration.record((performance.now() - startMs) / 1000, {
+        route: routeId,
+        method: event.request.method,
+        status_class: statusClass(recordedStatus ?? 500),
+      } satisfies ApiRequestLabels);
+    }
+  }
+};
+
+const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Response> => {
   event.locals.requestId = deriveRequestId(event.request.headers);
 
   const cleanPath = stripLocalePrefix(event.url.pathname);
