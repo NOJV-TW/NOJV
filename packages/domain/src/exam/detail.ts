@@ -1,7 +1,17 @@
-import { courseMembershipRepo, examParticipationRepo, examRepo } from "@nojv/db";
+import {
+  courseMembershipRepo,
+  examParticipationRepo,
+  examRepo,
+  submissionRepo,
+} from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
+import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
+
+/** Viewer's outcome on a single problem after the exam ends. */
+export type ExamProblemViewerState = "ac" | "partial" | "zero" | "empty";
 
 export interface ExamDetailProblem {
   id: string;
@@ -11,6 +21,12 @@ export interface ExamDetailProblem {
   ordinal: number;
   /** A, B, C… derived from ordinal so the UI never has to compute it. */
   letter: string;
+  /**
+   * Viewer's best-effort state for post-exam review. Populated only when
+   * the exam has ended and the viewer is a student; null otherwise so
+   * managers (who use the matrix tab) and pre-end viewers see no leak.
+   */
+  viewerState: ExamProblemViewerState | null;
 }
 
 export interface ExamRosterEntry {
@@ -52,6 +68,14 @@ export interface ExamDetailPageData {
   problems: ExamDetailProblem[];
   registeredCount: number;
   totalStudents: number;
+  /**
+   * Viewer's total score across every problem in this exam. Populated only
+   * for student viewers after the exam ends; null for managers and while
+   * the exam is still upcoming/running.
+   */
+  viewerScore: number | null;
+  /** Sum of `points` across every problem — convenience for the post-exam summary. */
+  totalPoints: number;
   /** Manager-only — null for student viewers. */
   roster: ExamRosterEntry[] | null;
   /** Manager-only settings payload; null for student viewers. */
@@ -120,16 +144,73 @@ export async function getExamDetailPage(
     !options.isManager &&
     (derivedStatus === "upcoming" || derivedStatus === "draft" || exam.course.archived);
 
-  const problems: ExamDetailProblem[] = hideProblemsFromViewer
-    ? []
-    : exam.problems.map((ep) => ({
-        id: ep.problem.id,
-        title: ep.problem.title,
-        difficulty: ep.problem.difficulty,
-        points: ep.points,
-        ordinal: ep.ordinal,
-        letter: letterFromOrdinal(ep.ordinal),
-      }));
+  const problemRows = hideProblemsFromViewer ? [] : exam.problems;
+
+  // Post-exam review: students get a per-problem state + total score so the
+  // detail page can colour-code their attempts and surface a final number
+  // without going through the manager-only matrix endpoint. Managers keep
+  // viewerState/viewerScore null — they have the matrix tab for that.
+  const enrichWithViewerScores =
+    !options.isManager && derivedStatus === "ended" && problemRows.length > 0;
+
+  const viewerStateByProblem = new Map<string, ExamProblemViewerState>();
+  let viewerTotalScore: number | null = null;
+
+  if (enrichWithViewerScores) {
+    const problemIds = problemRows.map((ep) => ep.problem.id);
+    const [grouped, overrides] = await Promise.all([
+      submissionRepo.groupByUserAndProblem({
+        examId,
+        userId: options.viewerUserId,
+        problemId: { in: problemIds },
+        sampleOnly: false,
+      }),
+      resolveOverridesForContext({ contextType: "exam", contextId: examId }),
+    ]);
+
+    const bestByProblem = new Map<string, { best: number; count: number }>();
+    for (const g of grouped) {
+      bestByProblem.set(g.problemId, { best: g._max.score ?? 0, count: g._count.id });
+    }
+
+    let total = 0;
+    for (const ep of problemRows) {
+      const overrideKey = `${options.viewerUserId}::${ep.problem.id}`;
+      const override = overrides.get(overrideKey);
+      const hit = bestByProblem.get(ep.problem.id);
+      let score: number;
+      let state: ExamProblemViewerState;
+      if (override !== undefined) {
+        score = override;
+        if (override >= ep.points) state = "ac";
+        else if (override > 0) state = "partial";
+        else state = "zero";
+      } else if (!hit || hit.count === 0) {
+        score = 0;
+        state = "empty";
+      } else {
+        score = hit.best;
+        if (hit.best >= ep.points) state = "ac";
+        else if (hit.best > 0) state = "partial";
+        else state = "zero";
+      }
+      viewerStateByProblem.set(ep.problem.id, state);
+      total += score;
+    }
+    viewerTotalScore = total;
+  }
+
+  const problems: ExamDetailProblem[] = problemRows.map((ep) => ({
+    id: ep.problem.id,
+    title: ep.problem.title,
+    difficulty: ep.problem.difficulty,
+    points: ep.points,
+    ordinal: ep.ordinal,
+    letter: letterFromOrdinal(ep.ordinal),
+    viewerState: viewerStateByProblem.get(ep.problem.id) ?? null,
+  }));
+
+  const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 
   const rosterMapped: ExamRosterEntry[] | null =
     roster === null
@@ -169,6 +250,8 @@ export async function getExamDetailPage(
     problems,
     registeredCount: exam._count.participations,
     totalStudents: students.length,
+    viewerScore: viewerTotalScore,
+    totalPoints,
     roster: rosterMapped,
     manager,
   };
