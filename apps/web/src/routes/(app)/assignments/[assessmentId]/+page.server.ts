@@ -80,6 +80,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canSetOverride,
       canAskClar,
       canAnswerClar,
+      canViewClar,
     ] = await Promise.all([
       getAssignmentDetail(courseId, assessmentId, {
         viewerUserId: actor.userId,
@@ -92,6 +93,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId),
       clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
       clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId),
+      clarificationDomain.canViewClarifications(actor, "assignment", assessmentId),
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -117,6 +119,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       clarification: {
         canAsk: canAskClar,
         canAnswer: canAnswerClar,
+        canView: canViewClar,
       },
       plagiarism: plagiarism
         ? {
@@ -141,13 +144,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     };
   }
 
-  const [detail, canAskClar, canAnswerClar] = await Promise.all([
+  const [detail, canAskClar, canAnswerClar, canViewClar] = await Promise.all([
     getAssignmentDetail(courseId, assessmentId, {
       viewerUserId: actor.userId,
       isManager: false,
     }),
     clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
     clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId),
+    clarificationDomain.canViewClarifications(actor, "assignment", assessmentId),
   ]);
   return {
     mode: "student" as const,
@@ -155,6 +159,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
+      canView: canViewClar,
     },
   };
 });

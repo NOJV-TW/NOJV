@@ -604,8 +604,14 @@ if __name__ == "__main__":
         },
       },
       samples: [
-        { input: "42", output: "" },
-        { input: "500000", output: "" },
+        {
+          input: "1 100\nlower\nhigher\nhigher\nlower\ncorrect",
+          output: "50\n25\n37\n43\n42",
+        },
+        {
+          input: "1 1000000\ncorrect",
+          output: "500000",
+        },
       ],
       testcases: {
         sample: {
@@ -952,8 +958,14 @@ if __name__ == "__main__":
         },
       },
       samples: [
-        { input: "42", output: "" },
-        { input: "777777", output: "" },
+        {
+          input: "1 1000000 35 5\ncorrect",
+          output: "500000",
+        },
+        {
+          input: "1 100 35 5\nhigher\nlower\nhigher\nlower\nlower\ncorrect",
+          output: "50\n75\n62\n70\n66\n68",
+        },
       ],
       testcases: {
         sample: {

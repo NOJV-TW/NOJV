@@ -182,6 +182,10 @@
           stagingError = `ZIP content exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`;
           return;
         }
+        if (entries.every((e) => e.content.trim().length === 0)) {
+          stagingError = m.advancedMode_emptyZip();
+          return;
+        }
         const requiredCheck = validateRequiredPaths(
           entries.map((e) => e.path),
           requiredPaths
@@ -200,6 +204,10 @@
         const content = await file.text();
         if (content.length > MAX_TOTAL_BYTES) {
           stagingError = `File exceeds ${String(MAX_TOTAL_BYTES / (1024 * 1024))} MB.`;
+          return;
+        }
+        if (content.trim().length === 0) {
+          stagingError = m.advancedMode_emptyFile();
           return;
         }
         const requiredCheck = validateRequiredPaths([file.name], requiredPaths);
