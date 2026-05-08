@@ -114,6 +114,22 @@
     return m.examDetail_difficultyMedium();
   }
 
+  type ViewerState = "ac" | "partial" | "zero" | "empty" | null;
+
+  // Background tint communicates the viewer's outcome on each problem
+  // after the exam has ended. Zero / empty / pre-end stays neutral.
+  function reviewRowClass(state: ViewerState): string {
+    if (state === "ac") return "bg-success/[0.08] border-success/30";
+    if (state === "partial") return "bg-warning/[0.10] border-warning/35";
+    return "border-border-subtle";
+  }
+
+  function reviewLetterClass(state: ViewerState): string {
+    if (state === "ac") return "text-success";
+    if (state === "partial") return "text-warning";
+    return "text-muted-foreground";
+  }
+
   type SubTab = "problems" | "submissions" | "settings" | "clarifications";
   let activeTab = $state<SubTab>("problems");
 
@@ -190,89 +206,137 @@
   {/snippet}
 
   {#snippet countdownRibbon()}
-    <div
-      class="countdown-card animate-in animate-in-2 grid items-center gap-8 rounded-3xl border px-10 py-10 shadow-rest"
-    >
-      <div>
-        <div class="text-caption font-semibold uppercase tracking-[0.12em] text-primary">
-          {liveStatus === "running"
-            ? m.examDetail_countdownEndingLabel()
-            : m.examDetail_countdownLabel()}
+    {#if liveStatus === "ended" || liveStatus === "archived"}
+      <!-- Once the exam has ended, the countdown placeholder/disabled
+           start button just adds visual weight without information.
+           Replace it with a clean summary of when it ran and the
+           student's final score. -->
+      <div
+        class="ended-summary-card animate-in animate-in-2 rounded-3xl border px-10 py-8 shadow-rest"
+      >
+        <div class="text-caption font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          {m.examDetail_endedSummaryHeading()}
         </div>
-        <div
-          class="big mt-2.5 font-display font-normal leading-[0.95] tracking-[-0.03em] tabular-nums"
-        >
-          {#if liveStatus === "ended"}
-            <span class="text-foreground">—</span>
-            <span class="ml-2 text-[0.5em] text-muted-foreground"
-              >{m.examDetail_endedNote()}</span
-            >
-          {:else if liveStatus === "draft"}
-            <span class="text-foreground">—</span>
-            <span class="ml-2 text-[0.5em] text-muted-foreground"
-              >{m.examDetail_draftNote()}</span
-            >
-          {:else}
-            {countdown.days}<span class="text-[0.5em] text-muted-foreground"
-              > {m.examDetail_unitDays()}</span
-            >
-            {countdown.hours}<span class="text-[0.5em] text-muted-foreground"
-              > {m.examDetail_unitHours()}</span
-            >
-            {countdown.minutes}<span class="text-[0.5em] text-muted-foreground"
-              > {m.examDetail_unitMinutes()}</span
-            >
+        <div class="mt-4 flex flex-wrap items-end gap-x-12 gap-y-5">
+          <div>
+            <div class="text-caption text-muted-foreground tracking-[0.04em]">
+              {m.examDetail_startLabel()}
+            </div>
+            <div class="mt-1 font-display text-title font-medium tabular-nums text-foreground">
+              {formatStartTime(detail.startsAt)}
+            </div>
+          </div>
+          <div>
+            <div class="text-caption text-muted-foreground tracking-[0.04em]">
+              {m.examDetail_endTime()}
+            </div>
+            <div class="mt-1 font-display text-title font-medium tabular-nums text-foreground">
+              {formatStartTime(detail.endsAt)}
+            </div>
+          </div>
+          <div>
+            <div class="text-caption text-muted-foreground tracking-[0.04em]">
+              {m.examDetail_durationLabel()}
+            </div>
+            <div class="mt-1 font-display text-title font-medium tabular-nums text-foreground">
+              {m.examDetail_durationMinutes({ count: durationMinutes })}
+            </div>
+          </div>
+          {#if !isManager && detail.viewerScore !== null}
+            <div class="ml-auto text-right">
+              <div class="text-caption text-muted-foreground tracking-[0.04em]">
+                {m.examDetail_yourScoreLabel()}
+              </div>
+              <div
+                class="mt-1 font-display font-normal leading-none tabular-nums text-foreground"
+              >
+                <span class="text-headline">{detail.viewerScore}</span>
+                <span class="text-title-sm text-muted-foreground">
+                  / {detail.totalPoints}</span
+                >
+              </div>
+            </div>
           {/if}
         </div>
-        <div class="mt-3 text-body text-muted-foreground">
-          {m.examDetail_startTime()}<span class="font-semibold text-foreground"
-            >{formatStartTime(detail.startsAt)}</span
-          ><br />
-          {m.examDetail_arrivalHint()}
-        </div>
       </div>
+    {:else}
+      <div
+        class="countdown-card animate-in animate-in-2 grid items-center gap-8 rounded-3xl border px-10 py-10 shadow-rest"
+      >
+        <div>
+          <div class="text-caption font-semibold uppercase tracking-[0.12em] text-primary">
+            {liveStatus === "running"
+              ? m.examDetail_countdownEndingLabel()
+              : m.examDetail_countdownLabel()}
+          </div>
+          <div
+            class="big mt-2.5 font-display font-normal leading-[0.95] tracking-[-0.03em] tabular-nums"
+          >
+            {#if liveStatus === "draft"}
+              <span class="text-foreground">—</span>
+              <span class="ml-2 text-[0.5em] text-muted-foreground"
+                >{m.examDetail_draftNote()}</span
+              >
+            {:else}
+              {countdown.days}<span class="text-[0.5em] text-muted-foreground"
+                > {m.examDetail_unitDays()}</span
+              >
+              {countdown.hours}<span class="text-[0.5em] text-muted-foreground"
+                > {m.examDetail_unitHours()}</span
+              >
+              {countdown.minutes}<span class="text-[0.5em] text-muted-foreground"
+                > {m.examDetail_unitMinutes()}</span
+              >
+            {/if}
+          </div>
+          <div class="mt-3 text-body text-muted-foreground">
+            {m.examDetail_startTime()}<span class="font-semibold text-foreground"
+              >{formatStartTime(detail.startsAt)}</span
+            ><br />
+            {m.examDetail_arrivalHint()}
+          </div>
+        </div>
 
-      <div class="flex flex-col items-center gap-2">
-        {#if isManager}
-          <!-- Managers don't take the exam — show an inert pill so the
-               column still has weight, matching the prototype's
-               disabled visual state. -->
-          <button
-            type="button"
-            class="start-btn"
-            disabled
-            aria-disabled="true"
-            title={m.examDetail_managerCannotStart()}
-          >
-            {m.examDetail_startButton()}
-          </button>
-          <span class="text-caption text-muted-foreground"
-            >{m.examDetail_managerCannotStart()}</span
-          >
-        {:else}
-          <form method="POST" action="?/startExam" use:enhance class="contents">
+        <div class="flex flex-col items-center gap-2">
+          {#if isManager}
+            <!-- Managers don't take the exam — show an inert pill so the
+                 column still has weight, matching the prototype's
+                 disabled visual state. -->
             <button
-              type="submit"
+              type="button"
               class="start-btn"
-              class:live={canStart}
-              disabled={!canStart}
-              aria-disabled={!canStart}
+              disabled
+              aria-disabled="true"
+              title={m.examDetail_managerCannotStart()}
             >
               {m.examDetail_startButton()}
             </button>
-          </form>
-          <span class="text-caption text-muted-foreground">
-            {#if liveStatus === "running"}
-              {m.examDetail_startReady()}
-            {:else if liveStatus === "ended" || liveStatus === "archived"}
-              {m.examDetail_statusEnded()}
-            {:else}
-              {m.examDetail_startDisabled()}
-            {/if}
-          </span>
-        {/if}
+            <span class="text-caption text-muted-foreground"
+              >{m.examDetail_managerCannotStart()}</span
+            >
+          {:else}
+            <form method="POST" action="?/startExam" use:enhance class="contents">
+              <button
+                type="submit"
+                class="start-btn"
+                class:live={canStart}
+                disabled={!canStart}
+                aria-disabled={!canStart}
+              >
+                {m.examDetail_startButton()}
+              </button>
+            </form>
+            <span class="text-caption text-muted-foreground">
+              {#if liveStatus === "running"}
+                {m.examDetail_startReady()}
+              {:else}
+                {m.examDetail_startDisabled()}
+              {/if}
+            </span>
+          {/if}
+        </div>
       </div>
-    </div>
+    {/if}
   {/snippet}
 
   <PageHero
@@ -295,80 +359,59 @@
     </div>
   {/if}
 
-  <div
-    class="grid gap-5 rounded-2xl border border-border bg-[color:var(--color-panel)]/60 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4"
-  >
-      <div class="flex items-start gap-3">
-        <span
-          class="flex size-9 shrink-0 items-center justify-center rounded-md bg-[color:var(--color-primary)]/14 text-primary"
-        >
-          <Lock class="size-4" aria-hidden="true" />
+  {#if isManager}
+    <!-- Manager-only proctor summary. Students don't need to see the
+         proctor settings on this page — the live exam itself enforces
+         them. Compact one-line chip row replaces the previous 4-column
+         icon-card grid. -->
+    <div
+      class="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-border-subtle bg-[color:var(--color-panel)]/40 px-4 py-2.5 text-body-sm text-muted-foreground"
+    >
+      <span class="inline-flex items-center gap-1.5">
+        <Lock class="size-3.5 text-primary/70" aria-hidden="true" />
+        <span>{m.examDetail_proctorPageLock()}</span>
+        <span class="font-medium text-foreground">
+          {detail.pageLockEnabled
+            ? m.examDetail_proctorOn()
+            : m.examDetail_proctorOff()}
         </span>
-        <div>
-          <div class="text-caption text-muted-foreground tracking-[0.04em]">
-            {m.examDetail_proctorPageLock()}
-          </div>
-          <div class="font-semibold tracking-[-0.005em]">
-            {detail.pageLockEnabled ? m.examDetail_proctorOn() : m.examDetail_proctorOff()}
-          </div>
-        </div>
-      </div>
-      <div class="flex items-start gap-3">
-        <span
-          class="flex size-9 shrink-0 items-center justify-center rounded-md bg-[color:var(--color-primary)]/14 text-primary"
-        >
-          <Link2 class="size-4" aria-hidden="true" />
+      </span>
+      <span class="size-1 rounded-full bg-muted-foreground/40" aria-hidden="true"></span>
+      <span class="inline-flex items-center gap-1.5">
+        <Link2 class="size-3.5 text-primary/70" aria-hidden="true" />
+        <span>{m.examDetail_proctorIpBinding()}</span>
+        <span class="font-medium text-foreground">
+          {#if detail.ipBindingEnabled}
+            {detail.ipViolationMode === "block"
+              ? m.examDetail_proctorOnBlock()
+              : m.examDetail_proctorOnNotify()}
+          {:else}
+            {m.examDetail_proctorOff()}
+          {/if}
         </span>
-        <div>
-          <div class="text-caption text-muted-foreground tracking-[0.04em]">
-            {m.examDetail_proctorIpBinding()}
-          </div>
-          <div class="font-semibold tracking-[-0.005em]">
-            {#if detail.ipBindingEnabled}
-              {detail.ipViolationMode === "block"
-                ? m.examDetail_proctorOnBlock()
-                : m.examDetail_proctorOnNotify()}
-            {:else}
-              {m.examDetail_proctorOff()}
-            {/if}
-          </div>
-        </div>
-      </div>
-      <div class="flex items-start gap-3">
-        <span
-          class="flex size-9 shrink-0 items-center justify-center rounded-md bg-[color:var(--color-primary)]/14 text-primary"
-        >
-          <Shield class="size-4" aria-hidden="true" />
+      </span>
+      <span class="size-1 rounded-full bg-muted-foreground/40" aria-hidden="true"></span>
+      <span class="inline-flex items-center gap-1.5">
+        <Shield class="size-3.5 text-primary/70" aria-hidden="true" />
+        <span>{m.examDetail_proctorIpWhitelist()}</span>
+        <span class="font-medium text-foreground">
+          {#if detail.ipWhitelistEnabled}
+            {m.examDetail_proctorWhitelistCount({ count: detail.ipWhitelistCount })}
+          {:else}
+            {m.examDetail_proctorOff()}
+          {/if}
         </span>
-        <div>
-          <div class="text-caption text-muted-foreground tracking-[0.04em]">
-            {m.examDetail_proctorIpWhitelist()}
-          </div>
-          <div class="font-semibold tracking-[-0.005em]">
-            {#if detail.ipWhitelistEnabled}
-              {m.examDetail_proctorWhitelistCount({ count: detail.ipWhitelistCount })}
-            {:else}
-              {m.examDetail_proctorOff()}
-            {/if}
-          </div>
-        </div>
-      </div>
-      <div class="flex items-start gap-3">
-        <span
-          class="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
-        >
-          <Users class="size-4" aria-hidden="true" />
+      </span>
+      <span class="size-1 rounded-full bg-muted-foreground/40" aria-hidden="true"></span>
+      <span class="inline-flex items-center gap-1.5">
+        <Users class="size-3.5" aria-hidden="true" />
+        <span>{m.examDetail_registered()}</span>
+        <span class="font-medium text-foreground">
+          {detail.registeredCount} / {detail.totalStudents}
         </span>
-        <div>
-          <div class="text-caption text-muted-foreground tracking-[0.04em]">
-            {m.examDetail_registered()}
-          </div>
-          <div class="font-semibold tracking-[-0.005em]">
-            {detail.registeredCount} / {detail.totalStudents}
-          </div>
-        </div>
-      </div>
+      </span>
     </div>
+  {/if}
 
   <!-- TEACHER SUB-TABS + TWO COLUMNS -->
   {#if isManager}
@@ -547,19 +590,22 @@
         <ul class="space-y-2.5">
           {#each detail.problems as problem (problem.id)}
             <li
-              class="flex items-center justify-between gap-4 rounded-xl border border-border-subtle px-4 py-3"
+              class="flex items-center justify-between gap-4 rounded-xl border px-4 py-3 transition-colors {reviewRowClass(
+                problem.viewerState
+              )}"
             >
               <div class="flex items-center gap-3">
                 <span
-                  class="min-w-[28px] text-center font-display text-title-sm font-medium text-muted-foreground"
+                  class="min-w-[28px] text-center font-display text-title-sm font-medium {reviewLetterClass(
+                    problem.viewerState
+                  )}"
                 >
                   {problem.letter}
                 </span>
                 <div class="min-w-0">
                   <div class="font-semibold">{problem.title}</div>
                   <div class="mt-1 text-caption text-muted-foreground">
-                    {difficultyLabel(problem.difficulty)} ·
-                    {m.examDetail_problemPoints({ count: problem.points })}
+                    {difficultyLabel(problem.difficulty)}
                   </div>
                 </div>
               </div>
@@ -617,6 +663,11 @@
 
   .countdown-card .big {
     font-size: 4.5rem;
+  }
+
+  .ended-summary-card {
+    background: var(--color-panel-strong, var(--color-panel));
+    border-color: var(--color-border, color-mix(in oklab, currentColor 12%, transparent));
   }
 
   .start-btn {
