@@ -12,6 +12,11 @@
   let chart: any;
   let observer: ResizeObserver | undefined;
   let ready = $state(false);
+  // Dedup: $derived option objects are recreated on every reactive tick
+  // (a new array literal counts as a change). Without an equality check,
+  // echarts re-renders the canvas on every keystroke / hover, which the
+  // tooltip layer manifests as flicker.
+  let lastSerialized = "";
 
   onMount(() => {
     import("echarts").then((echarts) => {
@@ -28,7 +33,11 @@
   });
 
   $effect(() => {
-    if (ready) chart?.setOption(option);
+    if (!ready) return;
+    const serialized = JSON.stringify(option);
+    if (serialized === lastSerialized) return;
+    lastSerialized = serialized;
+    chart?.setOption(option, { lazyUpdate: true });
   });
 </script>
 

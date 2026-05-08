@@ -236,7 +236,7 @@
     </div>
   </div>
 
-  {#if data.clarification.canAsk || data.clarification.canAnswer}
+  {#if data.clarification.canView}
     <section class="space-y-4">
       <h2 class="font-display text-title font-semibold">{m.clarification_tab_title()}</h2>
       <ClarificationTab

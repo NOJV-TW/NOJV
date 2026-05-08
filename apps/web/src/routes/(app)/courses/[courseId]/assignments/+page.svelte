@@ -1,50 +1,16 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { ChevronRight, Plus } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button, buttonVariants } from "$lib/components/ui/button";
-  import FilterChips from "$lib/components/common/FilterChips.svelte";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  const { assignments, counts, currentFilter, canCreate } = $derived(data);
+  const { assignments, canCreate } = $derived(data);
   const courseId = $derived(page.params.courseId ?? "");
-
-  function setFilter(next: string) {
-    const url = new URL(page.url);
-    if (next === "all") url.searchParams.delete("status");
-    else url.searchParams.set("status", next);
-    goto(`?${url.searchParams.toString()}`, {
-      keepFocus: true,
-      replaceState: true,
-      noScroll: true
-    });
-  }
-
-  const filterOptions = $derived.by(() => {
-    const options: { value: string; label: string; count: number }[] = [
-      { value: "all", label: m.courseAssignments_filterAll(), count: counts.all },
-      { value: "open", label: m.courseAssignments_filterOpen(), count: counts.open },
-      {
-        value: "upcoming",
-        label: m.courseAssignments_filterUpcoming(),
-        count: counts.upcoming
-      },
-      { value: "closed", label: m.courseAssignments_filterClosed(), count: counts.closed }
-    ];
-    if (counts.draft !== null) {
-      options.push({
-        value: "draft",
-        label: m.courseAssignments_filterDraft(),
-        count: counts.draft
-      });
-    }
-    return options;
-  });
 
   function statusBadge(
     status: "draft" | "upcoming" | "open" | "closed"
@@ -91,23 +57,14 @@
 </script>
 
 <div class="space-y-6 pb-20">
-  <!-- Filter chips + create button -->
-  <div class="animate-in animate-in-1 flex flex-wrap items-center gap-4">
-    <div class="flex-1">
-      <FilterChips
-        ariaLabel={m.courseAssignments_filtersLabel()}
-        value={currentFilter}
-        onChange={setFilter}
-        options={filterOptions}
-      />
-    </div>
-    {#if canCreate}
+  {#if canCreate}
+    <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/assignments/new`}>
         <Plus class="h-4 w-4" />
         {m.courseAssignments_createNew()}
       </Button>
-    {/if}
-  </div>
+    </div>
+  {/if}
 
   <!-- Rows -->
   {#if assignments.length === 0}
@@ -176,9 +133,6 @@
 
           <div class="flex items-center gap-5">
             {#if canCreate}
-              <!-- Teacher / TA view: class stats populated by
-                   `fillAssessmentStats` in the overview domain. Draft /
-                   upcoming rows intentionally stay null → status hint. -->
               <div
                 class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
               >
@@ -198,9 +152,6 @@
                 {/if}
               </div>
             {:else}
-              <!-- Student view: progress ring (personal completion %) +
-                   action button. `myStatus` is populated by the overview
-                   domain for open/closed rows; draft/upcoming stay null. -->
               {@const myStatus = assignment.myStatus}
               {@const pct =
                 myStatus && myStatus.total > 0

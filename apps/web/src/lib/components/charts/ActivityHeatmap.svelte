@@ -30,23 +30,55 @@
     return `${day.date} — ${day.acCount} AC / ${day.submissionCount} submissions`;
   }
 
+  // GitHub-style layout: rows = weekday (0=Sun … 6=Sat), columns = weeks.
+  // Pre-pad with empty cells until the first day's weekday so the grid
+  // aligns to a Sunday baseline regardless of the data window.
+  type Cell = HeatmapDay | null;
+  const cells = $derived.by<Cell[]>(() => {
+    if (data.length === 0) return [];
+    const first = new Date(`${data[0]!.date}T00:00:00Z`);
+    const leading = first.getUTCDay();
+    return [...Array.from<Cell>({ length: leading }).fill(null), ...data];
+  });
+  const columnCount = $derived(Math.ceil(cells.length / 7));
+
+  const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   const totalAc = $derived(data.reduce((sum, d) => sum + d.acCount, 0));
   const activeDays = $derived(data.filter((d) => d.acCount > 0).length);
   const totalAcLabel = $derived(`${totalAc} AC over ${activeDays} active days`);
 </script>
 
 <div
-  class="grid grid-cols-[repeat(30,minmax(0,1fr))] gap-1 {className}"
+  class="flex gap-2 {className}"
   role="img"
   aria-label={`30-day activity heatmap: ${totalAcLabel}`}
 >
-  {#each data as day (day.date)}
-    <div
-      class="h-4 w-full rounded-[3px] transition-colors duration-fast sm:h-5 {intensityClass(
-        day.acCount
-      )}"
-      aria-hidden="true"
-      title={formatLabel(day)}
-    ></div>
-  {/each}
+  <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
+    {#each weekdayLabels as label, i (i)}
+      {#if i % 2 === 1}
+        <span class="leading-none">{label}</span>
+      {:else}
+        <span class="leading-none">&nbsp;</span>
+      {/if}
+    {/each}
+  </div>
+  <div
+    class="grid flex-1 grid-flow-col gap-1"
+    style="grid-template-rows: repeat(7, minmax(0, 1fr)); grid-template-columns: repeat({columnCount}, minmax(0, 1fr));"
+  >
+    {#each cells as cell, i (i)}
+      {#if cell === null}
+        <div class="h-4 w-full sm:h-5" aria-hidden="true"></div>
+      {:else}
+        <div
+          class="h-4 w-full rounded-[3px] transition-colors duration-fast sm:h-5 {intensityClass(
+            cell.acCount
+          )}"
+          aria-hidden="true"
+          title={formatLabel(cell)}
+        ></div>
+      {/if}
+    {/each}
+  </div>
 </div>

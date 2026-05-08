@@ -2,17 +2,20 @@
   import { untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
+  import { Check, Pencil, X } from "@lucide/svelte";
   import AvatarUploader from "$lib/components/account/AvatarUploader.svelte";
   import SchoolVerificationSection from "$lib/components/auth/SchoolVerification.svelte";
   import Section from "$lib/components/ui/Section.svelte";
   import { Card } from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+
+  let editingName = $state(false);
+  let editingUsername = $state(false);
 
   // Map server-returned error codes to i18n strings. Username/name share most codes.
   function mapCode(code: string): string {
@@ -49,10 +52,16 @@
       onUpdated({ form }) {
         if (form.message?.kind === "success") {
           toasts.success(m.account_nameUpdated());
+          editingName = false;
         }
       }
     }
   );
+
+  function cancelNameEdit() {
+    $nameForm.name = data.name;
+    editingName = false;
+  }
 
   const nameErrorText = $derived(
     $nameMessage?.kind === "error" ? mapCode($nameMessage.text) : null
@@ -77,10 +86,16 @@
           } else {
             toasts.success(m.account_usernameUpdated());
           }
+          editingUsername = false;
         }
       }
     }
   );
+
+  function cancelUsernameEdit() {
+    $usernameForm.username = data.username === "—" ? "" : data.username;
+    editingUsername = false;
+  }
 
   const usernameErrorText = $derived(
     $usernameMessage?.kind === "error" ? mapCode($usernameMessage.text) : null
@@ -118,7 +133,65 @@
             <dt class="text-caption uppercase tracking-wide text-muted-foreground">
               {m.account_name()}
             </dt>
-            <dd class="text-body font-medium">{data.name}</dd>
+            <dd>
+              {#if editingName}
+                <form
+                  method="POST"
+                  action="?/updateName"
+                  use:nameEnhance
+                  class="flex flex-col gap-1.5"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <!-- svelte-ignore a11y_autofocus -->
+                    <input
+                      id="edit-name"
+                      name="name"
+                      type="text"
+                      autocomplete="name"
+                      bind:value={$nameForm.name}
+                      class="min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                      autofocus
+                    />
+                    <button
+                      type="submit"
+                      class="grid h-7 w-7 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={$nameSubmitting}
+                      aria-label={m.account_save()}
+                      title={m.account_save()}
+                    >
+                      <Check class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="grid h-7 w-7 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+                      onclick={cancelNameEdit}
+                      aria-label={m.account_cancel()}
+                      title={m.account_cancel()}
+                    >
+                      <X class="h-4 w-4" />
+                    </button>
+                  </div>
+                  {#if $nameErrors.name}
+                    <p class="text-caption text-destructive">{m.account_nameRequired()}</p>
+                  {:else if nameErrorText}
+                    <p class="text-caption text-destructive">{nameErrorText}</p>
+                  {/if}
+                </form>
+              {:else}
+                <div class="flex items-center gap-2">
+                  <span class="text-body font-medium">{data.name}</span>
+                  <button
+                    type="button"
+                    class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+                    onclick={() => (editingName = true)}
+                    aria-label={m.account_edit()}
+                    title={m.account_edit()}
+                  >
+                    <Pencil class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              {/if}
+            </dd>
           </div>
           <div class="flex flex-col gap-1">
             <dt class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -130,12 +203,76 @@
             <dt class="text-caption uppercase tracking-wide text-muted-foreground">
               {m.account_userAccount()}
             </dt>
-            <dd class="flex items-center gap-2 text-body font-medium">
-              <span>{data.username}</span>
-              {#if data.isSchoolVerified}
-                <Badge variant="success" size="sm" dot>
-                  {m.account_verifiedBadge()}
-                </Badge>
+            <dd>
+              {#if editingUsername}
+                <form
+                  method="POST"
+                  action="?/updateUsername"
+                  use:usernameEnhance
+                  class="flex flex-col gap-1.5"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <!-- svelte-ignore a11y_autofocus -->
+                    <input
+                      id="edit-username"
+                      name="username"
+                      type="text"
+                      autocomplete="username"
+                      bind:value={$usernameForm.username}
+                      class="min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                      autofocus
+                    />
+                    <button
+                      type="submit"
+                      class="grid h-7 w-7 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={$usernameSubmitting}
+                      aria-label={m.account_save()}
+                      title={m.account_save()}
+                    >
+                      <Check class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="grid h-7 w-7 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+                      onclick={cancelUsernameEdit}
+                      aria-label={m.account_cancel()}
+                      title={m.account_cancel()}
+                    >
+                      <X class="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p class="text-caption text-muted-foreground">
+                    {m.account_usernameHelper()}
+                  </p>
+                  {#if $usernameErrors.username}
+                    <p class="text-caption text-destructive">{m.account_usernameInvalid()}</p>
+                  {:else if usernameErrorText}
+                    <p class="text-caption text-destructive">{usernameErrorText}</p>
+                  {/if}
+                </form>
+              {:else}
+                <div class="flex items-center gap-2 text-body font-medium">
+                  <span>{data.username}</span>
+                  {#if data.isSchoolVerified}
+                    <Badge variant="success" size="sm" dot>
+                      {m.account_verifiedBadge()}
+                    </Badge>
+                  {/if}
+                  {#if data.canEditUsername}
+                    <button
+                      type="button"
+                      class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+                      onclick={() => (editingUsername = true)}
+                      aria-label={m.account_edit()}
+                      title={m.account_edit()}
+                    >
+                      <Pencil class="h-3.5 w-3.5" />
+                    </button>
+                  {/if}
+                </div>
+                {#if usernameLockReason}
+                  <p class="mt-1 text-caption text-muted-foreground">{usernameLockReason}</p>
+                {/if}
               {/if}
             </dd>
           </div>
@@ -148,78 +285,6 @@
             </dd>
           </div>
         </dl>
-      </Card>
-
-      <Card variant="surface" size="md">
-        <div class="flex flex-col gap-1">
-          <h2 class="font-display text-title-sm">{m.account_editProfile()}</h2>
-          <p class="text-body-sm text-muted-foreground">{m.account_editProfileHint()}</p>
-        </div>
-
-        <form
-          method="POST"
-          action="?/updateName"
-          use:nameEnhance
-          class="flex flex-col gap-2"
-        >
-          <label for="edit-name" class="text-body-sm font-medium">
-            {m.account_editName()}
-          </label>
-          <input
-            id="edit-name"
-            name="name"
-            type="text"
-            autocomplete="name"
-            bind:value={$nameForm.name}
-            class="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-          />
-          {#if $nameErrors.name}
-            <p class="text-caption text-destructive">{m.account_nameRequired()}</p>
-          {:else if nameErrorText}
-            <p class="text-caption text-destructive">{nameErrorText}</p>
-          {/if}
-          <div class="flex justify-end">
-            <Button type="submit" disabled={$nameSubmitting}>
-              {$nameSubmitting ? m.account_saving() : m.account_save()}
-            </Button>
-          </div>
-        </form>
-
-        <form
-          method="POST"
-          action="?/updateUsername"
-          use:usernameEnhance
-          class="flex flex-col gap-2"
-        >
-          <label for="edit-username" class="text-body-sm font-medium">
-            {m.account_editUsername()}
-          </label>
-          <input
-            id="edit-username"
-            name="username"
-            type="text"
-            autocomplete="username"
-            disabled={!data.canEditUsername}
-            bind:value={$usernameForm.username}
-            class="w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-          <p class="text-caption text-muted-foreground">
-            {m.account_usernameHelper()}
-          </p>
-          {#if usernameLockReason}
-            <p class="text-caption text-muted-foreground">{usernameLockReason}</p>
-          {/if}
-          {#if $usernameErrors.username}
-            <p class="text-caption text-destructive">{m.account_usernameInvalid()}</p>
-          {:else if usernameErrorText}
-            <p class="text-caption text-destructive">{usernameErrorText}</p>
-          {/if}
-          <div class="flex justify-end">
-            <Button type="submit" disabled={!data.canEditUsername || $usernameSubmitting}>
-              {$usernameSubmitting ? m.account_saving() : m.account_save()}
-            </Button>
-          </div>
-        </form>
       </Card>
 
       <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />

@@ -47,22 +47,12 @@ async function isActiveStudentInAssessment(
   return membership.role === "student";
 }
 
-/**
- * Can `actor` ask a clarification in this context?
- *
- * Admins are NOT allowed — preserves the "staff cannot drop hints via
- * questions" invariant. Students ask via their participation:
- *   - contest    → ContestParticipation row
- *   - exam       → ExamParticipation row
- *   - assignment → active student membership in the course
- */
-export async function canAskClarification(
+async function isParticipantOfContext(
   actor: ActorContext,
   contextType: ClarificationContextType,
   contextId: string,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return false;
-
   switch (contextType) {
     case "contest":
       return hasContestParticipation(actor.userId, contextId);
@@ -73,22 +63,12 @@ export async function canAskClarification(
   }
 }
 
-/**
- * Can `actor` answer or dismiss in this context?
- *
- * Matches the submission-operation permission matrix:
- *   - platform admin → always
- *   - contest        → contest organizer (`Contest.createdByUserId`)
- *   - exam           → course teacher/TA (via `Exam.courseId`)
- *   - assignment     → course teacher/TA (via `CourseAssessment.courseId`)
- */
-export async function canAnswerInContext(
+async function isStaffOfContext(
   actor: ActorContext,
   contextType: ClarificationContextType,
   contextId: string,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
-
   switch (contextType) {
     case "contest": {
       const contest = await contestRepo.findById(contextId);
@@ -107,11 +87,58 @@ export async function canAnswerInContext(
   }
 }
 
-/**
- * Who sees unmasked asker identity? Same set as "who can answer" —
- * staff of the context.
- */
-export const canSeeAuthor = canAnswerInContext;
+async function isContextWindowOpen(
+  contextType: ClarificationContextType,
+  contextId: string,
+): Promise<boolean> {
+  const now = new Date();
+  switch (contextType) {
+    case "contest": {
+      const contest = await contestRepo.findById(contextId);
+      if (!contest) return false;
+      return now >= contest.startsAt && now <= contest.endsAt;
+    }
+    case "exam": {
+      const exam = await examRepo.findById(contextId);
+      if (!exam) return false;
+      return now >= exam.startsAt && now <= exam.endsAt;
+    }
+    case "assignment": {
+      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
+      if (!assessment) return false;
+      return now >= assessment.opensAt && now <= assessment.closesAt;
+    }
+  }
+}
+
+export async function canAskClarification(
+  actor: ActorContext,
+  contextType: ClarificationContextType,
+  contextId: string,
+): Promise<boolean> {
+  if (!(await isParticipantOfContext(actor, contextType, contextId))) return false;
+  return isContextWindowOpen(contextType, contextId);
+}
+
+export async function canAnswerInContext(
+  actor: ActorContext,
+  contextType: ClarificationContextType,
+  contextId: string,
+): Promise<boolean> {
+  if (!(await isStaffOfContext(actor, contextType, contextId))) return false;
+  return isContextWindowOpen(contextType, contextId);
+}
+
+export async function canViewClarifications(
+  actor: ActorContext,
+  contextType: ClarificationContextType,
+  contextId: string,
+): Promise<boolean> {
+  if (await isStaffOfContext(actor, contextType, contextId)) return true;
+  return isParticipantOfContext(actor, contextType, contextId);
+}
+
+export const canSeeAuthor = isStaffOfContext;
 
 export async function assertCanAskClarification(
   actor: ActorContext,

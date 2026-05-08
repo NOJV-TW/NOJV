@@ -9,7 +9,7 @@
   "scripts": {
     "build": "node build.mjs",
     "build:check": "tsc -p tsconfig.json --noEmit",
-    "dev": "node --env-file=../../.env --import tsx --import ./src/otel-bootstrap.ts --watch src/index.ts",
+    "dev": "node --env-file=../../.env --import tsx --watch src/index.ts",
     "lint": "eslint .",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"

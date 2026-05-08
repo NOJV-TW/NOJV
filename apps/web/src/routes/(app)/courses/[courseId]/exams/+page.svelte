@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import Plus from "@lucide/svelte/icons/plus";
   import Lock from "@lucide/svelte/icons/lock";
@@ -9,41 +8,12 @@
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
-  import FilterChips from "$lib/components/common/FilterChips.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  const { exams, counts, currentFilter, canCreate } = $derived(data);
+  const { exams, canCreate } = $derived(data);
   const courseId = $derived(page.params.courseId ?? "");
-
-  function setFilter(next: string) {
-    const url = new URL(page.url);
-    if (next === "all") url.searchParams.delete("status");
-    else url.searchParams.set("status", next);
-    goto(`?${url.searchParams.toString()}`, {
-      keepFocus: true,
-      replaceState: true,
-      noScroll: true
-    });
-  }
-
-  const filterOptions = $derived.by(() => {
-    const options: { value: string; label: string; count: number }[] = [
-      { value: "all", label: m.examsList_filterAll(), count: counts.all },
-      { value: "upcoming", label: m.examsList_filterUpcoming(), count: counts.upcoming },
-      { value: "running", label: m.examsList_filterRunning(), count: counts.running },
-      { value: "ended", label: m.examsList_filterEnded(), count: counts.ended }
-    ];
-    if (counts.draft !== null) {
-      options.push({
-        value: "draft",
-        label: m.examsList_filterDraft(),
-        count: counts.draft
-      });
-    }
-    return options;
-  });
 
   const monthFormatter = $derived(
     new Intl.DateTimeFormat(getLocale(), { month: "short" })
@@ -124,25 +94,15 @@
 </script>
 
 <div class="space-y-6 pb-20">
-  <!-- Filter chips + create button -->
-  <div class="animate-in animate-in-1 flex flex-wrap items-center gap-4">
-    <div class="flex-1">
-      <FilterChips
-        ariaLabel={m.examsList_filtersLabel()}
-        value={currentFilter}
-        onChange={setFilter}
-        options={filterOptions}
-      />
-    </div>
-    {#if canCreate}
+  {#if canCreate}
+    <div class="animate-in animate-in-1 flex justify-end">
       <Button href={`/courses/${courseId}/exams/new`}>
         <Plus class="h-4 w-4" />
         {m.examsList_createNew()}
       </Button>
-    {/if}
-  </div>
+    </div>
+  {/if}
 
-  <!-- Rows -->
   {#if exams.length === 0}
     <div
       class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
