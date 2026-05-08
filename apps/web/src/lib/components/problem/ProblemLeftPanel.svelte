@@ -201,17 +201,17 @@
 </script>
 
 <!-- Tab bar -->
-<div class="flex h-11 items-center border-b border-border-subtle px-2">
+<div class="flex h-9 items-center border-b border-border-subtle px-2">
   {#if backLink}
     <a
-      class="px-3 py-2.5 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
+      class="px-3 py-1.5 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
       href={backLink.href}
     >
       &larr; {backLink.type === 'contest' ? m.problemDetail_backToContest() : m.problemDetail_backToAssignment()}
     </a>
   {/if}
   <button
-    class="px-3 py-2.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'description'
+    class="px-3 py-1.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'description'
       ? 'border-b-2 border-primary text-foreground'
       : 'text-muted-foreground hover:text-foreground'}"
     onclick={() => (leftTab = "description")}
@@ -220,7 +220,7 @@
     {m.problemDetail_description()}
   </button>
   <button
-    class="px-3 py-2.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'submissions'
+    class="px-3 py-1.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'submissions'
       ? 'border-b-2 border-primary text-foreground'
       : 'text-muted-foreground hover:text-foreground'}"
     onclick={() => (leftTab = "submissions")}
@@ -236,7 +236,7 @@
     {/if}
   </button>
   <button
-    class="px-3 py-2.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'editorials'
+    class="px-3 py-1.5 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {leftTab === 'editorials'
       ? 'border-b-2 border-primary text-foreground'
       : 'text-muted-foreground hover:text-foreground'}"
     onclick={() => { leftTab = "editorials"; if (hasAc && !editorialsLoaded) loadEditorials(); }}
@@ -297,14 +297,14 @@
           <p class="text-body font-semibold">
             {m.problemDetail_sample()} {index + 1}
           </p>
-          <div class="mt-3 space-y-3 text-body-sm">
+          <div class="mt-3 space-y-3 text-caption">
             <div>
               <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_input()}</p>
-              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.input}</pre>
+              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
             </div>
             <div>
               <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_output()}</p>
-              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-body-sm leading-6 text-foreground">{sample.output}</pre>
+              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
             </div>
           </div>
         </div>

@@ -25,9 +25,7 @@
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
   );
-  const clarificationEnabled = $derived(
-    data.clarification.canAsk || data.clarification.canAnswer
-  );
+  const clarificationEnabled = $derived(data.clarification.canView);
 
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(

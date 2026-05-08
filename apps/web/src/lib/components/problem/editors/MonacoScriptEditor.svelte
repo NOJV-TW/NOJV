@@ -32,8 +32,10 @@
       const isDark = document.documentElement.classList.contains("dark");
       monacoEditor = monacoModule.editor.create(editorContainer, {
         automaticLayout: true,
-        fontSize: 14,
+        fontSize: 12,
         language: getMonacoLanguage(language),
+        lineDecorationsWidth: 0,
+        lineNumbersMinChars: 2,
         minimap: { enabled: false },
         padding: { top: 16 },
         readOnly: readonly,

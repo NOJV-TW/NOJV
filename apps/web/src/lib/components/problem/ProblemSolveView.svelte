@@ -46,6 +46,7 @@
           courseId: string;
         }
       | undefined;
+    endedKind?: "assignment" | "exam" | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     /** Whether the viewer may rejudge submissions in this context. */
     canRejudge?: boolean;
@@ -63,12 +64,21 @@
     testcaseSets = [],
     allowedLanguages,
     assessment,
+    endedKind,
     backLink,
     canRejudge = false,
     contestId,
     siblingProblems,
     examContext: _examContext
   }: Props = $props();
+
+  let endedNotice = $derived(
+    endedKind === "assignment"
+      ? m.assignment_endedNotice()
+      : endedKind === "exam"
+        ? m.exam_endedNotice()
+        : null
+  );
 
   let showSiblingRail = $derived(mode === "exam" && (siblingProblems?.length ?? 0) > 0);
 
@@ -124,8 +134,18 @@
 </div>
 
 <div
-  class="hidden h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-border shadow-rest md:flex"
+  class="hidden h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-2xl border border-border shadow-rest md:flex"
 >
+  {#if endedNotice}
+    <div
+      class="flex shrink-0 items-center gap-2 border-b border-warning/30 bg-warning/10 px-4 py-2 text-caption font-medium text-warning"
+      role="status"
+    >
+      <span aria-hidden="true">⚠</span>
+      <span>{endedNotice}</span>
+    </div>
+  {/if}
+  <div class="flex min-h-0 flex-1">
   {#if showSiblingRail && siblingProblems}
     <!-- Exam-mode sibling problem navigator. Practice mode never renders this. -->
     <aside
@@ -190,4 +210,5 @@
       {testcaseSets}
     />
   {/if}
+  </div>
 </div>

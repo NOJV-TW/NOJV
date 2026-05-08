@@ -199,6 +199,27 @@ export const submissionRepo = {
     });
   },
 
+  // User-based stats per problem: how many distinct users tried it, and how
+  // many of those AC'd at least once. Drives the public AC rate (people-based,
+  // not submission-based) so that one prolific student spamming submissions
+  // can't skew the visible rate. `sampleOnly: false` excludes Run-mode dry-runs
+  // since they aren't real attempts.
+  async countUserStatsByProblem(
+    problemIds: string[],
+  ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
+    if (problemIds.length === 0) return [];
+    return prisma.$queryRaw<{ problemId: string; attempters: number; solvers: number }[]>`
+      SELECT
+        "problemId",
+        COUNT(DISTINCT "userId")::int AS attempters,
+        COUNT(DISTINCT "userId") FILTER (WHERE status = 'accepted')::int AS solvers
+      FROM "Submission"
+      WHERE "problemId" = ANY(${problemIds}::text[])
+        AND "sampleOnly" = false
+      GROUP BY "problemId"
+    `;
+  },
+
   groupBestScoresByAssessment(assessmentIds: string[]) {
     if (assessmentIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({

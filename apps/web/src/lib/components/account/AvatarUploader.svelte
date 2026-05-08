@@ -11,6 +11,14 @@
   }
 
   let { image, name }: Props = $props();
+  // Fall back to initials when the stored URL fails to load (file deleted,
+  // OAuth provider rotated the URL, network error, etc.) — otherwise the
+  // browser's broken-image placeholder shows up forever.
+  let imageBroken = $state(false);
+  $effect(() => {
+    void image;
+    imageBroken = false;
+  });
 
   // Original-file constraints (jpg/png/webp, 5 MB).
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -213,8 +221,13 @@
     aria-label={m.account_avatar_change()}
     class="group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-title-sm font-semibold text-muted-foreground transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
   >
-    {#if image}
-      <img src={image} alt="" class="size-full object-cover" />
+    {#if image && !imageBroken}
+      <img
+        src={image}
+        alt=""
+        class="size-full object-cover"
+        onerror={() => (imageBroken = true)}
+      />
     {:else}
       <span aria-hidden="true">{initials(name)}</span>
     {/if}

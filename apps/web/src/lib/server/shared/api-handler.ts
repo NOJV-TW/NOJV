@@ -40,7 +40,14 @@ function wrapHandler(
           method: event.request.method,
           url: event.url.pathname,
         });
-        return json({ issues: error.issues }, { status: 400 });
+        const first = error.issues[0];
+        const path = first?.path.map((s) => String(s)).join(".");
+        const message = first
+          ? path
+            ? `${path}: ${first.message}`
+            : first.message
+          : "Invalid request";
+        return json({ message, issues: error.issues }, { status: 400 });
       }
 
       const classified = classifyError(error);
