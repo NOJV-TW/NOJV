@@ -71,7 +71,7 @@
 </script>
 
 <select
-  class="border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-caption font-medium text-foreground outline-none transition-[border-color] duration-fast ease-out-soft focus:border-primary"
+  class="border-0 bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
   onchange={(e) => {
     const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
     if (parsed.success) onchange(parsed.data);

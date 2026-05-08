@@ -37,15 +37,70 @@
   );
   const hasVerdictData = $derived(analytics.byVerdict.length > 0);
   const hasTagData = $derived(analytics.byTag.length > 0);
+  const hasLanguageData = $derived(analytics.byLanguage.length > 0);
 
-  const difficultyColor: Record<string, string> = {
-    easy: "var(--success)",
-    medium: "var(--warning)",
-    hard: "var(--destructive)"
-  };
+  // ECharts canvas can't read `var(--token)` strings — they pass through to
+  // the rasteriser as literal text and fall back to defaults (which is why
+  // the difficulty pie was showing generic blue instead of green/amber/red).
+  // Resolve to concrete oklch/hex strings client-side and re-resolve when
+  // the html.dark class flips so dark-mode tokens take effect immediately.
+  let themeColors = $state({
+    success: "#7a8f6d",
+    warning: "#d4a054",
+    destructive: "#c4682d",
+    chart1: "#c4682d",
+    chart2: "#4d6f8f",
+    chart3: "#8a6142",
+    chart4: "#d4a054",
+    chart5: "#7a8f6d",
+    mutedFg: "#6b7280",
+    panel: "#ffffff"
+  });
+
+  function resolveThemeColors() {
+    if (typeof window === "undefined") return;
+    const cs = getComputedStyle(document.documentElement);
+    const read = (n: string, fallback: string) => cs.getPropertyValue(n).trim() || fallback;
+    themeColors = {
+      success: read("--success", themeColors.success),
+      warning: read("--warning", themeColors.warning),
+      destructive: read("--destructive", themeColors.destructive),
+      chart1: read("--chart-1", themeColors.chart1),
+      chart2: read("--chart-2", themeColors.chart2),
+      chart3: read("--chart-3", themeColors.chart3),
+      chart4: read("--chart-4", themeColors.chart4),
+      chart5: read("--chart-5", themeColors.chart5),
+      mutedFg: read("--muted-foreground", themeColors.mutedFg),
+      panel: read("--color-panel", themeColors.panel)
+    };
+  }
+
+  $effect(() => {
+    resolveThemeColors();
+    const observer = new MutationObserver(resolveThemeColors);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"]
+    });
+    return () => observer.disconnect();
+  });
+
+  const difficultyColor = $derived<Record<string, string>>({
+    easy: themeColors.success,
+    medium: themeColors.warning,
+    hard: themeColors.destructive
+  });
+
+  const languagePalette = $derived([
+    themeColors.chart1,
+    themeColors.chart2,
+    themeColors.chart3,
+    themeColors.chart4,
+    themeColors.chart5
+  ]);
 
   const difficultyOption: EChartsOption = $derived({
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
     legend: { bottom: 0, textStyle: { fontSize: 11 } },
     series: [
       {
@@ -55,30 +110,30 @@
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 6,
-          borderColor: "var(--color-panel)",
+          borderColor: themeColors.panel,
           borderWidth: 2
         },
         label: { show: false },
         data: analytics.byDifficulty.map((d) => ({
           name: d.difficulty,
           value: d.acCount,
-          itemStyle: { color: difficultyColor[d.difficulty] ?? "var(--muted-foreground)" }
+          itemStyle: { color: difficultyColor[d.difficulty] ?? themeColors.mutedFg }
         }))
       }
     ]
   });
 
-  const verdictPalette: Record<string, string> = {
-    accepted: "var(--chart-5)",
-    wrong_answer: "var(--destructive)",
-    time_limit_exceeded: "var(--warning)",
-    memory_limit_exceeded: "var(--warning)",
-    runtime_error: "var(--destructive)",
-    compile_error: "var(--destructive)",
-    queued: "var(--muted-foreground)",
-    compiling: "var(--muted-foreground)",
-    running: "var(--muted-foreground)"
-  };
+  const verdictPalette = $derived<Record<string, string>>({
+    accepted: themeColors.chart5,
+    wrong_answer: themeColors.destructive,
+    time_limit_exceeded: themeColors.warning,
+    memory_limit_exceeded: themeColors.warning,
+    runtime_error: themeColors.destructive,
+    compile_error: themeColors.destructive,
+    queued: themeColors.mutedFg,
+    compiling: themeColors.mutedFg,
+    running: themeColors.mutedFg
+  });
 
   const verdictOption: EChartsOption = $derived({
     title: {
@@ -89,7 +144,7 @@
       textStyle: { fontSize: 26, fontWeight: 600 },
       subtextStyle: { fontSize: 12 }
     },
-    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)" },
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
     legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
     series: [
       {
@@ -99,7 +154,7 @@
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 6,
-          borderColor: "var(--color-panel)",
+          borderColor: themeColors.panel,
           borderWidth: 2
         },
         label: { show: false },
@@ -107,7 +162,7 @@
           name: formatVerdictLabel(v.status),
           value: v.count,
           itemStyle: {
-            color: verdictPalette[v.status] ?? "var(--muted-foreground)",
+            color: verdictPalette[v.status] ?? themeColors.mutedFg,
             borderWidth: v.status === "accepted" ? 3 : 2,
             opacity: v.status === "accepted" ? 1 : 0.5
           }
@@ -118,7 +173,7 @@
 
   const tagOption: EChartsOption = $derived({
     grid: { left: 96, right: 24, top: 8, bottom: 24 },
-    tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+    tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, transitionDuration: 0 },
     xAxis: { type: "value", axisLabel: { fontSize: 11 }, minInterval: 1 },
     yAxis: {
       type: "category",
@@ -130,8 +185,32 @@
       {
         type: "bar",
         data: analytics.byTag.map((g) => g.acCount),
-        itemStyle: { color: "var(--chart-3)", borderRadius: [0, 4, 4, 0] },
+        itemStyle: { color: themeColors.chart3, borderRadius: [0, 4, 4, 0] },
         barMaxWidth: 18
+      }
+    ]
+  });
+
+  const languageOption: EChartsOption = $derived({
+    tooltip: { trigger: "item", formatter: "{b}: {c} ({d}%)", transitionDuration: 0 },
+    legend: { bottom: 0, textStyle: { fontSize: 11 }, type: "scroll" },
+    series: [
+      {
+        type: "pie",
+        radius: ["40%", "70%"],
+        center: ["50%", "45%"],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderRadius: 6,
+          borderColor: themeColors.panel,
+          borderWidth: 2
+        },
+        label: { show: false },
+        data: analytics.byLanguage.map((l, i) => ({
+          name: l.language,
+          value: l.count,
+          itemStyle: { color: languagePalette[i % languagePalette.length] ?? themeColors.mutedFg }
+        }))
       }
     ]
   });
@@ -265,7 +344,7 @@
       {/if}
     </Card>
 
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <Card variant="surface" size="lg">
         <h2 class="mb-4 text-title-sm font-semibold">
           {m.dashboard_difficultyDist()}
@@ -287,6 +366,21 @@
         </h2>
         {#if hasVerdictData}
           <EChart option={verdictOption} class="h-56 w-full" />
+        {:else}
+          <EmptyState
+            variant="minimal"
+            icon={PieChart}
+            title={m.dashboard_noActivity()}
+          />
+        {/if}
+      </Card>
+
+      <Card variant="surface" size="lg">
+        <h2 class="mb-4 text-title-sm font-semibold">
+          {m.dashboard_languageDist()}
+        </h2>
+        {#if hasLanguageData}
+          <EChart option={languageOption} class="h-56 w-full" />
         {:else}
           <EmptyState
             variant="minimal"

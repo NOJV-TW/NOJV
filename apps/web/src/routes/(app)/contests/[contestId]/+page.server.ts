@@ -38,15 +38,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }
   }
 
-  // Clarification permission flags. Students ask, staff answer; admins
-  // cannot ask (invariant enforced in clarificationDomain.canAskClarification).
   const actor = getActorContext(event);
   let canAskClar = false;
   let canAnswerClar = false;
+  let canViewClar = false;
   if (actor && hasActorUsername(actor)) {
-    [canAskClar, canAnswerClar] = await Promise.all([
+    [canAskClar, canAnswerClar, canViewClar] = await Promise.all([
       clarificationDomain.canAskClarification(actor, "contest", contest.id),
       clarificationDomain.canAnswerInContext(actor, "contest", contest.id),
+      clarificationDomain.canViewClarifications(actor, "contest", contest.id),
     ]);
   }
 
@@ -57,6 +57,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
+      canView: canViewClar,
     },
   };
 });

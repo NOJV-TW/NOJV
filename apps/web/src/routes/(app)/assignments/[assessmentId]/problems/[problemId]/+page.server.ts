@@ -18,16 +18,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     error(403, "This course is archived.");
   }
 
-  // Non-managers: enforce the assessment window here — the shell layout
-  // lets `upcoming` through so the detail page can render a locked view,
-  // but the problem page itself must reject `upcoming` and `closed`.
+  let isEnded = false;
   if (!isManager) {
     const now = new Date();
     const opens = new Date(assessment.opensAt);
     const closes = new Date(assessment.closesAt);
-    if (now < opens || now > closes) {
+    if (now < opens) {
       error(404, "Problem not available.");
     }
+    isEnded = now > closes;
   }
 
   const problemInScope = await assessmentDomain.isProblemInAssessment(assessment.id, problemId);
@@ -48,5 +47,5 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problemInScope: true,
   });
 
-  return { solveProps };
+  return { solveProps, isEnded };
 });

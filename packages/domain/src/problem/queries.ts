@@ -43,6 +43,12 @@ export interface ProblemDetail {
   tags: string[];
   timeLimitMs: number;
   title: string;
+  /**
+   * Number of distinct users who tried this problem (sampleOnly Run
+   * dry-runs excluded). Field name is preserved for backward compat —
+   * UI uses it only as a "any data yet?" guard for the AC rate label.
+   * The matching `acceptanceRate` is solvers / attempters.
+   */
   totalSubmissions: number;
   visibility: ProblemVisibility;
   // Hidden files ship with `content === ""`; raw hidden content must never leave the server.
@@ -167,8 +173,8 @@ async function mapPersistedProblemDetail(
     }[];
   },
   locale: string,
-  totalSubmissions: number,
-  acceptedCount: number,
+  attempters: number,
+  solvers: number,
 ): Promise<ProblemDetail> {
   const tags = problem.tags ?? [];
   const localized = pickProblemStatement(problem.statements, locale, problem.title, "");
@@ -199,7 +205,7 @@ async function mapPersistedProblemDetail(
   );
 
   return {
-    acceptanceRate: totalSubmissions > 0 ? acceptedCount / totalSubmissions : 0,
+    acceptanceRate: attempters > 0 ? solvers / attempters : 0,
     authorUsername: problem.author?.username ?? "course_staff",
     difficulty: problem.difficulty ?? "medium",
     id: problem.id,
@@ -216,7 +222,7 @@ async function mapPersistedProblemDetail(
     tags,
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,
-    totalSubmissions,
+    totalSubmissions: attempters,
     visibility: problem.visibility,
     workspaceFiles: visibleWorkspaceFiles,
     advancedImageRef: problem.advancedImageRef ?? null,
@@ -301,15 +307,19 @@ export async function listProblemCards(
 
   const problemIds = persistedProblems.map((p) => p.id);
 
-  // Batch-fetch accepted counts + user status in parallel
-  const [acceptedCounts, userSubmissions] = await Promise.all([
-    problemIds.length > 0 ? submissionRepo.groupAcceptedByProblem(problemIds) : [],
+  // Batch-fetch user-based stats + per-user status in parallel. AC rate is
+  // people-based (distinct solvers / distinct attempters) so a single
+  // student spamming the same problem can't tilt it.
+  const [userStats, userSubmissions] = await Promise.all([
+    submissionRepo.countUserStatsByProblem(problemIds),
     params.userId && problemIds.length > 0
       ? submissionRepo.groupByProblemAndStatus(params.userId, problemIds)
       : [],
   ]);
 
-  const acceptedByProblemId = new Map(acceptedCounts.map((r) => [r.problemId, r._count]));
+  const statsByProblemId = new Map(
+    userStats.map((r) => [r.problemId, { attempters: r.attempters, solvers: r.solvers }]),
+  );
 
   const statusByProblemId = new Map<string, ProblemUserStatus>();
   for (const row of userSubmissions) {
@@ -322,13 +332,14 @@ export async function listProblemCards(
   }
 
   const problems: ProblemCardWithStatus[] = persistedProblems.map((problem) => {
-    const total = problem._count.submissions;
-    const accepted = acceptedByProblemId.get(problem.id) ?? 0;
+    const stats = statsByProblemId.get(problem.id);
+    const attempters = stats?.attempters ?? 0;
+    const solvers = stats?.solvers ?? 0;
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
       type: "standard" as const,
     };
     return {
-      acceptanceRate: total > 0 ? accepted / total : 0,
+      acceptanceRate: attempters > 0 ? solvers / attempters : 0,
       difficulty: problem.difficulty,
       id: problem.id,
       judgeType: judgeConfig.type,
@@ -336,7 +347,7 @@ export async function listProblemCards(
       status: statusByProblemId.get(problem.id) ?? null,
       tags: problem.tags,
       title: problem.title,
-      totalSubmissions: total,
+      totalSubmissions: attempters,
     };
   });
 
@@ -370,16 +381,13 @@ export async function getProblemPageData(id: string, locale: string = DEFAULT_LO
     throw new NotFoundError(`Problem not found: ${id}`);
   }
 
-  const acceptedCount = await submissionRepo.count({
-    problemId: persistedProblem.id,
-    status: "accepted",
-  });
+  const [stats] = await submissionRepo.countUserStatsByProblem([persistedProblem.id]);
 
   return await mapPersistedProblemDetail(
     persistedProblem,
     locale,
-    persistedProblem._count.submissions,
-    acceptedCount,
+    stats?.attempters ?? 0,
+    stats?.solvers ?? 0,
   );
 }
 

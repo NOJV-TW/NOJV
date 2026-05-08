@@ -9,6 +9,7 @@
     type SubmissionResult
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
+  import { Maximize2, Minimize2, RotateCcw } from "@lucide/svelte";
   import EditorCore from "./EditorCore.svelte";
   import LanguageSelector from "./LanguageSelector.svelte";
   import EditorBottomPanel from "./EditorBottomPanel.svelte";
@@ -55,6 +56,33 @@
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
+  let isFullscreen = $state(false);
+
+  function handleReset() {
+    if (typeof window === "undefined") return;
+    if (!window.confirm(m.editor_resetConfirm())) return;
+    if (isWorkspaceMode) {
+      for (const f of initialProblem.workspaceFiles) {
+        if (f.language !== language || f.visibility !== "editable") continue;
+        workspaceDrafts[workspaceDraftKey(f.language, f.path)] = f.content;
+      }
+    } else {
+      drafts[language] = initialProblem.starterByLanguage[language] ?? "";
+    }
+  }
+
+  function toggleFullscreen() {
+    isFullscreen = !isFullscreen;
+  }
+
+  $effect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") isFullscreen = false;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   // Bottom panel state — tab + last-run snapshot live here because the
   // Run/Submit flow below drives them.
@@ -132,6 +160,16 @@
   let currentSource = $derived(
     isWorkspaceMode ? selectedWorkspaceContent : drafts[language]
   );
+
+  // Block Run/Submit when there's nothing meaningful to send. Server enforces
+  // sourceCode min(1) after trim; this just avoids the round-trip + the generic
+  // "Submission failed." toast users see when validation rejects an empty body.
+  let hasSubmittableSource = $derived.by(() => {
+    if (isWorkspaceMode) {
+      return currentWorkspaceFiles().some((f) => f.content.trim().length > 0);
+    }
+    return (drafts[language] ?? "").trim().length > 0;
+  });
 
   // Cleanup: abort in-flight polls when the component is destroyed.
   let destroyed = false;
@@ -281,11 +319,13 @@
 
 <div
   bind:this={outerContainer}
-  class="flex h-full flex-col overflow-hidden border border-border bg-[color:var(--color-panel)]"
+  class={isFullscreen
+    ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[color:var(--color-panel)]"
+    : "flex h-full flex-col overflow-hidden border border-border bg-[color:var(--color-panel)]"}
 >
   <!-- Top toolbar -->
   <div
-    class="flex h-11 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
+    class="flex h-9 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
   >
     <div class="flex items-center gap-3">
       <span class="text-caption font-semibold text-foreground/70">&lt;/&gt;</span>
@@ -297,15 +337,39 @@
         onavailablechange={(available) => (availableLanguages = available)}
       />
     </div>
-    {#if contestId}
-      <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
-        {m.editor_contestMode()}
-      </span>
-    {:else if assessment}
-      <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
-        {m.editor_assignmentMode()}
-      </span>
-    {/if}
+    <div class="flex items-center gap-2">
+      {#if contestId}
+        <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
+          {m.editor_contestMode()}
+        </span>
+      {:else if assessment}
+        <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
+          {m.editor_assignmentMode()}
+        </span>
+      {/if}
+      <button
+        aria-label={m.editor_reset()}
+        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+        onclick={handleReset}
+        title={m.editor_reset()}
+        type="button"
+      >
+        <RotateCcw class="h-3.5 w-3.5" />
+      </button>
+      <button
+        aria-label={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
+        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+        onclick={toggleFullscreen}
+        title={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
+        type="button"
+      >
+        {#if isFullscreen}
+          <Minimize2 class="h-3.5 w-3.5" />
+        {:else}
+          <Maximize2 class="h-3.5 w-3.5" />
+        {/if}
+      </button>
+    </div>
   </div>
 
   <!--
@@ -334,24 +398,26 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-2.5"
+    class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-1"
   >
     <span class="text-caption font-medium text-muted-foreground tabular-nums">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
     </span>
     <div class="flex items-center gap-2">
       <button
-        class="rounded-full border border-border px-4 py-1.5 text-body-sm font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isRunning || availableLanguages.length === 0}
+        class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isRunning || availableLanguages.length === 0 || !hasSubmittableSource}
         onclick={() => void handleRun()}
+        title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
         type="button"
       >
         {isRunning ? m.editor_running() : m.editor_run()}
       </button>
       <button
-        class="rounded-full bg-success px-4 py-1.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isSubmitting || availableLanguages.length === 0}
+        class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isSubmitting || availableLanguages.length === 0 || !hasSubmittableSource}
         onclick={() => void handleSubmit()}
+        title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
         type="button"
       >
         {isSubmitting ? m.editor_submitting() : m.editor_submitButton()}
