@@ -9,6 +9,7 @@
     type SubmissionResult
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
+  import { Maximize2, Minimize2, RotateCcw } from "@lucide/svelte";
   import EditorCore from "./EditorCore.svelte";
   import LanguageSelector from "./LanguageSelector.svelte";
   import EditorBottomPanel from "./EditorBottomPanel.svelte";
@@ -55,6 +56,33 @@
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isRunning = $state(false);
   let isSubmitting = $state(false);
+  let isFullscreen = $state(false);
+
+  function handleReset() {
+    if (typeof window === "undefined") return;
+    if (!window.confirm(m.editor_resetConfirm())) return;
+    if (isWorkspaceMode) {
+      for (const f of initialProblem.workspaceFiles) {
+        if (f.language !== language || f.visibility !== "editable") continue;
+        workspaceDrafts[workspaceDraftKey(f.language, f.path)] = f.content;
+      }
+    } else {
+      drafts[language] = initialProblem.starterByLanguage[language] ?? "";
+    }
+  }
+
+  function toggleFullscreen() {
+    isFullscreen = !isFullscreen;
+  }
+
+  $effect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") isFullscreen = false;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   // Bottom panel state — tab + last-run snapshot live here because the
   // Run/Submit flow below drives them.
@@ -291,11 +319,13 @@
 
 <div
   bind:this={outerContainer}
-  class="flex h-full flex-col overflow-hidden border border-border bg-[color:var(--color-panel)]"
+  class={isFullscreen
+    ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[color:var(--color-panel)]"
+    : "flex h-full flex-col overflow-hidden border border-border bg-[color:var(--color-panel)]"}
 >
   <!-- Top toolbar -->
   <div
-    class="flex h-11 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
+    class="flex h-9 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
   >
     <div class="flex items-center gap-3">
       <span class="text-caption font-semibold text-foreground/70">&lt;/&gt;</span>
@@ -307,15 +337,39 @@
         onavailablechange={(available) => (availableLanguages = available)}
       />
     </div>
-    {#if contestId}
-      <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
-        {m.editor_contestMode()}
-      </span>
-    {:else if assessment}
-      <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
-        {m.editor_assignmentMode()}
-      </span>
-    {/if}
+    <div class="flex items-center gap-2">
+      {#if contestId}
+        <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning">
+          {m.editor_contestMode()}
+        </span>
+      {:else if assessment}
+        <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
+          {m.editor_assignmentMode()}
+        </span>
+      {/if}
+      <button
+        aria-label={m.editor_reset()}
+        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+        onclick={handleReset}
+        title={m.editor_reset()}
+        type="button"
+      >
+        <RotateCcw class="h-3.5 w-3.5" />
+      </button>
+      <button
+        aria-label={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
+        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+        onclick={toggleFullscreen}
+        title={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
+        type="button"
+      >
+        {#if isFullscreen}
+          <Minimize2 class="h-3.5 w-3.5" />
+        {:else}
+          <Maximize2 class="h-3.5 w-3.5" />
+        {/if}
+      </button>
+    </div>
   </div>
 
   <!--

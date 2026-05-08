@@ -408,7 +408,7 @@
         >
           {m.examDetail_subTabSettings()}
         </button>
-        {#if data.clarification.canAsk || data.clarification.canAnswer}
+        {#if data.clarification.canView}
           <button
             type="button"
             role="tab"
@@ -572,7 +572,7 @@
       </section>
     {/if}
 
-    {#if data.clarification.canAsk || data.clarification.canAnswer}
+    {#if data.clarification.canView}
       <section
         class="animate-in animate-in-3 mt-10 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7"
       >

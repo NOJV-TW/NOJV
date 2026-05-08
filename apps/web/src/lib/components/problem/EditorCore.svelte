@@ -20,7 +20,9 @@
   const editorOptions = {
     automaticLayout: true,
     fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 14,
+    fontSize: 12,
+    lineDecorationsWidth: 0,
+    lineNumbersMinChars: 2,
     minimap: { enabled: false },
     padding: { top: 16 },
     scrollBeyondLastLine: false,

@@ -52,18 +52,18 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { exam: examHeader, isManager } = parent;
   const actor = requireAuth(event);
 
-  const [detail, matrix, canSetOverride, canAskClar, canAnswerClar] = await Promise.all([
+  const [detail, matrix, canSetOverride, canAskClar, canAnswerClar, canViewClar] = await Promise.all([
     getExamDetailPage(event.params.examId, {
       viewerUserId: actor.userId,
       isManager,
     }),
-    // Manager-only aggregation; null for students keeps the hydration payload slim.
     isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null),
     isManager
       ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", event.params.examId)
       : Promise.resolve(false),
     clarificationDomain.canAskClarification(actor, "exam", event.params.examId),
     clarificationDomain.canAnswerInContext(actor, "exam", event.params.examId),
+    clarificationDomain.canViewClarifications(actor, "exam", event.params.examId),
   ]);
 
   // The layout gate already accepted this exam for the viewer; treat a
@@ -108,6 +108,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
+      canView: canViewClar,
     },
   };
 });

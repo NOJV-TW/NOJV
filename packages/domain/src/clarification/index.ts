@@ -25,6 +25,7 @@ export {
   canAnswerInContext,
   canAskClarification,
   canSeeAuthor,
+  canViewClarifications,
   assertCanAnswerInContext,
   assertCanAskClarification,
 } from "./authz";
