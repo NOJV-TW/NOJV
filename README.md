@@ -103,13 +103,13 @@ See [Getting Started Runbook](docs/runbooks/getting-started.md) for detailed boo
 
 | Service       | URL                   |
 | ------------- | --------------------- |
-| Web           | http://localhost:5173  |
+| Web           | http://localhost:5173 |
 | PostgreSQL    | localhost:5432        |
 | Redis         | localhost:6379        |
-| MinIO API     | http://localhost:9000  |
-| MinIO Console | http://localhost:9001  |
+| MinIO API     | http://localhost:9000 |
+| MinIO Console | http://localhost:9001 |
 | Temporal      | localhost:7233        |
-| Temporal UI   | http://localhost:8080  |
+| Temporal UI   | http://localhost:8080 |
 
 ### Environment Files
 
