@@ -133,6 +133,16 @@
     isWorkspaceMode ? selectedWorkspaceContent : drafts[language]
   );
 
+  // Block Run/Submit when there's nothing meaningful to send. Server enforces
+  // sourceCode min(1) after trim; this just avoids the round-trip + the generic
+  // "Submission failed." toast users see when validation rejects an empty body.
+  let hasSubmittableSource = $derived.by(() => {
+    if (isWorkspaceMode) {
+      return currentWorkspaceFiles().some((f) => f.content.trim().length > 0);
+    }
+    return (drafts[language] ?? "").trim().length > 0;
+  });
+
   // Cleanup: abort in-flight polls when the component is destroyed.
   let destroyed = false;
   let pollAbortController: AbortController | null = null;
@@ -334,24 +344,26 @@
 
   <!-- Action bar -->
   <div
-    class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-2.5"
+    class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-1"
   >
     <span class="text-caption font-medium text-muted-foreground tabular-nums">
       {new Intl.NumberFormat(currentLocale).format(currentSource.length)} {m.editor_chars()}
     </span>
     <div class="flex items-center gap-2">
       <button
-        class="rounded-full border border-border px-4 py-1.5 text-body-sm font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isRunning || availableLanguages.length === 0}
+        class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isRunning || availableLanguages.length === 0 || !hasSubmittableSource}
         onclick={() => void handleRun()}
+        title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
         type="button"
       >
         {isRunning ? m.editor_running() : m.editor_run()}
       </button>
       <button
-        class="rounded-full bg-success px-4 py-1.5 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={isSubmitting || availableLanguages.length === 0}
+        class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isSubmitting || availableLanguages.length === 0 || !hasSubmittableSource}
         onclick={() => void handleSubmit()}
+        title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
         type="button"
       >
         {isSubmitting ? m.editor_submitting() : m.editor_submitButton()}

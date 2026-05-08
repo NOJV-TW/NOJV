@@ -113,7 +113,7 @@
   </span>
 {:else}
   <div
-    class="mt-3 flex flex-wrap gap-x-4 gap-y-2 rounded-lg border border-border-subtle bg-muted/30 px-3 py-2"
+    class="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-lg border border-border-subtle bg-muted/30 px-3 py-2"
   >
     {#if difficulty}
       <div class="flex items-center gap-2">

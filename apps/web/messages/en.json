@@ -722,6 +722,7 @@
   "editor_assignmentMode": "assignment",
   "editor_chars": "chars",
   "editor_contestMode": "contest",
+  "editor_emptySourceTooltip": "Type some code first",
   "editor_expectLabel": "Expect",
   "editor_input": "Input",
   "editor_outputLabel": "Output",

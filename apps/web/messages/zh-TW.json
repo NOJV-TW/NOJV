@@ -722,6 +722,7 @@
   "editor_assignmentMode": "作業",
   "editor_chars": "字元",
   "editor_contestMode": "競賽",
+  "editor_emptySourceTooltip": "請先輸入程式碼",
   "editor_expectLabel": "預期",
   "editor_input": "輸入",
   "editor_outputLabel": "輸出",
