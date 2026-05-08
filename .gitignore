@@ -29,9 +29,6 @@
 .tmp/
 .shared/
 
-# local dev object storage (Garage single-node data)
-.garage/
-
 # debug
 npm-debug.log*
 yarn-debug.log*
