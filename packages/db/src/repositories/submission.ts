@@ -208,9 +208,7 @@ export const submissionRepo = {
     problemIds: string[],
   ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
     if (problemIds.length === 0) return [];
-    return prisma.$queryRaw<
-      { problemId: string; attempters: number; solvers: number }[]
-    >`
+    return prisma.$queryRaw<{ problemId: string; attempters: number; solvers: number }[]>`
       SELECT
         "problemId",
         COUNT(DISTINCT "userId")::int AS attempters,

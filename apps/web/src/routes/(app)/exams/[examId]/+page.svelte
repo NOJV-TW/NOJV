@@ -262,7 +262,13 @@
             </button>
           </form>
           <span class="text-caption text-muted-foreground">
-            {canStart ? m.examDetail_startReady() : m.examDetail_startDisabled()}
+            {#if liveStatus === "running"}
+              {m.examDetail_startReady()}
+            {:else if liveStatus === "ended" || liveStatus === "archived"}
+              {m.examDetail_statusEnded()}
+            {:else}
+              {m.examDetail_startDisabled()}
+            {/if}
           </span>
         {/if}
       </div>
@@ -526,12 +532,6 @@
     </div>
     {/if}
   {:else}
-    <p
-      class="mx-auto mt-2 max-w-[60ch] text-center text-caption text-muted-foreground"
-    >
-      {m.examDetail_studentNote()}
-    </p>
-
     {#if detail.status === "ended" && detail.problems.length > 0}
       <section
         class="animate-in animate-in-3 mt-10 rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 backdrop-blur"

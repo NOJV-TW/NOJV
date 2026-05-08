@@ -52,19 +52,20 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { exam: examHeader, isManager } = parent;
   const actor = requireAuth(event);
 
-  const [detail, matrix, canSetOverride, canAskClar, canAnswerClar, canViewClar] = await Promise.all([
-    getExamDetailPage(event.params.examId, {
-      viewerUserId: actor.userId,
-      isManager,
-    }),
-    isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null),
-    isManager
-      ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", event.params.examId)
-      : Promise.resolve(false),
-    clarificationDomain.canAskClarification(actor, "exam", event.params.examId),
-    clarificationDomain.canAnswerInContext(actor, "exam", event.params.examId),
-    clarificationDomain.canViewClarifications(actor, "exam", event.params.examId),
-  ]);
+  const [detail, matrix, canSetOverride, canAskClar, canAnswerClar, canViewClar] =
+    await Promise.all([
+      getExamDetailPage(event.params.examId, {
+        viewerUserId: actor.userId,
+        isManager,
+      }),
+      isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null),
+      isManager
+        ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", event.params.examId)
+        : Promise.resolve(false),
+      clarificationDomain.canAskClarification(actor, "exam", event.params.examId),
+      clarificationDomain.canAnswerInContext(actor, "exam", event.params.examId),
+      clarificationDomain.canViewClarifications(actor, "exam", event.params.examId),
+    ]);
 
   // The layout gate already accepted this exam for the viewer; treat a
   // null payload here (draft hidden from students, archived, etc.) as a
