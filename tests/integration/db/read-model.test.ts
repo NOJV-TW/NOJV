@@ -33,20 +33,26 @@ describe("read model (real DB)", () => {
       expect(result.totalCount).toBe(0);
     });
 
-    it("includes correct totalSubmissions count", async () => {
-      const user = await createTestUser();
+    it("counts distinct attempters as totalSubmissions", async () => {
+      const userA = await createTestUser();
+      const userB = await createTestUser();
       const problem = await createTestProblem({
-        authorId: user.id,
+        authorId: userA.id,
         visibility: "public",
       });
 
       await createTestSubmission({
-        userId: user.id,
+        userId: userA.id,
         problemId: problem.id,
         status: "accepted",
       });
       await createTestSubmission({
-        userId: user.id,
+        userId: userA.id,
+        problemId: problem.id,
+        status: "wrong_answer",
+      });
+      await createTestSubmission({
+        userId: userB.id,
         problemId: problem.id,
         status: "wrong_answer",
       });
@@ -56,20 +62,21 @@ describe("read model (real DB)", () => {
       expect(result.problems[0]!.totalSubmissions).toBe(2);
     });
 
-    it("calculates acceptance rate correctly", async () => {
-      const user = await createTestUser();
+    it("calculates acceptance rate as solvers / attempters", async () => {
+      const userA = await createTestUser();
+      const userB = await createTestUser();
       const problem = await createTestProblem({
-        authorId: user.id,
+        authorId: userA.id,
         visibility: "public",
       });
 
       await createTestSubmission({
-        userId: user.id,
+        userId: userA.id,
         problemId: problem.id,
         status: "accepted",
       });
       await createTestSubmission({
-        userId: user.id,
+        userId: userB.id,
         problemId: problem.id,
         status: "wrong_answer",
       });
@@ -158,34 +165,41 @@ describe("read model (real DB)", () => {
       expect(detail!.outputFormat).toBe("Test output format");
     });
 
-    it("counts total submissions and acceptance rate", async () => {
-      const user = await createTestUser();
+    it("counts distinct attempters and acceptance rate", async () => {
+      const author = await createTestUser({ platformRole: "teacher" });
+      const userA = await createTestUser();
+      const userB = await createTestUser();
+      const userC = await createTestUser();
       const problem = await createTestProblem({
         id: "counted-problem",
-        authorId: user.id,
+        authorId: author.id,
         visibility: "public",
       });
 
       await createTestSubmission({
-        userId: user.id,
+        userId: userA.id,
         problemId: problem.id,
         status: "accepted",
       });
       await createTestSubmission({
-        userId: user.id,
+        userId: userA.id,
         problemId: problem.id,
         status: "wrong_answer",
       });
       await createTestSubmission({
-        userId: user.id,
+        userId: userB.id,
         problemId: problem.id,
         status: "accepted",
+      });
+      await createTestSubmission({
+        userId: userC.id,
+        problemId: problem.id,
+        status: "wrong_answer",
       });
 
       const detail = await getProblemPageData("counted-problem", "en");
       expect(detail).not.toBeNull();
       expect(detail!.totalSubmissions).toBe(3);
-      // 2 accepted out of 3
       expect(detail!.acceptanceRate).toBeCloseTo(2 / 3, 5);
     });
   });
