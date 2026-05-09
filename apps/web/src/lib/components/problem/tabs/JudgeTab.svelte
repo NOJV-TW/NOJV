@@ -226,7 +226,7 @@
         type="button"
         onclick={() => void handleSave()}
       >
-        {saving ? m.common_saving() : m.common_saveSettings()}
+        {saving ? m.common_saving() : m.common_saveDraft()}
       </button>
       {#if saveMessage === "saved"}
         <span class="text-body-sm text-success">{m.admin_saved()}</span>

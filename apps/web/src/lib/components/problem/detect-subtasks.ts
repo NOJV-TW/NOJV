@@ -21,7 +21,7 @@ export function detectSubtasksFromFiles(
   try {
     regex = new RegExp(`^${regexPattern}$`);
   } catch {
-    return { cases: [], subtasks: [], error: "Invalid regex pattern" };
+    return { cases: [], subtasks: [], error: "invalid_regex" };
   }
 
   const bySubtask = new Map<
@@ -60,7 +60,7 @@ export function detectSubtasksFromFiles(
   }
 
   if (bySubtask.size === 0) {
-    return { cases: [], subtasks: [], error: "No files matched the pattern" };
+    return { cases: [], subtasks: [], error: "no_files_matched" };
   }
 
   const allCases: ParsedCase[] = [];
