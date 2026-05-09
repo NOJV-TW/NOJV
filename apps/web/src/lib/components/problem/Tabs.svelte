@@ -11,6 +11,7 @@
   import { Input } from "$lib/components/ui/input";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { difficultyClass, tagClass } from "$lib/types";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { problemDomain } from "@nojv/domain";
   type ProblemListResult = problemDomain.ProblemListResult;
 
@@ -64,6 +65,7 @@
 
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
+    displayId: number;
     id: string;
     judgeType: string;
     type: import("@nojv/core").ProblemType;
@@ -441,7 +443,7 @@
                 <XCircle class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
               {/if}
               <div class="min-w-0">
-                <h3 class="text-title font-semibold">{problem.title}</h3>
+                <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
                 {#if problem.tags.length > 0}
                   <div class="mt-1.5 flex flex-wrap items-center gap-1">
                     {#each problem.tags as tag (tag)}
@@ -622,7 +624,7 @@
         >
           <div class="min-w-0">
             <a href={titleHref} class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80">
-              <h3 class="text-title font-semibold">{problem.title}</h3>
+              <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
             </a>
             {#if problem.tags.length > 0}
               <div class="mt-1.5 flex flex-wrap items-center gap-1">
