@@ -3,15 +3,41 @@ import { z } from "zod";
 import { courseRoleSchema, isoDateTimeSchema, languageSchema, slugSchema } from "../types";
 import { adjustmentRuleSchema, adjustmentRulesSchema } from "./assessment-adjustments";
 
-export const courseCreateSchema = z.object({
-  description: z.string().trim().min(8).max(2_000),
-  title: z.string().trim().min(3).max(120),
-});
+const academicTermFields = {
+  academicYear: z.coerce.number().int().min(100).max(999).nullish(),
+  semester: z.coerce.number().int().min(1).max(3).nullish(),
+};
 
-export const courseUpdateSchema = z.object({
-  description: z.string().trim().min(8).max(2_000),
-  title: z.string().trim().min(3).max(120),
-});
+function refineAcademicTerm(
+  value: { academicYear?: number | null | undefined; semester?: number | null | undefined },
+  ctx: z.RefinementCtx,
+) {
+  const hasYear = value.academicYear != null;
+  const hasSemester = value.semester != null;
+  if (hasYear !== hasSemester) {
+    ctx.addIssue({
+      code: "custom",
+      message: "academicYear and semester must both be provided or both be empty",
+      path: [hasYear ? "semester" : "academicYear"],
+    });
+  }
+}
+
+export const courseCreateSchema = z
+  .object({
+    description: z.string().trim().min(8).max(2_000),
+    title: z.string().trim().min(3).max(120),
+    ...academicTermFields,
+  })
+  .superRefine(refineAcademicTerm);
+
+export const courseUpdateSchema = z
+  .object({
+    description: z.string().trim().min(8).max(2_000),
+    title: z.string().trim().min(3).max(120),
+    ...academicTermFields,
+  })
+  .superRefine(refineAcademicTerm);
 
 export const courseProblemAttachSchema = z.object({
   courseId: z.string().trim().min(1),

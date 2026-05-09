@@ -25,10 +25,14 @@ enum CourseAssessmentStatus {
 }
 
 model Course {
-  id          String             @id @default(cuid())
-  title       String
-  description String             @db.Text
-  ownerId     String
+  id           String             @id @default(cuid())
+  title        String
+  description  String             @db.Text
+  ownerId      String
+  /// ROC calendar year (e.g. 113, 114). Null when term is unspecified.
+  academicYear Int?
+  /// 1 = first semester, 2 = second semester, 3 = summer session.
+  semester     Int?
   /// When true, students keep read-only access to scores and the
   /// course landing page but lose click-through into assignment /
   /// problem details. Toggled by course managers (teachers, TAs,

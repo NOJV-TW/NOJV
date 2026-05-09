@@ -101,6 +101,51 @@
         </div>
       </div>
 
+      <!-- Term (optional) -->
+      <div class="mt-5 space-y-5 border-t border-border-subtle pt-5">
+        <p class="text-body-sm font-medium">{m.coursesNew_termTitle()}</p>
+        <p class="-mt-4 text-caption text-muted-foreground">{m.coursesNew_termSubtitle()}</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-body-sm font-medium" for="academicYear">
+              {m.coursesNew_academicYearLabel()}
+            </label>
+            <input
+              id="academicYear"
+              name="academicYear"
+              type="number"
+              min="100"
+              max="999"
+              placeholder={m.coursesNew_academicYearPlaceholder()}
+              bind:value={$form.academicYear}
+              class="mt-2 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            />
+            {#if $errors.academicYear}
+              <p class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
+            {/if}
+          </div>
+          <div>
+            <label class="text-body-sm font-medium" for="semester">
+              {m.coursesNew_semesterLabel()}
+            </label>
+            <select
+              id="semester"
+              name="semester"
+              bind:value={$form.semester}
+              class="mt-2 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            >
+              <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
+              <option value={1}>{m.coursesNew_semesterOption1()}</option>
+              <option value={2}>{m.coursesNew_semesterOption2()}</option>
+              <option value={3}>{m.coursesNew_semesterOption3()}</option>
+            </select>
+            {#if $errors.semester}
+              <p class="mt-1 text-caption text-destructive">{$errors.semester}</p>
+            {/if}
+          </div>
+        </div>
+      </div>
+
       <!-- Placeholder user info banner -->
       <div
         class="mt-5 flex items-start gap-3 rounded-md border border-info/20 border-l-4 border-l-info bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
