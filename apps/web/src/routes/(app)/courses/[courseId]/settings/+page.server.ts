@@ -31,6 +31,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     {
       description: fullCourse.description,
       title: fullCourse.title,
+      academicYear: fullCourse.academicYear,
+      semester: fullCourse.semester,
     },
     zod4(courseUpdateSchema),
   );

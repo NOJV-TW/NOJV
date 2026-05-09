@@ -144,6 +144,11 @@
           <h3 class="font-display text-title font-medium leading-tight tracking-tight">
             {course.title}
           </h3>
+          {#if course.academicYear != null && course.semester != null}
+            <span class="mt-1 inline-block text-caption tabular-nums text-muted-foreground">
+              {course.academicYear}-{course.semester}
+            </span>
+          {/if}
 
           <p class="mt-1.5 text-body-sm text-muted-foreground">
             {#if course.role === "student"}

@@ -9,7 +9,7 @@ import { truncateAllTables, disconnectTestDb } from "../fixtures/seed-test-db";
 // domain/query correctness against a real Postgres; S3 is an incidental
 // implementation detail. An in-memory Map is indistinguishable from real
 // S3 for the tests' assertions and removes the need for any S3 backend
-// (real MinIO/Garage/LocalStack) in CI or local dev.
+// (real MinIO/LocalStack) in CI or local dev.
 //
 // `vi.hoisted` ensures `testBlobs` is declared alongside the hoisted
 // `vi.mock` call, so both the mock factory closure and the beforeEach

@@ -81,14 +81,13 @@ pnpm install
 # 2. Copy env template
 cp .env.example .env
 
-# 3. Start infrastructure (Postgres, Redis, Temporal, Temporal UI)
+# 3. Start infrastructure (Postgres, Redis, MinIO, Temporal, Temporal UI)
 docker compose up -d
 
 # 4. Build packages and prepare database
 pnpm db:generate
 pnpm build
 pnpm db:push
-pnpm db:seed:validate
 pnpm db:seed
 
 # 5. Build sandbox image (needed for submission judging)
@@ -102,13 +101,15 @@ See [Getting Started Runbook](docs/runbooks/getting-started.md) for detailed boo
 
 ### Local Ports
 
-| Service     | URL                   |
-| ----------- | --------------------- |
-| Web         | http://localhost:5173 |
-| PostgreSQL  | localhost:5432        |
-| Redis       | localhost:6379        |
-| Temporal    | localhost:7233        |
-| Temporal UI | http://localhost:8080 |
+| Service       | URL                   |
+| ------------- | --------------------- |
+| Web           | http://localhost:5173 |
+| PostgreSQL    | localhost:5432        |
+| Redis         | localhost:6379        |
+| MinIO API     | http://localhost:9000 |
+| MinIO Console | http://localhost:9001 |
+| Temporal      | localhost:7233        |
+| Temporal UI   | http://localhost:8080 |
 
 ### Environment Files
 

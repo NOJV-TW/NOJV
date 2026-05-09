@@ -37,25 +37,35 @@ services:
       timeout: 5s
       retries: 5
 
-  garage:
-    image: dxflrs/garage:v1.0.1
+  minio:
+    image: minio/minio
     restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "3900:3900" # S3 API
-      - "3903:3903" # Admin API (health, metrics, cluster mgmt)
+      - "9000:9000"
+      - "9001:9001"
     volumes:
-      - ./.garage/meta:/var/lib/garage/meta
-      - ./.garage/data:/var/lib/garage/data
-      - ./infra/docker/garage.toml:/etc/garage.toml:ro
-    # The scratch-based Garage image has no wget/curl, and the /health
-    # endpoint requires a configured layout (chicken-and-egg with the
-    # bootstrap script). Probe the daemon via its own CLI instead.
+      - minio_data:/data
     healthcheck:
-      test: ["CMD", "/garage", "status"]
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 5
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/nojv
+      "
 
   temporal:
     image: temporalio/auto-setup:1.29.1
@@ -188,3 +198,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  minio_data:

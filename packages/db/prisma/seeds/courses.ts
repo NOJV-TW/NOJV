@@ -17,8 +17,10 @@ export async function seedCourses(
       id: "course_os-lab-spring-2026",
       ownerId: teacher.id,
       title: "Operating Systems Lab",
+      academicYear: 114,
+      semester: 2,
     },
-    update: {},
+    update: { academicYear: 114, semester: 2 },
     where: { id: "course_os-lab-spring-2026" },
   });
 

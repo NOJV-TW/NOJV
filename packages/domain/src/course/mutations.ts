@@ -55,6 +55,8 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
       description: payload.description,
       ownerId: owner.id,
       title: payload.title,
+      ...(payload.academicYear != null ? { academicYear: payload.academicYear } : {}),
+      ...(payload.semester != null ? { semester: payload.semester } : {}),
     });
 
     // Owner is added as a teacher. No join-token path anymore — Phase 5
@@ -225,6 +227,8 @@ export async function updateCourse(
     return courseRepo.withTx(tx).update(courseId, {
       description: payload.description,
       title: payload.title,
+      academicYear: payload.academicYear ?? null,
+      semester: payload.semester ?? null,
     });
   });
 }
@@ -285,6 +289,8 @@ export async function copyCourse(
       description: source.description,
       ownerId: owner.id,
       title: `${source.title} (copy)`,
+      ...(source.academicYear != null ? { academicYear: source.academicYear } : {}),
+      ...(source.semester != null ? { semester: source.semester } : {}),
     });
 
     // 2. Actor becomes the teacher of the new course. Other roster members
