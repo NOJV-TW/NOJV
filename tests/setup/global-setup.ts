@@ -7,7 +7,7 @@ const DEFAULT_TEST_DB_URL = "postgresql://postgres:postgres@localhost:5432/nojv_
 
 export default function globalSetup() {
   // Pull S3_*, REDIS_URL, etc. from repo-root `.env` so integration tests
-  // can reach the local Garage/Postgres/Redis without hand-duplication.
+  // can reach the local MinIO/Postgres/Redis without hand-duplication.
   // Node 21+ has process.loadEnvFile built-in; repo requires Node 24+.
   const envPath = resolve(process.cwd(), ".env");
   if (existsSync(envPath)) {

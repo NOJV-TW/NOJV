@@ -13,7 +13,7 @@ import {
   judgeConfigSchema,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
-import { superValidate } from "sveltekit-superforms";
+import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
@@ -208,8 +208,8 @@ export const actions: Actions = {
   update: problemEditAction(async ({ actor, problemId, event }) => {
     const form = await superValidate(event, zod4(problemCreateSchema));
     if (!form.valid) return fail(400, { form });
-    const result = await updateProblemRecord(actor, problemId, form.data);
-    return { form, id: result.id, success: true };
+    await updateProblemRecord(actor, problemId, form.data);
+    return message(form, "ok");
   }),
 
   createTestcaseSet: problemEditAction(async ({ actor, problemId, event }) => {

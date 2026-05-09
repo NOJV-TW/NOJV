@@ -187,7 +187,7 @@
   {/if}
 
   <!-- Submit -->
-  <div class="mt-2 flex items-center gap-3">
+  <div class="mt-2 flex items-center justify-end gap-3">
     <button
       class="inline-flex rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
       disabled={$submitting}
@@ -196,11 +196,11 @@
       {#if $submitting}
         {m.common_saving()}
       {:else}
-        {m.common_saveSettings()}
+        {m.common_saveDraft()}
       {/if}
     </button>
     {#if $formMessage}
-      <span class="text-body-sm text-success">{$formMessage}</span>
+      <span class="text-body-sm text-success">{m.common_saved()}</span>
     {/if}
   </div>
 </form>

@@ -48,10 +48,11 @@
   let error = $state<string | null>(null);
 
   // ZIP upload state
-  let regexPattern = $state("(\\d+)-(\\d+)");
+  let regexPattern = $state("(\\d\\d)(\\d\\d)");
   let inExt = $state(".in");
   let outExt = $state(".out");
   let zipFileName = $state<string | null>(null);
+  let zipRawFiles = $state<{ name: string; content: string }[]>([]);
   let parsedCases = $state<ParsedCase[]>([]);
   let subtasks = $state<SubtaskConfig[]>([]);
   let uploadSaving = $state(false);
@@ -59,6 +60,31 @@
   let totalPoints = $derived(subtasks.reduce((sum, s) => sum + s.points, 0));
 
   const MAX_ZIP_SIZE = 50 * 1024 * 1024; // 50 MB
+
+  function translateDetectError(code: string): string {
+    switch (code) {
+      case "invalid_regex":
+        return m.testcases_errorInvalidRegex();
+      case "no_files_matched":
+        return m.testcases_errorNoFilesMatched({ regex: regexPattern, inExt, outExt });
+      default:
+        return code;
+    }
+  }
+
+  function reparse() {
+    if (zipRawFiles.length === 0) return;
+    const result = detectSubtasksFromFiles(zipRawFiles, regexPattern, inExt, outExt);
+    if (result.error) {
+      error = translateDetectError(result.error);
+      parsedCases = [];
+      subtasks = [];
+      return;
+    }
+    parsedCases = result.cases;
+    subtasks = result.subtasks;
+    error = null;
+  }
 
   async function handleZipUpload(file: File) {
     if (file.size > MAX_ZIP_SIZE) {
@@ -77,15 +103,9 @@
         allFiles.push({ name, content });
       }
 
-      const result = detectSubtasksFromFiles(allFiles, regexPattern, inExt, outExt);
-      if (result.error) {
-        error = result.error;
-        return;
-      }
-      parsedCases = result.cases;
-      subtasks = result.subtasks;
+      zipRawFiles = allFiles;
       zipFileName = file.name;
-      error = null;
+      reparse();
     } catch {
       error = m.testcases_zipParseError();
     }
@@ -136,6 +156,7 @@
       );
       parsedCases = [];
       subtasks = [];
+      zipRawFiles = [];
       zipFileName = null;
       await invalidateAll();
     } catch (e) {
@@ -195,8 +216,8 @@
           </span>
           <input
             class="{smallInputClassName} w-48"
-            oninput={(e) => (regexPattern = (e.target as HTMLInputElement).value)}
-            placeholder="(\d+)-(\d+)"
+            oninput={(e) => { regexPattern = (e.target as HTMLInputElement).value; reparse(); }}
+            placeholder="(\d\d)(\d\d)"
             value={regexPattern}
           />
         </div>
@@ -204,7 +225,7 @@
           <span class="text-caption text-muted-foreground">{m.testcases_inputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
-            oninput={(e) => (inExt = (e.target as HTMLInputElement).value)}
+            oninput={(e) => { inExt = (e.target as HTMLInputElement).value; reparse(); }}
             value={inExt}
           />
         </div>
@@ -212,7 +233,7 @@
           <span class="text-caption text-muted-foreground">{m.testcases_outputExtension()}</span>
           <input
             class="{smallInputClassName} w-16"
-            oninput={(e) => (outExt = (e.target as HTMLInputElement).value)}
+            oninput={(e) => { outExt = (e.target as HTMLInputElement).value; reparse(); }}
             value={outExt}
           />
         </div>
