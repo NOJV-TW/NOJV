@@ -59,7 +59,7 @@ export const submissionRepo = {
         verdictDetail: true,
         createdAt: true,
         user: { select: userMiniSelect },
-        problem: { select: { id: true, title: true } },
+        problem: { select: { id: true, displayId: true, title: true } },
         contest: { select: { id: true, title: true } },
         courseAssessment: {
           select: {
