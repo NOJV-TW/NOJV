@@ -15,6 +15,7 @@
 ## Task 1: Add `displayId` column with migration & backfill
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/problem.prisma`
 - Create: `packages/db/prisma/migrations/<timestamp>_add_problem_display_id/migration.sql`
 
@@ -121,6 +122,7 @@ git commit -m "feat(db): add Problem.displayId with backfill"
 ## Task 2: Integration test for `displayId` allocation
 
 **Files:**
+
 - Create: `tests/integration/db/problem-display-id.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -177,6 +179,7 @@ git commit -m "test(db): assert Problem.displayId allocation"
 ## Task 3: Expose `displayId` through repository select shapes
 
 **Files:**
+
 - Modify: `packages/db/src/repositories/selects.ts`
 - Modify: `packages/db/src/repositories/problem.ts:108-113`
 
@@ -245,6 +248,7 @@ git commit -m "feat(db): include displayId in Problem repo selects"
 ## Task 4: Surface `displayId` in core Zod schemas and domain query mappers
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/problem.ts:180-186`
 - Modify: `packages/domain/src/problem/queries.ts` (interfaces `ProblemDetail`, `ProblemCardWithStatus`; mappers `mapPersistedProblemDetail`, `listProblemCards`, `listEditableProblems`)
 
@@ -310,6 +314,7 @@ git commit -m "feat(core,domain): expose Problem.displayId to consumers"
 ## Task 5: Add `formatProblemDisplayName` utility + i18n message (with unit test)
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
 - Create: `apps/web/src/lib/utils/format-problem-display-name.ts`
@@ -346,9 +351,7 @@ describe("formatProblemDisplayName", () => {
   });
 
   it("handles non-ASCII titles unchanged", () => {
-    expect(formatProblemDisplayName({ displayId: 7, title: "二分搜尋" })).toBe(
-      "#7 二分搜尋",
-    );
+    expect(formatProblemDisplayName({ displayId: 7, title: "二分搜尋" })).toBe("#7 二分搜尋");
   });
 
   it("preserves whitespace already inside the title", () => {
@@ -401,6 +404,7 @@ git commit -m "feat(web): add formatProblemDisplayName utility"
 ## Task 6: Replace cuid display in `/courses/[courseId]/exams/new`
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/exams/new/+page.svelte:209`
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/exams/new/+page.svelte:258`
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/exams/new/+page.server.ts` (if loader hand-picks problem fields)
@@ -454,6 +458,7 @@ git commit -m "feat(web): show displayId on exam new problem selector"
 ## Task 7: Replace cuid display in `/courses/[courseId]/assignments/new`
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/assignments/new/+page.svelte:229`
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/assignments/new/+page.svelte:281`
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/assignments/new/+page.server.ts` (if loader hand-picks problem fields)
@@ -499,6 +504,7 @@ git commit -m "feat(web): show displayId on assignment new problem selector"
 ## Task 8: Add `#N` prefix to public + mine problem lists (`Tabs.svelte`)
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/problem/Tabs.svelte:444` (public branch)
 - Modify: `apps/web/src/lib/components/problem/Tabs.svelte:625` (mine branch)
 - Modify: `apps/web/src/routes/(app)/problems/+page.server.ts` (if loader hand-picks problem fields)
@@ -552,6 +558,7 @@ git commit -m "feat(web): prefix problem list titles with #displayId"
 ## Task 9: Add `#N` prefix to problem detail header (`ProblemLeftPanel`)
 
 **Files:**
+
 - Modify: `apps/web/src/lib/components/problem/ProblemLeftPanel.svelte:253`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/+page.server.ts` (if needed)
 
@@ -592,6 +599,7 @@ git commit -m "feat(web): prefix problem detail heading with #displayId"
 ## Task 10: Add `#N` prefix to problem edit page header
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/edit/+page.svelte:166`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/edit/+page.server.ts` (if needed)
 
@@ -636,6 +644,7 @@ git commit -m "feat(web): prefix problem edit heading with #displayId"
 ## Task 11: Add `#N` prefix to editorials views
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/editorials/+page.svelte:69`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/editorials/+page.server.ts:47`
 - Modify: `apps/web/src/routes/(app)/editorials/[id]/edit/+page.svelte:55`
@@ -700,6 +709,7 @@ git commit -m "feat(web): prefix editorial views with #displayId"
 ## Task 12: Add `#N` prefix to dashboard, submission detail, and admin list
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.svelte:416` (+ its server loader)
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.server.ts` (if `submissions` rows hand-pick problem fields)
 - Modify: `apps/web/src/routes/(app)/submissions/[submissionId]/+page.svelte:31`
@@ -766,6 +776,7 @@ git commit -m "feat(web): prefix dashboard/submissions/admin problem rows with #
 ## Task 13: Add `#N` prefix to assignment / exam detail pages
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.svelte:264`
 - Modify: `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.server.ts` (if needed)
 - Audit + update the matching exam detail page if it shows the same title shape (check `apps/web/src/routes/(app)/courses/[courseId]/exams/[examId]/+page.svelte` and `apps/web/src/routes/(app)/courses/[courseId]/assignments/[assessmentId]/+page.svelte`)
@@ -816,6 +827,7 @@ git commit -m "feat(web): prefix assignment & exam problem rows with #displayId"
 ## Task 14: E2E coverage + final verification
 
 **Files:**
+
 - Modify: `tests/e2e/problem-lifecycle.test.ts`
 
 - [ ] **Step 1: Add an assertion to `problem-lifecycle.test.ts`**

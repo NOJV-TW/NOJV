@@ -10,9 +10,7 @@ describe("formatProblemDisplayName", () => {
   });
 
   it("handles non-ASCII titles unchanged", () => {
-    expect(formatProblemDisplayName({ displayId: 7, title: "二分搜尋" })).toBe(
-      "#7 二分搜尋",
-    );
+    expect(formatProblemDisplayName({ displayId: 7, title: "二分搜尋" })).toBe("#7 二分搜尋");
   });
 
   it("preserves whitespace already inside the title", () => {
