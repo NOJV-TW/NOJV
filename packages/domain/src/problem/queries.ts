@@ -28,6 +28,7 @@ export interface ProblemDetail {
   acceptanceRate: number;
   authorUsername: string;
   difficulty: ProblemDifficulty;
+  displayId: number;
   id: string;
   inputFormat: string;
   judgeConfig: JudgeConfig;
@@ -143,6 +144,7 @@ async function mapPersistedProblemDetail(
   problem: {
     author?: { username: string | null } | null;
     title: string;
+    displayId: number;
     id: string;
     difficulty?: ProblemDifficulty;
     judgeConfig?: unknown;
@@ -208,6 +210,7 @@ async function mapPersistedProblemDetail(
     acceptanceRate: attempters > 0 ? solvers / attempters : 0,
     authorUsername: problem.author?.username ?? "course_staff",
     difficulty: problem.difficulty ?? "medium",
+    displayId: problem.displayId,
     id: problem.id,
     inputFormat: localized.inputFormat,
     judgeConfig,
@@ -245,6 +248,7 @@ export type ProblemUserStatus = "ac" | "attempted" | null;
 export interface ProblemCardWithStatus {
   acceptanceRate: number;
   difficulty: ProblemDifficulty;
+  displayId: number;
   id: string;
   judgeType: JudgeType;
   type: ProblemType;
@@ -341,6 +345,7 @@ export async function listProblemCards(
     return {
       acceptanceRate: attempters > 0 ? solvers / attempters : 0,
       difficulty: problem.difficulty,
+      displayId: problem.displayId,
       id: problem.id,
       judgeType: judgeConfig.type,
       type: problem.type,
@@ -363,6 +368,7 @@ export async function listEditableProblems(userId: string) {
     };
     return {
       difficulty: problem.difficulty,
+      displayId: problem.displayId,
       id: problem.id,
       judgeType: judgeConfig.type,
       type: problem.type,
