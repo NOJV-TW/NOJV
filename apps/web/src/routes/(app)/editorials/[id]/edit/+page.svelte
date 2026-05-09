@@ -5,6 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/ui/Section.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
   let { data } = $props();
 
@@ -52,7 +53,7 @@
     {#if data.problem}
       <p>
         <a href="/problems/{data.problem.id}/editorials" class="text-primary hover:underline">
-          ← {data.problem.title}
+          ← {formatProblemDisplayName(data.problem)}
         </a>
       </p>
     {/if}
