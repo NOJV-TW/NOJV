@@ -48,7 +48,7 @@
   let error = $state<string | null>(null);
 
   // ZIP upload state
-  let regexPattern = $state("(\\d+)-(\\d+)");
+  let regexPattern = $state("(\\d\\d)(\\d\\d)");
   let inExt = $state(".in");
   let outExt = $state(".out");
   let zipFileName = $state<string | null>(null);
@@ -217,7 +217,7 @@
           <input
             class="{smallInputClassName} w-48"
             oninput={(e) => { regexPattern = (e.target as HTMLInputElement).value; reparse(); }}
-            placeholder="(\d+)-(\d+)"
+            placeholder="(\d\d)(\d\d)"
             value={regexPattern}
           />
         </div>
