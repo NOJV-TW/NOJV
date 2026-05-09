@@ -500,6 +500,7 @@
   "common_dropToUpload": "Drop to upload image",
   "common_edit": "Edit",
   "common_pinned": "Pinned",
+  "common_problemDisplayId": "#{id}",
   "common_readingFile": "Reading file…",
   "common_resizeBottomPanel": "Resize bottom panel",
   "common_resizeFilesPanel": "Resize files panel",

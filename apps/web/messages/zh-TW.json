@@ -500,6 +500,7 @@
   "common_dropToUpload": "放開以上傳圖片",
   "common_edit": "編輯",
   "common_pinned": "置頂",
+  "common_problemDisplayId": "#{id}",
   "common_readingFile": "讀取檔案中…",
   "common_resizeBottomPanel": "調整下方面板大小",
   "common_resizeFilesPanel": "調整檔案面板大小",
