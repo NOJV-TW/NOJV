@@ -153,6 +153,56 @@
         </div>
       </div>
 
+      <div
+        class="grid grid-cols-1 items-start gap-4 border-b border-border-subtle py-4 md:grid-cols-[220px_1fr] md:gap-6"
+      >
+        <div class="text-body-sm font-medium leading-tight md:pt-2.5">
+          {m.courseSettings_termLabel()}
+          <span class="mt-0.5 block text-caption font-normal text-muted-foreground">
+            {m.courseSettings_termLabelDesc()}
+          </span>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-caption font-medium text-muted-foreground" for="academicYear">
+              {m.coursesNew_academicYearLabel()}
+            </label>
+            <input
+              id="academicYear"
+              name="academicYear"
+              type="number"
+              min="100"
+              max="999"
+              placeholder={m.coursesNew_academicYearPlaceholder()}
+              bind:value={$updateForm.academicYear}
+              class="mt-1 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            />
+            {#if $errors.academicYear}
+              <p class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
+            {/if}
+          </div>
+          <div>
+            <label class="text-caption font-medium text-muted-foreground" for="semester">
+              {m.coursesNew_semesterLabel()}
+            </label>
+            <select
+              id="semester"
+              name="semester"
+              bind:value={$updateForm.semester}
+              class="mt-1 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            >
+              <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
+              <option value={1}>{m.coursesNew_semesterOption1()}</option>
+              <option value={2}>{m.coursesNew_semesterOption2()}</option>
+              <option value={3}>{m.coursesNew_semesterOption3()}</option>
+            </select>
+            {#if $errors.semester}
+              <p class="mt-1 text-caption text-destructive">{$errors.semester}</p>
+            {/if}
+          </div>
+        </div>
+      </div>
+
       <div class="flex items-center justify-end gap-3 pt-4">
         <Button type="submit" disabled={$updateSubmitting}>
           <Save class="h-4 w-4" aria-hidden="true" />
