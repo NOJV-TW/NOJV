@@ -206,7 +206,7 @@
               onclick={() => addProblem(problem.id)}
             >
               <span class="min-w-[96px] font-mono text-caption text-muted-foreground">
-                {problem.id.slice(0, 14)}
+                #{problem.displayId}
               </span>
               <span class="flex-1 text-body-sm font-medium">{problem.title}</span>
               <span
@@ -255,7 +255,7 @@
                 <div class="min-w-0 flex-1">
                   <div class="truncate text-body-sm font-medium">{problem.title}</div>
                   <div class="font-mono text-caption text-muted-foreground">
-                    {problem.id}
+                    #{problem.displayId}
                   </div>
                 </div>
                 <span
