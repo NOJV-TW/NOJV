@@ -60,6 +60,8 @@ export interface CourseListingCard {
   ownerDisplayName: string;
   role: CourseRole;
   archived: boolean;
+  academicYear: number | null;
+  semester: number | null;
   studentCount: number;
   assignmentCount: number;
   examCount: number;
@@ -116,6 +118,8 @@ export async function listForUserWithCards(userId: string): Promise<{
       ownerDisplayName: course.owner.name,
       role,
       archived: false,
+      academicYear: course.academicYear,
+      semester: course.semester,
       studentCount: course._count.memberships,
       assignmentCount: course._count.assessments,
       examCount: course._count.exams,

@@ -511,7 +511,7 @@
       disabled={saving}
       onclick={() => void handleSave()}
     >
-      {saving ? m.admin_savingWorkspace() : m.admin_saveWorkspace()}
+      {saving ? m.common_saving() : m.common_saveDraft()}
     </button>
     {#if saveMessage === "saved"}
       <span class="text-body-sm text-success">{m.admin_saved()}</span>
