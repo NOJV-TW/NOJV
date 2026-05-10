@@ -361,10 +361,7 @@ export async function listProblemCards(
   return { page, pageSize, problems, totalCount };
 }
 
-export async function listEditableProblems(
-  userId: string,
-  sort: "asc" | "desc" = "asc",
-) {
+export async function listEditableProblems(userId: string, sort: "asc" | "desc" = "asc") {
   const problems = await problemRepo.listEditable(userId, sort);
 
   return problems.map((problem) => {
