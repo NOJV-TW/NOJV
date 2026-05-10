@@ -1,4 +1,9 @@
-import { announcementRepo, announcementTranslationRepo, userRepo } from "@nojv/db";
+import {
+  announcementRepo,
+  announcementTranslationRepo,
+  courseMembershipRepo,
+  userRepo,
+} from "@nojv/db";
 import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
 import type { AnnouncementAudience } from "@nojv/core";
 import { z } from "zod";
@@ -45,6 +50,10 @@ export const announcementCreateSchema = z.object({
   published: z.boolean().default(false),
   audience: announcementAudienceSchema.default("all"),
   expiresAt: z.coerce.date().nullable().optional(),
+  /** When set, scopes this announcement to a single course. Otherwise it is platform-wide. */
+  courseId: z.string().min(1).nullable().optional(),
+  /** User who authored the announcement. Set by the route layer; nullable for legacy rows. */
+  createdByUserId: z.string().min(1).nullable().optional(),
 });
 
 export const announcementUpdateSchema = announcementCreateSchema;
@@ -52,16 +61,24 @@ export const announcementUpdateSchema = announcementCreateSchema;
 export type AnnouncementCreatePayload = z.input<typeof announcementCreateSchema>;
 export type AnnouncementUpdatePayload = z.input<typeof announcementUpdateSchema>;
 
-// Fan out `announcement_published` to every active user. `title` is the
+// Fan out `announcement_published` to recipients. Platform-wide announcements
+// (courseId == null) reach every active user; course-scoped announcements
+// reach only the active members of that course (any role). `title` is the
 // default-locale (zh-TW) translation — renderer can fall back to whatever
 // locale is available. Kept intentionally small: one row per (user,
 // announcement), params carry just enough to render the bell entry.
-async function fanoutAnnouncementPublished(announcementId: string, title: string) {
-  const users = await userRepo.listActiveIds();
-  if (users.length === 0) return;
+async function fanoutAnnouncementPublished(
+  announcementId: string,
+  title: string,
+  courseId: string | null,
+) {
+  const recipientIds = courseId
+    ? await courseMembershipRepo.listActiveMemberUserIds(courseId)
+    : (await userRepo.listActiveIds()).map((u) => u.id);
+  if (recipientIds.length === 0) return;
   await notificationDomain.createNotificationBatch(
-    users.map((u) => ({
-      userId: u.id,
+    recipientIds.map((userId) => ({
+      userId,
       type: "announcement_published" as const,
       params: { announcementId, titleEn: title, titleZhTw: title },
       linkUrl: null,
@@ -79,6 +96,10 @@ export async function createAnnouncement(data: AnnouncementCreatePayload) {
     publishedAt: parsed.published ? new Date() : null,
     audience: parsed.audience,
     expiresAt: parsed.expiresAt ?? null,
+    ...(parsed.courseId ? { course: { connect: { id: parsed.courseId } } } : {}),
+    ...(parsed.createdByUserId
+      ? { createdBy: { connect: { id: parsed.createdByUserId } } }
+      : {}),
   });
 
   await announcementTranslationRepo.upsert(announcement.id, DEFAULT_LOCALE, {
@@ -87,7 +108,7 @@ export async function createAnnouncement(data: AnnouncementCreatePayload) {
   });
 
   if (parsed.published) {
-    await fanoutAnnouncementPublished(announcement.id, parsed.title);
+    await fanoutAnnouncementPublished(announcement.id, parsed.title, parsed.courseId ?? null);
   }
 
   return announcement;
@@ -98,9 +119,9 @@ export async function createAnnouncement(data: AnnouncementCreatePayload) {
  */
 export async function updateAnnouncement(id: string, data: AnnouncementUpdatePayload) {
   const parsed = announcementUpdateSchema.parse(data);
-  // Snapshot prior status so we can detect the draft → published transition
-  // and fan out once per publish, not on every edit of an already-live row.
-  const prior = await announcementRepo.findStatus(id);
+  // Snapshot prior row so we can detect the draft → published transition and
+  // know which course (if any) to fan out to.
+  const prior = await announcementRepo.findById(id);
 
   const updated = await announcementRepo.update(id, {
     pinned: parsed.pinned,
@@ -116,7 +137,7 @@ export async function updateAnnouncement(id: string, data: AnnouncementUpdatePay
   });
 
   if (parsed.published && prior?.status !== "published") {
-    await fanoutAnnouncementPublished(id, parsed.title);
+    await fanoutAnnouncementPublished(id, parsed.title, prior?.courseId ?? null);
   }
 
   return updated;
@@ -147,7 +168,7 @@ export async function toggleAnnouncementPublish(id: string) {
     // admin UI always upserts a translation on create.
     const full = await announcementRepo.findById(id);
     const translation = full?.translations.find((t) => t.locale === DEFAULT_LOCALE);
-    await fanoutAnnouncementPublished(id, translation?.title ?? id);
+    await fanoutAnnouncementPublished(id, translation?.title ?? id, full?.courseId ?? null);
   }
 
   return updated;

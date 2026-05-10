@@ -1,10 +1,21 @@
-import { fail } from "@sveltejs/kit";
+import { error, fail, type RequestEvent } from "@sveltejs/kit";
 import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
 import type { AnnouncementAudience } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
+import { requireAuth } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { announcementDomain } from "@nojv/domain";
+
+// Layout-level guard only runs on GET loads; POST actions can be called
+// directly. Re-derive auth + admin role inside every action.
+function requireAdmin(event: RequestEvent) {
+  const actor = requireAuth(event);
+  if (actor.platformRole !== "admin") {
+    error(403, "Admin access required.");
+  }
+  return actor;
+}
 
 function readAudience(formData: FormData): AnnouncementAudience {
   const raw = formData.get("audience");
@@ -58,8 +69,9 @@ export const load: PageServerLoad = async () => {
         published: a.status === "published",
         audience: a.audience,
         expiresAt: a.expiresAt?.toISOString() ?? null,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt,
+        createdAt: a.createdAt.toISOString(),
+        updatedAt: a.updatedAt.toISOString(),
+        authorName: a.createdBy?.name ?? "NOJV",
       };
     }),
   };
@@ -67,6 +79,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions = {
   create: withRateLimit(async (event) => {
+    const actor = requireAdmin(event);
     const formData = await event.request.formData();
     const title = readString(formData, "title");
     const content = readString(formData, "content");
@@ -82,12 +95,14 @@ export const actions = {
       published: readCheckbox(formData, "published"),
       audience: readAudience(formData),
       expiresAt: readExpiresAt(formData),
+      createdByUserId: actor.userId,
     });
 
     return { success: true };
   }),
 
   update: withRateLimit(async (event) => {
+    requireAdmin(event);
     const formData = await event.request.formData();
     const id = readString(formData, "id");
     const title = readString(formData, "title");
@@ -110,6 +125,7 @@ export const actions = {
   }),
 
   delete: withRateLimit(async (event) => {
+    requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
@@ -118,6 +134,7 @@ export const actions = {
   }),
 
   togglePin: withRateLimit(async (event) => {
+    requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
@@ -128,6 +145,7 @@ export const actions = {
   }),
 
   togglePublish: withRateLimit(async (event) => {
+    requireAdmin(event);
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 

@@ -5,21 +5,55 @@
     ClipboardList,
     Megaphone,
     Pencil,
-    Plus
+    Pin,
+    Plus,
+    Trash2
   } from "@lucide/svelte";
+  import { enhance } from "$app/forms";
+  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
-  import {
-    formatDateTimeCompact,
-    formatRelativeFromNow,
-    formatTimeRangeCompact
-  } from "$lib/utils/datetime";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import CourseAnnouncementDialog from "$lib/components/course/CourseAnnouncementDialog.svelte";
+  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
+  import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
   const { course, isManager, announcements, assignments, exams } = $derived(data);
+
+  type AnnouncementRow = (typeof announcements)[number];
+
+  let dialogOpen = $state(false);
+  let dialogMode = $state<"create" | "edit">("create");
+  let dialogInitial = $state<AnnouncementRow | null>(null);
+  let pendingDeleteId = $state<string | null>(null);
+  let viewingAnnouncement = $state<AnnouncementRow | null>(null);
+  let viewOpen = $state(false);
+
+  function openView(announcement: AnnouncementRow) {
+    viewingAnnouncement = announcement;
+    viewOpen = true;
+  }
+
+  function openCreate() {
+    dialogMode = "create";
+    dialogInitial = null;
+    dialogOpen = true;
+  }
+
+  function openEdit(announcement: AnnouncementRow) {
+    dialogMode = "edit";
+    dialogInitial = announcement;
+    dialogOpen = true;
+  }
+
+  let deleteFormEl: HTMLFormElement | undefined = $state();
+  function confirmDelete() {
+    deleteFormEl?.requestSubmit();
+  }
 
   function assignmentStatusBadge(
     status: "draft" | "upcoming" | "open" | "closed"
@@ -76,7 +110,7 @@
         <Button
           variant="outline"
           size="sm"
-          href="/admin/announcements"
+          onclick={openCreate}
         >
           <Plus class="h-4 w-4" />
           {m.courseOverview_newAnnouncement()}
@@ -91,49 +125,102 @@
         {m.courseOverview_noAnnouncements()}
       </div>
     {:else}
-      <div
-        class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-2"
-      >
+      <div class="space-y-3">
         {#each announcements as announcement (announcement.id)}
-          <article
-            class="flex items-start gap-4 border-b border-border-subtle py-4 last:border-b-0"
+          <div
+            class="cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+            onclick={() => openView(announcement)}
+            onkeydown={(e) => {
+              if (e.currentTarget !== e.target) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openView(announcement);
+              }
+            }}
+            role="button"
+            tabindex="0"
           >
-            <div class="flex min-w-[10rem] shrink-0 items-center gap-2">
-              <div
-                class="flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,#8a6142,#6d4c30)] font-display text-caption font-semibold text-white"
-                aria-hidden="true"
-              >
-                {announcement.authorInitial}
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
+                  {#if announcement.pinned}
+                    <Pin
+                      class="size-3.5 shrink-0 text-warning"
+                      aria-label={m.admin_announcementsPinned()}
+                    />
+                  {/if}
+                  <span class="truncate">{announcement.title}</span>
+                </h3>
+                {#if announcement.content}
+                  <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
+                    {announcement.content}
+                  </p>
+                {/if}
               </div>
-              <div class="min-w-0">
-                <div class="truncate text-body-sm font-medium">
-                  {announcement.authorName}
-                </div>
-                <div class="text-caption text-muted-foreground tabular-nums">
-                  {formatRelativeFromNow(announcement.createdAt)} ·
-                  {formatDateTimeCompact(announcement.createdAt)}
-                </div>
+              <div class="flex shrink-0 flex-col items-end gap-2">
+                <time
+                  class="text-caption text-muted-foreground tabular-nums"
+                  datetime={announcement.createdAt}
+                >
+                  {new Date(announcement.createdAt).toLocaleDateString()}
+                </time>
+                {#if isManager}
+                  <div
+                    class="flex items-center gap-1"
+                    onclick={(e) => e.stopPropagation()}
+                    role="presentation"
+                  >
+                    <form
+                      method="POST"
+                      action="?/togglePinAnnouncement"
+                      use:enhance={() => {
+                        return async ({ result }) => {
+                          if (result.type === "success" || result.type === "redirect") {
+                            await invalidateAll();
+                          }
+                        };
+                      }}
+                    >
+                      <input type="hidden" name="id" value={announcement.id} />
+                      <button
+                        type="submit"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {announcement.pinned
+                          ? 'border-warning bg-warning/10 text-warning hover:bg-warning/15'
+                          : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                        title={announcement.pinned
+                          ? m.admin_announcementsUnpin()
+                          : m.admin_announcementsPin()}
+                        aria-label={announcement.pinned
+                          ? m.admin_announcementsUnpin()
+                          : m.admin_announcementsPin()}
+                        aria-pressed={announcement.pinned}
+                      >
+                        <Pin class="h-3.5 w-3.5" />
+                      </button>
+                    </form>
+                    <button
+                      type="button"
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
+                      title={m.courseOverview_editAnnouncement()}
+                      aria-label={m.courseOverview_editAnnouncement()}
+                      onclick={() => openEdit(announcement)}
+                    >
+                      <Pencil class="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+                      title={m.common_delete()}
+                      aria-label={m.common_delete()}
+                      onclick={() => (pendingDeleteId = announcement.id)}
+                    >
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                {/if}
               </div>
             </div>
-            <div class="min-w-0 flex-1">
-              <h3 class="text-body font-semibold">{announcement.title}</h3>
-              {#if announcement.content}
-                <p class="mt-1 text-body-sm text-muted-foreground">
-                  {announcement.content}
-                </p>
-              {/if}
-            </div>
-            {#if isManager}
-              <a
-                href="/admin/announcements"
-                class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
-                title={m.courseOverview_editAnnouncement()}
-                aria-label={m.courseOverview_editAnnouncement()}
-              >
-                <Pencil class="h-4 w-4" />
-              </a>
-            {/if}
-          </article>
+          </div>
         {/each}
       </div>
     {/if}
@@ -368,3 +455,40 @@
   </section>
   </div>
 </div>
+
+<AnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
+
+{#if isManager}
+  <CourseAnnouncementDialog
+    bind:open={dialogOpen}
+    mode={dialogMode}
+    initial={dialogInitial}
+  />
+
+  <form
+    bind:this={deleteFormEl}
+    method="POST"
+    action="?/deleteAnnouncement"
+    use:enhance={() => {
+      return async ({ result }) => {
+        pendingDeleteId = null;
+        if (result.type === "success" || result.type === "redirect") {
+          await invalidateAll();
+        }
+      };
+    }}
+    class="hidden"
+  >
+    <input type="hidden" name="id" value={pendingDeleteId ?? ""} />
+  </form>
+
+  <ConfirmDialog
+    open={pendingDeleteId !== null}
+    title={m.common_delete()}
+    message={m.admin_announcementsDeleteConfirm()}
+    confirmText={m.common_delete()}
+    variant="danger"
+    onconfirm={confirmDelete}
+    oncancel={() => (pendingDeleteId = null)}
+  />
+{/if}

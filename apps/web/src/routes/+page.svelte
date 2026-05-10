@@ -1,17 +1,28 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { page } from "$app/stores";
-  import { Megaphone, Calendar } from "@lucide/svelte";
+  import { Megaphone, Calendar, Pin } from "@lucide/svelte";
   import Header from "$lib/components/layout/Header.svelte";
   import { Card } from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
   import { assessmentPath } from "$lib/types";
 
   let { data } = $props();
 
   let user = $derived($page.data.user);
+
+  type AnnouncementRow = (typeof data.announcements)[number];
+
+  let viewing = $state<AnnouncementRow | null>(null);
+  let viewOpen = $state(false);
+
+  function openView(announcement: AnnouncementRow) {
+    viewing = announcement;
+    viewOpen = true;
+  }
 </script>
 
 <svelte:head>
@@ -44,25 +55,36 @@
         <div class="mt-6 space-y-3">
           {#each data.announcements as announcement (announcement.id)}
             <div
-              class="rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm"
+              class="cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+              onclick={() => openView(announcement)}
+              onkeydown={(e) => {
+                if (e.currentTarget !== e.target) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openView(announcement);
+                }
+              }}
+              role="button"
+              tabindex="0"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
+                  <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
                     {#if announcement.pinned}
-                      <Badge variant="warning" size="xs">{m.common_pinned()}</Badge>
+                      <Pin
+                        class="size-3.5 shrink-0 text-warning"
+                        aria-label={m.common_pinned()}
+                      />
                     {/if}
-                    <h3 class="truncate text-body-sm font-semibold text-foreground">
-                      {announcement.title}
-                    </h3>
-                  </div>
+                    <span class="truncate">{announcement.title}</span>
+                  </h3>
                   <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
                     {announcement.content}
                   </p>
                 </div>
                 <time
                   class="shrink-0 text-caption text-muted-foreground tabular-nums"
-                  datetime={new Date(announcement.createdAt).toISOString()}
+                  datetime={announcement.createdAt}
                 >
                   {new Date(announcement.createdAt).toLocaleDateString()}
                 </time>
@@ -154,3 +176,5 @@
   </div>
   </main>
 </div>
+
+<AnnouncementViewDialog bind:open={viewOpen} announcement={viewing} />
