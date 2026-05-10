@@ -33,6 +33,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       language: editorial.language,
       problemId: editorial.problemId,
     },
-    problem: problem ? { id: problem.id, title: problem.title } : null,
+    problem: problem
+      ? { id: problem.id, displayId: problem.displayId, title: problem.title }
+      : null,
   };
 });

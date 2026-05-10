@@ -12,6 +12,7 @@
   import WeeklyTrendCard from "$lib/components/dashboard/WeeklyTrendCard.svelte";
   import SuggestedProblemsCard from "$lib/components/dashboard/SuggestedProblemsCard.svelte";
   import { formatVerdictLabel } from "$lib/types";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { BadgeVariant } from "$lib/components/ui/badge";
   import type { EChartsOption } from "echarts";
 
@@ -413,7 +414,7 @@
               href="/problems/{sub.problem.id}"
               class="truncate hover:underline"
             >
-              {sub.problem.title}
+              {formatProblemDisplayName(sub.problem)}
             </a>
             <span class="shrink-0 text-caption text-muted-foreground">
               ({sub.language})

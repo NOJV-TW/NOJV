@@ -15,6 +15,7 @@ export type ExamProblemViewerState = "ac" | "partial" | "zero" | "empty";
 
 export interface ExamDetailProblem {
   id: string;
+  displayId: number;
   title: string;
   difficulty: "easy" | "medium" | "hard";
   points: number;
@@ -202,6 +203,7 @@ export async function getExamDetailPage(
 
   const problems: ExamDetailProblem[] = problemRows.map((ep) => ({
     id: ep.problem.id,
+    displayId: ep.problem.displayId,
     title: ep.problem.title,
     difficulty: ep.problem.difficulty,
     points: ep.points,

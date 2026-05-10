@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { RadioGroup } from "bits-ui";
+  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Button, IconButton } from "$lib/components/ui/button";
   import { Card } from "$lib/components/ui/card";
@@ -22,8 +23,17 @@
 
   let { data } = $props();
 
+  type AnnouncementRow = (typeof data.announcements)[number];
+
   let editingId = $state<string | null>(null);
   let showCreateForm = $state(false);
+  let viewing = $state<AnnouncementRow | null>(null);
+  let viewOpen = $state(false);
+
+  function openView(announcement: AnnouncementRow) {
+    viewing = announcement;
+    viewOpen = true;
+  }
 
   type Audience = "all" | "students" | "teachers";
 
@@ -278,15 +288,29 @@
               </form>
             {:else}
               <!-- View mode -->
-              <div class="flex items-start justify-between gap-4">
+              <div
+                class="flex cursor-pointer items-start justify-between gap-4 rounded-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+                onclick={() => openView(ann)}
+                onkeydown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openView(ann);
+                  }
+                }}
+                role="button"
+                tabindex="0"
+              >
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-center gap-2">
-                    <h4 class="text-body-lg font-semibold">{ann.title}</h4>
-                    {#if ann.pinned}
-                      <Badge variant="warning" size="xs" dot>
-                        {m.admin_announcementsPinned()}
-                      </Badge>
-                    {/if}
+                    <h4 class="flex items-center gap-1.5 text-body-lg font-semibold">
+                      {#if ann.pinned}
+                        <Pin
+                          class="size-3.5 shrink-0 text-warning"
+                          aria-label={m.admin_announcementsPinned()}
+                        />
+                      {/if}
+                      <span class="truncate">{ann.title}</span>
+                    </h4>
                     {#if ann.published}
                       <Badge variant="success" size="xs">{m.admin_announcementsPublished()}</Badge>
                     {:else}
@@ -296,8 +320,8 @@
                       {audienceLabel(ann.audience)}
                     </Badge>
                   </div>
-                  <p class="mt-2 text-body-sm whitespace-pre-wrap text-muted-foreground">
-                    {ann.content.length > 200 ? ann.content.slice(0, 200) + "..." : ann.content}
+                  <p class="mt-2 line-clamp-2 text-body-sm text-muted-foreground">
+                    {ann.content}
                   </p>
                   <p class="mt-2 text-caption text-muted-foreground">
                     {m.admin_announcementsCreated()}: {new Date(ann.createdAt).toLocaleString()} &middot;
@@ -308,7 +332,11 @@
                     {/if}
                   </p>
                 </div>
-                <div class="flex shrink-0 items-center gap-1">
+                <div
+                  class="flex shrink-0 items-center gap-1"
+                  onclick={(e) => e.stopPropagation()}
+                  role="presentation"
+                >
                   <IconButton
                     label={m.common_edit()}
                     variant="ghost"
@@ -380,3 +408,5 @@
     {/if}
   </Card>
 </div>
+
+<AnnouncementViewDialog bind:open={viewOpen} announcement={viewing} />

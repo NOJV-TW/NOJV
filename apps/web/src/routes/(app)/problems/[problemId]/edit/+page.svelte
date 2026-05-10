@@ -3,6 +3,7 @@
   import { invalidateAll } from "$app/navigation";
   import type { Language, ProblemImageSource } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import ProblemSections from "$lib/components/problem/ProblemSections.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
   import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
@@ -163,7 +164,13 @@
 <div class="space-y-6">
   <div class="flex items-center gap-3">
     <h1 class="font-display text-title-lg">
-      {data.problem.title === "Untitled Problem" ? m.admin_createProblem() : data.problem.title}
+      {formatProblemDisplayName({
+        displayId: data.problem.displayId,
+        title:
+          data.problem.title === "Untitled Problem"
+            ? m.admin_createProblem()
+            : data.problem.title,
+      })}
     </h1>
     {#if data.problem.status === "draft"}
       <Badge variant="warning" size="md">{m.admin_draftBadge()}</Badge>

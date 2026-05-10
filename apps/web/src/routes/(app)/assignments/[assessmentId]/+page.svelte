@@ -13,6 +13,7 @@
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -261,7 +262,9 @@
             </div>
 
             <div class="min-w-0">
-              <div class="text-body-lg font-semibold tracking-[-0.01em]">{problem.title}</div>
+              <div class="text-body-lg font-semibold tracking-[-0.01em]">
+                {formatProblemDisplayName(problem)}
+              </div>
               <div
                 class="mt-1.5 flex flex-wrap items-center gap-3 text-caption text-muted-foreground"
               >

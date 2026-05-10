@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
-import { apiWriteHeaders } from "./_shared";
+import { apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
@@ -68,6 +68,28 @@ test.describe("Problem Lifecycle", () => {
     await page.goto("/problems");
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByText("E2E Lifecycle Problem")).not.toBeVisible();
+    await context.close();
+  });
+
+  test("teacher publishes the problem", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: teacherAuth });
+    const page = await context.newPage();
+    const res = await page.request.post(`/problems/${problemId}/edit?/publish`, {
+      form: {},
+      headers: formActionHeaders,
+    });
+    const body = await res.json();
+    expect(body.type).not.toBe("error");
+    expect(body.type).not.toBe("failure");
+    await context.close();
+  });
+
+  test("published problem detail heading shows displayId prefix", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await page.goto(`/problems/${problemId}`);
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/#\d+\s.+/);
     await context.close();
   });
 

@@ -2,6 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
 import type { AnnouncementAudience } from "@nojv/core";
 import type { Actions, PageServerLoad } from "./$types";
+import { requireAuth } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { announcementDomain } from "@nojv/domain";
@@ -58,8 +59,9 @@ export const load: PageServerLoad = async () => {
         published: a.status === "published",
         audience: a.audience,
         expiresAt: a.expiresAt?.toISOString() ?? null,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt,
+        createdAt: a.createdAt.toISOString(),
+        updatedAt: a.updatedAt.toISOString(),
+        authorName: a.createdBy?.name ?? "NOJV",
       };
     }),
   };
@@ -67,6 +69,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions = {
   create: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
     const formData = await event.request.formData();
     const title = readString(formData, "title");
     const content = readString(formData, "content");
@@ -82,6 +85,7 @@ export const actions = {
       published: readCheckbox(formData, "published"),
       audience: readAudience(formData),
       expiresAt: readExpiresAt(formData),
+      createdByUserId: actor.userId,
     });
 
     return { success: true };
