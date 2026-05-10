@@ -15,6 +15,7 @@
   import { Button } from "$lib/components/ui/button";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import CourseAnnouncementDialog from "$lib/components/course/CourseAnnouncementDialog.svelte";
+  import CourseAnnouncementViewDialog from "$lib/components/course/CourseAnnouncementViewDialog.svelte";
   import {
     formatDateTimeCompact,
     formatRelativeFromNow,
@@ -32,10 +33,12 @@
   let dialogMode = $state<"create" | "edit">("create");
   let dialogInitial = $state<AnnouncementRow | null>(null);
   let pendingDeleteId = $state<string | null>(null);
-  let expandedAnnouncementId = $state<string | null>(null);
+  let viewingAnnouncement = $state<AnnouncementRow | null>(null);
+  let viewOpen = $state(false);
 
-  function toggleExpand(id: string) {
-    expandedAnnouncementId = expandedAnnouncementId === id ? null : id;
+  function openView(announcement: AnnouncementRow) {
+    viewingAnnouncement = announcement;
+    viewOpen = true;
   }
 
   function openCreate() {
@@ -129,19 +132,17 @@
         class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-2"
       >
         {#each announcements as announcement (announcement.id)}
-          {@const expanded = expandedAnnouncementId === announcement.id}
           <div
             class="flex cursor-pointer items-start gap-4 border-b border-border-subtle py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-accent/40"
-            onclick={() => toggleExpand(announcement.id)}
+            onclick={() => openView(announcement)}
             onkeydown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                toggleExpand(announcement.id);
+                openView(announcement);
               }
             }}
             role="button"
             tabindex="0"
-            aria-expanded={expanded}
           >
             <div class="flex min-w-[10rem] shrink-0 items-center gap-2">
               <div
@@ -163,11 +164,7 @@
             <div class="min-w-0 flex-1">
               <h3 class="text-body font-semibold">{announcement.title}</h3>
               {#if announcement.content}
-                <p
-                  class="mt-1 whitespace-pre-wrap text-body-sm text-muted-foreground {expanded
-                    ? ''
-                    : 'line-clamp-2'}"
-                >
+                <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
                   {announcement.content}
                 </p>
               {/if}
@@ -429,6 +426,8 @@
   </section>
   </div>
 </div>
+
+<CourseAnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
 
 {#if isManager}
   <CourseAnnouncementDialog
