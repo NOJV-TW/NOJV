@@ -155,7 +155,7 @@ export const actions = {
 
     // Forbid moving an announcement between courses through this endpoint.
     const existing = await announcementRepo.findById(id);
-    if (!existing || existing.courseId !== courseId) {
+    if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });
     }
 
@@ -194,7 +194,7 @@ export const actions = {
     if (!id) return fail(400, { error: "ID is required." });
 
     const existing = await announcementRepo.findById(id);
-    if (!existing || existing.courseId !== courseId) {
+    if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });
     }
 
@@ -226,7 +226,7 @@ export const actions = {
     if (!id) return fail(400, { error: "ID is required." });
 
     const existing = await announcementRepo.findById(id);
-    if (!existing || existing.courseId !== courseId) {
+    if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });
     }
 

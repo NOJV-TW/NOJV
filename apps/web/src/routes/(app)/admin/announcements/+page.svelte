@@ -3,23 +3,14 @@
   import { RadioGroup } from "bits-ui";
   import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
   import { Badge } from "$lib/components/ui/badge";
-  import { Button, IconButton } from "$lib/components/ui/button";
+  import { Button } from "$lib/components/ui/button";
   import { Card } from "$lib/components/ui/card";
   import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import FormField from "$lib/components/ui/FormField.svelte";
   import { Input } from "$lib/components/ui/input";
   import { m } from "$lib/paraglide/messages.js";
-  import {
-    Megaphone,
-    Pencil,
-    Pin,
-    PinOff,
-    Plus,
-    Send,
-    SendHorizonal,
-    Trash2
-  } from "@lucide/svelte";
+  import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 
   let { data } = $props();
 
@@ -183,7 +174,11 @@
     {:else}
       <div class="space-y-3">
         {#each data.announcements as ann (ann.id)}
-          <article class="rounded-sm border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4">
+          <article
+            class="rounded-md border border-border bg-[color:var(--color-panel-strong)] backdrop-blur-sm"
+            class:px-5={editingId === ann.id}
+            class:py-4={editingId === ann.id}
+          >
             {#if editingId === ann.id}
               <!-- Edit mode -->
               <form
@@ -289,9 +284,10 @@
             {:else}
               <!-- View mode -->
               <div
-                class="flex cursor-pointer items-start justify-between gap-4 rounded-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
+                class="cursor-pointer rounded-md px-4 py-3 transition-colors duration-fast ease-out-soft hover:bg-accent/40"
                 onclick={() => openView(ann)}
                 onkeydown={(e) => {
+                  if (e.currentTarget !== e.target) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     openView(ann);
@@ -300,9 +296,9 @@
                 role="button"
                 tabindex="0"
               >
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <h4 class="flex items-center gap-1.5 text-body-lg font-semibold">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <h3 class="flex flex-wrap items-center gap-1.5 text-body-sm font-semibold text-foreground">
                       {#if ann.pinned}
                         <Pin
                           class="size-3.5 shrink-0 text-warning"
@@ -310,95 +306,97 @@
                         />
                       {/if}
                       <span class="truncate">{ann.title}</span>
-                    </h4>
-                    {#if ann.published}
-                      <Badge variant="success" size="xs">{m.admin_announcementsPublished()}</Badge>
-                    {:else}
-                      <Badge variant="outline" size="xs">{m.admin_announcementsDraft()}</Badge>
+                      {#if !ann.published}
+                        <Badge variant="outline" size="xs">{m.admin_announcementsDraft()}</Badge>
+                      {/if}
+                      <Badge variant={audienceBadgeVariant(ann.audience)} size="xs">
+                        {audienceLabel(ann.audience)}
+                      </Badge>
+                    </h3>
+                    {#if ann.content}
+                      <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
+                        {ann.content}
+                      </p>
                     {/if}
-                    <Badge variant={audienceBadgeVariant(ann.audience)} size="xs">
-                      {audienceLabel(ann.audience)}
-                    </Badge>
                   </div>
-                  <p class="mt-2 line-clamp-2 text-body-sm text-muted-foreground">
-                    {ann.content}
-                  </p>
-                  <p class="mt-2 text-caption text-muted-foreground">
-                    {m.admin_announcementsCreated()}: {new Date(ann.createdAt).toLocaleString()} &middot;
-                    {m.admin_announcementsUpdated()}: {new Date(ann.updatedAt).toLocaleString()}
-                    {#if ann.expiresAt}
-                      &middot;
-                      {m.admin_announcement_expired_at()}: {new Date(ann.expiresAt).toLocaleString()}
-                    {/if}
-                  </p>
-                </div>
-                <div
-                  class="flex shrink-0 items-center gap-1"
-                  onclick={(e) => e.stopPropagation()}
-                  role="presentation"
-                >
-                  <IconButton
-                    label={m.common_edit()}
-                    variant="ghost"
-                    size="sm"
-                    onclick={() => (editingId = ann.id)}
-                  >
-                    <Pencil class="h-4 w-4" />
-                  </IconButton>
-                  <form method="POST" action="?/togglePin" use:enhance>
-                    <input type="hidden" name="id" value={ann.id} />
-                    <IconButton
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      label={ann.pinned
-                        ? m.admin_announcementsUnpin()
-                        : m.admin_announcementsPin()}
+                  <div class="flex shrink-0 flex-col items-end gap-2">
+                    <time
+                      class="text-caption text-muted-foreground tabular-nums"
+                      datetime={ann.createdAt}
                     >
-                      {#if ann.pinned}
-                        <PinOff class="h-4 w-4" />
-                      {:else}
-                        <Pin class="h-4 w-4" />
-                      {/if}
-                    </IconButton>
-                  </form>
-                  <form method="POST" action="?/togglePublish" use:enhance>
-                    <input type="hidden" name="id" value={ann.id} />
-                    <IconButton
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      label={ann.published
-                        ? m.admin_announcementsUnpublish()
-                        : m.admin_announcementsPublish()}
+                      {new Date(ann.createdAt).toLocaleDateString()}
+                    </time>
+                    <div
+                      class="flex items-center gap-1"
+                      onclick={(e) => e.stopPropagation()}
+                      role="presentation"
                     >
-                      {#if ann.published}
-                        <Send class="h-4 w-4" />
-                      {:else}
-                        <SendHorizonal class="h-4 w-4" />
-                      {/if}
-                    </IconButton>
-                  </form>
-                  <form
-                    method="POST"
-                    action="?/delete"
-                    use:enhance={({ cancel }) => {
-                      if (!confirm(m.admin_announcementsDeleteConfirm())) {
-                        cancel();
-                      }
-                    }}
-                  >
-                    <input type="hidden" name="id" value={ann.id} />
-                    <IconButton
-                      type="submit"
-                      variant="ghost"
-                      size="sm"
-                      label={m.common_delete()}
-                      class="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 class="h-4 w-4" />
-                    </IconButton>
-                  </form>
+                      <form method="POST" action="?/togglePin" use:enhance>
+                        <input type="hidden" name="id" value={ann.id} />
+                        <button
+                          type="submit"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {ann.pinned
+                            ? 'border-warning bg-warning/10 text-warning hover:bg-warning/15'
+                            : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                          title={ann.pinned
+                            ? m.admin_announcementsUnpin()
+                            : m.admin_announcementsPin()}
+                          aria-label={ann.pinned
+                            ? m.admin_announcementsUnpin()
+                            : m.admin_announcementsPin()}
+                          aria-pressed={ann.pinned}
+                        >
+                          <Pin class="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                      <form method="POST" action="?/togglePublish" use:enhance>
+                        <input type="hidden" name="id" value={ann.id} />
+                        <button
+                          type="submit"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {ann.published
+                            ? 'border-success bg-success/10 text-success hover:bg-success/15'
+                            : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                          title={ann.published
+                            ? m.admin_announcementsUnpublish()
+                            : m.admin_announcementsPublish()}
+                          aria-label={ann.published
+                            ? m.admin_announcementsUnpublish()
+                            : m.admin_announcementsPublish()}
+                          aria-pressed={ann.published}
+                        >
+                          <Send class="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                      <button
+                        type="button"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
+                        title={m.common_edit()}
+                        aria-label={m.common_edit()}
+                        onclick={() => (editingId = ann.id)}
+                      >
+                        <Pencil class="h-3.5 w-3.5" />
+                      </button>
+                      <form
+                        method="POST"
+                        action="?/delete"
+                        use:enhance={({ cancel }) => {
+                          if (!confirm(m.admin_announcementsDeleteConfirm())) {
+                            cancel();
+                          }
+                        }}
+                      >
+                        <input type="hidden" name="id" value={ann.id} />
+                        <button
+                          type="submit"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+                          title={m.common_delete()}
+                          aria-label={m.common_delete()}
+                        >
+                          <Trash2 class="h-3.5 w-3.5" />
+                        </button>
+                      </form>
+                    </div>
+                  </div>
                 </div>
               </div>
             {/if}
