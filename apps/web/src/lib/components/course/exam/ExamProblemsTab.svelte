@@ -119,7 +119,7 @@
                   <span class={difficultyClass(problem.difficulty)}>
                     {problem.difficulty}
                   </span>
-                  <span class="font-mono opacity-75">{problem.id}</span>
+                  <span class="font-mono opacity-75">#{problem.displayId}</span>
                 </div>
               </div>
 

@@ -4,6 +4,7 @@
   import Section from "$lib/components/ui/Section.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
   let { data } = $props();
 
@@ -28,7 +29,7 @@
 <Section>
   {#snippet header()}
     <h1 class="font-display text-title-lg">
-      <span class="text-muted-foreground">{submission.problem.title}</span>
+      <span class="text-muted-foreground">{formatProblemDisplayName(submission.problem)}</span>
       <span class="mx-2 text-muted-foreground">·</span>
       <span class={verdictClass}>{verdictLabel}</span>
     </h1>

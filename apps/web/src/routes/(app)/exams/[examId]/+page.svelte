@@ -14,6 +14,7 @@
   import ExamProblemsTab from "$lib/components/course/exam/ExamProblemsTab.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -603,7 +604,7 @@
                   {problem.letter}
                 </span>
                 <div class="min-w-0">
-                  <div class="font-semibold">{problem.title}</div>
+                  <div class="font-semibold">{formatProblemDisplayName(problem)}</div>
                   <div class="mt-1 text-caption text-muted-foreground">
                     {difficultyLabel(problem.difficulty)}
                   </div>

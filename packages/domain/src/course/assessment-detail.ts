@@ -11,6 +11,7 @@ export interface AssignmentDetailProblem {
   /** A, B, C, ... letter derived from `ordinal`. */
   letter: string;
   ordinal: number;
+  displayId: number;
   title: string;
   difficulty: "easy" | "medium" | "hard";
   /** Max points for this problem within this assignment. */
@@ -110,6 +111,7 @@ export async function getAssignmentDetail(
         problemId: p.problem.id,
         ordinal: p.ordinal,
         letter: letterFor(p.ordinal),
+        displayId: p.problem.displayId,
         title: p.problem.title,
         difficulty: p.problem.difficulty,
         points: p.points,

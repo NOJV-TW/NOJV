@@ -12,10 +12,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   const tags = tagsParam ? tagsParam.split(",").filter(Boolean) : undefined;
   const pageParam = url.searchParams.get("page");
   const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+  const sort = url.searchParams.get("sort") === "desc" ? "desc" : "asc";
 
   const [publicResult, editableProblems] = await Promise.all([
-    listProblemCards({ difficulty, page, q, tags, userId }),
-    userId ? listEditableProblems(userId) : Promise.resolve(null),
+    listProblemCards({ difficulty, page, q, sort, tags, userId }),
+    userId ? listEditableProblems(userId, sort) : Promise.resolve(null),
   ]);
 
   const sessionUser = locals.sessionUser;

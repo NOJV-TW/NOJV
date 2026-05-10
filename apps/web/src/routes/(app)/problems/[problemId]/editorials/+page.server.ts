@@ -44,7 +44,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   });
 
   return {
-    problem: { id: problem.id, title: problem.title },
+    problem: { id: problem.id, displayId: problem.displayId, title: problem.title },
     actor: {
       userId: actor.userId,
       platformRole: actor.platformRole,
