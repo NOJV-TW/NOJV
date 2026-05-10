@@ -47,6 +47,8 @@ export const announcementCreateSchema = z.object({
   expiresAt: z.coerce.date().nullable().optional(),
   /** When set, scopes this announcement to a single course. Otherwise it is platform-wide. */
   courseId: z.string().min(1).nullable().optional(),
+  /** User who authored the announcement. Set by the route layer; nullable for legacy rows. */
+  createdByUserId: z.string().min(1).nullable().optional(),
 });
 
 export const announcementUpdateSchema = announcementCreateSchema;
@@ -82,6 +84,9 @@ export async function createAnnouncement(data: AnnouncementCreatePayload) {
     audience: parsed.audience,
     expiresAt: parsed.expiresAt ?? null,
     ...(parsed.courseId ? { course: { connect: { id: parsed.courseId } } } : {}),
+    ...(parsed.createdByUserId
+      ? { createdBy: { connect: { id: parsed.createdByUserId } } }
+      : {}),
   });
 
   await announcementTranslationRepo.upsert(announcement.id, DEFAULT_LOCALE, {

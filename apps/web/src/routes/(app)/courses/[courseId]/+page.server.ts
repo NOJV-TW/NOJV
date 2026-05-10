@@ -120,6 +120,7 @@ export const actions = {
         audience: "all",
         expiresAt: readExpiresAt(formData),
         courseId,
+        createdByUserId: actor.userId,
       });
     } catch (err) {
       const c = classifyError(err);
