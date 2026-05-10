@@ -45,7 +45,7 @@
   // the difficulty pie was showing generic blue instead of green/amber/red).
   // Resolve to concrete oklch/hex strings client-side and re-resolve when
   // the html.dark class flips so dark-mode tokens take effect immediately.
-  let themeColors = $state({
+  const DEFAULT_THEME_COLORS = {
     success: "#7a8f6d",
     warning: "#d4a054",
     destructive: "#c4682d",
@@ -56,23 +56,24 @@
     chart5: "#7a8f6d",
     mutedFg: "#6b7280",
     panel: "#ffffff"
-  });
+  };
+  let themeColors = $state({ ...DEFAULT_THEME_COLORS });
 
   function resolveThemeColors() {
     if (typeof window === "undefined") return;
     const cs = getComputedStyle(document.documentElement);
     const read = (n: string, fallback: string) => cs.getPropertyValue(n).trim() || fallback;
     themeColors = {
-      success: read("--success", themeColors.success),
-      warning: read("--warning", themeColors.warning),
-      destructive: read("--destructive", themeColors.destructive),
-      chart1: read("--chart-1", themeColors.chart1),
-      chart2: read("--chart-2", themeColors.chart2),
-      chart3: read("--chart-3", themeColors.chart3),
-      chart4: read("--chart-4", themeColors.chart4),
-      chart5: read("--chart-5", themeColors.chart5),
-      mutedFg: read("--muted-foreground", themeColors.mutedFg),
-      panel: read("--color-panel", themeColors.panel)
+      success: read("--success", DEFAULT_THEME_COLORS.success),
+      warning: read("--warning", DEFAULT_THEME_COLORS.warning),
+      destructive: read("--destructive", DEFAULT_THEME_COLORS.destructive),
+      chart1: read("--chart-1", DEFAULT_THEME_COLORS.chart1),
+      chart2: read("--chart-2", DEFAULT_THEME_COLORS.chart2),
+      chart3: read("--chart-3", DEFAULT_THEME_COLORS.chart3),
+      chart4: read("--chart-4", DEFAULT_THEME_COLORS.chart4),
+      chart5: read("--chart-5", DEFAULT_THEME_COLORS.chart5),
+      mutedFg: read("--muted-foreground", DEFAULT_THEME_COLORS.mutedFg),
+      panel: read("--color-panel", DEFAULT_THEME_COLORS.panel)
     };
   }
 
