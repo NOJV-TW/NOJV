@@ -51,7 +51,9 @@
 
       {#if announcement.expiresAt}
         <p class="text-caption text-muted-foreground">
-          {m.admin_announcement_expired_at()}：{formatDateTimeCompact(announcement.expiresAt)}
+          {m.admin_announcement_expired_at({
+            date: formatDateTimeCompact(announcement.expiresAt),
+          })}
         </p>
       {/if}
     {/if}
