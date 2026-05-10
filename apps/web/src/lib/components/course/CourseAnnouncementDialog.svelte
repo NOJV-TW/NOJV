@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
+  import { Pin } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Input } from "$lib/components/ui/input";
@@ -32,6 +33,12 @@
   }
 
   let submitting = $state(false);
+  // Local pin state mirrors a hidden checkbox so the form submission still
+  // surfaces `pinned=on` to the server action without exposing the checkbox.
+  let pinned = $state(false);
+  $effect(() => {
+    pinned = initial?.pinned ?? false;
+  });
   const action = $derived(mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement");
 </script>
 
@@ -102,15 +109,19 @@
         />
       </FormField>
 
-      <label class="inline-flex items-center gap-2 text-body-sm">
-        <input
-          type="checkbox"
-          name="pinned"
-          class="size-4 accent-primary"
-          checked={initial?.pinned ?? false}
-        />
-        <span>{m.admin_announcementsPinned()}</span>
-      </label>
+      <input type="checkbox" name="pinned" class="sr-only" bind:checked={pinned} tabindex="-1" />
+      <button
+        type="button"
+        onclick={() => (pinned = !pinned)}
+        class="inline-flex items-center gap-2 self-start rounded-full border px-3 py-1.5 text-body-sm transition-colors duration-fast ease-out-soft {pinned
+          ? 'border-warning bg-warning/10 text-warning'
+          : 'border-border text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+        aria-pressed={pinned}
+        title={pinned ? m.admin_announcementsUnpin() : m.admin_announcementsPin()}
+      >
+        <Pin class="size-3.5" />
+        {m.admin_announcementsPinned()}
+      </button>
 
       <Dialog.Footer>
         <button
