@@ -165,6 +165,16 @@ export const courseMembershipRepo = {
       .then((rows) => rows.map((r) => r.userId));
   },
 
+  /** Active members of any role (student, ta, teacher) — for course-wide fanout. */
+  listActiveMemberUserIds(courseId: string) {
+    return prisma.courseMembership
+      .findMany({
+        where: { courseId, status: "active" },
+        select: { userId: true },
+      })
+      .then((rows) => rows.map((r) => r.userId));
+  },
+
   listActiveForUser(userId: string) {
     return prisma.courseMembership.findMany({
       where: { userId, status: "active" },
