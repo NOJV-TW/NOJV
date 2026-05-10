@@ -169,6 +169,34 @@
                     onclick={(e) => e.stopPropagation()}
                     role="presentation"
                   >
+                    <form
+                      method="POST"
+                      action="?/togglePinAnnouncement"
+                      use:enhance={() => {
+                        return async ({ result }) => {
+                          if (result.type === "success" || result.type === "redirect") {
+                            await invalidateAll();
+                          }
+                        };
+                      }}
+                    >
+                      <input type="hidden" name="id" value={announcement.id} />
+                      <button
+                        type="submit"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {announcement.pinned
+                          ? 'border-warning bg-warning/10 text-warning hover:bg-warning/15'
+                          : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                        title={announcement.pinned
+                          ? m.admin_announcementsUnpin()
+                          : m.admin_announcementsPin()}
+                        aria-label={announcement.pinned
+                          ? m.admin_announcementsUnpin()
+                          : m.admin_announcementsPin()}
+                        aria-pressed={announcement.pinned}
+                      >
+                        <Pin class="h-3.5 w-3.5" />
+                      </button>
+                    </form>
                     <button
                       type="button"
                       class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"

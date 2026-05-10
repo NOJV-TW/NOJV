@@ -22,7 +22,8 @@ const {
   listExamOverviewForCourse,
   getCourseHeaderById,
 } = courseDomain;
-const { createAnnouncement, updateAnnouncement, deleteAnnouncement } = announcementDomain;
+const { createAnnouncement, updateAnnouncement, deleteAnnouncement, toggleAnnouncementPin } =
+  announcementDomain;
 
 const ANNOUNCEMENT_LIMIT = 5;
 const ASSESSMENT_LIMIT = 3;
@@ -167,6 +168,38 @@ export const actions = {
         audience: "all",
         expiresAt: readExpiresAt(formData),
       });
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    return { success: true };
+  },
+
+  togglePinAnnouncement: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const courseId = event.params.courseId;
+
+    try {
+      await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    const id = readString(await event.request.formData(), "id");
+    if (!id) return fail(400, { error: "ID is required." });
+
+    const existing = await announcementRepo.findById(id);
+    if (!existing || existing.courseId !== courseId) {
+      return fail(404, { error: "Announcement not found in this course." });
+    }
+
+    try {
+      await toggleAnnouncementPin(id);
     } catch (err) {
       const c = classifyError(err);
       return fail(c.status, { error: c.message });
