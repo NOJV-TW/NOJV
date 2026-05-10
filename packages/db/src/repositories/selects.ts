@@ -3,12 +3,14 @@ import type { Prisma } from "../../generated/prisma/client";
 // Problem ref — id + title only; the go-to shape for list rows, nested selects, and link targets.
 export const problemMiniSelect = {
   id: true,
+  displayId: true,
   title: true,
 } satisfies Prisma.ProblemSelect;
 
 // Problem preview — mini fields plus localised statements for preview surfaces.
 export const problemPreviewSelect = {
   id: true,
+  displayId: true,
   title: true,
   statements: true,
 } satisfies Prisma.ProblemSelect;
@@ -16,6 +18,7 @@ export const problemPreviewSelect = {
 // Problem teacher mini — adds `difficulty` for teacher-facing problem lists on exam/assessment detail pages.
 export const problemTeacherMiniSelect = {
   id: true,
+  displayId: true,
   title: true,
   difficulty: true,
 } satisfies Prisma.ProblemSelect;
