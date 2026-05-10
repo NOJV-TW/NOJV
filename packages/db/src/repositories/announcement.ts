@@ -13,7 +13,10 @@ export const announcementRepo = {
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
-      include: { translations: true },
+      include: {
+        translations: true,
+        createdBy: { select: { id: true, name: true } },
+      },
       take,
     });
   },

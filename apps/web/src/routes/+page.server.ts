@@ -19,7 +19,9 @@ function flattenAnnouncement(announcement: {
   status: "draft" | "published" | "archived";
   pinned: boolean;
   createdAt: Date;
+  expiresAt: Date | null;
   translations: AnnouncementTranslationRow[];
+  createdBy: { id: string; name: string } | null;
 }) {
   const translations = announcement.translations;
   const localized = translations.find((t) => t.locale === DEFAULT_LOCALE) ??
@@ -28,9 +30,11 @@ function flattenAnnouncement(announcement: {
     id: announcement.id,
     pinned: announcement.pinned,
     published: announcement.status === "published",
-    createdAt: announcement.createdAt,
+    createdAt: announcement.createdAt.toISOString(),
+    expiresAt: announcement.expiresAt?.toISOString() ?? null,
     title: localized.title,
     content: localized.content,
+    authorName: announcement.createdBy?.name ?? "NOJV",
   };
 }
 
