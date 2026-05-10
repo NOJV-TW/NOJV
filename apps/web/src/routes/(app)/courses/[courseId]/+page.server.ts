@@ -1,6 +1,5 @@
 import { fail } from "@sveltejs/kit";
-import { announcementAudienceSchema } from "@nojv/core";
-import type { AnnouncementAudience, PlatformRole } from "@nojv/core";
+import type { PlatformRole } from "@nojv/core";
 import { announcementRepo } from "@nojv/db";
 import {
   ForbiddenError,
@@ -81,14 +80,6 @@ async function assertCourseManager(
   }
 }
 
-function readAudience(formData: FormData): AnnouncementAudience {
-  const raw = formData.get("audience");
-  const parsed = announcementAudienceSchema.safeParse(
-    typeof raw === "string" ? raw : undefined,
-  );
-  return parsed.success ? parsed.data : "all";
-}
-
 function readExpiresAt(formData: FormData): Date | null {
   const raw = formData.get("expiresAt");
   if (typeof raw !== "string" || raw.trim() === "") return null;
@@ -123,8 +114,10 @@ export const actions = {
         title,
         content,
         pinned: readCheckbox(formData, "pinned"),
-        published: readCheckbox(formData, "published"),
-        audience: readAudience(formData),
+        // Course announcements always go live and target the whole class —
+        // platform-level audience/draft semantics don't apply here.
+        published: true,
+        audience: "all",
         expiresAt: readExpiresAt(formData),
         courseId,
       });
@@ -169,8 +162,8 @@ export const actions = {
         title,
         content,
         pinned: readCheckbox(formData, "pinned"),
-        published: readCheckbox(formData, "published"),
-        audience: readAudience(formData),
+        published: true,
+        audience: "all",
         expiresAt: readExpiresAt(formData),
       });
     } catch (err) {

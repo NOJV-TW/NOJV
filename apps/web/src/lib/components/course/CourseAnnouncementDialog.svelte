@@ -6,15 +6,11 @@
   import { Input } from "$lib/components/ui/input";
   import FormField from "$lib/components/ui/FormField.svelte";
 
-  type Audience = "all" | "students" | "teachers";
-
   interface AnnouncementInitial {
     id: string;
     title: string;
     content: string;
     pinned: boolean;
-    published: boolean;
-    audience: Audience;
     expiresAt: string | null;
   }
 
@@ -37,12 +33,6 @@
 
   let submitting = $state(false);
   const action = $derived(mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement");
-
-  const audienceOptions: { value: Audience; label: () => string }[] = [
-    { value: "all", label: () => m.admin_announcement_audience_all() },
-    { value: "students", label: () => m.admin_announcement_audience_students() },
-    { value: "teachers", label: () => m.admin_announcement_audience_teachers() },
-  ];
 </script>
 
 <Dialog.Root bind:open>
@@ -99,19 +89,6 @@
           placeholder={m.admin_announcementsFieldContent()}>{initial?.content ?? ""}</textarea>
       </FormField>
 
-      <FormField label={m.admin_announcement_audience_label()} for="ann-audience">
-        <select
-          id="ann-audience"
-          name="audience"
-          class="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
-          value={initial?.audience ?? "all"}
-        >
-          {#each audienceOptions as opt (opt.value)}
-            <option value={opt.value}>{opt.label()}</option>
-          {/each}
-        </select>
-      </FormField>
-
       <FormField
         label={m.admin_announcement_expiresAt_label()}
         hint={m.admin_announcement_expiresAt_helper()}
@@ -125,26 +102,15 @@
         />
       </FormField>
 
-      <div class="flex flex-wrap gap-4 text-body-sm">
-        <label class="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="pinned"
-            class="size-4 accent-primary"
-            checked={initial?.pinned ?? false}
-          />
-          <span>{m.admin_announcementsPinned()}</span>
-        </label>
-        <label class="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="published"
-            class="size-4 accent-primary"
-            checked={initial?.published ?? false}
-          />
-          <span>{m.admin_announcementsPublished()}</span>
-        </label>
-      </div>
+      <label class="inline-flex items-center gap-2 text-body-sm">
+        <input
+          type="checkbox"
+          name="pinned"
+          class="size-4 accent-primary"
+          checked={initial?.pinned ?? false}
+        />
+        <span>{m.admin_announcementsPinned()}</span>
+      </label>
 
       <Dialog.Footer>
         <button
