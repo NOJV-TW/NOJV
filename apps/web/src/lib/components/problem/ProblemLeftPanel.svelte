@@ -9,6 +9,7 @@
   } from "$lib/types";
   import { formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
@@ -250,7 +251,9 @@
 <div class="flex-1 overflow-y-auto">
   {#if leftTab === "description"}
     <div class="p-5">
-      <h1 class="text-body-lg font-semibold leading-snug">{problem.title}</h1>
+      <h1 class="text-body-lg font-semibold leading-snug">
+        {formatProblemDisplayName(problem)}
+      </h1>
 
       {#if problem.tags.length > 0}
         <div class="mt-3 flex flex-wrap items-center gap-1.5">
