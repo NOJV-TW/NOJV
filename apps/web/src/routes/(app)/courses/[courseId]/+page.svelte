@@ -32,6 +32,11 @@
   let dialogMode = $state<"create" | "edit">("create");
   let dialogInitial = $state<AnnouncementRow | null>(null);
   let pendingDeleteId = $state<string | null>(null);
+  let expandedAnnouncementId = $state<string | null>(null);
+
+  function toggleExpand(id: string) {
+    expandedAnnouncementId = expandedAnnouncementId === id ? null : id;
+  }
 
   function openCreate() {
     dialogMode = "create";
@@ -124,8 +129,19 @@
         class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-2"
       >
         {#each announcements as announcement (announcement.id)}
-          <article
-            class="flex items-start gap-4 border-b border-border-subtle py-4 last:border-b-0"
+          {@const expanded = expandedAnnouncementId === announcement.id}
+          <div
+            class="flex cursor-pointer items-start gap-4 border-b border-border-subtle py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-accent/40"
+            onclick={() => toggleExpand(announcement.id)}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleExpand(announcement.id);
+              }
+            }}
+            role="button"
+            tabindex="0"
+            aria-expanded={expanded}
           >
             <div class="flex min-w-[10rem] shrink-0 items-center gap-2">
               <div
@@ -147,13 +163,17 @@
             <div class="min-w-0 flex-1">
               <h3 class="text-body font-semibold">{announcement.title}</h3>
               {#if announcement.content}
-                <p class="mt-1 text-body-sm text-muted-foreground">
+                <p
+                  class="mt-1 whitespace-pre-wrap text-body-sm text-muted-foreground {expanded
+                    ? ''
+                    : 'line-clamp-2'}"
+                >
                   {announcement.content}
                 </p>
               {/if}
             </div>
             {#if isManager}
-              <div class="flex items-center gap-1">
+              <div class="flex items-center gap-1" onclick={(e) => e.stopPropagation()} role="presentation">
                 <button
                   type="button"
                   class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
@@ -174,7 +194,7 @@
                 </button>
               </div>
             {/if}
-          </article>
+          </div>
         {/each}
       </div>
     {/if}
