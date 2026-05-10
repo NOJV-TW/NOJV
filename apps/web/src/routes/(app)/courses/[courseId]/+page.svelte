@@ -5,11 +5,16 @@
     ClipboardList,
     Megaphone,
     Pencil,
-    Plus
+    Plus,
+    Trash2
   } from "@lucide/svelte";
+  import { enhance } from "$app/forms";
+  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
+  import CourseAnnouncementDialog from "$lib/components/course/CourseAnnouncementDialog.svelte";
   import {
     formatDateTimeCompact,
     formatRelativeFromNow,
@@ -20,6 +25,30 @@
   let { data }: { data: PageData } = $props();
 
   const { course, isManager, announcements, assignments, exams } = $derived(data);
+
+  type AnnouncementRow = (typeof announcements)[number];
+
+  let dialogOpen = $state(false);
+  let dialogMode = $state<"create" | "edit">("create");
+  let dialogInitial = $state<AnnouncementRow | null>(null);
+  let pendingDeleteId = $state<string | null>(null);
+
+  function openCreate() {
+    dialogMode = "create";
+    dialogInitial = null;
+    dialogOpen = true;
+  }
+
+  function openEdit(announcement: AnnouncementRow) {
+    dialogMode = "edit";
+    dialogInitial = announcement;
+    dialogOpen = true;
+  }
+
+  let deleteFormEl: HTMLFormElement | undefined = $state();
+  function confirmDelete() {
+    deleteFormEl?.requestSubmit();
+  }
 
   function assignmentStatusBadge(
     status: "draft" | "upcoming" | "open" | "closed"
@@ -76,7 +105,7 @@
         <Button
           variant="outline"
           size="sm"
-          href="/admin/announcements"
+          onclick={openCreate}
         >
           <Plus class="h-4 w-4" />
           {m.courseOverview_newAnnouncement()}
@@ -124,14 +153,26 @@
               {/if}
             </div>
             {#if isManager}
-              <a
-                href="/admin/announcements"
-                class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
-                title={m.courseOverview_editAnnouncement()}
-                aria-label={m.courseOverview_editAnnouncement()}
-              >
-                <Pencil class="h-4 w-4" />
-              </a>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
+                  title={m.courseOverview_editAnnouncement()}
+                  aria-label={m.courseOverview_editAnnouncement()}
+                  onclick={() => openEdit(announcement)}
+                >
+                  <Pencil class="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+                  title={m.common_delete()}
+                  aria-label={m.common_delete()}
+                  onclick={() => (pendingDeleteId = announcement.id)}
+                >
+                  <Trash2 class="h-4 w-4" />
+                </button>
+              </div>
             {/if}
           </article>
         {/each}
@@ -368,3 +409,38 @@
   </section>
   </div>
 </div>
+
+{#if isManager}
+  <CourseAnnouncementDialog
+    bind:open={dialogOpen}
+    mode={dialogMode}
+    initial={dialogInitial}
+  />
+
+  <form
+    bind:this={deleteFormEl}
+    method="POST"
+    action="?/deleteAnnouncement"
+    use:enhance={() => {
+      return async ({ result }) => {
+        pendingDeleteId = null;
+        if (result.type === "success" || result.type === "redirect") {
+          await invalidateAll();
+        }
+      };
+    }}
+    class="hidden"
+  >
+    <input type="hidden" name="id" value={pendingDeleteId ?? ""} />
+  </form>
+
+  <ConfirmDialog
+    open={pendingDeleteId !== null}
+    title={m.common_delete()}
+    message={m.admin_announcementsDeleteConfirm()}
+    confirmText={m.common_delete()}
+    variant="danger"
+    onconfirm={confirmDelete}
+    oncancel={() => (pendingDeleteId = null)}
+  />
+{/if}

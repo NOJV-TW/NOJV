@@ -1,6 +1,6 @@
 import { assessmentRepo, examRepo } from "@nojv/db";
 import { DEFAULT_LOCALE } from "@nojv/core";
-import type { PlatformRole } from "@nojv/core";
+import type { AnnouncementAudience, PlatformRole } from "@nojv/core";
 
 import * as announcementDomain from "../announcement";
 import {
@@ -19,6 +19,11 @@ export interface OverviewAnnouncement {
   createdAt: string;
   authorName: string;
   authorInitial: string;
+  /** Manager-edit fields. Safe to expose: row was already passed through audience filter. */
+  pinned: boolean;
+  published: boolean;
+  audience: AnnouncementAudience;
+  expiresAt: string | null;
 }
 
 function pickInitial(name: string): string {
@@ -51,6 +56,10 @@ export async function listRecentAnnouncementsForCourse(
       createdAt: row.createdAt.toISOString(),
       authorName,
       authorInitial: pickInitial(authorName),
+      pinned: row.pinned,
+      published: row.status === "published",
+      audience: row.audience,
+      expiresAt: row.expiresAt?.toISOString() ?? null,
     };
   });
 }

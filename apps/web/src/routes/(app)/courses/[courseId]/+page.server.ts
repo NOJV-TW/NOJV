@@ -1,13 +1,29 @@
-import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { courseDomain } from "@nojv/domain";
+import { fail } from "@sveltejs/kit";
+import { announcementAudienceSchema } from "@nojv/core";
+import type { AnnouncementAudience, PlatformRole } from "@nojv/core";
+import { announcementRepo } from "@nojv/db";
+import {
+  ForbiddenError,
+  announcementDomain,
+  canManageCourse,
+  courseDomain,
+  resolveEffectiveCourseRole,
+} from "@nojv/domain";
+
+import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
+import { readCheckbox, readString } from "$lib/server/shared/form-utils";
+import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 
 const {
   listRecentAnnouncementsForCourse,
   listAssignmentOverviewForCourse,
   listExamOverviewForCourse,
+  getCourseHeaderById,
 } = courseDomain;
+const { createAnnouncement, updateAnnouncement, deleteAnnouncement } = announcementDomain;
 
 const ANNOUNCEMENT_LIMIT = 5;
 const ASSESSMENT_LIMIT = 3;
@@ -47,3 +63,153 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     totalStudents,
   };
 });
+
+// Re-derive manager status server-side per action — never trust loader output.
+async function assertCourseManager(
+  userId: string,
+  platformRole: PlatformRole,
+  courseId: string,
+) {
+  if (platformRole === "admin") return;
+  const course = await getCourseHeaderById(courseId, userId);
+  if (!course) throw new ForbiddenError("Course not found.");
+  if (course.ownerId === userId) return;
+  const membership = course.memberships[0] ?? null;
+  const role = resolveEffectiveCourseRole(platformRole, membership?.role ?? null);
+  if (!canManageCourse(role) || membership?.status !== "active") {
+    throw new ForbiddenError("You do not have permission to manage this course.");
+  }
+}
+
+function readAudience(formData: FormData): AnnouncementAudience {
+  const raw = formData.get("audience");
+  const parsed = announcementAudienceSchema.safeParse(
+    typeof raw === "string" ? raw : undefined,
+  );
+  return parsed.success ? parsed.data : "all";
+}
+
+function readExpiresAt(formData: FormData): Date | null {
+  const raw = formData.get("expiresAt");
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export const actions = {
+  createAnnouncement: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const courseId = event.params.courseId;
+
+    try {
+      await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    const formData = await event.request.formData();
+    const title = readString(formData, "title");
+    const content = readString(formData, "content");
+    if (!title || !content) {
+      return fail(400, { error: "Title and content are required." });
+    }
+
+    try {
+      await createAnnouncement({
+        title,
+        content,
+        pinned: readCheckbox(formData, "pinned"),
+        published: readCheckbox(formData, "published"),
+        audience: readAudience(formData),
+        expiresAt: readExpiresAt(formData),
+        courseId,
+      });
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    return { success: true };
+  },
+
+  updateAnnouncement: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const courseId = event.params.courseId;
+
+    try {
+      await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    const formData = await event.request.formData();
+    const id = readString(formData, "id");
+    const title = readString(formData, "title");
+    const content = readString(formData, "content");
+    if (!id || !title || !content) {
+      return fail(400, { error: "ID, title, and content are required." });
+    }
+
+    // Forbid moving an announcement between courses through this endpoint.
+    const existing = await announcementRepo.findById(id);
+    if (!existing || existing.courseId !== courseId) {
+      return fail(404, { error: "Announcement not found in this course." });
+    }
+
+    try {
+      await updateAnnouncement(id, {
+        title,
+        content,
+        pinned: readCheckbox(formData, "pinned"),
+        published: readCheckbox(formData, "published"),
+        audience: readAudience(formData),
+        expiresAt: readExpiresAt(formData),
+      });
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    return { success: true };
+  },
+
+  deleteAnnouncement: async (event) => {
+    const limited = await consumeFormRateLimit(event);
+    if (limited) return limited;
+
+    const actor = requireAuth(event);
+    const courseId = event.params.courseId;
+
+    try {
+      await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    const id = readString(await event.request.formData(), "id");
+    if (!id) return fail(400, { error: "ID is required." });
+
+    const existing = await announcementRepo.findById(id);
+    if (!existing || existing.courseId !== courseId) {
+      return fail(404, { error: "Announcement not found in this course." });
+    }
+
+    try {
+      await deleteAnnouncement(id);
+    } catch (err) {
+      const c = classifyError(err);
+      return fail(c.status, { error: c.message });
+    }
+
+    return { success: true };
+  },
+} satisfies Actions;
