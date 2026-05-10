@@ -58,6 +58,7 @@
               class="cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
               onclick={() => openView(announcement)}
               onkeydown={(e) => {
+                if (e.currentTarget !== e.target) return;
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   openView(announcement);
