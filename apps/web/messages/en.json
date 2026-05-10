@@ -1214,6 +1214,8 @@
   "problems_publicLibrary": "Public Library",
   "problems_searchProblems": "Search problems...",
   "problems_showMoreTags": "Show more tags",
+  "problems_sortAsc": "Sort: #1 → #N",
+  "problems_sortDesc": "Sort: #N → #1",
   "problems_statusAc": "Solved",
   "problems_statusAttempted": "Attempted",
   "problems_statusDraft": "Draft",

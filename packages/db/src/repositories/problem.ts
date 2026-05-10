@@ -52,24 +52,29 @@ export const problemRepo = {
     return prisma.problem.count();
   },
 
-  listWithCounts(opts: { where: Prisma.ProblemWhereInput; skip: number; take: number }) {
+  listWithCounts(opts: {
+    where: Prisma.ProblemWhereInput;
+    skip: number;
+    take: number;
+    sort?: "asc" | "desc" | undefined;
+  }) {
     return prisma.problem.findMany({
       include: {
         _count: { select: { submissions: true, workspaceFiles: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { displayId: opts.sort ?? "asc" },
       skip: opts.skip,
       take: opts.take,
       where: opts.where,
     });
   },
 
-  listEditable(userId: string) {
+  listEditable(userId: string, sort: "asc" | "desc" = "asc") {
     return prisma.problem.findMany({
       include: {
         _count: { select: { workspaceFiles: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { displayId: sort },
       where: {
         OR: [
           { authorId: userId },

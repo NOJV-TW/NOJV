@@ -239,6 +239,7 @@ export interface ProblemListParams {
   page?: number | undefined;
   pageSize?: number | undefined;
   q?: string | undefined;
+  sort?: "asc" | "desc" | undefined;
   tags?: string[] | undefined;
   userId?: string | null | undefined;
 }
@@ -306,6 +307,7 @@ export async function listProblemCards(
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
+      sort: params.sort,
     }),
   ]);
 
@@ -359,8 +361,11 @@ export async function listProblemCards(
   return { page, pageSize, problems, totalCount };
 }
 
-export async function listEditableProblems(userId: string) {
-  const problems = await problemRepo.listEditable(userId);
+export async function listEditableProblems(
+  userId: string,
+  sort: "asc" | "desc" = "asc",
+) {
+  const problems = await problemRepo.listEditable(userId, sort);
 
   return problems.map((problem) => {
     const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {

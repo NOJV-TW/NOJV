@@ -1214,6 +1214,8 @@
   "problems_publicLibrary": "公開題庫",
   "problems_searchProblems": "搜尋題目...",
   "problems_showMoreTags": "顯示更多標籤",
+  "problems_sortAsc": "排序：#1 → #N",
+  "problems_sortDesc": "排序：#N → #1",
   "problems_statusAc": "已通過",
   "problems_statusAttempted": "已嘗試",
   "problems_statusDraft": "草稿",
