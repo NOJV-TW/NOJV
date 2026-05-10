@@ -45,6 +45,7 @@ enum SubtaskScoringStrategy {
 
 model Problem {
   id         String            @id @default(cuid())
+  displayId  Int               @unique @default(autoincrement())
   title      String
   authorId   String?
   visibility ProblemVisibility @default(public)

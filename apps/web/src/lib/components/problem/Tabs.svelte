@@ -3,7 +3,7 @@
   import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
   import type { ProblemDifficulty, ProblemType, ProblemVisibility } from "@nojv/core";
-  import { CheckCircle2, ChevronDown, FileCode, Pencil, Plus, Search, Tags, Trash2, XCircle } from "@lucide/svelte";
+  import { ArrowDownNarrowWide, ArrowUpNarrowWide, CheckCircle2, ChevronDown, FileCode, Pencil, Plus, Search, Tags, Trash2, XCircle } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { Button, LinkButton } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
@@ -11,6 +11,7 @@
   import { Input } from "$lib/components/ui/input";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import { difficultyClass, tagClass } from "$lib/types";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { problemDomain } from "@nojv/domain";
   type ProblemListResult = problemDomain.ProblemListResult;
 
@@ -64,6 +65,7 @@
 
   interface EditableProblemCard {
     difficulty: ProblemDifficulty;
+    displayId: number;
     id: string;
     judgeType: string;
     type: import("@nojv/core").ProblemType;
@@ -101,6 +103,13 @@
   );
   let currentPage = $derived(publicResult.page);
   let totalPages = $derived(Math.max(1, Math.ceil(publicResult.totalCount / publicResult.pageSize)));
+  let sortDirection = $derived<"asc" | "desc">(
+    currentUrl.searchParams.get("sort") === "desc" ? "desc" : "asc"
+  );
+
+  function toggleSort() {
+    updatePublicUrl({ sort: sortDirection === "asc" ? "desc" : undefined });
+  }
 
   // All tags from current result (for tag filter chips)
   // We collect tags from the current page — but since server filters by tags already,
@@ -379,7 +388,20 @@
           </button>
         {/each}
         <button
-          class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
+          class="ml-auto inline-flex items-center justify-center rounded-full border border-border bg-[color:var(--color-panel)] p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent hover:text-foreground"
+          onclick={toggleSort}
+          type="button"
+          aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+          title={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+        >
+          {#if sortDirection === "asc"}
+            <ArrowUpNarrowWide class="size-4" aria-hidden="true" />
+          {:else}
+            <ArrowDownNarrowWide class="size-4" aria-hidden="true" />
+          {/if}
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
           aria-pressed={showPublicCardTags}
           onclick={() => { showPublicCardTags = !showPublicCardTags; }}
           type="button"
@@ -441,7 +463,7 @@
                 <XCircle class="size-5 shrink-0 text-warning" aria-label={m.problems_statusAttempted()} />
               {/if}
               <div class="min-w-0">
-                <h3 class="text-title font-semibold">{problem.title}</h3>
+                <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
                 {#if problem.tags.length > 0}
                   <div class="mt-1.5 flex flex-wrap items-center gap-1">
                     {#each problem.tags as tag (tag)}
@@ -564,7 +586,20 @@
           </button>
         {/each}
         <button
-          class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
+          class="ml-auto inline-flex items-center justify-center rounded-full border border-border bg-[color:var(--color-panel)] p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent hover:text-foreground"
+          onclick={toggleSort}
+          type="button"
+          aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+          title={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+        >
+          {#if sortDirection === "asc"}
+            <ArrowUpNarrowWide class="size-4" aria-hidden="true" />
+          {:else}
+            <ArrowDownNarrowWide class="size-4" aria-hidden="true" />
+          {/if}
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
           aria-pressed={showMineCardTags}
           onclick={() => { showMineCardTags = !showMineCardTags; }}
           type="button"
@@ -622,7 +657,7 @@
         >
           <div class="min-w-0">
             <a href={titleHref} class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80">
-              <h3 class="text-title font-semibold">{problem.title}</h3>
+              <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
             </a>
             {#if problem.tags.length > 0}
               <div class="mt-1.5 flex flex-wrap items-center gap-1">

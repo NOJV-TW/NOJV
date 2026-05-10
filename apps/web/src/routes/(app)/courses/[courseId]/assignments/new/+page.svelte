@@ -226,7 +226,7 @@
                 <span
                   class="min-w-[80px] font-mono text-caption text-muted-foreground"
                 >
-                  {problem.id}
+                  #{problem.displayId}
                 </span>
                 <span class="flex-1 text-body-sm font-medium">{problem.title}</span>
                 <span
@@ -278,7 +278,7 @@
               <div class="min-w-0">
                 <div class="truncate text-body-sm font-medium">{problem.title}</div>
                 <div class="mt-0.5 font-mono text-caption text-muted-foreground">
-                  {problem.id}
+                  #{problem.displayId}
                 </div>
               </div>
               <span

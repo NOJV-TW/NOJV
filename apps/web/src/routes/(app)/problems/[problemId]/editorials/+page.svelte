@@ -6,6 +6,7 @@
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
   let { data } = $props();
 
@@ -66,7 +67,7 @@
     <p>
       {m.editorial_listSubtitle()} —
       <a href="/problems/{data.problem.id}" class="text-primary hover:underline">
-        {data.problem.title}
+        {formatProblemDisplayName(data.problem)}
       </a>
     </p>
   {/snippet}
