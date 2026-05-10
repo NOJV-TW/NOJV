@@ -164,9 +164,13 @@
 <div class="space-y-6">
   <div class="flex items-center gap-3">
     <h1 class="font-display text-title-lg">
-      {data.problem.title === "Untitled Problem"
-        ? m.admin_createProblem()
-        : formatProblemDisplayName(data.problem)}
+      {formatProblemDisplayName({
+        displayId: data.problem.displayId,
+        title:
+          data.problem.title === "Untitled Problem"
+            ? m.admin_createProblem()
+            : data.problem.title,
+      })}
     </h1>
     {#if data.problem.status === "draft"}
       <Badge variant="warning" size="md">{m.admin_draftBadge()}</Badge>
