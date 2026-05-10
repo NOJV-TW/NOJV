@@ -3,7 +3,7 @@
   import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
   import type { ProblemDifficulty, ProblemType, ProblemVisibility } from "@nojv/core";
-  import { ArrowUpDown, CheckCircle2, ChevronDown, FileCode, Pencil, Plus, Search, Tags, Trash2, XCircle } from "@lucide/svelte";
+  import { ArrowDownNarrowWide, ArrowUpNarrowWide, CheckCircle2, ChevronDown, FileCode, Pencil, Plus, Search, Tags, Trash2, XCircle } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { Button, LinkButton } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
@@ -388,12 +388,17 @@
           </button>
         {/each}
         <button
-          class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-[color:var(--color-panel)] px-3 py-1.5 text-caption font-medium tabular-nums transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent"
+          class="ml-auto inline-flex items-center justify-center rounded-full border border-border bg-[color:var(--color-panel)] p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent hover:text-foreground"
           onclick={toggleSort}
           type="button"
+          aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+          title={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
         >
-          <ArrowUpDown class="size-3.5" aria-hidden="true" />
-          {sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+          {#if sortDirection === "asc"}
+            <ArrowUpNarrowWide class="size-4" aria-hidden="true" />
+          {:else}
+            <ArrowDownNarrowWide class="size-4" aria-hidden="true" />
+          {/if}
         </button>
         <button
           class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
@@ -581,12 +586,17 @@
           </button>
         {/each}
         <button
-          class="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-[color:var(--color-panel)] px-3 py-1.5 text-caption font-medium tabular-nums transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent"
+          class="ml-auto inline-flex items-center justify-center rounded-full border border-border bg-[color:var(--color-panel)] p-1.5 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent hover:text-foreground"
           onclick={toggleSort}
           type="button"
+          aria-label={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+          title={sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
         >
-          <ArrowUpDown class="size-3.5" aria-hidden="true" />
-          {sortDirection === "asc" ? m.problems_sortAsc() : m.problems_sortDesc()}
+          {#if sortDirection === "asc"}
+            <ArrowUpNarrowWide class="size-4" aria-hidden="true" />
+          {:else}
+            <ArrowDownNarrowWide class="size-4" aria-hidden="true" />
+          {/if}
         </button>
         <button
           class="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-caption font-semibold text-primary transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-primary/15"
