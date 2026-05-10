@@ -5,6 +5,7 @@
     ClipboardList,
     Megaphone,
     Pencil,
+    Pin,
     Plus,
     Trash2
   } from "@lucide/svelte";
@@ -162,7 +163,15 @@
               </div>
             </div>
             <div class="min-w-0 flex-1">
-              <h3 class="text-body font-semibold">{announcement.title}</h3>
+              <h3 class="flex items-center gap-1.5 text-body font-semibold">
+                {#if announcement.pinned}
+                  <Pin
+                    class="size-3.5 shrink-0 text-warning"
+                    aria-label={m.admin_announcementsPinned()}
+                  />
+                {/if}
+                <span class="truncate">{announcement.title}</span>
+              </h3>
               {#if announcement.content}
                 <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
                   {announcement.content}
