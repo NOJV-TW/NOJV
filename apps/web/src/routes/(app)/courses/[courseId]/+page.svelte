@@ -17,11 +17,7 @@
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import CourseAnnouncementDialog from "$lib/components/course/CourseAnnouncementDialog.svelte";
   import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
-  import {
-    formatDateTimeCompact,
-    formatRelativeFromNow,
-    formatTimeRangeCompact
-  } from "$lib/utils/datetime";
+  import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -129,12 +125,10 @@
         {m.courseOverview_noAnnouncements()}
       </div>
     {:else}
-      <div
-        class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-2"
-      >
+      <div class="space-y-3">
         {#each announcements as announcement (announcement.id)}
           <div
-            class="flex cursor-pointer items-start gap-4 border-b border-border-subtle py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-accent/40"
+            class="cursor-pointer rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-colors duration-fast ease-out-soft hover:bg-accent/40"
             onclick={() => openView(announcement)}
             onkeydown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -145,61 +139,58 @@
             role="button"
             tabindex="0"
           >
-            <div class="flex min-w-[10rem] shrink-0 items-center gap-2">
-              <div
-                class="flex h-7 w-7 items-center justify-center rounded-full bg-[linear-gradient(135deg,#8a6142,#6d4c30)] font-display text-caption font-semibold text-white"
-                aria-hidden="true"
-              >
-                {announcement.authorInitial}
-              </div>
-              <div class="min-w-0">
-                <div class="truncate text-body-sm font-medium">
-                  {announcement.authorName}
-                </div>
-                <div class="text-caption text-muted-foreground tabular-nums">
-                  {formatRelativeFromNow(announcement.createdAt)} ·
-                  {formatDateTimeCompact(announcement.createdAt)}
-                </div>
-              </div>
-            </div>
-            <div class="min-w-0 flex-1">
-              <h3 class="flex items-center gap-1.5 text-body font-semibold">
-                {#if announcement.pinned}
-                  <Pin
-                    class="size-3.5 shrink-0 text-warning"
-                    aria-label={m.admin_announcementsPinned()}
-                  />
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <h3 class="flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
+                  {#if announcement.pinned}
+                    <Pin
+                      class="size-3.5 shrink-0 text-warning"
+                      aria-label={m.admin_announcementsPinned()}
+                    />
+                  {/if}
+                  <span class="truncate">{announcement.title}</span>
+                </h3>
+                {#if announcement.content}
+                  <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
+                    {announcement.content}
+                  </p>
                 {/if}
-                <span class="truncate">{announcement.title}</span>
-              </h3>
-              {#if announcement.content}
-                <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
-                  {announcement.content}
-                </p>
-              {/if}
-            </div>
-            {#if isManager}
-              <div class="flex items-center gap-1" onclick={(e) => e.stopPropagation()} role="presentation">
-                <button
-                  type="button"
-                  class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
-                  title={m.courseOverview_editAnnouncement()}
-                  aria-label={m.courseOverview_editAnnouncement()}
-                  onclick={() => openEdit(announcement)}
-                >
-                  <Pencil class="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
-                  title={m.common_delete()}
-                  aria-label={m.common_delete()}
-                  onclick={() => (pendingDeleteId = announcement.id)}
-                >
-                  <Trash2 class="h-4 w-4" />
-                </button>
               </div>
-            {/if}
+              <div class="flex shrink-0 flex-col items-end gap-2">
+                <time
+                  class="text-caption text-muted-foreground tabular-nums"
+                  datetime={announcement.createdAt}
+                >
+                  {new Date(announcement.createdAt).toLocaleDateString()}
+                </time>
+                {#if isManager}
+                  <div
+                    class="flex items-center gap-1"
+                    onclick={(e) => e.stopPropagation()}
+                    role="presentation"
+                  >
+                    <button
+                      type="button"
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
+                      title={m.courseOverview_editAnnouncement()}
+                      aria-label={m.courseOverview_editAnnouncement()}
+                      onclick={() => openEdit(announcement)}
+                    >
+                      <Pencil class="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+                      title={m.common_delete()}
+                      aria-label={m.common_delete()}
+                      onclick={() => (pendingDeleteId = announcement.id)}
+                    >
+                      <Trash2 class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            </div>
           </div>
         {/each}
       </div>
