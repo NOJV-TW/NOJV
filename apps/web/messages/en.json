@@ -66,7 +66,7 @@
   "admin_announcement_audience_label": "Audience",
   "admin_announcement_audience_students": "Students",
   "admin_announcement_audience_teachers": "Teachers",
-  "admin_announcement_expired_at": "Expires at",
+  "admin_announcement_expired_at": "Expires at: {date}",
   "admin_announcement_expiresAt_helper": "Leave blank to never expire.",
   "admin_announcement_expiresAt_label": "Expires at (optional)",
   "admin_announcementsCreate": "Create announcement",
