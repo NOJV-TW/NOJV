@@ -59,8 +59,9 @@ export const load: PageServerLoad = async () => {
         published: a.status === "published",
         audience: a.audience,
         expiresAt: a.expiresAt?.toISOString() ?? null,
-        createdAt: a.createdAt,
-        updatedAt: a.updatedAt,
+        createdAt: a.createdAt.toISOString(),
+        updatedAt: a.updatedAt.toISOString(),
+        authorName: a.createdBy?.name ?? "NOJV",
       };
     }),
   };

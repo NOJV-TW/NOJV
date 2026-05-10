@@ -39,7 +39,10 @@ export const announcementRepo = {
   listAll() {
     return prisma.announcement.findMany({
       orderBy: { createdAt: "desc" },
-      include: { translations: true },
+      include: {
+        translations: true,
+        createdBy: { select: { id: true, name: true } },
+      },
     });
   },
 

@@ -16,7 +16,7 @@
   import { Button } from "$lib/components/ui/button";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import CourseAnnouncementDialog from "$lib/components/course/CourseAnnouncementDialog.svelte";
-  import CourseAnnouncementViewDialog from "$lib/components/course/CourseAnnouncementViewDialog.svelte";
+  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
   import {
     formatDateTimeCompact,
     formatRelativeFromNow,
@@ -436,7 +436,7 @@
   </div>
 </div>
 
-<CourseAnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
+<AnnouncementViewDialog bind:open={viewOpen} announcement={viewingAnnouncement} />
 
 {#if isManager}
   <CourseAnnouncementDialog
