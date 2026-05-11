@@ -189,5 +189,4 @@ Per-case verdicts (`SandboxVerdict` in `packages/core/src/sandbox.ts`):
 ## Related docs
 
 - [Architecture Overview](../ARCHITECTURE.md)
-- [Temporal Workflows](TEMPORAL.md)
 - [Database Schema](DATABASE.md)

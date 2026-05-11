@@ -202,12 +202,22 @@ Local dev uses MinIO (Docker). Production uses any S3-compatible service (GCS, R
 
 Temporal workflow and activity definitions. Used only by `apps/worker`.
 
-- Workflows: submission judge, rejudge, contest lifecycle, assessment lifecycle, plagiarism
 - Activities call `@nojv/domain` data functions for business logic
 - Activities call `@nojv/redis` for event publishing
 - Activities never dispatch workflows (no accidental recursion)
 
-See [Temporal Workflows](docs/TEMPORAL.md).
+Workflows, task queues, and ID patterns:
+
+| Workflow                      | Task Queue | Workflow ID pattern                   | Signal / Query                                |
+| ----------------------------- | ---------- | ------------------------------------- | --------------------------------------------- |
+| `submissionJudgeWorkflow`     | `judge`    | `judge-{submissionId}`                | Query: `getStatus`                            |
+| `rejudgeWorkflow`             | `judge`    | `rejudge-{problemId}-{timestamp}`     | Query: `getProgress`                          |
+| `contestLifecycleWorkflow`    | `platform` | `contest-lifecycle-{contestId}`       | Signal: `adminOverride` (`earlyEnd`/`extend`) |
+| `assessmentLifecycleWorkflow` | `platform` | `assessment-lifecycle-{assessmentId}` | —                                             |
+| `plagiarismCheckWorkflow`     | `platform` | `plagiarism-{targetType}-{targetId}`  | Query: `getProgress`                          |
+| `examAutoCloseWorkflow`       | `platform` | `exam-auto-close-{examId}`            | Conflict: `TERMINATE_EXISTING` on re-dispatch |
+
+Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 
 ### @nojv/domain
 
@@ -345,7 +355,6 @@ Edge cases: if Redis is down, `updateScoreboard` throws and propagates back thro
 
 - [Product Sense](docs/PRODUCT_SENSE.md)
 - [Frontend Surface](docs/FRONTEND.md)
-- [Temporal Workflows](docs/TEMPORAL.md)
 - [Judge Pipeline](docs/JUDGE_PIPELINE.md)
 - [Database Schema](docs/DATABASE.md)
 - [Redis Architecture](docs/REDIS.md)

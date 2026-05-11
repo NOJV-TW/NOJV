@@ -8,18 +8,17 @@ This file is the agent entrypoint for this repository. Read it first, then follo
 2. [Product Sense](docs/PRODUCT_SENSE.md)
 3. [Frontend Surface](docs/FRONTEND.md)
 4. [Design Rules](docs/DESIGN.md)
-5. [Temporal Workflows](docs/TEMPORAL.md)
-6. [Judge Pipeline](docs/JUDGE_PIPELINE.md)
-7. [Database Schema](docs/DATABASE.md)
-8. [Redis Architecture](docs/REDIS.md)
-9. [Security Requirements](docs/SECURITY.md)
-10. [Threat Model](docs/THREAT_MODEL.md)
-11. [Reliability Invariants](docs/RELIABILITY.md)
-12. [Deployment Guide](docs/DEPLOYMENT.md)
-13. [Quality Ledger](docs/QUALITY_SCORE.md)
-14. [Planning System](docs/PLANS.md)
-15. [Getting Started Runbook](docs/runbooks/getting-started.md)
-16. [Feature Specs](docs/specs/) — acceptance criteria for core features
+5. [Judge Pipeline](docs/JUDGE_PIPELINE.md)
+6. [Database Schema](docs/DATABASE.md)
+7. [Redis Architecture](docs/REDIS.md)
+8. [Security Requirements](docs/SECURITY.md)
+9. [Threat Model](docs/THREAT_MODEL.md)
+10. [Reliability Invariants](docs/RELIABILITY.md)
+11. [Deployment Guide](docs/DEPLOYMENT.md)
+12. [Quality Ledger](docs/QUALITY_SCORE.md)
+13. [Planning System](docs/PLANS.md)
+14. [Getting Started Runbook](docs/runbooks/getting-started.md)
+15. [Feature Specs](docs/specs/) — acceptance criteria for core features
 
 ## Doc Index by Task
 
@@ -29,7 +28,7 @@ when working on a specific area, open the listed doc first.
 | Working on...                                        | Read                                                                   |
 | ---------------------------------------------------- | ---------------------------------------------------------------------- |
 | Submission judging flow, subtask scoring, verdicts   | [Judge Pipeline](docs/JUDGE_PIPELINE.md)                               |
-| Workflow orchestration, task queues, retry policy    | [Temporal Workflows](docs/TEMPORAL.md)                                 |
+| Async workflows, task queues, workflow IDs           | [Architecture Overview](ARCHITECTURE.md) → `@nojv/temporal`            |
 | Schema changes, new tables, Prisma migrations        | [Database Schema](docs/DATABASE.md)                                    |
 | Cache keys, pub/sub channels, rate limiting          | [Redis Architecture](docs/REDIS.md)                                    |
 | SvelteKit routes, page layout, component hierarchy   | [Frontend Surface](docs/FRONTEND.md)                                   |
