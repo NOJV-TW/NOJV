@@ -3,8 +3,6 @@
 @import "@fontsource/manrope/500.css";
 @import "@fontsource/manrope/600.css";
 @import "@fontsource/manrope/700.css";
-@import "@fontsource/fraunces/400.css";
-@import "@fontsource/fraunces/700.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/700.css";
@@ -42,7 +40,9 @@
 :root {
   /* === Typography families === */
   --font-sans: "Manrope", "Noto Sans TC", system-ui, sans-serif;
-  --font-display: "Fraunces", "Noto Sans TC", serif;
+  /* Display matches sans on purpose — single sans-serif family across the UI,
+     `.font-display` only exists to preserve heading typography hooks. */
+  --font-display: "Manrope", "Noto Sans TC", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* === Radius scale (4pt grid, concentric-friendly) === */
@@ -446,11 +446,6 @@
   p {
     text-wrap: pretty;
     line-height: var(--leading-relaxed);
-  }
-
-  /* Fraunces is optical-size aware — let the browser pick */
-  .font-display {
-    font-optical-sizing: auto;
   }
 
   /* Anchor target offset for sticky header */
