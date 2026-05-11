@@ -21,7 +21,11 @@ beforeEach(() => {
 describe("buildDraftKey", () => {
   it("formats practice key", () => {
     expect(
-      buildDraftKey({ context: { kind: "practice" }, problemId: PROBLEM_ID, language: LANGUAGE }),
+      buildDraftKey({
+        context: { kind: "practice" },
+        problemId: PROBLEM_ID,
+        language: LANGUAGE,
+      }),
     ).toBe("nojv:draft:v1:practice:prob_123:python");
   });
 
@@ -160,9 +164,9 @@ describe("inferDraftContext", () => {
   });
 
   it("maps practice route", () => {
-    expect(
-      inferDraftContext("/(app)/problems/[problemId]", { problemId: "p1" }),
-    ).toEqual({ kind: "practice" });
+    expect(inferDraftContext("/(app)/problems/[problemId]", { problemId: "p1" })).toEqual({
+      kind: "practice",
+    });
   });
 
   it("falls back to practice for unknown route", () => {

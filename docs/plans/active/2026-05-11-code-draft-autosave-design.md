@@ -38,23 +38,23 @@ export type DraftContext =
   | { kind: "practice" }
   | { kind: "exam"; examId: string }
   | { kind: "assignment"; assessmentId: string }
-  | { kind: "contest"; contestId: string }
+  | { kind: "contest"; contestId: string };
 
 export interface DraftKey {
-  context: DraftContext
-  problemId: string
-  language: string
+  context: DraftContext;
+  problemId: string;
+  language: string;
 }
 
 export interface DraftRecord {
-  code: string
-  savedAt: number
+  code: string;
+  savedAt: number;
 }
 
-export function buildDraftKey(key: DraftKey): string
-export function loadDraft(key: DraftKey): DraftRecord | null
-export function saveDraft(key: DraftKey, code: string): DraftRecord
-export function clearDraft(key: DraftKey): void
+export function buildDraftKey(key: DraftKey): string;
+export function loadDraft(key: DraftKey): DraftRecord | null;
+export function saveDraft(key: DraftKey, code: string): DraftRecord;
+export function clearDraft(key: DraftKey): void;
 ```
 
 **`saveDraft` quota fallback:**
@@ -77,7 +77,7 @@ catch QuotaExceededError:
 **New props:**
 
 ```ts
-draftContext: DraftContext
+draftContext: DraftContext;
 ```
 
 從 problem workspace page server load 推斷,經 `+page.svelte` 傳進 Editor。
@@ -102,18 +102,18 @@ on mount + on language change:
 **Dirty detection:**
 
 ```ts
-const isDirty = $derived(drafts[language] !== lastSavedCode[language])
+const isDirty = $derived(drafts[language] !== lastSavedCode[language]);
 ```
 
 **Save action:**
 
 ```ts
 function saveCurrentDraft() {
-  const code = drafts[language]
-  saveDraft({ context, problemId, language }, code)
-  lastSavedCode[language] = code
-  lastSavedAt[language] = Date.now()
-  toast.success(m.draft_saved())
+  const code = drafts[language];
+  saveDraft({ context, problemId, language }, code);
+  lastSavedCode[language] = code;
+  lastSavedAt[language] = Date.now();
+  toast.success(m.draft_saved());
 }
 ```
 
@@ -128,10 +128,10 @@ $effect(() => {
     keys: ["Ctrl", "S"],
     description: m.shortcut_saveDraft(),
     category: "actions",
-    allowInInputs: true,  // Monaco 是 contentEditable
+    allowInInputs: true, // Monaco 是 contentEditable
     handler: () => saveCurrentDraft(),
-  })
-})
+  });
+});
 ```
 
 `allowInInputs: true` 是關鍵 — Monaco 編輯器內部是 contentEditable,registry 預設會跳過。
@@ -142,10 +142,10 @@ Cmd+S(Mac)在 `comboMatches` 已被歸一為 Ctrl,瀏覽器原生「儲存頁面
 
 狀態列尾端,根據 `isDirty` / `lastSavedAt`:
 
-| 狀態 | 顯示 |
-|---|---|
-| 從未存過 | `m.draft_none()` 「尚未儲存草稿」 |
-| 已存且乾淨 | `m.draft_lastSavedAt({ time: HH:mm })` 「已儲存 16:42」 |
+| 狀態         | 顯示                                                              |
+| ------------ | ----------------------------------------------------------------- |
+| 從未存過     | `m.draft_none()` 「尚未儲存草稿」                                 |
+| 已存且乾淨   | `m.draft_lastSavedAt({ time: HH:mm })` 「已儲存 16:42」           |
 | 已存但 dirty | `● m.draft_unsaved()` 「● 未儲存」(`text-amber-500` 帶輕微 pulse) |
 
 ### Clear draft button (escape hatch)
@@ -159,12 +159,12 @@ Cmd+S(Mac)在 `comboMatches` 已被歸一為 Ctrl,瀏覽器原生「儲存頁面
 
 在 `+layout.svelte` / `+page.svelte` 用 `$page.route.id` 比對:
 
-| route id | context |
-|---|---|
-| `/(app)/exams/[examId]/problems/[problemId]` | `{ kind: "exam", examId }` |
+| route id                                                 | context                                |
+| -------------------------------------------------------- | -------------------------------------- |
+| `/(app)/exams/[examId]/problems/[problemId]`             | `{ kind: "exam", examId }`             |
 | `/(app)/assignments/[assessmentId]/problems/[problemId]` | `{ kind: "assignment", assessmentId }` |
-| `/(app)/contests/[contestId]/problems/[problemId]` | `{ kind: "contest", contestId }` |
-| `/(app)/problems/[problemId]` | `{ kind: "practice" }` |
+| `/(app)/contests/[contestId]/problems/[problemId]`       | `{ kind: "contest", contestId }`       |
+| `/(app)/problems/[problemId]`                            | `{ kind: "practice" }`                 |
 
 把這個推斷邏輯封裝成 `inferDraftContext(routeId, params): DraftContext`,單元測試覆蓋。
 
@@ -202,12 +202,12 @@ Cmd+S(Mac)在 `comboMatches` 已被歸一為 Ctrl,瀏覽器原生「儲存頁面
 
 ## Risks & Mitigations
 
-| 風險 | 緩解 |
-|---|---|
-| Monaco 把 Ctrl+S 自己吃掉 | registry handler 在 `keydown` capture phase,而且 `allowInInputs` 加上 `preventDefault` 應足夠 — 若實測發現 Monaco 攔到,改在 `Editor.svelte` 直接掛 `editor.addCommand(monaco.KeyMod.CtrlCmd \| monaco.KeyCode.KeyS, ...)` |
-| Quota 真的爆 | Lazy cleanup;若仍爆,toast.error 告知使用者 |
-| 草稿從之前的 `v0`(未來) | `v1` 前綴避免新舊資料混 |
-| Editor mount 時 prop 還沒到 | Svelte 5 reactive — `$effect` 重跑即可,key build 是 pure function 沒副作用 |
+| 風險                        | 緩解                                                                                                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monaco 把 Ctrl+S 自己吃掉   | registry handler 在 `keydown` capture phase,而且 `allowInInputs` 加上 `preventDefault` 應足夠 — 若實測發現 Monaco 攔到,改在 `Editor.svelte` 直接掛 `editor.addCommand(monaco.KeyMod.CtrlCmd \| monaco.KeyCode.KeyS, ...)` |
+| Quota 真的爆                | Lazy cleanup;若仍爆,toast.error 告知使用者                                                                                                                                                                                |
+| 草稿從之前的 `v0`(未來)     | `v1` 前綴避免新舊資料混                                                                                                                                                                                                   |
+| Editor mount 時 prop 還沒到 | Svelte 5 reactive — `$effect` 重跑即可,key build 是 pure function 沒副作用                                                                                                                                                |
 
 ## Out of scope (future)
 
