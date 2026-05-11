@@ -128,5 +128,5 @@
     </section>
   </main>
 
-  <Footer repoUrl={data.repoUrl} contactEmail={data.contactEmail} />
+  <Footer repoUrl={data.repoUrl} />
 </div>

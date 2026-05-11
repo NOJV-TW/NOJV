@@ -29,5 +29,5 @@
     </Card>
   </main>
 
-  <Footer {contactEmail} />
+  <Footer />
 </div>
