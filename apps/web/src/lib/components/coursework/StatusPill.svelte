@@ -70,7 +70,7 @@
 
 <span
   class={cn(
-    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-mono uppercase tracking-wider",
+    "inline-flex min-w-20 items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-mono uppercase tracking-wider",
     def.cls,
     className
   )}
