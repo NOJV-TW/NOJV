@@ -65,12 +65,12 @@ type ContestWithCounts = NonNullable<
 
 function mapContestListItem(c: ContestWithCounts): ContestListItem {
   return {
-    allowedLanguages: c.allowedLanguages as Language[],
+    allowedLanguages: c.allowedLanguages,
     endsAt: c.endsAt.toISOString(),
     id: c.id,
     participantCount: c._count.participations,
     problemCount: c._count.problems,
-    scoreboardMode: c.scoreboardMode as ScoreboardMode,
+    scoreboardMode: c.scoreboardMode,
     scoringMode: c.scoringMode,
     startsAt: c.startsAt.toISOString(),
     summary: c.summary,
@@ -89,7 +89,7 @@ type ContestDetailBase = Omit<
 
 function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
   return {
-    allowedLanguages: contest.allowedLanguages as Language[],
+    allowedLanguages: contest.allowedLanguages,
     endsAt: contest.endsAt.toISOString(),
     frozenAt: contest.frozenAt?.toISOString() ?? null,
     id: contest.id,
@@ -100,7 +100,7 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
       points: cp.points,
       title: cp.problem.title,
     })),
-    scoreboardMode: contest.scoreboardMode as ScoreboardMode,
+    scoreboardMode: contest.scoreboardMode,
     scoringMode: contest.scoringMode,
     startsAt: contest.startsAt.toISOString(),
     submitCooldownSec: contest.submitCooldownSec,
@@ -266,7 +266,7 @@ export async function getContestContext(
   if (!viewerIsManager && timeStatus !== "open") return null;
 
   return {
-    allowedLanguages: contest.allowedLanguages as Language[],
+    allowedLanguages: contest.allowedLanguages,
     id: contest.id,
     timeStatus,
     viewerIsManager,

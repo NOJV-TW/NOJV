@@ -6,7 +6,7 @@
 
 <div class="flex min-h-[60vh] items-center justify-center">
   <Card variant="elevated" size="hero" class="w-full max-w-sm">
-    <h1 class="text-center font-display text-display font-semibold">
+    <h1 class="text-center text-display font-semibold">
       {m.auth_signInTitle()}
     </h1>
 

@@ -20,6 +20,48 @@ export function formatDateTimeCompact(value: string | Date): string {
   return formatPart(d);
 }
 
+export interface FmtDateOptions {
+  dateOnly?: boolean;
+}
+
+/** "M/D HH:MM" or, with `dateOnly`, "M/D". Used by the coursework views. */
+export function fmtDate(iso: string | Date, opts: FmtDateOptions = {}): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  if (opts.dateOnly) return `${String(m)}/${String(day)}`;
+  return `${String(m)}/${String(day)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+const ZH_WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"] as const;
+export function fmtWeekday(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  return ZH_WEEKDAYS[d.getDay()] ?? "";
+}
+
+export function diffMs(iso: string | Date, now: Date = new Date()): number {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  return d.getTime() - now.getTime();
+}
+
+export interface CountdownParts {
+  label: string;
+  d: number;
+  h: number;
+  m: number;
+  s: number;
+  past: boolean;
+}
+
+export function fmtCountdown(ms: number): CountdownParts {
+  if (ms <= 0) return { label: "已截止", d: 0, h: 0, m: 0, s: 0, past: true };
+  const d = Math.floor(ms / 86_400_000);
+  const h = Math.floor((ms % 86_400_000) / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1_000);
+  return { label: "剩餘", d, h, m, s, past: false };
+}
+
 export function formatRelativeFromNow(value: string | Date, now: Date = new Date()): string {
   const d = typeof value === "string" ? new Date(value) : value;
   const diffMs = now.getTime() - d.getTime();

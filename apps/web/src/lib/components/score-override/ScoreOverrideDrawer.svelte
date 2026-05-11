@@ -73,7 +73,7 @@
 
     <div class="space-y-6">
       <section class="space-y-3">
-        <h3 class="font-display text-title-sm font-medium">
+        <h3 class="text-title-sm font-medium">
           {m.override_staff_buttonLabel()}
         </h3>
         {#if loading}
@@ -93,7 +93,7 @@
 
       <section class="space-y-3 border-t border-border pt-5">
         <div class="flex items-center justify-between">
-          <h3 class="font-display text-title-sm font-medium">
+          <h3 class="text-title-sm font-medium">
             {editTarget
               ? m.override_staff_editBtn()
               : m.override_staff_newBtn()}

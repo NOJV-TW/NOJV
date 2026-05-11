@@ -10,7 +10,7 @@
 
 <Section>
   {#snippet header()}
-    <h1 class="font-display text-title-lg">{m.navigation_submissions()}</h1>
+    <h1 class="text-title-lg">{m.navigation_submissions()}</h1>
     <p>{m.submissions_workspaceHint()}</p>
   {/snippet}
 

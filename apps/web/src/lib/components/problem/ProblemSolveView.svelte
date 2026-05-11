@@ -168,7 +168,7 @@
           aria-current={sibling.isActive ? "page" : undefined}
         >
           <span
-            class="flex size-6 items-center justify-center rounded-sm font-display text-caption font-medium {siblingLetterClass(
+            class="flex size-6 items-center justify-center rounded-sm text-caption font-medium {siblingLetterClass(
               sibling
             )}"
           >

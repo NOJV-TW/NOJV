@@ -258,8 +258,7 @@ export async function updateExamRecord(
 
     if (payload.problemIds !== undefined) {
       await examProblemRepo.withTx(tx).deleteByExamId(exam.id);
-      const enforcedLanguages =
-        payload.allowedLanguages ?? (exam.allowedLanguages as Language[]);
+      const enforcedLanguages = payload.allowedLanguages ?? exam.allowedLanguages;
       await resolveAndAttachExamProblems(
         tx,
         exam.id,
@@ -370,7 +369,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     if (problemCount === 0) {
       throw new ValidationError("Add at least one problem before publishing.");
     }
-    if ((exam.allowedLanguages as Language[]).length === 0) {
+    if (exam.allowedLanguages.length === 0) {
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
     if (exam.startsAt >= exam.endsAt) {

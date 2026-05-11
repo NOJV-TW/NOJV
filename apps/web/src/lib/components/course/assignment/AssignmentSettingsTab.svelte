@@ -71,7 +71,7 @@
 
   function toggleLanguage(lang: Language) {
     if (!editableBasics) return;
-    $form.allowedLanguages = toggleArrayItem(($form.allowedLanguages ?? []) as Language[], lang);
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
   function lockHint(): string | null {
@@ -89,7 +89,7 @@
 <section data-slot="assignment-settings-tab" class={cn("space-y-6", className)}>
   <header class="flex items-baseline justify-between gap-4">
     <div>
-      <h2 class="font-display text-title font-medium leading-tight">
+      <h2 class="text-title font-medium leading-tight">
         {m.assignmentDetail_settingsHeading()}
       </h2>
       <p class="mt-1 text-caption text-muted-foreground">
@@ -120,7 +120,7 @@
     <section
       class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
     >
-      <h3 class="mb-4 font-display text-title-sm font-medium">
+      <h3 class="mb-4 text-title-sm font-medium">
         {m.assignmentDetail_settingsSectionBasic()}
       </h3>
       <div class="space-y-4">
@@ -207,7 +207,7 @@
     <section
       class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
     >
-      <h3 class="mb-4 font-display text-title-sm font-medium">
+      <h3 class="mb-4 text-title-sm font-medium">
         {m.assignmentDetail_settingsSectionSubmission()}
       </h3>
       <div class="space-y-4">
@@ -217,9 +217,7 @@
           </div>
           <div class="mt-2 flex flex-wrap gap-2">
             {#each supportedLanguages as lang (lang)}
-              {@const checked = (($form.allowedLanguages ?? []) as Language[]).includes(
-                lang
-              )}
+              {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
               <button
                 type="button"
                 class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {checked
@@ -272,7 +270,7 @@
   <section
     class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
   >
-    <h3 class="mb-4 font-display text-title-sm font-medium">
+    <h3 class="mb-4 text-title-sm font-medium">
       {m.assignmentDetail_settingsSectionLifecycle()}
     </h3>
 
@@ -327,7 +325,7 @@
     >
       <div class="flex items-baseline gap-2">
         <AlertTriangle class="size-4 shrink-0 text-destructive" aria-hidden="true" />
-        <h4 class="font-display text-body-lg font-medium text-destructive">
+        <h4 class="text-body-lg font-medium text-destructive">
           {m.assignmentDetail_settingsDangerZone()}
         </h4>
       </div>

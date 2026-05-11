@@ -59,7 +59,7 @@
 
   <div class="relative">
     <h2
-      class="flex items-center gap-2.5 font-display text-title-sm font-medium tracking-[-0.01em]"
+      class="flex items-center gap-2.5 text-title-sm font-medium tracking-[-0.01em]"
     >
       <span class="text-primary" aria-hidden="true">
         <UserPlus class="h-5 w-5" />

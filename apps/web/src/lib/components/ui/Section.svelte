@@ -52,12 +52,10 @@
 	.section-header :global(h1),
 	.section-header :global(h2),
 	.section-header :global(h3) {
-		font-family: var(--font-display);
 		font-size: var(--text-title-lg);
 		font-weight: 600;
 		line-height: var(--leading-tight);
 		text-wrap: balance;
-		font-optical-sizing: auto;
 	}
 	.section-header :global(p) {
 		color: var(--muted-foreground);

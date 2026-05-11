@@ -84,7 +84,7 @@
 >
   <header class="flex items-baseline justify-between gap-4">
     <div>
-      <h2 class="font-display text-title font-medium leading-tight">
+      <h2 class="text-title font-medium leading-tight">
         {m.examDetail_settingsHeading()}
       </h2>
       <p class="mt-1 text-caption text-muted-foreground">
@@ -113,7 +113,7 @@
     <section
       class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
     >
-      <h3 class="mb-4 font-display text-title-sm font-medium">
+      <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionBasic()}
       </h3>
       <div class="space-y-4">
@@ -190,7 +190,7 @@
     <section
       class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
     >
-      <h3 class="mb-4 font-display text-title-sm font-medium">
+      <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionScoring()}
       </h3>
       <div class="space-y-4">
@@ -272,7 +272,7 @@
     <section
       class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
     >
-      <h3 class="mb-4 font-display text-title-sm font-medium">
+      <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionProctoring()}
       </h3>
       <div class="space-y-4">
@@ -363,7 +363,7 @@
   <section
     class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
   >
-    <h3 class="mb-4 font-display text-title-sm font-medium">
+    <h3 class="mb-4 text-title-sm font-medium">
       {m.examDetail_settingsSectionLifecycle()}
     </h3>
 
@@ -428,7 +428,7 @@
     >
       <div class="flex items-baseline gap-2">
         <AlertTriangle class="size-4 shrink-0 text-destructive" aria-hidden="true" />
-        <h4 class="font-display text-body-lg font-medium text-destructive">
+        <h4 class="text-body-lg font-medium text-destructive">
           {m.examDetail_settingsDangerZone()}
         </h4>
       </div>

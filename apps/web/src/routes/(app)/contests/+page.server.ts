@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
 import { getActorContext, requireAuth } from "$lib/server/auth";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { readString } from "$lib/server/shared/form-utils";
 import { contestDomain } from "@nojv/domain";
 
 const { findContestByInviteCode, listContestsForUser } = contestDomain;
@@ -22,7 +23,7 @@ export const actions = {
     requireAuth(event);
 
     const formData = await event.request.formData();
-    const code = (formData.get("code") as string | null)?.trim();
+    const code = readString(formData, "code");
 
     if (!code) {
       return fail(400, { codeError: m.contestsList_codeErrorEmpty() });

@@ -137,18 +137,18 @@
                 class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
               >
                 {#if assignment.status === "draft"}
-                  <span class="block font-display text-title-sm font-medium text-foreground">—</span>
+                  <span class="block text-title-sm font-medium text-foreground">—</span>
                   {m.courseAssignments_classStatsDraftHint()}
                 {:else if assignment.status === "upcoming"}
-                  <span class="block font-display text-title-sm font-medium text-foreground">—</span>
+                  <span class="block text-title-sm font-medium text-foreground">—</span>
                   {m.courseAssignments_classStatsUpcomingHint()}
                 {:else if assignment.classStats}
-                  <span class="block font-display text-title-sm font-medium text-foreground">
+                  <span class="block text-title-sm font-medium text-foreground">
                     {assignment.classStats.submittedUsers}/{assignment.classStats.totalStudents}
                   </span>
                   {m.courseAssignments_avgScore({ score: assignment.classStats.avgScore })}
                 {:else}
-                  <span class="block font-display text-title-sm font-medium text-foreground">—</span>
+                  <span class="block text-title-sm font-medium text-foreground">—</span>
                 {/if}
               </div>
             {:else}

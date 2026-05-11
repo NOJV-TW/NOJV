@@ -32,7 +32,7 @@
       <ChevronLeft class="size-4" aria-hidden="true" />
       <span>{m.navigation_courses()}</span>
     </a>
-    <h1 class="mt-3 font-display text-display font-medium tracking-tight">
+    <h1 class="mt-3 text-display font-medium tracking-tight">
       {m.coursesNew_title()}
     </h1>
     <p class="mt-2 max-w-2xl text-body-sm text-muted-foreground">
@@ -49,13 +49,13 @@
     >
       <div class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           aria-hidden="true"
         >
           1
         </span>
         <div>
-          <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.coursesNew_basicsTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">

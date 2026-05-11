@@ -1,13 +1,12 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { ChevronRight, ClipboardList } from "@lucide/svelte";
+  import { ClipboardList } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/ui/badge";
   import { buttonVariants } from "$lib/components/ui/button";
-  import PageContainer from "$lib/components/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import { formatTimeRangeCompact } from "$lib/utils/datetime";
+  import PageHero from "$lib/components/coursework/PageHero.svelte";
+  import TabStrip from "$lib/components/coursework/TabStrip.svelte";
+  import AssignmentCard from "$lib/components/course/assignment/AssignmentCard.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -18,7 +17,7 @@
     const url = new URL(page.url);
     if (next === "all") url.searchParams.delete("tab");
     else url.searchParams.set("tab", next);
-    goto(`?${url.searchParams.toString()}`, {
+    void goto(`?${url.searchParams.toString()}`, {
       keepFocus: true,
       replaceState: true,
       noScroll: true
@@ -26,215 +25,52 @@
   }
 
   const tabs = $derived([
-    { key: "all", label: m.assignmentsTop_filterAll(), count: counts.all },
-    { key: "open", label: m.assignmentsTop_filterOpen(), count: counts.open },
-    { key: "upcoming", label: m.assignmentsTop_filterUpcoming(), count: counts.upcoming },
-    { key: "closed", label: m.assignmentsTop_filterClosed(), count: counts.closed }
+    { value: "all", label: m.assignmentsList_tabAll({ count: counts.all }) },
+    { value: "open", label: m.assignmentsList_tabOpen({ count: counts.open }) },
+    { value: "upcoming", label: m.assignmentsList_tabUpcoming({ count: counts.upcoming }) },
+    { value: "closed", label: m.assignmentsList_tabClosed({ count: counts.closed }) }
   ]);
-
-  function statusBadge(
-    status: "draft" | "upcoming" | "open" | "closed"
-  ): { variant: "default" | "info" | "muted"; label: string; dot: boolean } {
-    switch (status) {
-      case "open":
-        return { variant: "default", label: m.assignmentsTop_filterOpen(), dot: true };
-      case "upcoming":
-        return { variant: "info", label: m.assignmentsTop_filterUpcoming(), dot: true };
-      case "closed":
-        return { variant: "muted", label: m.assignmentsTop_closed(), dot: false };
-      case "draft":
-      default:
-        // Drafts leak into the `all` slice for managers — render with
-        // a muted badge so they're visually deprioritised.
-        return { variant: "muted", label: m.assignmentsTop_filterAll(), dot: false };
-    }
-  }
-
-  function urgencyHint(
-    status: "draft" | "upcoming" | "open" | "closed",
-    opensAt: string | null,
-    closesAt: string | null
-  ): string | null {
-    const now = Date.now();
-    if (status === "open" && closesAt) {
-      const msLeft = new Date(closesAt).getTime() - now;
-      if (msLeft <= 0) return null;
-      const hoursLeft = msLeft / (60 * 60 * 1000);
-      if (hoursLeft <= 24) return m.assignmentsTop_dueToday();
-      const daysLeft = Math.ceil(hoursLeft / 24);
-      return m.assignmentsTop_dueSoon({ days: daysLeft });
-    }
-    return null;
-  }
 </script>
 
-<PageContainer>
-  <PageHeader
-    eyebrow={m.assignmentsTop_eyebrow()}
-    title={m.navigation_assignments()}
-    description={m.assignmentsTop_subtitle()}
+<div class="space-y-6 fade-up px-6 py-8 lg:px-10">
+  <PageHero
+    kind="assignment"
+    eyebrow="Coursework · Assignments"
+    title={m.assignmentsList_heroTitle()}
+    titleEn="Assignments"
+    description={m.assignmentsList_heroDescription()}
   />
 
-  <!-- Tab row -->
-  <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
-    <div
-      role="tablist"
-      aria-label={m.navigation_assignments()}
-      class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
-    >
-      {#each tabs as tab (tab.key)}
-        {@const isActive = tab.key === currentFilter}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={isActive}
-          onclick={() => setTab(tab.key)}
-          class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
-            ? 'border-primary text-foreground'
-            : 'border-transparent text-muted-foreground hover:text-foreground'}"
-        >
-          <span>{tab.label}</span>
-          <span
-            class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground'}"
-          >
-            {tab.count}
-          </span>
-        </button>
-      {/each}
-    </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <TabStrip {tabs} active={currentFilter} onChange={setTab} />
+    <div class="ml-auto text-caption text-muted-foreground font-mono">{m.assignmentsList_sortByDue()}</div>
   </div>
 
   {#if assignments.length === 0}
     <div
-      class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+      class="glass rounded-2xl px-8 py-16 text-center"
     >
       <ClipboardList
         class="mx-auto h-12 w-12 text-muted-foreground"
         strokeWidth={1.5}
         aria-hidden="true"
       />
-      <h2 class="font-display mt-3 text-title font-medium">
-        {m.assignmentsTop_empty()}
-      </h2>
+      <h2 class="mt-3 text-title font-medium">{m.assignmentsList_emptyTitle()}</h2>
       <p class="mt-2 text-body-sm text-muted-foreground">
-        {m.assignmentsTop_emptyDescription()}
+        {m.assignmentsList_emptyHint()}
       </p>
       <a
         href="/courses"
         class={buttonVariants({ variant: "outline", size: "sm" }) + " mt-4 inline-flex"}
       >
-        {m.common_browseMyCourses()}
+        {m.assignmentsList_browseCourses()}
       </a>
     </div>
   {:else}
-    <div class="animate-in animate-in-2 grid gap-3">
-        {#each assignments as assignment (assignment.id)}
-          {@const badge = statusBadge(assignment.status)}
-          {@const hint = urgencyHint(
-            assignment.status,
-            assignment.opensAt,
-            assignment.closesAt
-          )}
-          {@const myStatus = assignment.myStatus}
-          {@const pct =
-            myStatus && myStatus.total > 0
-              ? (myStatus.solved / myStatus.total) * 100
-              : 0}
-          <a
-            href={`/assignments/${assignment.id}`}
-            class="group relative grid grid-cols-1 items-center gap-y-3 rounded-2xl border bg-[color:var(--color-panel)] px-5 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest sm:grid-cols-[1fr_auto] sm:gap-x-6 sm:px-6 {assignment.status ===
-            'draft'
-              ? 'border-dashed bg-transparent'
-              : 'border-border'}"
-          >
-            <!-- Left accent bar on hover -->
-            <span
-              class="pointer-events-none absolute left-[-1px] top-[10px] bottom-[10px] w-[3px] rounded-full bg-transparent transition-colors duration-fast ease-out-soft group-hover:bg-primary"
-              aria-hidden="true"
-            ></span>
-
-            <div class="min-w-0">
-              <!-- Course tag — rendered as a static span (not a nested
-                   link) because the parent row is already an anchor.
-                   Mirrors the CourseTagPill visual from Task 3.1. -->
-              <span
-                class="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-[color:var(--color-panel)] px-2.5 py-1 text-caption font-medium text-muted-foreground"
-              >
-                <span
-                  class="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                  aria-hidden="true"
-                ></span>
-                <span class="truncate">{assignment.courseTitle}</span>
-              </span>
-              <h3 class="mt-1 text-body-lg font-semibold tracking-[-0.01em]">
-                {assignment.title}
-              </h3>
-              <div
-                class="mt-2 flex items-center gap-2.5 font-mono text-caption text-muted-foreground tabular-nums"
-              >
-                {#if assignment.opensAt && assignment.closesAt}
-                  <span>{formatTimeRangeCompact(assignment.opensAt, assignment.closesAt)}</span>
-                {/if}
-              </div>
-              <div
-                class="mt-2 flex flex-wrap items-center gap-3 text-caption text-muted-foreground"
-              >
-                <span>{assignment.problemCount}</span>
-                <span
-                  class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
-                  aria-hidden="true"
-                ></span>
-                <Badge variant={badge.variant} dot={badge.dot} size="sm">{badge.label}</Badge>
-                {#if hint}
-                  <span
-                    class="inline-block h-[3px] w-[3px] rounded-full bg-muted-foreground"
-                    aria-hidden="true"
-                  ></span>
-                  <span>{hint}</span>
-                {/if}
-              </div>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3 sm:gap-5">
-              <!-- Progress ring (personal completion %). `myStatus` is
-                   populated by `listAssignmentsAcrossCoursesForUser` for
-                   student rows; manager rows (teacher/TA in the course)
-                   have `classStats` instead. -->
-              <div
-                class="relative flex h-11 w-11 items-center justify-center rounded-full"
-                style="background: conic-gradient(var(--color-primary) {pct}%, var(--color-border) {pct}%);"
-                aria-hidden="true"
-              >
-                <span
-                  class="absolute inset-[4px] rounded-full bg-[color:var(--color-panel)]"
-                ></span>
-                <span class="relative text-caption font-semibold tabular-nums">
-                  {#if myStatus}{myStatus.solved}/{myStatus.total}{:else}—{/if}
-                </span>
-              </div>
-              {#if assignment.status === "open"}
-                <span class={buttonVariants({ variant: "default", size: "sm" })}>
-                  {m.courseAssignments_actionContinue()}
-                  <ChevronRight class="h-4 w-4" />
-                </span>
-              {:else if assignment.status === "closed"}
-                <span class={buttonVariants({ variant: "outline", size: "sm" })}>
-                  {m.courseAssignments_actionViewResults()}
-                </span>
-              {:else}
-                <span
-                  class={buttonVariants({ variant: "outline", size: "sm" })}
-                  aria-disabled="true"
-                  style="opacity: 0.5; cursor: not-allowed;"
-                >
-                  {m.assignmentsTop_notDue()}
-                </span>
-              {/if}
-            </div>
-          </a>
-        {/each}
-      </div>
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {#each assignments as assignment, i (assignment.id)}
+        <AssignmentCard {assignment} delay={i * 60} />
+      {/each}
+    </div>
   {/if}
-</PageContainer>
+</div>

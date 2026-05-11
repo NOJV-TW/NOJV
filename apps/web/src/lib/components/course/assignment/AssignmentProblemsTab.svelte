@@ -144,7 +144,7 @@
 
 <section data-slot="assignment-problems-tab" class={cn("space-y-3", className)}>
   <div class="mb-4 flex items-baseline justify-between gap-4">
-    <h2 class="font-display text-title font-medium leading-tight">
+    <h2 class="text-title font-medium leading-tight">
       {#if canEdit}
         {m.assignmentDetail_problemsEditHeading()}
       {:else}
@@ -165,7 +165,7 @@
           class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
         >
           <div
-            class="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted font-display text-title-sm font-medium text-muted-foreground"
+            class="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-title-sm font-medium text-muted-foreground"
           >
             {problem.letter}
           </div>
@@ -187,7 +187,7 @@
             </div>
           </div>
           <div class="text-right text-caption text-muted-foreground tabular-nums leading-snug">
-            <span class="block font-display text-title-sm font-medium text-foreground">—</span>
+            <span class="block text-title-sm font-medium text-foreground">—</span>
             {m.assignmentDetail_teacherProblemsClassPending()}
           </div>
         </a>
@@ -214,7 +214,7 @@
             class="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 rounded-lg border border-border bg-[color:var(--color-panel)] px-4 py-3"
           >
             <div
-              class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted font-display text-body-lg font-medium text-muted-foreground"
+              class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
             >
               {row.letter}
             </div>
