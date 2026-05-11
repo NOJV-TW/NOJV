@@ -49,26 +49,23 @@
   const courseTitle = $derived(data.form.data.title);
   const canDelete = $derived(typedConfirmation === courseTitle && courseTitle.length > 0);
 
-  // `updateInfo` returns `{ form }` with no overlap to danger-zone fails — route via `unknown` to narrow.
-  type DangerFormResult = { error?: string } | null;
-  const dangerResult = $derived(form as unknown as DangerFormResult);
-
   const updateErrorText = $derived(
     $updateMessage?.kind === "error" ? $updateMessage.text : null
   );
   const updateSuccess = $derived($updateMessage?.kind === "success");
 
-  function resolveDangerBanner(result: DangerFormResult): string | null {
-    if (!result?.error) return null;
-    switch (result.error) {
-      case "delete_mismatch":
-        return m.courseSettings_deleteMismatchError();
-      default:
-        return result.error;
-    }
+  // `form` is a discriminated union across every action (updateInfo /
+  // deleteCourse / archiveCourse...). Narrow via property check instead
+  // of a double-cast.
+  function resolveDangerBanner(actionResult: ActionData): string | null {
+    if (actionResult == null || !("error" in actionResult)) return null;
+    const errorCode = actionResult.error;
+    if (typeof errorCode !== "string") return null;
+    if (errorCode === "delete_mismatch") return m.courseSettings_deleteMismatchError();
+    return errorCode;
   }
 
-  const dangerBanner = $derived(resolveDangerBanner(dangerResult));
+  const dangerBanner = $derived(resolveDangerBanner(form));
 </script>
 
 <div class="mx-auto w-full max-w-[860px] space-y-6 pb-24">

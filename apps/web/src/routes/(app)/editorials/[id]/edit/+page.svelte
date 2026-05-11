@@ -13,7 +13,7 @@
   // back from a successful save) hit a fresh component instance, so we
   // do not need to reactively re-sync.
   let content = $state(untrack(() => data.editorial.content));
-  let language = $state<Language>(untrack(() => data.editorial.language as Language));
+  let language = $state<Language>(untrack(() => data.editorial.language));
   let saving = $state(false);
 
   const dirty = $derived(

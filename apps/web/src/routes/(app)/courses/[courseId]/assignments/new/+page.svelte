@@ -92,10 +92,7 @@
 
   // ── Language toggle ────────────────────────────────────────────────
   function toggleLanguage(lang: Language) {
-    $form.allowedLanguages = toggleArrayItem(
-      ($form.allowedLanguages ?? []) as Language[],
-      lang
-    );
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
   function handleLatePenaltyChange(value: LatePenaltyRule) {

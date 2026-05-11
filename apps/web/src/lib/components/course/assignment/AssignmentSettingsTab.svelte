@@ -71,7 +71,7 @@
 
   function toggleLanguage(lang: Language) {
     if (!editableBasics) return;
-    $form.allowedLanguages = toggleArrayItem(($form.allowedLanguages ?? []) as Language[], lang);
+    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
   function lockHint(): string | null {
@@ -217,9 +217,7 @@
           </div>
           <div class="mt-2 flex flex-wrap gap-2">
             {#each supportedLanguages as lang (lang)}
-              {@const checked = (($form.allowedLanguages ?? []) as Language[]).includes(
-                lang
-              )}
+              {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
               <button
                 type="button"
                 class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {checked

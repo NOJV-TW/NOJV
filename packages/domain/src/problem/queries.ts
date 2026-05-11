@@ -158,7 +158,7 @@ async function mapPersistedProblemDetail(
       title: string;
     }[];
     tags?: string[];
-    status?: string;
+    status?: ProblemStatus;
     timeLimitMs?: number;
     visibility: ProblemVisibility;
     type?: ProblemType;
@@ -221,7 +221,7 @@ async function mapPersistedProblemDetail(
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(visibleWorkspaceFiles),
     statement: localized.statement,
-    status: (problem.status as ProblemStatus | undefined) ?? "published",
+    status: problem.status ?? "published",
     tags,
     timeLimitMs: problem.timeLimitMs ?? 1_000,
     title: localized.title,

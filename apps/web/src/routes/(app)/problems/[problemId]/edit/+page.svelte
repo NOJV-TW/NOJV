@@ -82,11 +82,11 @@
       allowedLanguages: [] as Language[],
       type: workspaceType,
       files: data.workspaceFiles.map((f) => ({
-        language: f.language as Language,
+        language: f.language,
         path: f.path,
         content: f.content,
         description: f.description,
-        visibility: f.visibility as "editable" | "readonly" | "hidden",
+        visibility: f.visibility,
         orderIndex: f.orderIndex
       }))
     };
