@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOJV — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        display: ['Fraunces', 'serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
+      fontSize: {
+        'micro':    ['0.6875rem', { lineHeight: '1.4' }],
+        'caption':  ['0.75rem',   { lineHeight: '1.4' }],
+        'body-sm':  ['0.875rem',  { lineHeight: '1.5' }],
+        'body':     ['1rem',      { lineHeight: '1.5' }],
+        'body-lg':  ['1.125rem',  { lineHeight: '1.5' }],
+        'title-sm': ['1.25rem',   { lineHeight: '1.3' }],
+        'title':    ['1.5rem',    { lineHeight: '1.25' }],
+        'title-lg': ['1.875rem',  { lineHeight: '1.2' }],
+        'headline': ['2.25rem',   { lineHeight: '1.15' }],
+        'display':  ['3rem',      { lineHeight: '1.1' }],
+      },
+      borderRadius: {
+        xs: '0.375rem',
+        sm: '0.5rem',
+        md: '0.75rem',
+        lg: '1rem',
+        xl: '1.5rem',
+        '2xl': '2rem',
+        '3xl': '2.5rem',
+      },
+    }
+  }
+}
+</script>
+<style>
+:root {
+  --background: #f7f1e8;
+  --foreground: #1f1916;
+  --panel: rgba(255, 250, 244, 0.82);
+  --panel-strong: rgba(247, 239, 228, 0.94);
+  --primary: #c4682d;
+  --primary-foreground: #ffffff;
+  --muted: #f4ecdf;
+  --muted-foreground: #6d6157;
+  --accent: #ead6c7;
+  --border-subtle: rgba(79, 52, 35, 0.08);
+  --border: rgba(79, 52, 35, 0.14);
+  --border-strong: rgba(79, 52, 35, 0.24);
+  --success: oklch(0.648 0.15 160);
+  --warning: oklch(0.75 0.16 75);
+  --destructive: oklch(0.577 0.245 27.325);
+  --info: oklch(0.68 0.12 230);
+  --chart-1: #c4682d;
+  --chart-2: #4d6f8f;
+  --chart-3: #8a6142;
+  --chart-4: #d4a054;
+  --chart-5: #7a8f6d;
+  --shadow-rest: 0 1px 1px rgba(79,52,35,.04), 0 2px 4px rgba(79,52,35,.04), 0 8px 16px rgba(79,52,35,.04);
+  --shadow-hover: 0 1px 1px rgba(79,52,35,.05), 0 4px 8px rgba(79,52,35,.06), 0 12px 24px rgba(79,52,35,.08), 0 24px 48px rgba(79,52,35,.06);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.dark {
+  --background: #1a1412;
+  --foreground: #f5ede4;
+  --panel: rgba(74, 58, 48, 0.88);
+  --panel-strong: rgba(86, 68, 56, 0.94);
+  --primary: #d4834a;
+  --muted: #2a201a;
+  --muted-foreground: #a89888;
+  --accent: #3a2e26;
+  --border-subtle: rgba(255, 250, 244, 0.06);
+  --border: rgba(255, 250, 244, 0.12);
+  --border-strong: rgba(255, 250, 244, 0.22);
+}
+body {
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: var(--foreground);
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(196,104,45,.14), transparent 26%),
+    radial-gradient(circle at top right, rgba(77,111,143,.12), transparent 22%),
+    linear-gradient(180deg, #fbf5ed 0%, #f4ecdf 100%);
+  background-attachment: fixed;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+}
+html.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(212,131,74,.08), transparent 26%),
+    radial-gradient(circle at top right, rgba(77,111,143,.06), transparent 22%),
+    linear-gradient(180deg, #1a1412 0%, #151010 100%);
+}
+::selection { background: rgba(196,104,45,.18); }
+html.dark ::selection { background: rgba(212,131,74,.25); }
+.font-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+.font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.tabular-nums { font-variant-numeric: tabular-nums; }
+h1,h2,h3,h4 { text-wrap: balance; line-height: 1.15; }
+p { text-wrap: pretty; line-height: 1.625; }
+
+.bg-panel { background-color: var(--panel); }
+.bg-panel-strong { background-color: var(--panel-strong); }
+.bg-foreground { background-color: var(--foreground); }
+.bg-background { background-color: var(--background); }
+.bg-primary { background-color: var(--primary); }
+.bg-muted { background-color: var(--muted); }
+.bg-accent { background-color: var(--accent); }
+.text-foreground { color: var(--foreground); }
+.text-background { color: var(--background); }
+.text-primary { color: var(--primary); }
+.text-muted-foreground { color: var(--muted-foreground); }
+.text-primary-foreground { color: var(--primary-foreground); }
+.border-default { border-color: var(--border); }
+.border-subtle { border-color: var(--border-subtle); }
+.border-strong { border-color: var(--border-strong); }
+.border-primary { border-color: var(--primary); }
+.ring-primary { --tw-ring-color: var(--primary); }
+.shadow-rest { box-shadow: var(--shadow-rest); }
+.shadow-hover { box-shadow: var(--shadow-hover); }
+
+.glass {
+  background-color: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* Animations */
+@keyframes fade-up {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0,0,0); }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.fade-up { animation: fade-up 700ms var(--ease-out-soft) both; }
+.fade-up-1 { animation: fade-up 700ms var(--ease-out-soft) 80ms both; }
+.fade-up-2 { animation: fade-up 700ms var(--ease-out-soft) 160ms both; }
+.fade-up-3 { animation: fade-up 700ms var(--ease-out-soft) 240ms both; }
+.fade-up-4 { animation: fade-up 700ms var(--ease-out-soft) 320ms both; }
+.fade-up-5 { animation: fade-up 700ms var(--ease-out-soft) 400ms both; }
+
+.hover-lift { transition: transform 160ms var(--ease-out-soft), box-shadow 160ms var(--ease-out-soft); }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+
+/* Semantic verdict utilities */
+.verdict-ac    { background: color-mix(in oklab, var(--success) 15%, transparent); color: oklch(0.45 0.13 160); }
+.verdict-wa    { background: color-mix(in oklab, var(--destructive) 15%, transparent); color: oklch(0.45 0.18 27); }
+.verdict-tle   { background: color-mix(in oklab, var(--warning) 15%, transparent); color: oklch(0.45 0.15 75); }
+.verdict-mle   { background: color-mix(in oklab, #ff8a3c 15%, transparent); color: oklch(0.5 0.16 50); }
+.verdict-re    { background: color-mix(in oklab, #9b5cd9 15%, transparent); color: oklch(0.45 0.18 295); }
+.verdict-ce    { background: color-mix(in oklab, var(--destructive) 15%, transparent); color: oklch(0.45 0.18 27); }
+.verdict-pending { background: color-mix(in oklab, var(--info) 15%, transparent); color: oklch(0.45 0.12 230); }
+html.dark .verdict-ac    { color: oklch(0.78 0.13 160); }
+html.dark .verdict-wa    { color: oklch(0.72 0.18 27); }
+html.dark .verdict-tle   { color: oklch(0.82 0.16 75); }
+html.dark .verdict-mle   { color: oklch(0.78 0.16 50); }
+html.dark .verdict-re    { color: oklch(0.75 0.18 295); }
+html.dark .verdict-pending { color: oklch(0.78 0.12 230); }
+
+/* Heatmap cells */
+.heat-0 { background: var(--muted); }
+.heat-1 { background: color-mix(in oklab, var(--primary) 22%, var(--muted)); }
+.heat-2 { background: color-mix(in oklab, var(--primary) 45%, var(--muted)); }
+.heat-3 { background: color-mix(in oklab, var(--primary) 70%, var(--muted)); }
+.heat-4 { background: var(--primary); }
+
+/* Conic gauge ring used for streak / progress dots */
+.gauge {
+  width: 44px; height: 44px;
+  border-radius: 9999px;
+  display: grid; place-items: center;
+  position: relative;
+}
+.gauge::after {
+  content: ''; position: absolute; inset: 4px;
+  border-radius: 9999px; background: var(--panel-strong);
+}
+.gauge > span { position: relative; z-index: 1; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px; }
+
+/* Toggle pill */
+.toggle-track { width: 40px; height: 20px; border-radius: 9999px; background: var(--muted); border: 1px solid var(--border); position: relative; transition: background-color 160ms; }
+.toggle-track[data-on="true"] { background: var(--primary); border-color: var(--primary); }
+.toggle-thumb { position: absolute; top: 1px; left: 1px; width: 16px; height: 16px; border-radius: 9999px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: transform 160ms var(--ease-out-soft); }
+.toggle-track[data-on="true"] .toggle-thumb { transform: translateX(20px); }
+
+/* Live pulse */
+.live-dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent); }
+  50%      { box-shadow: 0 0 0 8px color-mix(in oklab, var(--primary) 0%, transparent); }
+}
+
+/* Bar chart bars */
+.bar-fill { background: var(--chart-3); height: 12px; border-radius: 0 4px 4px 0; }
+
+/* Focus rings */
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Scrollbar (subtle) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+<div class="mx-auto max-w-screen-2xl px-4 sm:px-6 pt-6 pb-16">
+
+  <!-- ============ HEADER ============ -->
+  <header class="glass sticky top-6 z-20 rounded-2xl px-5 py-3 shadow-rest fade-up" style="border-radius: 2rem;">
+    <div class="flex flex-wrap items-center gap-6">
+      <a href="#" class="font-display text-title-sm font-bold tracking-tight hover:text-primary transition-colors">NOJV</a>
+
+      <nav class="flex flex-wrap items-center gap-1 text-body-sm font-medium">
+        <a class="rounded-md px-3 py-1.5 bg-accent text-foreground" href="#" style="background: color-mix(in oklab, var(--accent) 60%, transparent);">Dashboard</a>
+        <a class="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors" href="#">Problems</a>
+        <a class="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors" href="#">Courses</a>
+        <a class="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors" href="#">Assignments</a>
+        <a class="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors" href="#">Exams</a>
+        <a class="rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground transition-colors" href="#">Contests</a>
+      </nav>
+
+      <div class="ml-auto flex items-center gap-2">
+        <!-- Locale switcher pill -->
+        <div class="hidden sm:flex items-center gap-1 rounded-full p-1 text-caption" style="background: var(--panel-strong); border:1px solid var(--border-subtle);">
+          <button class="rounded-full px-2.5 py-1 bg-primary text-primary-foreground" type="button">en</button>
+          <button class="rounded-full px-2.5 py-1 text-muted-foreground hover:text-foreground transition-colors" type="button">zh-TW</button>
+        </div>
+
+        <!-- Theme toggle -->
+        <button id="themeBtn" type="button" class="rounded-full size-9 grid place-items-center hover:bg-accent transition-colors" title="Toggle theme">
+          <svg id="iconSun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg id="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+
+        <!-- Notifications -->
+        <button type="button" class="rounded-full size-9 grid place-items-center hover:bg-accent transition-colors relative" title="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute top-1.5 right-2 size-2 rounded-full bg-primary"></span>
+        </button>
+
+        <!-- User avatar -->
+        <button type="button" class="grid place-items-center size-9 rounded-full bg-primary text-primary-foreground font-semibold text-body-sm">A</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ PAGE HEADER ============ -->
+  <section class="mt-10 fade-up-1">
+    <div class="text-caption uppercase tracking-[0.14em] font-semibold text-primary">Your Workspace</div>
+    <h1 class="mt-2 font-display text-display font-medium tracking-tight" style="font-size: clamp(2rem, 4vw, 3rem);">
+      Welcome back, <span class="italic">Aiden</span>.
+    </h1>
+    <p class="mt-3 max-w-prose text-body-lg text-muted-foreground">A snapshot of your last 30 days — practice rhythm, accuracy, and where to push next.</p>
+  </section>
+
+  <!-- ============ STAT STRIP ============ -->
+  <section class="mt-8 fade-up-2 glass rounded-2xl p-7" style="border-radius: 2rem;">
+    <div class="flex items-baseline justify-end gap-4 mb-6">
+      <span class="text-caption text-muted-foreground font-mono uppercase tracking-wider">Last 30 days</span>
+    </div>
+    <div class="grid grid-cols-2 gap-6 md:grid-cols-4">
+      <div class="flex flex-col gap-1">
+        <span class="text-caption text-muted-foreground">Accepted</span>
+        <span class="text-headline font-semibold tabular-nums">142</span>
+      </div>
+      <div class="flex flex-col gap-1 md:border-l md:pl-6" style="border-color: var(--border-subtle);">
+        <span class="text-caption text-muted-foreground">Total attempts</span>
+        <span class="text-headline font-semibold tabular-nums">218</span>
+      </div>
+      <div class="flex flex-col gap-1 md:border-l md:pl-6" style="border-color: var(--border-subtle);">
+        <span class="text-caption text-muted-foreground">AC rate</span>
+        <span class="text-headline font-semibold tabular-nums">65.1<span class="text-title text-muted-foreground">%</span></span>
+      </div>
+      <div class="flex flex-col gap-1 md:border-l md:pl-6" style="border-color: var(--border-subtle);">
+        <span class="text-caption text-muted-foreground">Practice days</span>
+        <span class="text-headline font-semibold tabular-nums">23 <span class="text-title text-muted-foreground font-normal">/ 30</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ACTIVITY HEATMAP ============ -->
+  <section class="mt-6 fade-up-3 glass rounded-2xl p-7" style="border-radius: 2rem;">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-title-sm font-semibold">Activity</h2>
+        <p class="text-caption text-muted-foreground mt-1">142 problems solved across 23 days</p>
+      </div>
+      <div class="flex items-center gap-2 text-micro text-muted-foreground font-mono uppercase tracking-wider">
+        <span>Less</span>
+        <div class="flex gap-[2px]">
+          <span class="size-3 rounded-[3px] heat-0"></span>
+          <span class="size-3 rounded-[3px] heat-1"></span>
+          <span class="size-3 rounded-[3px] heat-2"></span>
+          <span class="size-3 rounded-[3px] heat-3"></span>
+          <span class="size-3 rounded-[3px] heat-4"></span>
+        </div>
+        <span>More</span>
+      </div>
+    </div>
+
+    <!-- Heatmap grid: 7 rows × 30 cols (~ 30 weeks compact); we use 7x30 -->
+    <div class="overflow-x-auto">
+      <div id="heatmap" class="grid gap-[3px]" style="grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; grid-auto-columns: 1fr; min-width: 720px;"></div>
+      <div class="mt-3 flex justify-between text-micro font-mono text-muted-foreground uppercase tracking-wider">
+        <span>26 Wk ago</span>
+        <span>Today</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STREAK + WEEKLY TREND ============ -->
+  <section class="mt-6 grid gap-6 md:grid-cols-2 fade-up-4">
+
+    <!-- Streak -->
+    <div class="glass rounded-2xl p-7" style="border-radius: 2rem;">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="text-caption text-muted-foreground font-mono uppercase tracking-wider">Current streak</div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="font-display text-display-lg font-medium tabular-nums" style="font-size: 4rem; line-height: 1;">12</span>
+            <span class="text-title-sm text-muted-foreground">days</span>
+          </div>
+          <div class="mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-caption font-semibold tracking-[0.04em] verdict-ac">
+            <span class="size-1.5 rounded-full live-dot"></span>
+            Active today
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-caption text-muted-foreground">Longest</div>
+          <div class="font-display text-title-lg font-medium tabular-nums mt-1">28</div>
+        </div>
+      </div>
+
+      <!-- 14-day streak ladder -->
+      <div class="mt-6">
+        <div class="flex gap-1.5">
+          <!-- We render 14 columns; class set with JS for skipped days -->
+          <span class="streak-day flex-1 h-9 rounded-md heat-3"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-2"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-3"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-4"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-1"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-2"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-3"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-2"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-3"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-4"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-2"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-3"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-2"></span>
+          <span class="streak-day flex-1 h-9 rounded-md heat-3 border-2" style="border-color: var(--primary);"></span>
+        </div>
+        <div class="mt-2 flex justify-between text-micro font-mono uppercase tracking-wider text-muted-foreground"><span>14 d ago</span><span>Today</span></div>
+      </div>
+    </div>
+
+    <!-- Weekly trend -->
+    <div class="glass rounded-2xl p-7" style="border-radius: 2rem;">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="text-caption text-muted-foreground font-mono uppercase tracking-wider">Weekly trend</div>
+          <h3 class="mt-2 font-display text-title-lg font-medium tracking-tight">38 solved this week</h3>
+        </div>
+        <div class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-semibold verdict-ac">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+          <span>+12%</span>
+        </div>
+      </div>
+      <!-- 8-week sparkbar -->
+      <div class="mt-6 flex items-end gap-2 h-32">
+        <!-- bars: heights data-driven -->
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 22%"></div>
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 36%"></div>
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 30%"></div>
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 55%"></div>
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 42%"></div>
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 68%"></div>
+        <div class="flex-1 rounded-t-md bg-muted" style="height: 60%"></div>
+        <div class="flex-1 rounded-t-md" style="height: 88%; background: var(--primary);"></div>
+      </div>
+      <div class="mt-2 flex justify-between text-micro font-mono uppercase tracking-wider text-muted-foreground">
+        <span>8 wk ago</span><span class="text-primary">This week</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAG PROFICIENCY ============ -->
+  <section class="mt-6 fade-up-5 glass rounded-2xl p-7" style="border-radius: 2rem;">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-title-sm font-semibold">Tag proficiency</h2>
+        <p class="text-caption text-muted-foreground mt-1">Accepted submissions grouped by topic</p>
+      </div>
+      <div class="inline-flex items-center gap-1 rounded-lg p-1 text-caption font-medium" style="background: var(--panel-strong); border: 1px solid var(--border);">
+        <button class="rounded-md px-2.5 py-1 bg-primary text-primary-foreground" type="button">AC count</button>
+        <button class="rounded-md px-2.5 py-1 text-muted-foreground hover:text-foreground transition-colors" type="button">AC rate</button>
+      </div>
+    </div>
+
+    <div class="grid gap-y-2.5" style="grid-template-columns: 130px 1fr 56px;" id="tagBars"></div>
+  </section>
+
+  <!-- ============ DISTRIBUTION TRIPTYCH ============ -->
+  <section class="mt-6 grid gap-6 lg:grid-cols-3 fade-up-5">
+
+    <!-- Difficulty -->
+    <div class="glass rounded-2xl p-7" style="border-radius: 2rem;">
+      <h2 class="text-title-sm font-semibold mb-1">Difficulty</h2>
+      <p class="text-caption text-muted-foreground mb-5">Distribution of solved problems</p>
+
+      <!-- Donut SVG: easy 62, medium 58, hard 22 = 142 -->
+      <div class="grid place-items-center">
+        <svg viewBox="0 0 120 120" width="170" height="170" aria-hidden="true">
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--muted)" stroke-width="16"/>
+          <!-- arcs computed with stroke-dasharray, 2*pi*r ≈ 276.46 -->
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--success)" stroke-width="16" stroke-dasharray="120.6 276.46" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--warning)" stroke-width="16" stroke-dasharray="112.9 276.46" stroke-dashoffset="-120.6" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--destructive)" stroke-width="16" stroke-dasharray="42.9 276.46" stroke-dashoffset="-233.5" transform="rotate(-90 60 60)"/>
+        </svg>
+      </div>
+      <ul class="mt-5 space-y-2 text-body-sm">
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--success)"></span>Easy</span>
+          <span class="text-muted-foreground font-mono">62 <span class="text-foreground/40">·</span> 43.7%</span>
+        </li>
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--warning)"></span>Medium</span>
+          <span class="text-muted-foreground font-mono">58 <span class="text-foreground/40">·</span> 40.8%</span>
+        </li>
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--destructive)"></span>Hard</span>
+          <span class="text-muted-foreground font-mono">22 <span class="text-foreground/40">·</span> 15.5%</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Verdict (donut + big AC% center) -->
+    <div class="glass rounded-2xl p-7" style="border-radius: 2rem;">
+      <h2 class="text-title-sm font-semibold mb-1">Verdict mix</h2>
+      <p class="text-caption text-muted-foreground mb-5">All 218 submissions in window</p>
+
+      <div class="relative grid place-items-center">
+        <svg viewBox="0 0 120 120" width="170" height="170" aria-hidden="true">
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--muted)" stroke-width="16"/>
+          <!-- AC 142, WA 42, TLE 18, RE 11, CE 5 -->
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--chart-5)" stroke-width="16" stroke-dasharray="180.0 276.46" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--destructive)" stroke-width="16" stroke-dasharray="53.3 276.46" stroke-dashoffset="-180.0" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--warning)" stroke-width="16" stroke-dasharray="22.8 276.46" stroke-dashoffset="-233.3" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="#9b5cd9" stroke-width="16" stroke-dasharray="14.0 276.46" stroke-dashoffset="-256.1" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="absolute inset-0 grid place-items-center pointer-events-none">
+          <div class="text-center">
+            <div class="font-display text-title-lg font-medium tabular-nums">65.1%</div>
+            <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground mt-0.5">AC rate</div>
+          </div>
+        </div>
+      </div>
+      <ul class="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 text-body-sm">
+        <li class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--chart-5)"></span>Accepted <span class="ml-auto font-mono text-muted-foreground">142</span></li>
+        <li class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--destructive)"></span>Wrong <span class="ml-auto font-mono text-muted-foreground">42</span></li>
+        <li class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--warning)"></span>TLE <span class="ml-auto font-mono text-muted-foreground">18</span></li>
+        <li class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: #9b5cd9"></span>Runtime <span class="ml-auto font-mono text-muted-foreground">11</span></li>
+      </ul>
+    </div>
+
+    <!-- Language (donut) -->
+    <div class="glass rounded-2xl p-7" style="border-radius: 2rem;">
+      <h2 class="text-title-sm font-semibold mb-1">Languages</h2>
+      <p class="text-caption text-muted-foreground mb-5">Submissions by language</p>
+
+      <div class="grid place-items-center">
+        <svg viewBox="0 0 120 120" width="170" height="170" aria-hidden="true">
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--muted)" stroke-width="16"/>
+          <!-- C++ 121, Python 64, Rust 22, Go 11 -->
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--chart-1)" stroke-width="16" stroke-dasharray="153.4 276.46" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--chart-2)" stroke-width="16" stroke-dasharray="81.2 276.46" stroke-dashoffset="-153.4" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--chart-3)" stroke-width="16" stroke-dasharray="27.9 276.46" stroke-dashoffset="-234.6" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="var(--chart-4)" stroke-width="16" stroke-dasharray="14.0 276.46" stroke-dashoffset="-262.5" transform="rotate(-90 60 60)"/>
+        </svg>
+      </div>
+      <ul class="mt-5 space-y-2 text-body-sm">
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--chart-1)"></span>C++</span>
+          <span class="text-muted-foreground font-mono">121 · 55.5%</span>
+        </li>
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--chart-2)"></span>Python</span>
+          <span class="text-muted-foreground font-mono">64 · 29.4%</span>
+        </li>
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--chart-3)"></span>Rust</span>
+          <span class="text-muted-foreground font-mono">22 · 10.1%</span>
+        </li>
+        <li class="flex items-center justify-between">
+          <span class="flex items-center gap-2"><span class="size-2.5 rounded-sm" style="background: var(--chart-4)"></span>Go</span>
+          <span class="text-muted-foreground font-mono">11 · 5.0%</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ RECENT SUBMISSIONS ============ -->
+  <section class="mt-6 fade-up-5 glass rounded-2xl p-7" style="border-radius: 2rem;">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-title-sm font-semibold">Recent submissions</h2>
+        <p class="text-caption text-muted-foreground mt-1">Live feed from your last attempts</p>
+      </div>
+      <a href="#" class="text-body-sm font-medium text-primary hover:underline">View all →</a>
+    </div>
+
+    <ul class="space-y-1">
+      <li class="grid grid-cols-[88px_92px_1fr_auto_auto] items-center gap-4 rounded-md px-3 py-2.5 hover:bg-accent/40 transition-colors" style="--tw-bg-opacity:.4">
+        <time class="text-caption text-muted-foreground font-mono tabular-nums">just now</time>
+        <span class="inline-flex justify-center rounded-full px-2.5 py-1 text-caption font-semibold verdict-ac">Accepted</span>
+        <a href="#" class="truncate font-medium hover:underline">Two Towers — Range Sum with Updates</a>
+        <span class="text-caption text-muted-foreground font-mono">cpp</span>
+        <span class="text-caption text-muted-foreground font-mono tabular-nums">128ms</span>
+      </li>
+      <li class="grid grid-cols-[88px_92px_1fr_auto_auto] items-center gap-4 rounded-md px-3 py-2.5 hover:bg-accent/40 transition-colors">
+        <time class="text-caption text-muted-foreground font-mono tabular-nums">3 min ago</time>
+        <span class="inline-flex justify-center rounded-full px-2.5 py-1 text-caption font-semibold verdict-wa">Wrong</span>
+        <a href="#" class="truncate font-medium hover:underline">Galaxies — Articulation Points</a>
+        <span class="text-caption text-muted-foreground font-mono">cpp</span>
+        <span class="text-caption text-muted-foreground font-mono tabular-nums">—</span>
+      </li>
+      <li class="grid grid-cols-[88px_92px_1fr_auto_auto] items-center gap-4 rounded-md px-3 py-2.5 hover:bg-accent/40 transition-colors">
+        <time class="text-caption text-muted-foreground font-mono tabular-nums">12 min ago</time>
+        <span class="inline-flex justify-center rounded-full px-2.5 py-1 text-caption font-semibold verdict-tle">TLE</span>
+        <a href="#" class="truncate font-medium hover:underline">Tea Time — Greedy Scheduling</a>
+        <span class="text-caption text-muted-foreground font-mono">python</span>
+        <span class="text-caption text-muted-foreground font-mono tabular-nums">2,001ms</span>
+      </li>
+      <li class="grid grid-cols-[88px_92px_1fr_auto_auto] items-center gap-4 rounded-md px-3 py-2.5 hover:bg-accent/40 transition-colors">
+        <time class="text-caption text-muted-foreground font-mono tabular-nums">34 min ago</time>
+        <span class="inline-flex justify-center rounded-full px-2.5 py-1 text-caption font-semibold verdict-ac">Accepted</span>
+        <a href="#" class="truncate font-medium hover:underline">Mosaic — DP on Trees</a>
+        <span class="text-caption text-muted-foreground font-mono">cpp</span>
+        <span class="text-caption text-muted-foreground font-mono tabular-nums">412ms</span>
+      </li>
+      <li class="grid grid-cols-[88px_92px_1fr_auto_auto] items-center gap-4 rounded-md px-3 py-2.5 hover:bg-accent/40 transition-colors">
+        <time class="text-caption text-muted-foreground font-mono tabular-nums">1h ago</time>
+        <span class="inline-flex justify-center rounded-full px-2.5 py-1 text-caption font-semibold verdict-re">Runtime</span>
+        <a href="#" class="truncate font-medium hover:underline">Riverbed — Persistent Segment Tree</a>
+        <span class="text-caption text-muted-foreground font-mono">rust</span>
+        <span class="text-caption text-muted-foreground font-mono tabular-nums">—</span>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ============ SUGGESTED PROBLEMS ============ -->
+  <section class="mt-6 fade-up-5">
+    <div class="flex items-end justify-between mb-5">
+      <div>
+        <div class="text-caption text-muted-foreground font-mono uppercase tracking-wider">Suggested</div>
+        <h2 class="mt-1 font-display text-title-lg font-medium tracking-tight">Next problems for you</h2>
+      </div>
+      <a href="#" class="text-body-sm font-medium text-primary hover:underline">Browse all problems →</a>
+    </div>
+
+    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <!-- card 1 -->
+      <a href="#" class="glass rounded-2xl p-6 hover-lift group block" style="border-radius: 2rem;">
+        <div class="flex items-center justify-between">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-semibold uppercase tracking-[0.1em] verdict-tle">Medium</span>
+          <span class="text-micro font-mono text-muted-foreground">SEGMENT-TREE</span>
+        </div>
+        <h3 class="mt-4 font-display text-title-sm font-medium tracking-tight group-hover:text-primary transition-colors">Aurora — Lazy Propagation</h3>
+        <p class="mt-1.5 text-body-sm text-muted-foreground line-clamp-2">Maintain a sequence under range add and range min queries. A direct sequel to Two Towers.</p>
+        <div class="mt-5 flex items-center gap-3">
+          <div class="gauge" style="background: conic-gradient(var(--primary) 78%, var(--muted) 0);"><span>78</span></div>
+          <div class="text-caption text-muted-foreground"><div>Acceptance fit</div><div class="text-foreground font-medium">Likely AC</div></div>
+        </div>
+      </a>
+
+      <!-- card 2 -->
+      <a href="#" class="glass rounded-2xl p-6 hover-lift group block" style="border-radius: 2rem;">
+        <div class="flex items-center justify-between">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-semibold uppercase tracking-[0.1em] verdict-ac">Easy</span>
+          <span class="text-micro font-mono text-muted-foreground">GREEDY</span>
+        </div>
+        <h3 class="mt-4 font-display text-title-sm font-medium tracking-tight group-hover:text-primary transition-colors">Linen Sorting</h3>
+        <p class="mt-1.5 text-body-sm text-muted-foreground line-clamp-2">Pair items so the slowest pair determines the round. A warm-up for the greedy track.</p>
+        <div class="mt-5 flex items-center gap-3">
+          <div class="gauge" style="background: conic-gradient(var(--primary) 94%, var(--muted) 0);"><span>94</span></div>
+          <div class="text-caption text-muted-foreground"><div>Acceptance fit</div><div class="text-foreground font-medium">Very likely AC</div></div>
+        </div>
+      </a>
+
+      <!-- card 3 -->
+      <a href="#" class="glass rounded-2xl p-6 hover-lift group block" style="border-radius: 2rem;">
+        <div class="flex items-center justify-between">
+          <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-micro font-semibold uppercase tracking-[0.1em] verdict-wa">Hard</span>
+          <span class="text-micro font-mono text-muted-foreground">FLOW</span>
+        </div>
+        <h3 class="mt-4 font-display text-title-sm font-medium tracking-tight group-hover:text-primary transition-colors">Power Grid — Min-Cost Max-Flow</h3>
+        <p class="mt-1.5 text-body-sm text-muted-foreground line-clamp-2">Allocate generation across substations under cost constraints. Stretch problem for the week.</p>
+        <div class="mt-5 flex items-center gap-3">
+          <div class="gauge" style="background: conic-gradient(var(--primary) 42%, var(--muted) 0);"><span>42</span></div>
+          <div class="text-caption text-muted-foreground"><div>Acceptance fit</div><div class="text-foreground font-medium">Worth a shot</div></div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-16 flex flex-wrap items-center justify-between gap-3 text-caption text-muted-foreground">
+    <div class="font-mono">NOJV · v0.18.4</div>
+    <div class="flex items-center gap-4">
+      <a href="#" class="hover:text-foreground transition-colors">Status</a>
+      <a href="#" class="hover:text-foreground transition-colors">Docs</a>
+      <a href="#" class="hover:text-foreground transition-colors">Shortcuts</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+// ---------- Theme toggle ----------
+const themeBtn = document.getElementById('themeBtn');
+const iconSun = document.getElementById('iconSun');
+const iconMoon = document.getElementById('iconMoon');
+function setTheme(dark) {
+  document.documentElement.classList.toggle('dark', dark);
+  iconSun.style.display = dark ? 'none' : '';
+  iconMoon.style.display = dark ? '' : 'none';
+  try { localStorage.setItem('nojv-theme', dark ? 'dark' : 'light'); } catch {}
+}
+themeBtn.addEventListener('click', () => setTheme(!document.documentElement.classList.contains('dark')));
+try {
+  const saved = localStorage.getItem('nojv-theme');
+  if (saved === 'dark') setTheme(true);
+} catch {}
+
+// ---------- Heatmap (deterministic pseudo-random) ----------
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rand = mulberry32(2024);
+const heatmap = document.getElementById('heatmap');
+// 26 weeks * 7 days = 182 cells, oldest first; weekend slightly less active
+for (let week = 0; week < 26; week++) {
+  for (let day = 0; day < 7; day++) {
+    const r = rand();
+    const trend = week / 26; // newer weeks slightly busier
+    let level;
+    const v = r + trend * 0.35 - (day === 0 || day === 6 ? 0.1 : 0);
+    if (v < 0.30) level = 0;
+    else if (v < 0.55) level = 1;
+    else if (v < 0.78) level = 2;
+    else if (v < 0.92) level = 3;
+    else level = 4;
+    const cell = document.createElement('span');
+    cell.className = `heat-${level} rounded-[3px] aspect-square`;
+    cell.style.minWidth = '10px';
+    heatmap.appendChild(cell);
+  }
+}
+
+// ---------- Tag proficiency bars ----------
+const tags = [
+  { name: 'DP',                ac: 38, total: 52 },
+  { name: 'Graphs',            ac: 27, total: 41 },
+  { name: 'Segment Tree',      ac: 21, total: 24 },
+  { name: 'Greedy',            ac: 18, total: 30 },
+  { name: 'Number Theory',     ac: 14, total: 22 },
+  { name: 'Strings',           ac: 11, total: 19 },
+  { name: 'Geometry',           ac: 7, total: 18 },
+  { name: 'Flow',               ac: 6, total: 15 },
+];
+const max = Math.max(...tags.map(t => t.ac));
+const tagBars = document.getElementById('tagBars');
+tags.forEach(t => {
+  const w = (t.ac / max) * 100;
+  const rate = ((t.ac / t.total) * 100).toFixed(0);
+  tagBars.insertAdjacentHTML('beforeend', `
+    <div class="text-body-sm font-medium truncate">${t.name}</div>
+    <div class="self-center">
+      <div class="bar-fill" style="width: ${w}%"></div>
+    </div>
+    <div class="text-caption font-mono text-muted-foreground tabular-nums justify-self-end">${t.ac}<span class="text-foreground/40"> · </span>${rate}%</div>
+  `);
+});
+</script>
+</body>
+</html>

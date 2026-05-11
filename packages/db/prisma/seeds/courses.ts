@@ -1,10 +1,14 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 
+const HOUR = 3600 * 1000;
+const DAY = 24 * HOUR;
+
 export async function seedCourses(
   prisma: PrismaClient,
   users: { teacher: { id: string }; taStudent: { id: string }; student: { id: string } },
 ) {
   const { teacher, taStudent, student } = users;
+  const now = Date.now();
 
   // Real OAuth-registered user (student handle `41047025s`) — enroll into the OS Lab course
   // if present. Skipped on a fresh DB without the real login.
@@ -206,6 +210,90 @@ export async function seedCourses(
       },
     });
   }
+
+  // Demo fixture for 41047025s — assignment currently "in progress":
+  // opens past, due in a week, with the warmup-sum problem linked. Dates are
+  // recomputed every seed run so the state stays current.
+  const hwActive = await prisma.courseAssessment.upsert({
+    create: {
+      id: "hw-demo-active",
+      allowedLanguages: ["c", "cpp", "python"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      opensAt: new Date(now - 14 * DAY),
+      dueAt: new Date(now + 7 * DAY),
+      closesAt: new Date(now + 10 * DAY),
+      status: "published",
+      summary: "進行中作業 — 滑動視窗與雙指針練習。",
+      title: "Demo: Sliding Window 進階",
+    },
+    update: {
+      opensAt: new Date(now - 14 * DAY),
+      dueAt: new Date(now + 7 * DAY),
+      closesAt: new Date(now + 10 * DAY),
+      status: "published",
+    },
+    where: { id: "hw-demo-active" },
+  });
+
+  await prisma.courseAssessmentProblem.upsert({
+    create: {
+      assessmentId: hwActive.id,
+      ordinal: 1,
+      points: 100,
+      problemId: "problem_warmup-sum",
+    },
+    update: { ordinal: 1, points: 100 },
+    where: {
+      assessmentId_problemId: {
+        assessmentId: hwActive.id,
+        problemId: "problem_warmup-sum",
+      },
+    },
+  });
+
+  // Demo fixture — upcoming exam so the redesigned pre-exam "rules" view has
+  // something to render. startsAt 7d out.
+  const examUpcomingDemo = await prisma.exam.upsert({
+    create: {
+      id: "exam_demo_upcoming",
+      allowedLanguages: ["c", "cpp", "python"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now + 7 * DAY),
+      endsAt: new Date(now + 7 * DAY + 2 * HOUR),
+      frozenBoard: false,
+      pageLockEnabled: true,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "published",
+      summary: "示範用即將舉行的考試 — 開考前展示應考規則畫面。",
+      title: "Demo: Final Prep Exam",
+    },
+    update: {
+      startsAt: new Date(now + 7 * DAY),
+      endsAt: new Date(now + 7 * DAY + 2 * HOUR),
+      status: "published",
+    },
+    where: { id: "exam_demo_upcoming" },
+  });
+
+  await prisma.examProblem.upsert({
+    create: {
+      examId: examUpcomingDemo.id,
+      ordinal: 1,
+      points: 100,
+      problemId: "problem_warmup-sum",
+    },
+    update: { ordinal: 1, points: 100 },
+    where: {
+      examId_problemId: {
+        examId: examUpcomingDemo.id,
+        problemId: "problem_warmup-sum",
+      },
+    },
+  });
 
   // startsAt is far in the future so the hiding logic always fires regardless of clock.
   const upcomingDemo = await prisma.exam.upsert({

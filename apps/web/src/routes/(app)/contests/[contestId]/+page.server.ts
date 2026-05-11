@@ -4,7 +4,7 @@ import { clarificationDomain, contestDomain, scoreOverrideDomain } from "@nojv/d
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-const { getContestDetail, listContestParticipantsWithUser } = contestDomain;
+const { getContestDetail, getScoreboard, listContestParticipantsWithUser } = contestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const { params, locals } = event;
@@ -16,6 +16,25 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     platformRole: locals.sessionUser?.platformRole ?? null,
     now,
   });
+
+  // Mini-leaderboard for the detail sidebar. Skip for not-yet-started
+  // contests (no entries exist) and tolerate hidden boards by reading the
+  // user-facing view (entries auto-blank when `scoreboardMode === "hidden"`).
+  const showLeaderboard = now >= new Date(contest.startsAt);
+  const isPrivileged =
+    locals.sessionUser?.platformRole === "admin" ||
+    locals.sessionUser?.platformRole === "teacher";
+  const topEntries = showLeaderboard
+    ? await getScoreboard(contest.id, { isPrivileged }).then((sb) =>
+        sb.entries.slice(0, 5).map((e) => ({
+          rank: e.rank,
+          username: e.username,
+          displayName: e.displayName,
+          totalScore: e.totalScore,
+          isMe: user?.id === e.userId,
+        })),
+      )
+    : [];
 
   // Staff-only data for the score-override drawer. Students don't see the
   // button so we skip the extra fetches entirely.
@@ -54,6 +73,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     contest,
     canSetOverride,
     overrideStudents,
+    topEntries,
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
