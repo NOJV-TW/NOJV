@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import { Megaphone, Calendar, Pin } from "@lucide/svelte";
   import Header from "$lib/components/layout/Header.svelte";
+  import Footer from "$lib/components/layout/Footer.svelte";
   import { Card } from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
@@ -175,6 +176,7 @@
     {/if}
   </div>
   </main>
+  <Footer />
 </div>
 
 <AnnouncementViewDialog bind:open={viewOpen} announcement={viewing} />
