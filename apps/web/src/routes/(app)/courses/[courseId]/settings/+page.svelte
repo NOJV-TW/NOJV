@@ -84,7 +84,7 @@
         <Settings class="h-5 w-5" />
       </span>
       <div>
-        <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+        <h2 class="text-title-sm font-medium tracking-[-0.01em]">
           {m.courseSettings_infoCardTitle()}
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">
@@ -228,7 +228,7 @@
         {/if}
       </span>
       <div>
-        <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+        <h2 class="text-title-sm font-medium tracking-[-0.01em]">
           {archivedLocal
             ? m.courseSettings_archiveCardTitleArchived()
             : m.courseSettings_archiveCardTitleActive()}
@@ -283,7 +283,7 @@
         <AlertTriangle class="h-5 w-5" />
       </span>
       <div>
-        <h2 class="font-display text-title-sm font-medium tracking-[-0.01em] text-destructive">
+        <h2 class="text-title-sm font-medium tracking-[-0.01em] text-destructive">
           {m.courseSettings_dangerCardTitle()}
         </h2>
         <p class="mt-1 text-caption text-muted-foreground">

@@ -87,7 +87,7 @@
 
   <div class="mt-3 flex items-start gap-4">
     <div class="flex-1 min-w-0">
-      <h3 class="font-display text-title font-semibold leading-tight">
+      <h3 class="text-title font-semibold leading-tight">
         {assignment.title}
       </h3>
       <div

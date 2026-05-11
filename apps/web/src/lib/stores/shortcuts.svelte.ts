@@ -12,6 +12,10 @@ export interface Shortcut {
 }
 
 function normalizeKey(event: KeyboardEvent): string {
+  // KeyboardEvent.key is typed as string but autofill / synthetic events
+  // can deliver undefined at runtime (commit b5c49a4). The eslint rule
+  // doesn't know about that — keep the defensive guard.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const key = event.key ?? "";
   if (key === " ") return "Space";
   return key.length === 1 ? key.toUpperCase() : key;

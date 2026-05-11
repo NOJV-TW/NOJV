@@ -70,7 +70,7 @@
           {m.examReview_eyebrow({ code: data.examCode })}
         </div>
         <h1
-          class="font-display truncate text-headline font-semibold tracking-tight"
+          class="truncate text-headline font-semibold tracking-tight"
         >
           {data.examTitle}
         </h1>
@@ -82,7 +82,7 @@
           {m.examReview_finalScoreLabel()}
         </div>
         <div
-          class="font-display mt-0.5 text-display font-bold leading-none tabular-nums"
+          class="mt-0.5 text-display font-bold leading-none tabular-nums"
         >
           {data.total}<span class="text-title text-muted-foreground">
             / {data.max}</span
@@ -94,7 +94,7 @@
           {m.examReview_passRateLabel()}
         </div>
         <div
-          class="font-display mt-0.5 text-display font-bold leading-none tabular-nums"
+          class="mt-0.5 text-display font-bold leading-none tabular-nums"
         >
           {pct}<span class="text-title text-muted-foreground">%</span>
         </div>
@@ -194,7 +194,7 @@
           <span class="font-mono text-title text-muted-foreground"
             >{activeProblem.letter}.</span
           >
-          <h2 class="font-display text-title-lg font-semibold">{activeProblem.title}</h2>
+          <h2 class="text-title-lg font-semibold">{activeProblem.title}</h2>
           <span
             class="ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-caption uppercase tracking-wider"
             style:background={verdictBg(activeProblem.verdict)}
@@ -211,7 +211,7 @@
             <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
               {m.examReview_scoreLabel()}
             </div>
-            <div class="font-display mt-1 text-title font-semibold tabular-nums">
+            <div class="mt-1 text-title font-semibold tabular-nums">
               {activeProblem.score} / {activeProblem.max}
             </div>
           </div>
@@ -219,7 +219,7 @@
             <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
               {m.examReview_submissionsLabel()}
             </div>
-            <div class="font-display mt-1 text-title font-semibold tabular-nums">
+            <div class="mt-1 text-title font-semibold tabular-nums">
               {activeProblem.tries}
             </div>
           </div>
@@ -227,13 +227,13 @@
             <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
               {m.examReview_languageLabel()}
             </div>
-            <div class="font-display mt-1 text-title font-semibold">—</div>
+            <div class="mt-1 text-title font-semibold">—</div>
           </div>
           <div>
             <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
               {m.examReview_percentLabel()}
             </div>
-            <div class="font-display mt-1 text-title font-semibold tabular-nums">
+            <div class="mt-1 text-title font-semibold tabular-nums">
               {activeProblem.max > 0
                 ? Math.round((activeProblem.score / activeProblem.max) * 100)
                 : 0}%

@@ -142,13 +142,13 @@
     >
       <div class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           aria-hidden="true"
         >
           1
         </span>
         <div>
-          <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.assignmentCreate_basicsTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -182,13 +182,13 @@
     >
       <div class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           aria-hidden="true"
         >
           2
         </span>
         <div>
-          <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.assignmentCreate_problemsTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -271,7 +271,7 @@
                 <GripVertical class="size-4" aria-hidden="true" />
               </span>
               <span
-                class="min-w-[20px] text-center font-display text-title-sm text-muted-foreground"
+                class="min-w-[20px] text-center text-title-sm text-muted-foreground"
               >
                 {index + 1}
               </span>
@@ -326,13 +326,13 @@
     >
       <div class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           aria-hidden="true"
         >
           3
         </span>
         <div>
-          <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.assignmentCreate_scheduleTitle()}
             <span class="text-destructive">*</span>
           </h2>
@@ -405,7 +405,7 @@
           <ChevronRight class="size-4" aria-hidden="true" />
         </span>
         <div>
-          <h2 class="font-display text-title-sm font-medium tracking-[-0.01em]">
+          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.assignmentCreate_advancedTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">

@@ -45,7 +45,7 @@
 	</div>
 	<div class="flex items-end justify-between gap-3">
 		<span
-			class="font-display text-headline leading-tight font-semibold tabular-nums"
+			class="text-headline leading-tight font-semibold tabular-nums"
 		>
 			{value}
 		</span>

@@ -65,7 +65,7 @@
     <div class="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3 justify-between">
       <div class="min-w-0">
         <h1
-          class="font-display font-semibold tracking-tight"
+          class="font-semibold tracking-tight"
           style="font-size: clamp(2.25rem, 4.6vw, 3.5rem); line-height: 1.05;"
         >
           {title}
@@ -85,7 +85,7 @@
               >
                 {m.k}
               </div>
-              <div class="mt-1 font-display text-title font-semibold tabular-nums">
+              <div class="mt-1 text-title font-semibold tabular-nums">
                 {m.v}
               </div>
             </div>

@@ -91,7 +91,7 @@
 >
   <div class="flex flex-wrap items-center gap-6">
     <a
-      class="font-display text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
+      class="text-title-sm font-bold tracking-tight transition-colors duration-fast ease-out-soft hover:text-primary"
       href="/"
     >
       NOJV

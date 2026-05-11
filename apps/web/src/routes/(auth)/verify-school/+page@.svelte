@@ -31,7 +31,7 @@
         <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-success/15">
           <CheckCircle2 class="h-8 w-8 text-success" aria-hidden="true" />
         </div>
-        <h1 class="font-display text-title-lg font-semibold text-success">
+        <h1 class="text-title-lg font-semibold text-success">
           {m.verifySchool_success()}
         </h1>
         <p class="text-body-sm text-muted-foreground">
@@ -44,7 +44,7 @@
         <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
           <XCircle class="h-8 w-8 text-destructive" aria-hidden="true" />
         </div>
-        <h1 class="font-display text-title-lg font-semibold text-destructive">
+        <h1 class="text-title-lg font-semibold text-destructive">
           {m.verifySchool_failed()}
         </h1>
         <p class="text-body-sm text-muted-foreground">{data.detail}</p>

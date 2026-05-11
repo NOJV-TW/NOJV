@@ -95,7 +95,7 @@
           strokeWidth={1.5}
           aria-hidden="true"
         />
-        <h2 class="font-display mt-3 text-title font-medium">
+        <h2 class="mt-3 text-title font-medium">
           {m.examsTop_empty()}
         </h2>
         <p class="mt-2 text-body-sm text-muted-foreground">

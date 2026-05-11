@@ -54,7 +54,7 @@
           >
             {m.examResults_eyebrow({ code: data.examCode })}
           </div>
-          <h1 class="font-display text-headline font-semibold tracking-tight">
+          <h1 class="text-headline font-semibold tracking-tight">
             {data.examTitle}
           </h1>
         </div>
@@ -64,7 +64,7 @@
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.examResults_submittedLabel()}
           </div>
-          <div class="font-display mt-1 text-title font-semibold tabular-nums">
+          <div class="mt-1 text-title font-semibold tabular-nums">
             {data.submitted}/{data.total}
           </div>
         </div>
@@ -72,7 +72,7 @@
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.examResults_avgLabel()}
           </div>
-          <div class="font-display mt-1 text-title font-semibold tabular-nums">
+          <div class="mt-1 text-title font-semibold tabular-nums">
             {data.classAvg}
           </div>
         </div>
@@ -80,7 +80,7 @@
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.examResults_medianLabel()}
           </div>
-          <div class="font-display mt-1 text-title font-semibold tabular-nums">
+          <div class="mt-1 text-title font-semibold tabular-nums">
             {data.median}
           </div>
         </div>
@@ -88,7 +88,7 @@
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             {m.examResults_minMaxLabel()}
           </div>
-          <div class="font-display mt-1 text-title font-semibold tabular-nums">
+          <div class="mt-1 text-title font-semibold tabular-nums">
             {data.max} / {data.min}
           </div>
         </div>
@@ -102,7 +102,7 @@
       <div
         class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5"
       >
-        <h2 class="font-display text-title font-semibold">{m.examResults_studentScoresHeading()}</h2>
+        <h2 class="text-title font-semibold">{m.examResults_studentScoresHeading()}</h2>
         <div class="text-caption text-muted-foreground">
           {m.examResults_studentCount({ count: data.rows.length })}
         </div>

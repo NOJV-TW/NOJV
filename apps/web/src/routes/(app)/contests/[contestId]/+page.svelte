@@ -96,7 +96,7 @@
             <StatusPill {status} type="contest" />
           </div>
           <h1
-            class="mt-3 font-display font-semibold tracking-tight"
+            class="mt-3 font-semibold tracking-tight"
             style="font-size: clamp(2rem, 4.2vw, 3.5rem); line-height: 1.05;"
           >
             {contest.title}
@@ -190,7 +190,7 @@
         class="flex items-center justify-between px-6 py-4 border-b"
         style="border-color: var(--border-subtle);"
       >
-        <h2 class="font-display text-title font-semibold">{m.contestDetail_problemsHeading()}</h2>
+        <h2 class="text-title font-semibold">{m.contestDetail_problemsHeading()}</h2>
         <div class="text-caption text-muted-foreground">
           {#if contest.problemsHidden || contest.problems === null}
             {m.contestDetail_problemsLockedHint()}

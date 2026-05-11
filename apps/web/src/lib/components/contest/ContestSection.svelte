@@ -16,7 +16,7 @@
     <h2 class="font-mono text-micro uppercase tracking-[0.2em] text-muted-foreground">
       {title}
     </h2>
-    <span class="font-display text-body font-semibold">{subtitle}</span>
+    <span class="text-body font-semibold">{subtitle}</span>
     {#if badge}
       <span
         class="inline-flex items-center gap-1.5 ml-2 rounded-full px-2.5 py-0.5 text-micro font-mono uppercase tracking-wider"

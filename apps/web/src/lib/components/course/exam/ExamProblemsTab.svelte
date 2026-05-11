@@ -74,7 +74,7 @@
   class={cn("rounded-2xl border border-border bg-[color:var(--color-panel)] p-6", className)}
 >
   <header class="mb-4 flex flex-wrap items-center justify-between gap-2">
-    <h2 class="font-display text-title font-medium">
+    <h2 class="text-title font-medium">
       {m.examDetail_problemsEditHeading()}
     </h2>
     <span class="text-caption text-muted-foreground">
@@ -109,7 +109,7 @@
               class="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle px-4 py-3"
             >
               <span
-                class="min-w-[28px] text-center font-display text-title-sm font-medium text-muted-foreground"
+                class="min-w-[28px] text-center text-title-sm font-medium text-muted-foreground"
               >
                 {String.fromCharCode(65 + index)}
               </span>

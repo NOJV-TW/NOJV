@@ -37,7 +37,7 @@
     </span>
     <div class="min-w-0 flex-1">
       <div class="flex items-baseline gap-2">
-        <h3 class="font-display text-body-lg font-semibold truncate">{title}</h3>
+        <h3 class="text-body-lg font-semibold truncate">{title}</h3>
         <span class="text-caption text-muted-foreground">{format}</span>
       </div>
       <div class="text-caption text-muted-foreground">

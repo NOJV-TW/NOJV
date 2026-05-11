@@ -165,7 +165,7 @@
           {/if}
         </div>
         <h1
-          class="mt-2 font-display font-semibold tracking-tight"
+          class="mt-2 font-semibold tracking-tight"
           style="font-size: clamp(2rem, 4vw, 3rem); line-height: 1.05;"
         >
           {detail.title}
@@ -196,7 +196,7 @@
         <div class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
           {detail.dueAt ? m.assignmentDetail_metaDueAt() : m.assignmentDetail_metaClosesAt()}
         </div>
-        <div class="mt-1 font-display text-title font-semibold">
+        <div class="mt-1 text-title font-semibold">
           {fmtDate(targetIso)} {m.coursework_weekdayPrefix({ day: fmtWeekday(targetIso) })}
         </div>
         <div class="mt-3"><Countdown iso={targetIso} /></div>
@@ -270,7 +270,7 @@
         class="flex items-center justify-between px-6 py-4 border-b"
         style="border-color: var(--border-subtle);"
       >
-        <h2 class="font-display text-title font-semibold">{m.assignmentDetail_problemsHeading()}</h2>
+        <h2 class="text-title font-semibold">{m.assignmentDetail_problemsHeading()}</h2>
         <div class="text-caption text-muted-foreground font-mono">
           {m.assignmentDetail_problemsProgressMeta({ solved, total: detail.problemCount, pct })}
         </div>
@@ -374,7 +374,7 @@
         class="flex items-center justify-between px-6 py-4 border-b"
         style="border-color: var(--border-subtle);"
       >
-        <h2 class="font-display text-title font-semibold">
+        <h2 class="text-title font-semibold">
           {m.assignmentDetail_studentSubmissionLogHeading()}
         </h2>
         <span class="text-caption text-muted-foreground">
@@ -397,7 +397,7 @@
                 {formatDateTimeCompact(entry.createdAt)}
               </span>
               <span class="truncate">
-                <span class="font-display text-foreground">{entry.problemLetter}</span> ·
+                <span class="text-foreground">{entry.problemLetter}</span> ·
                 {entry.problemTitle}
               </span>
               <span
@@ -418,7 +418,7 @@
 
     {#if clarificationEnabled}
       <GlassPanel class="p-6">
-        <h2 class="font-display text-title font-semibold leading-tight">
+        <h2 class="text-title font-semibold leading-tight">
           {m.clarification_tab_title()}
         </h2>
         <div class="mt-4">

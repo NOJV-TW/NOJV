@@ -151,7 +151,7 @@
         </svg>
         <span>Scoreboard · {format}</span>
       </div>
-      <h1 class="mt-2 font-display text-headline font-semibold tracking-tight">{m.contestScoreboard_heroHeading()}</h1>
+      <h1 class="mt-2 text-headline font-semibold tracking-tight">{m.contestScoreboard_heroHeading()}</h1>
       <p class="text-caption text-muted-foreground">
         {isICPC ? m.contestScoreboard_heroHintIcpc() : m.contestScoreboard_heroHintCf()}
       </p>
@@ -180,20 +180,20 @@
     <div class="grid grid-cols-3 gap-5 text-center">
       <div>
         <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">{m.contestScoreboard_kpiEntries()}</div>
-        <div class="mt-1 font-display text-title font-semibold tabular-nums">
+        <div class="mt-1 text-title font-semibold tabular-nums">
           {scoreboard.entries.length}
         </div>
       </div>
       <div>
         <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">{m.contestScoreboard_kpiProblems()}</div>
-        <div class="mt-1 font-display text-title font-semibold tabular-nums">
+        <div class="mt-1 text-title font-semibold tabular-nums">
           {scoreboard.problems.length}
         </div>
       </div>
       <div>
         <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">{m.contestScoreboard_kpiYourRank()}</div>
         <div
-          class="mt-1 font-display text-title font-semibold tabular-nums"
+          class="mt-1 text-title font-semibold tabular-nums"
           style="color: var(--primary);"
         >
           #{myRow?.rank ?? "—"}
@@ -209,7 +209,7 @@
       style="border-color: var(--border-subtle);"
     >
       <div class="flex items-baseline gap-2.5">
-        <h2 class="font-display text-title font-semibold">{m.contestScoreboard_panelHeading()}</h2>
+        <h2 class="text-title font-semibold">{m.contestScoreboard_panelHeading()}</h2>
         <span
           class="font-mono text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm"
           style="background: {isICPC

@@ -52,7 +52,7 @@
           />
         </div>
         <div class="flex-1">
-          <Dialog.Title class="font-display text-title font-semibold"
+          <Dialog.Title class="text-title font-semibold"
             >{m.examStartModal_title()}</Dialog.Title
           >
           <Dialog.Description class="mt-1 text-body-sm text-muted-foreground">

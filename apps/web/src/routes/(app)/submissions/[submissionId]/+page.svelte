@@ -28,7 +28,7 @@
 
 <Section>
   {#snippet header()}
-    <h1 class="font-display text-title-lg">
+    <h1 class="text-title-lg">
       <span class="text-muted-foreground">{formatProblemDisplayName(submission.problem)}</span>
       <span class="mx-2 text-muted-foreground">·</span>
       <span class={verdictClass}>{verdictLabel}</span>
@@ -91,7 +91,7 @@
         <dt class="text-caption uppercase tracking-wide text-muted-foreground">
           {m.submissionDetail_score()}
         </dt>
-        <dd class="font-display text-title-md tabular-nums">
+        <dd class="text-title-md tabular-nums">
           {submission.score}<span class="text-body-sm text-muted-foreground">/100</span>
         </dd>
       </div>
@@ -99,7 +99,7 @@
         <dt class="text-caption uppercase tracking-wide text-muted-foreground">
           {m.submissionDetail_runtime()}
         </dt>
-        <dd class="font-display text-title-md tabular-nums">
+        <dd class="text-title-md tabular-nums">
           {#if runtimeMs !== null && runtimeMs > 0}
             {runtimeMs}<span class="text-body-sm text-muted-foreground"> ms</span>
           {:else}
@@ -111,7 +111,7 @@
         <dt class="text-caption uppercase tracking-wide text-muted-foreground">
           {m.submissionDetail_memory()}
         </dt>
-        <dd class="font-display text-title-md tabular-nums">
+        <dd class="text-title-md tabular-nums">
           {#if memoryKb !== null && memoryKb > 0}
             {(memoryKb / 1024).toFixed(1)}<span class="text-body-sm text-muted-foreground">
               MB</span
@@ -125,7 +125,7 @@
         <dt class="text-caption uppercase tracking-wide text-muted-foreground">
           {m.submissionDetail_language()}
         </dt>
-        <dd class="font-display text-title-md">{submission.language}</dd>
+        <dd class="text-title-md">{submission.language}</dd>
       </div>
       <div class="flex flex-col gap-1">
         <dt class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -153,7 +153,7 @@
     <!-- Feedback -->
     {#if result?.feedback}
       <div>
-        <h2 class="mb-2 font-display text-title-sm">{m.submissionDetail_feedback()}</h2>
+        <h2 class="mb-2 text-title-sm">{m.submissionDetail_feedback()}</h2>
         <pre
           class="overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border-subtle bg-muted/30 px-4 py-3 font-mono text-body-sm text-foreground">{result.feedback}</pre>
       </div>
@@ -168,7 +168,7 @@
     <!-- Subtasks -->
     {#if subtaskResults.length > 0}
       <div>
-        <h2 class="mb-3 font-display text-title-sm">{m.submissionDetail_subtasks()}</h2>
+        <h2 class="mb-3 text-title-sm">{m.submissionDetail_subtasks()}</h2>
         <div class="grid gap-2">
           {#each subtaskResults as st, idx (`st-${idx}-${st.testcaseSetId}`)}
             <div
@@ -201,7 +201,7 @@
     <!-- Per-case breakdown -->
     {#if hasAnyCaseBreakdown && caseResults.length > 0}
       <div>
-        <h2 class="mb-3 font-display text-title-sm">{m.submissionDetail_perCaseBreakdown()}</h2>
+        <h2 class="mb-3 text-title-sm">{m.submissionDetail_perCaseBreakdown()}</h2>
         <div class="flex flex-wrap items-center gap-1.5">
           {#each caseResults as cr, idx (`cr-${idx}`)}
             <button
@@ -253,7 +253,7 @@
 
     <!-- Source code -->
     <div>
-      <h2 class="mb-3 font-display text-title-sm">{m.submissionDetail_sourceCode()}</h2>
+      <h2 class="mb-3 text-title-sm">{m.submissionDetail_sourceCode()}</h2>
       <CodeBlock code={submission.sourceCode} language={submission.language} maxHeight="60vh" />
     </div>
   </div>

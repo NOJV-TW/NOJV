@@ -49,7 +49,7 @@
 
 <Section>
   {#snippet header()}
-    <h1 class="font-display text-title-lg">{m.editorial_editTitle()}</h1>
+    <h1 class="text-title-lg">{m.editorial_editTitle()}</h1>
     {#if data.problem}
       <p>
         <a href="/problems/{data.problem.id}/editorials" class="text-primary hover:underline">

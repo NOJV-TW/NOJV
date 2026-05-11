@@ -184,7 +184,7 @@
             {/if}
           </div>
           <h1
-            class="font-display mt-3 text-headline font-semibold tracking-tight lg:text-display"
+            class="mt-3 text-headline font-semibold tracking-tight lg:text-display"
           >
             {detail.title}
           </h1>
@@ -270,7 +270,7 @@
         <div
           class="flex items-center justify-between border-b border-border-subtle px-6 py-4"
         >
-          <h2 class="font-display text-title font-semibold">{m.examDetail_studentProblemsHeading()}</h2>
+          <h2 class="text-title font-semibold">{m.examDetail_studentProblemsHeading()}</h2>
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-micro uppercase tracking-wider"
             style="background: var(--muted); color: var(--muted-foreground);"
@@ -345,7 +345,7 @@
       {#if data.clarification.canView}
         <GlassPanel class="p-7">
           <header class="mb-4">
-            <h2 class="font-display text-title font-medium">{m.clarification_tab_title()}</h2>
+            <h2 class="text-title font-medium">{m.clarification_tab_title()}</h2>
           </header>
           <ClarificationTab
             contextType="exam"
@@ -362,7 +362,7 @@
         <!-- Rules -->
         <GlassPanel class="p-7">
           <div class="flex items-start justify-between gap-3">
-            <h2 class="font-display flex items-center gap-2 text-title font-semibold">
+            <h2 class="flex items-center gap-2 text-title font-semibold">
               <span class="size-1.5 rounded-full bg-primary"></span> {m.examDetail_studentRulesHeading()}
             </h2>
           </div>
@@ -404,7 +404,7 @@
             >
               {m.examDetail_studentPrepEyebrow()}
             </div>
-            <h3 class="font-display mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
+            <h3 class="mt-1 text-title font-semibold">{m.examDetail_studentPrepHeading()}</h3>
           </div>
           <ul class="space-y-2 text-body-sm">
             <li class="flex items-start gap-2">
@@ -458,7 +458,7 @@
       {#if data.clarification.canView}
         <GlassPanel class="p-7">
           <header class="mb-4">
-            <h2 class="font-display text-title font-medium">{m.clarification_tab_title()}</h2>
+            <h2 class="text-title font-medium">{m.clarification_tab_title()}</h2>
           </header>
           <ClarificationTab
             contextType="exam"

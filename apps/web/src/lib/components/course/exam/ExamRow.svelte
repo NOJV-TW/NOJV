@@ -69,7 +69,7 @@
       >
         {month}
       </div>
-      <div class="font-display mt-1 text-headline font-bold leading-none">
+      <div class="mt-1 text-headline font-bold leading-none">
         {day}
       </div>
       <div
@@ -89,7 +89,7 @@
         </span>
         <StatusPill status={pillStatus(exam.status)} type="exam" />
       </div>
-      <h3 class="font-display mt-2 text-title-lg font-semibold leading-tight">
+      <h3 class="mt-2 text-title-lg font-semibold leading-tight">
         {exam.title}
       </h3>
       <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-caption">

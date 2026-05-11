@@ -219,7 +219,7 @@
 <Dialog.Root open={showConfirm} onOpenChange={(v) => (showConfirm = v)}>
   <Dialog.Content class="max-w-md">
     <Dialog.Header>
-      <Dialog.Title class="font-display text-title font-semibold">{m.examTake_confirmTitle()}</Dialog.Title>
+      <Dialog.Title class="text-title font-semibold">{m.examTake_confirmTitle()}</Dialog.Title>
       <Dialog.Description class="mt-2 text-body-sm text-muted-foreground">
         {m.examTake_confirmBodyPrefix()}
         <span class="font-semibold text-foreground">{doneCount}</span>

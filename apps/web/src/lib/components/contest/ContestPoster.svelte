@@ -67,7 +67,7 @@
       </div>
 
       <h3
-        class="mt-2 font-display text-title-lg lg:text-headline font-semibold tracking-tight line-clamp-2"
+        class="mt-2 text-title-lg lg:text-headline font-semibold tracking-tight line-clamp-2"
       >
         {title}
       </h3>

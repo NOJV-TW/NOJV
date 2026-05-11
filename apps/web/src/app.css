@@ -40,9 +40,6 @@
 :root {
   /* === Typography families === */
   --font-sans: "Manrope", "Noto Sans TC", system-ui, sans-serif;
-  /* Display matches sans on purpose — single sans-serif family across the UI,
-     `.font-display` only exists to preserve heading typography hooks. */
-  --font-display: "Manrope", "Noto Sans TC", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* === Radius scale (4pt grid, concentric-friendly) === */
@@ -294,9 +291,8 @@
   --duration-slow: var(--duration-slow);
   --duration-page: var(--duration-page);
 
-  /* Font family utilities — usage: font-sans, font-display, font-mono */
+  /* Font family utilities — usage: font-sans, font-mono */
   --font-sans: var(--font-sans);
-  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
 
   /*

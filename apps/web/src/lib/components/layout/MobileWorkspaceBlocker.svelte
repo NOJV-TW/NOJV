@@ -34,7 +34,7 @@
   >
     <Monitor class="h-8 w-8 text-primary" />
   </div>
-  <h2 class="mt-5 font-display text-title font-semibold leading-tight">
+  <h2 class="mt-5 text-title font-semibold leading-tight">
     {m.mobile_workspaceBlockerTitle()}
   </h2>
   <p class="mt-2 max-w-sm text-body-sm text-muted-foreground [text-wrap:pretty]">

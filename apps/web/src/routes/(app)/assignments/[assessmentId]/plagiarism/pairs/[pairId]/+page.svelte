@@ -137,7 +137,7 @@
 <section class="mx-auto flex max-w-screen-2xl flex-col gap-5 px-6 py-8">
   <div class="flex flex-wrap items-baseline justify-between gap-4">
     <div>
-      <h1 class="font-display text-title font-medium leading-tight">
+      <h1 class="text-title font-medium leading-tight">
         {m.plagiarism_pairDiffTitle()}
       </h1>
       <p class="mt-1 text-body-sm text-muted-foreground">

@@ -134,7 +134,7 @@
 <div class="flex min-h-[60vh] items-center justify-center">
   <Card variant="elevated" size="hero" class="w-full max-w-sm">
     <div class="text-center">
-      <h1 class="font-display text-display font-semibold">{m.onboarding_title()}</h1>
+      <h1 class="text-display font-semibold">{m.onboarding_title()}</h1>
     </div>
 
     {#if mode === "choose"}

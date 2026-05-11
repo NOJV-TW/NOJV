@@ -165,7 +165,7 @@
 <section data-slot={dataSlot} class={cn("space-y-4", className)}>
   <div class="flex items-baseline justify-between gap-4">
     <div>
-      <h2 class="font-display text-title font-medium leading-tight">
+      <h2 class="text-title font-medium leading-tight">
         {labels.heading()}
       </h2>
       <p class="mt-1 text-caption text-muted-foreground">
@@ -246,7 +246,7 @@
                 style="min-width: 88px"
               >
                 <span
-                  class="block font-display text-title font-medium leading-none tracking-[-0.02em] text-foreground"
+                  class="block text-title font-medium leading-none tracking-[-0.02em] text-foreground"
                 >
                   {problem.letter}
                 </span>
@@ -310,7 +310,7 @@
                 </td>
               {/each}
               <td
-                class="border-b border-r border-border-subtle bg-[color:rgba(196,104,45,0.03)] px-3 py-3 text-center font-display text-body-lg font-medium text-foreground"
+                class="border-b border-r border-border-subtle bg-[color:rgba(196,104,45,0.03)] px-3 py-3 text-center text-body-lg font-medium text-foreground"
               >
                 {row.total}<span class="font-normal text-muted-foreground"> / </span>
                 <span class="text-caption font-normal text-muted-foreground">

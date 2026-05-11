@@ -34,7 +34,7 @@
   <div class="mb-3 flex items-center justify-between gap-3">
     <div class="flex items-center gap-3">
       <span class="font-mono text-title text-muted-foreground">{letter}.</span>
-      <h2 class="font-display text-title-lg font-semibold">{title}</h2>
+      <h2 class="text-title-lg font-semibold">{title}</h2>
     </div>
     <button
       type="button"
@@ -60,7 +60,7 @@
     `/exams/[id]/problems/[problemId]` for the full workspace.
   -->
   <div class="mt-6 space-y-4 text-body">
-    <h3 class="font-display text-title font-semibold">{m.examTake_statementHeading()}</h3>
+    <h3 class="text-title font-semibold">{m.examTake_statementHeading()}</h3>
     <p class="text-muted-foreground">
       {m.examTake_statementPlaceholder()}
     </p>

@@ -36,7 +36,7 @@
       {examCode}
     </span>
     <span class="opacity-50">·</span>
-    <span class="font-display text-body font-semibold">{examTitle}</span>
+    <span class="text-body font-semibold">{examTitle}</span>
   </div>
 
   <div class="ml-auto flex items-center gap-4">
