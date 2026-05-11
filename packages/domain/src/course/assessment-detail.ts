@@ -1,4 +1,5 @@
 import { assessmentRepo, submissionRepo } from "@nojv/db";
+import type { Language } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { resolveOverridesForContext } from "../scoring/resolve-final-score";
@@ -48,7 +49,7 @@ export interface AssignmentDetail {
   dueAt: string | null;
   closesAt: string;
   maxAttemptsPerDay: number | null;
-  allowedLanguages: string[];
+  allowedLanguages: Language[];
   totalPoints: number;
   problemCount: number;
   problems: AssignmentDetailProblem[];
@@ -252,7 +253,7 @@ export async function getAssignmentDetail(
     dueAt: row.dueAt?.toISOString() ?? null,
     closesAt: row.closesAt.toISOString(),
     maxAttemptsPerDay: row.maxAttemptsPerDay,
-    allowedLanguages: row.allowedLanguages as string[],
+    allowedLanguages: row.allowedLanguages,
     totalPoints,
     // The true count stays visible to upcoming-viewers — the UI uses it
     // to render "N problems will unlock when the assignment opens" — but

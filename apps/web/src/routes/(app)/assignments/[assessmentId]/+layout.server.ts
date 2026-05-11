@@ -7,7 +7,6 @@ import {
   resolveEffectiveCourseRole,
   canManageCourse,
 } from "@nojv/domain";
-import type { Language } from "@nojv/core";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
@@ -76,7 +75,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       status: assessment.status,
       opensAt: assessment.opensAt.toISOString(),
       closesAt: assessment.closesAt.toISOString(),
-      allowedLanguages: assessment.allowedLanguages as Language[],
+      allowedLanguages: assessment.allowedLanguages,
     },
     course: {
       id: course.id,

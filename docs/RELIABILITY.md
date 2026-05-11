@@ -131,7 +131,6 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 ## Related Docs
 
 - [Architecture Overview](../ARCHITECTURE.md)
-- [Temporal Workflows](TEMPORAL.md)
 - [Security Requirements](SECURITY.md)
 - [Deployment Guide](DEPLOYMENT.md)
 - [Incident Recovery Runbook](runbooks/incident-recovery.md)

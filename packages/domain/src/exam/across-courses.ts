@@ -89,7 +89,7 @@ export async function listExamsAcrossCoursesForUser(
       startsAt: e.startsAt.toISOString(),
       endsAt: e.endsAt.toISOString(),
       durationMinutes,
-      scoringMode: e.scoringMode as ContestScoringMode,
+      scoringMode: e.scoringMode,
       problemCount: e._count.problems,
     };
   });

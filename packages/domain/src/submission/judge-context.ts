@@ -1,5 +1,6 @@
 import { submissionRepo } from "@nojv/db";
 import type { Prisma, SubtaskScoringStrategy } from "@nojv/db";
+import { adjustmentRulesSchema, judgeConfigSchema } from "@nojv/core";
 import type {
   AdjustmentRules,
   JudgeConfig,
@@ -13,10 +14,48 @@ import type {
   SubmissionResult,
   WorkspaceFileVisibility,
 } from "@nojv/core";
+import { z } from "zod";
 
 import { readTestcaseBlobs, readWorkspaceFileBlob } from "../problem/blobs";
 import { NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
+
+const inputFileKeysSchema = z.record(z.string(), z.string());
+
+const DEFAULT_JUDGE_CONFIG: JudgeConfig = { type: "standard" };
+
+function parseJudgeConfig(raw: unknown, submissionId: string): JudgeConfig {
+  if (raw == null) return DEFAULT_JUDGE_CONFIG;
+  const result = judgeConfigSchema.safeParse(raw);
+  if (result.success) return result.data;
+  console.warn(
+    `[judge-context] Invalid judgeConfig for submission ${submissionId}; falling back to default.`,
+    result.error.issues,
+  );
+  return DEFAULT_JUDGE_CONFIG;
+}
+
+function parseAdjustmentRules(raw: unknown, submissionId: string): AdjustmentRules | null {
+  if (raw == null) return null;
+  const result = adjustmentRulesSchema.safeParse(raw);
+  if (result.success) return result.data;
+  console.warn(
+    `[judge-context] Invalid adjustmentRules on assessment for submission ${submissionId}; ignoring.`,
+    result.error.issues,
+  );
+  return null;
+}
+
+function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, string> | null {
+  if (raw == null) return null;
+  const result = inputFileKeysSchema.safeParse(raw);
+  if (result.success) return result.data;
+  console.warn(
+    `[judge-context] Invalid inputFileKeys for testcase ${testcaseId}; treating as empty.`,
+    result.error.issues,
+  );
+  return null;
+}
 
 export interface TestcaseSetGroup {
   id: string;
@@ -93,9 +132,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
 
   const { problem } = submission;
-  const judgeConfig = (problem.judgeConfig as JudgeConfig | null) ?? {
-    type: "standard" as const,
-  };
+  const judgeConfig = parseJudgeConfig(problem.judgeConfig, submissionId);
 
   const testcaseSets: TestcaseSetGroup[] = await Promise.all(
     problem.testcaseSets.map(async (ts) => {
@@ -104,7 +141,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
           const blobs = await readTestcaseBlobs({
             inputKey: testcase.inputKey,
             outputKey: testcase.outputKey,
-            inputFileKeys: (testcase.inputFileKeys as Record<string, string> | null) ?? null,
+            inputFileKeys: parseInputFileKeys(testcase.inputFileKeys, testcase.id),
           });
           return {
             id: testcase.id,
@@ -143,7 +180,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
         content: await readWorkspaceFileBlob(f.contentKey),
         language: f.language,
         path: f.path,
-        visibility: f.visibility as WorkspaceFileVisibility,
+        visibility: f.visibility,
       }),
     ),
   );
@@ -153,18 +190,20 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   // Adjustment rules are assessment-only; contest endsAt is a fallback due-by.
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
-    assessmentAdjustmentRules: assessment?.adjustmentRules as AdjustmentRules | null,
+    assessmentAdjustmentRules: assessment
+      ? parseAdjustmentRules(assessment.adjustmentRules, submissionId)
+      : null,
     dueAt: assessment?.dueAt ?? contestEnd,
     finalDay: assessment?.closesAt ?? contestEnd,
     submittedAt: submission.createdAt,
   };
 
-  const problemType = problem.type as ProblemType;
+  const problemType = problem.type;
   const advanced: AdvancedModeContext | null =
     problemType === "special_env" && problem.advancedImageRef && problem.advancedImageSource
       ? {
           imageRef: problem.advancedImageRef,
-          imageSource: problem.advancedImageSource as ProblemImageSource,
+          imageSource: problem.advancedImageSource,
           resourceLimits: {
             totalTimeMs: problem.timeLimitMs,
             memoryMb: problem.memoryLimitMb,

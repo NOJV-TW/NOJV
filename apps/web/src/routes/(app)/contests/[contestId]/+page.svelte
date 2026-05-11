@@ -1,16 +1,26 @@
 <script lang="ts">
-  import { toasts } from "$lib/stores/toast";
+  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/ui/card/index.js";
-  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button";
-  import PageHero from "$lib/components/layout/PageHero.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
-  import Lock from "@lucide/svelte/icons/lock";
+  import Crumbs from "$lib/components/coursework/Crumbs.svelte";
+  import Countdown from "$lib/components/coursework/Countdown.svelte";
+  import GlassPanel from "$lib/components/coursework/GlassPanel.svelte";
+  import Marquee from "$lib/components/coursework/Marquee.svelte";
+  import StatusPill from "$lib/components/coursework/StatusPill.svelte";
+  import TabStrip from "$lib/components/coursework/TabStrip.svelte";
+  import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
+  import DifficultyTick from "$lib/components/coursework/DifficultyTick.svelte";
+  import {
+    contestStatusFor,
+    durationMinutes,
+    inferContestFormat
+  } from "$lib/components/contest/format";
+  import { fmtDate } from "$lib/utils/datetime.js";
 
   let { data } = $props();
-
   let contest = $derived(data.contest);
 
   let showOverrideDrawer = $state(false);
@@ -21,224 +31,362 @@
   );
 
   let now = $state(new Date());
-
-  $effect(() => {
-    const interval = setInterval(() => {
+  onMount(() => {
+    const id = setInterval(() => {
       now = new Date();
     }, 1000);
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   });
 
-  let startsAt = $derived(new Date(contest.startsAt));
-  let endsAt = $derived(new Date(contest.endsAt));
-  let hasStarted = $derived(now >= startsAt);
-  let hasEnded = $derived(now > endsAt);
-  let isActive = $derived(hasStarted && !hasEnded);
+  const status = $derived(contestStatusFor(contest.startsAt, contest.endsAt, now));
+  const isLive = $derived(status === "live");
+  const isPast = $derived(status === "ended");
+  const isUpcoming = $derived(status === "upcoming");
+  const format = $derived(inferContestFormat(contest.scoringMode));
+  const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
 
-  let remainingMs = $derived(
-    !hasStarted
-      ? startsAt.getTime() - now.getTime()
-      : isActive
-        ? endsAt.getTime() - now.getTime()
-        : 0
+  // First visible problem — used as the "enter contest" target during live.
+  const firstProblem = $derived((contest.problems ?? [])[0] ?? null);
+  const primaryHref = $derived(
+    isLive && firstProblem
+      ? `/contests/${contest.id}/problems/${firstProblem.id}`
+      : isPast
+        ? `/contests/${contest.id}/scoreboard`
+        : null
+  );
+  const primaryLabel = $derived(
+    isLive
+      ? m.contestDetail_ctaEnter()
+      : isPast
+        ? m.contestDetail_ctaViewSolutions()
+        : m.contestDetail_ctaNotStarted()
   );
 
-  // Countdown warnings
-  let notified5min = $state(false);
-  let notified1min = $state(false);
-
-  $effect(() => {
-    if (!isActive) return;
-    const ms = remainingMs;
-    if (ms <= 5 * 60 * 1000 && ms > 4 * 60 * 1000 && !notified5min) {
-      notified5min = true;
-      toasts.add({ message: "5 minutes remaining!", type: "info", duration: 8000 });
-    }
-    if (ms <= 60 * 1000 && ms > 0 && !notified1min) {
-      notified1min = true;
-      toasts.add({ message: "1 minute remaining!", type: "error", duration: 10000 });
-    }
-  });
-
-  function formatDuration(ms: number): string {
-    if (ms <= 0) return "00:00:00";
-    const totalSec = Math.floor(ms / 1000);
-    const h = Math.floor(totalSec / 3600);
-    const mm = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  function difficultyOf(p: { points: number }): "Easy" | "Medium" | "Hard" {
+    if (p.points >= 800) return "Hard";
+    if (p.points >= 400) return "Medium";
+    return "Easy";
   }
 </script>
 
-<div class="space-y-8 pb-20">
-  {#snippet contestMeta()}
-    <Badge variant="muted" size="sm">{contest.scoringMode}</Badge>
-  {/snippet}
+<div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
+  <Crumbs items={[{ label: "contest", href: "/contests" }, { label: contest.id }]} />
 
-  {#snippet contestActions()}
-    {#if canSetOverride}
-      <Button
-        variant="outline"
-        size="sm"
-        type="button"
-        onclick={() => (showOverrideDrawer = true)}
-      >
-        {m.override_staff_buttonLabel()}
-      </Button>
-    {/if}
-  {/snippet}
+  <!-- Hero -->
+  <div
+    class="relative overflow-hidden rounded-2xl shadow-rest"
+    style="border: 1px solid var(--border); background: {isLive
+      ? 'linear-gradient(135deg, color-mix(in oklab, var(--destructive) 12%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'
+      : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
+  >
+    <Marquee
+      text="{contest.id} · {contest.title.toUpperCase()} · {format} · {contest.participantCount} PARTICIPANTS"
+    />
 
-  {#snippet contestRibbon()}
-    <div
-      class="grid items-center gap-6 rounded-3xl border border-border bg-[color:var(--color-panel)] px-8 py-7 shadow-rest sm:grid-cols-[1fr_auto]"
-    >
-      <div>
-        <div class="flex flex-wrap items-center gap-2">
-          {#if isActive}
-            <Badge variant="success" dot size="sm">{m.contests_statusActive()}</Badge>
-          {:else if !hasStarted}
-            <Badge variant="info" dot size="sm">{m.contests_statusUpcoming()}</Badge>
-          {:else}
-            <Badge variant="muted" size="sm">{m.contests_statusEnded()}</Badge>
-          {/if}
-        </div>
-        {#if contest.summary}
-          <p class="mt-3 max-w-prose text-body text-muted-foreground [text-wrap:pretty]">
-            {contest.summary}
-          </p>
-        {/if}
-      </div>
-      {#if !hasEnded}
-        <div
-          class="rounded-2xl bg-[color:var(--color-panel-strong)] px-6 py-5 text-right"
-        >
-          <p
-            class="text-caption font-medium uppercase tracking-[0.12em] text-muted-foreground"
+    <div class="relative px-7 py-9 lg:p-10">
+      <div class="flex flex-wrap items-start gap-6 justify-between">
+        <div class="min-w-0">
+          <div
+            class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
           >
-            {!hasStarted ? m.contests_startsIn() : m.contests_timeRemaining()}
-          </p>
-          <p class="mt-1 font-mono text-headline tabular-nums font-semibold">
-            {formatDuration(remainingMs)}
-          </p>
-        </div>
-      {/if}
-    </div>
-  {/snippet}
-
-  <PageHero
-    variant="workspace"
-    breadcrumbHref="/contests"
-    breadcrumbLabel={m.navigation_contests()}
-    eyebrow={m.contestDetail_eyebrow()}
-    title={contest.title}
-    meta={contestMeta}
-    actions={canSetOverride ? contestActions : undefined}
-    ribbon={contestRibbon}
-  />
-
-  <!-- Contest info grid -->
-  <div class="grid gap-4 sm:grid-cols-3">
-    <Card variant="surface" size="md">
-      <p class="text-caption uppercase tracking-wide text-muted-foreground">
-        {m.contests_starts()}
-      </p>
-      <p class="mt-1 text-body-sm font-medium tabular-nums">{startsAt.toLocaleString()}</p>
-    </Card>
-    <Card variant="surface" size="md">
-      <p class="text-caption uppercase tracking-wide text-muted-foreground">
-        {m.contests_ends()}
-      </p>
-      <p class="mt-1 text-body-sm font-medium tabular-nums">{endsAt.toLocaleString()}</p>
-    </Card>
-    <Card variant="surface" size="md">
-      <p class="text-caption uppercase tracking-wide text-muted-foreground">
-        {m.contests_participants()}
-      </p>
-      <p class="mt-1 font-display text-title-sm font-semibold tabular-nums">
-        {contest.participantCount}
-      </p>
-    </Card>
-  </div>
-
-  <!-- Contest settings (standalone contests have no proctoring) -->
-  <div class="flex flex-wrap gap-2">
-    {#if contest.submitCooldownSec > 0}
-      <Badge variant="muted">{m.contests_cooldownLabel()}: {contest.submitCooldownSec}s</Badge>
-    {/if}
-    <Badge variant="muted">{m.contestDetail_scoreboard()}: {contest.scoreboardMode}</Badge>
-    {#if contest.allowedLanguages.length > 0}
-      <Badge variant="muted">
-        {m.contestCreate_allowedLanguages()}: {contest.allowedLanguages.join(", ")}
-      </Badge>
-    {/if}
-  </div>
-
-  <!-- Problems -->
-  <div class="space-y-4">
-    <h2 class="font-display text-title font-semibold">{m.contestDetail_contestProblems()}</h2>
-
-    <div class="grid gap-3">
-      {#if contest.problemsHidden}
-        <Card variant="surface" size="md" class="flex-col items-center justify-center gap-3 py-10 text-center">
-          <Lock class="h-8 w-8 text-muted-foreground" />
-          <h3 class="font-display text-title-sm font-semibold">
-            {m.contestDetail_problemsHiddenTitle()}
-          </h3>
-          <p class="text-body-sm text-muted-foreground">
-            {m.contestDetail_problemsHiddenBody()}
-          </p>
-          {#if !hasStarted}
-            <p class="font-mono text-body-sm tabular-nums text-muted-foreground">
-              {formatDuration(remainingMs)}
+            <TypeIcon kind="contest" size={14} />
+            <span>Contest · {format}</span>
+          </div>
+          <div class="mt-3">
+            <StatusPill {status} type="contest" />
+          </div>
+          <h1
+            class="mt-3 font-semibold tracking-tight"
+            style="font-size: clamp(2rem, 4.2vw, 3.5rem); line-height: 1.05;"
+          >
+            {contest.title}
+          </h1>
+          {#if contest.summary}
+            <p class="mt-4 max-w-2xl text-body text-muted-foreground">
+              {contest.summary}
             </p>
           {/if}
-        </Card>
-      {:else}
-        {#each data.contest.problems ?? [] as p (p.id)}
-          {@const href =
-            isActive || data.contest.isManager
-              ? `/contests/${data.contest.id}/problems/${p.id}`
-              : hasEnded
-                ? // Once the contest has ended, problems become ordinary
-                  // practice — strip contest context so submissions don't
-                  // touch the scoreboard or frozen participation.
-                  `/problems/${p.id}`
-                : null}
-          {#if href}
-            <a class="block" {href}>
-              <Card variant="surface" size="md" interactive class="flex-row items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
-                    {String.fromCharCode(64 + p.ordinal)}
-                  </span>
-                  <span class="font-medium text-body">{p.title}</span>
-                </div>
-                <span class="text-caption text-muted-foreground tabular-nums">
-                  {p.points} {m.contestDetail_pts()}
-                </span>
-              </Card>
-            </a>
-          {:else}
-            <Card variant="flat" size="md" class="flex-row items-center justify-between opacity-60">
-              <div class="flex items-center gap-3">
-                <span class="flex h-8 w-8 items-center justify-center rounded-sm bg-muted font-display text-body-sm font-semibold text-muted-foreground">
-                  {String.fromCharCode(64 + p.ordinal)}
-                </span>
-                <span class="font-medium text-body">{p.title}</span>
-              </div>
-              <span class="text-caption text-muted-foreground tabular-nums">
-                {p.points} {m.contestDetail_pts()}
-              </span>
-            </Card>
-          {/if}
-        {/each}
+        </div>
+
+        <!-- Stats sidebar / clock -->
+        <div
+          class="rounded-xl border p-5 min-w-[280px]"
+          style="border-color: var(--border); background: var(--panel);"
+        >
+          <div
+            class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.18em] text-muted-foreground"
+          >
+            {#if isLive}
+              <span
+                class="size-1.5 rounded-full live-dot"
+                style="background: oklch(0.55 0.2 27);"
+              ></span>
+            {/if}
+            <span>{isLive ? m.contestDetail_clockRunning() : isPast ? m.contestDetail_clockEnded() : m.contestDetail_clockUntilStart()}</span>
+          </div>
+          <div class="mt-2">
+            {#if isPast}
+              <div class="font-mono text-title">{fmtDate(contest.startsAt)}</div>
+            {:else}
+              <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
+            {/if}
+          </div>
+          <div
+            class="mt-3 pt-3 border-t space-y-1 text-caption font-mono"
+            style="border-color: var(--border-subtle);"
+          >
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">{m.contestDetail_metaStartsLabel()}</span>
+              <span>{fmtDate(contest.startsAt)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">{m.contestDetail_metaEndsLabel()}</span>
+              <span>{fmtDate(contest.endsAt)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">{m.contestDetail_metaDurationLabel()}</span>
+              <span>{m.contestDetail_metaDurationMinutes({ count: durationMin })}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-muted-foreground">{m.contestDetail_metaParticipantsLabel()}</span>
+              <span>{m.contestDetail_metaParticipantsCount({ count: contest.participantCount })}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="flex flex-wrap items-center gap-3">
+    <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} active="overview" onChange={() => {}} />
+
+    <div class="ml-auto flex flex-wrap gap-3">
+      {#if canSetOverride}
+        <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
+          {m.contestDetail_actionScoreOverride()}
+        </Button>
       {/if}
+      <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
+        {m.contestDetail_actionScoreboard()}
+      </Button>
+      {#if primaryHref}
+        <Button onclick={() => void goto(primaryHref)}>
+          {#if isLive}
+            <span class="size-1.5 rounded-full bg-white"></span>
+          {/if}
+          {primaryLabel}
+        </Button>
+      {:else}
+        <Button disabled>{primaryLabel}</Button>
+      {/if}
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <!-- Problem list -->
+    <GlassPanel class="overflow-hidden">
+      <div
+        class="flex items-center justify-between px-6 py-4 border-b"
+        style="border-color: var(--border-subtle);"
+      >
+        <h2 class="text-title font-semibold">{m.contestDetail_problemsHeading()}</h2>
+        <div class="text-caption text-muted-foreground">
+          {#if contest.problemsHidden || contest.problems === null}
+            {m.contestDetail_problemsLockedHint()}
+          {:else}
+            {m.contestDetail_problemsMeta({
+              count: contest.problems.length,
+              note: isPast ? m.contestDetail_problemsSortByDifficulty() : m.contestDetail_problemsUnlockOnStart()
+            })}
+          {/if}
+        </div>
+      </div>
+
+      <div class="divide-y" style="border-color: var(--border-subtle);">
+        {#if contest.problemsHidden || contest.problems === null}
+          <!-- Locked placeholders -->
+          {#each [0, 1, 2, 3, 4] as i (i)}
+            <div
+              class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5"
+            >
+              <div class="font-mono text-title font-semibold text-muted-foreground">
+                {String.fromCharCode(65 + i)}
+              </div>
+              <div>
+                <div class="font-medium text-muted-foreground">———————</div>
+                <div class="mt-1 flex items-center gap-3">
+                  <DifficultyTick level="Medium" />
+                </div>
+              </div>
+              <span
+                class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
+                style="border-color: var(--border-subtle); opacity: 0.5;"
+              >
+                🔒
+              </span>
+            </div>
+          {/each}
+        {:else}
+          {#each contest.problems as p (p.id)}
+            {@const enterHref =
+              isLive || contest.isManager
+                ? `/contests/${contest.id}/problems/${p.id}`
+                : isPast
+                  ? `/problems/${p.id}`
+                  : null}
+            <a
+              href={enterHref ?? "#"}
+              class="grid grid-cols-[60px_1fr_auto] sm:grid-cols-[60px_1fr_minmax(120px,160px)_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-muted/40 {enterHref
+                ? ''
+                : 'pointer-events-none opacity-60'}"
+              tabindex={enterHref ? 0 : -1}
+              aria-disabled={enterHref ? undefined : true}
+            >
+              <div
+                class="font-mono text-title font-semibold"
+                style="color: var(--primary);"
+              >
+                {String.fromCharCode(64 + p.ordinal)}
+              </div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">{p.title}</div>
+                <div class="mt-1 flex items-center gap-3">
+                  <DifficultyTick level={difficultyOf(p)} />
+                  <span
+                    class="text-micro font-mono uppercase tracking-wider text-muted-foreground tabular-nums"
+                  >
+                    {p.points} pts
+                  </span>
+                </div>
+              </div>
+              <div class="hidden sm:block">
+                <div
+                  class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
+                >
+                  {m.contestDetail_problemDifficultyLabel()}
+                </div>
+                <div
+                  class="mt-1 h-1.5 rounded-full overflow-hidden"
+                  style="background: var(--muted);"
+                >
+                  <div
+                    class="h-full rounded-full"
+                    style="width: {Math.min(100, (p.points / 1000) * 100)}%; background: var(--primary);"
+                  ></div>
+                </div>
+              </div>
+              <span
+                class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
+                style="border-color: var(--border-subtle); {enterHref ? '' : 'opacity: 0.5;'}"
+              >
+                {enterHref ? m.contestDetail_problemSolveCta() : "🔒"}
+              </span>
+            </a>
+          {/each}
+        {/if}
+      </div>
+    </GlassPanel>
+
+    <!-- Sidebar -->
+    <div class="space-y-4">
+      {#if (isLive || isPast) && data.topEntries.length > 0}
+        <GlassPanel class="p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div
+              class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
+            >
+              {m.contestDetail_topRankingsHeading()}
+            </div>
+            <a
+              href="/contests/{contest.id}/scoreboard"
+              class="text-caption font-medium"
+              style="color: var(--primary);"
+            >
+              {m.contestDetail_topRankingsFullLink()}
+            </a>
+          </div>
+          <ul class="space-y-2">
+            {#each data.topEntries as r (r.username)}
+              <li class="flex items-center gap-3 text-body-sm">
+                <span
+                  class="font-mono text-caption font-bold w-6 {r.rank <= 3
+                    ? ''
+                    : 'text-muted-foreground'}"
+                  style={r.rank === 1
+                    ? "color: #d4a054;"
+                    : r.rank === 2
+                      ? "color: #a0a0a0;"
+                      : r.rank === 3
+                        ? "color: #cd7f32;"
+                        : ""}
+                >
+                  {r.rank}
+                </span>
+                <span
+                  class="flex-1 truncate {r.isMe ? 'font-semibold' : ''}"
+                  style={r.isMe ? "color: var(--primary);" : ""}
+                >
+                  {r.username}{r.isMe ? m.contestDetail_youSuffix() : ""}
+                </span>
+                <span class="font-mono tabular-nums">{r.totalScore}</span>
+              </li>
+            {/each}
+          </ul>
+        </GlassPanel>
+      {/if}
+
+      <GlassPanel class="p-5">
+        <div
+          class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3"
+        >
+          {m.contestDetail_formatInfoHeading()}
+        </div>
+        <dl class="space-y-2.5 text-body-sm">
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">{m.contestDetail_formatLabel()}</dt>
+            <dd class="font-mono">{format}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">{m.contestDetail_scoringLabel()}</dt>
+            <dd class="font-mono">
+              {contest.scoringMode === "problem_count" ? m.contestDetail_scoringProblemCount() : m.contestDetail_scoringPointSum()}
+            </dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">{m.contestDetail_scoreboardLabel()}</dt>
+            <dd class="font-mono">{contest.scoreboardMode}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">{m.contestDetail_participantsLabel()}</dt>
+            <dd class="font-mono">{m.contestDetail_participantsCount({ count: contest.participantCount })}</dd>
+          </div>
+          {#if contest.submitCooldownSec > 0}
+            <div class="flex justify-between">
+              <dt class="text-muted-foreground">{m.contestDetail_submitCooldownLabel()}</dt>
+              <dd class="font-mono">{contest.submitCooldownSec}s</dd>
+            </div>
+          {/if}
+          {#if contest.allowedLanguages.length > 0}
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted-foreground">{m.contestDetail_allowedLanguagesLabel()}</dt>
+              <dd class="font-mono text-right truncate">
+                {contest.allowedLanguages.join(", ")}
+              </dd>
+            </div>
+          {/if}
+        </dl>
+      </GlassPanel>
     </div>
   </div>
 
   {#if data.clarification.canView}
-    <section class="space-y-4">
-      <h2 class="font-display text-title font-semibold">{m.clarification_tab_title()}</h2>
+    <GlassPanel class="p-6">
+      <div
+        class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3"
+      >
+        Clarifications
+      </div>
       <ClarificationTab
         contextType="contest"
         contextId={contest.id}
@@ -246,7 +394,7 @@
         canAnswer={data.clarification.canAnswer}
         problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
       />
-    </section>
+    </GlassPanel>
   {/if}
 </div>
 

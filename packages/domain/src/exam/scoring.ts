@@ -122,7 +122,7 @@ export async function getExamScoreboard(
   }
 
   const now = new Date();
-  const scoreboardMode = exam.scoreboardMode as ScoreboardMode;
+  const scoreboardMode = exam.scoreboardMode;
   const showFrozen =
     !options?.unfrozen &&
     (scoreboardMode === "frozen" ||
@@ -135,7 +135,7 @@ export async function getExamScoreboard(
     title: ep.problem.title,
   }));
 
-  const scoringMode = exam.scoringMode as ContestScoringMode;
+  const scoringMode = exam.scoringMode;
 
   if (scoreboardMode === "hidden" && !options?.isPrivileged) {
     return {

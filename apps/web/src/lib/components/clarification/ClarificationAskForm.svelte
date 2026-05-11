@@ -43,7 +43,7 @@
 <section
   class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-5 space-y-3"
 >
-  <h3 class="font-display text-title-sm font-medium">{m.clarification_askBtn()}</h3>
+  <h3 class="text-title-sm font-medium">{m.clarification_askBtn()}</h3>
 
   {#if problems.length > 0}
     <label class="block space-y-1.5">

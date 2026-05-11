@@ -164,7 +164,7 @@ export async function getScoreboard(
   }
 
   const now = new Date();
-  const scoreboardMode = contest.scoreboardMode as ScoreboardMode;
+  const scoreboardMode = contest.scoreboardMode;
   const showFrozen =
     !options?.unfrozen &&
     (scoreboardMode === "frozen" ||
@@ -177,7 +177,7 @@ export async function getScoreboard(
     title: cp.problem.title,
   }));
 
-  const scoringMode = contest.scoringMode as ContestScoringMode;
+  const scoringMode = contest.scoringMode;
 
   // When scoreboardMode is "hidden", only privileged users can see entries
   if (scoreboardMode === "hidden" && !options?.isPrivileged) {

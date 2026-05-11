@@ -40,7 +40,7 @@
       size="lg"
       class="animate-[fade-up_700ms_var(--ease-out-soft)_both]"
     >
-      <h2 class="font-display text-title-lg leading-tight text-foreground">
+      <h2 class="text-title-lg leading-tight text-foreground">
         {m.home_announcements()}
       </h2>
 
@@ -107,7 +107,7 @@
             {m.hero_eyebrow()}
           </p>
           <h1
-            class="mt-4 font-display text-display font-bold leading-tight text-foreground sm:text-display-lg"
+            class="mt-4 text-display font-bold leading-tight text-foreground sm:text-display-lg"
           >
             NOJV
           </h1>
@@ -126,7 +126,7 @@
         size="lg"
         class="animate-[fade-up_700ms_var(--ease-out-soft)_200ms_both]"
       >
-        <h2 class="font-display text-title-lg leading-tight text-foreground">
+        <h2 class="text-title-lg leading-tight text-foreground">
           {m.home_upcomingAssessments()}
         </h2>
 

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { page } from "$app/state";
   import { type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
+  import { inferDraftContext } from "$lib/stores/code-draft";
   import type { ProblemDetail, ProblemSubmissionEntry, ProblemTestcaseSetSummary } from "$lib/types";
   import ProblemEditor from "./Editor.svelte";
   import ProblemLeftPanel from "./ProblemLeftPanel.svelte";
@@ -32,6 +34,8 @@
   }: Props = $props();
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
+
+  let draftContext = $derived(inferDraftContext(page.route.id, page.params));
 
   function handleSubmissionComplete(
     result: SubmissionResult,
@@ -115,6 +119,7 @@
     {allowedLanguages}
     {assessment}
     {contestId}
+    {draftContext}
     onSubmissionComplete={handleSubmissionComplete}
     {problem}
   />

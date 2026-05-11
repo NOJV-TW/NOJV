@@ -18,6 +18,14 @@
     executeSubmission,
     type SubmissionWorkspaceFilePayload
   } from "$lib/services/submission-service";
+  import {
+    clearDraft,
+    loadDraft,
+    saveDraft,
+    type DraftContext
+  } from "$lib/stores/code-draft";
+  import { shortcuts } from "$lib/stores/shortcuts.svelte";
+  import { toasts } from "$lib/stores/toast";
 
   const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
@@ -28,6 +36,7 @@
       courseId: string;
     } | undefined;
     contestId?: string | undefined;
+    draftContext?: DraftContext | undefined;
     onSubmissionComplete?: ((
       result: SubmissionResult,
       language: string,
@@ -36,7 +45,14 @@
     problem: ProblemDetail;
   }
 
-  let { allowedLanguages, assessment, contestId, onSubmissionComplete, problem }: Props = $props();
+  let {
+    allowedLanguages,
+    assessment,
+    contestId,
+    draftContext,
+    onSubmissionComplete,
+    problem
+  }: Props = $props();
   const initialProblem = untrack(() => problem);
 
   let currentLocale = $derived(getLocale());
@@ -54,6 +70,9 @@
     return "cpp";
   })());
   let drafts = $state({ ...initialProblem.starterByLanguage });
+  let lastSavedCode = $state<Record<string, string>>({});
+  let lastSavedAt = $state<Record<string, number | null>>({});
+  let hydratedLanguages = $state<Record<string, boolean>>({});
   let isRunning = $state(false);
   let isSubmitting = $state(false);
   let isFullscreen = $state(false);
@@ -123,6 +142,74 @@
   );
   let isWorkspaceMode = $derived(workspaceFilesForLanguage.length > 0);
   let selectedWorkspaceIndex = $state(0);
+
+  // Hydrate per-language draft on first visit + on language switch. Workspace
+  // mode is excluded (no path dimension in draft key); see design doc.
+  $effect(() => {
+    if (isWorkspaceMode) return;
+    if (!draftContext) return;
+    const lang = language;
+    if (hydratedLanguages[lang]) return;
+    const record = loadDraft({ context: draftContext, problemId: problem.id, language: lang });
+    if (record) {
+      drafts[lang] = record.code;
+      lastSavedCode[lang] = record.code;
+      lastSavedAt[lang] = record.savedAt;
+    } else {
+      const starter = initialProblem.starterByLanguage[lang] ?? "";
+      drafts[lang] = starter;
+      lastSavedCode[lang] = starter;
+      lastSavedAt[lang] = null;
+    }
+    hydratedLanguages[lang] = true;
+  });
+
+  function saveCurrentDraft() {
+    if (isWorkspaceMode || !draftContext) return;
+    const lang = language;
+    const code = drafts[lang] ?? "";
+    try {
+      const record = saveDraft(
+        { context: draftContext, problemId: problem.id, language: lang },
+        code
+      );
+      lastSavedCode[lang] = code;
+      lastSavedAt[lang] = record.savedAt;
+      toasts.add({ type: "success", message: m.draft_saved() });
+    } catch {
+      toasts.add({ type: "error", message: "Failed to save draft." });
+    }
+  }
+
+  function clearCurrentDraft() {
+    if (isWorkspaceMode || !draftContext) return;
+    if (typeof window === "undefined") return;
+    if (!window.confirm(m.draft_clearConfirm())) return;
+    const lang = language;
+    clearDraft({ context: draftContext, problemId: problem.id, language: lang });
+    const starter = initialProblem.starterByLanguage[lang] ?? "";
+    drafts[lang] = starter;
+    lastSavedCode[lang] = starter;
+    lastSavedAt[lang] = null;
+  }
+
+  $effect(() => {
+    if (isWorkspaceMode || !draftContext) return;
+    return shortcuts.register({
+      id: `editor-save:${problem.id}`,
+      keys: ["Ctrl", "S"],
+      description: m.shortcut_saveDraft(),
+      category: "actions",
+      allowInInputs: true,
+      handler: () => saveCurrentDraft()
+    });
+  });
+
+  let draftEnabled = $derived(!isWorkspaceMode && draftContext !== undefined);
+  let isDirty = $derived(
+    draftEnabled && drafts[language] !== (lastSavedCode[language] ?? "")
+  );
+  let currentLastSavedAt = $derived(draftEnabled ? (lastSavedAt[language] ?? null) : null);
 
   // Reset selection on language change: prefer `main.<ext>` as editable, fall back to first editable, then 0.
   $effect(() => {
@@ -449,6 +536,10 @@
       {runStatus}
       {runError}
       ontabchange={(next) => (bottomTab = next)}
+      {draftEnabled}
+      {isDirty}
+      lastSavedAt={currentLastSavedAt}
+      onClearDraft={clearCurrentDraft}
     />
   </div>
 </div>
