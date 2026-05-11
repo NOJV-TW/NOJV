@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SubmissionResult } from "@nojv/core";
+  import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
 
@@ -32,6 +33,18 @@
     runError: string | null;
     /** Fires when the user clicks a tab. */
     ontabchange: (tab: "testcase" | "result") => void;
+    /**
+     * When true, render the draft status chip + clear button in the tab
+     * strip. Caller (Editor.svelte) passes false in workspace mode where
+     * the draft key has no path dimension.
+     */
+    draftEnabled?: boolean;
+    /** Current language buffer differs from the last persisted draft. */
+    isDirty?: boolean;
+    /** Epoch ms of the last successful save for the current language. */
+    lastSavedAt?: number | null;
+    /** Fires when the user clicks the trash icon. */
+    onClearDraft?: (() => void) | undefined;
   }
 
   let {
@@ -41,8 +54,20 @@
     runResult,
     runStatus,
     runError,
-    ontabchange
+    ontabchange,
+    draftEnabled = false,
+    isDirty = false,
+    lastSavedAt = null,
+    onClearDraft
   }: Props = $props();
+
+  function formatSavedTime(ms: number): string {
+    return new Date(ms).toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  }
 
   let selectedCase = $state(0);
   let selectedResultCase = $state(0);
@@ -80,6 +105,33 @@
     >
       {m.editor_testResult()}
     </button>
+    {#if draftEnabled}
+      <div class="ml-auto flex items-center gap-2 pr-2">
+        {#if lastSavedAt == null && !isDirty}
+          <span class="text-caption text-muted-foreground/70">{m.draft_none()}</span>
+        {:else if isDirty}
+          <span class="flex items-center gap-1 text-caption font-medium text-amber-500">
+            <span class="inline-block size-1.5 animate-pulse rounded-full bg-amber-500"></span>
+            {m.draft_unsaved()}
+          </span>
+        {:else if lastSavedAt != null}
+          <span class="text-caption text-muted-foreground tabular-nums">
+            {m.draft_lastSavedAt({ time: formatSavedTime(lastSavedAt) })}
+          </span>
+        {/if}
+        {#if lastSavedAt != null || isDirty}
+          <button
+            aria-label={m.draft_clearAction()}
+            class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+            onclick={() => onClearDraft?.()}
+            title={m.draft_clearAction()}
+            type="button"
+          >
+            <Trash2 class="h-3.5 w-3.5" />
+          </button>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   <!-- Bottom content -->
