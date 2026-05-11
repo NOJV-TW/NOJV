@@ -192,6 +192,10 @@ export async function deleteTestcaseRecord(
   await bestEffortDeleteTestcaseBlobs(problemId, testcaseId);
 }
 
+function isSubtaskScoringStrategy(value: string): value is SubtaskScoringStrategy {
+  return (Object.values(SubtaskScoringStrategy) as string[]).includes(value);
+}
+
 // Validates the raw string against the SubtaskScoringStrategy enum and runs
 // the edit-access check before writing. Keeps route handlers out of the
 // business of enumerating the enum values themselves.
@@ -201,10 +205,9 @@ export async function setTestcaseSetScoringStrategy(
   setId: string,
   rawStrategy: string,
 ): Promise<void> {
-  const validValues = Object.values(SubtaskScoringStrategy);
-  if (!validValues.includes(rawStrategy as SubtaskScoringStrategy)) {
+  if (!isSubtaskScoringStrategy(rawStrategy)) {
     throw new ValidationError("Invalid scoring strategy");
   }
   await assertProblemEditAccess(actor, problemId);
-  await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy as SubtaskScoringStrategy);
+  await testcaseSetRepo.updateScoringStrategy(setId, rawStrategy);
 }

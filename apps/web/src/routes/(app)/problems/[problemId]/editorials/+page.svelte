@@ -63,7 +63,7 @@
 
 <Section>
   {#snippet header()}
-    <h1 class="font-display text-title-lg">{m.editorial_listTitle()}</h1>
+    <h1 class="text-title-lg">{m.editorial_listTitle()}</h1>
     <p>
       {m.editorial_listSubtitle()} —
       <a href="/problems/{data.problem.id}" class="text-primary hover:underline">

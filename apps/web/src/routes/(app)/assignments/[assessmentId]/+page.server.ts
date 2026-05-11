@@ -7,7 +7,6 @@ import {
   assessmentSettingsFormSchema,
   type AssessmentSettingsFormData,
   type CourseAssessmentUpdate,
-  type Language,
 } from "@nojv/core";
 
 // Body of the `updateProblems` action — posted by the client as a single
@@ -31,6 +30,7 @@ import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { tryParseJsonField } from "$lib/server/shared/form-utils";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
@@ -103,7 +103,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         opensAt: toDateTimeLocal(detail.opensAt),
         dueAt: toDateTimeLocal(detail.dueAt),
         closesAt: toDateTimeLocal(detail.closesAt),
-        allowedLanguages: detail.allowedLanguages as Language[],
+        allowedLanguages: detail.allowedLanguages,
         maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
       },
       zod4(assessmentSettingsFormSchema),
@@ -203,17 +203,8 @@ export const actions = {
     const assessmentId = event.params.assessmentId;
 
     const formData = await event.request.formData();
-    const payloadRaw = formData.get("payload");
-    if (typeof payloadRaw !== "string") return fail(400, { error: "missing_payload" });
-
-    let rawJson: unknown;
-    try {
-      rawJson = JSON.parse(payloadRaw);
-    } catch {
-      return fail(400, { error: "invalid_payload" });
-    }
-    const parsed = updateProblemsPayloadSchema.safeParse(rawJson);
-    if (!parsed.success) return fail(400, { error: "invalid_payload" });
+    const parsed = tryParseJsonField(formData.get("payload"), updateProblemsPayloadSchema);
+    if (!parsed.ok) return fail(400, { error: "invalid_payload" });
     const { problemIds, points: pointsMap } = parsed.data;
 
     const payload: CourseAssessmentUpdate = {

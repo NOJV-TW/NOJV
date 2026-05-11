@@ -54,7 +54,7 @@
   <Card variant="elevated" size="hero" class="w-full max-w-sm">
     <div class="text-center">
       <div class="inline-flex items-center justify-center gap-3">
-        <h1 class="font-display text-title-lg font-semibold">
+        <h1 class="text-title-lg font-semibold">
           {m.auth_adminSignIn()}
         </h1>
         <Badge variant="outline" size="sm">{m.auth_adminBadge()}</Badge>

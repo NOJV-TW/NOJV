@@ -60,7 +60,7 @@ type ExamWithCounts = NonNullable<Awaited<ReturnType<typeof examRepo.listByCours
 
 function mapExamListItem(e: ExamWithCounts): ExamListItem {
   return {
-    allowedLanguages: e.allowedLanguages as Language[],
+    allowedLanguages: e.allowedLanguages,
     courseId: e.courseId,
     // Exam always has a courseId (FK NOT NULL) so course is always present.
     courseTitle: e.course.title,
@@ -71,8 +71,8 @@ function mapExamListItem(e: ExamWithCounts): ExamListItem {
     pageLockEnabled: e.pageLockEnabled,
     participantCount: e._count.participations,
     problemCount: e._count.problems,
-    scoreboardMode: e.scoreboardMode as ScoreboardMode,
-    scoringMode: e.scoringMode as ContestScoringMode,
+    scoreboardMode: e.scoreboardMode,
+    scoringMode: e.scoringMode,
     startsAt: e.startsAt.toISOString(),
     status: e.status,
     summary: e.summary,
@@ -88,13 +88,13 @@ type ExamDetailBase = Omit<ExamDetailData, "isManager" | "problemsHidden" | "pro
 
 function mapExamDetail(exam: ExamDetailRow): ExamDetailBase {
   return {
-    allowedLanguages: exam.allowedLanguages as Language[],
+    allowedLanguages: exam.allowedLanguages,
     courseId: exam.courseId,
     endsAt: exam.endsAt.toISOString(),
     frozenAt: exam.frozenAt?.toISOString() ?? null,
     id: exam.id,
     ipBindingEnabled: exam.ipBindingEnabled,
-    ipViolationMode: exam.ipViolationMode as "block" | "notify",
+    ipViolationMode: exam.ipViolationMode,
     ipWhitelist: exam.ipWhitelist,
     ipWhitelistEnabled: exam.ipWhitelistEnabled,
     pageLockEnabled: exam.pageLockEnabled,
@@ -105,8 +105,8 @@ function mapExamDetail(exam: ExamDetailRow): ExamDetailBase {
       points: ep.points,
       title: ep.problem.title,
     })),
-    scoreboardMode: exam.scoreboardMode as ScoreboardMode,
-    scoringMode: exam.scoringMode as ContestScoringMode,
+    scoreboardMode: exam.scoreboardMode,
+    scoringMode: exam.scoringMode,
     startsAt: exam.startsAt.toISOString(),
     status: exam.status,
     submitCooldownSec: exam.submitCooldownSec,

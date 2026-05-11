@@ -258,7 +258,7 @@ export async function getAssessmentContext(
   }
 
   return {
-    allowedLanguages: assessment.allowedLanguages as Language[],
+    allowedLanguages: assessment.allowedLanguages,
     assessmentId: assessment.id,
     courseId: assessment.course.id,
     timeStatus,

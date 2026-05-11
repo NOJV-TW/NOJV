@@ -209,7 +209,6 @@ See [Deployment Guide](docs/DEPLOYMENT.md) for full operational details.
 | [CLAUDE.md](CLAUDE.md)                              | Agent entrypoint and reading order                  |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                  | System architecture overview                        |
 | [Frontend Surface](docs/FRONTEND.md)                | Routes, boundaries, UI contracts                    |
-| [Temporal Workflows](docs/TEMPORAL.md)              | Workflows, activities, task queues                  |
 | [Judge Pipeline](docs/JUDGE_PIPELINE.md)            | Pipeline stages, sandbox execution                  |
 | [Database Schema](docs/DATABASE.md)                 | Models, relationships, enums                        |
 | [Redis Architecture](docs/REDIS.md)                 | Key schema, pub/sub, scoreboard                     |

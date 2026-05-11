@@ -180,8 +180,7 @@ export async function updateAssessmentRecord(
     }
 
     if (payload.problemIds !== undefined) {
-      const enforcedLanguages =
-        payload.allowedLanguages ?? (assessment.allowedLanguages as Language[]);
+      const enforcedLanguages = payload.allowedLanguages ?? assessment.allowedLanguages;
       const pointsByProblem = new Map<string, number>();
       for (const row of payload.problemOrdinals ?? []) {
         pointsByProblem.set(row.problemId, row.points);
@@ -216,8 +215,7 @@ export async function publishAssessment(
       throw new ValidationError("Only draft assignments can be published.");
     }
 
-    const allowedLanguages = assessment.allowedLanguages as Language[];
-    if (allowedLanguages.length < 1) {
+    if (assessment.allowedLanguages.length < 1) {
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
 

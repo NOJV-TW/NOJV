@@ -12,7 +12,7 @@ export interface Shortcut {
 }
 
 function normalizeKey(event: KeyboardEvent): string {
-  const key = event.key;
+  const key = (event.key as string | undefined) ?? "";
   if (key === " ") return "Space";
   return key.length === 1 ? key.toUpperCase() : key;
 }

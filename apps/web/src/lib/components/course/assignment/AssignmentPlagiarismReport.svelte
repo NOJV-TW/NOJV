@@ -174,7 +174,7 @@
 <section data-slot="assignment-plagiarism" class={cn("space-y-5", className)}>
   <div class="flex flex-wrap items-baseline justify-between gap-4">
     <div>
-      <h2 class="font-display text-title font-medium leading-tight">
+      <h2 class="text-title font-medium leading-tight">
         {m.assignmentDetail_plagHeading()}
       </h2>
       {#if report?.completedAt}
@@ -231,7 +231,7 @@
     >
       <div class="flex items-center gap-8">
         <div>
-          <div class="font-display text-headline font-medium leading-none text-destructive">
+          <div class="text-headline font-medium leading-none text-destructive">
             {highPairs.length}
           </div>
           <div class="mt-2 text-body-sm text-muted-foreground">
@@ -239,7 +239,7 @@
           </div>
         </div>
         <div>
-          <div class="font-display text-headline font-medium leading-none text-warning">
+          <div class="text-headline font-medium leading-none text-warning">
             {mediumPairs.length}
           </div>
           <div class="mt-2 text-body-sm text-muted-foreground">
@@ -247,7 +247,7 @@
           </div>
         </div>
         <div>
-          <div class="font-display text-headline font-medium leading-none text-muted-foreground">
+          <div class="text-headline font-medium leading-none text-muted-foreground">
             {totalPairs}
           </div>
           <div class="mt-2 text-body-sm text-muted-foreground">
@@ -314,7 +314,7 @@
             >
               <div class="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4">
                 <div
-                  class="min-w-[100px] font-display text-display font-medium leading-[0.9] tracking-[-0.03em] text-destructive"
+                  class="min-w-[100px] text-display font-medium leading-[0.9] tracking-[-0.03em] text-destructive"
                 >
                   {pair.similarity}<span
                     class="align-[0.4em] text-[0.5em] font-normal text-muted-foreground">%</span
@@ -327,7 +327,7 @@
                       {studentHandle(pair.userId1)}
                     </div>
                   </div>
-                  <span class="font-display text-body-lg text-muted-foreground">↔</span>
+                  <span class="text-body-lg text-muted-foreground">↔</span>
                   <div>
                     <div class="font-semibold">{studentName(pair.userId2)}</div>
                     <div class="mt-0.5 font-mono text-caption text-muted-foreground">
@@ -425,7 +425,7 @@
             >
               <div class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4">
                 <div
-                  class="min-w-[100px] font-display text-display font-medium leading-[0.9] tracking-[-0.03em] text-warning"
+                  class="min-w-[100px] text-display font-medium leading-[0.9] tracking-[-0.03em] text-warning"
                 >
                   {pair.similarity}<span
                     class="align-[0.4em] text-[0.5em] font-normal text-muted-foreground">%</span
@@ -438,7 +438,7 @@
                       {studentHandle(pair.userId1)}
                     </div>
                   </div>
-                  <span class="font-display text-body-lg text-muted-foreground">↔</span>
+                  <span class="text-body-lg text-muted-foreground">↔</span>
                   <div>
                     <div class="font-semibold">{studentName(pair.userId2)}</div>
                     <div class="mt-0.5 font-mono text-caption text-muted-foreground">

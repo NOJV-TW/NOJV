@@ -150,7 +150,7 @@ export async function updateProblemRecord(
     // `type === "special_env"` ⟺ (advancedImageRef && advancedImageSource),
     // but `problemUpdateSchema.partial()` strips the refine (ZodEffects
     // can't be partialed). Re-derive the merged row and check manually.
-    const mergedType = (payload.type ?? problem.type) as ProblemType;
+    const mergedType = payload.type ?? problem.type;
     const mergedImageRef = payload.advancedImageRef ?? problem.advancedImageRef;
     const mergedImageSource = payload.advancedImageSource ?? problem.advancedImageSource;
     const hasImage = Boolean(mergedImageRef) && Boolean(mergedImageSource);

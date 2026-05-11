@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOJV — 作業 · 考試 · 競賽</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Manrope', 'Noto Sans TC', 'system-ui', 'sans-serif'],
+        display: ['Fraunces', 'Noto Sans TC', 'serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
+      fontSize: {
+        'micro':    ['0.6875rem', { lineHeight: '1.4' }],
+        'caption':  ['0.75rem',   { lineHeight: '1.4' }],
+        'body-sm':  ['0.875rem',  { lineHeight: '1.5' }],
+        'body':     ['1rem',      { lineHeight: '1.5' }],
+        'body-lg':  ['1.125rem',  { lineHeight: '1.5' }],
+        'title-sm': ['1.25rem',   { lineHeight: '1.3' }],
+        'title':    ['1.5rem',    { lineHeight: '1.25' }],
+        'title-lg': ['1.875rem',  { lineHeight: '1.2' }],
+        'headline': ['2.25rem',   { lineHeight: '1.15' }],
+        'display':  ['3rem',      { lineHeight: '1.1' }],
+      },
+      borderRadius: {
+        xs: '0.375rem',
+        sm: '0.5rem',
+        md: '0.75rem',
+        lg: '1rem',
+        xl: '1.5rem',
+        '2xl': '2rem',
+        '3xl': '2.5rem',
+      },
+    }
+  }
+}
+</script>
+<style>
+:root {
+  --background: #f7f1e8;
+  --foreground: #1f1916;
+  --panel: rgba(255, 250, 244, 0.82);
+  --panel-strong: rgba(247, 239, 228, 0.94);
+  --primary: #c4682d;
+  --primary-foreground: #ffffff;
+  --muted: #f4ecdf;
+  --muted-foreground: #6d6157;
+  --accent: #ead6c7;
+  --border-subtle: rgba(79, 52, 35, 0.08);
+  --border: rgba(79, 52, 35, 0.14);
+  --border-strong: rgba(79, 52, 35, 0.24);
+  --success: oklch(0.648 0.15 160);
+  --warning: oklch(0.75 0.16 75);
+  --destructive: oklch(0.577 0.245 27.325);
+  --info: oklch(0.68 0.12 230);
+  --chart-1: #c4682d;
+  --chart-2: #4d6f8f;
+  --chart-3: #8a6142;
+  --chart-4: #d4a054;
+  --chart-5: #7a8f6d;
+  --shadow-rest: 0 1px 1px rgba(79,52,35,.04), 0 2px 4px rgba(79,52,35,.04), 0 8px 16px rgba(79,52,35,.04);
+  --shadow-hover: 0 1px 1px rgba(79,52,35,.05), 0 4px 8px rgba(79,52,35,.06), 0 12px 24px rgba(79,52,35,.08), 0 24px 48px rgba(79,52,35,.06);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.dark {
+  --background: #1a1412;
+  --foreground: #f5ede4;
+  --panel: rgba(74, 58, 48, 0.88);
+  --panel-strong: rgba(86, 68, 56, 0.94);
+  --primary: #d4834a;
+  --muted: #2a201a;
+  --muted-foreground: #a89888;
+  --accent: #3a2e26;
+  --border-subtle: rgba(255, 250, 244, 0.06);
+  --border: rgba(255, 250, 244, 0.12);
+  --border-strong: rgba(255, 250, 244, 0.22);
+}
+body {
+  font-family: 'Manrope', 'Noto Sans TC', system-ui, sans-serif;
+  color: var(--foreground);
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(196,104,45,.14), transparent 26%),
+    radial-gradient(circle at top right, rgba(77,111,143,.12), transparent 22%),
+    linear-gradient(180deg, #fbf5ed 0%, #f4ecdf 100%);
+  background-attachment: fixed;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+}
+html.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(212,131,74,.08), transparent 26%),
+    radial-gradient(circle at top right, rgba(77,111,143,.06), transparent 22%),
+    linear-gradient(180deg, #1a1412 0%, #151010 100%);
+}
+::selection { background: rgba(196,104,45,.18); }
+html.dark ::selection { background: rgba(212,131,74,.25); }
+
+.font-display { font-family: 'Fraunces', 'Noto Sans TC', serif; font-optical-sizing: auto; }
+.font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.tabular-nums { font-variant-numeric: tabular-nums; }
+h1,h2,h3,h4 { text-wrap: balance; line-height: 1.15; }
+p { text-wrap: pretty; line-height: 1.625; }
+
+.bg-panel { background-color: var(--panel); }
+.bg-panel-strong { background-color: var(--panel-strong); }
+.bg-foreground { background-color: var(--foreground); }
+.bg-background { background-color: var(--background); }
+.bg-primary { background-color: var(--primary); }
+.bg-muted { background-color: var(--muted); }
+.bg-accent { background-color: var(--accent); }
+.text-foreground { color: var(--foreground); }
+.text-background { color: var(--background); }
+.text-primary { color: var(--primary); }
+.text-muted-foreground { color: var(--muted-foreground); }
+.text-primary-foreground { color: var(--primary-foreground); }
+.border-default { border-color: var(--border); }
+.border-subtle { border-color: var(--border-subtle); }
+.border-strong { border-color: var(--border-strong); }
+.border-primary { border-color: var(--primary); }
+.shadow-rest { box-shadow: var(--shadow-rest); }
+.shadow-hover { box-shadow: var(--shadow-hover); }
+
+.glass {
+  background-color: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* Animations */
+@keyframes fade-up {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0,0,0); }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-33.333%); }
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent); }
+  50%      { box-shadow: 0 0 0 8px color-mix(in oklab, var(--primary) 0%, transparent); }
+}
+
+.fade-up { animation: fade-up 700ms var(--ease-out-soft) both; }
+.hover-lift { transition: transform 160ms var(--ease-out-soft), box-shadow 160ms var(--ease-out-soft), border-color 160ms var(--ease-out-soft); }
+.hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+
+/* Semantic verdict utilities */
+.verdict-ac    { background: color-mix(in oklab, var(--success) 15%, transparent); color: oklch(0.45 0.13 160); }
+.verdict-wa    { background: color-mix(in oklab, var(--destructive) 15%, transparent); color: oklch(0.45 0.18 27); }
+.verdict-tle   { background: color-mix(in oklab, var(--warning) 15%, transparent); color: oklch(0.45 0.15 75); }
+.verdict-pending { background: color-mix(in oklab, var(--info) 15%, transparent); color: oklch(0.45 0.12 230); }
+html.dark .verdict-ac    { color: oklch(0.78 0.13 160); }
+html.dark .verdict-wa    { color: oklch(0.72 0.18 27); }
+html.dark .verdict-tle   { color: oklch(0.82 0.16 75); }
+html.dark .verdict-pending { color: oklch(0.78 0.12 230); }
+
+.live-dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Focus rings */
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Scrollbar (subtle) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Larger checkbox accent */
+input[type="checkbox"] { accent-color: var(--primary); }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<!-- React -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- Data + components -->
+<script type="text/babel" src="cw/data.jsx"></script>
+<script type="text/babel" src="cw/components.jsx"></script>
+
+<!-- Views -->
+<script type="text/babel" src="cw/assignment.jsx"></script>
+<script type="text/babel" src="cw/exam.jsx"></script>
+<script type="text/babel" src="cw/contest.jsx"></script>
+
+<!-- Shell + mount -->
+<script type="text/babel" src="cw/shell.jsx"></script>
+<script type="text/babel" data-presets="react">
+  const CWApp = window.CWApp;
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(<CWApp />);
+</script>
+
+</body>
+</html>

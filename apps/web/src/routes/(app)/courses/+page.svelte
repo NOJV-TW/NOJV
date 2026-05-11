@@ -91,7 +91,7 @@
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60">
           <GraduationCap class="h-7 w-7 text-muted-foreground/70" />
         </div>
-        <h3 class="mt-4 font-display text-title font-medium">{m.courses_emptyEnrolledTitle()}</h3>
+        <h3 class="mt-4 text-title font-medium">{m.courses_emptyEnrolledTitle()}</h3>
         <p class="mt-2 text-body-sm text-muted-foreground">
           {m.courses_emptyEnrolledDescription()}
         </p>
@@ -103,7 +103,7 @@
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60">
           <BookOpen class="h-7 w-7 text-muted-foreground/70" />
         </div>
-        <h3 class="mt-4 font-display text-title font-medium">{m.courses_emptyManagingTitle()}</h3>
+        <h3 class="mt-4 text-title font-medium">{m.courses_emptyManagingTitle()}</h3>
         <p class="mt-2 text-body-sm text-muted-foreground">
           {m.courses_emptyManagingDescription()}
         </p>
@@ -141,7 +141,7 @@
             {/if}
           </div>
 
-          <h3 class="font-display text-title font-medium leading-tight tracking-tight">
+          <h3 class="text-title font-medium leading-tight tracking-tight">
             {course.title}
           </h3>
           {#if course.academicYear != null && course.semester != null}

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { problemRepo, problemWorkspaceFileRepo, runTransaction, type Prisma } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
-import { entryFileNameFor } from "@nojv/core";
+import { entryFileNameFor, judgeConfigSchema } from "@nojv/core";
 
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -159,7 +159,11 @@ export async function updateProblemWorkspace(
     // clobbering the judge settings.
     const updateData: Prisma.ProblemUpdateInput = {};
     if (payload.runtime) {
-      const currentConfig = (problem.judgeConfig as Record<string, unknown> | null) ?? {};
+      // Validate existing judgeConfig before merging — silently dropping a
+      // corrupt blob preserves the new runtime, the alternative is to lose
+      // the user's update because of historical bad data.
+      const parsed = judgeConfigSchema.safeParse(problem.judgeConfig);
+      const currentConfig = parsed.success ? parsed.data : { type: "standard" as const };
       updateData.judgeConfig = {
         ...currentConfig,
         runtime: payload.runtime,

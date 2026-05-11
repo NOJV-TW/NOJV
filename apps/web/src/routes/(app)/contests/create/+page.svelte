@@ -28,7 +28,7 @@
 <div class="space-y-6">
   <div class="flex items-center gap-3">
     <TrophyIcon class="h-8 w-8 text-primary" />
-    <h1 class="font-display text-title-lg">{m.contestCreate_title()}</h1>
+    <h1 class="text-title-lg">{m.contestCreate_title()}</h1>
   </div>
 
   {#if $formMessage?.kind === "success"}

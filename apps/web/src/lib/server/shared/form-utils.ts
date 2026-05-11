@@ -34,6 +34,28 @@ export function parseJsonField<T>(
   return parsed.data;
 }
 
+/**
+ * Non-throwing counterpart of `parseJsonField` for `Actions` — callers
+ * use `fail()` to keep the form state instead of redirecting to an error
+ * page. Returns a discriminated result so the call site stays terse.
+ */
+export function tryParseJsonField<T>(
+  raw: FormDataEntryValue | null,
+  schema: z.ZodType<T>,
+): { ok: true; data: T } | { ok: false } {
+  if (typeof raw !== "string") return { ok: false };
+
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return { ok: false };
+  }
+
+  const parsed = schema.safeParse(json);
+  return parsed.success ? { ok: true, data: parsed.data } : { ok: false };
+}
+
 /** Read a required string form field (e.g. an ID). Throws 400 if missing. */
 export function readStringField(raw: FormDataEntryValue | null, fieldName: string): string {
   if (typeof raw !== "string") error(400, `Missing ${fieldName}`);
