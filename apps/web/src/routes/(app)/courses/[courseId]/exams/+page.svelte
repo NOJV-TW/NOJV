@@ -149,7 +149,7 @@
             <div class="text-caption font-semibold uppercase tracking-[0.1em] text-primary">
               {dateParts.month}
             </div>
-            <div class="mt-0.5 font-display text-title-lg font-medium leading-none">
+            <div class="mt-0.5 text-title-lg font-medium leading-none">
               {dateParts.day}
             </div>
             <div class="mt-1 font-mono text-micro text-muted-foreground">
@@ -282,7 +282,7 @@
           <!-- Right: countdown / class stats -->
           <div class="flex min-w-[200px] items-center justify-end gap-6">
             {#if isRunning}
-              <div class="font-display text-title font-medium tabular-nums">
+              <div class="text-title font-medium tabular-nums">
                 {minutesLeft(exam.endsAt)}<span
                   class="ml-1 text-caption font-normal text-muted-foreground"
                   >{m.examsList_minLeft()}</span
@@ -294,12 +294,12 @@
               class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
             >
               {#if isDraft}
-                <span class="block font-display text-title-sm font-medium text-foreground"
+                <span class="block text-title-sm font-medium text-foreground"
                   >—</span
                 >
                 {m.examsList_teacherOnlyHint()}
               {:else if exam.registeredCount !== null && exam.totalStudents !== null}
-                <span class="block font-display text-title-sm font-medium text-foreground">
+                <span class="block text-title-sm font-medium text-foreground">
                   {exam.registeredCount}/{exam.totalStudents}
                 </span>
                 {isRunning
@@ -310,7 +310,7 @@
               {:else}
                 <!-- Student view (no class stats) — show a soft dash
                      placeholder so the right column keeps its width. -->
-                <span class="block font-display text-title-sm font-medium text-foreground"
+                <span class="block text-title-sm font-medium text-foreground"
                   >—</span
                 >
                 {m.examsList_classStatsPendingTeacher()}

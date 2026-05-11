@@ -19,7 +19,7 @@
       <p class="text-caption uppercase tracking-[0.12em] text-muted-foreground">
         {eyebrow}
       </p>
-      <h1 class="mt-1 font-display text-display font-medium tracking-[-0.02em]">
+      <h1 class="mt-1 text-display font-medium tracking-[-0.02em]">
         {title}
       </h1>
       {#if description}

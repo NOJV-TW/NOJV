@@ -31,7 +31,7 @@ export function advancedFallbackResult(
     testcaseResults: [
       {
         index: 0,
-        verdict: "SE" as SandboxVerdict,
+        verdict: "SE",
         stdout: "",
         stderr: message,
         exitCode: -1,

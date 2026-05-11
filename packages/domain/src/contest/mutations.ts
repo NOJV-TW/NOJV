@@ -205,8 +205,7 @@ export async function updateContestRecord(
     if (payload.problemIds !== undefined) {
       await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
 
-      const enforcedLanguages =
-        payload.allowedLanguages ?? (contest.allowedLanguages as Language[]);
+      const enforcedLanguages = payload.allowedLanguages ?? contest.allowedLanguages;
       await resolveAndAttachContestProblems(
         tx,
         contest.id,

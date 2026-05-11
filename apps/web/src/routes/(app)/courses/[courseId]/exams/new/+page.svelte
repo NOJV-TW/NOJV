@@ -115,11 +115,11 @@
     >
       <header class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           >1</span
         >
         <div>
-          <h2 class="font-display text-title-sm font-medium">
+          <h2 class="text-title-sm font-medium">
             {m.examCreate_basicsCardTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -169,11 +169,11 @@
     >
       <header class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           >2</span
         >
         <div>
-          <h2 class="font-display text-title-sm font-medium">
+          <h2 class="text-title-sm font-medium">
             {m.examCreate_problemsCardTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -249,7 +249,7 @@
                 class="flex items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3 transition-colors hover:border-border-strong"
               >
                 <span
-                  class="font-display text-title-sm text-muted-foreground min-w-[20px] text-center"
+                  class="text-title-sm text-muted-foreground min-w-[20px] text-center"
                   >{index + 1}</span
                 >
                 <div class="min-w-0 flex-1">
@@ -316,11 +316,11 @@
     >
       <header class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           >3</span
         >
         <div>
-          <h2 class="font-display text-title-sm font-medium">
+          <h2 class="text-title-sm font-medium">
             {m.examCreate_scheduleCardTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -391,7 +391,7 @@
           class="h-4 w-4 transition-transform {advancedOpen ? 'rotate-90' : ''}"
         />
         <div>
-          <h2 class="font-display text-title-sm font-medium">
+          <h2 class="text-title-sm font-medium">
             {m.examCreate_advancedCardTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -433,11 +433,11 @@
     >
       <header class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           >5</span
         >
         <div>
-          <h2 class="font-display text-title-sm font-medium">
+          <h2 class="text-title-sm font-medium">
             {m.examCreate_proctoringCardTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
@@ -630,11 +630,11 @@
     >
       <header class="mb-6 flex items-center gap-3">
         <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground font-display text-caption font-semibold text-background"
+          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
           >6</span
         >
         <div>
-          <h2 class="font-display text-title-sm font-medium">
+          <h2 class="text-title-sm font-medium">
             {m.examCreate_scoringCardTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">

@@ -97,5 +97,4 @@ Both `apps/web` and Temporal activities use singleton Redis connections:
 ## Related Docs
 
 - [Architecture Overview](../ARCHITECTURE.md)
-- [Temporal Workflows](TEMPORAL.md)
 - [Deployment Guide](DEPLOYMENT.md)

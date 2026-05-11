@@ -82,11 +82,11 @@
       allowedLanguages: [] as Language[],
       type: workspaceType,
       files: data.workspaceFiles.map((f) => ({
-        language: f.language as Language,
+        language: f.language,
         path: f.path,
         content: f.content,
         description: f.description,
-        visibility: f.visibility as "editable" | "readonly" | "hidden",
+        visibility: f.visibility,
         orderIndex: f.orderIndex
       }))
     };
@@ -163,7 +163,7 @@
 
 <div class="space-y-6">
   <div class="flex items-center gap-3">
-    <h1 class="font-display text-title-lg">
+    <h1 class="text-title-lg">
       {formatProblemDisplayName({
         displayId: data.problem.displayId,
         title:

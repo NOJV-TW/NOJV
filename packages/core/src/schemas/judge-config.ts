@@ -18,14 +18,15 @@ export type Runtime = z.infer<typeof runtimeSchema>;
 export const judgeConfigSchema = z.object({
   type: judgeTypeSchema.default("standard"),
 
-  // Checker / interactive scripts
-  checkerScript: z.string().max(200_000).optional(),
-  checkerLanguage: judgeScriptLanguageSchema.optional(),
-  interactorScript: z.string().max(200_000).optional(),
-  interactorLanguage: judgeScriptLanguageSchema.optional(),
+  // Checker / interactive scripts — accept both null and undefined since
+  // older rows persisted explicit null while newer code writes undefined.
+  checkerScript: z.string().max(200_000).nullish(),
+  checkerLanguage: judgeScriptLanguageSchema.nullish(),
+  interactorScript: z.string().max(200_000).nullish(),
+  interactorLanguage: judgeScriptLanguageSchema.nullish(),
 
   // Runtime: authoritative source for time/memory limits + env.
-  runtime: runtimeSchema.optional(),
+  runtime: runtimeSchema.nullish(),
 });
 
 export type JudgeConfig = z.infer<typeof judgeConfigSchema>;

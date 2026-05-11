@@ -492,5 +492,4 @@ Prisma does not auto-generate down migrations. If a migration causes issues:
 ## Related Docs
 
 - [Architecture Overview](../ARCHITECTURE.md)
-- [Temporal Workflows](TEMPORAL.md)
 - [Getting Started Runbook](runbooks/getting-started.md)

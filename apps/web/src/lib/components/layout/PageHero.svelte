@@ -50,7 +50,7 @@
       {/if}
       <h1
         class={cn(
-          "font-display text-display font-normal leading-none tracking-[-0.025em]",
+          "text-display font-normal leading-none tracking-[-0.025em]",
           eyebrow ? "mt-2" : ""
         )}
       >

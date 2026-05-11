@@ -53,7 +53,7 @@
 			<Icon class="h-8 w-8 text-primary" />
 		</div>
 		<h3
-			class="font-display text-[length:var(--text-title-lg)] leading-tight mt-5 [text-wrap:balance]"
+			class="text-[length:var(--text-title-lg)] leading-tight mt-5 [text-wrap:balance]"
 		>
 			{title}
 		</h3>
@@ -105,7 +105,7 @@
 			<Icon class="h-7 w-7 text-muted-foreground/70" />
 		</div>
 		<h3
-			class="font-display text-[length:var(--text-title)] leading-tight mt-4 [text-wrap:balance]"
+			class="text-[length:var(--text-title)] leading-tight mt-4 [text-wrap:balance]"
 		>
 			{title}
 		</h3>

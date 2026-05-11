@@ -80,7 +80,7 @@
 
   {#if showCreateForm}
     <Card variant="flat" size="md">
-      <h3 class="font-display text-title-sm font-semibold">{m.admin_announcementsNew()}</h3>
+      <h3 class="text-title-sm font-semibold">{m.admin_announcementsNew()}</h3>
       <form class="space-y-4" method="POST" action="?/create" use:enhance>
         <FormField label={m.admin_announcementsFieldTitle()} for="create-title" required>
           <Input

@@ -99,7 +99,7 @@
   <section class="animate-in animate-in-1">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2
-        class="flex items-center gap-2.5 font-display text-title font-medium tracking-[-0.01em]"
+        class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
       >
         <span class="text-primary" aria-hidden="true">
           <Megaphone class="h-5 w-5" />
@@ -231,7 +231,7 @@
     <section class="animate-in animate-in-2">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2
-        class="flex items-center gap-2.5 font-display text-title font-medium tracking-[-0.01em]"
+        class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
       >
         <span class="text-primary" aria-hidden="true">
           <ClipboardList class="h-5 w-5" />
@@ -307,23 +307,23 @@
                  fall through to the status-aware hint. -->
             <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
               {#if assignment.status === "draft"}
-                <span class="block font-display text-body-lg font-medium text-foreground">—</span>
+                <span class="block text-body-lg font-medium text-foreground">—</span>
                 {m.courseOverview_classStatsDraftHint()}
               {:else if assignment.status === "upcoming"}
-                <span class="block font-display text-body-lg font-medium text-foreground">—</span>
+                <span class="block text-body-lg font-medium text-foreground">—</span>
                 {m.courseOverview_classStatsUpcomingHint()}
               {:else if isManager && assignment.classStats}
-                <span class="block font-display text-body-lg font-medium text-foreground">
+                <span class="block text-body-lg font-medium text-foreground">
                   {assignment.classStats.submittedUsers}/{assignment.classStats.totalStudents}
                 </span>
                 {m.courseOverview_avgScore({ score: assignment.classStats.avgScore })}
               {:else if !isManager && assignment.myStatus}
-                <span class="block font-display text-body-lg font-medium text-foreground">
+                <span class="block text-body-lg font-medium text-foreground">
                   {assignment.myStatus.solved}/{assignment.myStatus.total}
                 </span>
                 {m.courseOverview_completionCaption()}
               {:else}
-                <span class="block font-display text-body-lg font-medium text-foreground">—</span>
+                <span class="block text-body-lg font-medium text-foreground">—</span>
               {/if}
             </div>
             <ChevronRight
@@ -340,7 +340,7 @@
   <section class="animate-in animate-in-3">
     <header class="mb-4 flex items-center justify-between gap-4">
       <h2
-        class="flex items-center gap-2.5 font-display text-title font-medium tracking-[-0.01em]"
+        class="flex items-center gap-2.5 text-title font-medium tracking-[-0.01em]"
       >
         <span class="text-primary" aria-hidden="true">
           <CalendarClock class="h-5 w-5" />
@@ -422,14 +422,14 @@
             <div class="text-right font-mono text-caption text-muted-foreground tabular-nums">
               {#if isManager && exam.registeredCount !== null && exam.totalStudents !== null}
                 <span
-                  class="block font-display text-body-lg font-medium text-foreground"
+                  class="block text-body-lg font-medium text-foreground"
                 >
                   {exam.registeredCount}/{exam.totalStudents}
                 </span>
                 {m.courseOverview_registered()}
               {:else}
                 <span
-                  class="block font-display text-body-lg font-medium text-foreground"
+                  class="block text-body-lg font-medium text-foreground"
                 >
                   —
                 </span>

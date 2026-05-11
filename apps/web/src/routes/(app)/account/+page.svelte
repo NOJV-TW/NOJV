@@ -113,14 +113,14 @@
 <div class="mx-auto w-full max-w-2xl">
   <Section>
     {#snippet header()}
-      <h1 class="font-display text-title-lg">{m.navigation_account()}</h1>
+      <h1 class="text-title-lg">{m.navigation_account()}</h1>
       <p>{m.account_profileDescription()}</p>
     {/snippet}
 
     <div class="flex flex-col gap-6">
       <Card variant="surface" size="md">
         <div class="flex flex-col gap-1">
-          <h2 class="font-display text-title-sm">{m.account_profile()}</h2>
+          <h2 class="text-title-sm">{m.account_profile()}</h2>
           <p class="text-body-sm text-muted-foreground">
             {m.account_profileHint()}
           </p>

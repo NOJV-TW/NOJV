@@ -92,11 +92,11 @@
     </div>
     <div class="flex flex-col leading-tight">
       <span
-        class="font-display text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground"
+        class="text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground"
       >
         {context.courseLabel}
       </span>
-      <span class="mt-px font-display text-body-lg font-medium tracking-[-0.01em]">
+      <span class="mt-px text-body-lg font-medium tracking-[-0.01em]">
         {context.examTitle}
       </span>
     </div>
