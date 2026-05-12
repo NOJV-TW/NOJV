@@ -10,9 +10,9 @@ vi.mock("@nojv/db", () => ({
   editorialRepo: { upsert: editorialUpsert },
 }));
 
-import { problemDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/domain";
 
-const { hasUserAcProblem, upsertEditorial } = problemDomain;
+const { hasUserAcProblem, upsertEditorial } = editorialDomain;
 
 beforeEach(() => {
   submissionCount.mockReset();

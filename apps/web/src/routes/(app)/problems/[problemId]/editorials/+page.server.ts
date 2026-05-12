@@ -1,11 +1,12 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { problemDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain } from "@nojv/domain";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-const { getProblemRowById, hasUserAcProblem, listEditorialsPage } = problemDomain;
+const { getProblemRowById } = problemDomain;
+const { hasUserAcProblem, listEditorialsPage } = editorialDomain;
 
 const PAGE_SIZE = 20;
 

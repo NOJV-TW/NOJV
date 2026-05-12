@@ -2,7 +2,7 @@
   import type { examDomain } from "@nojv/domain";
   import type { ExamSettingsForm } from "@nojv/core";
 
-  export type SettingsTabDetail = examDomain.ExamDetailPageData;
+  export type SettingsTabDetail = examDomain.ExamDetailPage;
   export type SettingsLiveStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
   export type { ExamSettingsForm };
 </script>

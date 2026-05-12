@@ -16,7 +16,7 @@ export interface SubmissionAssessmentContext {
   courseId: string;
 }
 
-export interface SubmissionWorkspaceFilePayload {
+export interface SubmissionWorkspaceFile {
   path: string;
   content: string;
 }
@@ -31,7 +31,7 @@ export interface SubmissionRequest {
   sampleOnly?: boolean;
   sourceCode: string;
   // Workspace-file mode: server merges these with DB-stored hidden files to rebuild the judge context.
-  sourceFiles?: SubmissionWorkspaceFilePayload[];
+  sourceFiles?: SubmissionWorkspaceFile[];
 }
 
 export interface ExecuteSubmissionOptions {

@@ -9,7 +9,7 @@
     onchange?: (value: string) => void;
     language?: string;
     height?: string;
-    readonly?: boolean;
+    isReadOnly?: boolean;
   }
 
   let {
@@ -17,7 +17,7 @@
     onchange,
     language = "python",
     height = "300px",
-    readonly = false,
+    isReadOnly = false,
   }: Props = $props();
 
   let editorContainer: HTMLDivElement;
@@ -42,7 +42,7 @@
         minimap: { enabled: false },
         overviewRulerBorder: false,
         padding: { top: 16 },
-        readOnly: readonly,
+        readOnly: isReadOnly,
         scrollBeyondLastLine: false,
         theme: getNojvThemeName(isDark),
         value,
@@ -89,7 +89,7 @@
   });
 
   $effect(() => {
-    const ro = readonly;
+    const ro = isReadOnly;
     if (!monacoEditor) return;
     monacoEditor.updateOptions({ readOnly: ro });
   });

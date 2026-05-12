@@ -9,7 +9,7 @@ import { pubsub } from "@nojv/redis";
 
 // --- Contest ------------------------------------------------------------
 
-export type ContestInfo = contestDomain.ContestLifecycleInfo;
+export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
 
 export async function getContestInfo(contestId: string): Promise<ContestInfo> {
   return contestDomain.getContestLifecycleInfo(contestId);
@@ -43,11 +43,11 @@ export async function getAssessmentInfo(assessmentId: string) {
 }
 
 export async function activateAssessment(assessmentId: string): Promise<void> {
-  await assignmentDomain.activateAssignment(assessmentId);
+  await assignmentDomain.markAssignmentPublished(assessmentId);
 }
 
 export async function closeAssessment(assessmentId: string): Promise<void> {
-  await assignmentDomain.closeAssignment(assessmentId);
+  await assignmentDomain.markAssignmentArchived(assessmentId);
 }
 
 // --- Exam session -------------------------------------------------------

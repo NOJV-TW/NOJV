@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import type { examDomain } from "@nojv/domain";
 
-  export type ExamSubmissionsMatrixData = examDomain.ExamMatrixData;
+  export type ExamSubmissionsMatrixData = examDomain.ExamSubmissionsMatrix;
 </script>
 
 <script lang="ts">
