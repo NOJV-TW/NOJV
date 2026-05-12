@@ -211,6 +211,20 @@ export const examRepo = {
     return prisma.exam.count();
   },
 
+  async copyPreviewByCourseId(courseId: string) {
+    const rows = await prisma.exam.findMany({
+      where: { courseId },
+      select: { status: true, _count: { select: { problems: true } } },
+    });
+    let problemLinks = 0;
+    const byStatus = { draft: 0, published: 0, archived: 0 };
+    for (const r of rows) {
+      byStatus[r.status as keyof typeof byStatus] += 1;
+      problemLinks += r._count.problems;
+    }
+    return { total: rows.length, byStatus, problemLinks };
+  },
+
   update(id: string, data: Prisma.ExamUpdateInput) {
     return prisma.exam.update({
       data,
