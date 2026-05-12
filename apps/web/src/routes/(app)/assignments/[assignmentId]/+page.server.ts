@@ -18,7 +18,7 @@ const updateProblemsPayloadSchema = z.object({
   points: z.record(z.string(), z.unknown()).default({}),
 });
 import {
-  assessmentDomain,
+  assignmentDomain,
   clarificationDomain,
   courseDomain,
   plagiarismDomain,
@@ -47,7 +47,7 @@ const {
   revertAssessmentToDraft,
   unarchiveAssessment,
   updateAssessmentRecord,
-} = assessmentDomain;
+} = assignmentDomain;
 
 function localToIso(local: string): string {
   return toIsoOrUndefined(local) ?? "";
@@ -161,7 +161,7 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     if (!form.valid) return fail(400, { form });
@@ -191,7 +191,7 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     const formData = await event.request.formData();
     const parsed = tryParseJsonField(formData.get("payload"), updateProblemsPayloadSchema);
@@ -217,12 +217,12 @@ export const actions = {
     return { success: true };
   },
 
-  publishAssessment: async (event) => {
+  publishAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     try {
       await publishAssessment(actor, assessmentId);
@@ -239,7 +239,7 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     try {
       await revertAssessmentToDraft(actor, assessmentId);
@@ -251,12 +251,12 @@ export const actions = {
     return { success: true };
   },
 
-  archiveAssessment: async (event) => {
+  archiveAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     try {
       await archiveAssessment(actor, assessmentId);
@@ -268,12 +268,12 @@ export const actions = {
     return { success: true };
   },
 
-  unarchiveAssessment: async (event) => {
+  unarchiveAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     try {
       await unarchiveAssessment(actor, assessmentId);
@@ -285,12 +285,12 @@ export const actions = {
     return { success: true };
   },
 
-  deleteAssessment: async (event) => {
+  deleteAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assessmentId;
+    const assessmentId = event.params.assignmentId;
 
     try {
       await deleteAssessmentDraft(actor, assessmentId);

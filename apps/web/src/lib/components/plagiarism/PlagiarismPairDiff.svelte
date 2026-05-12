@@ -6,30 +6,24 @@
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils.js";
   import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
+  import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
-  import type { PageData } from "./$types";
+  interface Props {
+    data: PlagiarismPairDiffData;
+  }
 
-  let { data }: { data: PageData } = $props();
+  let { data }: Props = $props();
 
   let diffContainer: HTMLDivElement = $state(null!);
   let diffEditor: Monaco.editor.IStandaloneDiffEditor | undefined;
   let monacoModule: typeof Monaco | undefined;
 
-  // Local override of `data.flag` so unmark/mark feels instant. `null` here
-  // means "no override yet, fall back to whatever the server returned"; any
-  // non-null value (including the special `unset` sentinel below) wins.
-  type FlagShape = NonNullable<PageData["flag"]> | null;
+  type FlagShape = PlagiarismPairDiffData["flag"];
   let localFlag = $state<{ value: FlagShape } | null>(null);
   const currentFlag = $derived<FlagShape>(localFlag ? localFlag.value : data.flag);
 
   let busy = $state(false);
   let actionError = $state<string | null>(null);
-
-  function languageForFile(): string {
-    // We don't store the per-pair language explicitly; default to plain text.
-    // Monaco still highlights via the model's language; the diff is the focus.
-    return "plaintext";
-  }
 
   onMount(() => {
     let themeObserver: MutationObserver | undefined;
@@ -50,9 +44,8 @@
         scrollBeyondLastLine: false,
       });
 
-      const lang = languageForFile();
-      const original = monacoModule.editor.createModel(data.left.sourceCode ?? "", lang);
-      const modified = monacoModule.editor.createModel(data.right.sourceCode ?? "", lang);
+      const original = monacoModule.editor.createModel(data.left.sourceCode ?? "", "plaintext");
+      const modified = monacoModule.editor.createModel(data.right.sourceCode ?? "", "plaintext");
       diffEditor.setModel({ original, modified });
 
       themeObserver = new MutationObserver(() => {

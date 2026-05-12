@@ -2,12 +2,16 @@
   import type { ContestSettingsForm } from "@nojv/core";
 
   export type { ContestSettingsForm };
-  export type ContestLiveStatus = "draft" | "upcoming" | "running" | "ended";
+  export type ContestLiveStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
 </script>
 
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
+  import { enhance as kitEnhance } from "$app/forms";
+  import Archive from "@lucide/svelte/icons/archive";
+  import Send from "@lucide/svelte/icons/send";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/ui/button";
@@ -40,6 +44,7 @@
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isRunning = $derived(liveStatus === "running");
   const isEnded = $derived(liveStatus === "ended");
+  const isArchived = $derived(liveStatus === "archived");
 
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableScoring = $derived(isDraft || isUpcoming);
@@ -51,7 +56,7 @@
 
   function lockHint(): string | null {
     if (isRunning) return m.contestDetail_settingsLockHintRunning();
-    if (isEnded) return m.contestDetail_settingsLockHintEnded();
+    if (isEnded || isArchived) return m.contestDetail_settingsLockHintEnded();
     return null;
   }
 
@@ -237,9 +242,58 @@
     </section>
 
     <div class="flex items-center justify-end gap-2">
-      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
+      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded || isArchived}>
         {m.contestDetail_settingsSaveButton()}
       </Button>
     </div>
   </form>
+
+  <section
+    class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+  >
+    <h3 class="mb-4 text-title-sm font-medium">
+      {m.contestDetail_settingsSectionLifecycle()}
+    </h3>
+
+    <div class="flex flex-wrap items-center gap-3">
+      {#if isDraft}
+        <form method="POST" action="?/publishContest" use:kitEnhance class="contents">
+          <Button type="submit" size="sm" variant="default" disabled={$submitting}>
+            <Send class="mr-1 size-4" aria-hidden="true" />
+            {m.contestDetail_settingsPublishButton()}
+          </Button>
+        </form>
+        <form method="POST" action="?/deleteContest" use:kitEnhance class="contents">
+          <Button type="submit" size="sm" variant="destructive" disabled={$submitting}>
+            <Trash2 class="mr-1 size-4" aria-hidden="true" />
+            {m.contestDetail_settingsDeleteButton()}
+          </Button>
+        </form>
+      {/if}
+
+      {#if isEnded}
+        <form method="POST" action="?/archiveContest" use:kitEnhance class="contents">
+          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
+            <Archive class="mr-1 size-4" aria-hidden="true" />
+            {m.contestDetail_settingsArchiveButton()}
+          </Button>
+        </form>
+      {/if}
+
+      {#if isArchived}
+        <form method="POST" action="?/unarchiveContest" use:kitEnhance class="contents">
+          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
+            <Archive class="mr-1 size-4" aria-hidden="true" />
+            {m.contestDetail_settingsUnarchiveButton()}
+          </Button>
+        </form>
+      {/if}
+
+      {#if isUpcoming || isRunning}
+        <span class="text-caption text-muted-foreground">
+          {m.contestDetail_settingsLifecycleNoop()}
+        </span>
+      {/if}
+    </div>
+  </section>
 </section>

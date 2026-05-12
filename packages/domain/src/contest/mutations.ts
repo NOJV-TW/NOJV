@@ -15,7 +15,12 @@ import type { ContestCreate, ContestUpdate, Language } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
@@ -239,6 +244,83 @@ export async function getContestLifecycleInfo(
 
 export async function activateContest(contestId: string): Promise<void> {
   await contestRepo.update(contestId, { visibility: "published" });
+}
+
+async function assertContestManageable(
+  tx: TransactionClient,
+  actor: ActorContext,
+  contestId: string,
+) {
+  const contest = await requireContest(tx, contestId);
+  if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin") {
+    throw new ForbiddenError("You do not have permission to manage this contest.");
+  }
+  return contest;
+}
+
+export async function publishContest(actor: ActorContext, contestId: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    const contest = await assertContestManageable(tx, actor, contestId);
+
+    if (contest.visibility !== "draft") {
+      throw new ValidationError("Only draft contests can be published.");
+    }
+
+    const problemCount = await contestProblemRepo.withTx(tx).countByContestId(contest.id);
+    if (problemCount === 0) {
+      throw new ValidationError("Add at least one problem before publishing.");
+    }
+    if (contest.allowedLanguages.length === 0) {
+      throw new ValidationError("Select at least one allowed language before publishing.");
+    }
+    if (contest.startsAt >= contest.endsAt) {
+      throw new ValidationError("Start time must be before end time.");
+    }
+    if (contest.endsAt <= new Date()) {
+      throw new ValidationError("End time must be in the future.");
+    }
+
+    await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
+  });
+}
+
+export async function deleteContestDraft(
+  actor: ActorContext,
+  contestId: string,
+): Promise<void> {
+  await runTransaction(async (tx) => {
+    const contest = await assertContestManageable(tx, actor, contestId);
+
+    if (contest.visibility !== "draft") {
+      throw new ValidationError("Only draft contests can be deleted.");
+    }
+
+    await contestRepo.withTx(tx).delete(contest.id);
+  });
+}
+
+export async function archiveContest(actor: ActorContext, contestId: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    const contest = await assertContestManageable(tx, actor, contestId);
+
+    if (contest.visibility !== "published") {
+      throw new ValidationError("Only published contests can be archived.");
+    }
+
+    await contestRepo.withTx(tx).update(contest.id, { visibility: "archived" });
+  });
+}
+
+export async function unarchiveContest(actor: ActorContext, contestId: string): Promise<void> {
+  await runTransaction(async (tx) => {
+    const contest = await assertContestManageable(tx, actor, contestId);
+
+    if (contest.visibility !== "archived") {
+      throw new ValidationError("Only archived contests can be unarchived.");
+    }
+
+    await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
+  });
 }
 
 export async function freezeContestBoard(contestId: string): Promise<void> {

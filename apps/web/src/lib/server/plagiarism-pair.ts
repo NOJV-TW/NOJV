@@ -1,9 +1,7 @@
-import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { ForbiddenError, NotFoundError, ValidationError, plagiarismDomain } from "@nojv/domain";
+import { NotFoundError, ValidationError, plagiarismDomain } from "@nojv/domain";
 import { userRepo } from "@nojv/db";
 
-import { requireAuth } from "$lib/server/auth";
-import { handleLoad } from "$lib/server/shared/load-wrapper";
+import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
 const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsForContext } =
   plagiarismDomain;
@@ -45,18 +43,18 @@ function parsePairs(raw: unknown): RawPair[] {
     .filter((p): p is RawPair => p !== null);
 }
 
-export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
-  requireAuth(event);
-  const parent = await event.parent();
-  const { assessment, isManager } = parent;
-  if (!isManager) {
-    throw new ForbiddenError("Only course staff can view plagiarism diff.");
-  }
+export interface LoadPlagiarismPairInput {
+  pairId: string;
+  target: plagiarismDomain.PlagiarismTarget;
+  flagContext: plagiarismDomain.PlagiarismContext;
+}
 
-  const { pairId } = event.params;
+export async function loadPlagiarismPair(
+  input: LoadPlagiarismPairInput,
+): Promise<PlagiarismPairDiffData> {
   let pairKey: string;
   try {
-    pairKey = decodeURIComponent(pairId);
+    pairKey = decodeURIComponent(input.pairId);
   } catch {
     throw new ValidationError("Invalid pair id.");
   }
@@ -66,17 +64,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
   const [userAId, userBId, problemId] = parts as [string, string, string];
 
-  // Defensive normalisation: even if the URL was hand-edited, recompute the
-  // canonical key so we lookup the same flag row the API would write.
   const canonicalPairKey = buildPairKey(userAId, userBId, problemId);
 
-  const target = { type: "courseAssessment" as const, id: assessment.id };
-
   const [report, leftSource, rightSource, flags, leftUser, rightUser] = await Promise.all([
-    findPlagiarismReport(target).catch(() => null),
-    getPlagiarismSourceCode(target, userAId, problemId),
-    getPlagiarismSourceCode(target, userBId, problemId),
-    listFlagsForContext("assessment", assessment.id),
+    findPlagiarismReport(input.target).catch(() => null),
+    getPlagiarismSourceCode(input.target, userAId, problemId),
+    getPlagiarismSourceCode(input.target, userBId, problemId),
+    listFlagsForContext(input.flagContext, input.target.id),
     userRepo.findById(userAId),
     userRepo.findById(userBId),
   ]);
@@ -88,7 +82,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     : null;
 
   if (!pair) {
-    throw new NotFoundError("Pair not found in this assessment's report.");
+    throw new NotFoundError("Pair not found in this report.");
   }
 
   const flag = flags.find((f) => f.pairKey === canonicalPairKey) ?? null;
@@ -101,8 +95,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       problemId: pair.problemId,
     },
     pairKey: canonicalPairKey,
-    contextType: "assessment" as const,
-    contextId: assessment.id,
+    contextType: input.flagContext,
+    contextId: input.target.id,
     left: {
       userId: userAId,
       displayName: leftUser?.name ?? null,
@@ -124,4 +118,4 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         }
       : null,
   };
-});
+}
