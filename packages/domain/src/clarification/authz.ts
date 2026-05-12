@@ -9,8 +9,7 @@ import {
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
-
-export type ClarificationContextType = "contest" | "exam" | "assignment";
+import type { ClarificationContext } from "./types";
 
 /**
  * Shared helper — same definition as submission/authz and
@@ -49,62 +48,57 @@ async function isActiveStudentInAssignment(
 
 async function isParticipantOfContext(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return false;
-  switch (contextType) {
+  switch (context.type) {
     case "contest":
-      return hasContestParticipation(actor.userId, contextId);
+      return hasContestParticipation(actor.userId, context.contestId);
     case "exam":
-      return hasExamParticipation(actor.userId, contextId);
+      return hasExamParticipation(actor.userId, context.examId);
     case "assignment":
-      return isActiveStudentInAssignment(actor.userId, contextId);
+      return isActiveStudentInAssignment(actor.userId, context.assignmentId);
   }
 }
 
 async function isStaffOfContext(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<boolean> {
   if (actor.platformRole === "admin") return true;
-  switch (contextType) {
+  switch (context.type) {
     case "contest": {
-      const contest = await contestRepo.findById(contextId);
+      const contest = await contestRepo.findById(context.contestId);
       return contest?.createdByUserId === actor.userId;
     }
     case "exam": {
-      const exam = await examRepo.findById(contextId);
+      const exam = await examRepo.findById(context.examId);
       if (!exam) return false;
       return isCourseTeacherOrTa(actor.userId, exam.courseId);
     }
     case "assignment": {
-      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
       if (!assignment) return false;
       return isCourseTeacherOrTa(actor.userId, assignment.courseId);
     }
   }
 }
 
-async function isContextWindowOpen(
-  contextType: ClarificationContextType,
-  contextId: string,
-): Promise<boolean> {
+async function isContextWindowOpen(context: ClarificationContext): Promise<boolean> {
   const now = new Date();
-  switch (contextType) {
+  switch (context.type) {
     case "contest": {
-      const contest = await contestRepo.findById(contextId);
+      const contest = await contestRepo.findById(context.contestId);
       if (!contest) return false;
       return now >= contest.startsAt && now <= contest.endsAt;
     }
     case "exam": {
-      const exam = await examRepo.findById(contextId);
+      const exam = await examRepo.findById(context.examId);
       if (!exam) return false;
       return now >= exam.startsAt && now <= exam.endsAt;
     }
     case "assignment": {
-      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
       if (!assignment) return false;
       return now >= assignment.opensAt && now <= assignment.closesAt;
     }
@@ -113,49 +107,44 @@ async function isContextWindowOpen(
 
 export async function canAskClarification(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<boolean> {
-  if (!(await isParticipantOfContext(actor, contextType, contextId))) return false;
-  return isContextWindowOpen(contextType, contextId);
+  if (!(await isParticipantOfContext(actor, context))) return false;
+  return isContextWindowOpen(context);
 }
 
 export async function canAnswerInContext(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<boolean> {
-  if (!(await isStaffOfContext(actor, contextType, contextId))) return false;
-  return isContextWindowOpen(contextType, contextId);
+  if (!(await isStaffOfContext(actor, context))) return false;
+  return isContextWindowOpen(context);
 }
 
 export async function canViewClarifications(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<boolean> {
-  if (await isStaffOfContext(actor, contextType, contextId)) return true;
-  return isParticipantOfContext(actor, contextType, contextId);
+  if (await isStaffOfContext(actor, context)) return true;
+  return isParticipantOfContext(actor, context);
 }
 
 export const canSeeAuthor = isStaffOfContext;
 
 export async function assertCanAskClarification(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<void> {
-  if (!(await canAskClarification(actor, contextType, contextId))) {
+  if (!(await canAskClarification(actor, context))) {
     throw new ForbiddenError("Only participants may ask clarifications.");
   }
 }
 
 export async function assertCanAnswerInContext(
   actor: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
 ): Promise<void> {
-  if (!(await canAnswerInContext(actor, contextType, contextId))) {
+  if (!(await canAnswerInContext(actor, context))) {
     throw new ForbiddenError("Not permitted to answer clarifications in this context.");
   }
 }

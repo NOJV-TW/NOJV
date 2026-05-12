@@ -7,39 +7,48 @@ import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { scoreOverrideDomain } from "@nojv/domain";
 
-const contextTypeSchema = z.enum(["assignment", "exam", "contest"]);
-
-const listQuerySchema = z.object({
-  contextType: contextTypeSchema,
-  contextId: z.string().min(1),
-});
+/**
+ * Wire shape: discriminated union keyed by `type`. Replaces the legacy
+ * `{ contextType, contextId }` flat pair; the domain function now takes
+ * a `ScoreOverrideContext` union directly.
+ */
+const contextSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
+  z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
+  z.object({ type: z.literal("contest"), contestId: z.string().min(1) }),
+]);
 
 const createSchema = z.object({
   userId: z.string().min(1),
   problemId: z.string().min(1),
-  contextType: contextTypeSchema,
-  contextId: z.string().min(1),
+  context: contextSchema,
   overrideScore: z.number().int().min(0),
   reason: z.string().min(1).max(500),
 });
 
+function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
+  const type = url.searchParams.get("type");
+  if (type === "assignment") {
+    return contextSchema.parse({ type, assignmentId: url.searchParams.get("assignmentId") });
+  }
+  if (type === "exam") {
+    return contextSchema.parse({ type, examId: url.searchParams.get("examId") });
+  }
+  if (type === "contest") {
+    return contextSchema.parse({ type, contestId: url.searchParams.get("contestId") });
+  }
+  return contextSchema.parse({ type });
+}
+
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-
-  const parsed = listQuerySchema.parse({
-    contextType: event.url.searchParams.get("contextType"),
-    contextId: event.url.searchParams.get("contextId"),
-  });
+  const context = parseContextQuery(event.url);
 
   // Listing surfaces the staff-only `reason` field, so gate on the same
   // permission required to set overrides — students must never reach this.
-  await scoreOverrideDomain.assertCanSetScoreOverride(
-    actor,
-    parsed.contextType,
-    parsed.contextId,
-  );
+  await scoreOverrideDomain.assertCanSetScoreOverride(actor, context);
 
-  const items = await scoreOverrideDomain.listByContext(parsed.contextType, parsed.contextId);
+  const items = await scoreOverrideDomain.listByContext(context);
   return json({ items });
 });
 

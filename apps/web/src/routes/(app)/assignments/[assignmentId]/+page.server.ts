@@ -80,10 +80,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       findPlagiarismReport({ type: "courseAssessment", id: assignmentId }).catch(() => null),
       listFlagsForContext("assessment", assignmentId).catch(() => []),
       listEditableProblems(actor.userId),
-      scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assignmentId),
-      clarificationDomain.canAskClarification(actor, "assignment", assignmentId),
-      clarificationDomain.canAnswerInContext(actor, "assignment", assignmentId),
-      clarificationDomain.canViewClarifications(actor, "assignment", assignmentId),
+      scoreOverrideDomain.canSetScoreOverride(actor, {
+        type: "assignment",
+        assignmentId,
+      }),
+      clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
+      clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
+      clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -140,9 +143,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       viewerUserId: actor.userId,
       isManager: false,
     }),
-    clarificationDomain.canAskClarification(actor, "assignment", assignmentId),
-    clarificationDomain.canAnswerInContext(actor, "assignment", assignmentId),
-    clarificationDomain.canViewClarifications(actor, "assignment", assignmentId),
+    clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
+    clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
+    clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
   ]);
   return {
     mode: "student" as const,

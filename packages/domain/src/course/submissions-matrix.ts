@@ -105,8 +105,8 @@ export async function buildSubmissionsMatrix(
   // score and also "unlock" a cell that otherwise had 0 attempts — a teacher
   // can assign credit for an off-platform solution.
   const overrides = await resolveOverridesForContext({
-    contextType: "assignment",
-    contextId: assignmentId,
+    type: "assignment",
+    assignmentId,
   });
 
   const rows: MatrixRow[] = students.map((student) => {

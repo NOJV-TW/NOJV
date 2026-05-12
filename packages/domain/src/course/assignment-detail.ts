@@ -171,8 +171,8 @@ export async function getAssignmentDetail(
     // Fetch overrides for this assignment (scoped to this viewer) and
     // let them win over the best-submission aggregate.
     const overrides = await resolveOverridesForContext({
-      contextType: "assignment",
-      contextId: assignmentId,
+      type: "assignment",
+      assignmentId,
     });
 
     for (const problem of problems) {
