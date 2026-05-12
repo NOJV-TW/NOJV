@@ -240,7 +240,10 @@ export async function getScoreboard(
   };
 }
 
-export async function getScoreboardChart(contestId: string, topN: number): Promise<ScoreboardChart> {
+export async function getScoreboardChart(
+  contestId: string,
+  topN: number,
+): Promise<ScoreboardChart> {
   const scoreboardData = await getScoreboard(contestId, { unfrozen: false });
 
   const topEntries = scoreboardData.entries.slice(0, topN);
