@@ -4,7 +4,7 @@ import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
 import { contestDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
-const { getContestWorkspaceData } = contestDomain;
+const { getContestWorkspaceData, listContestProblemSiblings } = contestDomain;
 const { getProblemPageData } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
@@ -57,11 +57,21 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     examId: null,
   });
 
+  const siblingProblems = contestData.problems
+    ? await listContestProblemSiblings({
+        contestId,
+        problems: contestData.problems,
+        activeProblemId: problemId,
+        actorUserId: actor.userId,
+      })
+    : [];
+
   return {
     canRejudge,
     contestData,
     contestId,
     problem,
+    siblingProblems,
     submissions,
   };
 });
