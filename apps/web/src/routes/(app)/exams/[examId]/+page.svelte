@@ -13,7 +13,9 @@
   import ExamSubmissionsMatrix from "$lib/components/course/exam/ExamSubmissionsMatrix.svelte";
   import ExamSettingsTab from "$lib/components/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/course/exam/ExamProblemsTab.svelte";
+  import ExamResultsTab from "$lib/components/course/exam/ExamResultsTab.svelte";
   import ExamStartModal from "$lib/components/course/exam/ExamStartModal.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import { fmtDate } from "$lib/utils/datetime.js";
@@ -106,8 +108,14 @@
   // Modal state for the pre-exam "start" CTA.
   let showStartModal = $state(false);
 
-  // Manager sub-tabs (problems / submissions / settings / clarifications).
-  type SubTab = "problems" | "submissions" | "settings" | "clarifications";
+  // Manager sub-tabs.
+  type SubTab =
+    | "problems"
+    | "submissions"
+    | "results"
+    | "plagiarism"
+    | "settings"
+    | "clarifications";
   let activeTab = $state<SubTab>("problems");
 
   const clarificationProblems = $derived(
@@ -510,12 +518,13 @@
 
     <!-- Quick links -->
     <div class="flex flex-wrap gap-2">
-      <a
-        href={`/exams/${detail.id}/results`}
+      <button
+        type="button"
+        onclick={() => (activeTab = "results")}
         class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
       >
         {m.examDetail_managerClassResultsLink()}
-      </a>
+      </button>
       <button
         type="button"
         onclick={() => (activeTab = "submissions")}
@@ -567,6 +576,30 @@
       <button
         type="button"
         role="tab"
+        aria-selected={activeTab === "results"}
+        onclick={() => (activeTab = "results")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        'results'
+          ? 'bg-[color:var(--color-primary)]/14 text-primary'
+          : 'text-muted-foreground hover:text-foreground'}"
+      >
+        {m.examDetail_subTabResults()}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === "plagiarism"}
+        onclick={() => (activeTab = "plagiarism")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        'plagiarism'
+          ? 'bg-[color:var(--color-primary)]/14 text-primary'
+          : 'text-muted-foreground hover:text-foreground'}"
+      >
+        {m.examDetail_subTabPlagiarism()}
+      </button>
+      <button
+        type="button"
+        role="tab"
         aria-selected={activeTab === "settings"}
         onclick={() => (activeTab = "settings")}
         class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
@@ -595,6 +628,29 @@
     {#if activeTab === "submissions" && data.matrix}
       <GlassPanel class="p-5">
         <ExamSubmissionsMatrix matrix={data.matrix} examId={detail.id} />
+      </GlassPanel>
+    {:else if activeTab === "results" && data.results}
+      <GlassPanel class="p-5">
+        <ExamResultsTab data={data.results} />
+      </GlassPanel>
+    {:else if activeTab === "plagiarism"}
+      <GlassPanel class="p-5">
+        <AssignmentPlagiarismReport
+          report={data.plagiarism}
+          flags={data.plagiarismFlags ?? []}
+          problems={detail.problems.map((p) => ({
+            problemId: p.id,
+            letter: p.letter,
+            title: p.title
+          }))}
+          students={data.matrix
+            ? data.matrix.rows.map((r) => ({
+                userId: r.userId,
+                displayName: r.displayName,
+                handle: r.handle
+              }))
+            : []}
+        />
       </GlassPanel>
     {:else if activeTab === "settings" && data.settingsForm}
       <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />

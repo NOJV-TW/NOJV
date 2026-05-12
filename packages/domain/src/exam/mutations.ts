@@ -12,7 +12,6 @@ import {
 import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
 
 import { dispatchExamAutoClose } from "@nojv/job-dispatch";
-import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
@@ -164,7 +163,6 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       courseId: course.id,
       createdByUserId: actor.userId,
       endsAt: new Date(payload.endsAt),
-      frozenAt: payload.frozenAt ? new Date(payload.frozenAt) : null,
       ipBindingEnabled: payload.ipBindingEnabled,
       ipViolationMode: payload.ipViolationMode,
       ipWhitelist: payload.ipWhitelist,
@@ -248,9 +246,6 @@ export async function updateExamRecord(
 
     if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
     if (payload.endsAt !== undefined) updateData.endsAt = new Date(payload.endsAt);
-    if (payload.frozenAt !== undefined) {
-      updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
-    }
 
     if (Object.keys(updateData).length > 0) {
       await examRepo.withTx(tx).update(exam.id, updateData);
@@ -274,7 +269,6 @@ export async function updateExamRecord(
 
 export interface ExamLifecycleInfo {
   endsAt: string;
-  freezeTime: string | null;
   scoringMode: string;
   startsAt: string;
 }
@@ -283,7 +277,6 @@ export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycl
   const exam = await examRepo.findInfoById(examId);
   return {
     endsAt: exam.endsAt.toISOString(),
-    freezeTime: exam.frozenAt?.toISOString() ?? null,
     scoringMode: exam.scoringMode,
     startsAt: exam.startsAt.toISOString(),
   };
@@ -293,37 +286,8 @@ export async function activateExam(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "published" });
 }
 
-export async function freezeExamBoard(examId: string): Promise<void> {
-  await scoreboard.freezeScoreboard(examId);
-  await examRepo.update(examId, { frozenBoard: true });
-}
-
-export async function unfreezeExamBoard(examId: string): Promise<void> {
-  await scoreboard.unfreezeScoreboard(examId);
-  await examRepo.update(examId, { frozenBoard: false });
-}
-
-/**
- * Permission-gated wrapper around `freezeExamBoard` / `unfreezeExamBoard`
- * so route handlers don't need to reimplement the course-staff check
- * for scoreboard toggles.
- */
-export async function setExamBoardFrozen(
-  actor: ActorContext,
-  examId: string,
-  frozen: boolean,
-): Promise<void> {
-  await runTransaction(async (tx) => {
-    const exam = await requireExam(tx, examId);
-    await assertExamManagePermission(tx, actor, exam);
-  });
-  if (frozen) await freezeExamBoard(examId);
-  else await unfreezeExamBoard(examId);
-}
-
 export async function finalizeExam(examId: string): Promise<void> {
-  await scoreboard.unfreezeScoreboard(examId);
-  await examRepo.update(examId, { frozenBoard: false, status: "archived" });
+  await examRepo.update(examId, { status: "archived" });
 }
 
 // Owner-of-exam or active teacher/TA of the hosting course may manage it.

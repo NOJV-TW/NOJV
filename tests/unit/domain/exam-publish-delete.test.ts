@@ -8,8 +8,6 @@ const {
   examProblemCount,
   membershipFindByComposite,
   dispatchExamAutoClose,
-  freezeScoreboard,
-  unfreezeScoreboard,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examUpdate: vi.fn(),
@@ -17,8 +15,6 @@ const {
   examProblemCount: vi.fn(),
   membershipFindByComposite: vi.fn(),
   dispatchExamAutoClose: vi.fn(),
-  freezeScoreboard: vi.fn(),
-  unfreezeScoreboard: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -71,19 +67,9 @@ vi.mock("@nojv/job-dispatch", () => {
   };
 });
 
-vi.mock("@nojv/redis", () => {
-  return {
-    scoreboard: {
-      freezeScoreboard,
-      unfreezeScoreboard,
-    },
-  };
-});
-
 import { examDomain, ForbiddenError, ValidationError } from "@nojv/domain";
 
-const { publishExam, deleteExamDraft, archiveExam, unarchiveExam, setExamBoardFrozen } =
-  examDomain;
+const { publishExam, deleteExamDraft, archiveExam, unarchiveExam } = examDomain;
 
 const fakeActor = {
   userId: "usr_teacher",
@@ -307,43 +293,6 @@ describe("unarchiveExam", () => {
     await expect(unarchiveExam(fakeOtherActor, "exam_1")).rejects.toBeInstanceOf(
       ForbiddenError,
     );
-    expect(examUpdate).not.toHaveBeenCalled();
-  });
-});
-
-describe("setExamBoardFrozen", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("freezes the scoreboard and flips frozenBoard=true", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
-
-    await setExamBoardFrozen(fakeActor, "exam_1", true);
-
-    expect(freezeScoreboard).toHaveBeenCalledWith("exam_1");
-    expect(unfreezeScoreboard).not.toHaveBeenCalled();
-    expect(examUpdate).toHaveBeenCalledWith("exam_1", { frozenBoard: true });
-  });
-
-  it("unfreezes the scoreboard and flips frozenBoard=false", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
-
-    await setExamBoardFrozen(fakeActor, "exam_1", false);
-
-    expect(unfreezeScoreboard).toHaveBeenCalledWith("exam_1");
-    expect(freezeScoreboard).not.toHaveBeenCalled();
-    expect(examUpdate).toHaveBeenCalledWith("exam_1", { frozenBoard: false });
-  });
-
-  it("rejects when the actor has no permission", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
-    membershipFindByComposite.mockResolvedValue(null);
-
-    await expect(setExamBoardFrozen(fakeOtherActor, "exam_1", true)).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
-    expect(freezeScoreboard).not.toHaveBeenCalled();
     expect(examUpdate).not.toHaveBeenCalled();
   });
 });
