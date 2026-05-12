@@ -360,20 +360,6 @@
             <p class="mt-1 text-xs text-destructive">{$errors.endsAt}</p>
           {/if}
         </div>
-        <div>
-          <label class="text-sm font-medium" for="frozenAt">
-            {m.examCreate_freezeLabel()}
-          </label>
-          <input
-            id="frozenAt"
-            class={inputClassName}
-            type="datetime-local"
-            bind:value={$form.frozenAt}
-          />
-          <p class="mt-1 text-caption text-muted-foreground">
-            {m.examCreate_freezeHint()}
-          </p>
-        </div>
       </div>
     </section>
 

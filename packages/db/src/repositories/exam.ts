@@ -173,7 +173,6 @@ export const examRepo = {
     return prisma.exam.findUniqueOrThrow({
       select: {
         endsAt: true,
-        frozenAt: true,
         scoringMode: true,
         startsAt: true,
       },

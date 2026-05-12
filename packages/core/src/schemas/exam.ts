@@ -19,7 +19,6 @@ const examCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseId: z.string().trim().min(1),
   endsAt: isoDateTimeSchema,
-  frozenAt: isoDateTimeSchema.optional(),
   ...ipLockFields,
   pageLockEnabled: z.boolean().default(false),
   problemIds: z.array(z.string().trim().min(1)).max(32).default([]),
