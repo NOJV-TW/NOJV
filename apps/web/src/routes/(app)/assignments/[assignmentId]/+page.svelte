@@ -514,7 +514,7 @@
           <AssignmentPlagiarismReport
             report={data.plagiarism}
             flags={data.plagiarismFlags ?? []}
-            pairDiffBase={`/assignments/${detail.id}/plagiarism/pairs`}
+            diffContext={{ type: "assessment", id: detail.id }}
             problems={detail.problems.map((p) => ({
               problemId: p.problemId,
               letter: p.letter,

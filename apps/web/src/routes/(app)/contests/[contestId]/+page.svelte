@@ -273,7 +273,7 @@
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
-          pairDiffBase={`/contests/${contest.id}/plagiarism/pairs`}
+          diffContext={{ type: "contest", id: contest.id }}
           problems={(contest.problems ?? []).map((p, i) => ({
             problemId: p.id,
             letter: String.fromCharCode(65 + i),
