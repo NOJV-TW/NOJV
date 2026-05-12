@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
 
-import { fetchWithCsrf } from "$lib/utils";
+import { fetchWithCsrf } from "$lib/http";
 
 export interface NotificationItem {
   id: string;

@@ -18,7 +18,8 @@
   import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/ui/button";
   import FormError from "$lib/components/ui/FormError.svelte";
-  import { cn, inputClassName, monoTextareaClassName, toggleArrayItem } from "$lib/utils";
+  import { cn, inputClassName, monoTextareaClassName } from "$lib/css";
+  import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
 

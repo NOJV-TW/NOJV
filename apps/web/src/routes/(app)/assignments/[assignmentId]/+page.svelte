@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { formatDateTimeCompact, fmtDate, fmtWeekday } from "$lib/utils/datetime";
   import AssignmentProblemsTab from "$lib/components/course/assignment/AssignmentProblemsTab.svelte";
   import AssignmentSubmissionsMatrix from "$lib/components/course/assignment/AssignmentSubmissionsMatrix.svelte";

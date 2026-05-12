@@ -9,7 +9,7 @@
   } from "$lib/types";
   import { formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
-  import { fetchWithCsrf } from "$lib/utils";
+  import { fetchWithCsrf } from "$lib/http";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";

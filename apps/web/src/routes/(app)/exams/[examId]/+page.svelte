@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { ChevronRight, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/coursework/Crumbs.svelte";
   import CornerMark from "$lib/components/coursework/CornerMark.svelte";

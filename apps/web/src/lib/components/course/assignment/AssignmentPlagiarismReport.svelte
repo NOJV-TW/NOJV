@@ -47,7 +47,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { Button, LinkButton } from "$lib/components/ui/button";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
 
   interface Props {
     report: PlagiarismReportData | null;

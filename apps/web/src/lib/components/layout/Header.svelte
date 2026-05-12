@@ -14,7 +14,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
   import { shortcuts } from "$lib/stores/shortcuts.svelte.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import UserAuthMenu from "../auth/UserMenu.svelte";
   import NotificationBell from "../notification/NotificationBell.svelte";
   import ThemeToggle from "./ThemeToggle.svelte";

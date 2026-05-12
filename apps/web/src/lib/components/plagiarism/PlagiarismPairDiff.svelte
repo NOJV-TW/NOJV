@@ -4,7 +4,7 @@
 
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/ui/button";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
   import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 

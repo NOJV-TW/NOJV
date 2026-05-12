@@ -1,7 +1,7 @@
 import { browser } from "$app/environment";
 import type { ClarificationSSEEvent } from "@nojv/core";
 
-import { fetchWithCsrf } from "$lib/utils";
+import { fetchWithCsrf } from "$lib/http";
 
 export interface ClarificationItem {
   id: string;

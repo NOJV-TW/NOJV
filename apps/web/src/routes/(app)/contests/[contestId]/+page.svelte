@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";

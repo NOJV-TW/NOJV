@@ -5,7 +5,7 @@
   import { ChevronDown, Plus } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { fetchWithCsrf } from "$lib/utils";
+  import { fetchWithCsrf } from "$lib/http";
   import type { problemDomain } from "@nojv/domain";
   import PublicProblemsTab from "./PublicProblemsTab.svelte";
   import MyProblemsTab, { type EditableProblemCard } from "./MyProblemsTab.svelte";
