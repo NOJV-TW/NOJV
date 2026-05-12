@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { inputClassName } from "$lib/utils";
+  import { inputClassName } from "$lib/css";
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemImageSource } from "@nojv/core";
 

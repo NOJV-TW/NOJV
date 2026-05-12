@@ -47,19 +47,23 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { Button, LinkButton } from "$lib/components/ui/button";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
 
   interface Props {
     report: PlagiarismReportData | null;
     problems: PlagiarismProblemEntry[];
     students: PlagiarismStudentEntry[];
     flags?: PlagiarismFlagEntry[];
-    /** Base path for per-pair diff routes; `${pairDiffBase}/${encodeURIComponent(pairKey)}` is the final URL. */
-    pairDiffBase?: string;
+    /**
+     * Plagiarism context for the per-pair diff link. We build a single
+     * `/plagiarism/pairs/<encodedPairId>` URL where `pairId` is a composite
+     * `<ctxType>:<ctxId>:<pairKey>` segment parsed back on the server.
+     */
+    diffContext?: { type: "assessment" | "contest" | "exam"; id: string };
     class?: string;
   }
 
-  let { report, problems, students, flags = [], pairDiffBase, class: className }: Props = $props();
+  let { report, problems, students, flags = [], diffContext, class: className }: Props = $props();
 
   let showFlagged = $state(false);
 
@@ -119,8 +123,9 @@
   }
 
   function diffHrefFor(p: PlagiarismReportPair): string | null {
-    if (!pairDiffBase) return null;
-    return `${pairDiffBase}/${encodeURIComponent(pairKeyOf(p))}`;
+    if (!diffContext) return null;
+    const composite = `${diffContext.type}:${diffContext.id}:${pairKeyOf(p)}`;
+    return `/plagiarism/pairs/${encodeURIComponent(composite)}`;
   }
 
   const highPairs = $derived(visiblePairs.filter((p) => p.similarity >= 70));

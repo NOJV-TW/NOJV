@@ -40,7 +40,7 @@ function parseAdjustmentRules(raw: unknown, submissionId: string): AdjustmentRul
   const result = adjustmentRulesSchema.safeParse(raw);
   if (result.success) return result.data;
   console.warn(
-    `[judge-context] Invalid adjustmentRules on assessment for submission ${submissionId}; ignoring.`,
+    `[judge-context] Invalid adjustmentRules on assignment for submission ${submissionId}; ignoring.`,
     result.error.issues,
   );
   return null;
@@ -74,9 +74,9 @@ export interface WorkspaceFileEntry {
 export type SubtaskStrategyMap = Record<string, SubtaskScoringStrategy>;
 
 export interface AdjustmentContext {
-  assessmentAdjustmentRules: AdjustmentRules | null;
+  assignmentAdjustmentRules: AdjustmentRules | null;
   dueAt: Date | null;
-  /** Hard close of the owning assessment — used by `flat_late_penalty` / `daily_late_penalty` (`startFrom: "final_day"`) and by `final_day_zero`. */
+  /** Hard close of the owning assignment — used by `flat_late_penalty` / `daily_late_penalty` (`startFrom: "final_day"`) and by `final_day_zero`. */
   finalDay: Date | null;
   submittedAt: Date;
 }
@@ -185,16 +185,16 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     ),
   );
 
-  const assessment = submission.courseAssessment;
+  const assignment = submission.courseAssessment;
 
-  // Adjustment rules are assessment-only; contest endsAt is a fallback due-by.
+  // Adjustment rules are assignment-only; contest endsAt is a fallback due-by.
   const contestEnd = submission.contestParticipation?.contest.endsAt ?? null;
   const adjustment: AdjustmentContext = {
-    assessmentAdjustmentRules: assessment
-      ? parseAdjustmentRules(assessment.adjustmentRules, submissionId)
+    assignmentAdjustmentRules: assignment
+      ? parseAdjustmentRules(assignment.adjustmentRules, submissionId)
       : null,
-    dueAt: assessment?.dueAt ?? contestEnd,
-    finalDay: assessment?.closesAt ?? contestEnd,
+    dueAt: assignment?.dueAt ?? contestEnd,
+    finalDay: assignment?.closesAt ?? contestEnd,
     submittedAt: submission.createdAt,
   };
 
@@ -274,7 +274,7 @@ export async function completeJudge(
 export async function findForRejudge(input: {
   problemId: string;
   contestId?: string;
-  assessmentId?: string;
+  assignmentId?: string;
   examId?: string;
   userIds?: string[];
   since?: Date;
@@ -288,8 +288,8 @@ export async function findForRejudge(input: {
   if (input.contestId) {
     where.contestId = input.contestId;
   }
-  if (input.assessmentId) {
-    where.courseAssessmentId = input.assessmentId;
+  if (input.assignmentId) {
+    where.courseAssessmentId = input.assignmentId;
   }
   if (input.examId) {
     where.examId = input.examId;

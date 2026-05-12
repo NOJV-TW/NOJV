@@ -63,7 +63,7 @@
 <script lang="ts">
   import { Download, Search } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
 
   interface Props {
     matrix: MatrixViewData;

@@ -4,7 +4,7 @@
 
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/ui/button";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
   import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
@@ -71,7 +71,7 @@
     busy = true;
     actionError = null;
     try {
-      const res = await fetch("/api/plagiarism/flag", {
+      const res = await fetch("/api/plagiarism-flags", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -105,7 +105,7 @@
     busy = true;
     actionError = null;
     try {
-      const res = await fetch(`/api/plagiarism/flag/${encodeURIComponent(currentFlag.id)}`, {
+      const res = await fetch(`/api/plagiarism-flags/${encodeURIComponent(currentFlag.id)}`, {
         method: "DELETE",
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });

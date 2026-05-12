@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { HTMLAttributes } from "svelte/elements";
 	import type { Snippet } from "svelte";
-	import { cn, type WithElementRef } from "$lib/utils.js";
+	import { cn, type WithElementRef } from "$lib/css.js";
 
 	export type SectionProps = WithElementRef<HTMLAttributes<HTMLElement>> & {
 		header?: Snippet;

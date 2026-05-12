@@ -28,8 +28,8 @@ describe("isAllowedPathForExam", () => {
 
   describe("allow list", () => {
     it("allows every /api/* path (heartbeat, release, submit, etc.)", () => {
-      expect(isAllowedPathForExam("/api/exam-session/heartbeat", ctx)).toBe(true);
-      expect(isAllowedPathForExam("/api/exam-session/release", ctx)).toBe(true);
+      expect(isAllowedPathForExam("/api/exam-sessions/exam-1/heartbeat", ctx)).toBe(true);
+      expect(isAllowedPathForExam("/api/exam-sessions/exam-1/release", ctx)).toBe(true);
       expect(isAllowedPathForExam("/api/submissions", ctx)).toBe(true);
       expect(isAllowedPathForExam("/api/", ctx)).toBe(true);
     });

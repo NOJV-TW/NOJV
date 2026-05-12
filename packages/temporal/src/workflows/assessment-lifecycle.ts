@@ -1,14 +1,13 @@
 import { proxyActivities, sleep } from "@temporalio/workflow";
 import type { AssessmentLifecycleInput } from "../types";
-import type * as assessmentActivities from "../activities/assessment";
-import type * as notificationActivities from "../activities/notification";
+import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
-const assessment = proxyActivities<typeof assessmentActivities>(SHORT_ACTIVITY);
-const notification = proxyActivities<typeof notificationActivities>(NOTIFICATION_ACTIVITY);
+const assessment = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
+const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
 // `fanoutAssignmentDueSoon` persists notification rows + chunked Redis pub/sub;
 // give it SHORT's 30s budget and 3 retries instead of the 10s pub/sub default.
-const notificationDurable = proxyActivities<typeof notificationActivities>(SHORT_ACTIVITY);
+const notificationDurable = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 
 const DEADLINE_REMINDER_HOURS = 24;
 

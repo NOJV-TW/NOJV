@@ -10,9 +10,9 @@ import { entryFileNameFor, validateRequiredPaths, type SubmissionDraft } from "@
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
-import { requireCourseAssessment, requireProblem } from "../shared/require";
+import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
-import { assertProblemViewAccess } from "../problem/helpers";
+import { assertProblemViewAccess } from "../problem/permissions";
 
 export type { ActorContext };
 
@@ -25,7 +25,7 @@ export async function createQueuedSubmissionRecord(
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
       payload.assessment
-        ? requireCourseAssessment(
+        ? requireCourseAssignment(
             tx,
             payload.assessment.courseId,
             payload.assessment.assessmentId,
@@ -35,13 +35,13 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    // Active-exam lockout: while a session is live, no foreign context (assessment
+    // Active-exam lockout: while a session is live, no foreign context (assignment
     // or contest) can ride along. Bypass would skip exam cooldown, IP binding,
     // and per-day limits. Admins are exempt for operational recovery.
     if (activeExamSession && actor.platformRole !== "admin") {
       if (courseContext || payload.contestId) {
         throw new ForbiddenError(
-          "You are in an active exam — submissions cannot carry an external assessment or contest context.",
+          "You are in an active exam — submissions cannot carry an external assignment or contest context.",
         );
       }
     }
@@ -58,25 +58,25 @@ export async function createQueuedSubmissionRecord(
       // Published status + time window. Admins may submit outside the
       // window (operational review); course teachers/TAs currently flow
       // through the same path and should too.
-      const assessment = courseContext.assessment;
-      if (assessment.status !== "published") {
-        throw new NotFoundError("Assessment not found.");
+      const assignment = courseContext.assignment;
+      if (assignment.status !== "published") {
+        throw new NotFoundError("Assignment not found.");
       }
       if (actor.platformRole !== "admin" && membership.role === "student") {
         const now = new Date();
-        if (now < assessment.opensAt) {
+        if (now < assignment.opensAt) {
           throw new ForbiddenError("Assignment has not opened yet.");
         }
-        if (now > assessment.closesAt) {
+        if (now > assignment.closesAt) {
           throw new ForbiddenError("Assignment has ended.");
         }
       }
 
-      // Problem must actually be attached to this assessment — otherwise
+      // Problem must actually be attached to this assignment — otherwise
       // a student could submit to an unrelated problem and have it
       // counted against this assignment's attempts/scoreboard.
       const link = await tx.courseAssessmentProblem.findFirst({
-        where: { assessmentId: assessment.id, problemId: problem.id },
+        where: { assessmentId: assignment.id, problemId: problem.id },
         select: { id: true },
       });
       if (!link) {
@@ -121,9 +121,9 @@ export async function createQueuedSubmissionRecord(
     }
 
     if (
-      courseContext?.assessment &&
-      courseContext.assessment.allowedLanguages.length > 0 &&
-      !courseContext.assessment.allowedLanguages.includes(payload.language)
+      courseContext?.assignment &&
+      courseContext.assignment.allowedLanguages.length > 0 &&
+      !courseContext.assignment.allowedLanguages.includes(payload.language)
     ) {
       throw new ForbiddenError("Language not allowed in this assignment");
     }
@@ -170,8 +170,8 @@ export async function createQueuedSubmissionRecord(
     }
 
     // UTC midnight boundary: 00:00:00 UTC counts toward the new day (gte start-of-day).
-    if (courseContext?.assessment && !payload.sampleOnly) {
-      const { maxAttemptsPerDay } = courseContext.assessment;
+    if (courseContext?.assignment && !payload.sampleOnly) {
+      const { maxAttemptsPerDay } = courseContext.assignment;
 
       if (maxAttemptsPerDay != null) {
         const now = new Date();
@@ -181,7 +181,7 @@ export async function createQueuedSubmissionRecord(
 
         const todayCount = await submissionRepo
           .withTx(tx)
-          .countForUserAndAssessmentSince(user.id, courseContext.assessment.id, startOfDayUtc);
+          .countForUserAndAssessmentSince(user.id, courseContext.assignment.id, startOfDayUtc);
 
         if (todayCount >= maxAttemptsPerDay) {
           throw new ConflictError("Daily submission limit reached. Please try again tomorrow.");
@@ -192,9 +192,9 @@ export async function createQueuedSubmissionRecord(
     return submissionRepo.withTx(tx).create({
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
-      courseAssessmentId: courseContext?.assessment.id ?? null,
+      courseAssessmentId: courseContext?.assignment.id ?? null,
       // Active exam session is the source of truth for exam tagging:
-      // the lockout above guarantees no foreign assessment/contest
+      // the lockout above guarantees no foreign assignment/contest
       // payload sneaks past, so writing examId from the session here
       // gives downstream scoring/cooldown a reliable join key without
       // trusting the client.

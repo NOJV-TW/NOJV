@@ -23,7 +23,7 @@ import {
   assertProblemEditAccess,
   assertProblemOwnership,
   type ProblemActorContext,
-} from "./helpers";
+} from "./permissions";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 

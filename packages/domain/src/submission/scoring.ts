@@ -132,9 +132,9 @@ export function mapResult(
     score = result.customScore;
   }
 
-  // Apply assessment adjustment rules to raw score. Only assessments
+  // Apply assignment adjustment rules to raw score. Only assignments
   // carry late-penalty / bonus rules — contests do not.
-  const adjustmentRules = judgeContext.adjustment.assessmentAdjustmentRules ?? null;
+  const adjustmentRules = judgeContext.adjustment.assignmentAdjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
     const adjusted = applyAdjustmentRules({

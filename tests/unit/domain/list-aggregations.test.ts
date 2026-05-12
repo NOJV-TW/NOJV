@@ -37,8 +37,8 @@ vi.mock("@nojv/db", () => ({
 }));
 
 import {
-  aggregateAssessmentClassStats,
-  aggregateAssessmentMyStatus,
+  aggregateAssignmentClassStats,
+  aggregateAssignmentMyStatus,
   aggregateExamClassStats,
   aggregateExamMyStatus,
 } from "@nojv/domain";
@@ -55,9 +55,9 @@ beforeEach(() => {
   sumPointsByExam.mockReset();
 });
 
-describe("aggregateAssessmentClassStats", () => {
+describe("aggregateAssignmentClassStats", () => {
   it("returns an empty map when input is empty", async () => {
-    const out = await aggregateAssessmentClassStats([]);
+    const out = await aggregateAssignmentClassStats([]);
     expect(out.size).toBe(0);
     expect(groupBestScoresByAssessment).not.toHaveBeenCalled();
   });
@@ -73,7 +73,7 @@ describe("aggregateAssessmentClassStats", () => {
     ]);
     countStudentsByCourse.mockResolvedValue(new Map([["c1", 5]]));
 
-    const out = await aggregateAssessmentClassStats([
+    const out = await aggregateAssignmentClassStats([
       { id: "a1", courseId: "c1", problemCount: 2 },
     ]);
     expect(out.get("a1")).toEqual({
@@ -86,7 +86,7 @@ describe("aggregateAssessmentClassStats", () => {
   it("returns submittedUsers=0 and avgScore=0 when no submissions exist", async () => {
     groupBestScoresByAssessment.mockResolvedValue([]);
     countStudentsByCourse.mockResolvedValue(new Map([["c1", 5]]));
-    const out = await aggregateAssessmentClassStats([
+    const out = await aggregateAssignmentClassStats([
       { id: "a1", courseId: "c1", problemCount: 3 },
     ]);
     expect(out.get("a1")).toEqual({ submittedUsers: 0, totalStudents: 5, avgScore: 0 });
@@ -95,7 +95,7 @@ describe("aggregateAssessmentClassStats", () => {
   it("falls back to totalStudents=0 when the course has no active student rows", async () => {
     groupBestScoresByAssessment.mockResolvedValue([]);
     countStudentsByCourse.mockResolvedValue(new Map());
-    const out = await aggregateAssessmentClassStats([
+    const out = await aggregateAssignmentClassStats([
       { id: "a1", courseId: "c1", problemCount: 1 },
     ]);
     expect(out.get("a1")?.totalStudents).toBe(0);
@@ -106,16 +106,16 @@ describe("aggregateAssessmentClassStats", () => {
       { courseAssessmentId: "a1", userId: "uA", problemId: "p1", _max: { score: null } },
     ]);
     countStudentsByCourse.mockResolvedValue(new Map([["c1", 1]]));
-    const out = await aggregateAssessmentClassStats([
+    const out = await aggregateAssignmentClassStats([
       { id: "a1", courseId: "c1", problemCount: 1 },
     ]);
     expect(out.get("a1")).toEqual({ submittedUsers: 1, totalStudents: 1, avgScore: 0 });
   });
 });
 
-describe("aggregateAssessmentMyStatus", () => {
+describe("aggregateAssignmentMyStatus", () => {
   it("returns an empty map when input is empty", async () => {
-    const out = await aggregateAssessmentMyStatus("u1", []);
+    const out = await aggregateAssignmentMyStatus("u1", []);
     expect(out.size).toBe(0);
     expect(groupAcceptedByAssessmentForUser).not.toHaveBeenCalled();
   });
@@ -135,7 +135,7 @@ describe("aggregateAssessmentMyStatus", () => {
       { assessmentId: "a1", _sum: { points: 200 } },
       { assessmentId: "a2", _sum: { points: 100 } },
     ]);
-    const out = await aggregateAssessmentMyStatus("u1", [
+    const out = await aggregateAssignmentMyStatus("u1", [
       { id: "a1", problemCount: 5 },
       { id: "a2", problemCount: 3 },
     ]);
@@ -147,7 +147,7 @@ describe("aggregateAssessmentMyStatus", () => {
     groupAcceptedByAssessmentForUser.mockResolvedValue([]);
     groupBestScoresByAssessmentForUser.mockResolvedValue([]);
     sumPointsByAssessment.mockResolvedValue([]);
-    const out = await aggregateAssessmentMyStatus("u1", [{ id: "a1", problemCount: 4 }]);
+    const out = await aggregateAssignmentMyStatus("u1", [{ id: "a1", problemCount: 4 }]);
     expect(out.get("a1")).toEqual({ solved: 0, total: 4, score: 0, totalPoints: 0 });
   });
 });

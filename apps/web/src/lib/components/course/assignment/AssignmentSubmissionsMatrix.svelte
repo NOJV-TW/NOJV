@@ -11,16 +11,16 @@
   interface Props {
     matrix: SubmissionsMatrixData;
     courseId: string;
-    assessmentId: string;
+    assignmentId: string;
     class?: string;
   }
 
-  let { matrix, courseId, assessmentId, class: className }: Props = $props();
+  let { matrix, courseId, assignmentId, class: className }: Props = $props();
 </script>
 
 <SubmissionsMatrixView
   {matrix}
-  csvDownloadName={`assignment-${assessmentId}-matrix.csv`}
+  csvDownloadName={`assignment-${assignmentId}-matrix.csv`}
   dataSlot="assignment-submissions-matrix"
   showRoleFilter
   viewHref={(userId) => `/courses/${courseId}/members?student=${userId}`}

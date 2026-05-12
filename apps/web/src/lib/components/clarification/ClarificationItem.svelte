@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Badge } from "$lib/components/ui/badge";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { m } from "$lib/paraglide/messages.js";
   import type { ClarificationItem } from "$lib/stores/clarifications.svelte";
   import ClarificationStaffPanel from "./ClarificationStaffPanel.svelte";

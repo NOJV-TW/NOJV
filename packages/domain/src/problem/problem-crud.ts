@@ -21,7 +21,7 @@ import { requireProblem } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 
 import { bestEffortDeleteProblemBlobs } from "./blobs";
-import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
+import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;

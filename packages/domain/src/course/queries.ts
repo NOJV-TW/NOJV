@@ -45,7 +45,7 @@ export async function getCourseHeaderById(courseId: string, userId: string) {
 export interface CopyCoursePreview {
   sourceTitle: string;
   suggestedTitle: string;
-  assessments: {
+  assignments: {
     total: number;
     byStatus: { draft: number; published: number; archived: number };
     problemLinks: number;
@@ -63,14 +63,14 @@ export async function getCopyCoursePreview(
 ): Promise<CopyCoursePreview | null> {
   const course = await courseRepo.findById(courseId);
   if (!course) return null;
-  const [assessments, exams] = await Promise.all([
+  const [assignments, exams] = await Promise.all([
     assessmentRepo.copyPreviewByCourseId(courseId),
     examRepo.copyPreviewByCourseId(courseId),
   ]);
   return {
     sourceTitle: course.title,
     suggestedTitle: `${course.title} (copy)`,
-    assessments,
+    assignments,
     exams,
   };
 }
@@ -79,7 +79,7 @@ export async function listCourseCards(userId?: string) {
   const persistedCourses = await courseRepo.listCards(userId);
 
   return persistedCourses.map((course) => ({
-    assessmentCount: course._count.assessments,
+    assignmentCount: course._count.assessments,
     memberCount: course._count.memberships,
     id: course.id,
     title: course.title,
@@ -175,10 +175,10 @@ export async function listForUserWithCards(userId: string): Promise<{
   return { enrolled, managing };
 }
 
-export async function listUserAssessments(userId: string) {
-  const assessments = await assessmentRepo.listByUser(userId);
+export async function listUserAssignments(userId: string) {
+  const assignments = await assessmentRepo.listByUser(userId);
 
-  return assessments.map((a) => ({
+  return assignments.map((a) => ({
     closesAt: a.closesAt.toISOString(),
     courseId: a.course.id,
     courseTitle: a.course.title,
@@ -204,10 +204,10 @@ export async function listAnnouncements(actor?: ActorRoleHint | null) {
   return announcementDomain.listPublicAnnouncements(actor);
 }
 
-export async function listUpcomingAssessments(userId: string) {
-  const assessments = await assessmentRepo.listUpcoming(userId, new Date(), 10);
+export async function listUpcomingAssignments(userId: string) {
+  const assignments = await assessmentRepo.listUpcoming(userId, new Date(), 10);
 
-  return assessments.map((a) => ({
+  return assignments.map((a) => ({
     closesAt: a.closesAt.toISOString(),
     courseId: a.course.id,
     courseTitle: a.course.title,
@@ -218,17 +218,17 @@ export async function listUpcomingAssessments(userId: string) {
   }));
 }
 
-export interface GetAssessmentContextOptions {
+export interface GetAssignmentContextOptions {
   viewerUserId: string;
   viewerPlatformRole: PlatformRole;
   now?: Date;
 }
 
-export interface AssessmentContextResult {
+export interface AssignmentContextResult {
   allowedLanguages: Language[];
   courseId: string;
-  /** Assessment id — the readable, URL-facing identifier. */
-  assessmentId: string;
+  /** Assignment id — the readable, URL-facing identifier. */
+  assignmentId: string;
   /** Resolved time-window state: `upcoming`, `open`, `closed`. */
   timeStatus: "upcoming" | "open" | "closed";
   /** True when the viewer is a manager (owner/teacher/TA) or platform admin. */
@@ -236,38 +236,38 @@ export interface AssessmentContextResult {
 }
 
 /**
- * Resolve an assessment by (courseId, assessmentId) for the given viewer.
+ * Resolve an assignment by (courseId, assignmentId) for the given viewer.
  *
- * Returns `null` when the assessment is missing, unpublished, or the
+ * Returns `null` when the assignment is missing, unpublished, or the
  * viewer has no route to it. This masks the existence of the
- * assessment from outsiders — critical because the problem page
- * previously trusted any forged `?course=X&assessment=Y` query param.
+ * assignment from outsiders — critical because the problem page
+ * previously trusted any forged `?course=X&assignment=Y` query param.
  *
  * Authorization:
  * - Platform admins always pass.
  * - Course teachers/TAs pass and get `viewerIsManager: true`.
- * - Enrolled students pass only when the assessment's time window is
+ * - Enrolled students pass only when the assignment's time window is
  *   currently open (upcoming/closed both reject).
  */
-// intentional-nullable: the /problems/[id] loader is shared by practice, assignment, and contest modes — a missing or unauthorized assessment must silently fall back to practice-mode, not throw.
-export async function getAssessmentContext(
+// intentional-nullable: the /problems/[id] loader is shared by practice, assignment, and contest modes — a missing or unauthorized assignment must silently fall back to practice-mode, not throw.
+export async function getAssignmentContext(
   courseId: string,
-  assessmentId: string,
-  options: GetAssessmentContextOptions,
-): Promise<AssessmentContextResult | null> {
-  const assessment = await assessmentRepo.findPublishedContextById(courseId, assessmentId);
-  if (!assessment) return null;
+  assignmentId: string,
+  options: GetAssignmentContextOptions,
+): Promise<AssignmentContextResult | null> {
+  const assignment = await assessmentRepo.findPublishedContextById(courseId, assignmentId);
+  if (!assignment) return null;
 
   const now = options.now ?? new Date();
   const timeStatus: "upcoming" | "open" | "closed" =
-    now < assessment.opensAt ? "upcoming" : now > assessment.closesAt ? "closed" : "open";
+    now < assignment.opensAt ? "upcoming" : now > assignment.closesAt ? "closed" : "open";
 
   const isAdmin = options.viewerPlatformRole === "admin";
   const membership = await courseMembershipRepo.findByComposite(
-    assessment.course.id,
+    assignment.course.id,
     options.viewerUserId,
   );
-  const isCourseOwner = assessment.course.ownerId === options.viewerUserId;
+  const isCourseOwner = assignment.course.ownerId === options.viewerUserId;
   const isCourseManager =
     membership?.status === "active" &&
     (membership.role === "teacher" || membership.role === "ta");
@@ -279,7 +279,7 @@ export async function getAssessmentContext(
   const viewerIsManager = isAdmin || isCourseManager || isCourseOwner;
 
   if (!viewerIsManager) {
-    // Non-members never see the assessment exists.
+    // Non-members never see the assignment exists.
     if (!isEnrolledStudent) return null;
     // Enrolled students lose access outside the time window.
     if (timeStatus !== "open") return null;
@@ -287,13 +287,13 @@ export async function getAssessmentContext(
     // into problem detail / submission. Returning null here means a
     // student typing the URL directly hits the same closed door as
     // the UI rendering.
-    if (assessment.course.archived) return null;
+    if (assignment.course.archived) return null;
   }
 
   return {
-    allowedLanguages: assessment.allowedLanguages,
-    assessmentId: assessment.id,
-    courseId: assessment.course.id,
+    allowedLanguages: assignment.allowedLanguages,
+    assignmentId: assignment.id,
+    courseId: assignment.course.id,
     timeStatus,
     viewerIsManager,
   };

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import ThemeToggle from "./ThemeToggle.svelte";
 
   let currentLocale = $derived(getLocale());

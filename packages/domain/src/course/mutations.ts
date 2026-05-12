@@ -26,7 +26,7 @@ import * as notificationDomain from "../notification";
 import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages,
-} from "../problem/helpers";
+} from "../problem/permissions";
 
 // Defensive re-check so form-post handlers never rely on trusted loader state.
 async function assertCourseManager(
@@ -137,7 +137,7 @@ function generateAssignmentId(title: string): string {
   return `${core}-${suffix}`;
 }
 
-export async function createCourseAssessmentRecord(
+export async function createCourseAssignmentRecord(
   actor: ActorContext,
   courseId: string,
   payload: CourseAssignmentFormData,
@@ -147,10 +147,10 @@ export async function createCourseAssessmentRecord(
     await assertCourseManager(tx, actor, course.id);
     const creator = await ensureUser(tx, actor.userId, actor);
 
-    const assessmentId = generateAssignmentId(payload.title);
+    const assignmentId = generateAssignmentId(payload.title);
 
     // Workspace invariant: every problem must ship editable main.<ext>
-    // for every language listed on the assessment. Empty list = unrestricted.
+    // for every language listed on the assignment. Empty list = unrestricted.
     if (payload.allowedLanguages.length > 0 && payload.problemIds.length > 0) {
       await Promise.all(
         payload.problemIds.map((id) =>
@@ -161,14 +161,14 @@ export async function createCourseAssessmentRecord(
 
     const adjustmentRules = payload.latePenalty ? [payload.latePenalty] : [];
 
-    const assessment = await assessmentRepo.withTx(tx).create({
+    const assignment = await assessmentRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
       closesAt: new Date(payload.closesAt),
       courseId: course.id,
       createdByUserId: creator.id,
       dueAt: new Date(payload.dueAt),
       opensAt: new Date(payload.opensAt),
-      id: assessmentId,
+      id: assignmentId,
       status: payload.status,
       // Prototype 05 drops the summary field; use the title so the
       // DB column (non-null @db.Text) has a meaningful value.
@@ -202,7 +202,7 @@ export async function createCourseAssessmentRecord(
           const problem = problemById.get(id);
           if (!problem) throw new NotFoundError(`Problem not found: ${id}`);
           await assessmentProblemRepo.withTx(tx).create({
-            assessmentId: assessment.id,
+            assessmentId: assignment.id,
             ordinal: index + 1,
             points: 100,
             problemId: problem.id,
@@ -211,7 +211,7 @@ export async function createCourseAssessmentRecord(
       );
     }
 
-    return assessment;
+    return assignment;
   });
 }
 
@@ -262,7 +262,7 @@ export async function setCourseArchived(
 /**
  * Duplicate a course's structural scaffolding into a brand-new course.
  *
- * Copied: course title/description, all assessments (all statuses, reset
+ * Copied: course title/description, all assignments (all statuses, reset
  * to `draft`) and their problem attachments, all exams (all statuses,
  * reset to `draft`) and their problem attachments.
  *
@@ -312,12 +312,12 @@ export async function copyCourse(
       userId: owner.id,
     });
 
-    // 3. Clone assessments — status reset to draft so nothing auto-publishes.
-    const sourceAssessments = await assessmentRepo
+    // 3. Clone assignments — status reset to draft so nothing auto-publishes.
+    const sourceAssignments = await assessmentRepo
       .withTx(tx)
       .listByCourseIdAllWithProblems(source.id);
 
-    for (const a of sourceAssessments) {
+    for (const a of sourceAssignments) {
       const created = await assessmentRepo.withTx(tx).create({
         allowedLanguages: a.allowedLanguages,
         closesAt: a.closesAt,

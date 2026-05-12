@@ -3,14 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const autoCloseForExamMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@nojv/domain", () => ({
+  assignmentDomain: {},
+  contestDomain: {},
   examDomain: {
     session: {
       autoCloseForExam: autoCloseForExamMock,
     },
   },
+  notificationDomain: {},
+  userDomain: {},
 }));
 
-import { closeActiveSessionsForExam } from "../../../packages/temporal/src/activities/exam-session";
+vi.mock("@nojv/redis", () => ({
+  pubsub: {
+    publishVerdict: vi.fn(),
+    publishContestEvent: vi.fn(),
+    publishAssessmentDeadline: vi.fn(),
+  },
+}));
+
+import { closeActiveSessionsForExam } from "../../../packages/temporal/src/activities/lifecycle";
 
 describe("closeActiveSessionsForExam activity", () => {
   beforeEach(() => {

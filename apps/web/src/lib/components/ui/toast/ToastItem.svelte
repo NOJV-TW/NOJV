@@ -2,7 +2,7 @@
   import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from "@lucide/svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts, type Toast, type ToastType } from "$lib/stores/toast";
   import { Button } from "$lib/components/ui/button";

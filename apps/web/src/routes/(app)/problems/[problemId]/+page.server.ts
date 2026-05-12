@@ -78,7 +78,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   return {
     allowedLanguages: [],
-    assessmentProp: undefined,
+    assignmentProp: undefined,
     backLink: undefined,
     canRejudge,
     contestId: undefined,
