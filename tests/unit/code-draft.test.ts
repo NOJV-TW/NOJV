@@ -147,8 +147,8 @@ describe("inferDraftContext", () => {
 
   it("maps assignment route", () => {
     expect(
-      inferDraftContext("/(app)/assignments/[assessmentId]/problems/[problemId]", {
-        assessmentId: "a1",
+      inferDraftContext("/(app)/assignments/[assignmentId]/problems/[problemId]", {
+        assignmentId: "a1",
         problemId: "p1",
       }),
     ).toEqual({ kind: "assignment", assessmentId: "a1" });

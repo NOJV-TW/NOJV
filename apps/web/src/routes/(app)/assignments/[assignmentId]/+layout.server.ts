@@ -1,6 +1,6 @@
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import {
-  assessmentDomain,
+  assignmentDomain,
   courseDomain,
   NotFoundError,
   ForbiddenError,
@@ -14,12 +14,12 @@ const { getCourseHeaderById } = courseDomain;
 
 export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadEvent) => {
   const actor = requireAuth(event);
-  const { assessmentId } = event.params;
+  const { assignmentId } = event.params;
 
   // Look up the assessment first — this mirrors the old `/courses/[courseId]/…`
   // tree where courseId was in the URL.  In the id-unified tree we derive it
   // from the assessment row.
-  const assessment = await assessmentDomain.getAssessmentWithCourseId(assessmentId);
+  const assessment = await assignmentDomain.getAssessmentWithCourseId(assignmentId);
   if (!assessment) {
     throw new NotFoundError("Assignment not found.");
   }
