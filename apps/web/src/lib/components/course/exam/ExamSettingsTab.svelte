@@ -11,7 +11,6 @@
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import Archive from "@lucide/svelte/icons/archive";
-  import Snowflake from "@lucide/svelte/icons/snowflake";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Send from "@lucide/svelte/icons/send";
   import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
@@ -371,24 +370,6 @@
             {m.examDetail_settingsPublishButton()}
           </Button>
         </form>
-      {/if}
-
-      {#if isRunning}
-        {#if detail.manager?.frozenBoard}
-          <form method="POST" action="?/unfreezeBoard" use:enhance class="contents">
-            <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-              <Snowflake class="mr-1 size-4" aria-hidden="true" />
-              {m.examDetail_settingsUnfreezeButton()}
-            </Button>
-          </form>
-        {:else}
-          <form method="POST" action="?/freezeBoard" use:enhance class="contents">
-            <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-              <Snowflake class="mr-1 size-4" aria-hidden="true" />
-              {m.examDetail_settingsFreezeButton()}
-            </Button>
-          </form>
-        {/if}
       {/if}
 
       {#if isEnded}

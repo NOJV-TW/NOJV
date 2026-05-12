@@ -172,8 +172,6 @@ model Exam {
   status            ExamStatus      @default(draft)
   scoringMode       ExamScoringMode @default(point_sum)
   scoreboardMode    ScoreboardMode  @default(hidden)
-  frozenBoard       Boolean         @default(false)
-  frozenAt          DateTime?
   submitCooldownSec Int             @default(0)
 
   allowedLanguages SupportedLanguage[] @default([])

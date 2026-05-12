@@ -31,6 +31,7 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 import { tryParseJsonField } from "$lib/server/shared/form-utils";
+import { buildAssignmentResults } from "$lib/server/assignment-results";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
@@ -113,6 +114,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       mode: "teacher" as const,
       detail,
       matrix,
+      results: buildAssignmentResults(matrix),
       settingsForm,
       candidateProblems,
       canSetOverride,
