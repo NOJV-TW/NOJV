@@ -78,7 +78,7 @@
     value={file.content}
     onchange={(v) => update({ content: v })}
     {language}
-    readonly={false}
+    isReadOnly={false}
     height="360px"
   />
 </div>

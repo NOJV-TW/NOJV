@@ -60,7 +60,7 @@
 
   let showDeleteConfirm = $state(false);
   let deletingProblemId = $state<string | null>(null);
-  let deleting = $state(false);
+  let isDeleting = $state(false);
 
   function handleDeleteClick(problemId: string) {
     deletingProblemId = problemId;
@@ -70,10 +70,10 @@
   async function handleDeleteConfirmed() {
     if (!deletingProblemId) return;
     showDeleteConfirm = false;
-    deleting = true;
+    isDeleting = true;
     const fd = new FormData();
     await fetch(`/problems/${deletingProblemId}/edit?/deleteProblem`, { method: "POST", body: fd });
-    deleting = false;
+    isDeleting = false;
     deletingProblemId = null;
     await invalidateAll();
   }
@@ -148,7 +148,7 @@
     <MyProblemsTab
       editableProblems={editableProblems ?? []}
       {deletingProblemId}
-      {deleting}
+      {isDeleting}
       onDeleteClick={handleDeleteClick}
     />
   {/if}

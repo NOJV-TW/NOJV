@@ -116,7 +116,7 @@
     | "plagiarism"
     | "settings"
     | "clarifications";
-  let activeTab = $state<SubTab>("problems");
+  let activeSubTabKey = $state<SubTab>("problems");
 
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.id, title: p.title }))
@@ -489,7 +489,7 @@
         </div>
         <button
           type="button"
-          onclick={() => (activeTab = "settings")}
+          onclick={() => (activeSubTabKey = "settings")}
           class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium transition-colors hover:border-border"
         >
           <Pencil class="size-3" /> {m.examDetail_managerEditButton()}
@@ -520,14 +520,14 @@
     <div class="flex flex-wrap gap-2">
       <button
         type="button"
-        onclick={() => (activeTab = "results")}
+        onclick={() => (activeSubTabKey = "results")}
         class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
       >
         {m.examDetail_managerClassResultsLink()}
       </button>
       <button
         type="button"
-        onclick={() => (activeTab = "submissions")}
+        onclick={() => (activeSubTabKey = "submissions")}
         class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
       >
         {m.examDetail_managerSubmissionMatrixLink()}
@@ -552,9 +552,9 @@
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === "problems"}
-        onclick={() => (activeTab = "problems")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        aria-selected={activeSubTabKey === "problems"}
+        onclick={() => (activeSubTabKey = "problems")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
         'problems'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -564,9 +564,9 @@
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === "submissions"}
-        onclick={() => (activeTab = "submissions")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        aria-selected={activeSubTabKey === "submissions"}
+        onclick={() => (activeSubTabKey = "submissions")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
         'submissions'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -576,9 +576,9 @@
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === "results"}
-        onclick={() => (activeTab = "results")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        aria-selected={activeSubTabKey === "results"}
+        onclick={() => (activeSubTabKey = "results")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
         'results'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -588,9 +588,9 @@
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === "plagiarism"}
-        onclick={() => (activeTab = "plagiarism")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        aria-selected={activeSubTabKey === "plagiarism"}
+        onclick={() => (activeSubTabKey = "plagiarism")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
         'plagiarism'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -600,9 +600,9 @@
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === "settings"}
-        onclick={() => (activeTab = "settings")}
-        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        aria-selected={activeSubTabKey === "settings"}
+        onclick={() => (activeSubTabKey = "settings")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
         'settings'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -613,9 +613,9 @@
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "clarifications"}
-          onclick={() => (activeTab = "clarifications")}
-          class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+          aria-selected={activeSubTabKey === "clarifications"}
+          onclick={() => (activeSubTabKey = "clarifications")}
+          class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
           'clarifications'
             ? 'bg-[color:var(--color-primary)]/14 text-primary'
             : 'text-muted-foreground hover:text-foreground'}"
@@ -625,15 +625,15 @@
       {/if}
     </div>
 
-    {#if activeTab === "submissions" && data.matrix}
+    {#if activeSubTabKey === "submissions" && data.matrix}
       <GlassPanel class="p-5">
         <ExamSubmissionsMatrix matrix={data.matrix} examId={detail.id} />
       </GlassPanel>
-    {:else if activeTab === "results" && data.results}
+    {:else if activeSubTabKey === "results" && data.results}
       <GlassPanel class="p-5">
         <ExamResultsTab data={data.results} />
       </GlassPanel>
-    {:else if activeTab === "plagiarism"}
+    {:else if activeSubTabKey === "plagiarism"}
       <GlassPanel class="p-5">
         <AssignmentPlagiarismReport
           report={data.plagiarism}
@@ -653,9 +653,9 @@
             : []}
         />
       </GlassPanel>
-    {:else if activeTab === "settings" && data.settingsForm}
+    {:else if activeSubTabKey === "settings" && data.settingsForm}
       <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
-    {:else if activeTab === "clarifications"}
+    {:else if activeSubTabKey === "clarifications"}
       <GlassPanel class="p-5">
         <ClarificationTab
           contextType="exam"

@@ -16,7 +16,7 @@
   import StudentWorkspaceView from "./StudentWorkspaceView.svelte";
   import {
     executeSubmission,
-    type SubmissionWorkspaceFilePayload
+    type SubmissionWorkspaceFile
   } from "$lib/services/submission-service";
   import {
     clearDraft,
@@ -295,7 +295,7 @@
     document.addEventListener("mouseup", onUp);
   }
 
-  function currentWorkspaceFiles(): SubmissionWorkspaceFilePayload[] {
+  function currentWorkspaceFiles(): SubmissionWorkspaceFile[] {
     return workspaceFilesForLanguage
       .filter((f) => f.visibility !== "hidden")
       .map((f) => ({
@@ -472,7 +472,7 @@
     <EditorCore
       {language}
       {drafts}
-      hidden={isWorkspaceMode}
+      isHidden={isWorkspaceMode}
       onchange={(value) => (drafts[language] = value)}
     />
     {#if isWorkspaceMode}
@@ -539,7 +539,7 @@
   <div class="shrink-0" style="height: {bottomPanelHeight}px">
     <EditorBottomPanel
       bind:runCases={panelRunCases}
-      readOnly={isSpecialEnv}
+      isReadOnly={isSpecialEnv}
       tab={bottomTab}
       {runResult}
       {runStatus}

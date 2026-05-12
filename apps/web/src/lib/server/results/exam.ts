@@ -18,15 +18,15 @@ export interface ExamResultRow {
   me: boolean;
 }
 
-export interface ExamResultsData extends ScoreStats {
+export interface ExamResults extends ScoreStats {
   problems: ExamResultProblemCol[];
   rows: ExamResultRow[];
 }
 
 export function buildExamResults(
-  matrix: examDomain.ExamMatrixData,
+  matrix: examDomain.ExamSubmissionsMatrix,
   viewerUserId: string,
-): ExamResultsData {
+): ExamResults {
   const problems: ExamResultProblemCol[] = matrix.problems.map((p) => ({
     id: p.problemId,
     letter: p.letter,

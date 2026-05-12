@@ -20,7 +20,7 @@ import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
-import { buildContestResults, type ContestResultsData } from "$lib/server/results/contest";
+import { buildContestResults, type ContestResults } from "$lib/server/results/contest";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -69,8 +69,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // Students don't see the button so we skip the extra fetches entirely.
   let canSetOverride = false;
   let overrideStudents: { id: string; username: string; name: string }[] = [];
-  let results: ContestResultsData | null = null;
-  let matrix: contestDomain.ContestMatrixData | null = null;
+  let results: ContestResults | null = null;
+  let matrix: contestDomain.ContestSubmissionsMatrix | null = null;
   let settingsForm: Awaited<
     ReturnType<typeof superValidate<ContestSettingsForm, FormMessage>>
   > | null = null;

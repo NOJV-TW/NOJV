@@ -343,7 +343,7 @@ sequenceDiagram
         else live board
             Web->>Postgres: submissionRepo.findForContestScoreboard (rebuild from DB)
         end
-        Web-->>Browser: ScoreboardData (entries + problems)
+        Web-->>Browser: Scoreboard (entries + problems)
     end
 
     Note over Web,Redis: freezeScoreboard copies live ZSET → frozen key (ZRANGE + ZADD)<br/>getScoreboard transparently prefers frozen while present

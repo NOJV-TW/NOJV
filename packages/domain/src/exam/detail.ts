@@ -50,7 +50,7 @@ export interface ExamDetailManagerFields {
   submitCooldownSec: number;
 }
 
-export interface ExamDetailPageData {
+export interface ExamDetailPage {
   id: string;
   courseId: string;
   title: string;
@@ -113,7 +113,7 @@ function deriveStatus(
 export async function getExamDetailPage(
   examId: string,
   options: GetExamDetailPageOptions,
-): Promise<ExamDetailPageData | null> {
+): Promise<ExamDetailPage | null> {
   const now = options.now ?? new Date();
   const exam = await examRepo.findDetailForRegistrationPage(examId);
   if (!exam) return null;

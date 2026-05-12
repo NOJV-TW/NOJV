@@ -28,7 +28,7 @@ export interface ExamMatrixRow {
   total: number;
 }
 
-export interface ExamMatrixData {
+export interface ExamSubmissionsMatrix {
   problems: ExamMatrixProblemColumn[];
   rows: ExamMatrixRow[];
   totalPoints: number;
@@ -50,7 +50,7 @@ export interface BuildExamMatrixInput {
 
 export async function buildExamSubmissionsMatrix(
   input: BuildExamMatrixInput,
-): Promise<ExamMatrixData> {
+): Promise<ExamSubmissionsMatrix> {
   const students = await courseMembershipRepo.findStudents(input.courseId);
 
   const problems: ExamMatrixProblemColumn[] = input.problems.map((p) => ({
