@@ -2,6 +2,7 @@
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
   import type { Language } from "@nojv/core";
+  import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
   import { registerCompletionProviders } from "./editor-completions";
 
   interface Props {
@@ -53,12 +54,13 @@
     void (async () => {
       monacoModule = await import("monaco-editor");
       registerCompletionProviders(monacoModule);
+      defineNojvThemes(monacoModule);
 
       const isDark = document.documentElement.classList.contains("dark");
       monacoEditor = monacoModule.editor.create(editorContainer, {
         ...editorOptions,
         language: languageIdMap[language] ?? language,
-        theme: isDark ? "vs-dark" : "vs-light",
+        theme: getNojvThemeName(isDark),
         value: drafts[language] ?? ""
       });
 
@@ -71,7 +73,7 @@
       // the global theme without a full reload.
       themeObserver = new MutationObserver(() => {
         const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+        monacoModule!.editor.setTheme(getNojvThemeName(dark));
       });
       themeObserver.observe(document.documentElement, {
         attributes: true,

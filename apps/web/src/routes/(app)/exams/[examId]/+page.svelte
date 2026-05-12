@@ -1,6 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { Pencil } from "@lucide/svelte";
+  import { cn } from "$lib/utils.js";
+  import { ChevronRight, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/coursework/Crumbs.svelte";
   import CornerMark from "$lib/components/coursework/CornerMark.svelte";
   import DotGrid from "$lib/components/coursework/DotGrid.svelte";
@@ -285,10 +286,12 @@
         <div class="divide-y" style="border-color: var(--border-subtle);">
           {#each detail.problems as p (p.id)}
             {@const verdict = p.viewerState ?? "empty"}
-            <div
-              class="grid grid-cols-[60px_1fr_auto_auto_auto] items-center gap-4 border-l-2 px-6 py-3.5 {rowTint(
-                p.viewerState
-              )}"
+            <a
+              href={`/problems/${p.id}`}
+              class={cn(
+                "grid grid-cols-[60px_1fr_auto_auto_auto] items-center gap-4 border-l-2 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
+                rowTint(p.viewerState)
+              )}
             >
               <div class="font-mono text-body font-semibold text-muted-foreground">
                 {p.letter}
@@ -331,13 +334,12 @@
                 </span>
               </div>
               <span
-                class="rounded-md px-3 py-1.5 font-mono text-caption uppercase tracking-wider text-muted-foreground"
-                style="background: var(--muted); cursor: not-allowed; opacity: 0.7;"
-                title={m.examDetail_endedTooltip()}
+                class="inline-flex items-center gap-1 font-mono text-caption uppercase tracking-wider text-muted-foreground"
               >
-                {m.examDetail_endedAffordance()}
+                {m.examDetail_problemPreview()}
+                <ChevronRight class="size-3.5" />
               </span>
-            </div>
+            </a>
           {/each}
         </div>
       </GlassPanel>

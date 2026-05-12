@@ -2,6 +2,7 @@
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
   import { getMonacoLanguage } from "$lib/utils/monaco-languages";
+  import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
 
   interface Props {
     value: string;
@@ -28,6 +29,7 @@
 
     void (async () => {
       monacoModule = await import("monaco-editor");
+      defineNojvThemes(monacoModule);
 
       const isDark = document.documentElement.classList.contains("dark");
       monacoEditor = monacoModule.editor.create(editorContainer, {
@@ -40,7 +42,7 @@
         padding: { top: 16 },
         readOnly: readonly,
         scrollBeyondLastLine: false,
-        theme: isDark ? "vs-dark" : "vs-light",
+        theme: getNojvThemeName(isDark),
         value,
         wordWrap: "on",
       });
@@ -52,7 +54,7 @@
 
       themeObserver = new MutationObserver(() => {
         const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+        monacoModule!.editor.setTheme(getNojvThemeName(dark));
       });
       themeObserver.observe(document.documentElement, {
         attributes: true,
