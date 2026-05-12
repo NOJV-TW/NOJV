@@ -107,7 +107,7 @@
   <ContestSection title="UPCOMING" subtitle={m.contestsList_sectionUpcomingSubtitle()}>
     {#if upcoming.length === 0}
       <div
-        class="glass rounded-2xl px-6 py-10 text-center text-body-sm text-muted-foreground"
+        class="glass rounded-xl px-6 py-10 text-center text-body-sm text-muted-foreground"
       >
         {m.contestsList_sectionUpcomingEmpty()}
       </div>

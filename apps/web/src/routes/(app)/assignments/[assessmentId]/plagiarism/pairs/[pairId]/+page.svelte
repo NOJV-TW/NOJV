@@ -174,7 +174,7 @@
   {/if}
 
   <div
-    class="grid grid-cols-3 gap-3 rounded-lg border border-border bg-[color:var(--color-panel)]/60 px-5 py-4 text-caption text-muted-foreground"
+    class="grid grid-cols-3 gap-3 rounded-md border border-border bg-[color:var(--color-panel)]/60 px-5 py-4 text-caption text-muted-foreground"
   >
     <div>
       <div class="text-body-sm font-semibold text-foreground">{data.pair.similarity}%</div>

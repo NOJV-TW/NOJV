@@ -140,7 +140,7 @@
         role="button"
         tabindex="0"
         aria-disabled={uploading}
-        class="rounded-xl border-2 border-dashed border-border p-6 text-center text-body-sm transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
+        class="rounded-lg border-2 border-dashed border-border p-4 text-center text-body-sm transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
           ? 'border-primary bg-primary/5'
           : ''} {uploading ? 'cursor-wait opacity-60' : 'cursor-pointer'}"
         ondrop={onDrop}

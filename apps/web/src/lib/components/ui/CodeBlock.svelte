@@ -28,7 +28,7 @@
   }
 </script>
 
-<div class="overflow-hidden rounded-xl border border-border">
+<div class="overflow-hidden rounded-lg border border-border">
   <!-- Header -->
   <div class="flex items-center justify-between bg-muted/60 px-4 py-2">
     {#if language}

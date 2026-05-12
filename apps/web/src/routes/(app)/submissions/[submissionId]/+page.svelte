@@ -137,7 +137,7 @@
 
       <!-- Metrics 2x2 -->
       <dl
-        class="grid grid-cols-2 gap-3 rounded-xl border border-border-subtle bg-muted/20 p-4"
+        class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-2"
       >
         <div class="flex flex-col gap-0.5">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
@@ -180,13 +180,13 @@
       <!-- Context badges & notices -->
       {#if submission.context.kind === "contest"}
         <p
-          class="rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
+          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
         >
           {m.submissionDetail_contextContest({ contestTitle: submission.context.contestTitle })}
         </p>
       {:else if submission.context.kind === "assessment"}
         <p
-          class="rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
+          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
         >
           {m.submissionDetail_contextAssessment({
             assessmentTitle: submission.context.assessmentTitle,
@@ -195,7 +195,7 @@
         </p>
       {:else if submission.context.kind === "exam"}
         <p
-          class="rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
+          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
         >
           {m.submissionDetail_contextExam({
             examTitle: submission.context.examTitle,
@@ -206,14 +206,14 @@
 
       {#if submission.sampleOnly}
         <p
-          class="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-body-sm text-primary"
+          class="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-body-sm text-primary"
         >
           {m.submissionDetail_sampleOnlyNotice()}
         </p>
       {/if}
 
       {#if submission.viewerIsStaff && submission.submitter}
-        <div class="rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm">
+        <div class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm">
           <p class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_submitter()}
           </p>
@@ -230,7 +230,7 @@
       <!-- Feedback / judging -->
       {#if isPending}
         <p
-          class="rounded-lg border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
+          class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
         >
           {m.submissionDetail_judging()}
         </p>
@@ -240,7 +240,7 @@
             {m.submissionDetail_feedback()}
           </h2>
           <pre
-            class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border-subtle bg-muted/30 px-3 py-2 font-mono text-body-sm text-foreground">{result.feedback}</pre>
+            class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted/30 px-3 py-2 font-mono text-body-sm text-foreground">{result.feedback}</pre>
         </div>
       {/if}
 
@@ -253,7 +253,7 @@
           <div class="flex flex-col gap-1.5">
             {#each subtaskResults as st, idx (`st-${idx}-${st.testcaseSetId}`)}
               <div
-                class="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2"
+                class="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2"
               >
                 <div class="flex min-w-0 items-center gap-2">
                   <span
@@ -331,7 +331,7 @@
                   {m.submissionDetail_caseStdout()}
                 </p>
                 <pre
-                  class="mt-1 max-h-48 overflow-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
+                  class="mt-1 max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.stdout ||
                     "(empty)"}</pre>
               </div>
               {#if expandedCase.stderr}
@@ -340,7 +340,7 @@
                     {m.submissionDetail_stderr()}
                   </p>
                   <pre
-                    class="mt-1 max-h-48 overflow-auto rounded-lg bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{expandedCase.stderr}</pre>
+                    class="mt-1 max-h-48 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{expandedCase.stderr}</pre>
                 </div>
               {/if}
             </div>
@@ -348,7 +348,7 @@
         </div>
       {:else if result && !isPending}
         <p
-          class="rounded-lg border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
+          class="rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
         >
           {m.submissionDetail_noCaseResults()}
         </p>
@@ -357,7 +357,7 @@
 
     <!-- Right pane: source code -->
     <section
-      class="flex min-h-[60vh] flex-col overflow-hidden rounded-xl border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
+      class="flex min-h-[60vh] flex-col overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
     >
       <header
         class="flex items-center justify-between gap-3 border-b border-border-subtle bg-muted/60 px-4 py-2"

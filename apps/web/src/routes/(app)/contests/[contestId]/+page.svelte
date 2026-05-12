@@ -74,7 +74,7 @@
 
   <!-- Hero -->
   <div
-    class="relative overflow-hidden rounded-2xl shadow-rest"
+    class="relative overflow-hidden rounded-xl shadow-rest"
     style="border: 1px solid var(--border); background: {isLive
       ? 'linear-gradient(135deg, color-mix(in oklab, var(--destructive) 12%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'
       : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
@@ -110,7 +110,7 @@
 
         <!-- Stats sidebar / clock -->
         <div
-          class="rounded-xl border p-5 min-w-[280px]"
+          class="rounded-lg border p-3 min-w-[280px]"
           style="border-color: var(--border); background: var(--panel);"
         >
           <div

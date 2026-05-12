@@ -1,6 +1,7 @@
 export { createStorageClient } from "./client";
 export {
   uploadProblemImage,
+  uploadUserContentImage,
   deleteProblemImage,
   uploadAdvancedImageTarball,
   deleteAdvancedImageTarball,

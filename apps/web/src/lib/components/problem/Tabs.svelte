@@ -321,11 +321,11 @@
         </Button>
         {#if showCreateMenu}
           <div
-            class="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-border bg-[color:var(--color-panel)] p-2 shadow-hover"
+            class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border bg-[color:var(--color-panel)] p-2 shadow-hover"
             role="menu"
           >
             <button
-              class="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+              class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
               onclick={() => void handleCreate("standard")}
               type="button"
             >
@@ -335,7 +335,7 @@
               </span>
             </button>
             <button
-              class="flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
+              class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
               onclick={() => void handleCreate("advanced")}
               type="button"
             >

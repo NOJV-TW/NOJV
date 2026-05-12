@@ -90,9 +90,9 @@
   {#if visibleCourses.length === 0}
     {#if activeTab === "enrolled"}
       <div
-        class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+        class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
-        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
           <GraduationCap class="h-7 w-7 text-muted-foreground/70" />
         </div>
         <h3 class="mt-4 text-title font-medium">{m.courses_emptyEnrolledTitle()}</h3>
@@ -102,9 +102,9 @@
       </div>
     {:else}
       <div
-        class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
+        class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center"
       >
-        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60">
           <BookOpen class="h-7 w-7 text-muted-foreground/70" />
         </div>
         <h3 class="mt-4 text-title font-medium">{m.courses_emptyManagingTitle()}</h3>
@@ -126,7 +126,7 @@
       {#each visibleCourses as course (course.id)}
         <a
           href={`/courses/${course.id}`}
-          class="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-[color:var(--color-panel)] px-7 py-7 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-normal ease-out-soft hover:-translate-y-0.5 hover:border-border-strong hover:shadow-hover {course.archived
+          class="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)] px-7 py-7 shadow-rest backdrop-blur-sm transition-[transform,box-shadow,border-color] duration-normal ease-out-soft hover:-translate-y-0.5 hover:border-border-strong hover:shadow-hover {course.archived
             ? 'opacity-60 hover:opacity-100'
             : ''}"
         >

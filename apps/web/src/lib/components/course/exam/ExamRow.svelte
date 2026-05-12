@@ -53,7 +53,7 @@
 
 <a
   href={`/exams/${exam.id}`}
-  class="group glass hover-lift fade-up block overflow-hidden rounded-2xl shadow-rest"
+  class="group glass hover-lift fade-up block overflow-hidden rounded-xl shadow-rest"
   style="animation-delay: {delay}ms"
 >
   <div class="grid grid-cols-[136px_1fr] items-stretch md:grid-cols-[136px_1fr_auto]">

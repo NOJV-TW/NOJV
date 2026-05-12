@@ -120,7 +120,7 @@
 
     {#if announcements.length === 0}
       <div
-        class="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
+        class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
       >
         {m.courseOverview_noAnnouncements()}
       </div>
@@ -260,7 +260,7 @@
 
     {#if assignments.length === 0}
       <div
-        class="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
+        class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
       >
         {m.courseOverview_noAssignments()}
       </div>
@@ -270,7 +270,7 @@
           {@const badge = assignmentStatusBadge(assignment.status)}
           <a
             href={`/assignments/${assignment.id}`}
-            class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
+            class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
             'draft'
               ? 'border-dashed bg-transparent'
               : 'border-border'}"
@@ -369,7 +369,7 @@
 
     {#if exams.length === 0}
       <div
-        class="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
+        class="rounded-xl border border-dashed border-border px-6 py-8 text-center text-body-sm text-muted-foreground"
       >
         {m.courseOverview_noExams()}
       </div>
@@ -379,7 +379,7 @@
           {@const badge = examStatusBadge(exam.status)}
           <a
             href={`/exams/${exam.id}`}
-            class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {exam.status ===
+            class="grid grid-cols-[1fr_auto_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-4 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {exam.status ===
             'draft'
               ? 'border-dashed bg-transparent'
               : 'border-border'}"

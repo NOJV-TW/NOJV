@@ -129,7 +129,7 @@
   />
 
   <!-- Compact header -->
-  <div class="glass rounded-2xl shadow-rest p-6 flex flex-wrap items-center gap-6">
+  <div class="glass rounded-xl shadow-rest p-4 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
@@ -159,7 +159,7 @@
 
     {#if scoreboard.isFrozen}
       <div
-        class="rounded-xl border border-dashed p-4 min-w-[200px]"
+        class="rounded-lg border border-dashed p-2 min-w-[200px]"
         style="border-color: color-mix(in oklab, var(--destructive) 35%, transparent);"
       >
         <div

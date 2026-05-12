@@ -54,11 +54,11 @@
 
   <!-- Header band -->
   <div
-    class="glass flex flex-wrap items-center gap-6 rounded-2xl p-6 shadow-rest lg:p-7"
+    class="glass flex flex-wrap items-center gap-6 rounded-xl p-4 shadow-rest lg:p-5"
   >
     <div class="flex min-w-0 items-center gap-3">
       <div
-        class="rounded-xl p-2.5"
+        class="rounded-lg p-2.5"
         style="background: color-mix(in oklab, var(--primary) 12%, transparent);"
       >
         <TypeIcon kind="exam" size={20} />
@@ -107,7 +107,7 @@
     style:grid-template-columns={collapsed ? "64px 1fr" : "280px 1fr"}
   >
     <!-- Problem list -->
-    <aside class="glass self-start overflow-hidden rounded-2xl shadow-rest">
+    <aside class="glass self-start overflow-hidden rounded-xl shadow-rest">
       <div
         class="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-3"
       >
@@ -157,7 +157,7 @@
               <button
                 type="button"
                 onclick={() => (activeId = p.id)}
-                class="w-full rounded-lg px-3 py-2.5 text-left transition-colors {isActive
+                class="w-full rounded-md px-3 py-2.5 text-left transition-colors {isActive
                   ? ''
                   : 'hover:bg-muted'}"
                 style:background={isActive ? "var(--panel)" : undefined}
@@ -189,7 +189,7 @@
 
     <!-- Problem detail -->
     {#if activeProblem}
-      <section class="glass rounded-2xl p-7 shadow-rest">
+      <section class="glass rounded-xl p-5 shadow-rest">
         <div class="flex flex-wrap items-baseline gap-3">
           <span class="font-mono text-title text-muted-foreground"
             >{activeProblem.letter}.</span
@@ -253,7 +253,7 @@
             {m.examReview_subtasksHeading()}
           </div>
           <div
-            class="rounded-lg border border-dashed border-border-subtle px-4 py-6 text-center text-body-sm text-muted-foreground"
+            class="rounded-md border border-dashed border-border-subtle px-4 py-6 text-center text-body-sm text-muted-foreground"
           >
             {m.examReview_subtasksPlaceholder()}
           </div>
@@ -264,7 +264,7 @@
             {m.examReview_submissionHeading()}
           </div>
           <div
-            class="rounded-lg border border-dashed border-border-subtle px-4 py-6 text-center text-body-sm text-muted-foreground"
+            class="rounded-md border border-dashed border-border-subtle px-4 py-6 text-center text-body-sm text-muted-foreground"
           >
             {m.examReview_submissionPlaceholder({ letter: activeProblem.letter, title: activeProblem.title })}
           </div>

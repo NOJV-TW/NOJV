@@ -135,10 +135,10 @@
 
   // ReviewRow tint by viewer outcome (for past-exam problem list).
   function rowTint(state: "ac" | "partial" | "zero" | "empty" | null): string {
-    if (state === "ac") return "bg-success/[0.06] border-success/30";
+    if (state === "ac") return "bg-success/[0.06]";
     if (state === "partial")
-      return "bg-[color:color-mix(in_oklab,var(--chart-4)_8%,transparent)] border-[color:color-mix(in_oklab,var(--chart-4)_30%,transparent)]";
-    return "border-border-subtle";
+      return "bg-[color:color-mix(in_oklab,var(--chart-4)_8%,transparent)]";
+    return "";
   }
 </script>
 
@@ -149,7 +149,7 @@
 
   <!-- Hero — bordered "official" block with corner crosshairs + dot grid -->
   <div
-    class="relative overflow-hidden rounded-2xl border-2 shadow-rest"
+    class="relative overflow-hidden rounded-xl border-2 shadow-rest"
     style="border-color: var(--border); background: var(--panel);"
   >
     <CornerMark pos="tl" />
@@ -196,7 +196,7 @@
 
         <!-- Big-clock side -->
         <div
-          class="min-w-[260px] rounded-xl border border-dashed p-5"
+          class="min-w-[260px] rounded-lg border border-dashed p-3"
           style="border-color: var(--border-strong);"
         >
           <div
@@ -238,7 +238,7 @@
   {#if form?.error}
     <div
       role="alert"
-      class="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-body-sm text-warning"
+      class="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-body-sm text-warning"
     >
       {form.error}
     </div>
@@ -289,7 +289,7 @@
             <a
               href={`/problems/${p.id}`}
               class={cn(
-                "grid grid-cols-[60px_1fr_auto_auto_auto] items-center gap-4 border-l-2 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
+                "grid grid-cols-[60px_1fr_auto_auto_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
                 rowTint(p.viewerState)
               )}
             >
@@ -441,7 +441,7 @@
             type="button"
             disabled={liveStatus !== "running"}
             onclick={() => (showStartModal = true)}
-            class="mt-auto w-full rounded-lg bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+            class="mt-auto w-full rounded-md bg-primary px-4 py-3 text-body font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {m.examDetail_studentStartButton()}
           </button>
@@ -516,14 +516,14 @@
     <div class="flex flex-wrap gap-2">
       <a
         href={`/exams/${detail.id}/results`}
-        class="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+        class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
       >
         {m.examDetail_managerClassResultsLink()}
       </a>
       <button
         type="button"
         onclick={() => (activeTab = "submissions")}
-        class="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+        class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
       >
         {m.examDetail_managerSubmissionMatrixLink()}
       </button>
@@ -531,7 +531,7 @@
         <button
           type="button"
           onclick={() => (showOverrideDrawer = true)}
-          class="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+          class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
         >
           {m.override_staff_buttonLabel()}
         </button>
@@ -542,14 +542,14 @@
     <div
       role="tablist"
       aria-label={m.examDetail_subTabsLabel()}
-      class="inline-flex items-center gap-1 rounded-xl border border-border bg-[color:var(--color-panel)]/60 p-1"
+      class="inline-flex items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
     >
       <button
         type="button"
         role="tab"
         aria-selected={activeTab === "problems"}
         onclick={() => (activeTab = "problems")}
-        class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
         'problems'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -561,7 +561,7 @@
         role="tab"
         aria-selected={activeTab === "submissions"}
         onclick={() => (activeTab = "submissions")}
-        class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
         'submissions'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -573,7 +573,7 @@
         role="tab"
         aria-selected={activeTab === "settings"}
         onclick={() => (activeTab = "settings")}
-        class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
         'settings'
           ? 'bg-[color:var(--color-primary)]/14 text-primary'
           : 'text-muted-foreground hover:text-foreground'}"
@@ -586,7 +586,7 @@
           role="tab"
           aria-selected={activeTab === "clarifications"}
           onclick={() => (activeTab = "clarifications")}
-          class="rounded-lg px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
+          class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeTab ===
           'clarifications'
             ? 'bg-[color:var(--color-primary)]/14 text-primary'
             : 'text-muted-foreground hover:text-foreground'}"

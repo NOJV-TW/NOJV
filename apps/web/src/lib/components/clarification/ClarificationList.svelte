@@ -40,7 +40,7 @@
 
   {#if sorted.length === 0}
     <div
-      class="rounded-2xl border border-dashed border-border bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
+      class="rounded-xl border border-dashed border-border bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
       {m.clarification_empty()}
     </div>

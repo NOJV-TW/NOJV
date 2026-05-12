@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { assessmentDomain } from "@nojv/domain";
+import { assessmentDomain, submissionDomain } from "@nojv/domain";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { loadProblemSolveData } from "$lib/server/problem-solve";
@@ -47,5 +47,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problemInScope: true,
   });
 
-  return { solveProps, isEnded };
+  const dailyAttempts = isManager
+    ? null
+    : {
+        used: await submissionDomain.countAssessmentSubmissionsToday(
+          actor.userId,
+          assessment.id,
+        ),
+        max: assessment.maxAttemptsPerDay,
+      };
+
+  return { solveProps, isEnded, dailyAttempts };
 });

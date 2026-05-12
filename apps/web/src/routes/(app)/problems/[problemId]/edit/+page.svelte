@@ -203,15 +203,15 @@
   </div>
 
   {#if isAdvanced}
-    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
       <BasicInfoTab formData={data.form} problemId={data.problem.id} />
     </section>
 
-    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
       <ContainerContractSection />
     </section>
 
-    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
       <ImageSection
         problemId={data.problem.id}
         bind:imageRef
@@ -222,7 +222,7 @@
       />
     </section>
 
-    <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest">
+    <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
       <RequiredPathsSection
         value={requiredPaths}
         onchange={(next) => (requiredPaths = next)}

@@ -576,6 +576,17 @@ export const submissionRepo = {
     return prisma.submission.create({ data });
   },
 
+  countForUserAndAssessmentSince(userId: string, courseAssessmentId: string, sinceTime: Date) {
+    return prisma.submission.count({
+      where: {
+        userId,
+        courseAssessmentId,
+        sampleOnly: false,
+        createdAt: { gte: sinceTime },
+      },
+    });
+  },
+
   withTx(tx: TxClient) {
     return {
       findById(id: string) {

@@ -37,7 +37,7 @@
 
 <a
   {href}
-  class="group relative glass hover-lift rounded-2xl shadow-rest overflow-hidden fade-up block"
+  class="group relative glass hover-lift rounded-xl shadow-rest overflow-hidden fade-up block"
   style="animation-delay: {delay}ms; {isLive
     ? 'border-color: color-mix(in oklab, var(--destructive) 30%, transparent); border-width: 2px;'
     : ''}"

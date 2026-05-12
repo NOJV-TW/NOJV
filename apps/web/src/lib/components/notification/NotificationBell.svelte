@@ -58,7 +58,7 @@
   {#if open}
     <div
       bind:this={dropdownEl}
-      class="absolute right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-modal backdrop-blur-sm"
+      class="absolute right-0 top-full z-50 mt-2 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-modal backdrop-blur-sm"
     >
       <NotificationDropdown />
     </div>

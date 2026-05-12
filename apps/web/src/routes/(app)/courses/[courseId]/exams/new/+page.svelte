@@ -111,7 +111,7 @@
 
     <!-- ── Card 1 · Basics ───────────────────────────────── -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -165,7 +165,7 @@
 
     <!-- ── Card 2 · Problems ─────────────────────────────── -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -183,7 +183,7 @@
       </header>
 
       <!-- Picker -->
-      <div class="rounded-lg border border-border bg-[color:var(--color-panel)]/60">
+      <div class="rounded-md border border-border bg-[color:var(--color-panel)]/60">
         <div
           class="flex items-center gap-2.5 border-b border-border px-4 py-2.5"
         >
@@ -312,7 +312,7 @@
 
     <!-- ── Card 3 · Schedule ─────────────────────────────── -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -379,7 +379,7 @@
 
     <!-- ── Card 4 · Advanced (collapsible) ───────────────── -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <button
         type="button"
@@ -429,7 +429,7 @@
 
     <!-- ── Card 5 · Proctoring ───────────────────────────── -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span
@@ -626,7 +626,7 @@
 
     <!-- ── Card 6 · Scoring ──────────────────────────────── -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
         <span

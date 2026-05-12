@@ -30,11 +30,15 @@
  * Concentric radius rule (Apple HIG "nested corner radii"):
  *   inner_radius = outer_radius - padding
  *
- * Reference pairs:
- *   rounded-3xl (40) + p-8 (32) → inner rounded-sm (8)
- *   rounded-2xl (32) + p-6 (24) → inner rounded-sm (8)
- *   rounded-xl  (24) + p-4 (16) → inner rounded-sm (8)
- *   rounded-lg  (16) + p-2 (8)  → inner rounded-sm (8)
+ * Card-tier reference pairs (all yield inner rounded-sm = 8px):
+ *   rounded-2xl (32) + p-6 (24) → inner rounded-sm (8)  -- hero / showcase
+ *   rounded-xl  (24) + p-4 (16) → inner rounded-sm (8)  -- large card / panel
+ *   rounded-lg  (16) + p-2 (8)  → inner rounded-sm (8)  -- small card / popover
+ *   rounded-md  (12) collapses (12 - p-1 = 8 is too tight) -- skip concentric for control-tier
+ *
+ * Real cards may overpad (p-5, p-7) for breathing room; the rule above is the
+ * concentric ideal, not a hard constraint. When a card contains a nested
+ * rounded rectangle, prefer the canonical pair.
  */
 
 :root {
@@ -485,6 +489,27 @@
 
 :is(.dark) ::selection {
   background: rgba(212, 131, 74, 0.25);
+}
+
+/* === Legal pages (privacy, terms) === */
+.legal-prose .markdown-content {
+  font-size: var(--text-body);
+  line-height: var(--leading-relaxed);
+}
+.legal-prose .markdown-content h2 {
+  font-size: var(--text-title);
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.legal-prose .markdown-content h2:first-of-type,
+.legal-prose .markdown-content h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.legal-prose .markdown-content li {
+  margin: 0.5rem 0;
 }
 
 /* === Coursework redesign utilities === */

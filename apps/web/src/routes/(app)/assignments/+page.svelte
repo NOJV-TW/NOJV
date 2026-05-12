@@ -6,7 +6,6 @@
   import { buttonVariants } from "$lib/components/ui/button";
   import PageContainer from "$lib/components/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import TabStrip from "$lib/components/coursework/TabStrip.svelte";
   import AssignmentCard from "$lib/components/course/assignment/AssignmentCard.svelte";
   import type { PageData } from "./$types";
 
@@ -26,10 +25,10 @@
   }
 
   const tabs = $derived([
-    { value: "all", label: m.assignmentsList_tabAll({ count: counts.all }) },
-    { value: "open", label: m.assignmentsList_tabOpen({ count: counts.open }) },
-    { value: "upcoming", label: m.assignmentsList_tabUpcoming({ count: counts.upcoming }) },
-    { value: "closed", label: m.assignmentsList_tabClosed({ count: counts.closed }) }
+    { key: "all", label: m.assignmentsList_tabAll(), count: counts.all },
+    { key: "open", label: m.assignmentsList_tabOpen(), count: counts.open },
+    { key: "upcoming", label: m.assignmentsList_tabUpcoming(), count: counts.upcoming },
+    { key: "closed", label: m.assignmentsList_tabClosed(), count: counts.closed }
   ]);
 </script>
 
@@ -45,14 +44,41 @@
       {/snippet}
     </PageHeader>
 
-    <div class="flex flex-wrap items-center gap-3">
-      <TabStrip {tabs} active={currentFilter} onChange={setTab} />
-      <div class="ml-auto text-caption text-muted-foreground font-mono">{m.assignmentsList_sortByDue()}</div>
+    <!-- Tab row -->
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
+      <div
+        role="tablist"
+        aria-label={m.assignmentsList_heroTitle()}
+        class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+      >
+        {#each tabs as tab (tab.key)}
+          {@const isActive = tab.key === currentFilter}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onclick={() => setTab(tab.key)}
+            class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'}"
+          >
+            <span>{tab.label}</span>
+            <span
+              class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground'}"
+            >
+              {tab.count}
+            </span>
+          </button>
+        {/each}
+      </div>
+      <div class="text-caption text-muted-foreground font-mono">{m.assignmentsList_sortByDue()}</div>
     </div>
 
     {#if assignments.length === 0}
       <div
-        class="glass rounded-2xl px-8 py-16 text-center"
+        class="glass rounded-xl px-8 py-16 text-center"
       >
         <ClipboardList
           class="mx-auto h-12 w-12 text-muted-foreground"

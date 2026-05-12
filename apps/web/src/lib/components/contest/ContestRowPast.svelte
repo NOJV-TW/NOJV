@@ -25,7 +25,7 @@
 
 <a
   {href}
-  class="group glass hover-lift rounded-xl shadow-rest fade-up block px-5 py-4"
+  class="group glass hover-lift rounded-lg shadow-rest fade-up block px-5 py-4"
   style="animation-delay: {delay}ms;"
 >
   <div class="flex items-center gap-4">

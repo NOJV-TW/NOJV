@@ -111,7 +111,7 @@
           />
           <button
             type="button"
-            class="mt-2 inline-flex items-center gap-1 rounded-2xl border border-border bg-[color:var(--color-panel)] px-4 text-body-sm font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent disabled:opacity-50"
+            class="mt-2 inline-flex items-center gap-1 rounded-xl border border-border bg-[color:var(--color-panel)] px-4 text-body-sm font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent disabled:opacity-50"
             onclick={tryAdd}
             disabled={atCap || draft.trim().length === 0}
           >

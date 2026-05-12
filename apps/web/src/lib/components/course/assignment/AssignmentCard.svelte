@@ -65,7 +65,7 @@
 
 <a
   href={`/assignments/${assignment.id}`}
-  class="group glass hover-lift rounded-2xl p-5 shadow-rest fade-up block no-underline text-foreground"
+  class="group glass hover-lift rounded-xl p-4 shadow-rest fade-up block no-underline text-foreground"
   style="animation-delay: {String(delay)}ms; {urgent
     ? 'border-color: color-mix(in oklab, var(--primary) 35%, transparent);'
     : ''}"

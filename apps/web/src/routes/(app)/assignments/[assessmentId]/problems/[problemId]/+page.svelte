@@ -13,6 +13,7 @@
   backLink={data.solveProps.backLink}
   canRejudge={data.solveProps.canRejudge}
   contestId={data.solveProps.contestId}
+  dailyAttempts={data.dailyAttempts ?? undefined}
   problem={data.solveProps.problem}
   submissions={data.solveProps.submissions}
   testcaseSets={data.solveProps.testcaseSets}

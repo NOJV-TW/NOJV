@@ -113,7 +113,7 @@
   }
 
   const inputClass =
-    "w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
+    "w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 
   const courseId = $derived(data.form.data.courseId ?? "");
 </script>
@@ -135,7 +135,7 @@
 
     <!-- Card 1 — Basics -->
     <div
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -175,7 +175,7 @@
 
     <!-- Card 2 — Problems -->
     <div
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -195,7 +195,7 @@
       </div>
 
       <!-- Picker: search + dropdown -->
-      <div class="rounded-lg border border-border bg-[color:var(--color-panel-strong)]/40">
+      <div class="rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
         <div class="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
           <Search class="size-4 text-muted-foreground" aria-hidden="true" />
           <input
@@ -319,7 +319,7 @@
 
     <!-- Card 3 — Schedule -->
     <div
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -390,7 +390,7 @@
 
     <!-- Card 4 — Advanced -->
     <div
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <button
         type="button"

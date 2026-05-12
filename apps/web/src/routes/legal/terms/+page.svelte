@@ -1,32 +1,27 @@
 <script lang="ts">
-  import { Mail } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/ui/card";
-  import { Button } from "$lib/components/ui/button";
-  import PublicHeader from "$lib/components/layout/PublicHeader.svelte";
+  import Header from "$lib/components/layout/Header.svelte";
   import Footer from "$lib/components/layout/Footer.svelte";
-
-  const contactEmail = "contact@example.com";
+  import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
 </script>
 
 <svelte:head>
   <title>{m.legal_termsTitle()} · NOJV</title>
 </svelte:head>
 
-<div class="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8">
-  <PublicHeader />
+<div
+  class="mx-auto flex min-h-dvh w-full max-w-screen-2xl flex-col px-4 pb-10 pt-6 sm:px-6 lg:px-8"
+>
+  <Header />
 
-  <main class="flex-1 pt-10">
-    <h1 class="text-display font-bold leading-tight text-foreground">{m.legal_termsTitle()}</h1>
-    <Card variant="surface" size="lg" class="mt-8">
-      <p class="text-body-lg text-muted-foreground">{m.legal_comingSoon()}</p>
-      <div class="mt-5">
-        <Button href={`mailto:${contactEmail}`} variant="outline">
-          <Mail class="size-4" />
-          {m.about_emailUs()}
-        </Button>
-      </div>
-    </Card>
+  <main class="legal-prose mx-auto w-full max-w-3xl flex-1 pt-12">
+    <h1 class="text-title-lg font-bold leading-tight text-foreground sm:text-display">
+      {m.legal_termsTitle()}
+    </h1>
+    <p class="mt-3 text-caption text-muted-foreground">{m.legal_lastUpdated()}</p>
+    <div class="mt-10 text-muted-foreground">
+      <MarkdownRenderer content={m.legal_termsContent()} />
+    </div>
   </main>
 
   <Footer />

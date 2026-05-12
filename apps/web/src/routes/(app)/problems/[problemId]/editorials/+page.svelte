@@ -82,7 +82,7 @@
   {:else}
     <div class="grid gap-4">
       {#each data.editorials as editorial (editorial.id)}
-        <article class="rounded-lg border border-border-subtle p-4">
+        <article class="rounded-md border border-border-subtle p-4">
           <header class="flex flex-wrap items-baseline justify-between gap-3">
             <div class="flex flex-wrap items-baseline gap-2 text-caption text-muted-foreground">
               <span class="font-medium text-foreground">

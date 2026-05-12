@@ -105,7 +105,7 @@
 
   {#if exams.length === 0}
     <div
-      class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
+      class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
       {m.examsList_empty()}
     </div>
@@ -120,7 +120,7 @@
         {@const upcHint = upcomingHint(exam.startsAt)}
         <a
           href={`/exams/${exam.id}`}
-          class="group relative grid grid-cols-[auto_1fr_auto] items-center gap-6 overflow-hidden rounded-2xl border px-7 py-6 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {isDraft
+          class="group relative grid grid-cols-[auto_1fr_auto] items-center gap-6 overflow-hidden rounded-xl border px-7 py-6 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {isDraft
             ? 'border-dashed border-border bg-transparent'
             : 'border-border bg-[color:var(--color-panel)]'}"
         >

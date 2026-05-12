@@ -38,6 +38,10 @@
     >
     <a
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
+      href="/legal/privacy">{m.footer_privacy()}</a
+    >
+    <a
+      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/legal/terms">{m.footer_terms()}</a
     >
   </nav>

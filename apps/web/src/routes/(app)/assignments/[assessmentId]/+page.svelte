@@ -18,6 +18,7 @@
   import Countdown from "$lib/components/coursework/Countdown.svelte";
   import DifficultyTick from "$lib/components/coursework/DifficultyTick.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
+  import { languageLabel } from "$lib/utils/language-labels";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -95,11 +96,11 @@
   // Row tint by viewer state — mirrors the exam detail page so assignment
   // status reads through background, not a separate AC/WA chip.
   function rowTint(state: "ac" | "partial" | "attempted" | "none"): string {
-    if (state === "ac") return "bg-success/[0.06] border-success/30";
+    if (state === "ac") return "bg-success/[0.06]";
     if (state === "partial")
-      return "bg-[color:color-mix(in_oklab,var(--chart-4)_8%,transparent)] border-[color:color-mix(in_oklab,var(--chart-4)_30%,transparent)]";
-    if (state === "attempted") return "bg-muted/30 border-border-subtle";
-    return "border-border-subtle";
+      return "bg-[color:color-mix(in_oklab,var(--chart-4)_8%,transparent)]";
+    if (state === "attempted") return "bg-muted/30";
+    return "";
   }
 
   // Derived assignment-level stats from problems[].
@@ -226,7 +227,7 @@
               {m.assignmentDetail_metaProgress()}
             </div>
             <div class="mt-0.5 font-mono">
-              <span class="font-semibold text-body">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}
+              <span class="font-semibold">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}
             </div>
           </div>
           <div>
@@ -236,7 +237,7 @@
               {m.assignmentDetail_metaScore()}
             </div>
             <div class="mt-0.5 font-mono">
-              <span class="font-semibold text-body">{myScore}</span> / {detail.totalPoints}
+              <span class="font-semibold">{myScore}</span> / {detail.totalPoints}
             </div>
           </div>
           <div>
@@ -259,11 +260,11 @@
             >
               {m.assignmentDetail_metaAllowedLanguages()}
             </div>
-            <div class="mt-0.5 text-caption text-muted-foreground">
+            <div class="mt-0.5">
               {#if detail.allowedLanguages.length > 0}
-                {m.assignmentDetail_metaLanguageCount({ count: detail.allowedLanguages.length })}
+                {detail.allowedLanguages.map(languageLabel).join(" / ")}
               {:else}
-                {m.assignmentDetail_metaLanguagePolicy()}
+                {m.assignmentDetail_metaAttemptsUnlimited2()}
               {/if}
             </div>
           </div>
@@ -358,7 +359,7 @@
             {#if data.course.archived}
               <div
                 class={cn(
-                  "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 border-l-2 px-6 py-3.5",
+                  "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 px-6 py-3.5",
                   rowTint(state)
                 )}
               >
@@ -368,7 +369,7 @@
               <a
                 href={problemHref(problem.problemId)}
                 class={cn(
-                  "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 border-l-2 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
+                  "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
                   rowTint(state)
                 )}
               >

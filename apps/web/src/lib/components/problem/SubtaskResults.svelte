@@ -51,7 +51,7 @@
   {#each subtaskResults as subtask, index (`subtask-${subtask.testcaseSetId}`)}
     {@const isExpanded = expanded[index] ?? true}
     <div
-      class="rounded-lg border {subtask.passed
+      class="rounded-md border {subtask.passed
         ? 'border-success/30 bg-success/5'
         : 'border-destructive/30 bg-destructive/5'}"
     >

@@ -22,9 +22,11 @@
     automaticLayout: true,
     fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
     fontSize: 12,
+    hideCursorInOverviewRuler: true,
     lineDecorationsWidth: 0,
     lineNumbersMinChars: 2,
     minimap: { enabled: false },
+    overviewRulerBorder: false,
     padding: { top: 16 },
     scrollBeyondLastLine: false,
     wordWrap: "on" as const

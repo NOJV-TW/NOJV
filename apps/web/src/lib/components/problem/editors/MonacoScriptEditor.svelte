@@ -35,10 +35,12 @@
       monacoEditor = monacoModule.editor.create(editorContainer, {
         automaticLayout: true,
         fontSize: 12,
+        hideCursorInOverviewRuler: true,
         language: getMonacoLanguage(language),
         lineDecorationsWidth: 0,
         lineNumbersMinChars: 2,
         minimap: { enabled: false },
+        overviewRulerBorder: false,
         padding: { top: 16 },
         readOnly: readonly,
         scrollBeyondLastLine: false,

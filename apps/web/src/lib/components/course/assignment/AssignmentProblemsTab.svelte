@@ -162,7 +162,7 @@
       {#each problems as problem (problem.problemId)}
         <a
           href={`/assignments/${assessmentId}/problems/${problem.problemId}`}
-          class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
+          class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
         >
           <div
             class="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-title-sm font-medium text-muted-foreground"
@@ -203,7 +203,7 @@
 
     {#if editRows.length === 0}
       <p
-        class="rounded-lg border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-6 py-10 text-center text-body-sm text-muted-foreground"
+        class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-6 py-10 text-center text-body-sm text-muted-foreground"
       >
         {m.assignmentDetail_problemsEditEmptyHint()}
       </p>
@@ -211,7 +211,7 @@
       <div class="grid gap-2">
         {#each editRows as row, index (row.problemId)}
           <div
-            class="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 rounded-lg border border-border bg-[color:var(--color-panel)] px-4 py-3"
+            class="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3"
           >
             <div
               class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
@@ -270,7 +270,7 @@
 
     <!-- Attach candidates -->
     <div
-      class="mt-4 rounded-lg border border-border bg-[color:var(--color-panel-strong)]/40"
+      class="mt-4 rounded-md border border-border bg-[color:var(--color-panel-strong)]/40"
     >
       <div class="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
         <Search class="size-4 text-muted-foreground" aria-hidden="true" />

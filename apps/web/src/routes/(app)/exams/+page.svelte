@@ -90,7 +90,7 @@
 
     {#if sorted.length === 0}
       <div
-        class="glass rounded-2xl border border-dashed border-border-strong px-8 py-12 text-center"
+        class="glass rounded-xl border border-dashed border-border-strong px-8 py-12 text-center"
       >
         <ClipboardList
           class="mx-auto h-12 w-12 text-muted-foreground"

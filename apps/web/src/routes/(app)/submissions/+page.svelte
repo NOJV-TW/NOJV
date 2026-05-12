@@ -33,7 +33,7 @@
       {#each data.submissions as sub (sub.id)}
         {@const label = formatVerdictLabel(sub.status)}
         <a
-          class="rounded-lg border border-border-subtle px-4 py-3 transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+          class="rounded-md border border-border-subtle px-4 py-3 transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-rest"
           href="/problems/{sub.problemId}"
         >
           <div class="flex items-baseline justify-between gap-3">

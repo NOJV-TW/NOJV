@@ -28,6 +28,7 @@
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     contestId?: string | undefined;
+    dailyAttempts?: { used: number; max: number | null } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
     /** TA-configured paths the student's ZIP must contain. Empty array = no constraint. */
@@ -40,6 +41,7 @@
     backLink,
     canRejudge = false,
     contestId,
+    dailyAttempts,
     initialSubmissions,
     problem,
     requiredPaths = [],
@@ -72,6 +74,7 @@
 
   // ── Resizable panels ──────────────────────────────────────────────────────
   let leftPanelWidth = $state(42);
+  let isResizing = $state(false);
 
   function startResize(e: MouseEvent) {
     e.preventDefault();
@@ -89,8 +92,10 @@
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      isResizing = false;
     };
 
+    isResizing = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
@@ -333,12 +338,13 @@
 
 <!-- Left panel (description / submissions / editorials) -->
 <div
-  class="flex w-full shrink-0 flex-col overflow-hidden bg-card lg:border-r lg:border-border"
+  class="flex w-full shrink-0 flex-col overflow-hidden bg-card"
   style="width: {leftPanelWidth}%"
 >
   <ProblemLeftPanel
     {backLink}
     {canRejudge}
+    {dailyAttempts}
     bind:submissions
     {problem}
     {testcaseSets}
@@ -350,7 +356,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
-  class="hidden w-1 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 active:bg-primary/60 lg:flex"
+  class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center outline-none lg:flex"
   role="separator"
   aria-orientation="vertical"
   aria-label={m.common_resizePanels()}
@@ -360,11 +366,18 @@
     if (e.key === "ArrowLeft") leftPanelWidth = Math.max(20, leftPanelWidth - 2);
     if (e.key === "ArrowRight") leftPanelWidth = Math.min(80, leftPanelWidth + 2);
   }}
-></div>
+>
+  <span
+    aria-hidden="true"
+    class="w-px transition-colors duration-fast {isResizing
+      ? 'bg-primary'
+      : 'bg-transparent group-hover:bg-primary/60 group-focus-visible:bg-primary/60'}"
+  ></span>
+</div>
 
 <!-- Right panel (upload + submit) — desktop only -->
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
-  <div class="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]">
+  <div class="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-[color:var(--color-panel)]">
     <!-- Top bar -->
     <div class="flex h-11 items-center justify-between border-b border-border-subtle bg-muted/40 px-3">
       <div class="flex items-center gap-3">
@@ -395,7 +408,7 @@
       <div
         role="button"
         tabindex="0"
-        class="mt-5 cursor-pointer rounded-xl border-2 border-dashed border-border p-8 text-center transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
+        class="mt-5 cursor-pointer rounded-lg border-2 border-dashed border-border p-6 text-center transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
           ? 'border-primary bg-primary/5'
           : 'hover:border-primary/40 hover:bg-muted/30'}"
         ondrop={onDrop}
