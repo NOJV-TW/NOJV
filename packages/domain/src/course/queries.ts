@@ -42,6 +42,39 @@ export async function getCourseHeaderById(courseId: string, userId: string) {
   return courseRepo.findByIdWithHeader(courseId, userId);
 }
 
+export interface CopyCoursePreview {
+  sourceTitle: string;
+  suggestedTitle: string;
+  assessments: {
+    total: number;
+    byStatus: { draft: number; published: number; archived: number };
+    problemLinks: number;
+  };
+  exams: {
+    total: number;
+    byStatus: { draft: number; published: number; archived: number };
+    problemLinks: number;
+  };
+}
+
+// intentional-nullable: settings-page caller hides the copy dialog when the source row is missing (race vs. another teacher deleting the course mid-load).
+export async function getCopyCoursePreview(
+  courseId: string,
+): Promise<CopyCoursePreview | null> {
+  const course = await courseRepo.findById(courseId);
+  if (!course) return null;
+  const [assessments, exams] = await Promise.all([
+    assessmentRepo.copyPreviewByCourseId(courseId),
+    examRepo.copyPreviewByCourseId(courseId),
+  ]);
+  return {
+    sourceTitle: course.title,
+    suggestedTitle: `${course.title} (copy)`,
+    assessments,
+    exams,
+  };
+}
+
 export async function listCourseCards(userId?: string) {
   const persistedCourses = await courseRepo.listCards(userId);
 

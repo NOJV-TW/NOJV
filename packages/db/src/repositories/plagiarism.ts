@@ -50,27 +50,10 @@ function toSummary(row: PlagiarismRow | null): PlagiarismReportSummary | null {
   };
 }
 
-function toExamUpdate(input: PlagiarismUpsertInput): Prisma.ExamUncheckedUpdateInput {
-  const data: Prisma.ExamUncheckedUpdateInput = {};
+function buildPlagiarismUpdate(input: PlagiarismUpsertInput): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
   if (input.status !== undefined) data.plagiarismStatus = input.status;
-  if (input.results !== undefined) {
-    data.plagiarismResults = input.results ?? Prisma.JsonNull;
-  }
-  if (input.reportUrl !== undefined) data.plagiarismReportUrl = input.reportUrl;
-  if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
-  if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
-  if (input.triggeredById !== undefined) data.plagiarismTriggeredById = input.triggeredById;
-  return data;
-}
-
-function toAssessmentUpdate(
-  input: PlagiarismUpsertInput,
-): Prisma.CourseAssessmentUncheckedUpdateInput {
-  const data: Prisma.CourseAssessmentUncheckedUpdateInput = {};
-  if (input.status !== undefined) data.plagiarismStatus = input.status;
-  if (input.results !== undefined) {
-    data.plagiarismResults = input.results ?? Prisma.JsonNull;
-  }
+  if (input.results !== undefined) data.plagiarismResults = input.results ?? Prisma.JsonNull;
   if (input.reportUrl !== undefined) data.plagiarismReportUrl = input.reportUrl;
   if (input.triggeredAt !== undefined) data.plagiarismTriggeredAt = input.triggeredAt;
   if (input.completedAt !== undefined) data.plagiarismCompletedAt = input.completedAt;
@@ -106,10 +89,18 @@ export const plagiarismRepo = {
     return toSummary(row);
   },
 
+  async findByContestId(contestId: string): Promise<PlagiarismReportSummary | null> {
+    const row = await prisma.contest.findUnique({
+      where: { id: contestId },
+      select: plagiarismSelect,
+    });
+    return toSummary(row);
+  },
+
   upsertForExam(examId: string, input: PlagiarismUpsertInput) {
     return prisma.exam.update({
       where: { id: examId },
-      data: toExamUpdate(input),
+      data: buildPlagiarismUpdate(input) as Prisma.ExamUncheckedUpdateInput,
       select: plagiarismSelect,
     });
   },
@@ -117,22 +108,37 @@ export const plagiarismRepo = {
   upsertForAssessment(courseAssessmentId: string, input: PlagiarismUpsertInput) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
-      data: toAssessmentUpdate(input),
+      data: buildPlagiarismUpdate(input) as Prisma.CourseAssessmentUncheckedUpdateInput,
       select: plagiarismSelect,
+    });
+  },
+
+  upsertForContest(contestId: string, input: PlagiarismUpsertInput) {
+    return prisma.contest.update({
+      where: { id: contestId },
+      data: buildPlagiarismUpdate(input) as Prisma.ContestUncheckedUpdateInput,
+      select: plagiarismSelect,
+    });
+  },
+
+  clearForContest(contestId: string) {
+    return prisma.contest.update({
+      where: { id: contestId },
+      data: buildPlagiarismUpdate(clearInput) as Prisma.ContestUncheckedUpdateInput,
     });
   },
 
   clearForExam(examId: string) {
     return prisma.exam.update({
       where: { id: examId },
-      data: toExamUpdate(clearInput),
+      data: buildPlagiarismUpdate(clearInput) as Prisma.ExamUncheckedUpdateInput,
     });
   },
 
   clearForAssessment(courseAssessmentId: string) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
-      data: toAssessmentUpdate(clearInput),
+      data: buildPlagiarismUpdate(clearInput) as Prisma.CourseAssessmentUncheckedUpdateInput,
     });
   },
 };

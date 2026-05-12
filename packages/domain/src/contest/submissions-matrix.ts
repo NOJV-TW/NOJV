@@ -1,12 +1,12 @@
-import { courseMembershipRepo, examRepo, submissionRepo } from "@nojv/db";
+import { submissionRepo } from "@nojv/db";
 
-import { NotFoundError } from "../shared/errors";
 import { problemLetter } from "../shared/problem-letter";
 import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import type { ContestProblemSummary } from "./queries";
 
-export type ExamMatrixCellState = "ac" | "partial" | "zero" | "empty";
+export type ContestMatrixCellState = "ac" | "partial" | "zero" | "empty";
 
-export interface ExamMatrixProblemColumn {
+export interface ContestMatrixProblemColumn {
   problemId: string;
   letter: string;
   ordinal: number;
@@ -14,62 +14,66 @@ export interface ExamMatrixProblemColumn {
   points: number;
 }
 
-export interface ExamMatrixCell {
+export interface ContestMatrixCell {
   problemId: string;
   score: number | null;
   attempts: number;
-  state: ExamMatrixCellState;
+  state: ContestMatrixCellState;
 }
 
-export interface ExamMatrixRow {
+export interface ContestMatrixRow {
   userId: string;
   displayName: string;
   handle: string;
-  cells: ExamMatrixCell[];
+  cells: ContestMatrixCell[];
   total: number;
 }
 
-export interface ExamMatrixData {
-  problems: ExamMatrixProblemColumn[];
-  rows: ExamMatrixRow[];
+export interface ContestMatrixData {
+  problems: ContestMatrixProblemColumn[];
+  rows: ContestMatrixRow[];
   totalPoints: number;
   studentCount: number;
 }
 
-// Does not re-check permissions; route loader must gate on `isManager` before calling.
-export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatrixData> {
-  const exam = await examRepo.findDetailById(examId);
-  if (!exam) throw new NotFoundError("Exam not found.");
+export interface ContestMatrixParticipant {
+  userId: string;
+  user: { id: string; name: string; username: string | null };
+}
 
-  const students = await courseMembershipRepo.findStudents(exam.courseId);
+export interface BuildContestMatrixInput {
+  contestId: string;
+  problems: ContestProblemSummary[];
+  participants: ContestMatrixParticipant[];
+}
 
-  const problems: ExamMatrixProblemColumn[] = exam.problems.map((p) => ({
-    problemId: p.problem.id,
+export async function buildContestSubmissionsMatrix(
+  input: BuildContestMatrixInput,
+): Promise<ContestMatrixData> {
+  const problems: ContestMatrixProblemColumn[] = input.problems.map((p) => ({
+    problemId: p.id,
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
-    title: p.problem.title,
+    title: p.title,
     points: p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 
-  if (students.length === 0 || problems.length === 0) {
+  if (input.participants.length === 0 || problems.length === 0) {
     return {
       problems,
       rows: [],
       totalPoints,
-      studentCount: students.length,
+      studentCount: input.participants.length,
     };
   }
 
-  const studentIds = students.map((s) => s.userId);
+  const userIds = input.participants.map((p) => p.userId);
   const problemIds = problems.map((p) => p.problemId);
 
-  // `groupByUserAndProblem` gives both best score AND attempt count in one
-  // pass; the assignment variant also calls `groupBestScores` first but then
-  // discards it. Skip that dead call — one query is enough.
   const grouped = await submissionRepo.groupByUserAndProblem({
-    examId,
-    userId: { in: studentIds },
+    contestId: input.contestId,
+    userId: { in: userIds },
     problemId: { in: problemIds },
     sampleOnly: false,
   });
@@ -82,20 +86,18 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     });
   }
 
-  // Overlay any manual score overrides — same semantics as the assignment
-  // matrix (override wins over best-submission and can unlock an empty cell).
   const overrides = await resolveOverridesForContext({
-    contextType: "exam",
-    contextId: examId,
+    contextType: "contest",
+    contextId: input.contestId,
   });
 
-  const rows: ExamMatrixRow[] = students.map((student) => {
-    const cells: ExamMatrixCell[] = problems.map((problem) => {
-      const key = `${student.userId}::${problem.problemId}`;
+  const rows: ContestMatrixRow[] = input.participants.map((participant) => {
+    const cells: ContestMatrixCell[] = problems.map((problem) => {
+      const key = `${participant.userId}::${problem.problemId}`;
       const override = overrides.get(key);
       const hit = scoreIndex.get(key);
       if (override !== undefined) {
-        let state: ExamMatrixCellState;
+        let state: ContestMatrixCellState;
         if (override >= problem.points) state = "ac";
         else if (override > 0) state = "partial";
         else state = "zero";
@@ -109,7 +111,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
       if (!hit || hit.count === 0) {
         return { problemId: problem.problemId, score: null, attempts: 0, state: "empty" };
       }
-      let state: ExamMatrixCellState;
+      let state: ContestMatrixCellState;
       if (hit.best >= problem.points) state = "ac";
       else if (hit.best > 0) state = "partial";
       else state = "zero";
@@ -117,9 +119,9 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     });
     const total = cells.reduce((sum, c) => sum + (c.score ?? 0), 0);
     return {
-      userId: student.userId,
-      displayName: student.user.name,
-      handle: student.user.username ?? "",
+      userId: participant.userId,
+      displayName: participant.user.name,
+      handle: participant.user.username ?? "",
       cells,
       total,
     };
@@ -129,6 +131,6 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
     problems,
     rows,
     totalPoints,
-    studentCount: students.length,
+    studentCount: input.participants.length,
   };
 }
