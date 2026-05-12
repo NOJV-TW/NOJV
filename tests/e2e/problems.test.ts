@@ -28,7 +28,7 @@ test.describe("Problems", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     // Create via API
-    const res = await page.request.post("/api/problems/create", { headers: apiWriteHeaders });
+    const res = await page.request.post("/api/problems", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const { id } = await res.json();
     expect(id).toBeTruthy();

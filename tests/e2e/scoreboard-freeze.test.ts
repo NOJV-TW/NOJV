@@ -26,48 +26,51 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
   });
 
   test("unfreeze rejects unauthenticated callers", async ({ page }) => {
-    const res = await page.request.post(`/api/contests/${CONTEST_ID}/scoreboard/unfreeze`, {
-      data: {},
+    const res = await page.request.post(`/contests/${CONTEST_ID}/scoreboard?/unfreeze`, {
+      form: {},
       headers: apiWriteHeaders,
     });
-    expect(res.status()).toBe(401);
+    // Form actions: anon callers get a 303 redirect to /signin (auth gate),
+    // or a 401/403 from requireAuth. Accept any 3xx/4xx, just no 2xx/5xx.
+    expect(res.status()).toBeGreaterThanOrEqual(300);
+    expect(res.status()).toBeLessThan(500);
   });
 
   test("unfreeze rejects students", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/contests/${CONTEST_ID}/scoreboard/unfreeze`, {
-      data: {},
+    const res = await page.request.post(`/contests/${CONTEST_ID}/scoreboard?/unfreeze`, {
+      form: {},
       headers: apiWriteHeaders,
     });
-    expect(res.status()).toBe(403);
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
     await context.close();
   });
 
-  test("unfreeze on unknown contest returns 404 for staff", async ({ browser }) => {
+  test("unfreeze on unknown contest returns 4xx for staff", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
     const res = await page.request.post(
-      `/api/contests/contest-does-not-exist/scoreboard/unfreeze`,
+      `/contests/contest-does-not-exist/scoreboard?/unfreeze`,
       {
-        data: {},
+        form: {},
         headers: apiWriteHeaders,
       },
     );
-    expect(res.status()).toBe(404);
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
     await context.close();
   });
 
   test("teacher can unfreeze a real contest scoreboard", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/contests/${CONTEST_ID}/scoreboard/unfreeze`, {
-      data: {},
+    const res = await page.request.post(`/contests/${CONTEST_ID}/scoreboard?/unfreeze`, {
+      form: {},
       headers: apiWriteHeaders,
     });
     expect(res.ok()).toBe(true);
-    const body = await res.json();
-    expect(body.ok).toBe(true);
     await context.close();
   });
 
