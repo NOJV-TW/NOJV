@@ -149,7 +149,12 @@ export interface ExamListRow {
   /** Manager view only — null for students. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
   /** Student view only — null for managers. */
-  myStatus: { solved: number; total: number } | null;
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 export interface ExamListCounts {

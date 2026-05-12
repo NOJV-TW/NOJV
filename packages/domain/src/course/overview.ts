@@ -6,6 +6,7 @@ import * as announcementDomain from "../announcement";
 import {
   aggregateAssessmentClassStats,
   aggregateAssessmentMyStatus,
+  aggregateExamMyStatus,
 } from "../shared/list-aggregations";
 
 interface ActorRoleHint {
@@ -82,7 +83,12 @@ export interface AssignmentOverviewRow {
   /** Manager view only — null for students. avgScore is the rounded mean of per-user totals across submitters. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
   /** Student view only — null for managers. solved counts distinct problems with at least one accepted submission. */
-  myStatus: { solved: number; total: number } | null;
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 export interface ListOverviewOptions {
@@ -274,6 +280,13 @@ export interface ExamOverviewRow {
   registeredCount: number | null;
   /** Total active students in the course — set in the loader. Null = unknown. */
   totalStudents: number | null;
+  /** Student view only — null for managers / upcoming / draft. */
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 function rankExam(
@@ -321,6 +334,7 @@ export async function listExamOverviewForCourse(
       scoringMode: row.scoringMode as "point_sum" | "problem_count",
       registeredCount: options.isManager ? row._count.participations : null,
       totalStudents: null,
+      myStatus: null,
     };
     return {
       row: overviewRow,
@@ -329,5 +343,20 @@ export async function listExamOverviewForCourse(
   });
 
   mapped.sort((a, b) => a.rank - b.rank);
-  return mapped.slice(0, options.limit).map((entry) => entry.row);
+  const visibleRows = mapped.slice(0, options.limit).map((entry) => entry.row);
+
+  if (!options.isManager) {
+    const scoreable = visibleRows.filter((r) => r.status === "running" || r.status === "ended");
+    if (scoreable.length > 0) {
+      const my = await aggregateExamMyStatus(
+        options.forUserId,
+        scoreable.map((r) => ({ id: r.id, problemCount: r.problemCount })),
+      );
+      for (const r of scoreable) {
+        r.myStatus = my.get(r.id) ?? null;
+      }
+    }
+  }
+
+  return visibleRows;
 }

@@ -18,13 +18,10 @@
     return n < 10 ? `0${String(n)}` : String(n);
   }
 
-  // Domain status → StatusPill exam status mapping. Domain has
-  // running/upcoming/ended; StatusPill exam map has scheduled/open/
-  // in_progress/submitted/graded. Pick the closest visual.
   function pillStatus(s: "running" | "upcoming" | "ended"): string {
     if (s === "running") return "in_progress";
     if (s === "upcoming") return "scheduled";
-    return "graded";
+    return "ended";
   }
 </script>
 
@@ -138,10 +135,17 @@
       {:else}
         <div class="text-right">
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-            {m.examRow_ctaEnded()}
+            {exam.myStatus ? m.examRow_scoreLabel() : m.examRow_ctaEnded()}
           </div>
-          <div class="font-mono text-body-sm tabular-nums text-muted-foreground">
-            {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
+          <div class="font-mono text-body-sm tabular-nums">
+            {#if exam.myStatus}
+              <span class="font-semibold">{exam.myStatus.score}</span>
+              <span class="text-muted-foreground"> / {exam.myStatus.totalPoints}</span>
+            {:else}
+              <span class="text-muted-foreground">
+                {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
+              </span>
+            {/if}
           </div>
         </div>
         <div class="text-caption text-muted-foreground">{m.examRow_ctaViewDetails()}</div>

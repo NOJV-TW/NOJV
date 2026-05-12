@@ -153,21 +153,26 @@
               </div>
             {:else}
               {@const myStatus = assignment.myStatus}
-              {@const pct =
-                myStatus && myStatus.total > 0
-                  ? (myStatus.solved / myStatus.total) * 100
-                  : 0}
+              {@const showScore =
+                myStatus &&
+                assignment.status !== "upcoming" &&
+                assignment.status !== "draft"}
               <div
-                class="relative flex h-11 w-11 items-center justify-center rounded-full"
-                style="background: conic-gradient(var(--color-primary) {pct}%, var(--color-border) {pct}%);"
-                aria-hidden="true"
+                class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
               >
-                <span
-                  class="absolute inset-[4px] rounded-full bg-[color:var(--color-panel)]"
-                ></span>
-                <span class="relative text-caption font-semibold tabular-nums">
-                  {#if myStatus}{myStatus.solved}/{myStatus.total}{:else}—{/if}
-                </span>
+                {#if showScore && myStatus}
+                  <span class="block text-title-sm font-medium text-foreground">
+                    {myStatus.score}/{myStatus.totalPoints}
+                  </span>
+                  {m.courseOverview_scoreCaption()}
+                {:else}
+                  <span class="block text-title-sm font-medium text-foreground">—</span>
+                  {#if assignment.status === "upcoming"}
+                    {m.courseAssignments_classStatsUpcomingHint()}
+                  {:else if assignment.status === "draft"}
+                    {m.courseAssignments_classStatsDraftHint()}
+                  {/if}
+                {/if}
               </div>
               {#if assignment.status === "open"}
                 <span class={buttonVariants({ variant: "default", size: "sm" })}>

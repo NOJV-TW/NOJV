@@ -50,15 +50,11 @@
 
   const past = $derived(liveStatus === "ended" || liveStatus === "archived");
 
-  // Domain → StatusPill exam-status mapping. The design uses
-  // scheduled/open/in_progress/submitted/graded; we map our 5-state
-  // liveStatus onto the closest pill variant.
   function pillStatus(s: LiveStatus): string {
     if (s === "running") return "in_progress";
     if (s === "upcoming") return "scheduled";
     if (s === "draft") return "scheduled";
-    if (s === "archived") return "graded";
-    return "graded";
+    return "ended";
   }
 
   // Code stub — domain doesn't expose a short code, so derive one

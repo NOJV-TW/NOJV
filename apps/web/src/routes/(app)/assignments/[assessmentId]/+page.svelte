@@ -107,7 +107,6 @@
   const solved = $derived(
     detail.problems.filter((p) => p.myStatus?.state === "ac").length
   );
-  const allSolved = $derived(detail.problemCount > 0 && solved === detail.problemCount);
   const myScore = $derived(
     detail.problems.reduce((sum, p) => sum + (p.myStatus?.bestScore ?? 0), 0)
   );
@@ -115,8 +114,6 @@
     detail.problemCount > 0 ? Math.round((solved / detail.problemCount) * 100) : 0
   );
 
-  // Map domain status onto the design's student-facing vocabulary so the
-  // shared StatusPill renders the right label/color.
   const status = $derived.by(() => {
     switch (detail.status) {
       case "upcoming":
@@ -124,7 +121,7 @@
       case "open":
         return "in_progress";
       case "closed":
-        return allSolved ? "graded" : "submitted";
+        return "closed";
       case "draft":
       default:
         return "not_started";

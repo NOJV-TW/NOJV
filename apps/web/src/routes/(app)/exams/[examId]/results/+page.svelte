@@ -97,7 +97,7 @@
   </div>
 
   <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
-    <!-- ICPC-style class table -->
+    <!-- Class score table -->
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5"

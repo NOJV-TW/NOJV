@@ -307,9 +307,12 @@
                   : isEnded
                     ? m.examsList_answered()
                     : m.examsList_registered()}
+              {:else if exam.myStatus}
+                <span class="block text-title-sm font-medium text-foreground">
+                  {exam.myStatus.score}/{exam.myStatus.totalPoints}
+                </span>
+                {m.courseOverview_scoreCaption()}
               {:else}
-                <!-- Student view (no class stats) — show a soft dash
-                     placeholder so the right column keeps its width. -->
                 <span class="block text-title-sm font-medium text-foreground"
                   >—</span
                 >

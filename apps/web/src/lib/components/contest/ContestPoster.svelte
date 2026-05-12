@@ -7,7 +7,7 @@
   interface Props {
     href: string;
     code: string;
-    format: string;
+    scoringLabel: string;
     status: "upcoming" | "live" | "ended";
     title: string;
     summary: string;
@@ -21,7 +21,7 @@
   let {
     href,
     code,
-    format,
+    scoringLabel,
     status,
     title,
     summary,
@@ -61,7 +61,7 @@
         </span>
         <span class="opacity-40 text-micro">·</span>
         <span class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {format}
+          {scoringLabel}
         </span>
         <StatusPill {status} type="contest" />
       </div>

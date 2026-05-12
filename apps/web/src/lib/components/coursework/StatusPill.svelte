@@ -26,7 +26,7 @@
     not_started: { label: () => m.statusPill_assignment_notStarted(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE },
     in_progress: { label: () => m.statusPill_assignment_inProgress(), cls: "", style: PRIMARY_STYLE },
     submitted: { label: () => m.statusPill_assignment_submitted(), cls: "", style: INFO_STYLE },
-    graded: { label: () => m.statusPill_assignment_graded(), cls: "", style: SUCCESS_STYLE }
+    closed: { label: () => m.statusPill_assignment_closed(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
   };
 
   const EXAM: Record<string, Def> = {
@@ -34,7 +34,7 @@
     open: { label: () => m.statusPill_exam_open(), cls: "", style: PRIMARY_STYLE },
     in_progress: { label: () => m.statusPill_exam_inProgress(), cls: "", style: DESTRUCTIVE_STYLE },
     submitted: { label: () => m.statusPill_exam_submitted(), cls: "", style: INFO_STYLE },
-    graded: { label: () => m.statusPill_exam_graded(), cls: "", style: SUCCESS_STYLE }
+    ended: { label: () => m.statusPill_exam_ended(), cls: "bg-muted text-muted-foreground", style: NEUTRAL_STYLE }
   };
 
   const CONTEST: Record<string, Def> = {

@@ -10,11 +10,7 @@
   import ContestSection from "$lib/components/contest/ContestSection.svelte";
   import ContestPoster from "$lib/components/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/contest/ContestRowPast.svelte";
-  import {
-    contestStatusFor,
-    durationMinutes,
-    inferContestFormat
-  } from "$lib/components/contest/format";
+  import { contestStatusFor, durationMinutes } from "$lib/components/contest/format";
 
   let { data, form: actionData } = $props();
 
@@ -27,8 +23,10 @@
     return {
       raw: c,
       status,
-      format: inferContestFormat(c.scoringMode),
-      // No dedicated `code` in the domain — fall back to the slug-like id.
+      scoringLabel:
+        c.scoringMode === "problem_count"
+          ? m.contestsList_scoringProblemCount()
+          : m.contestsList_scoringPointSum(),
       code: c.id,
       durationMin: durationMinutes(c.startsAt, c.endsAt)
     };
@@ -89,7 +87,7 @@
           <ContestPoster
             href="/contests/{c.raw.id}"
             code={c.code}
-            format={c.format}
+            scoringLabel={c.scoringLabel}
             status={c.status}
             title={c.raw.title}
             summary={c.raw.summary}
@@ -117,7 +115,7 @@
           <ContestPoster
             href="/contests/{c.raw.id}"
             code={c.code}
-            format={c.format}
+            scoringLabel={c.scoringLabel}
             status={c.status}
             title={c.raw.title}
             summary={c.raw.summary}
@@ -139,7 +137,7 @@
           <ContestRowPast
             href="/contests/{c.raw.id}"
             code={c.code}
-            format={c.format}
+            scoringLabel={c.scoringLabel}
             title={c.raw.title}
             startsAt={c.raw.startsAt}
             participants={c.raw.participantCount}

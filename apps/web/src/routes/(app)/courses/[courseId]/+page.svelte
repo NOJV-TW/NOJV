@@ -319,9 +319,9 @@
                 {m.courseOverview_avgScore({ score: assignment.classStats.avgScore })}
               {:else if !isManager && assignment.myStatus}
                 <span class="block text-body-lg font-medium text-foreground">
-                  {assignment.myStatus.solved}/{assignment.myStatus.total}
+                  {assignment.myStatus.score}/{assignment.myStatus.totalPoints}
                 </span>
-                {m.courseOverview_completionCaption()}
+                {m.courseOverview_scoreCaption()}
               {:else}
                 <span class="block text-body-lg font-medium text-foreground">—</span>
               {/if}
@@ -427,6 +427,11 @@
                   {exam.registeredCount}/{exam.totalStudents}
                 </span>
                 {m.courseOverview_registered()}
+              {:else if !isManager && exam.myStatus}
+                <span class="block text-body-lg font-medium text-foreground">
+                  {exam.myStatus.score}/{exam.myStatus.totalPoints}
+                </span>
+                {m.courseOverview_scoreCaption()}
               {:else}
                 <span
                   class="block text-body-lg font-medium text-foreground"

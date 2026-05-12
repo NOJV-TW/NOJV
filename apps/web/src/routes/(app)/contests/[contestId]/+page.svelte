@@ -13,11 +13,7 @@
   import TabStrip from "$lib/components/coursework/TabStrip.svelte";
   import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
   import DifficultyTick from "$lib/components/coursework/DifficultyTick.svelte";
-  import {
-    contestStatusFor,
-    durationMinutes,
-    inferContestFormat
-  } from "$lib/components/contest/format";
+  import { contestStatusFor, durationMinutes } from "$lib/components/contest/format";
   import { fmtDate } from "$lib/utils/datetime.js";
 
   let { data } = $props();
@@ -42,7 +38,11 @@
   const isLive = $derived(status === "live");
   const isPast = $derived(status === "ended");
   const isUpcoming = $derived(status === "upcoming");
-  const format = $derived(inferContestFormat(contest.scoringMode));
+  const scoringLabel = $derived(
+    contest.scoringMode === "problem_count"
+      ? m.contestDetail_scoringProblemCount()
+      : m.contestDetail_scoringPointSum()
+  );
   const durationMin = $derived(durationMinutes(contest.startsAt, contest.endsAt));
 
   // First visible problem — used as the "enter contest" target during live.
@@ -80,7 +80,7 @@
       : 'linear-gradient(135deg, color-mix(in oklab, var(--primary) 14%, var(--panel-strong)) 0%, var(--panel-strong) 60%)'};"
   >
     <Marquee
-      text="{contest.id} · {contest.title.toUpperCase()} · {format} · {contest.participantCount} PARTICIPANTS"
+      text="{contest.id} · {contest.title.toUpperCase()} · {scoringLabel} · {contest.participantCount} PARTICIPANTS"
     />
 
     <div class="relative px-7 py-9 lg:p-10">
@@ -90,7 +90,7 @@
             class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
           >
             <TypeIcon kind="contest" size={14} />
-            <span>Contest · {format}</span>
+            <span>Contest · {scoringLabel}</span>
           </div>
           <div class="mt-3">
             <StatusPill {status} type="contest" />
@@ -344,14 +344,8 @@
         </div>
         <dl class="space-y-2.5 text-body-sm">
           <div class="flex justify-between">
-            <dt class="text-muted-foreground">{m.contestDetail_formatLabel()}</dt>
-            <dd class="font-mono">{format}</dd>
-          </div>
-          <div class="flex justify-between">
             <dt class="text-muted-foreground">{m.contestDetail_scoringLabel()}</dt>
-            <dd class="font-mono">
-              {contest.scoringMode === "problem_count" ? m.contestDetail_scoringProblemCount() : m.contestDetail_scoringPointSum()}
-            </dd>
+            <dd class="font-mono">{scoringLabel}</dd>
           </div>
           <div class="flex justify-between">
             <dt class="text-muted-foreground">{m.contestDetail_scoreboardLabel()}</dt>

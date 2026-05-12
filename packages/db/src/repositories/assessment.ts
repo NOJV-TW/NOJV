@@ -287,6 +287,15 @@ export const assessmentProblemRepo = {
       .then((row) => row !== null);
   },
 
+  sumPointsByAssessment(assessmentIds: string[]) {
+    if (assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.courseAssessmentProblem.groupBy({
+      by: ["assessmentId"],
+      _sum: { points: true },
+      where: { assessmentId: { in: assessmentIds } },
+    });
+  },
+
   // Practice-after-close: a user who had an active membership in a course
   // whose published assessment closed in the past and contained this
   // problem retains read/submit access — for practice only, no scoring.

@@ -268,6 +268,19 @@ export const submissionRepo = {
     });
   },
 
+  groupBestScoresByAssessmentForUser(opts: { assessmentIds: string[]; userId: string }) {
+    if (opts.assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["courseAssessmentId", "problemId"],
+      _max: { score: true },
+      where: {
+        courseAssessmentId: { in: opts.assessmentIds },
+        userId: opts.userId,
+        sampleOnly: false,
+      },
+    });
+  },
+
   groupBestScoresByExam(examIds: string[]) {
     if (examIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({
@@ -290,6 +303,19 @@ export const submissionRepo = {
         userId: opts.userId,
         sampleOnly: false,
         status: "accepted",
+      },
+    });
+  },
+
+  groupBestScoresByExamForUser(opts: { examIds: string[]; userId: string }) {
+    if (opts.examIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["examId", "problemId"],
+      _max: { score: true },
+      where: {
+        examId: { in: opts.examIds },
+        userId: opts.userId,
+        sampleOnly: false,
       },
     });
   },
