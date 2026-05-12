@@ -3,27 +3,36 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   examFindByIdWithCourse,
   assessmentFindByIdWithCourseId,
+  contestFindById,
   upsertForExam,
   upsertForAssessment,
+  upsertForContest,
   findByAssessmentId,
   findByExamId,
+  findByContestId,
 } = vi.hoisted(() => ({
   examFindByIdWithCourse: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
+  contestFindById: vi.fn(),
   upsertForExam: vi.fn(),
   upsertForAssessment: vi.fn(),
+  upsertForContest: vi.fn(),
   findByAssessmentId: vi.fn(),
   findByExamId: vi.fn(),
+  findByContestId: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   examRepo: { findByIdWithCourse: examFindByIdWithCourse },
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
+  contestRepo: { findById: contestFindById },
   plagiarismRepo: {
     upsertForExam,
     upsertForAssessment,
+    upsertForContest,
     findByAssessmentId,
     findByExamId,
+    findByContestId,
   },
   assessmentProblemRepo: {},
   submissionRepo: {},
@@ -36,10 +45,13 @@ const { resolvePlagiarismTarget, createPlagiarismReport } = plagiarismDomain;
 beforeEach(() => {
   examFindByIdWithCourse.mockReset();
   assessmentFindByIdWithCourseId.mockReset();
+  contestFindById.mockReset();
   upsertForExam.mockReset();
   upsertForAssessment.mockReset();
+  upsertForContest.mockReset();
   findByAssessmentId.mockReset();
   findByExamId.mockReset();
+  findByContestId.mockReset();
 });
 
 describe("resolvePlagiarismTarget", () => {
@@ -61,12 +73,20 @@ describe("resolvePlagiarismTarget", () => {
     );
   });
 
-  it("remaps legacy type='contest' to the exam repo", async () => {
-    examFindByIdWithCourse.mockResolvedValue({ id: "exam_2", courseId: "crs_2" });
-    const result = await resolvePlagiarismTarget("exam_2", "contest");
-    expect(result.target.type).toBe("exam");
-    expect(examFindByIdWithCourse).toHaveBeenCalledWith("exam_2");
+  it("resolves type='contest' to a contest target with empty courseId", async () => {
+    contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "u1" });
+    const result = await resolvePlagiarismTarget("ctst_1", "contest");
+    expect(result).toEqual({ courseId: "", target: { id: "ctst_1", type: "contest" } });
+    expect(contestFindById).toHaveBeenCalledWith("ctst_1");
+    expect(examFindByIdWithCourse).not.toHaveBeenCalled();
     expect(assessmentFindByIdWithCourseId).not.toHaveBeenCalled();
+  });
+
+  it("throws 'Contest not found.' when type='contest' and the row is missing", async () => {
+    contestFindById.mockResolvedValue(null);
+    await expect(resolvePlagiarismTarget("ctst_missing", "contest")).rejects.toThrow(
+      "Contest not found.",
+    );
   });
 
   it("resolves a missing type to a courseAssessment target", async () => {

@@ -8,12 +8,20 @@ import {
   type ExamSettingsForm,
   type ExamUpdate,
 } from "@nojv/core";
-import { clarificationDomain, examDomain, HttpError, scoreOverrideDomain } from "@nojv/domain";
+import {
+  clarificationDomain,
+  examDomain,
+  HttpError,
+  plagiarismDomain,
+  scoreOverrideDomain,
+} from "@nojv/domain";
 
-import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
+import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
+import { buildExamResults, type ExamResultsData } from "$lib/server/exam-results";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -22,16 +30,9 @@ const {
   getExamDetailPage,
   getExamSubmissionsMatrix,
   publishExam,
-  setExamBoardFrozen,
   unarchiveExam,
   updateExamRecord,
 } = examDomain;
-
-function toDateTimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function parseWhitelist(text: string): string[] {
   return text
@@ -40,32 +41,41 @@ function parseWhitelist(text: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-function toIsoOrUndefined(local: string): string | undefined {
-  if (!local) return undefined;
-  const date = new Date(local);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return date.toISOString();
-}
-
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const parent = await event.parent();
   const { exam: examHeader, isManager } = parent;
   const actor = requireAuth(event);
+  const examId = event.params.examId;
 
-  const [detail, matrix, canSetOverride, canAskClar, canAnswerClar, canViewClar] =
-    await Promise.all([
-      getExamDetailPage(event.params.examId, {
-        viewerUserId: actor.userId,
-        isManager,
-      }),
-      isManager ? getExamSubmissionsMatrix(event.params.examId) : Promise.resolve(null),
-      isManager
-        ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", event.params.examId)
-        : Promise.resolve(false),
-      clarificationDomain.canAskClarification(actor, "exam", event.params.examId),
-      clarificationDomain.canAnswerInContext(actor, "exam", event.params.examId),
-      clarificationDomain.canViewClarifications(actor, "exam", event.params.examId),
-    ]);
+  const [
+    detail,
+    matrix,
+    canSetOverride,
+    canAskClar,
+    canAnswerClar,
+    canViewClar,
+    plagiarism,
+    plagiarismFlags,
+  ] = await Promise.all([
+    getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
+    isManager ? getExamSubmissionsMatrix(examId) : Promise.resolve(null),
+    isManager
+      ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", examId)
+      : Promise.resolve(false),
+    clarificationDomain.canAskClarification(actor, "exam", examId),
+    clarificationDomain.canAnswerInContext(actor, "exam", examId),
+    clarificationDomain.canViewClarifications(actor, "exam", examId),
+    isManager
+      ? plagiarismDomain.findPlagiarismReport({ type: "exam", id: examId }).catch(() => null)
+      : Promise.resolve(null),
+    isManager
+      ? plagiarismDomain.listFlagsForContext("exam", examId).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  const results: ExamResultsData | null = matrix
+    ? buildExamResults(matrix, actor.userId)
+    : null;
 
   // The layout gate already accepted this exam for the viewer; treat a
   // null payload here (draft hidden from students, archived, etc.) as a
@@ -106,6 +116,23 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     canSetOverride,
     courseId: examHeader.courseId,
     settingsForm,
+    results,
+    plagiarism: plagiarism
+      ? {
+          status: plagiarism.status,
+          reportUrl: plagiarism.reportUrl,
+          triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
+          completedAt: plagiarism.completedAt?.toISOString() ?? null,
+          results: plagiarism.results as unknown,
+        }
+      : null,
+    plagiarismFlags: plagiarismFlags.map((f) => ({
+      id: f.id,
+      pairKey: f.pairKey,
+      flaggedBy: f.flaggedBy,
+      flaggedAt: f.flaggedAt.toISOString(),
+      note: f.note,
+    })),
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
@@ -113,19 +140,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     },
   };
 });
-
-async function runFreezeAction(event: RequestEvent, frozen: boolean) {
-  const actor = requireAuth(event);
-  try {
-    await setExamBoardFrozen(actor, event.params.examId, frozen);
-  } catch (err) {
-    if (err instanceof HttpError) {
-      return fail(err.status, { error: err.message });
-    }
-    throw err;
-  }
-  return { success: true };
-}
 
 export const actions = {
   startExam: async (event) => {
@@ -231,9 +245,6 @@ export const actions = {
     }
     return { success: true };
   },
-
-  freezeBoard: (event) => runFreezeAction(event, true),
-  unfreezeBoard: (event) => runFreezeAction(event, false),
 
   updateProblems: async (event) => {
     const actor = requireAuth(event);

@@ -30,7 +30,12 @@ import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
-import { tryParseJsonField } from "$lib/server/shared/form-utils";
+import {
+  toDateTimeLocal,
+  toIsoOrUndefined,
+  tryParseJsonField,
+} from "$lib/server/shared/form-utils";
+import { buildAssignmentResults } from "$lib/server/assignment-results";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
@@ -44,23 +49,8 @@ const {
   updateAssessmentRecord,
 } = assessmentDomain;
 
-// Strip timezone off an ISO string so <input type="datetime-local"> can prefill.
-function toDateTimeLocal(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
-}
-
-// datetime-local strings are local-time, not ISO. Normalise to an ISO
-// string before handing to the domain layer (which calls `new Date(...)`).
 function localToIso(local: string): string {
-  if (!local) return "";
-  const d = new Date(local);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString();
+  return toIsoOrUndefined(local) ?? "";
 }
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -113,6 +103,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       mode: "teacher" as const,
       detail,
       matrix,
+      results: buildAssignmentResults(matrix),
       settingsForm,
       candidateProblems,
       canSetOverride,

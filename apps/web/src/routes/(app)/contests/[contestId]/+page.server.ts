@@ -1,10 +1,35 @@
-import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { clarificationDomain, contestDomain, scoreOverrideDomain } from "@nojv/domain";
+import { fail } from "@sveltejs/kit";
+import { message, superValidate } from "sveltekit-superforms";
+import { zod4 } from "sveltekit-superforms/adapters";
 
-import { getActorContext, hasActorUsername } from "$lib/server/auth";
+import {
+  contestSettingsFormSchema,
+  contestUpdateSchema,
+  type ContestSettingsForm,
+  type ContestUpdate,
+} from "@nojv/core";
+import {
+  clarificationDomain,
+  contestDomain,
+  plagiarismDomain,
+  scoreOverrideDomain,
+} from "@nojv/domain";
+
+import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
+import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";
+import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
+import { buildContestResults, type ContestResultsData } from "$lib/server/contest-results";
+import type { FormMessage } from "$lib/types/form-message";
 
-const { getContestDetail, getScoreboard, listContestParticipantsWithUser } = contestDomain;
+const {
+  getContestDetail,
+  getScoreboard,
+  listContestParticipantsWithUser,
+  buildContestSubmissionsMatrix,
+  updateContestRecord,
+} = contestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const { params, locals } = event;
@@ -36,24 +61,71 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       )
     : [];
 
-  // Staff-only data for the score-override drawer. Students don't see the
-  // button so we skip the extra fetches entirely.
+  // Staff-only data for the score-override drawer + class results tab.
+  // Students don't see the button so we skip the extra fetches entirely.
   let canSetOverride = false;
   let overrideStudents: { id: string; username: string; name: string }[] = [];
+  let results: ContestResultsData | null = null;
+  let matrix: contestDomain.ContestMatrixData | null = null;
+  let settingsForm: Awaited<
+    ReturnType<typeof superValidate<ContestSettingsForm, FormMessage>>
+  > | null = null;
+
+  let plagiarism: Awaited<ReturnType<typeof plagiarismDomain.findPlagiarismReport>> = null;
+  let plagiarismFlags: Awaited<ReturnType<typeof plagiarismDomain.listFlagsForContext>> = [];
 
   if (contest.isManager) {
     const actor = getActorContext(event);
     if (actor && hasActorUsername(actor)) {
-      const [allowed, participants] = await Promise.all([
+      const [allowed, participants, plagReport, plagFlags] = await Promise.all([
         scoreOverrideDomain.canSetScoreOverride(actor, "contest", contest.id),
         listContestParticipantsWithUser(contest.id),
+        plagiarismDomain
+          .findPlagiarismReport({ type: "contest", id: contest.id })
+          .catch(() => null),
+        plagiarismDomain.listFlagsForContext("contest", contest.id).catch(() => []),
       ]);
+      matrix = await buildContestSubmissionsMatrix({
+        contestId: contest.id,
+        problems: contest.problems ?? [],
+        participants,
+      });
+      plagiarism = plagReport;
+      plagiarismFlags = plagFlags;
       canSetOverride = allowed;
-      overrideStudents = participants.map((p) => ({
-        id: p.user.id,
-        username: p.user.username ?? "",
-        name: p.user.name,
-      }));
+      const scores: number[] = [];
+      overrideStudents = participants.map((p) => {
+        scores.push(p.score);
+        return {
+          id: p.user.id,
+          username: p.user.username ?? "",
+          name: p.user.name,
+        };
+      });
+
+      // Aggregate participant scores into the shared distribution bucket
+      // shape. For point_sum contests `score` is the absolute total; for
+      // problem_count contests it's the solve count and the helper falls
+      // back to absolute-vs-max bucketing.
+      const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
+      results = buildContestResults(
+        scores,
+        contest.scoringMode === "point_sum" ? totalPoints : 0,
+      );
+
+      settingsForm = await superValidate<ContestSettingsForm, FormMessage>(
+        {
+          title: contest.title,
+          summary: contest.summary,
+          startsAt: toDateTimeLocal(contest.startsAt),
+          endsAt: toDateTimeLocal(contest.endsAt),
+          scoringMode: contest.scoringMode,
+          scoreboardMode: contest.scoreboardMode,
+          allowedLanguages: contest.allowedLanguages,
+          submitCooldownSec: contest.submitCooldownSec,
+        },
+        zod4(contestSettingsFormSchema),
+      );
     }
   }
 
@@ -74,6 +146,25 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     canSetOverride,
     overrideStudents,
     topEntries,
+    results,
+    matrix,
+    settingsForm,
+    plagiarism: plagiarism
+      ? {
+          status: plagiarism.status,
+          reportUrl: plagiarism.reportUrl,
+          triggeredAt: plagiarism.triggeredAt?.toISOString() ?? null,
+          completedAt: plagiarism.completedAt?.toISOString() ?? null,
+          results: plagiarism.results as unknown,
+        }
+      : null,
+    plagiarismFlags: plagiarismFlags.map((f) => ({
+      id: f.id,
+      pairKey: f.pairKey,
+      flaggedBy: f.flaggedBy,
+      flaggedAt: f.flaggedAt.toISOString(),
+      note: f.note,
+    })),
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
@@ -81,3 +172,40 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     },
   };
 });
+
+export const actions: Actions = {
+  updateSettings: async (event) => {
+    const actor = requireAuth(event);
+    const form = await superValidate<ContestSettingsForm, FormMessage>(
+      event,
+      zod4(contestSettingsFormSchema),
+    );
+    if (!form.valid) {
+      return fail(400, { form });
+    }
+
+    const payload: ContestUpdate = contestUpdateSchema.parse({
+      title: form.data.title,
+      summary: form.data.summary ? form.data.summary : undefined,
+      startsAt: toIsoOrUndefined(form.data.startsAt),
+      endsAt: toIsoOrUndefined(form.data.endsAt),
+      scoringMode: form.data.scoringMode,
+      scoreboardMode: form.data.scoreboardMode,
+      allowedLanguages: form.data.allowedLanguages,
+      submitCooldownSec: form.data.submitCooldownSec,
+    });
+
+    try {
+      await updateContestRecord(actor, event.params.contestId, payload);
+    } catch (err) {
+      const classified = classifyError(err);
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 },
+      );
+    }
+
+    return message<FormMessage>(form, { kind: "success", text: "Saved." });
+  },
+};

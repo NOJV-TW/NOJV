@@ -1,5 +1,11 @@
-import { contestParticipationRepo, contestRepo } from "@nojv/db";
-import type { ContestScoringMode, Language, PlatformRole, ScoreboardMode } from "@nojv/core";
+import { contestParticipationRepo, contestRepo, submissionRepo } from "@nojv/db";
+import {
+  submissionVerdicts,
+  type ContestScoringMode,
+  type Language,
+  type PlatformRole,
+  type ScoreboardMode,
+} from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { canManageContest } from "./permissions";
@@ -48,6 +54,7 @@ export interface ContestDetailData {
   submitCooldownSec: number;
   summary: string;
   title: string;
+  visibility: "draft" | "published" | "archived";
 }
 
 export interface ContestWorkspaceData extends ContestDetailData {
@@ -106,6 +113,7 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
     submitCooldownSec: contest.submitCooldownSec,
     summary: contest.summary,
     title: contest.title,
+    visibility: contest.visibility,
   };
 }
 
@@ -287,4 +295,63 @@ export async function unfreezeContest(contestId: string) {
  */
 export async function listContestParticipantsWithUser(contestId: string) {
   return contestParticipationRepo.listParticipantsWithUser(contestId);
+}
+
+export interface ContestProblemSibling {
+  id: string;
+  letter: string;
+  title: string;
+  bestScore?: number | undefined;
+  maxScore: number;
+  isActive: boolean;
+  href: string;
+}
+
+function letterForIndex(index: number): string {
+  if (index < 0) return String(index + 1);
+  if (index < 26) return String.fromCharCode(65 + index);
+  return String(index + 1);
+}
+
+/**
+ * Build the contest's left-rail sibling list for the float problem switcher.
+ * Caller passes the ordered `problems` slice from `getContestWorkspaceData`
+ * (so we don't re-query the contest detail row) plus the active problem id
+ * and viewer's user id. Submission filter is scoped by (contestId, userId,
+ * problemId) — cross-contest data cannot leak through.
+ */
+export async function listContestProblemSiblings(options: {
+  contestId: string;
+  problems: ContestProblemSummary[];
+  activeProblemId: string;
+  actorUserId: string;
+}): Promise<ContestProblemSibling[]> {
+  if (options.problems.length === 0) return [];
+
+  const problemIds = options.problems.map((p) => p.id);
+
+  const bestRows = await submissionRepo.groupByUserAndProblem({
+    contestId: options.contestId,
+    userId: options.actorUserId,
+    problemId: { in: problemIds },
+    sampleOnly: false,
+    status: { in: [...submissionVerdicts] },
+  });
+
+  const bestByProblemId = new Map<string, number>();
+  for (const row of bestRows) {
+    if (row._max.score !== null) {
+      bestByProblemId.set(row.problemId, row._max.score);
+    }
+  }
+
+  return options.problems.map((p, index) => ({
+    id: p.id,
+    letter: letterForIndex(index),
+    title: p.title,
+    bestScore: bestByProblemId.get(p.id),
+    maxScore: p.points,
+    isActive: p.id === options.activeProblemId,
+    href: `/contests/${options.contestId}/problems/${p.id}`,
+  }));
 }

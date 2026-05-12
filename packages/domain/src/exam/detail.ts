@@ -45,7 +45,6 @@ export interface ExamRosterEntry {
 export interface ExamDetailManagerFields {
   /** Raw exam status — `liveStatus` still drives UI gating. */
   rawStatus: "draft" | "published" | "archived";
-  frozenBoard: boolean;
   ipWhitelist: string[];
   allowedLanguages: Language[];
   submitCooldownSec: number;
@@ -227,7 +226,6 @@ export async function getExamDetailPage(
   const manager: ExamDetailManagerFields | null = options.isManager
     ? {
         rawStatus: exam.status,
-        frozenBoard: exam.frozenBoard,
         ipWhitelist: exam.ipWhitelist,
         allowedLanguages: exam.allowedLanguages,
         submitCooldownSec: exam.submitCooldownSec,

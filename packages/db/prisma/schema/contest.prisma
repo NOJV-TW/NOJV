@@ -112,10 +112,19 @@ model Contest {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  createdBy      User?                  @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  problems       ContestProblem[]
-  participations ContestParticipation[]
-  submissions    Submission[]
+  // ── Plagiarism (inline, 1:1 latest-only). All null until a scan runs. ──
+  plagiarismStatus        PlagiarismReportStatus?
+  plagiarismResults       Json?
+  plagiarismReportUrl     String?
+  plagiarismTriggeredAt   DateTime?
+  plagiarismCompletedAt   DateTime?
+  plagiarismTriggeredById String?
+
+  createdBy             User?                  @relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  plagiarismTriggeredBy User?                  @relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
+  problems              ContestProblem[]
+  participations        ContestParticipation[]
+  submissions           Submission[]
 }
 
 model ContestProblem {
@@ -172,8 +181,6 @@ model Exam {
   status            ExamStatus      @default(draft)
   scoringMode       ExamScoringMode @default(point_sum)
   scoreboardMode    ScoreboardMode  @default(hidden)
-  frozenBoard       Boolean         @default(false)
-  frozenAt          DateTime?
   submitCooldownSec Int             @default(0)
 
   allowedLanguages SupportedLanguage[] @default([])

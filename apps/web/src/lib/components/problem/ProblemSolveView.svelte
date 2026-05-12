@@ -8,6 +8,7 @@
   } from "$lib/types";
   import MobileWorkspaceBlocker from "../layout/MobileWorkspaceBlocker.svelte";
   import AdvancedModeWorkspace from "./advanced/AdvancedModeWorkspace.svelte";
+  import ProblemSwitcherDrawer from "./ProblemSwitcherDrawer.svelte";
   import ProblemWorkspace from "./Workspace.svelte";
 
   export interface ProblemSolveSibling {
@@ -53,14 +54,14 @@
     contestId?: string | undefined;
     /** Assignment-only daily submission quota shown in the problem header. */
     dailyAttempts?: { used: number; max: number | null } | undefined;
-    /** Exam-only left rail. Hidden in practice mode regardless of value. */
+    /** Siblings in the same contest/exam/assignment. Renders a float drawer. */
     siblingProblems?: ProblemSolveSibling[] | undefined;
     /** Exam-only context, consumed by the route-level page chrome. */
     examContext?: ProblemSolveExamContext | undefined;
   }
 
   let {
-    mode,
+    mode: _mode,
     problem,
     submissions = [],
     testcaseSets = [],
@@ -83,44 +84,7 @@
         : null
   );
 
-  let showSiblingRail = $derived(mode === "exam" && (siblingProblems?.length ?? 0) > 0);
-
-  function siblingClass(sibling: ProblemSolveSibling): string {
-    if (sibling.isActive) {
-      return "border-primary bg-card shadow-rest";
-    }
-    if (sibling.bestScore !== undefined && sibling.bestScore >= sibling.maxScore) {
-      return "border-transparent hover:border-success/30 hover:bg-success/5";
-    }
-    if (sibling.bestScore !== undefined && sibling.bestScore > 0) {
-      return "border-transparent hover:border-destructive/30 hover:bg-destructive/5";
-    }
-    return "border-transparent hover:bg-muted";
-  }
-
-  function siblingLetterClass(sibling: ProblemSolveSibling): string {
-    if (sibling.isActive) return "bg-primary text-primary-foreground";
-    if (sibling.bestScore !== undefined && sibling.bestScore >= sibling.maxScore) {
-      return "bg-success/15 text-success";
-    }
-    if (sibling.bestScore !== undefined && sibling.bestScore > 0) {
-      return "bg-destructive/15 text-destructive";
-    }
-    return "bg-muted text-muted-foreground";
-  }
-
-  function siblingScoreClass(sibling: ProblemSolveSibling): string {
-    if (sibling.bestScore === undefined) return "text-muted-foreground";
-    if (sibling.bestScore >= sibling.maxScore) return "text-success";
-    if (sibling.bestScore > 0) return "text-destructive";
-    return "text-muted-foreground";
-  }
-
-  function formatSiblingScore(sibling: ProblemSolveSibling): string {
-    if (sibling.bestScore === undefined) return "—";
-    if (sibling.bestScore >= sibling.maxScore) return String(sibling.maxScore);
-    return `${String(sibling.bestScore)}/${String(sibling.maxScore)}`;
-  }
+  let hasSiblings = $derived((siblingProblems?.length ?? 0) > 0);
 
   let solvedCount = $derived(
     siblingProblems?.filter(
@@ -148,72 +112,39 @@
       <span>{endedNotice}</span>
     </div>
   {/if}
-  <div class="flex min-h-0 flex-1">
-  {#if showSiblingRail && siblingProblems}
-    <!-- Exam-mode sibling problem navigator. Practice mode never renders this. -->
-    <aside
-      class="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-card/60 px-4 py-5 lg:flex"
-    >
-      <div
-        class="flex items-center justify-between px-2 pb-3 text-caption font-semibold uppercase tracking-wider text-muted-foreground"
-      >
-        <span>{m.exam_problemsHeader()}</span>
-        <span class="font-mono tabular-nums normal-case tracking-normal">
-          {solvedCount}/{siblingProblems.length}
-        </span>
-      </div>
-      {#each siblingProblems as sibling (sibling.id)}
-        <a
-          class="mb-1 grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-md border px-3 py-2.5 transition-[background-color,border-color,box-shadow] duration-fast ease-out-soft {siblingClass(
-            sibling
-          )}"
-          href={sibling.href}
-          aria-current={sibling.isActive ? "page" : undefined}
-        >
-          <span
-            class="flex size-6 items-center justify-center rounded-sm text-caption font-medium {siblingLetterClass(
-              sibling
-            )}"
-          >
-            {sibling.letter}
-          </span>
-          <span class="truncate text-body-sm font-medium leading-tight text-foreground">
-            {sibling.title}
-          </span>
-          <span class="font-mono text-caption tabular-nums {siblingScoreClass(sibling)}">
-            {formatSiblingScore(sibling)}
-          </span>
-        </a>
-      {/each}
-    </aside>
-  {/if}
+  <div class="relative flex min-h-0 flex-1">
+    {#if hasSiblings && siblingProblems}
+      <ProblemSwitcherDrawer siblings={siblingProblems} {solvedCount} />
+    {/if}
 
-  <!-- Main workspace — same dispatcher the practice page used before extraction. -->
-  {#if problem.type === "special_env"}
-    <AdvancedModeWorkspace
-      {allowedLanguages}
-      {assessment}
-      {backLink}
-      {canRejudge}
-      {contestId}
-      {dailyAttempts}
-      initialSubmissions={submissions}
-      {problem}
-      requiredPaths={problem.advancedRequiredPaths ?? []}
-      {testcaseSets}
-    />
-  {:else}
-    <ProblemWorkspace
-      {allowedLanguages}
-      {assessment}
-      {backLink}
-      {canRejudge}
-      {contestId}
-      {dailyAttempts}
-      initialSubmissions={submissions}
-      {problem}
-      {testcaseSets}
-    />
-  {/if}
+    <!-- Main workspace. When siblings exist, leave 24px room on the left for the always-visible trigger bar. -->
+    <div class="flex min-h-0 min-w-0 flex-1 {hasSiblings ? 'pl-6' : ''}">
+      {#if problem.type === "special_env"}
+        <AdvancedModeWorkspace
+          {allowedLanguages}
+          {assessment}
+          {backLink}
+          {canRejudge}
+          {contestId}
+          {dailyAttempts}
+          initialSubmissions={submissions}
+          {problem}
+          requiredPaths={problem.advancedRequiredPaths ?? []}
+          {testcaseSets}
+        />
+      {:else}
+        <ProblemWorkspace
+          {allowedLanguages}
+          {assessment}
+          {backLink}
+          {canRejudge}
+          {contestId}
+          {dailyAttempts}
+          initialSubmissions={submissions}
+          {problem}
+          {testcaseSets}
+        />
+      {/if}
+    </div>
   </div>
 </div>

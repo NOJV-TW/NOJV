@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import { cn } from "$lib/utils.js";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
@@ -12,12 +13,41 @@
   import StatusPill from "$lib/components/coursework/StatusPill.svelte";
   import TabStrip from "$lib/components/coursework/TabStrip.svelte";
   import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
-  import DifficultyTick from "$lib/components/coursework/DifficultyTick.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
+  import ContestProblemsTab from "$lib/components/contest/ContestProblemsTab.svelte";
+  import ContestResultsTab from "$lib/components/contest/ContestResultsTab.svelte";
+  import ContestSettingsTab, {
+    type ContestLiveStatus
+  } from "$lib/components/contest/ContestSettingsTab.svelte";
+  import ContestSubmissionsMatrix from "$lib/components/contest/ContestSubmissionsMatrix.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/contest/format";
   import { fmtDate } from "$lib/utils/datetime.js";
 
   let { data } = $props();
   let contest = $derived(data.contest);
+  const isManager = $derived(contest.isManager);
+
+  // Manager sub-tabs. Defaults to "problems" on mount so the page first
+  // renders the same problem list students see.
+  type SubTabKey =
+    | "problems"
+    | "submissions"
+    | "results"
+    | "plagiarism"
+    | "settings"
+    | "clarifications";
+  let activeSubTab = $state<SubTabKey>("problems");
+
+  const subTabs: { key: SubTabKey; label: string }[] = $derived([
+    { key: "problems", label: m.contestDetail_subTabProblems() },
+    { key: "submissions", label: m.contestDetail_subTabSubmissions() },
+    { key: "results", label: m.contestDetail_subTabResults() },
+    { key: "plagiarism", label: m.contestDetail_subTabPlagiarism() },
+    { key: "settings", label: m.contestDetail_subTabSettings() },
+    ...(data.clarification.canView
+      ? [{ key: "clarifications" as const, label: m.contestDetail_subTabClarifications() }]
+      : [])
+  ]);
 
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(data.canSetOverride);
@@ -38,6 +68,13 @@
   const isLive = $derived(status === "live");
   const isPast = $derived(status === "ended");
   const isUpcoming = $derived(status === "upcoming");
+  const settingsLiveStatus: ContestLiveStatus = $derived(
+    contest.visibility === "draft"
+      ? "draft"
+      : status === "live"
+        ? "running"
+        : status
+  );
   const scoringLabel = $derived(
     contest.scoringMode === "problem_count"
       ? m.contestDetail_scoringProblemCount()
@@ -62,11 +99,6 @@
         : m.contestDetail_ctaNotStarted()
   );
 
-  function difficultyOf(p: { points: number }): "Easy" | "Medium" | "Hard" {
-    if (p.points >= 800) return "Hard";
-    if (p.points >= 400) return "Medium";
-    return "Easy";
-  }
 </script>
 
 <div class="space-y-6 fade-up px-6 py-8 lg:px-10 pb-20">
@@ -183,110 +215,106 @@
     </div>
   </div>
 
+  {#if isManager}
+    <!-- ══════ MANAGER VIEW: tabbed sections ══════ -->
+    <div
+      role="tablist"
+      aria-label={m.contestDetail_subTabsLabel()}
+      class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-[color:var(--color-panel)]/60 p-1"
+    >
+      {#each subTabs as tab (tab.key)}
+        {@const isActive = activeSubTab === tab.key}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isActive}
+          onclick={() => (activeSubTab = tab.key)}
+          class={cn(
+            "rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors",
+            isActive
+              ? "bg-[color:var(--color-primary)]/14 text-primary"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {tab.label}
+        </button>
+      {/each}
+    </div>
+
+    {#if activeSubTab === "problems"}
+      <ContestProblemsTab
+        problems={contest.problems}
+        problemsHidden={contest.problemsHidden}
+        contestId={contest.id}
+        {isLive}
+        {isPast}
+        {isManager}
+      />
+    {:else if activeSubTab === "submissions"}
+      {#if data.matrix}
+        <ContestSubmissionsMatrix matrix={data.matrix} contestId={contest.id} />
+      {:else}
+        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
+          {m.contestDetail_submissionsTabPlaceholder()}
+        </GlassPanel>
+      {/if}
+    {:else if activeSubTab === "results"}
+      {#if data.results}
+        <ContestResultsTab data={data.results} />
+      {:else}
+        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
+          {m.contestDetail_resultsTabUnavailable()}
+        </GlassPanel>
+      {/if}
+    {:else if activeSubTab === "plagiarism"}
+      <GlassPanel class="p-5">
+        <AssignmentPlagiarismReport
+          report={data.plagiarism}
+          flags={data.plagiarismFlags ?? []}
+          problems={(contest.problems ?? []).map((p, i) => ({
+            problemId: p.id,
+            letter: String.fromCharCode(65 + i),
+            title: p.title
+          }))}
+          students={data.matrix
+            ? data.matrix.rows.map((r) => ({
+                userId: r.userId,
+                displayName: r.displayName,
+                handle: r.handle
+              }))
+            : []}
+        />
+      </GlassPanel>
+    {:else if activeSubTab === "settings"}
+      {#if data.settingsForm}
+        <ContestSettingsTab form={data.settingsForm} liveStatus={settingsLiveStatus} />
+      {:else}
+        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
+          {m.contestDetail_settingsTabPlaceholder()}
+        </GlassPanel>
+      {/if}
+    {:else if activeSubTab === "clarifications" && data.clarification.canView}
+      <GlassPanel class="p-6">
+        <ClarificationTab
+          contextType="contest"
+          contextId={contest.id}
+          canAsk={data.clarification.canAsk}
+          canAnswer={data.clarification.canAnswer}
+          problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
+        />
+      </GlassPanel>
+    {/if}
+  {:else}
   <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
     <!-- Problem list -->
-    <GlassPanel class="overflow-hidden">
-      <div
-        class="flex items-center justify-between px-6 py-4 border-b"
-        style="border-color: var(--border-subtle);"
-      >
-        <h2 class="text-title font-semibold">{m.contestDetail_problemsHeading()}</h2>
-        <div class="text-caption text-muted-foreground">
-          {#if contest.problemsHidden || contest.problems === null}
-            {m.contestDetail_problemsLockedHint()}
-          {:else}
-            {m.contestDetail_problemsMeta({
-              count: contest.problems.length,
-              note: isPast ? m.contestDetail_problemsSortByDifficulty() : m.contestDetail_problemsUnlockOnStart()
-            })}
-          {/if}
-        </div>
-      </div>
-
-      <div class="divide-y" style="border-color: var(--border-subtle);">
-        {#if contest.problemsHidden || contest.problems === null}
-          <!-- Locked placeholders -->
-          {#each [0, 1, 2, 3, 4] as i (i)}
-            <div
-              class="grid grid-cols-[60px_1fr_auto] items-center gap-4 px-6 py-3.5"
-            >
-              <div class="font-mono text-title font-semibold text-muted-foreground">
-                {String.fromCharCode(65 + i)}
-              </div>
-              <div>
-                <div class="font-medium text-muted-foreground">———————</div>
-                <div class="mt-1 flex items-center gap-3">
-                  <DifficultyTick level="Medium" />
-                </div>
-              </div>
-              <span
-                class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
-                style="border-color: var(--border-subtle); opacity: 0.5;"
-              >
-                🔒
-              </span>
-            </div>
-          {/each}
-        {:else}
-          {#each contest.problems as p (p.id)}
-            {@const enterHref =
-              isLive || contest.isManager
-                ? `/contests/${contest.id}/problems/${p.id}`
-                : isPast
-                  ? `/problems/${p.id}`
-                  : null}
-            <a
-              href={enterHref ?? "#"}
-              class="grid grid-cols-[60px_1fr_auto] sm:grid-cols-[60px_1fr_minmax(120px,160px)_auto] items-center gap-4 px-6 py-3.5 transition-colors hover:bg-muted/40 {enterHref
-                ? ''
-                : 'pointer-events-none opacity-60'}"
-              tabindex={enterHref ? 0 : -1}
-              aria-disabled={enterHref ? undefined : true}
-            >
-              <div
-                class="font-mono text-title font-semibold"
-                style="color: var(--primary);"
-              >
-                {String.fromCharCode(64 + p.ordinal)}
-              </div>
-              <div class="min-w-0">
-                <div class="font-medium truncate">{p.title}</div>
-                <div class="mt-1 flex items-center gap-3">
-                  <DifficultyTick level={difficultyOf(p)} />
-                  <span
-                    class="text-micro font-mono uppercase tracking-wider text-muted-foreground tabular-nums"
-                  >
-                    {p.points} pts
-                  </span>
-                </div>
-              </div>
-              <div class="hidden sm:block">
-                <div
-                  class="text-micro font-mono uppercase tracking-wider text-muted-foreground"
-                >
-                  {m.contestDetail_problemDifficultyLabel()}
-                </div>
-                <div
-                  class="mt-1 h-1.5 rounded-full overflow-hidden"
-                  style="background: var(--muted);"
-                >
-                  <div
-                    class="h-full rounded-full"
-                    style="width: {Math.min(100, (p.points / 1000) * 100)}%; background: var(--primary);"
-                  ></div>
-                </div>
-              </div>
-              <span
-                class="text-caption font-medium px-3 py-1.5 rounded-md border text-muted-foreground"
-                style="border-color: var(--border-subtle); {enterHref ? '' : 'opacity: 0.5;'}"
-              >
-                {enterHref ? m.contestDetail_problemSolveCta() : "🔒"}
-              </span>
-            </a>
-          {/each}
-        {/if}
-      </div>
-    </GlassPanel>
+    <ContestProblemsTab
+      problems={contest.problems}
+      problemsHidden={contest.problemsHidden}
+      contestId={contest.id}
+      {isLive}
+      {isPast}
+      {isManager}
+    />
 
     <!-- Sidebar -->
     <div class="space-y-4">
@@ -379,7 +407,7 @@
       <div
         class="font-mono text-micro uppercase tracking-wider text-muted-foreground mb-3"
       >
-        Clarifications
+        {m.contestDetail_subTabClarifications()}
       </div>
       <ClarificationTab
         contextType="contest"
@@ -389,6 +417,7 @@
         problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
       />
     </GlassPanel>
+  {/if}
   {/if}
 </div>
 
