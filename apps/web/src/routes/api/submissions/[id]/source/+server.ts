@@ -11,11 +11,11 @@ const { getSubmissionForUser } = submissionDomain;
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  const { submissionId } = event.params;
-  if (!submissionId) return json({ message: "Missing submissionId." }, { status: 400 });
+  const { id } = event.params;
+  if (!id) return json({ message: "Missing submission id." }, { status: 400 });
 
   const submission = await getSubmissionForUser(
-    submissionId,
+    id,
     actor.userId,
     actor.platformRole === "admin",
   );

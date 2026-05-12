@@ -33,7 +33,7 @@ export const GET: RequestHandler = (event) => {
   if (!hasActorUsername(actor))
     return new Response("Complete your profile first.", { status: 403 });
 
-  const { submissionId } = event.params;
+  const { id: submissionId } = event.params;
   const userId = actor.userId;
   const isAdmin = actor.platformRole === "admin";
 

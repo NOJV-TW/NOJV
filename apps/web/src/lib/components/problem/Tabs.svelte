@@ -32,7 +32,7 @@
     creating = true;
     showCreateMenu = false;
     try {
-      const res = await fetchWithCsrf("/api/problems/create", {
+      const res = await fetchWithCsrf("/api/problems", {
         method: "POST",
         body: JSON.stringify({ mode })
       });

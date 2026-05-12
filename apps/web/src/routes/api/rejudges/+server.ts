@@ -3,17 +3,11 @@ import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
-import { NotFoundError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/domain";
 
-const singleSchema = z.object({
-  mode: z.literal("single"),
-  submissionId: z.string().min(1),
-});
-
 const batchSchema = z.object({
-  mode: z.literal("batch"),
   problemId: z.string().min(1),
   contestId: z.string().optional(),
   assessmentId: z.string().optional(),
@@ -23,25 +17,11 @@ const batchSchema = z.object({
   until: z.iso.datetime().optional(),
 });
 
-const bodySchema = z.discriminatedUnion("mode", [singleSchema, batchSchema]);
-
+// Batch rejudge — fan out across a problem + optional context filters.
+// Single-submission rejudge lives at `POST /api/submissions/[id]/rejudge`.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const body = bodySchema.parse(await event.request.json());
-
-  if (body.mode === "single") {
-    const submission = await submissionDomain.getSubmissionById(body.submissionId);
-    if (!submission) throw new NotFoundError("Submission not found.");
-
-    await submissionDomain.assertCanOperateOnSubmission(actor, submission);
-    await submissionDomain.dispatchRejudge({
-      mode: "single",
-      submissionId: submission.id,
-      triggeredByUserId: actor.userId,
-    });
-
-    return json({ queued: 1 });
-  }
+  const body = batchSchema.parse(await event.request.json());
 
   // Drop undefined optional keys to satisfy exactOptionalPropertyTypes
   // in the authz + dispatch input contracts.
