@@ -6,23 +6,18 @@ const webEnvSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
-    // Database
     DATABASE_URL: z.url().default("postgresql://postgres:postgres@localhost:5432/nojv"),
-
-    // Redis
     REDIS_URL: z.url().default("redis://localhost:6379"),
 
-    // Auth — BETTER_AUTH_SECRET is required in production, has a dev default otherwise
+    // BETTER_AUTH_SECRET falls back to a dev default in non-prod; required in prod (enforced below).
     BETTER_AUTH_SECRET: z.string().optional(),
     BETTER_AUTH_URL: z.url().default("http://localhost:5173"),
 
-    // OAuth (optional — not needed for local dev)
     GITHUB_CLIENT_ID: z.string().optional(),
     GITHUB_CLIENT_SECRET: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-    // Email (optional)
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM_DOMAIN: z.string().optional(),
   })

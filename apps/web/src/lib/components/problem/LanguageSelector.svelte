@@ -3,7 +3,8 @@
     entryFileNameFor,
     languageSchema,
     supportedLanguages,
-    type Language
+    type Language,
+    type ProblemType
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
 
@@ -16,6 +17,12 @@
      * itself supports it.
      */
     allowedLanguages?: Language[] | undefined;
+    /**
+     * Problem type — determines whether workspace-file filtering applies.
+     * Only `multi_file` requires every available language to have an editable
+     * entry file in `workspaceFiles`.
+     */
+    problemType: ProblemType;
     /**
      * Workspace-file mode: if the problem ships workspace files, we only
      * expose languages that have an editable `main.<ext>` entry file —
@@ -31,6 +38,7 @@
   let {
     value,
     allowedLanguages,
+    problemType,
     workspaceFiles,
     onchange,
     onavailablechange
@@ -41,8 +49,7 @@
     if (allowedLanguages && allowedLanguages.length > 0) {
       langs = langs.filter((l) => allowedLanguages!.includes(l));
     }
-    const hasAnyWorkspace = workspaceFiles.length > 0;
-    if (hasAnyWorkspace) {
+    if (problemType === "multi_file" && workspaceFiles.length > 0) {
       langs = langs.filter((l) => {
         const entry = entryFileNameFor(l);
         return workspaceFiles.some(

@@ -5,6 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils.js";
+  import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
 
   import type { PageData } from "./$types";
 
@@ -35,13 +36,14 @@
 
     void (async () => {
       monacoModule = await import("monaco-editor");
+      defineNojvThemes(monacoModule);
       const isDark = document.documentElement.classList.contains("dark");
 
       diffEditor = monacoModule.editor.createDiffEditor(diffContainer, {
         automaticLayout: true,
         readOnly: true,
         renderSideBySide: true,
-        theme: isDark ? "vs-dark" : "vs-light",
+        theme: getNojvThemeName(isDark),
         fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
         fontSize: 13,
         minimap: { enabled: false },
@@ -55,7 +57,7 @@
 
       themeObserver = new MutationObserver(() => {
         const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+        monacoModule!.editor.setTheme(getNojvThemeName(dark));
       });
       themeObserver.observe(document.documentElement, {
         attributes: true,
@@ -172,7 +174,7 @@
   {/if}
 
   <div
-    class="grid grid-cols-3 gap-3 rounded-lg border border-border bg-[color:var(--color-panel)]/60 px-5 py-4 text-caption text-muted-foreground"
+    class="grid grid-cols-3 gap-3 rounded-md border border-border bg-[color:var(--color-panel)]/60 px-5 py-4 text-caption text-muted-foreground"
   >
     <div>
       <div class="text-body-sm font-semibold text-foreground">{data.pair.similarity}%</div>

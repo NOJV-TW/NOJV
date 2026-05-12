@@ -11,13 +11,14 @@ import {
   type TestcaseResult,
 } from "./types.js";
 import { compile, compileChecker, sourceFileName } from "./compiler.js";
-import { pathExists } from "./utils.js";
+import { cleanupTempDir, pathExists } from "./utils.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
 import { normalizeRelativePath } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
+const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
 /** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
@@ -149,8 +150,8 @@ async function loadTestcasesFromDirs(
       index,
       input,
       expected,
-      weight: meta.weight ?? 1,
-      isSample: meta.isSample ?? false,
+      weight: meta.weight ?? DEFAULT_TESTCASE_META.weight,
+      isSample: meta.isSample ?? DEFAULT_TESTCASE_META.isSample,
     });
   }
 
@@ -184,7 +185,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
       // expected is optional
     }
 
-    testcases.push({ index, input, expected, weight: 1, isSample: false });
+    testcases.push({ index, input, expected, ...DEFAULT_TESTCASE_META });
   }
 
   return testcases;
@@ -333,7 +334,7 @@ async function main(): Promise<void> {
   try {
     await runJudge(workDir, config);
   } finally {
-    await fs.rm(workDir, { force: true, recursive: true }).catch(() => undefined);
+    await cleanupTempDir(workDir);
   }
 }
 

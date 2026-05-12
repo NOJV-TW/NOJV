@@ -18,3 +18,7 @@ export function createStorageClient(): S3Client {
     forcePathStyle: true,
   });
 }
+
+export function getStorageBaseUrl(): string {
+  return process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT ?? "";
+}

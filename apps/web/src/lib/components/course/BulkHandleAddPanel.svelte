@@ -50,7 +50,7 @@
 </script>
 
 <section
-  class="animate-in animate-in-1 relative overflow-hidden rounded-2xl border border-border-strong bg-[color:var(--color-panel-strong)] p-7 shadow-rest backdrop-blur-md"
+  class="animate-in animate-in-1 relative overflow-hidden rounded-xl border border-border-strong bg-[color:var(--color-panel-strong)] p-5 shadow-rest backdrop-blur-md"
 >
   <div
     class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(196,104,45,0.06),transparent_50%)]"

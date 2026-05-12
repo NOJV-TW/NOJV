@@ -120,8 +120,6 @@ export async function listExamsForCourse(courseId: string): Promise<ExamListItem
   return exams.map(mapExamListItem);
 }
 
-// ── Course exams list page ──────────────────────────────────────────────
-
 export type ExamStatusFilter = "all" | "upcoming" | "running" | "ended" | "draft";
 
 export type ExamRowStatus = "draft" | "upcoming" | "running" | "ended";
@@ -151,7 +149,12 @@ export interface ExamListRow {
   /** Manager view only — null for students. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
   /** Student view only — null for managers. */
-  myStatus: { solved: number; total: number } | null;
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 export interface ExamListCounts {

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { Eye, ImagePlus, Pencil } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
 
   let {
     problemId,
@@ -8,7 +10,7 @@
     class: className = "",
     ...restProps
   }: {
-    problemId: string;
+    problemId?: string;
     name: string;
     value: string;
     class?: string;
@@ -16,8 +18,14 @@
   } = $props();
 
   let textarea: HTMLTextAreaElement;
+  let fileInput: HTMLInputElement;
   let uploading = $state(false);
   let dragOver = $state(false);
+  let previewing = $state(false);
+
+  const uploadUrl = $derived(
+    problemId ? `/api/problems/${problemId}/images` : `/api/uploads/image`,
+  );
 
   async function handleFiles(files: FileList | null) {
     if (!files) return;
@@ -30,7 +38,7 @@
         const form = new FormData();
         form.append("image", file);
 
-        const res = await fetch(`/api/problems/${problemId}/images`, {
+        const res = await fetch(uploadUrl, {
           method: "POST",
           headers: { "X-Requested-With": "fetch" },
           body: form,
@@ -51,6 +59,11 @@
     const before = value.slice(0, start);
     const after = value.slice(textarea.selectionEnd);
     value = before + text + "\n" + after;
+    queueMicrotask(() => {
+      const pos = before.length + text.length + 1;
+      textarea.focus();
+      textarea.setSelectionRange(pos, pos);
+    });
   }
 
   function onDrop(e: DragEvent) {
@@ -66,20 +79,77 @@
       handleFiles(files);
     }
   }
+
+  function onFileChange() {
+    handleFiles(fileInput.files);
+    fileInput.value = "";
+  }
 </script>
 
-<div class="relative">
+<div class="group/imgzone relative">
   <textarea
     bind:this={textarea}
     {name}
     bind:value
     ondrop={onDrop}
-    ondragover={(e) => { e.preventDefault(); dragOver = true; }}
-    ondragleave={() => { dragOver = false; }}
+    ondragover={(e) => {
+      e.preventDefault();
+      dragOver = true;
+    }}
+    ondragleave={() => {
+      dragOver = false;
+    }}
     onpaste={onPaste}
     class="{className} {dragOver ? 'ring-2 ring-primary' : ''}"
+    hidden={previewing}
     {...restProps}
   ></textarea>
+
+  {#if previewing}
+    <div class="{className} overflow-auto" role="region" aria-label={m.imageUpload_preview()}>
+      {#if value.trim()}
+        <MarkdownRenderer content={value} />
+      {:else}
+        <p class="text-sm text-muted-foreground italic">{m.imageUpload_preview()}…</p>
+      {/if}
+    </div>
+  {/if}
+
+  <input
+    bind:this={fileInput}
+    type="file"
+    accept="image/png,image/jpeg,image/gif,image/webp"
+    multiple
+    class="sr-only"
+    onchange={onFileChange}
+  />
+
+  <button
+    type="button"
+    onclick={() => (previewing = !previewing)}
+    title={previewing ? m.imageUpload_write() : m.imageUpload_preview()}
+    aria-label={previewing ? m.imageUpload_write() : m.imageUpload_preview()}
+    aria-pressed={previewing}
+    class="absolute top-2.5 right-3 inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground opacity-40 transition-[opacity,color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-focus-within/imgzone:opacity-100 group-hover/imgzone:opacity-100"
+  >
+    {#if previewing}
+      <Pencil class="h-4 w-4" aria-hidden="true" />
+    {:else}
+      <Eye class="h-4 w-4" aria-hidden="true" />
+    {/if}
+  </button>
+
+  {#if !previewing}
+    <button
+      type="button"
+      onclick={() => fileInput.click()}
+      title={m.imageUpload_button()}
+      aria-label={m.imageUpload_button()}
+      class="absolute bottom-2.5 right-3 inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground opacity-40 transition-[opacity,color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-focus-within/imgzone:opacity-100 group-hover/imgzone:opacity-100"
+    >
+      <ImagePlus class="h-4 w-4" aria-hidden="true" />
+    </button>
+  {/if}
 
   {#if uploading}
     <div

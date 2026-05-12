@@ -25,14 +25,12 @@
   let loading = $state(false);
   let cooldown = $state(0);
 
-  // Countdown timer for resend cooldown
   $effect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => (cooldown -= 1), 1000);
     return () => clearTimeout(timer);
   });
 
-  // Listen for BroadcastChannel verification
   $effect(() => {
     if (phase !== "sent") return;
 

@@ -69,7 +69,7 @@ OUTPUT.write_text(json.dumps({
   </header>
 
   <div class="grid gap-4 md:grid-cols-2">
-    <div class="rounded-xl border border-border-subtle bg-muted/30 p-4 text-body-sm">
+    <div class="rounded-lg border border-border-subtle bg-muted/30 p-2 text-body-sm">
       <p class="font-semibold">{m.admin_systemProvides()}</p>
       <ul class="mt-2 space-y-1 text-body-sm text-muted-foreground">
         <li>
@@ -88,7 +88,7 @@ OUTPUT.write_text(json.dumps({
       </p>
     </div>
 
-    <div class="rounded-xl border border-border-subtle bg-muted/30 p-4 text-body-sm">
+    <div class="rounded-lg border border-border-subtle bg-muted/30 p-2 text-body-sm">
       <p class="font-semibold">{m.admin_mustOutput()}</p>
       <ul class="mt-2 space-y-1 text-body-sm text-muted-foreground">
         <li>
@@ -96,7 +96,7 @@ OUTPUT.write_text(json.dumps({
         </li>
       </ul>
       <pre
-        class="mt-3 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-caption leading-5 text-foreground">{`{
+        class="mt-3 overflow-x-auto rounded-md bg-muted p-3 font-mono text-caption leading-5 text-foreground">{`{
   "score": 85,               // 0 ~ 100
   "verdict": "wrong_answer", // accepted | wrong_answer | tle | mle | re | ce
   "feedback": "5/6 passed",  // optional
@@ -122,7 +122,7 @@ OUTPUT.write_text(json.dumps({
       </button>
     </div>
     <pre
-      class="overflow-x-auto rounded-xl border border-border-subtle bg-muted/40 p-4 font-mono text-caption leading-5 text-foreground">{dockerfileExample}</pre>
+      class="overflow-x-auto rounded-lg border border-border-subtle bg-muted/40 p-2 font-mono text-caption leading-5 text-foreground">{dockerfileExample}</pre>
   </div>
 
   <div class="space-y-3">
@@ -137,6 +137,6 @@ OUTPUT.write_text(json.dumps({
       </button>
     </div>
     <pre
-      class="overflow-x-auto rounded-xl border border-border-subtle bg-muted/40 p-4 font-mono text-caption leading-5 text-foreground">{graderExample}</pre>
+      class="overflow-x-auto rounded-lg border border-border-subtle bg-muted/40 p-2 font-mono text-caption leading-5 text-foreground">{graderExample}</pre>
   </div>
 </section>

@@ -85,7 +85,6 @@
 </script>
 
 <div class="flex h-full flex-col">
-  <!-- Bottom tabs -->
   <div class="flex items-center border-b border-border-subtle px-2">
     <button
       class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab === 'testcase'
@@ -134,7 +133,6 @@
     {/if}
   </div>
 
-  <!-- Bottom content -->
   <div class="flex-1 overflow-y-auto px-4 py-3">
     {#if tab === "testcase"}
       {#if readOnly}
@@ -236,7 +234,7 @@
               <div class="mt-3 flex items-center gap-1">
                 {#each runResult.caseResults as cr, index (`rc-${index}`)}
                   <button
-                    class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedResultCase ===
+                    class="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-caption font-medium transition-[background-color,color] duration-fast ease-out-soft {selectedResultCase ===
                     index
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:text-foreground'}"
@@ -256,7 +254,7 @@
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">{m.editor_input()}</p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.input}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.input}</pre>
                   </div>
                 {/if}
 
@@ -265,13 +263,13 @@
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">{m.editor_outputLabel()}</p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{caseData.stdout || "(empty)"}</pre>
                   </div>
                   {#if caseData.stderr}
                     <div>
                       <p class="text-caption font-medium text-destructive">Stderr</p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-lg bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
+                        class="mt-1 overflow-x-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
                     </div>
                   {/if}
                 {/if}
@@ -282,7 +280,7 @@
                       {m.editor_expectLabel()}
                     </p>
                     <pre
-                      class="mt-1 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.expectedOutput}</pre>
+                      class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[selectedResultCase]!.expectedOutput}</pre>
                   </div>
                 {/if}
               </div>

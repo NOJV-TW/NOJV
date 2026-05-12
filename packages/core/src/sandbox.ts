@@ -1,7 +1,5 @@
 import type { JudgeType, Language, ProblemType } from "./types";
 
-// --- Sandbox request ---
-
 export interface SandboxTestcase {
   index: number;
   input: string;
@@ -51,8 +49,6 @@ export interface SandboxRequest {
   advanced?: SandboxAdvancedRequest;
 }
 
-// --- Sandbox result ---
-
 export const sandboxVerdicts = ["AC", "WA", "TLE", "MLE", "RE", "SE"] as const;
 export type SandboxVerdict = (typeof sandboxVerdicts)[number];
 
@@ -63,6 +59,10 @@ export interface SandboxTestcaseResult {
   stderr: string;
   exitCode: number;
   timeMs: number;
+  // Peak resident set size (kB) observed for the user program during this
+  // testcase. Undefined when measurement was not possible (compile failure,
+  // advanced-mode TA image, /proc unavailable).
+  memoryKb?: number;
   score?: number;
   feedback?: string;
 }
@@ -79,8 +79,6 @@ export interface SandboxExecutor {
   execute(request: SandboxRequest): Promise<SandboxResult>;
 }
 
-// --- Path security ---
-
 /** Normalize a relative file path, rejecting traversal attacks and invalid segments. */
 export function normalizeRelativePath(rawPath: string): string | null {
   const normalized = rawPath.replaceAll("\\", "/").replace(/^\.\/+/, "");
@@ -96,8 +94,6 @@ export function normalizeRelativePath(rawPath: string): string | null {
 
   return segments.join("/");
 }
-
-// --- Language file mapping ---
 
 export const sourceFileNames: Record<Language, string> = {
   c: "main.c",

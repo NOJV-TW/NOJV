@@ -76,12 +76,12 @@
 
 {#if rows.length === 0}
   <div
-    class="rounded-lg border border-dashed border-border-strong bg-[color:var(--color-panel)]/40 px-4 py-6 text-center text-caption text-muted-foreground"
+    class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/40 px-4 py-6 text-center text-caption text-muted-foreground"
   >
     {m.override_staff_emptyList()}
   </div>
 {:else}
-  <div class="overflow-hidden rounded-lg border border-border">
+  <div class="overflow-hidden rounded-md border border-border">
     <table class="w-full text-body-sm">
       <thead class="bg-muted/40 text-caption uppercase tracking-wide text-muted-foreground">
         <tr>

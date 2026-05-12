@@ -73,6 +73,7 @@ export const testcaseResultItemSchema = z.object({
   stderr: z.string().max(MAX_CASE_STDERR_BYTES).optional(),
   stdout: z.string().max(MAX_CASE_STDOUT_BYTES),
   timeMs: z.number().int().nonnegative(),
+  memoryKb: z.number().int().nonnegative().optional(),
 });
 
 export const subtaskCaseResultSchema = z.object({
@@ -97,6 +98,7 @@ export const submissionResultSchema = z.object({
   caseResults: z.array(testcaseResultItemSchema).max(10_000).optional(),
   feedback: z.string().min(1).max(MAX_FEEDBACK_LEN),
   runtimeMs: z.number().int().nonnegative(),
+  memoryKb: z.number().int().nonnegative().optional(),
   score: z.number().int().min(0).max(100),
   subtaskResults: z.array(subtaskResultItemSchema).max(1_000).optional(),
   verdict: submissionVerdictSchema,

@@ -18,10 +18,6 @@ export interface NotificationSSEEvent {
   createdAt: string;
 }
 
-export function userChannel(userId: string): string {
-  return `user:${userId}`;
-}
-
 const submissionVerdictEventSchema = z.object({
   type: z.literal(SSE_SUBMISSION_VERDICT),
   submissionId: z.string(),

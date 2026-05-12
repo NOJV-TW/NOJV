@@ -58,7 +58,7 @@
 {#if prefersReducedMotion}
   <div
     class={cn(
-      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm"
+      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm"
     )}
     role={isError ? "alert" : "status"}
     aria-live={isError ? "assertive" : "polite"}
@@ -70,7 +70,7 @@
 {:else}
   <div
     class={cn(
-      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm"
+      "pointer-events-auto flex min-w-[280px] max-w-[420px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-hover backdrop-blur-sm"
     )}
     role={isError ? "alert" : "status"}
     aria-live={isError ? "assertive" : "polite"}

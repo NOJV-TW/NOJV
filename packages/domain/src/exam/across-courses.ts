@@ -1,6 +1,8 @@
 import { courseMembershipRepo, examRepo } from "@nojv/db";
 import type { ContestScoringMode } from "@nojv/core";
 
+import { aggregateExamMyStatus } from "../shared/list-aggregations";
+
 // Drafts are excluded — they only live inside the per-course exams page.
 export type ExamAcrossStatus = "running" | "upcoming" | "ended";
 
@@ -19,6 +21,13 @@ export interface ExamAcrossRow {
   durationMinutes: number;
   scoringMode: ContestScoringMode;
   problemCount: number;
+  /** Student score so far — null if no attempts and exam hasn't ended. */
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 export interface ExamAcrossCounts {
@@ -91,6 +100,7 @@ export async function listExamsAcrossCoursesForUser(
       durationMinutes,
       scoringMode: e.scoringMode,
       problemCount: e._count.problems,
+      myStatus: null,
     };
   });
 
@@ -103,6 +113,19 @@ export async function listExamsAcrossCoursesForUser(
 
   const filtered = filter === "all" ? rows : rows.filter((r) => r.status === filter);
   filtered.sort((a, b) => rankRow(a, now) - rankRow(b, now));
+
+  // Pull score/totalPoints for scoreable rows (running or ended — students see
+  // their best score so far; upcoming has no submissions yet).
+  const scoreable = filtered.filter((r) => r.status !== "upcoming");
+  if (scoreable.length > 0) {
+    const my = await aggregateExamMyStatus(
+      userId,
+      scoreable.map((r) => ({ id: r.id, problemCount: r.problemCount })),
+    );
+    for (const r of scoreable) {
+      r.myStatus = my.get(r.id) ?? null;
+    }
+  }
 
   return { rows: filtered, counts };
 }

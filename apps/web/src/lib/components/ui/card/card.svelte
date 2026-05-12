@@ -14,10 +14,10 @@
 				outline: "bg-transparent border-border-strong",
 			},
 			size: {
-				sm: "rounded-lg p-4 gap-3",
-				md: "rounded-xl p-6 gap-4",
-				lg: "rounded-2xl p-6 gap-5",
-				hero: "rounded-3xl p-8 gap-6",
+				sm: "rounded-md p-3 gap-3",
+				md: "rounded-lg p-4 gap-4",
+				lg: "rounded-xl p-4 gap-5",
+				hero: "rounded-2xl p-6 gap-6",
 			},
 			interactive: {
 				true: "cursor-pointer hover:-translate-y-px hover:shadow-hover motion-safe:will-change-transform",

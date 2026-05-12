@@ -16,7 +16,7 @@
 	data-slot="skeleton-stat"
 	aria-hidden="true"
 	class={cn(
-		"flex flex-col gap-3 rounded-xl border border-border bg-[color:var(--color-panel)] p-6",
+		"flex flex-col gap-3 rounded-lg border border-border bg-[color:var(--color-panel)] p-4",
 		className,
 	)}
 >

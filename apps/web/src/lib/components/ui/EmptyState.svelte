@@ -48,7 +48,7 @@
 		class={cn("flex flex-col items-center justify-center py-12 text-center", className)}
 	>
 		<div
-			class="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10"
+			class="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/10"
 		>
 			<Icon class="h-8 w-8 text-primary" />
 		</div>
@@ -100,7 +100,7 @@
 		class={cn("flex flex-col items-center justify-center py-16 text-center", className)}
 	>
 		<div
-			class="flex h-14 w-14 items-center justify-center rounded-xl bg-muted/60"
+			class="flex h-14 w-14 items-center justify-center rounded-lg bg-muted/60"
 		>
 			<Icon class="h-7 w-7 text-muted-foreground/70" />
 		</div>

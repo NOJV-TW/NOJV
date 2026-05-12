@@ -1,12 +1,13 @@
 import { spawn } from "node:child_process";
 import type { TestcaseResult } from "../types.js";
-import { createBoundedBuffer, withProcessLimit } from "../utils.js";
+import { createBoundedBuffer, createMemoryPoller, withProcessLimit } from "../utils.js";
 
 export interface RunProcessResult {
   stdout: string;
   stderr: string;
   exitCode: number;
   timeMs: number;
+  memoryKb: number;
   timedOut: boolean;
   signal: string | null;
   spawnError: boolean;
@@ -30,6 +31,7 @@ export function runProcess(
         stderr: "Empty run command.",
         exitCode: -1,
         timeMs: 0,
+        memoryKb: 0,
         timedOut: false,
         signal: null,
         spawnError: true,
@@ -47,7 +49,8 @@ export function runProcess(
 
     const stdoutBuf = createBoundedBuffer();
     const stderrBuf = createBoundedBuffer();
-    let killed = false;
+    const memoryPoller = typeof proc.pid === "number" ? createMemoryPoller(proc.pid) : null;
+    let forceKilledViaFallbackTimer = false;
 
     proc.stdout!.on("data", (chunk: Buffer) => {
       stdoutBuf.push(chunk);
@@ -64,7 +67,7 @@ export function runProcess(
 
     // Fallback timer in case spawn timeout doesn't fire
     const timer = setTimeout(() => {
-      killed = true;
+      forceKilledViaFallbackTimer = true;
       proc.kill("SIGKILL");
     }, options.timeoutMs + 500);
 
@@ -75,12 +78,15 @@ export function runProcess(
       // classified as TLE when the limit is 1000ms. The spawn-level timeout
       // and the SIGKILL fallback are the authoritative cut-offs.
       const elapsedMs = performance.now() - startTime;
+      const memoryKb = memoryPoller?.stop() ?? 0;
       resolve({
         stdout: stdoutBuf.toString(),
         stderr: stderrBuf.toString(),
         exitCode: code ?? -1,
         timeMs: Math.round(elapsedMs),
-        timedOut: killed || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
+        memoryKb,
+        timedOut:
+          forceKilledViaFallbackTimer || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
         spawnError: false,
       });
@@ -88,11 +94,13 @@ export function runProcess(
 
     proc.on("error", (err) => {
       clearTimeout(timer);
+      const memoryKb = memoryPoller?.stop() ?? 0;
       resolve({
         stdout: "",
         stderr: `Failed to spawn process: ${err.message}`,
         exitCode: -1,
         timeMs: Math.round(performance.now() - startTime),
+        memoryKb,
         timedOut: false,
         signal: null,
         spawnError: true,
@@ -112,6 +120,7 @@ export function classifySolutionVerdict(
     stderr: result.stderr,
     exitCode: result.exitCode,
     timeMs: result.timeMs,
+    ...(result.memoryKb > 0 ? { memoryKb: result.memoryKb } : {}),
   };
 
   if (result.spawnError) return { ...base, verdict: "SE" };

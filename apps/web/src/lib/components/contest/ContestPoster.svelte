@@ -7,7 +7,7 @@
   interface Props {
     href: string;
     code: string;
-    format: string;
+    scoringLabel: string;
     status: "upcoming" | "live" | "ended";
     title: string;
     summary: string;
@@ -21,7 +21,7 @@
   let {
     href,
     code,
-    format,
+    scoringLabel,
     status,
     title,
     summary,
@@ -37,7 +37,7 @@
 
 <a
   {href}
-  class="group relative glass hover-lift rounded-2xl shadow-rest overflow-hidden fade-up block"
+  class="group relative glass hover-lift rounded-xl shadow-rest overflow-hidden fade-up block"
   style="animation-delay: {delay}ms; {isLive
     ? 'border-color: color-mix(in oklab, var(--destructive) 30%, transparent); border-width: 2px;'
     : ''}"
@@ -61,7 +61,7 @@
         </span>
         <span class="opacity-40 text-micro">·</span>
         <span class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {format}
+          {scoringLabel}
         </span>
         <StatusPill {status} type="contest" />
       </div>
@@ -91,7 +91,6 @@
       </div>
     </div>
 
-    <!-- Right CTA panel -->
     <div
       class="self-stretch flex flex-col items-end justify-between p-6 sm:pl-6 lg:pr-7 sm:min-w-[260px] border-t sm:border-t-0 sm:border-l"
       style="border-color: var(--border-subtle); {isLive

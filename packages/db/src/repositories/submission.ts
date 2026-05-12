@@ -11,6 +11,28 @@ import {
 
 type TxClient = TransactionClient;
 
+// Shared list shape for contest / exam submission feeds — identical columns,
+// different scoping. Keep extracted so adding a column updates one place.
+const contestExamListSelect = {
+  id: true,
+  createdAt: true,
+  language: true,
+  score: true,
+  status: true,
+  runtimeMs: true,
+  problem: { select: problemMiniSelect },
+  user: { select: userMiniSelect },
+} satisfies Prisma.SubmissionSelect;
+
+// Scoring base — chart, scoreboard, and per-participation scoring share these
+// four columns; each method spreads it and adds the nesting it needs.
+const scoringBaseSelect = {
+  createdAt: true,
+  problemId: true,
+  score: true,
+  status: true,
+} satisfies Prisma.SubmissionSelect;
+
 export const submissionRepo = {
   findById(id: string) {
     return prisma.submission.findUnique({ where: { id } });
@@ -246,6 +268,19 @@ export const submissionRepo = {
     });
   },
 
+  groupBestScoresByAssessmentForUser(opts: { assessmentIds: string[]; userId: string }) {
+    if (opts.assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["courseAssessmentId", "problemId"],
+      _max: { score: true },
+      where: {
+        courseAssessmentId: { in: opts.assessmentIds },
+        userId: opts.userId,
+        sampleOnly: false,
+      },
+    });
+  },
+
   groupBestScoresByExam(examIds: string[]) {
     if (examIds.length === 0) return Promise.resolve([]);
     return prisma.submission.groupBy({
@@ -272,6 +307,19 @@ export const submissionRepo = {
     });
   },
 
+  groupBestScoresByExamForUser(opts: { examIds: string[]; userId: string }) {
+    if (opts.examIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["examId", "problemId"],
+      _max: { score: true },
+      where: {
+        examId: { in: opts.examIds },
+        userId: opts.userId,
+        sampleOnly: false,
+      },
+    });
+  },
+
   groupByProblemAndStatus(userId: string, problemIds: string[]) {
     return prisma.submission.groupBy({
       by: ["problemId", "status"],
@@ -288,16 +336,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { contestId: opts.contestId, sampleOnly: false },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        createdAt: true,
-        language: true,
-        score: true,
-        status: true,
-        runtimeMs: true,
-        problem: { select: problemMiniSelect },
-        user: { select: userMiniSelect },
-      },
+      select: contestExamListSelect,
       take: opts.take ?? 100,
     });
   },
@@ -306,16 +345,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { examId: opts.examId, sampleOnly: false },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        createdAt: true,
-        language: true,
-        score: true,
-        status: true,
-        runtimeMs: true,
-        problem: { select: problemMiniSelect },
-        user: { select: userMiniSelect },
-      },
+      select: contestExamListSelect,
       take: opts.take ?? 100,
     });
   },
@@ -324,11 +354,8 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: {
+        ...scoringBaseSelect,
         contestParticipation: { select: { userId: true } },
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
       },
       where: {
         contestParticipationId: { in: participationIds },
@@ -341,11 +368,8 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: {
+        ...scoringBaseSelect,
         contestParticipationId: true,
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
       },
       where: {
         contestParticipationId: { in: participationIds },
@@ -357,12 +381,7 @@ export const submissionRepo = {
   findForParticipationScoring(participationId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
-      select: {
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
-      },
+      select: scoringBaseSelect,
       where: {
         contestParticipationId: participationId,
         sampleOnly: false,
@@ -574,6 +593,17 @@ export const submissionRepo = {
 
   create(data: Prisma.SubmissionCreateInput) {
     return prisma.submission.create({ data });
+  },
+
+  countForUserAndAssessmentSince(userId: string, courseAssessmentId: string, sinceTime: Date) {
+    return prisma.submission.count({
+      where: {
+        userId,
+        courseAssessmentId,
+        sampleOnly: false,
+        createdAt: { gte: sinceTime },
+      },
+    });
   },
 
   withTx(tx: TxClient) {
