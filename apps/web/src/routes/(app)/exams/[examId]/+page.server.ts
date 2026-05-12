@@ -86,7 +86,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         })
       : null;
 
-  const results: ExamResultsData | null = matrix ? buildExamResults(matrix, actor.userId) : null;
+  const results: ExamResultsData | null = matrix
+    ? buildExamResults(matrix, actor.userId)
+    : null;
 
   // The layout gate already accepted this exam for the viewer; treat a
   // null payload here (draft hidden from students, archived, etc.) as a

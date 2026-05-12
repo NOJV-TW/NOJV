@@ -125,9 +125,9 @@ const ROUTE_PATTERNS: {
     build: (params) => (params.examId ? { kind: "exam", examId: params.examId } : null),
   },
   {
-    prefix: "/(app)/assignments/[assessmentId]/problems/[problemId]",
+    prefix: "/(app)/assignments/[assignmentId]/problems/[problemId]",
     build: (params) =>
-      params.assessmentId ? { kind: "assignment", assessmentId: params.assessmentId } : null,
+      params.assignmentId ? { kind: "assignment", assessmentId: params.assignmentId } : null,
   },
   {
     prefix: "/(app)/contests/[contestId]/problems/[problemId]",

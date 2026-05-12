@@ -26,7 +26,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actorContext = requireAuth(event);
 
   // Practice mode only — assignment/contest/exam solves now have their
-  // own route trees (`/assignments/[assessmentId]/problems/...`,
+  // own route trees (`/assignments/[assignmentId]/problems/...`,
   // `/contests/[contestId]/problems/...`, `/exams/[examId]/problems/...`).
   const problemRow = await getProblemRowById(problemId);
 
