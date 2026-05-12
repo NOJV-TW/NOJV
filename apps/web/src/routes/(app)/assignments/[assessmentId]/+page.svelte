@@ -5,6 +5,7 @@
   import { formatDateTimeCompact, fmtDate, fmtWeekday } from "$lib/utils/datetime";
   import AssignmentProblemsTab from "$lib/components/course/assignment/AssignmentProblemsTab.svelte";
   import AssignmentSubmissionsMatrix from "$lib/components/course/assignment/AssignmentSubmissionsMatrix.svelte";
+  import AssignmentResultsTab from "$lib/components/course/assignment/AssignmentResultsTab.svelte";
   import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -25,7 +26,13 @@
 
   const detail = $derived(data.detail);
 
-  type SubTabKey = "problems" | "submissions" | "plagiarism" | "settings" | "clarifications";
+  type SubTabKey =
+    | "problems"
+    | "submissions"
+    | "results"
+    | "plagiarism"
+    | "settings"
+    | "clarifications";
   let activeSubTab = $state<SubTabKey>("submissions");
 
   const clarificationProblems = $derived(
@@ -61,6 +68,7 @@
           count: data.matrix.studentCount
         }
       : { key: "submissions", label: m.assignmentDetail_tabSubmissions() },
+    { key: "results", label: m.assignmentDetail_tabResults() },
     { key: "plagiarism", label: m.assignmentDetail_tabPlagiarism() },
     { key: "settings", label: m.assignmentDetail_tabSettings() },
     ...(clarificationEnabled
@@ -500,6 +508,8 @@
             courseId={detail.courseId}
             assessmentId={detail.id}
           />
+        {:else if activeSubTab === "results" && data.results}
+          <AssignmentResultsTab data={data.results} />
         {:else if activeSubTab === "plagiarism"}
           <AssignmentPlagiarismReport
             report={data.plagiarism}

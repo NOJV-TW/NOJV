@@ -35,17 +35,24 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     error(404, "Problem not found in this assignment.");
   }
 
-  const solveProps = await loadProblemSolveData(problemId, actor, {
-    kind: "assessment",
-    assessmentId: assessment.id,
-    courseId: assessment.courseId,
-    allowedLanguages: assessment.allowedLanguages,
-    backLink: {
-      href: `/assignments/${assessment.id}`,
-      type: "assignment",
-    },
-    problemInScope: true,
-  });
+  const [solveProps, siblingProblems] = await Promise.all([
+    loadProblemSolveData(problemId, actor, {
+      kind: "assessment",
+      assessmentId: assessment.id,
+      courseId: assessment.courseId,
+      allowedLanguages: assessment.allowedLanguages,
+      backLink: {
+        href: `/assignments/${assessment.id}`,
+        type: "assignment",
+      },
+      problemInScope: true,
+    }),
+    assessmentDomain.listAssessmentProblemSiblings({
+      assessmentId: assessment.id,
+      activeProblemId: problemId,
+      actorUserId: actor.userId,
+    }),
+  ]);
 
   const dailyAttempts = isManager
     ? null
@@ -57,5 +64,5 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         max: assessment.maxAttemptsPerDay,
       };
 
-  return { solveProps, isEnded, dailyAttempts };
+  return { solveProps, siblingProblems, isEnded, dailyAttempts };
 });
