@@ -61,3 +61,17 @@ export function readStringField(raw: FormDataEntryValue | null, fieldName: strin
   if (typeof raw !== "string") error(400, `Missing ${fieldName}`);
   return raw;
 }
+
+export function toDateTimeLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function toIsoOrUndefined(local: string): string | undefined {
+  if (!local) return undefined;
+  const date = new Date(local);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}

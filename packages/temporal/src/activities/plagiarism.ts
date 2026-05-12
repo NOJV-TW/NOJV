@@ -5,7 +5,7 @@ import { File } from "@dodona/dolos-core";
 
 import { plagiarismDomain } from "@nojv/domain";
 
-type PlagiarismTargetType = "courseAssessment" | "exam";
+type PlagiarismTargetType = "courseAssessment" | "exam" | "contest";
 
 const DOLOS_LANGUAGE_MAP: Record<string, string> = {
   c: "c",
