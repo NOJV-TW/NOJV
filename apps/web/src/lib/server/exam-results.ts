@@ -1,6 +1,6 @@
-import { examDomain } from "@nojv/domain";
+import type { examDomain } from "@nojv/domain";
 
-const { getExamSubmissionsMatrix } = examDomain;
+import { buildScoreStats, type ScoreStats } from "./shared/score-stats";
 
 export interface ExamResultProblemCol {
   id: string;
@@ -18,41 +18,15 @@ export interface ExamResultRow {
   me: boolean;
 }
 
-export interface ExamResultBucket {
-  label: string;
-  count: number;
-}
-
-export interface ExamResultsData {
+export interface ExamResultsData extends ScoreStats {
   problems: ExamResultProblemCol[];
   rows: ExamResultRow[];
-  classAvg: number;
-  median: number;
-  max: number;
-  min: number;
-  submitted: number;
-  total: number;
-  buckets: ExamResultBucket[];
 }
 
-function median(nums: number[]): number {
-  if (nums.length === 0) return 0;
-  const sorted = [...nums].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    const a = sorted[mid - 1] ?? 0;
-    const b = sorted[mid] ?? 0;
-    return Math.round((a + b) / 2);
-  }
-  return sorted[mid] ?? 0;
-}
-
-export async function buildResultsData(
-  examId: string,
+export function buildExamResults(
+  matrix: examDomain.ExamMatrixData,
   viewerUserId: string,
-): Promise<ExamResultsData> {
-  const matrix = await getExamSubmissionsMatrix(examId);
-
+): ExamResultsData {
   const problems: ExamResultProblemCol[] = matrix.problems.map((p) => ({
     id: p.problemId,
     letter: p.letter,
@@ -79,41 +53,7 @@ export async function buildResultsData(
   });
 
   const totals = rows.map((r) => r.total);
-  const submitted = rows.filter((r) => r.total > 0).length;
-  const total = matrix.studentCount;
-  const classAvg =
-    totals.length > 0 ? Math.round(totals.reduce((s, n) => s + n, 0) / totals.length) : 0;
-  const med = median(totals);
-  const max = totals.length > 0 ? Math.max(...totals) : 0;
-  const min = totals.length > 0 ? Math.min(...totals) : 0;
+  const stats = buildScoreStats(totals, matrix.studentCount, matrix.totalPoints);
 
-  const buckets: ExamResultBucket[] = [
-    { label: "90-100", count: 0 },
-    { label: "80-89", count: 0 },
-    { label: "70-79", count: 0 },
-    { label: "60-69", count: 0 },
-    { label: "<60", count: 0 },
-  ];
-  for (const t of totals) {
-    let idx: number;
-    if (t >= 90) idx = 0;
-    else if (t >= 80) idx = 1;
-    else if (t >= 70) idx = 2;
-    else if (t >= 60) idx = 3;
-    else idx = 4;
-    const bucket = buckets[idx];
-    if (bucket) bucket.count++;
-  }
-
-  return {
-    problems,
-    rows,
-    classAvg,
-    median: med,
-    max,
-    min,
-    submitted,
-    total,
-    buckets,
-  };
+  return { ...stats, problems, rows };
 }

@@ -54,6 +54,7 @@ export interface ContestDetailData {
   submitCooldownSec: number;
   summary: string;
   title: string;
+  visibility: "draft" | "published" | "archived";
 }
 
 export interface ContestWorkspaceData extends ContestDetailData {
@@ -112,6 +113,7 @@ function mapContestDetail(contest: ContestDetailRow): ContestDetailBase {
     submitCooldownSec: contest.submitCooldownSec,
     summary: contest.summary,
     title: contest.title,
+    visibility: contest.visibility,
   };
 }
 

@@ -213,7 +213,7 @@ describe("copyCourse — happy path", () => {
   beforeEach(() => primeSuccessPath());
 
   it("creates a new course with the suffixed title and returns its id", async () => {
-    const result = await copyCourse(teacherActor, sourceCourse.id);
+    const result = await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
 
     expect(result).toEqual({ newCourseId: "course_new" });
     expect(courseCreate).toHaveBeenCalledTimes(1);
@@ -226,7 +226,7 @@ describe("copyCourse — happy path", () => {
   });
 
   it("adds the actor as the sole teacher of the new course", async () => {
-    await copyCourse(teacherActor, sourceCourse.id);
+    await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
     expect(membershipCreate).toHaveBeenCalledTimes(1);
     const m = membershipCreate.mock.calls[0][0];
     expect(m.courseId).toBe("course_new");
@@ -236,7 +236,7 @@ describe("copyCourse — happy path", () => {
   });
 
   it("clones each assessment with status reset to draft and full field carryover", async () => {
-    await copyCourse(teacherActor, sourceCourse.id);
+    await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
 
     expect(assessmentCreate).toHaveBeenCalledTimes(1);
     const clone = assessmentCreate.mock.calls[0][0];
@@ -254,7 +254,7 @@ describe("copyCourse — happy path", () => {
   });
 
   it("re-attaches each assessment problem with the same ordinal and points", async () => {
-    await copyCourse(teacherActor, sourceCourse.id);
+    await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
 
     expect(assessmentProblemCreate).toHaveBeenCalledTimes(2);
     const calls = assessmentProblemCreate.mock.calls.map((c) => c[0]);
@@ -265,7 +265,7 @@ describe("copyCourse — happy path", () => {
   });
 
   it("clones each exam with status reset to draft and proctoring fields preserved", async () => {
-    await copyCourse(teacherActor, sourceCourse.id);
+    await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
 
     expect(examCreate).toHaveBeenCalledTimes(1);
     const clone = examCreate.mock.calls[0][0];
@@ -288,7 +288,7 @@ describe("copyCourse — happy path", () => {
   });
 
   it("re-attaches each exam problem with the same ordinal and points", async () => {
-    await copyCourse(teacherActor, sourceCourse.id);
+    await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
 
     expect(examProblemCreate).toHaveBeenCalledTimes(1);
     const call = examProblemCreate.mock.calls[0][0];
@@ -315,7 +315,7 @@ describe("copyCourse — happy path", () => {
       platformRole: adminActor.platformRole,
     });
 
-    const result = await copyCourse(adminActor, sourceCourse.id);
+    const result = await copyCourse(adminActor, sourceCourse.id, "Algorithms 101 (copy)");
     expect(result.newCourseId).toBe("course_new");
   });
 });
@@ -323,7 +323,9 @@ describe("copyCourse — happy path", () => {
 describe("copyCourse — authorization", () => {
   it("throws NotFoundError when the source course does not exist", async () => {
     courseFindById.mockResolvedValue(null);
-    await expect(copyCourse(teacherActor, "course_missing")).rejects.toThrow(NotFoundError);
+    await expect(
+      copyCourse(teacherActor, "course_missing", "Algorithms 101 (copy)"),
+    ).rejects.toThrow(NotFoundError);
     expect(courseCreate).not.toHaveBeenCalled();
   });
 
@@ -336,7 +338,9 @@ describe("copyCourse — authorization", () => {
       status: "active",
     });
 
-    await expect(copyCourse(studentActor, sourceCourse.id)).rejects.toThrow(ForbiddenError);
+    await expect(
+      copyCourse(studentActor, sourceCourse.id, "Algorithms 101 (copy)"),
+    ).rejects.toThrow(ForbiddenError);
     expect(courseCreate).not.toHaveBeenCalled();
   });
 
@@ -344,7 +348,9 @@ describe("copyCourse — authorization", () => {
     courseFindById.mockResolvedValue(sourceCourse);
     membershipFindByComposite.mockResolvedValue(null);
 
-    await expect(copyCourse(studentActor, sourceCourse.id)).rejects.toThrow(ForbiddenError);
+    await expect(
+      copyCourse(studentActor, sourceCourse.id, "Algorithms 101 (copy)"),
+    ).rejects.toThrow(ForbiddenError);
     expect(courseCreate).not.toHaveBeenCalled();
   });
 
@@ -357,7 +363,9 @@ describe("copyCourse — authorization", () => {
       status: "removed",
     });
 
-    await expect(copyCourse(teacherActor, sourceCourse.id)).rejects.toThrow(ForbiddenError);
+    await expect(
+      copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)"),
+    ).rejects.toThrow(ForbiddenError);
     expect(courseCreate).not.toHaveBeenCalled();
   });
 });
@@ -368,7 +376,7 @@ describe("copyCourse — empty source course", () => {
     assessmentListWithProblems.mockResolvedValue([]);
     examListWithProblems.mockResolvedValue([]);
 
-    const result = await copyCourse(teacherActor, sourceCourse.id);
+    const result = await copyCourse(teacherActor, sourceCourse.id, "Algorithms 101 (copy)");
     expect(result.newCourseId).toBe("course_new");
     expect(assessmentCreate).not.toHaveBeenCalled();
     expect(assessmentProblemCreate).not.toHaveBeenCalled();

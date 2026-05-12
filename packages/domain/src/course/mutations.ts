@@ -18,7 +18,7 @@ import type {
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
@@ -277,18 +277,26 @@ export async function setCourseArchived(
 export async function copyCourse(
   actor: ActorContext,
   sourceCourseId: string,
+  newTitle: string,
 ): Promise<{ newCourseId: string }> {
+  const trimmedTitle = newTitle.trim();
+  if (trimmedTitle.length === 0) {
+    throw new ValidationError("New course title is required.");
+  }
+  if (trimmedTitle.length > 120) {
+    throw new ValidationError("New course title must be 120 characters or fewer.");
+  }
+
   return runTransaction(async (tx) => {
     const source = await requireCourse(tx, sourceCourseId);
     await assertCourseManager(tx, actor, source.id);
 
     const owner = await ensureUser(tx, actor.userId, actor);
 
-    // 1. New Course (title suffixed, archived reset, new owner = actor).
     const newCourse = await courseRepo.withTx(tx).create({
       description: source.description,
       ownerId: owner.id,
-      title: `${source.title} (copy)`,
+      title: trimmedTitle,
       ...(source.academicYear != null ? { academicYear: source.academicYear } : {}),
       ...(source.semester != null ? { semester: source.semester } : {}),
     });

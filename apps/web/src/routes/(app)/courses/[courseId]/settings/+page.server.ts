@@ -10,8 +10,14 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 
-const { findCourseWithMembership, updateCourse, deleteCourse, setCourseArchived, copyCourse } =
-  courseDomain;
+const {
+  findCourseWithMembership,
+  updateCourse,
+  deleteCourse,
+  setCourseArchived,
+  copyCourse,
+  getCopyCoursePreview,
+} = courseDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
@@ -27,20 +33,24 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     redirect(302, `/courses/${course.id}`);
   }
 
-  const form = await superValidate(
-    {
-      description: fullCourse.description,
-      title: fullCourse.title,
-      academicYear: fullCourse.academicYear,
-      semester: fullCourse.semester,
-    },
-    zod4(courseUpdateSchema),
-  );
+  const [form, copyPreview] = await Promise.all([
+    superValidate(
+      {
+        description: fullCourse.description,
+        title: fullCourse.title,
+        academicYear: fullCourse.academicYear,
+        semester: fullCourse.semester,
+      },
+      zod4(courseUpdateSchema),
+    ),
+    getCopyCoursePreview(course.id),
+  ]);
 
   return {
     form,
     courseDescription: fullCourse.description,
     archived: fullCourse.archived,
+    copyPreview,
   };
 });
 
@@ -72,9 +82,15 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
+    const formData = await event.request.formData();
+    const newTitle = formData.get("newTitle");
+    if (typeof newTitle !== "string") {
+      return fail(400, { error: "missing_title" });
+    }
+
     let newCourseId: string;
     try {
-      const result = await copyCourse(actor, courseId);
+      const result = await copyCourse(actor, courseId, newTitle);
       newCourseId = result.newCourseId;
     } catch (err) {
       const classified = classifyError(err);

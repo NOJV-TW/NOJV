@@ -216,6 +216,20 @@ export const assessmentRepo = {
     return prisma.courseAssessment.count();
   },
 
+  async copyPreviewByCourseId(courseId: string) {
+    const rows = await prisma.courseAssessment.findMany({
+      where: { courseId },
+      select: { status: true, _count: { select: { problems: true } } },
+    });
+    let problemLinks = 0;
+    const byStatus = { draft: 0, published: 0, archived: 0 };
+    for (const r of rows) {
+      byStatus[r.status as keyof typeof byStatus] += 1;
+      problemLinks += r._count.problems;
+    }
+    return { total: rows.length, byStatus, problemLinks };
+  },
+
   update(id: string, data: Prisma.CourseAssessmentUpdateInput) {
     return prisma.courseAssessment.update({
       data,

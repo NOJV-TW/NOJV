@@ -20,7 +20,8 @@ import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { buildResultsData, type ExamResultsData } from "$lib/server/exam-results";
+import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
+import { buildExamResults, type ExamResultsData } from "$lib/server/exam-results";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -33,24 +34,11 @@ const {
   updateExamRecord,
 } = examDomain;
 
-function toDateTimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 function parseWhitelist(text: string): string[] {
   return text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-}
-
-function toIsoOrUndefined(local: string): string | undefined {
-  if (!local) return undefined;
-  const date = new Date(local);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return date.toISOString();
 }
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -66,7 +54,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     canAskClar,
     canAnswerClar,
     canViewClar,
-    results,
     plagiarism,
     plagiarismFlags,
   ] = await Promise.all([
@@ -79,15 +66,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarificationDomain.canAnswerInContext(actor, "exam", examId),
     clarificationDomain.canViewClarifications(actor, "exam", examId),
     isManager
-      ? buildResultsData(examId, actor.userId)
-      : Promise.resolve(null as ExamResultsData | null),
-    isManager
       ? plagiarismDomain.findPlagiarismReport({ type: "exam", id: examId }).catch(() => null)
       : Promise.resolve(null),
     isManager
       ? plagiarismDomain.listFlagsForContext("exam", examId).catch(() => [])
       : Promise.resolve([]),
   ]);
+
+  const results: ExamResultsData | null = matrix
+    ? buildExamResults(matrix, actor.userId)
+    : null;
 
   // The layout gate already accepted this exam for the viewer; treat a
   // null payload here (draft hidden from students, archived, etc.) as a
