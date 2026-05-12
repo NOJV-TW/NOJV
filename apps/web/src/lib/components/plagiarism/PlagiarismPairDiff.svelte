@@ -71,7 +71,7 @@
     busy = true;
     actionError = null;
     try {
-      const res = await fetch("/api/plagiarism/flag", {
+      const res = await fetch("/api/plagiarism-flags", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -105,7 +105,7 @@
     busy = true;
     actionError = null;
     try {
-      const res = await fetch(`/api/plagiarism/flag/${encodeURIComponent(currentFlag.id)}`, {
+      const res = await fetch(`/api/plagiarism-flags/${encodeURIComponent(currentFlag.id)}`, {
         method: "DELETE",
         headers: { "X-Requested-With": "XMLHttpRequest" },
       });

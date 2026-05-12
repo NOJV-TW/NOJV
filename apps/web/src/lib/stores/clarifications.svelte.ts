@@ -56,7 +56,12 @@ export function createClarificationsStore(
 
   async function init(): Promise<void> {
     if (!browser) return;
-    const params = new URLSearchParams({ contextType, contextId });
+    // Wire query carries the discriminated context flat:
+    // `type=<contest|exam|assignment>&(contestId|examId|assignmentId)=...`.
+    const params = new URLSearchParams({ type: contextType });
+    if (contextType === "assignment") params.set("assignmentId", contextId);
+    if (contextType === "exam") params.set("examId", contextId);
+    if (contextType === "contest") params.set("contestId", contextId);
     const r = await fetch(`/api/clarifications?${params.toString()}`);
     if (!r.ok) return;
     const data = (await r.json()) as { items: ClarificationItem[] };
@@ -79,9 +84,17 @@ export function createClarificationsStore(
   }
 
   async function ask(questionText: string, problemId: string | null): Promise<void> {
+    // Body shape mirrors the `ClarificationContext` discriminated union:
+    // `{ context: { type, (assignmentId|examId|contestId) }, ... }`.
+    const context =
+      contextType === "assignment"
+        ? { type: contextType, assignmentId: contextId }
+        : contextType === "exam"
+          ? { type: contextType, examId: contextId }
+          : { type: contextType, contestId: contextId };
     const r = await fetchWithCsrf("/api/clarifications", {
       method: "POST",
-      body: JSON.stringify({ contextType, contextId, problemId, questionText }),
+      body: JSON.stringify({ context, problemId, questionText }),
     });
     if (!r.ok) {
       const body = (await r.json().catch(() => ({ message: "Ask failed" }))) as {
@@ -112,7 +125,7 @@ export function createClarificationsStore(
     id: string,
     templateKey: "noComment" | "readProblem" | "yes" | "no",
   ): Promise<void> {
-    const r = await fetchWithCsrf(`/api/clarifications/${id}/canned`, {
+    const r = await fetchWithCsrf(`/api/clarifications/${id}/replies`, {
       method: "POST",
       body: JSON.stringify({ templateKey }),
     });

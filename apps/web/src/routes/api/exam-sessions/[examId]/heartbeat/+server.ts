@@ -1,5 +1,4 @@
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -8,18 +7,15 @@ import { examHeartbeatMissTotal, heartbeatGapBucket } from "$lib/server/metrics"
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { examDomain } from "@nojv/domain";
 
-const bodySchema = z.object({
-  examId: z.string().min(1),
-});
-
 // Returns 204 when the caller has no active session so the client can treat it as "released".
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  const body = bodySchema.parse(await event.request.json());
+  const { examId } = event.params;
+  if (!examId) return json({ message: "Missing examId." }, { status: 400 });
 
   try {
-    const result = await examDomain.session.heartbeatWithThrottle(actor.userId, body.examId);
+    const result = await examDomain.session.heartbeatWithThrottle(actor.userId, examId);
     const gapSec = (Date.now() - result.previousHeartbeatAt.getTime()) / 1000;
     const bucket = heartbeatGapBucket(gapSec);
     if (bucket) {
