@@ -6,7 +6,7 @@ import {
   type TransactionClient,
 } from "@nojv/db";
 
-import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
+import { checkIpLock, type IpCheckResult } from "../shared/ip";
 
 /**
  * What entity this gate is checking. Both kinds share existence / visibility /

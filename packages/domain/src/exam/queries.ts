@@ -2,7 +2,7 @@ import { courseMembershipRepo, examRepo, runTransaction } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
+import { checkIpLock, type IpCheckResult } from "../shared/ip";
 import { aggregateExamClassStats, aggregateExamMyStatus } from "../shared/list-aggregations";
 import { canManageExam } from "./permissions";
 
