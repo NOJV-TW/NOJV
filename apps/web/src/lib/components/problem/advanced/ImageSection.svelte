@@ -94,7 +94,6 @@
     </p>
   </header>
 
-  <!-- Source picker -->
   <div class="space-y-3">
     <span class="text-body-sm font-medium">{m.admin_imageSource()}</span>
     <div class="flex gap-3">
@@ -140,7 +139,7 @@
         role="button"
         tabindex="0"
         aria-disabled={uploading}
-        class="rounded-xl border-2 border-dashed border-border p-6 text-center text-body-sm transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
+        class="rounded-lg border-2 border-dashed border-border p-4 text-center text-body-sm transition-[border-color,background-color] duration-fast ease-out-soft {dragOver
           ? 'border-primary bg-primary/5'
           : ''} {uploading ? 'cursor-wait opacity-60' : 'cursor-pointer'}"
         ondrop={onDrop}
@@ -185,7 +184,6 @@
     </div>
   {/if}
 
-  <!-- Resource limits (total-per-invocation for advanced mode) -->
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm">
       <span class="text-body-sm font-medium">{m.admin_totalTimeLimitMs()}</span>

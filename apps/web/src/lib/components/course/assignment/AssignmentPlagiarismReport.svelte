@@ -203,31 +203,31 @@
 
   {#if !report}
     <div
-      class="rounded-lg border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
+      class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
       {m.assignmentDetail_plagNone()}
     </div>
   {:else if report.status === "pending"}
     <div
-      class="rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 text-body-sm text-muted-foreground"
+      class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4 text-body-sm text-muted-foreground"
     >
       {m.assignmentDetail_plagStatusPending()}
     </div>
   {:else if report.status === "running"}
     <div
-      class="rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 text-body-sm text-muted-foreground"
+      class="rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4 text-body-sm text-muted-foreground"
     >
       {m.assignmentDetail_plagStatusRunning()}
     </div>
   {:else if report.status === "failed"}
     <div
-      class="rounded-lg border border-destructive/40 bg-destructive/5 px-5 py-4 text-body-sm text-destructive"
+      class="rounded-md border border-destructive/40 bg-destructive/5 px-5 py-4 text-body-sm text-destructive"
     >
       {m.assignmentDetail_plagStatusFailed()}
     </div>
   {:else}
     <div
-      class="flex flex-wrap items-center justify-between gap-6 rounded-lg border border-destructive/25 bg-destructive/[0.04] border-l-[4px] border-l-destructive px-6 py-5"
+      class="flex flex-wrap items-center justify-between gap-6 rounded-md border border-destructive/25 bg-destructive/[0.04] border-l-[4px] border-l-destructive px-6 py-5"
     >
       <div class="flex items-center gap-8">
         <div>
@@ -308,7 +308,7 @@
             {@const diffHref = diffHrefFor(pair)}
             <div
               class={cn(
-                "rounded-lg border border-destructive/40 bg-destructive/[0.04] px-6 py-5",
+                "rounded-md border border-destructive/40 bg-destructive/[0.04] px-6 py-5",
                 flagged && "opacity-50",
               )}
             >
@@ -419,7 +419,7 @@
             {@const diffHref = diffHrefFor(pair)}
             <div
               class={cn(
-                "rounded-lg border border-warning/30 bg-warning/[0.04] px-6 py-5",
+                "rounded-md border border-warning/30 bg-warning/[0.04] px-6 py-5",
                 flagged && "opacity-50",
               )}
             >

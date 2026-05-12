@@ -33,7 +33,7 @@
 			class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[var(--z-modal)]"
 		/>
 		<Dialog.Content
-			class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg rounded-xl border border-border bg-card shadow-modal p-6 z-[var(--z-modal)]"
+			class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg rounded-lg border border-border bg-card shadow-modal p-4 z-[var(--z-modal)]"
 		>
 			<Dialog.Title class="text-[length:var(--text-title-lg)] leading-tight">
 				{m.shortcuts_overlayTitle()}

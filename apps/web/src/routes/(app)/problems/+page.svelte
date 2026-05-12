@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Code2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import PageContainer from "$lib/components/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/layout/PageHeader.svelte";
@@ -7,12 +8,16 @@
   let { data } = $props();
 </script>
 
-<PageContainer>
+<PageContainer class="fade-up">
   <PageHeader
     eyebrow={m.problems_eyebrow()}
     title={m.navigation_problems()}
     description={m.problems_subtitle()}
-  />
+  >
+    {#snippet icon()}
+      <Code2 class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
+    {/snippet}
+  </PageHeader>
 
   <ProblemsTabs
     editableProblems={data.editableProblems}

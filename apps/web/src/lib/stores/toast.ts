@@ -86,7 +86,6 @@ function createToastStore() {
     };
 
     update((toasts) => {
-      // Enforce max concurrent toasts (FIFO drop oldest)
       const next = [...toasts, toast];
       while (next.length > MAX_TOASTS) {
         const dropped = next.shift();
@@ -95,7 +94,6 @@ function createToastStore() {
       return next;
     });
 
-    // Auto-dismiss unless explicitly sticky (duration === 0)
     if (duration > 0) {
       toast.timeoutId = setTimeout(() => {
         remove(id);

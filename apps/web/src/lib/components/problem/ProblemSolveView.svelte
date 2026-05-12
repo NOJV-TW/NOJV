@@ -51,6 +51,8 @@
     /** Whether the viewer may rejudge submissions in this context. */
     canRejudge?: boolean;
     contestId?: string | undefined;
+    /** Assignment-only daily submission quota shown in the problem header. */
+    dailyAttempts?: { used: number; max: number | null } | undefined;
     /** Exam-only left rail. Hidden in practice mode regardless of value. */
     siblingProblems?: ProblemSolveSibling[] | undefined;
     /** Exam-only context, consumed by the route-level page chrome. */
@@ -68,6 +70,7 @@
     backLink,
     canRejudge = false,
     contestId,
+    dailyAttempts,
     siblingProblems,
     examContext: _examContext
   }: Props = $props();
@@ -134,7 +137,7 @@
 </div>
 
 <div
-  class="hidden h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-2xl border border-border shadow-rest md:flex"
+  class="hidden h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-xl border border-border shadow-rest md:flex"
 >
   {#if endedNotice}
     <div
@@ -193,6 +196,7 @@
       {backLink}
       {canRejudge}
       {contestId}
+      {dailyAttempts}
       initialSubmissions={submissions}
       {problem}
       requiredPaths={problem.advancedRequiredPaths ?? []}
@@ -205,6 +209,7 @@
       {backLink}
       {canRejudge}
       {contestId}
+      {dailyAttempts}
       initialSubmissions={submissions}
       {problem}
       {testcaseSets}

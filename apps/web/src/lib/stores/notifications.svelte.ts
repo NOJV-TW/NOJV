@@ -1,5 +1,7 @@
 import { browser } from "$app/environment";
 
+import { fetchWithCsrf } from "$lib/utils";
+
 export interface NotificationItem {
   id: string;
   type: string;
@@ -75,10 +77,7 @@ class NotificationsStore {
     this.items[idx] = { ...original, readAt: new Date().toISOString() };
     this.unreadCount = Math.max(0, this.unreadCount - 1);
 
-    const res = await fetch(`/api/notifications/${id}/read`, {
-      method: "POST",
-      headers: { "X-Requested-With": "fetch" },
-    });
+    const res = await fetchWithCsrf(`/api/notifications/${id}/read`, { method: "POST" });
     if (!res.ok) {
       // Rollback on server failure
       this.items[idx] = original;
@@ -95,10 +94,7 @@ class NotificationsStore {
     this.items = this.items.map((i) => (i.readAt ? i : { ...i, readAt: now }));
     this.unreadCount = 0;
 
-    const res = await fetch("/api/notifications/read-all", {
-      method: "POST",
-      headers: { "X-Requested-With": "fetch" },
-    });
+    const res = await fetchWithCsrf("/api/notifications/read-all", { method: "POST" });
     if (!res.ok) {
       this.items = originalItems;
       this.unreadCount = originalCount;

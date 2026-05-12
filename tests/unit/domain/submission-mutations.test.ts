@@ -84,7 +84,8 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { ConflictError, submissionDomain } from "@nojv/domain";
+import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/domain";
+import { supportedLanguages } from "@nojv/core";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
 
@@ -282,5 +283,106 @@ describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
 
     expect(submissionCountForUserAndAssessmentSince).not.toHaveBeenCalled();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createQueuedSubmissionRecord — language gating by problem type", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("full_source accepts every supported language without requiring a workspace entry", async () => {
+    setupSubmitPipelineDefaults(null);
+    problemFindById.mockResolvedValue({
+      ...fakeProblem,
+      type: "full_source",
+      visibility: "public",
+    });
+    // Even if pre-migration residue exists, full_source must skip the check.
+    workspaceFindByProblemId.mockResolvedValue([]);
+
+    for (const language of supportedLanguages) {
+      await expect(
+        createQueuedSubmissionRecord(
+          { ...baseDraft, language, sourceCode: "x" },
+          fakeActor,
+          "127.0.0.1",
+        ),
+      ).resolves.toBeDefined();
+    }
+
+    // full_source skips the workspace-entry check entirely.
+    expect(workspaceFindByProblemId).not.toHaveBeenCalled();
+    expect(submissionCreate).toHaveBeenCalledTimes(supportedLanguages.length);
+  });
+
+  it("multi_file rejects a submission when no editable main.<ext> exists for the language", async () => {
+    setupSubmitPipelineDefaults(null);
+    problemFindById.mockResolvedValue({
+      ...fakeProblem,
+      type: "multi_file",
+      visibility: "public",
+    });
+    // Editable starter only for python — a java submission should be rejected.
+    workspaceFindByProblemId.mockResolvedValue([
+      { language: "python", path: "main.py", visibility: "editable", content: "" },
+    ]);
+
+    await expect(
+      createQueuedSubmissionRecord(
+        { ...baseDraft, language: "java", sourceCode: "x" },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("multi_file accepts a submission when an editable main.<ext> exists for the language", async () => {
+    setupSubmitPipelineDefaults(null);
+    problemFindById.mockResolvedValue({
+      ...fakeProblem,
+      type: "multi_file",
+      visibility: "public",
+    });
+    workspaceFindByProblemId.mockResolvedValue([
+      { language: "python", path: "main.py", visibility: "editable", content: "" },
+    ]);
+
+    await expect(
+      createQueuedSubmissionRecord(
+        { ...baseDraft, language: "python", sourceCode: "x" },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("multi_file rejects when the matching path exists but is not editable", async () => {
+    setupSubmitPipelineDefaults(null);
+    problemFindById.mockResolvedValue({
+      ...fakeProblem,
+      type: "multi_file",
+      visibility: "public",
+    });
+    workspaceFindByProblemId.mockResolvedValue([
+      { language: "python", path: "main.py", visibility: "readonly", content: "" },
+    ]);
+
+    await expect(
+      createQueuedSubmissionRecord(
+        { ...baseDraft, language: "python", sourceCode: "x" },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
   });
 });

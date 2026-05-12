@@ -25,6 +25,7 @@
   // about the exact pixel value.
   let filesWidth = $state(220);
   let layoutContainer: HTMLDivElement | null = $state(null);
+  let isResizing = $state(false);
 
   function startFilesResize(e: MouseEvent) {
     e.preventDefault();
@@ -41,8 +42,10 @@
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      isResizing = false;
     };
 
+    isResizing = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
@@ -100,7 +103,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
-    class="group relative w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
+    class="group flex w-2 shrink-0 cursor-col-resize items-stretch justify-center outline-none"
     role="separator"
     aria-orientation="vertical"
     aria-label={m.common_resizeFilesPanel()}
@@ -110,7 +113,14 @@
       if (e.key === "ArrowLeft") filesWidth = Math.max(120, filesWidth - 16);
       if (e.key === "ArrowRight") filesWidth = Math.min(600, filesWidth + 16);
     }}
-  ></div>
+  >
+    <span
+      aria-hidden="true"
+      class="w-px transition-colors duration-fast {isResizing
+        ? 'bg-primary'
+        : 'bg-transparent group-hover:bg-primary/60 group-focus-visible:bg-primary/60'}"
+    ></span>
+  </div>
   <div class="flex min-w-0 flex-1 flex-col">
     {#if selectedFile}
       {@const file = selectedFile}

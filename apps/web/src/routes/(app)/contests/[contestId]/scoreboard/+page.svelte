@@ -55,9 +55,8 @@
   import GlassPanel from "$lib/components/coursework/GlassPanel.svelte";
   import RankBadge from "$lib/components/coursework/RankBadge.svelte";
   import TabStrip from "$lib/components/coursework/TabStrip.svelte";
-  import IcpcCell from "$lib/components/contest/IcpcCell.svelte";
-  import CfCell from "$lib/components/contest/CfCell.svelte";
-  import { inferContestFormat } from "$lib/components/contest/format";
+  import SolveCountCell from "$lib/components/contest/SolveCountCell.svelte";
+  import PointSumCell from "$lib/components/contest/PointSumCell.svelte";
 
   let { data } = $props();
   const scoreboard = $derived(data.scoreboard);
@@ -66,8 +65,7 @@
   // but svelte-kit types them as `string | undefined`. Coerce for downstream use.
   const contestId = $derived($page.params.contestId ?? "");
 
-  const format = $derived(inferContestFormat(scoreboard.scoringMode));
-  const isICPC = $derived(format === "ICPC");
+  const isSolveCount = $derived(scoreboard.scoringMode === "problem_count");
 
   let unfreezing = $state(false);
   let lastRefreshed = $state(Date.now());
@@ -129,7 +127,7 @@
   />
 
   <!-- Compact header -->
-  <div class="glass rounded-2xl shadow-rest p-6 flex flex-wrap items-center gap-6">
+  <div class="glass rounded-xl shadow-rest p-4 flex flex-wrap items-center gap-6">
     <div class="flex-1 min-w-0">
       <div
         class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
@@ -149,17 +147,17 @@
           <path d="M10 11v4M14 11v4" />
           <path d="M8 20h8M9 20l1-3h4l1 3" />
         </svg>
-        <span>Scoreboard · {format}</span>
+        <span>Scoreboard · {isSolveCount ? m.contestScoreboard_formatSolveCount() : m.contestScoreboard_formatPointSum()}</span>
       </div>
       <h1 class="mt-2 text-headline font-semibold tracking-tight">{m.contestScoreboard_heroHeading()}</h1>
       <p class="text-caption text-muted-foreground">
-        {isICPC ? m.contestScoreboard_heroHintIcpc() : m.contestScoreboard_heroHintCf()}
+        {isSolveCount ? m.contestScoreboard_heroHintSolveCount() : m.contestScoreboard_heroHintPointSum()}
       </p>
     </div>
 
     {#if scoreboard.isFrozen}
       <div
-        class="rounded-xl border border-dashed p-4 min-w-[200px]"
+        class="rounded-lg border border-dashed p-2 min-w-[200px]"
         style="border-color: color-mix(in oklab, var(--destructive) 35%, transparent);"
       >
         <div
@@ -212,16 +210,16 @@
         <h2 class="text-title font-semibold">{m.contestScoreboard_panelHeading()}</h2>
         <span
           class="font-mono text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm"
-          style="background: {isICPC
+          style="background: {isSolveCount
             ? 'color-mix(in oklab, #c4682d 14%, transparent)'
-            : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isICPC
+            : 'color-mix(in oklab, var(--chart-3) 18%, transparent)'}; color: {isSolveCount
             ? '#c4682d'
             : 'oklch(0.45 0.13 245)'};"
         >
-          {isICPC ? m.contestScoreboard_formatIcpc() : m.contestScoreboard_formatCf()}
+          {isSolveCount ? m.contestScoreboard_formatSolveCount() : m.contestScoreboard_formatPointSum()}
         </span>
         <span class="text-caption text-muted-foreground hidden sm:inline">
-          {isICPC ? m.contestScoreboard_sortHintIcpc() : m.contestScoreboard_sortHintCf()}
+          {isSolveCount ? m.contestScoreboard_sortHintSolveCount() : m.contestScoreboard_sortHintPointSum()}
         </span>
       </div>
       <div class="flex items-center gap-3">
@@ -258,7 +256,7 @@
 
     {#if scoreboard.entries.length === 0}
       <div class="px-6 py-16 text-center text-body-sm text-muted-foreground">{m.contestScoreboard_empty()}</div>
-    {:else if isICPC}
+    {:else if isSolveCount}
       <div class="overflow-x-auto">
         <table class="w-full text-body-sm">
           <thead>
@@ -330,7 +328,7 @@
                 </td>
                 {#each r.problems as ps, pi (pi)}
                   <td class="px-2 py-3 text-center">
-                    <IcpcCell
+                    <SolveCountCell
                       firstAcTime={ps.firstAcTime}
                       attempts={ps.attempts}
                       isPending={ps.isPending}
@@ -408,7 +406,7 @@
                 </td>
                 {#each r.problems as ps, pi (pi)}
                   <td class="px-3 py-3 text-center">
-                    <CfCell
+                    <PointSumCell
                       firstAcTime={ps.firstAcTime}
                       score={ps.score}
                       attempts={ps.attempts}
@@ -429,13 +427,13 @@
         class="px-6 py-3 border-t flex flex-wrap items-center gap-x-5 gap-y-2 text-micro font-mono uppercase tracking-wider text-muted-foreground"
         style="border-color: var(--border-subtle);"
       >
-        {#if isICPC}
+        {#if isSolveCount}
           <span class="flex items-center gap-1.5">
             <span
               class="size-2.5 rounded"
               style="background: color-mix(in oklab, var(--success) 30%, transparent);"
             ></span>
-            {m.contestScoreboard_legendIcpcAc()}
+            {m.contestScoreboard_legendAc()}
           </span>
           <span class="flex items-center gap-1.5">
             <span
@@ -444,40 +442,40 @@
             >
               ★
             </span>
-            {m.contestScoreboard_legendIcpcFirstBlood()}
+            {m.contestScoreboard_legendFirstBlood()}
           </span>
           <span class="flex items-center gap-1.5">
             <span
               class="size-2.5 rounded"
               style="background: color-mix(in oklab, var(--destructive) 25%, transparent);"
             ></span>
-            {m.contestScoreboard_legendIcpcWa()}
+            {m.contestScoreboard_legendWa()}
           </span>
           <span class="flex items-center gap-1.5">
             <span class="size-2.5 rounded bg-muted"></span>
             {m.contestScoreboard_legendUntried()}
           </span>
-          <span class="ml-auto opacity-70">{m.contestScoreboard_legendIcpcFormula()}</span>
+          <span class="ml-auto opacity-70">{m.contestScoreboard_legendPenaltyFormula()}</span>
         {:else}
           <span class="flex items-center gap-1.5">
             <span
               class="size-2.5 rounded"
               style="background: color-mix(in oklab, var(--success) 30%, transparent);"
             ></span>
-            {m.contestScoreboard_legendCfAc()}
+            {m.contestScoreboard_legendScoredAc()}
           </span>
           <span class="flex items-center gap-1.5">
             <span
               class="size-2.5 rounded"
               style="background: color-mix(in oklab, var(--destructive) 25%, transparent);"
             ></span>
-            {m.contestScoreboard_legendCfWa()}
+            {m.contestScoreboard_legendScoredWa()}
           </span>
           <span class="flex items-center gap-1.5">
             <span class="size-2.5 rounded bg-muted"></span>
             {m.contestScoreboard_legendUntried()}
           </span>
-          <span class="ml-auto opacity-70">{m.contestScoreboard_legendCfFormula()}</span>
+          <span class="ml-auto opacity-70">{m.contestScoreboard_legendDecayFormula()}</span>
         {/if}
       </div>
     {/if}

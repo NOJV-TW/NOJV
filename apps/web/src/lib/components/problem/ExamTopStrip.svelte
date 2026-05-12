@@ -78,10 +78,8 @@
 <header
   class="relative flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-primary/30 bg-gradient-to-r from-primary/10 to-primary/[0.03] px-4 py-2.5 shadow-rest sm:px-6 md:grid md:grid-cols-[auto_1fr_auto]"
 >
-  <!-- left accent bar -->
   <div class="absolute inset-y-0 left-0 w-1 bg-primary" aria-hidden="true"></div>
 
-  <!-- Left: lock + course / exam label -->
   <div class="flex items-center gap-3 pl-1">
     <div
       class="flex size-[34px] items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_2px_6px_rgba(196,104,45,0.4)]"
@@ -102,7 +100,6 @@
     </div>
   </div>
 
-  <!-- Center: countdown -->
   <div class="flex items-center justify-center gap-6">
     <div class="flex items-baseline gap-2">
       <span
@@ -120,7 +117,6 @@
     </div>
   </div>
 
-  <!-- Right: handle + IP chip + submit-end button -->
   <div class="flex items-center gap-3.5">
     <div class="flex items-center gap-2 text-body-sm text-muted-foreground">
       <span>{context.userHandle}</span>

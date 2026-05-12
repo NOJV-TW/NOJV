@@ -284,7 +284,6 @@ export const actions: Actions = {
   }),
 
   deleteProblem: problemEditAction(async ({ actor, problemId }) => {
-    // Only draft problems can be deleted
     const problem = await getProblemPageData(problemId);
     if (problem.status !== "draft") {
       error(403, "Published problems cannot be deleted");

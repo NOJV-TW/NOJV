@@ -1,19 +1,16 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { Plus } from "@lucide/svelte";
+  import { Plus, Trophy } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
-  import PageHero from "$lib/components/coursework/PageHero.svelte";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import ContestSection from "$lib/components/contest/ContestSection.svelte";
   import ContestPoster from "$lib/components/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/contest/ContestRowPast.svelte";
-  import {
-    contestStatusFor,
-    durationMinutes,
-    inferContestFormat
-  } from "$lib/components/contest/format";
+  import { contestStatusFor, durationMinutes } from "$lib/components/contest/format";
 
   let { data, form: actionData } = $props();
 
@@ -26,8 +23,10 @@
     return {
       raw: c,
       status,
-      format: inferContestFormat(c.scoringMode),
-      // No dedicated `code` in the domain — fall back to the slug-like id.
+      scoringLabel:
+        c.scoringMode === "problem_count"
+          ? m.contestsList_scoringProblemCount()
+          : m.contestsList_scoringPointSum(),
       code: c.id,
       durationMin: durationMinutes(c.startsAt, c.endsAt)
     };
@@ -54,15 +53,17 @@
   const past = $derived(all.filter((x) => x.status === "ended"));
 </script>
 
-<div class="space-y-8 fade-up px-6 py-8 lg:px-10">
-  <PageHero
-    kind="contest"
-    eyebrow="Programming Contests"
-    title={m.contestsList_heroTitle()}
-    titleEn="Contests"
-    description={m.contestsList_heroDescription()}
-    accentStripe
-  />
+<PageContainer>
+  <div class="space-y-8 fade-up">
+    <PageHeader
+      eyebrow={m.contests_eyebrow()}
+      title={m.contestsList_heroTitle()}
+      description={m.contestsList_heroDescription()}
+    >
+      {#snippet icon()}
+        <Trophy class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
+      {/snippet}
+    </PageHeader>
 
   <div class="flex flex-wrap items-center gap-3">
     {#if data.loggedIn}
@@ -86,7 +87,7 @@
           <ContestPoster
             href="/contests/{c.raw.id}"
             code={c.code}
-            format={c.format}
+            scoringLabel={c.scoringLabel}
             status={c.status}
             title={c.raw.title}
             summary={c.raw.summary}
@@ -104,7 +105,7 @@
   <ContestSection title="UPCOMING" subtitle={m.contestsList_sectionUpcomingSubtitle()}>
     {#if upcoming.length === 0}
       <div
-        class="glass rounded-2xl px-6 py-10 text-center text-body-sm text-muted-foreground"
+        class="glass rounded-xl px-6 py-10 text-center text-body-sm text-muted-foreground"
       >
         {m.contestsList_sectionUpcomingEmpty()}
       </div>
@@ -114,7 +115,7 @@
           <ContestPoster
             href="/contests/{c.raw.id}"
             code={c.code}
-            format={c.format}
+            scoringLabel={c.scoringLabel}
             status={c.status}
             title={c.raw.title}
             summary={c.raw.summary}
@@ -136,7 +137,7 @@
           <ContestRowPast
             href="/contests/{c.raw.id}"
             code={c.code}
-            format={c.format}
+            scoringLabel={c.scoringLabel}
             title={c.raw.title}
             startsAt={c.raw.startsAt}
             participants={c.raw.participantCount}
@@ -161,4 +162,5 @@
       </form>
     </Dialog.Content>
   </Dialog.Root>
-</div>
+  </div>
+</PageContainer>

@@ -95,8 +95,6 @@ export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
 
-// ─── IP Lock shared schema ──────────────────────────────────────────
-
 export const ipViolationModes = ["block", "notify"] as const;
 export const ipViolationModeSchema = z.enum(ipViolationModes);
 export type IpViolationMode = z.infer<typeof ipViolationModeSchema>;

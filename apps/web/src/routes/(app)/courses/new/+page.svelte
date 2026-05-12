@@ -45,7 +45,7 @@
 
     <!-- Card 1 — Basics -->
     <div
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-7 shadow-rest backdrop-blur-sm"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
       <div class="mb-6 flex items-center gap-3">
         <span
@@ -76,7 +76,7 @@
             type="text"
             placeholder={m.coursesNew_titlePlaceholder()}
             bind:value={$form.title}
-            class="mt-2 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            class="mt-2 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           />
           {#if $errors.title}
             <p class="mt-1 text-caption text-destructive">{$errors.title}</p>
@@ -93,7 +93,7 @@
             rows="3"
             placeholder={m.coursesNew_descriptionPlaceholder()}
             bind:value={$form.description}
-            class="mt-2 min-h-24 w-full resize-y rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+            class="mt-2 min-h-24 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
           ></textarea>
           {#if $errors.description}
             <p class="mt-1 text-caption text-destructive">{$errors.description}</p>
@@ -118,7 +118,7 @@
               max="999"
               placeholder={m.coursesNew_academicYearPlaceholder()}
               bind:value={$form.academicYear}
-              class="mt-2 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              class="mt-2 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             />
             {#if $errors.academicYear}
               <p class="mt-1 text-caption text-destructive">{$errors.academicYear}</p>
@@ -132,7 +132,7 @@
               id="semester"
               name="semester"
               bind:value={$form.semester}
-              class="mt-2 w-full rounded-lg border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              class="mt-2 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               <option value={undefined}>{m.coursesNew_semesterPlaceholder()}</option>
               <option value={1}>{m.coursesNew_semesterOption1()}</option>

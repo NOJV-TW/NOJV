@@ -140,7 +140,7 @@
   let workspaceFilesForLanguage = $derived(
     problem.workspaceFiles.filter((f) => f.language === language)
   );
-  let isWorkspaceMode = $derived(workspaceFilesForLanguage.length > 0);
+  let isWorkspaceMode = $derived(problem.type === "multi_file");
   let selectedWorkspaceIndex = $state(0);
 
   // Hydrate per-language draft on first visit + on language switch. Workspace
@@ -268,6 +268,7 @@
 
   let bottomPanelHeight = $state(260);
   let outerContainer: HTMLDivElement = $state(null!);
+  let isBottomResizing = $state(false);
 
   function startBottomResize(e: MouseEvent) {
     e.preventDefault();
@@ -284,8 +285,10 @@
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      isBottomResizing = false;
     };
 
+    isBottomResizing = true;
     document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
@@ -408,9 +411,8 @@
   bind:this={outerContainer}
   class={isFullscreen
     ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[color:var(--color-panel)]"
-    : "flex h-full flex-col overflow-hidden border border-border bg-[color:var(--color-panel)]"}
+    : "flex h-full flex-col overflow-hidden bg-[color:var(--color-panel)]"}
 >
-  <!-- Top toolbar -->
   <div
     class="flex h-9 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
   >
@@ -419,6 +421,7 @@
       <LanguageSelector
         value={language}
         {allowedLanguages}
+        problemType={problem.type}
         workspaceFiles={problem.workspaceFiles}
         onchange={(next) => (language = next)}
         onavailablechange={(available) => (availableLanguages = available)}
@@ -483,7 +486,6 @@
     {/if}
   </div>
 
-  <!-- Action bar -->
   <div
     class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-1"
   >
@@ -514,9 +516,9 @@
 
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <!-- Vertical resize handle between editor area and bottom panel -->
+  <!-- Horizontal resize handle between editor area and bottom panel -->
   <div
-    class="h-1 shrink-0 cursor-row-resize bg-border transition-colors hover:bg-primary/40 active:bg-primary/60"
+    class="group flex h-2 shrink-0 cursor-row-resize flex-col items-stretch justify-center outline-none"
     role="separator"
     aria-orientation="horizontal"
     aria-label={m.common_resizeBottomPanel()}
@@ -526,7 +528,14 @@
       if (e.key === "ArrowUp") bottomPanelHeight = Math.min(800, bottomPanelHeight + 16);
       if (e.key === "ArrowDown") bottomPanelHeight = Math.max(120, bottomPanelHeight - 16);
     }}
-  ></div>
+  >
+    <span
+      aria-hidden="true"
+      class="h-px transition-colors duration-fast {isBottomResizing
+        ? 'bg-primary'
+        : 'bg-transparent group-hover:bg-primary/60 group-focus-visible:bg-primary/60'}"
+    ></span>
+  </div>
   <div class="shrink-0" style="height: {bottomPanelHeight}px">
     <EditorBottomPanel
       bind:runCases={panelRunCases}

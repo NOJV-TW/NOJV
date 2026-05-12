@@ -6,6 +6,7 @@ import * as announcementDomain from "../announcement";
 import {
   aggregateAssessmentClassStats,
   aggregateAssessmentMyStatus,
+  aggregateExamMyStatus,
 } from "../shared/list-aggregations";
 
 interface ActorRoleHint {
@@ -26,13 +27,18 @@ export interface OverviewAnnouncement {
   expiresAt: string | null;
 }
 
+// First character handles CJK single-char names ("王") and Latin ("Alice") alike.
 function pickInitial(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return "?";
-  // Prefer the first visible character (works for CJK single-char names
-  // like "王" as well as Latin "Alice").
   return trimmed.charAt(0) || "?";
 }
+
+// Sort bands: open rows < upcoming < draft < closed/ended.
+// Within each band the row's own time pushes the rank.
+const RANK_BAND_UPCOMING = 1_000_000_000_000;
+const RANK_BAND_DRAFT = 2_000_000_000_000;
+const RANK_BAND_TERMINAL = 3_000_000_000_000;
 
 export async function listRecentAnnouncementsForCourse(
   courseId: string,
@@ -64,8 +70,6 @@ export async function listRecentAnnouncementsForCourse(
   });
 }
 
-// ── Assessments ───────────────────────────────────────────────────────────
-
 export type AssignmentOverviewStatus = "draft" | "upcoming" | "open" | "closed";
 
 export interface AssignmentOverviewRow {
@@ -79,7 +83,12 @@ export interface AssignmentOverviewRow {
   /** Manager view only — null for students. avgScore is the rounded mean of per-user totals across submitters. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
   /** Student view only — null for managers. solved counts distinct problems with at least one accepted submission. */
-  myStatus: { solved: number; total: number } | null;
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 export interface ListOverviewOptions {
@@ -94,13 +103,12 @@ function rankAssignment(
   row: { opensAt: Date | null; closesAt: Date | null },
   now: Date,
 ): number {
-  // Lower rank = higher priority. Bands: open (closesAt asc), upcoming, draft, closed (most recent first).
   if (status === "open") return row.closesAt ? row.closesAt.getTime() - now.getTime() : 0;
   if (status === "upcoming")
-    return 1_000_000_000_000 + (row.opensAt ? row.opensAt.getTime() - now.getTime() : 0);
-  if (status === "draft") return 2_000_000_000_000;
-  // closed: most recent closes first (larger closesAt → smaller rank delta)
-  return 3_000_000_000_000 - (row.closesAt?.getTime() ?? 0);
+    return RANK_BAND_UPCOMING + (row.opensAt ? row.opensAt.getTime() - now.getTime() : 0);
+  if (status === "draft") return RANK_BAND_DRAFT;
+  // Closed band: most-recently-closed first (larger closesAt → smaller rank).
+  return RANK_BAND_TERMINAL - (row.closesAt?.getTime() ?? 0);
 }
 
 interface RawAssessmentRow {
@@ -177,8 +185,6 @@ async function fillAssessmentStats(
     for (const r of rows) r.myStatus = my.get(r.id) ?? null;
   }
 }
-
-// ── Assignments list page ─────────────────────────────────────────────────
 
 export type AssignmentStatusFilter = "all" | "open" | "upcoming" | "closed" | "draft";
 
@@ -258,8 +264,6 @@ export async function listAssignmentsForCourse(
   };
 }
 
-// ── Exams ─────────────────────────────────────────────────────────────────
-
 export type ExamOverviewStatus = "draft" | "upcoming" | "running" | "ended";
 
 export interface ExamOverviewRow {
@@ -276,6 +280,13 @@ export interface ExamOverviewRow {
   registeredCount: number | null;
   /** Total active students in the course — set in the loader. Null = unknown. */
   totalStudents: number | null;
+  /** Student view only — null for managers / upcoming / draft. */
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
 }
 
 function rankExam(
@@ -285,9 +296,9 @@ function rankExam(
 ): number {
   if (status === "running") return row.endsAt.getTime() - now.getTime();
   if (status === "upcoming")
-    return 1_000_000_000_000 + (row.startsAt.getTime() - now.getTime());
-  if (status === "draft") return 2_000_000_000_000;
-  return 3_000_000_000_000 - row.endsAt.getTime();
+    return RANK_BAND_UPCOMING + (row.startsAt.getTime() - now.getTime());
+  if (status === "draft") return RANK_BAND_DRAFT;
+  return RANK_BAND_TERMINAL - row.endsAt.getTime();
 }
 
 export async function listExamOverviewForCourse(
@@ -323,6 +334,7 @@ export async function listExamOverviewForCourse(
       scoringMode: row.scoringMode as "point_sum" | "problem_count",
       registeredCount: options.isManager ? row._count.participations : null,
       totalStudents: null,
+      myStatus: null,
     };
     return {
       row: overviewRow,
@@ -331,5 +343,20 @@ export async function listExamOverviewForCourse(
   });
 
   mapped.sort((a, b) => a.rank - b.rank);
-  return mapped.slice(0, options.limit).map((entry) => entry.row);
+  const visibleRows = mapped.slice(0, options.limit).map((entry) => entry.row);
+
+  if (!options.isManager) {
+    const scoreable = visibleRows.filter((r) => r.status === "running" || r.status === "ended");
+    if (scoreable.length > 0) {
+      const my = await aggregateExamMyStatus(
+        options.forUserId,
+        scoreable.map((r) => ({ id: r.id, problemCount: r.problemCount })),
+      );
+      for (const r of scoreable) {
+        r.myStatus = my.get(r.id) ?? null;
+      }
+    }
+  }
+
+  return visibleRows;
 }

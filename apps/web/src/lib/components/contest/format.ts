@@ -1,15 +1,3 @@
-import type { ContestScoringMode } from "@nojv/core";
-
-export type ContestFormat = "ICPC" | "Codeforces";
-
-/**
- * Map the domain's `scoringMode` to the display-only format label used by
- * the design (until the domain exposes a dedicated `contestFormat` field).
- */
-export function inferContestFormat(scoringMode: ContestScoringMode): ContestFormat {
-  return scoringMode === "problem_count" ? "ICPC" : "Codeforces";
-}
-
 /** Compute a contest's lifecycle bucket from its start/end timestamps. */
 export function contestStatusFor(
   startsAt: string | Date,

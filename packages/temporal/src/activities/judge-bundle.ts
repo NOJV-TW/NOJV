@@ -1,6 +1,3 @@
-// Judge activity bundle — use when deploying judge worker as a microservice.
-// Includes sandbox execution, submission completion, stats, and notification activities.
-
 export {
   fetchJudgeContext,
   executeSandbox,

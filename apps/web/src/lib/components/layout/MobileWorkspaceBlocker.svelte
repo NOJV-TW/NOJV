@@ -26,10 +26,10 @@
 </script>
 
 <div
-  class="flex min-h-[60vh] flex-col items-center justify-center rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-12 text-center shadow-rest"
+  class="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-12 text-center shadow-rest"
 >
   <div
-    class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10"
+    class="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10"
     aria-hidden="true"
   >
     <Monitor class="h-8 w-8 text-primary" />
@@ -107,14 +107,14 @@
                 {m.problemDetail_input()}
               </p>
               <pre
-                class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
+                class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-3 py-2 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
             </div>
             <div>
               <p class="text-caption font-medium text-muted-foreground">
                 {m.problemDetail_output()}
               </p>
               <pre
-                class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
+                class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-3 py-2 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
             </div>
           </div>
         </div>

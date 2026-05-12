@@ -3,25 +3,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   groupBestScoresByAssessment,
   groupAcceptedByAssessmentForUser,
+  groupBestScoresByAssessmentForUser,
   groupBestScoresByExam,
   groupAcceptedByExamForUser,
+  groupBestScoresByExamForUser,
   countStudentsByCourse,
+  sumPointsByAssessment,
+  sumPointsByExam,
 } = vi.hoisted(() => ({
   groupBestScoresByAssessment: vi.fn(),
   groupAcceptedByAssessmentForUser: vi.fn(),
+  groupBestScoresByAssessmentForUser: vi.fn(),
   groupBestScoresByExam: vi.fn(),
   groupAcceptedByExamForUser: vi.fn(),
+  groupBestScoresByExamForUser: vi.fn(),
   countStudentsByCourse: vi.fn(),
+  sumPointsByAssessment: vi.fn(),
+  sumPointsByExam: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
     groupBestScoresByAssessment,
     groupAcceptedByAssessmentForUser,
+    groupBestScoresByAssessmentForUser,
     groupBestScoresByExam,
     groupAcceptedByExamForUser,
+    groupBestScoresByExamForUser,
   },
   courseMembershipRepo: { countStudentsByCourse },
+  assessmentProblemRepo: { sumPointsByAssessment },
+  examProblemRepo: { sumPointsByExam },
 }));
 
 import {
@@ -34,9 +46,13 @@ import {
 beforeEach(() => {
   groupBestScoresByAssessment.mockReset();
   groupAcceptedByAssessmentForUser.mockReset();
+  groupBestScoresByAssessmentForUser.mockReset();
   groupBestScoresByExam.mockReset();
   groupAcceptedByExamForUser.mockReset();
+  groupBestScoresByExamForUser.mockReset();
   countStudentsByCourse.mockReset();
+  sumPointsByAssessment.mockReset();
+  sumPointsByExam.mockReset();
 });
 
 describe("aggregateAssessmentClassStats", () => {
@@ -104,24 +120,35 @@ describe("aggregateAssessmentMyStatus", () => {
     expect(groupAcceptedByAssessmentForUser).not.toHaveBeenCalled();
   });
 
-  it("counts distinct accepted problems per assessment", async () => {
+  it("counts distinct accepted problems and sums best scores per assessment", async () => {
     groupAcceptedByAssessmentForUser.mockResolvedValue([
       { courseAssessmentId: "a1", problemId: "p1" },
       { courseAssessmentId: "a1", problemId: "p2" },
       { courseAssessmentId: "a2", problemId: "p3" },
     ]);
+    groupBestScoresByAssessmentForUser.mockResolvedValue([
+      { courseAssessmentId: "a1", problemId: "p1", _max: { score: 80 } },
+      { courseAssessmentId: "a1", problemId: "p2", _max: { score: 60 } },
+      { courseAssessmentId: "a2", problemId: "p3", _max: { score: 100 } },
+    ]);
+    sumPointsByAssessment.mockResolvedValue([
+      { assessmentId: "a1", _sum: { points: 200 } },
+      { assessmentId: "a2", _sum: { points: 100 } },
+    ]);
     const out = await aggregateAssessmentMyStatus("u1", [
       { id: "a1", problemCount: 5 },
       { id: "a2", problemCount: 3 },
     ]);
-    expect(out.get("a1")).toEqual({ solved: 2, total: 5 });
-    expect(out.get("a2")).toEqual({ solved: 1, total: 3 });
+    expect(out.get("a1")).toEqual({ solved: 2, total: 5, score: 140, totalPoints: 200 });
+    expect(out.get("a2")).toEqual({ solved: 1, total: 3, score: 100, totalPoints: 100 });
   });
 
-  it("returns 0 solved when the user has no accepted submissions", async () => {
+  it("returns zeros when the user has no submissions and points haven't been set", async () => {
     groupAcceptedByAssessmentForUser.mockResolvedValue([]);
+    groupBestScoresByAssessmentForUser.mockResolvedValue([]);
+    sumPointsByAssessment.mockResolvedValue([]);
     const out = await aggregateAssessmentMyStatus("u1", [{ id: "a1", problemCount: 4 }]);
-    expect(out.get("a1")).toEqual({ solved: 0, total: 4 });
+    expect(out.get("a1")).toEqual({ solved: 0, total: 4, score: 0, totalPoints: 0 });
   });
 });
 
@@ -138,12 +165,17 @@ describe("aggregateExamClassStats", () => {
 });
 
 describe("aggregateExamMyStatus", () => {
-  it("counts distinct accepted exam problems for the user", async () => {
+  it("counts distinct accepted exam problems and sums best scores for the user", async () => {
     groupAcceptedByExamForUser.mockResolvedValue([
       { examId: "e1", problemId: "p1" },
       { examId: "e1", problemId: "p2" },
     ]);
+    groupBestScoresByExamForUser.mockResolvedValue([
+      { examId: "e1", problemId: "p1", _max: { score: 100 } },
+      { examId: "e1", problemId: "p2", _max: { score: 40 } },
+    ]);
+    sumPointsByExam.mockResolvedValue([{ examId: "e1", _sum: { points: 200 } }]);
     const out = await aggregateExamMyStatus("u1", [{ id: "e1", problemCount: 4 }]);
-    expect(out.get("e1")).toEqual({ solved: 2, total: 4 });
+    expect(out.get("e1")).toEqual({ solved: 2, total: 4, score: 140, totalPoints: 200 });
   });
 });

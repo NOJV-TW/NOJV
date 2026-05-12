@@ -12,6 +12,10 @@ import {
 import { getRedis } from "./connection";
 import { keys } from "./keys";
 
+// All publishers below are best-effort: SSE delivery is eventually consistent
+// with the DB, so a Redis outage degrades to "client refetches on reconnect"
+// rather than data loss. Each catch swallows accordingly.
+
 function publishEvent(channel: string, event: SSEEvent): Promise<number> {
   return getRedis().publish(channel, JSON.stringify(event));
 }
@@ -32,7 +36,7 @@ export async function publishVerdict(submission: {
       problemId: submission.problemId,
     });
   } catch {
-    // Notifications are best-effort; swallow publish failures.
+    /* see module header */
   }
 }
 
@@ -46,7 +50,7 @@ export async function publishContestEvent(
   try {
     await publishEvent(keys.contestChannel(contestId), event);
   } catch {
-    // best-effort; swallow publish failures.
+    /* see module header */
   }
 }
 
@@ -56,7 +60,7 @@ export async function publishAssessmentDeadline(assessmentId: string): Promise<v
       type: SSE_ASSIGNMENT_DEADLINE,
     });
   } catch {
-    // best-effort; swallow publish failures.
+    /* see module header */
   }
 }
 
@@ -67,8 +71,7 @@ export async function publishNotification(
   try {
     await publishEvent(keys.notificationChannel(userId), event);
   } catch {
-    // Best-effort: SSE delivery is eventually consistent with the DB.
-    // If Redis is down, the DB row persists and clients re-fetch on load.
+    /* see module header */
   }
 }
 
@@ -80,9 +83,7 @@ export async function publishClarification(
   try {
     await publishEvent(keys.clarificationChannel(contextType, contextId), event);
   } catch {
-    // Best-effort: SSE delivery is eventually consistent with the DB.
-    // If Redis is down, the row is still in the DB and clients re-fetch
-    // on reconnect via the `since` query param.
+    // Clarifications: clients also reconcile on reconnect via `since` query param.
   }
 }
 
@@ -103,6 +104,6 @@ export async function publishNotificationBatchSignal(
       // any payload missing an id.
     } as NotificationSSEEvent);
   } catch {
-    // Best-effort
+    /* see module header */
   }
 }

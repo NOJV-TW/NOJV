@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
   import Header from "$lib/components/layout/Header.svelte";
+  import Footer from "$lib/components/layout/Footer.svelte";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
 
@@ -35,4 +36,5 @@
   <main class="flex-1 pt-6">
     {@render children?.()}
   </main>
+  <Footer />
 </div>

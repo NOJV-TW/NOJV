@@ -2,6 +2,7 @@
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
   import { getMonacoLanguage } from "$lib/utils/monaco-languages";
+  import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
 
   interface Props {
     value: string;
@@ -28,19 +29,22 @@
 
     void (async () => {
       monacoModule = await import("monaco-editor");
+      defineNojvThemes(monacoModule);
 
       const isDark = document.documentElement.classList.contains("dark");
       monacoEditor = monacoModule.editor.create(editorContainer, {
         automaticLayout: true,
         fontSize: 12,
+        hideCursorInOverviewRuler: true,
         language: getMonacoLanguage(language),
         lineDecorationsWidth: 0,
         lineNumbersMinChars: 2,
         minimap: { enabled: false },
+        overviewRulerBorder: false,
         padding: { top: 16 },
         readOnly: readonly,
         scrollBeyondLastLine: false,
-        theme: isDark ? "vs-dark" : "vs-light",
+        theme: getNojvThemeName(isDark),
         value,
         wordWrap: "on",
       });
@@ -52,7 +56,7 @@
 
       themeObserver = new MutationObserver(() => {
         const dark = document.documentElement.classList.contains("dark");
-        monacoModule!.editor.setTheme(dark ? "vs-dark" : "vs-light");
+        monacoModule!.editor.setTheme(getNojvThemeName(dark));
       });
       themeObserver.observe(document.documentElement, {
         attributes: true,
@@ -66,7 +70,6 @@
     };
   });
 
-  // Sync language changes
   $effect(() => {
     const lang = language;
     if (!monacoEditor || !monacoModule) return;
@@ -75,7 +78,8 @@
     monacoModule.editor.setModelLanguage(model, getMonacoLanguage(lang));
   });
 
-  // Sync value changes from outside (avoid loop by checking current value)
+  // External value changes overwrite the buffer only when they differ — guards
+  // against an infinite loop with `onDidChangeModelContent`.
   $effect(() => {
     const val = value;
     if (!monacoEditor) return;
@@ -84,7 +88,6 @@
     }
   });
 
-  // Sync readonly changes
   $effect(() => {
     const ro = readonly;
     if (!monacoEditor) return;

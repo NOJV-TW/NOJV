@@ -181,7 +181,6 @@
     </span>
   </div>
 
-  <!-- Toolbar -->
   <div class="flex flex-wrap items-center gap-3 border-b border-border-subtle pb-4">
     {#if showRoleFilter && labels.filterAll && labels.filterStudents}
       <select
@@ -225,12 +224,12 @@
 
   {#if totalRows === 0}
     <div
-      class="rounded-lg border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
+      class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
       {labels.empty()}
     </div>
   {:else}
-    <div class="overflow-x-auto rounded-lg border border-border">
+    <div class="overflow-x-auto rounded-md border border-border">
       <table class="w-full border-separate border-spacing-0 tabular-nums">
         <thead>
           <tr>
@@ -333,7 +332,6 @@
       </table>
     </div>
 
-    <!-- Legend -->
     <div class="flex flex-wrap items-center gap-5 text-caption text-muted-foreground">
       <span class="inline-flex items-center gap-1.5">
         <span
@@ -362,7 +360,6 @@
       </span>
     </div>
 
-    <!-- Pagination -->
     <div class="flex items-center justify-between text-caption text-muted-foreground">
       <span>
         {labels.paginationLabel({ from, to, total: totalRows })}

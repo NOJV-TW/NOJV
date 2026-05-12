@@ -131,7 +131,6 @@ export async function updateProblemRecord(
 
     assertProblemOwnership(problem, actor);
 
-    // Build the problem update data — only include fields that were provided
     const updateData: Record<string, unknown> = {};
     if (payload.title !== undefined) updateData.title = payload.title;
     if (payload.visibility !== undefined) updateData.visibility = payload.visibility;
@@ -172,7 +171,6 @@ export async function updateProblemRecord(
       await problemRepo.withTx(tx).update(problem.id, updateData);
     }
 
-    // Update statement if provided
     if (
       payload.statement !== undefined ||
       payload.inputFormat !== undefined ||

@@ -18,6 +18,7 @@
   import Countdown from "$lib/components/coursework/Countdown.svelte";
   import DifficultyTick from "$lib/components/coursework/DifficultyTick.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
+  import { languageLabel } from "$lib/utils/language-labels";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -92,11 +93,20 @@
     return "verdict-pending";
   }
 
+  // Row tint by viewer state — mirrors the exam detail page so assignment
+  // status reads through background, not a separate AC/WA chip.
+  function rowTint(state: "ac" | "partial" | "attempted" | "none"): string {
+    if (state === "ac") return "bg-success/[0.06]";
+    if (state === "partial")
+      return "bg-[color:color-mix(in_oklab,var(--chart-4)_8%,transparent)]";
+    if (state === "attempted") return "bg-muted/30";
+    return "";
+  }
+
   // Derived assignment-level stats from problems[].
   const solved = $derived(
     detail.problems.filter((p) => p.myStatus?.state === "ac").length
   );
-  const allSolved = $derived(detail.problemCount > 0 && solved === detail.problemCount);
   const myScore = $derived(
     detail.problems.reduce((sum, p) => sum + (p.myStatus?.bestScore ?? 0), 0)
   );
@@ -104,8 +114,6 @@
     detail.problemCount > 0 ? Math.round((solved / detail.problemCount) * 100) : 0
   );
 
-  // Map domain status onto the design's student-facing vocabulary so the
-  // shared StatusPill renders the right label/color.
   const status = $derived.by(() => {
     switch (detail.status) {
       case "upcoming":
@@ -113,7 +121,7 @@
       case "open":
         return "in_progress";
       case "closed":
-        return allSolved ? "graded" : "submitted";
+        return "closed";
       case "draft":
       default:
         return "not_started";
@@ -216,7 +224,7 @@
               {m.assignmentDetail_metaProgress()}
             </div>
             <div class="mt-0.5 font-mono">
-              <span class="font-semibold text-body">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}
+              <span class="font-semibold">{solved}</span> / {m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}
             </div>
           </div>
           <div>
@@ -226,7 +234,7 @@
               {m.assignmentDetail_metaScore()}
             </div>
             <div class="mt-0.5 font-mono">
-              <span class="font-semibold text-body">{myScore}</span> / {detail.totalPoints}
+              <span class="font-semibold">{myScore}</span> / {detail.totalPoints}
             </div>
           </div>
           <div>
@@ -249,11 +257,11 @@
             >
               {m.assignmentDetail_metaAllowedLanguages()}
             </div>
-            <div class="mt-0.5 text-caption text-muted-foreground">
+            <div class="mt-0.5">
               {#if detail.allowedLanguages.length > 0}
-                {m.assignmentDetail_metaLanguageCount({ count: detail.allowedLanguages.length })}
+                {detail.allowedLanguages.map(languageLabel).join(" / ")}
               {:else}
-                {m.assignmentDetail_metaLanguagePolicy()}
+                {m.assignmentDetail_metaAttemptsUnlimited2()}
               {/if}
             </div>
           </div>
@@ -294,13 +302,11 @@
       {:else}
         <div class="divide-y" style="border-color: var(--border-subtle);">
           {#each detail.problems as problem (problem.problemId)}
-            {@const isSolved = problem.myStatus?.state === "ac"}
+            {@const state = problem.myStatus?.state ?? "none"}
+            {@const isSolved = state === "ac"}
             {@const tries = problem.myStatus?.attempts ?? 0}
             {@const score = problem.myStatus?.bestScore ?? 0}
-            <div
-              class="grid grid-cols-[60px_1fr_auto_auto_auto] items-center gap-4 px-6 py-3.5 hover:bg-muted/40 transition-colors"
-              style="border-color: var(--border-subtle);"
-            >
+            {#snippet rowBody()}
               <div class="font-mono text-body font-semibold text-muted-foreground">
                 {problem.letter}
               </div>
@@ -324,21 +330,6 @@
                   {/if}
                 </div>
               </div>
-              <div class="hidden sm:block">
-                {#if isSolved}
-                  <span
-                    class="inline-flex items-center gap-1.5 text-caption verdict-ac rounded-full px-2.5 py-1 font-mono uppercase tracking-wider"
-                  >
-                    AC
-                  </span>
-                {:else}
-                  <span
-                    class="text-caption font-mono uppercase tracking-wider text-muted-foreground"
-                  >
-                    —
-                  </span>
-                {/if}
-              </div>
               <div class="font-mono text-body-sm tabular-nums w-20 text-right">
                 <span class={isSolved ? "font-semibold" : "text-muted-foreground"}>
                   {score}
@@ -354,16 +345,34 @@
                   {m.assignmentDetail_problemArchived()}
                 </span>
               {:else}
-                <a
-                  href={problemHref(problem.problemId)}
-                  class="text-caption font-medium px-3 py-1.5 rounded-md border transition-colors hover:border-default no-underline text-foreground inline-flex items-center gap-1"
-                  style="border-color: var(--border-subtle);"
+                <span
+                  class="text-caption font-medium text-muted-foreground inline-flex items-center gap-1"
                 >
                   {isSolved ? m.assignmentDetail_problemView() : m.assignmentDetail_problemSolve()}
                   <ChevronRight class="size-3.5" />
-                </a>
+                </span>
               {/if}
-            </div>
+            {/snippet}
+            {#if data.course.archived}
+              <div
+                class={cn(
+                  "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 px-6 py-3.5",
+                  rowTint(state)
+                )}
+              >
+                {@render rowBody()}
+              </div>
+            {:else}
+              <a
+                href={problemHref(problem.problemId)}
+                class={cn(
+                  "grid grid-cols-[60px_1fr_auto_auto] items-center gap-4 px-6 py-3.5 text-inherit no-underline transition-colors hover:bg-muted/40",
+                  rowTint(state)
+                )}
+              >
+                {@render rowBody()}
+              </a>
+            {/if}
           {/each}
         </div>
       {/if}
@@ -389,6 +398,8 @@
       {:else}
         <div class="divide-y" style="border-color: var(--border-subtle);">
           {#each detail.myRecentSubmissions as entry (entry.id)}
+            {@const maxScore =
+              detail.problems.find((p) => p.problemId === entry.problemId)?.points ?? 100}
             <a
               href={`/submissions/${entry.id}`}
               class="grid grid-cols-[120px_1fr_auto_auto_auto] items-center gap-4 px-6 py-3 text-inherit no-underline hover:bg-muted/40 transition-colors font-mono text-body-sm"
@@ -402,13 +413,16 @@
               </span>
               <span
                 class={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-1 text-micro uppercase tracking-wider font-mono",
+                  "inline-flex min-w-14 items-center justify-center rounded-full px-2.5 py-1 text-micro uppercase tracking-wider font-mono",
                   verdictClass(entry.status)
                 )}
               >
                 {verdictLabel(entry.status)}
               </span>
-              <span class="tabular-nums">{entry.score} / 100</span>
+              <span class="whitespace-nowrap tabular-nums">
+                <span class="inline-block w-8 text-right">{entry.score}</span>
+                <span class="text-muted-foreground"> / {maxScore}</span>
+              </span>
               <ChevronRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </a>
           {/each}

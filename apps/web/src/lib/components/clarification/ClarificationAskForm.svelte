@@ -41,7 +41,7 @@
 </script>
 
 <section
-  class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-5 space-y-3"
+  class="rounded-xl border border-border bg-[color:var(--color-panel)] p-3 space-y-3"
 >
   <h3 class="text-title-sm font-medium">{m.clarification_askBtn()}</h3>
 
