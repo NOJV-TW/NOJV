@@ -5,10 +5,10 @@
 
   interface Props {
     iso: string;
-    compact?: boolean;
+    isCompact?: boolean;
   }
 
-  let { iso, compact = false }: Props = $props();
+  let { iso, isCompact = false }: Props = $props();
 
   let now = $state(Date.now());
   onMount(() => {
@@ -25,7 +25,7 @@
   }
 </script>
 
-{#if compact}
+{#if isCompact}
   <span class="font-mono tabular-nums">
     {#if c.past}
       {m.countdown_past()}

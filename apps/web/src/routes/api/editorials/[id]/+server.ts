@@ -6,9 +6,9 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { problemDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/domain";
 
-const { updateEditorial, softDeleteEditorial } = problemDomain;
+const { updateEditorial, softDeleteEditorial } = editorialDomain;
 
 // Mirrors the inline `editorialSubmitSchema` content bounds at the POST
 // route so update + create stay in sync; both fields optional so the

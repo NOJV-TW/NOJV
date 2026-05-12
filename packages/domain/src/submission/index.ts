@@ -1,5 +1,6 @@
 export {
   countAssignmentSubmissionsToday,
+  deriveSubmissionMode,
   getSubmissionDetail,
   getSubmissionForUser,
   getSubmissionById,
@@ -32,7 +33,6 @@ export {
 } from "./permissions";
 export { snapshotForRejudge, finalizeRejudgeLog } from "./rejudge-log";
 export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
-export { deriveSubmissionMode } from "./mode";
 export {
   dispatchRejudge,
   dispatchSubmissionJudge,

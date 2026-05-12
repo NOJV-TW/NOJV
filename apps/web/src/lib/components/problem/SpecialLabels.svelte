@@ -11,7 +11,7 @@
     /** Optional difficulty level (easy / medium / hard). Shown in the full variant only. */
     difficulty?: string;
     /** Compact variant (no titles, no tooltips) used in list cards. */
-    compact?: boolean;
+    isCompact?: boolean;
     /**
      * Which section(s) to render. Defaults to both. In list layouts the
      * parent may want to render each as its own grid column, which is what
@@ -24,7 +24,7 @@
     problemType,
     judgeType,
     difficulty,
-    compact = false,
+    isCompact = false,
     which = "both"
   }: Props = $props();
 
@@ -98,7 +98,7 @@
   );
 </script>
 
-{#if compact}
+{#if isCompact}
   <span class="inline-flex flex-wrap items-center gap-1">
     {#if showProblemType}
       <span class="rounded-full px-2 py-0.5 text-micro font-medium {problemColor}">

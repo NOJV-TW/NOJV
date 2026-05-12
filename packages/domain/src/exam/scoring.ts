@@ -17,7 +17,7 @@ import {
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
 
 // Cuid IDs cannot collide, so Exam and Contest share the Redis scoreboard namespace.
-export interface ExamScoreboardData {
+export interface ExamScoreboard {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];
   scoringMode: ContestScoringMode;
@@ -112,7 +112,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 export async function getExamScoreboard(
   examId: string,
   options?: { isPrivileged?: boolean },
-): Promise<ExamScoreboardData> {
+): Promise<ExamScoreboard> {
   const exam = await examRepo.findForScoreboard(examId);
 
   if (exam?.status !== "published") {
@@ -198,7 +198,7 @@ export async function getExamScoreboard(
   };
 }
 
-export interface ExamChartData {
+export interface ExamScoreboardChart {
   series: {
     userId: string;
     username: string;
@@ -209,7 +209,7 @@ export interface ExamChartData {
 export async function getExamScoreboardChart(
   examId: string,
   topN: number,
-): Promise<ExamChartData> {
+): Promise<ExamScoreboardChart> {
   const scoreboardData = await getExamScoreboard(examId);
 
   const topEntries = scoreboardData.entries.slice(0, topN);

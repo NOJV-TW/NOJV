@@ -11,12 +11,12 @@
     /** Per-language draft map. `value` for the current language is what we mirror. */
     drafts: Record<string, string>;
     /** Hide the underlying container without disposing Monaco. */
-    hidden?: boolean;
+    isHidden?: boolean;
     /** Fires with the latest buffer whenever the student edits code. */
     onchange: (value: string) => void;
   }
 
-  let { language, drafts, hidden = false, onchange }: Props = $props();
+  let { language, drafts, isHidden = false, onchange }: Props = $props();
 
   const editorOptions = {
     automaticLayout: true,
@@ -106,4 +106,4 @@
   });
 </script>
 
-<div bind:this={editorContainer} class="h-full w-full" class:hidden></div>
+<div bind:this={editorContainer} class="h-full w-full" class:hidden={isHidden}></div>

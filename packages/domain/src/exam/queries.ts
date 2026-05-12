@@ -2,7 +2,7 @@ import { courseMembershipRepo, examRepo, runTransaction } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { checkIpLock, type IpCheckResult } from "../shared/ip-utils";
+import { checkIpLock, type IpCheckResult } from "../shared/ip";
 import { aggregateExamClassStats, aggregateExamMyStatus } from "../shared/list-aggregations";
 import { canManageExam } from "./permissions";
 
@@ -32,7 +32,7 @@ export interface ExamProblemSummary {
   title: string;
 }
 
-export interface ExamDetailData {
+export interface ExamDetail {
   allowedLanguages: Language[];
   courseId: string;
   endsAt: string;
@@ -81,7 +81,7 @@ function mapExamListItem(e: ExamWithCounts): ExamListItem {
 
 type ExamDetailRow = NonNullable<Awaited<ReturnType<typeof examRepo.findDetailById>>>;
 
-type ExamDetailBase = Omit<ExamDetailData, "isManager" | "problemsHidden" | "problems"> & {
+type ExamDetailBase = Omit<ExamDetail, "isManager" | "problemsHidden" | "problems"> & {
   problems: ExamProblemSummary[];
 };
 
@@ -327,7 +327,7 @@ function resolveVisibility(
 export async function getExamDetail(
   examId: string,
   options: ExamDetailOptions,
-): Promise<ExamDetailData> {
+): Promise<ExamDetail> {
   const [exam, memberships] = await Promise.all([
     examRepo.findDetailById(examId),
     options.userId === null

@@ -11,9 +11,9 @@
     problemType: ProblemType;
     canPublish?: boolean;
     showPublish?: boolean;
-    publishing?: boolean;
-    basicInfoComplete?: boolean;
-    dirty?: boolean;
+    isPublishing?: boolean;
+    isBasicInfoComplete?: boolean;
+    isDirty?: boolean;
     testcaseCount?: number;
     showConvertToAdvanced?: boolean;
     onpublish?: () => void;
@@ -28,9 +28,9 @@
     problemType,
     canPublish = false,
     showPublish = false,
-    publishing = false,
-    basicInfoComplete = false,
-    dirty = $bindable(false),
+    isPublishing = false,
+    isBasicInfoComplete = false,
+    isDirty = $bindable(false),
     testcaseCount = 0,
     showConvertToAdvanced = false,
     onpublish,
@@ -80,7 +80,7 @@
 
   function handleSectionClick(id: string) {
     if (id === activeSection) return;
-    if (dirty) {
+    if (isDirty) {
       pendingSection = id;
       showUnsavedModal = true;
     } else {
@@ -90,7 +90,7 @@
 
   function confirmSwitch() {
     showUnsavedModal = false;
-    dirty = false;
+    isDirty = false;
     if (pendingSection) {
       activeSection = pendingSection;
       pendingSection = null;
@@ -103,12 +103,12 @@
   }
 
   function isLocked(id: string): boolean {
-    return id !== "basic" && !basicInfoComplete;
+    return id !== "basic" && !isBasicInfoComplete;
   }
 
   function statusBadge(id: string): string {
     if (isLocked(id)) return "○";
-    if (id === "basic") return basicInfoComplete ? "✓" : "●";
+    if (id === "basic") return isBasicInfoComplete ? "✓" : "●";
     if (id === "testcase") return testcaseCount > 0 ? "✓" : "○";
     return "✓";
   }
@@ -159,11 +159,11 @@
         {#if canPublish}
           <button
             class="w-full rounded-full bg-success px-4 py-2 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={publishing}
+            disabled={isPublishing}
             type="button"
             onclick={() => onpublish?.()}
           >
-            {publishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
+            {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
           </button>
         {:else}
           <Tooltip.Provider delayDuration={200}>
