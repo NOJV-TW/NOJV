@@ -15,9 +15,9 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { count: vi.fn() },
 }));
 
-import { problemDomain } from "@nojv/domain";
+import { editorialDomain } from "@nojv/domain";
 
-const { updateEditorial, softDeleteEditorial, getEditorialById } = problemDomain;
+const { updateEditorial, softDeleteEditorial, getEditorialById } = editorialDomain;
 
 interface FakeActor {
   displayName: string;

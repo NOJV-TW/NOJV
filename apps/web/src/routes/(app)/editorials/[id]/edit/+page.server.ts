@@ -1,11 +1,12 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { problemDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain } from "@nojv/domain";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-const { getEditorialById, getProblemRowById } = problemDomain;
+const { getProblemRowById } = problemDomain;
+const { getEditorialById } = editorialDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);

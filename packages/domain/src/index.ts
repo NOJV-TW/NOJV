@@ -9,6 +9,7 @@ export * as assignmentDomain from "./assignment";
 export * as clarificationDomain from "./clarification";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
+export * as editorialDomain from "./editorial";
 export * as examDomain from "./exam";
 export * as notificationDomain from "./notification";
 export * as plagiarismDomain from "./plagiarism";
