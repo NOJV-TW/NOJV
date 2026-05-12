@@ -15,7 +15,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = getActorContext(event);
   const unfrozen = event.url.searchParams.get("unfrozen") === "true";
 
-  // Only admin/teacher can see unfrozen view
   const canUnfreeze =
     actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
 

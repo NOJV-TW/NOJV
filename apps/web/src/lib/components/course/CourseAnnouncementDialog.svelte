@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Input } from "$lib/components/ui/input";
   import FormField from "$lib/components/ui/FormField.svelte";
+  import ImageDropZone from "$lib/components/ui/ImageDropZone.svelte";
 
   interface AnnouncementInitial {
     id: string;
@@ -32,7 +34,16 @@
   }
 
   let submitting = $state(false);
+  let content = $state(untrack(() => initial?.content ?? ""));
   const action = $derived(mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement");
+
+  $effect(() => {
+    // Re-seed `content` when the dialog reopens with different initial data
+    // (mode flip or selecting a different announcement to edit). Writes to
+    // $state inside $effect don't subscribe, so the in-progress edits don't
+    // trigger a self-overwriting loop.
+    content = initial?.content ?? "";
+  });
 </script>
 
 <Dialog.Root bind:open>
@@ -81,12 +92,14 @@
         for="ann-content"
         required
       >
-        <textarea
+        <ImageDropZone
           id="ann-content"
           name="content"
           required
           class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          placeholder={m.admin_announcementsFieldContent()}>{initial?.content ?? ""}</textarea>
+          placeholder={m.admin_announcementsFieldContent()}
+          bind:value={content}
+        />
       </FormField>
 
       <FormField

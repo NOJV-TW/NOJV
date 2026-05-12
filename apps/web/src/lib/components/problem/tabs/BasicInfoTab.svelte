@@ -32,13 +32,11 @@
     ondirtychange?.(dirty);
   });
 
-  // Tags - sync with superform store
   let tags = $state<string[]>($form.tags ?? []);
   $effect(() => {
     $form.tags = tags;
   });
 
-  // Samples - sync with superform store
   let samples = $state<{ input: string; output: string }[]>($form.samples ?? []);
   $effect(() => {
     $form.samples = samples;
@@ -46,7 +44,6 @@
 
   let showAdvanced = $state(false);
 
-  // Validation message translation
   const validationMessages: Record<string, () => string> = {
     validation_required: m.validation_required,
     validation_tooLong: m.validation_tooLong
@@ -58,7 +55,6 @@
     return validationMessages[first]?.() ?? first;
   }
 
-  // Difficulty/visibility display maps
   const difficultyLabels: Record<string, () => string> = {
     easy: m.admin_difficultyEasy,
     medium: m.admin_difficultyMedium,
@@ -72,7 +68,6 @@
 </script>
 
 <form class="grid gap-4" method="POST" action="?/update" use:enhance>
-  <!-- Title -->
   <label class="text-body-sm text-muted-foreground">
     <span>{m.admin_title()} <span class="text-destructive">*</span></span>
     <input
@@ -84,7 +79,6 @@
     {#if attempted && $errors.title}<span class="text-body-sm text-destructive">{tr($errors.title)}</span>{/if}
   </label>
 
-  <!-- Difficulty + Visibility -->
   <div class="grid gap-4 md:grid-cols-2">
     <div class="space-y-1.5">
       <span class="text-body-sm text-muted-foreground">{m.admin_difficulty()} <span class="text-destructive">*</span></span>
@@ -125,7 +119,6 @@
     </div>
   </div>
 
-  <!-- Statement -->
   <label class="text-body-sm text-muted-foreground">
     <span>{m.admin_statement()} <span class="text-destructive">*</span> <HelpTooltip text={m.admin_statementTooltip()} /></span>
     <ImageDropZone
@@ -138,7 +131,6 @@
     {#if attempted && $errors.statement}<span class="text-body-sm text-destructive">{tr($errors.statement)}</span>{/if}
   </label>
 
-  <!-- Input / Output Format -->
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm text-muted-foreground">
       <span>{m.admin_inputFormat()} <span class="text-destructive">*</span> <HelpTooltip text={m.admin_inputFormatTooltip()} /></span>
@@ -164,10 +156,8 @@
     </label>
   </div>
 
-  <!-- Samples -->
   <SamplesEditor bind:samples />
 
-  <!-- Advanced Options -->
   <button
     type="button"
     class="text-body-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground text-left"
@@ -186,7 +176,6 @@
     </div>
   {/if}
 
-  <!-- Submit -->
   <div class="mt-2 flex items-center justify-end gap-3">
     <button
       class="inline-flex rounded-full bg-primary px-5 py-3 text-body-sm font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"

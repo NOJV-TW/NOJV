@@ -23,7 +23,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     } | null;
     if (body?.mode === "advanced") type = "special_env";
   } catch {
-    // ignore — GET / no body is fine, defaults to full_source
+    // missing/invalid body falls through to the default ProblemType
   }
 
   const result = await createProblemRecord(actor, {

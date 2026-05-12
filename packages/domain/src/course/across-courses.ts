@@ -21,7 +21,12 @@ export interface AssignmentsTopRow {
   closesAt: string | null;
   problemCount: number;
   /** Student row only — null for assignments in courses this user manages. */
-  myStatus: { solved: number; total: number } | null;
+  myStatus: {
+    solved: number;
+    total: number;
+    score: number;
+    totalPoints: number;
+  } | null;
   /** Manager row only — null for assignments in courses this user is enrolled in as a student. */
   classStats: { submittedUsers: number; totalStudents: number; avgScore: number } | null;
 }

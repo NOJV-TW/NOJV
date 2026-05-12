@@ -5,7 +5,7 @@
   interface Props {
     href: string;
     code: string;
-    format: string;
+    scoringLabel: string;
     title: string;
     startsAt: string;
     participants: number;
@@ -15,7 +15,7 @@
   let {
     href,
     code,
-    format,
+    scoringLabel,
     title,
     startsAt,
     participants,
@@ -25,7 +25,7 @@
 
 <a
   {href}
-  class="group glass hover-lift rounded-xl shadow-rest fade-up block px-5 py-4"
+  class="group glass hover-lift rounded-lg shadow-rest fade-up block px-5 py-4"
   style="animation-delay: {delay}ms;"
 >
   <div class="flex items-center gap-4">
@@ -38,7 +38,7 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-baseline gap-2">
         <h3 class="text-body-lg font-semibold truncate">{title}</h3>
-        <span class="text-caption text-muted-foreground">{format}</span>
+        <span class="text-caption text-muted-foreground">{scoringLabel}</span>
       </div>
       <div class="text-caption text-muted-foreground">
         {m.contestRowPast_meta({ date: fmtDate(startsAt), count: participants })}

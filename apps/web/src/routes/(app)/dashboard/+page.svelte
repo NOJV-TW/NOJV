@@ -254,7 +254,7 @@
   }
 </script>
 
-<PageContainer>
+<PageContainer class="fade-up">
   <PageHeader
     eyebrow={m.dashboard_eyebrow()}
     title={m.dashboard_welcome({ username: data.username })}

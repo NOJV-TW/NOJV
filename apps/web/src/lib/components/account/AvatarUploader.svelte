@@ -20,11 +20,9 @@
     imageBroken = false;
   });
 
-  // Original-file constraints (jpg/png/webp, 5 MB).
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-  // Output: square crop rendered to 512x512 webp.
   const OUTPUT_SIZE = 512;
   // Preview canvas size (CSS px, also the unit we use for hit-testing).
   const VIEW_SIZE = 320;
@@ -33,7 +31,6 @@
   let dialogOpen = $state(false);
   let busy = $state(false);
 
-  // Cropper state.
   let img: HTMLImageElement | null = $state(null);
   let imgX = $state(0); // top-left of image inside view, in CSS px
   let imgY = $state(0);

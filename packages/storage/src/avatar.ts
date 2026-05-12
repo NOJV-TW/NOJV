@@ -1,17 +1,16 @@
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 
+import { getStorageBaseUrl } from "./client";
+
 const BUCKET = process.env.S3_BUCKET ?? "nojv";
 
 function avatarKey(userId: string): string {
   return `avatars/${userId}.webp`;
 }
 
-/**
- * Uploads (or overwrites) the avatar at `avatars/{userId}.webp`.
- * Returns a public URL with a `?v={timestamp}` cache-buster so the browser
- * picks up the new image immediately even though the storage key is stable.
- */
+// `?v={timestamp}` cache-buster: the storage key is stable so browsers
+// would otherwise serve the previous avatar from cache.
 export async function uploadUserAvatar(
   client: S3Client,
   userId: string,
@@ -28,8 +27,7 @@ export async function uploadUserAvatar(
     }),
   );
 
-  const baseUrl = process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT ?? "";
-  return `${baseUrl}/${BUCKET}/${key}?v=${String(Date.now())}`;
+  return `${getStorageBaseUrl()}/${BUCKET}/${key}?v=${String(Date.now())}`;
 }
 
 export async function deleteUserAvatar(client: S3Client, userId: string): Promise<void> {

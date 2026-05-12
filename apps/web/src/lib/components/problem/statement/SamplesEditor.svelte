@@ -46,14 +46,14 @@
 
   {#if samples.length === 0}
     <div
-      class="rounded-lg border border-dashed border-border-subtle p-4 text-center text-body-sm text-muted-foreground"
+      class="rounded-md border border-dashed border-border-subtle p-4 text-center text-body-sm text-muted-foreground"
     >
       {m.admin_noSamplesYet()}
     </div>
   {:else}
     <div class="space-y-3">
       {#each samples as sample, index (`sample-${index}`)}
-        <div class="rounded-lg border border-border-subtle p-3">
+        <div class="rounded-md border border-border-subtle p-3">
           <div class="flex items-center justify-between">
             <span class="text-caption font-semibold text-muted-foreground">
               {m.admin_sampleNumber({ number: index + 1 })}

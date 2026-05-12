@@ -42,7 +42,7 @@
     <Dialog.Header>
       <div class="flex items-start gap-4">
         <div
-          class="rounded-xl p-2.5"
+          class="rounded-lg p-2.5"
           style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
         >
           <AlertTriangle
@@ -66,7 +66,7 @@
       </div>
     </Dialog.Header>
 
-    <div class="mt-2 rounded-xl bg-muted p-4">
+    <div class="mt-2 rounded-lg bg-muted p-2">
       <div class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground">
         {m.examStartModal_checklistHeading()}
       </div>
@@ -92,7 +92,7 @@
       <button
         type="button"
         onclick={() => onOpenChange(false)}
-        class="rounded-lg border border-border px-4 py-2 text-body-sm font-medium transition-colors hover:bg-muted"
+        class="rounded-md border border-border px-4 py-2 text-body-sm font-medium transition-colors hover:bg-muted"
       >
         {m.examStartModal_cancel()}
       </button>
@@ -115,7 +115,7 @@
         <button
           type="submit"
           disabled={!agreed || submitting}
-          class="rounded-lg bg-primary px-5 py-2 text-body-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+          class="rounded-md bg-primary px-5 py-2 text-body-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {m.examStartModal_start()}
         </button>

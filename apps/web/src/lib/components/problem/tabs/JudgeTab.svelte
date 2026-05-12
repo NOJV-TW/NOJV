@@ -19,12 +19,10 @@
 
   let { problem, ondirtychange }: Props = $props();
 
-  // Seed state from the current judgeConfig snapshot.
   const cfg = untrack(() => problem.judgeConfig ?? {});
 
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");
 
-  // Checker + interactor.
   let checkerScript = $state(cfg.checkerScript ?? "");
   let checkerLanguage = $state<JudgeScriptLanguage>(cfg.checkerLanguage ?? "python");
   let interactorScript = $state(cfg.interactorScript ?? "");
@@ -32,7 +30,6 @@
     cfg.interactorLanguage ?? "python"
   );
 
-  // ─── Save ──────────────────────────────────────────────────────────
   function buildJudgeConfig() {
     const config: Record<string, unknown> = {
       type: judgeType
@@ -97,8 +94,7 @@
 </script>
 
 <div class="space-y-4">
-  <!-- ─── Judge Type ───────────────────────── -->
-  <div class="rounded-xl border border-border-subtle p-4">
+  <div class="rounded-lg border border-border-subtle p-2">
     <h3 class="text-body-sm font-semibold">{m.admin_judgeType()}</h3>
     <p class="mt-0.5 text-caption text-muted-foreground">
       {m.admin_judgeTypeHint()}
@@ -141,7 +137,7 @@
     </div>
 
     {#if judgeType === "standard"}
-      <p class="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-caption text-muted-foreground">
+      <p class="mt-4 rounded-md bg-muted/50 px-3 py-2 text-caption text-muted-foreground">
         {m.admin_standardNormalizationHint()}
       </p>
     {:else if judgeType === "checker"}
@@ -161,7 +157,7 @@
           </select>
         </label>
 
-        <details class="rounded-lg border border-border-subtle bg-muted/30 px-3 py-2">
+        <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
           <summary class="cursor-pointer text-caption font-semibold">
             {m.admin_checkerHelpTitle()}
           </summary>
@@ -196,7 +192,7 @@
           </select>
         </label>
 
-        <details class="rounded-lg border border-border-subtle bg-muted/30 px-3 py-2">
+        <details class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2">
           <summary class="cursor-pointer text-caption font-semibold">
             {m.admin_interactorHelpTitle()}
           </summary>
@@ -217,7 +213,6 @@
     {/if}
   </div>
 
-  <!-- ─── Save ──────────────────────────────── -->
   <div class="mt-2 flex justify-end">
     <div class="flex items-center gap-3">
       <button

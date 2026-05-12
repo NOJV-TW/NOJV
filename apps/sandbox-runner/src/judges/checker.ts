@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
+import { cleanupTempDir } from "../utils.js";
 import { runProcess, classifySolutionVerdict, parseJudgeOutput } from "./run-process.js";
 
 const CHECKER_TIMEOUT_MS = 30_000;
@@ -38,6 +39,11 @@ export async function judgeChecker(
       { timeoutMs: CHECKER_TIMEOUT_MS },
     );
 
+    // Checker memory does not count against the student — only the solution's
+    // peak resident memory is reported back.
+    const memoryFields =
+      solution.memoryKb > 0 ? ({ memoryKb: solution.memoryKb } as const) : ({} as const);
+
     // Checker infrastructure failures → SE (not the user's fault)
     if (checkerResult.spawnError) {
       return {
@@ -47,6 +53,7 @@ export async function judgeChecker(
         stderr: `Checker error: ${checkerResult.stderr}`,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
+        ...memoryFields,
         feedback: "Checker failed to start (system error).",
       };
     }
@@ -59,6 +66,7 @@ export async function judgeChecker(
         stderr: solution.stderr,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
+        ...memoryFields,
         feedback: "Checker timed out (system error).",
       };
     }
@@ -72,6 +80,7 @@ export async function judgeChecker(
         stderr: `Checker crashed with signal ${checkerResult.signal}.\n${checkerResult.stderr}`,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
+        ...memoryFields,
         feedback: `Checker crashed (${checkerResult.signal}).`,
       };
     }
@@ -89,6 +98,7 @@ export async function judgeChecker(
       stderr: solution.stderr,
       exitCode: solution.exitCode,
       timeMs: solution.timeMs + checkerResult.timeMs,
+      ...memoryFields,
       score: parsed.score,
     };
     if (parsed.feedback) {
@@ -96,6 +106,6 @@ export async function judgeChecker(
     }
     return result;
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupTempDir(tmpDir);
   }
 }

@@ -32,7 +32,7 @@
 </script>
 
 <div
-  class="flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
+  class="flex min-h-[38px] flex-wrap items-center gap-1.5 rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2"
   onclick={() => inputEl?.focus()}
   role="textbox"
   tabindex="-1"

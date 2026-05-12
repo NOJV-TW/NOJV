@@ -114,8 +114,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   };
 });
 
-// ─── Action helpers ─────────────────────────────────────────────────
-
 async function runFreezeAction(event: RequestEvent, frozen: boolean) {
   const actor = requireAuth(event);
   try {

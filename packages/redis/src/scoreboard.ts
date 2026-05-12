@@ -14,6 +14,19 @@ async function execPipeline(pipeline: ReturnType<Redis["pipeline"]>): Promise<vo
   }
 }
 
+// Walks an alternating [member, score, member, score, ...] WITHSCORES reply.
+function parseZsetWithScores(raw: string[]): { participationId: string; score: number }[] {
+  const entries: { participationId: string; score: number }[] = [];
+  for (let i = 0; i + 1 < raw.length; i += 2) {
+    const participationId = raw[i];
+    const scoreStr = raw[i + 1];
+    if (participationId != null && scoreStr != null) {
+      entries.push({ participationId, score: Number(scoreStr) });
+    }
+  }
+  return entries;
+}
+
 export async function updateScoreboard(
   contestId: string,
   participationId: string,
@@ -47,16 +60,7 @@ export async function getScoreboard(
   const hasFrozen = await redis.exists(frozenKey);
   const key = hasFrozen ? frozenKey : liveKey;
 
-  const results = await redis.zrevrange(key, start, stop, "WITHSCORES");
-  const entries: { participationId: string; score: number }[] = [];
-  for (let i = 0; i + 1 < results.length; i += 2) {
-    const participationId = results[i];
-    const scoreStr = results[i + 1];
-    if (participationId != null && scoreStr != null) {
-      entries.push({ participationId, score: Number(scoreStr) });
-    }
-  }
-  return entries;
+  return parseZsetWithScores(await redis.zrevrange(key, start, stop, "WITHSCORES"));
 }
 
 /** Snapshots live → frozen. Live key keeps updating; `getScoreboard` hides it until unfreeze. */
@@ -67,25 +71,17 @@ export async function freezeScoreboard(contestId: string): Promise<void> {
 
   // ZRANGE + ZADD instead of ZRANGESTORE to avoid depending on Redis 6.2+.
   await redis.del(frozenKey);
-  const entries = await redis.zrange(key, 0, -1, "WITHSCORES");
+  const entries = parseZsetWithScores(await redis.zrange(key, 0, -1, "WITHSCORES"));
   if (entries.length === 0) return;
 
-  const zaddArgs: string[] = [];
-  for (let i = 0; i + 1 < entries.length; i += 2) {
-    const member = entries[i];
-    const score = entries[i + 1];
-    if (member != null && score != null) {
-      zaddArgs.push(score, member);
-    }
-  }
-  if (zaddArgs.length > 0) {
-    await execPipeline(
-      redis
-        .pipeline()
-        .zadd(frozenKey, ...zaddArgs)
-        .expire(frozenKey, SCOREBOARD_TTL_SECONDS),
-    );
-  }
+  // ZADD takes score-then-member; flatten back from parsed entries.
+  const zaddArgs = entries.flatMap((e) => [e.score.toString(), e.participationId]);
+  await execPipeline(
+    redis
+      .pipeline()
+      .zadd(frozenKey, ...zaddArgs)
+      .expire(frozenKey, SCOREBOARD_TTL_SECONDS),
+  );
 }
 
 export async function unfreezeScoreboard(contestId: string): Promise<void> {

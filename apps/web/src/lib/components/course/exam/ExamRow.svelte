@@ -18,13 +18,10 @@
     return n < 10 ? `0${String(n)}` : String(n);
   }
 
-  // Domain status → StatusPill exam status mapping. Domain has
-  // running/upcoming/ended; StatusPill exam map has scheduled/open/
-  // in_progress/submitted/graded. Pick the closest visual.
   function pillStatus(s: "running" | "upcoming" | "ended"): string {
     if (s === "running") return "in_progress";
     if (s === "upcoming") return "scheduled";
-    return "graded";
+    return "ended";
   }
 </script>
 
@@ -53,11 +50,10 @@
 
 <a
   href={`/exams/${exam.id}`}
-  class="group glass hover-lift fade-up block overflow-hidden rounded-2xl shadow-rest"
+  class="group glass hover-lift fade-up block overflow-hidden rounded-xl shadow-rest"
   style="animation-delay: {delay}ms"
 >
   <div class="grid grid-cols-[136px_1fr] items-stretch md:grid-cols-[136px_1fr_auto]">
-    <!-- Date gutter -->
     <div
       class="relative flex flex-col items-center justify-center border-r border-border-subtle px-3 py-5"
       style:background={past
@@ -79,7 +75,6 @@
       </div>
     </div>
 
-    <!-- Body -->
     <div class="min-w-0 p-5">
       <div class="flex flex-wrap items-center gap-2">
         <span
@@ -110,7 +105,6 @@
       </div>
     </div>
 
-    <!-- CTA strip -->
     <div
       class="hidden flex-col items-end justify-between gap-3 border-l border-border-subtle p-5 md:flex md:min-w-[200px]"
     >
@@ -141,10 +135,17 @@
       {:else}
         <div class="text-right">
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-            {m.examRow_ctaEnded()}
+            {exam.myStatus ? m.examRow_scoreLabel() : m.examRow_ctaEnded()}
           </div>
-          <div class="font-mono text-body-sm tabular-nums text-muted-foreground">
-            {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
+          <div class="font-mono text-body-sm tabular-nums">
+            {#if exam.myStatus}
+              <span class="font-semibold">{exam.myStatus.score}</span>
+              <span class="text-muted-foreground"> / {exam.myStatus.totalPoints}</span>
+            {:else}
+              <span class="text-muted-foreground">
+                {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
+              </span>
+            {/if}
           </div>
         </div>
         <div class="text-caption text-muted-foreground">{m.examRow_ctaViewDetails()}</div>

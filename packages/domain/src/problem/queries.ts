@@ -8,6 +8,7 @@ import {
 } from "@nojv/db";
 import {
   DEFAULT_LOCALE,
+  LANGUAGE_TEMPLATES,
   judgeConfigSchema,
   problemDifficultySchema,
   type JudgeConfig,
@@ -65,45 +66,6 @@ export interface ProblemDetail {
   advancedRequiredPaths: string[];
 }
 
-// Duplicated from apps/web/src/lib/types.ts to avoid a UI→domain import.
-const starterByLanguage: Record<string, string> = {
-  c: `#include <stdio.h>
-
-int main() {
-
-}
-`,
-  go: `package main
-
-func main() {
-}
-`,
-  cpp: `#include <bits/stdc++.h>
-using namespace std;
-
-int main() {
-
-}
-`,
-  java: `import java.util.Scanner;
-
-public class Main {
-  public static void main(String[] args) {
-
-  }
-}
-`,
-  rust: `use std::io::{self, Read};
-
-fn main() {
-
-}
-`,
-  javascript: ``,
-  typescript: ``,
-  python: ``,
-};
-
 function buildProblemSamples(problem: {
   samples?: unknown;
 }): { input: string; output: string }[] {
@@ -119,8 +81,12 @@ function buildProblemSamples(problem: {
     .map((s) => ({ input: s.input, output: s.output }));
 }
 
-// Per language: use the first editable workspace file if any, else the hardcoded stub.
-function buildStarterByLanguage(
+// full_source: always ships system templates — workspace files are ignored
+// even if DB residue exists (defense-in-depth against pre-migration rows).
+// multi_file: editable workspace files override the system template per language.
+// special_env: not reached for the student editor flow; return system defaults.
+export function buildStarterByLanguage(
+  type: ProblemType,
   workspaceFiles: {
     language: string;
     path: string;
@@ -128,7 +94,8 @@ function buildStarterByLanguage(
     content: string;
   }[] = [],
 ): Record<string, string> {
-  const result: Record<string, string> = { ...starterByLanguage };
+  const result: Record<string, string> = { ...LANGUAGE_TEMPLATES };
+  if (type !== "multi_file") return result;
   for (const lang of Object.keys(result)) {
     const first = workspaceFiles.find(
       (f) => f.language === lang && f.visibility === "editable",
@@ -206,6 +173,8 @@ async function mapPersistedProblemDetail(
     }),
   );
 
+  const type: ProblemType = problem.type ?? "full_source";
+
   return {
     acceptanceRate: attempters > 0 ? solvers / attempters : 0,
     authorUsername: problem.author?.username ?? "course_staff",
@@ -217,9 +186,9 @@ async function mapPersistedProblemDetail(
     judgeType: judgeConfig.type,
     memoryLimitMb: problem.memoryLimitMb ?? 256,
     outputFormat: localized.outputFormat,
-    type: problem.type ?? "full_source",
+    type,
     samples: buildProblemSamples(problem),
-    starterByLanguage: buildStarterByLanguage(visibleWorkspaceFiles),
+    starterByLanguage: buildStarterByLanguage(type, visibleWorkspaceFiles),
     statement: localized.statement,
     status: problem.status ?? "published",
     tags,
@@ -272,7 +241,6 @@ export async function listProblemCards(
   const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 30));
   const page = Math.max(1, params.page ?? 1);
 
-  // Build the where clause
   const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
   // Full-text search: find matching problem IDs via GIN index + LIKE fallback
@@ -295,12 +263,10 @@ export async function listProblemCards(
     if (parsed.success) where.difficulty = parsed.data;
   }
 
-  // Tag filter.
   if (params.tags && params.tags.length > 0) {
     where.tags = { hasEvery: params.tags };
   }
 
-  // Count + fetch in parallel
   const [totalCount, persistedProblems] = await Promise.all([
     problemRepo.count(where),
     problemRepo.listWithCounts({

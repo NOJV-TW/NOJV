@@ -71,7 +71,7 @@
 
 <section
   data-slot="exam-problems-tab"
-  class={cn("rounded-2xl border border-border bg-[color:var(--color-panel)] p-6", className)}
+  class={cn("rounded-xl border border-border bg-[color:var(--color-panel)] p-4", className)}
 >
   <header class="mb-4 flex flex-wrap items-center justify-between gap-2">
     <h2 class="text-title font-medium">
@@ -95,7 +95,7 @@
 
   {#if ids.length === 0}
     <div
-      class="rounded-xl border border-dashed border-border px-4 py-8 text-center text-body-sm text-muted-foreground"
+      class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-body-sm text-muted-foreground"
     >
       {m.examDetail_problemsEditEmptyHint()}
     </div>
@@ -106,7 +106,7 @@
           {@const problem = byId.get(id)}
           {#if problem}
             <li
-              class="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle px-4 py-3"
+              class="flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle px-4 py-3"
             >
               <span
                 class="min-w-[28px] text-center text-title-sm font-medium text-muted-foreground"

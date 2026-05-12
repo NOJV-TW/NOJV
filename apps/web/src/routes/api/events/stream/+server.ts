@@ -1,7 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { createSubscriber, keys } from "@nojv/redis";
-import { userChannel } from "@nojv/core";
 import { clarificationDomain } from "@nojv/domain";
 import { createLogger } from "$lib/server/logger";
 import {
@@ -118,7 +117,7 @@ export const GET: RequestHandler = async (event) => {
       const encoder = new TextEncoder();
       const subscriber = createSubscriber(redisUrl);
       const channels = [
-        userChannel(userId),
+        keys.userChannel(userId),
         keys.notificationChannel(userId),
         ...authorizedClarChannels,
       ];
@@ -133,7 +132,7 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         } catch {
-          // Controller may already be closed
+          // ignore: controller already closed
         }
       }
 
@@ -151,7 +150,6 @@ export const GET: RequestHandler = async (event) => {
         send(message);
       });
 
-      // Keepalive
       const keepalive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
@@ -160,7 +158,6 @@ export const GET: RequestHandler = async (event) => {
         }
       }, KEEPALIVE_MS);
 
-      // Timeout
       const timeout = setTimeout(() => {
         cleanup("timeout");
       }, MAX_DURATION_MS);
@@ -176,7 +173,7 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.close();
         } catch {
-          // Already closed
+          // ignore: controller already closed
         }
 
         const finalReason: SseCloseReason = droppedFault ? "subscribe_failed" : reason;
@@ -188,7 +185,6 @@ export const GET: RequestHandler = async (event) => {
         }
       }
 
-      // Handle client disconnect
       event.request.signal.addEventListener("abort", () => cleanup("client_abort"));
     },
   });

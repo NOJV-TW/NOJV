@@ -119,15 +119,15 @@ export async function executeSandbox(
         }))
       : useAdvanced
         ? [] // advanced: TA image bundles testcases
-        : judgeContext.testcaseSets.flatMap((ts) =>
-            ts.testcases.map((tc, i) => ({
+        : judgeContext.testcaseSets
+            .flatMap((ts) => ts.testcases)
+            .map((tc, i) => ({
               index: i,
               input: tc.input,
               ...(tc.output != null ? { output: tc.output } : {}),
               weight: tc.weight,
               isSample: false,
-            })),
-          );
+            }));
 
   const activeSets = useSamples || useAdvanced ? [] : judgeContext.testcaseSets;
 

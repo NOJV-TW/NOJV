@@ -9,6 +9,8 @@ import {
   type SubmissionRunCase,
 } from "@nojv/core";
 
+import { fetchWithCsrf } from "$lib/utils";
+
 export interface SubmissionAssessmentContext {
   assessmentId: string;
   courseId: string;
@@ -93,14 +95,13 @@ export async function executeSubmission(
 
   const postInit: RequestInit = {
     body: JSON.stringify(body),
-    headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
     method: "POST",
   };
   if (signal) postInit.signal = signal;
 
   let response: Response;
   try {
-    response = await fetch("/api/submissions", postInit);
+    response = await fetchWithCsrf("/api/submissions", postInit);
   } catch (err) {
     if (signal?.aborted) return null;
     throw err;

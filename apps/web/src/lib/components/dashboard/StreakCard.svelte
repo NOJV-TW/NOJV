@@ -18,7 +18,7 @@
   </h2>
   <div class="flex items-center gap-4">
     <div
-      class="flex h-14 w-14 items-center justify-center rounded-xl {isAlive
+      class="flex h-14 w-14 items-center justify-center rounded-lg {isAlive
         ? 'bg-warning/15 text-warning'
         : 'bg-muted text-muted-foreground/70'}"
     >

@@ -4,7 +4,12 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { parseJudgeOutput } from "./run-process.js";
-import { createBoundedBuffer, withProcessLimit } from "../utils.js";
+import {
+  cleanupTempDir,
+  createBoundedBuffer,
+  createMemoryPoller,
+  withProcessLimit,
+} from "../utils.js";
 
 /**
  * Bidirectional pipe between the solution and the interactor:
@@ -28,7 +33,7 @@ export async function judgeInteractive(
   try {
     return await runInteractive(runCommand, testcase, interactorCommand, inputFile, timeoutMs);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupTempDir(tmpDir);
   }
 }
 
@@ -66,6 +71,11 @@ function runInteractive(
     const interactor = spawn(intWrap!, intWrapArgs, {
       stdio: ["pipe", "pipe", "pipe"],
     });
+
+    // Only the solution counts toward student memory usage.
+    const solutionMemoryPoller =
+      typeof solution.pid === "number" ? createMemoryPoller(solution.pid) : null;
+    let solutionMemoryKb = 0;
 
     solution.stdout.pipe(interactor.stdin);
     interactor.stdout.pipe(solution.stdin);
@@ -117,6 +127,7 @@ function runInteractive(
         stdout: solStdout,
         exitCode: solutionExitCode,
         timeMs: Math.round(performance.now() - startTime),
+        ...(solutionMemoryKb > 0 ? { memoryKb: solutionMemoryKb } : {}),
       };
 
       if (timedOut) return resolve({ ...base, verdict: "TLE", stderr: solStderr });
@@ -162,6 +173,7 @@ function runInteractive(
       solutionExitCode = code ?? -1;
       solutionSignal = signal;
       solutionDone = true;
+      solutionMemoryKb = solutionMemoryPoller?.stop() ?? 0;
       try {
         interactor.stdin.end();
       } catch {
@@ -185,6 +197,7 @@ function runInteractive(
     solution.on("error", (err) => {
       solutionSpawnError = true;
       solutionDone = true;
+      solutionMemoryKb = solutionMemoryPoller?.stop() ?? 0;
       solutionStderr.push(Buffer.from(`Spawn error: ${err.message}`));
       tryFinish();
     });

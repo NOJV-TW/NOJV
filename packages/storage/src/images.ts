@@ -2,6 +2,8 @@ import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sd
 import type { S3Client } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 
+import { getStorageBaseUrl } from "./client";
+
 const BUCKET = process.env.S3_BUCKET ?? "nojv";
 
 export async function uploadProblemImage(
@@ -22,8 +24,28 @@ export async function uploadProblemImage(
     }),
   );
 
-  const baseUrl = process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT ?? "";
-  return `${baseUrl}/${BUCKET}/${key}`;
+  return `${getStorageBaseUrl()}/${BUCKET}/${key}`;
+}
+
+export async function uploadUserContentImage(
+  client: S3Client,
+  userId: string,
+  file: Buffer,
+  mimeType: string,
+): Promise<string> {
+  const ext = mimeType.split("/")[1] ?? "bin";
+  const key = `users/${userId}/images/${randomUUID()}.${ext}`;
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: file,
+      ContentType: mimeType,
+    }),
+  );
+
+  return `${getStorageBaseUrl()}/${BUCKET}/${key}`;
 }
 
 export async function deleteProblemImage(client: S3Client, imageUrl: string): Promise<void> {
@@ -39,10 +61,8 @@ export async function deleteProblemImage(client: S3Client, imageUrl: string): Pr
   );
 }
 
-/**
- * Returns the opaque S3 key (not a URL) — callers persist it on
- * `Problem.advancedImageRef` and resolve it later for `docker load`.
- */
+// Returns the opaque S3 key (not a URL) — callers persist it on
+// `Problem.advancedImageRef` and resolve it later for `docker load`.
 export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,
