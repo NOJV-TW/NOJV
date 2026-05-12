@@ -15,7 +15,12 @@ import type { ContestCreate, ContestUpdate, Language } from "@nojv/core";
 import { scoreboard } from "@nojv/redis";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
@@ -241,7 +246,11 @@ export async function activateContest(contestId: string): Promise<void> {
   await contestRepo.update(contestId, { visibility: "published" });
 }
 
-async function assertContestManageable(tx: TransactionClient, actor: ActorContext, contestId: string) {
+async function assertContestManageable(
+  tx: TransactionClient,
+  actor: ActorContext,
+  contestId: string,
+) {
   const contest = await requireContest(tx, contestId);
   if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin") {
     throw new ForbiddenError("You do not have permission to manage this contest.");
@@ -275,7 +284,10 @@ export async function publishContest(actor: ActorContext, contestId: string): Pr
   });
 }
 
-export async function deleteContestDraft(actor: ActorContext, contestId: string): Promise<void> {
+export async function deleteContestDraft(
+  actor: ActorContext,
+  contestId: string,
+): Promise<void> {
   await runTransaction(async (tx) => {
     const contest = await assertContestManageable(tx, actor, contestId);
 

@@ -13,7 +13,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     throw new ForbiddenError("Only course staff can view plagiarism diff.");
   }
 
-  return loadPlagiarismPair({
+  return await loadPlagiarismPair({
     pairId: event.params.pairId,
     target: { type: "exam", id: exam.id },
     flagContext: "exam",

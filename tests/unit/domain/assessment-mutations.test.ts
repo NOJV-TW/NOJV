@@ -61,9 +61,9 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { assessmentDomain } from "@nojv/domain";
+import { assignmentDomain } from "@nojv/domain";
 
-const { updateAssessmentRecord, publishAssessment, deleteAssessmentDraft } = assessmentDomain;
+const { updateAssessmentRecord, publishAssessment, deleteAssessmentDraft } = assignmentDomain;
 
 const teacherActor = {
   userId: "usr_teacher",

@@ -1,7 +1,7 @@
 import { NotFoundError, ValidationError, plagiarismDomain } from "@nojv/domain";
 import { userRepo } from "@nojv/db";
 
-import type { PlagiarismPairDiffData } from "$lib/components/plagiarism/PlagiarismPairDiff.svelte";
+import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
 const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsForContext } =
   plagiarismDomain;
