@@ -1,3 +1,4 @@
+import { env } from "$env/dynamic/private";
 import { z } from "zod";
 
 const DEV_AUTH_SECRET = "dev-secret-do-not-use-in-production";
@@ -43,6 +44,6 @@ let _webEnv: WebEnv | undefined;
  * fails, ensuring the app never starts with a misconfigured environment.
  */
 export function getWebEnv(): WebEnv {
-  _webEnv ??= webEnvSchema.parse(process.env);
+  _webEnv ??= webEnvSchema.parse(env);
   return _webEnv;
 }
