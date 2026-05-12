@@ -49,7 +49,7 @@ export interface ExamAutoCloseInput {
 
 export interface PlagiarismCheckInput {
   targetId: string;
-  targetType: "courseAssessment" | "exam";
+  targetType: "courseAssessment" | "exam" | "contest";
   triggeredById: string;
 }
 

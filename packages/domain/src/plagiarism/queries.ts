@@ -1,5 +1,6 @@
 import {
   assessmentRepo,
+  contestRepo,
   examRepo,
   plagiarismRepo,
   assessmentProblemRepo,
@@ -31,14 +32,16 @@ export async function fetchSubmissionsForCheck(
 
 type PlagiarismReportStatus = "pending" | "running" | "completed" | "failed";
 
-// Plagiarism state is inlined on `Exam` / `CourseAssessment` as six
-// `plagiarism*` columns — the parent id IS the report identity.
+// Plagiarism state is inlined on `Exam` / `Contest` / `CourseAssessment` as
+// six `plagiarism*` columns — the parent id IS the report identity.
 async function writePlagiarismFields(
   target: PlagiarismTarget,
   input: Parameters<typeof plagiarismRepo.upsertForExam>[1],
 ): Promise<void> {
   if (target.type === "exam") {
     await plagiarismRepo.upsertForExam(target.id, input);
+  } else if (target.type === "contest") {
+    await plagiarismRepo.upsertForContest(target.id, input);
   } else {
     await plagiarismRepo.upsertForAssessment(target.id, input);
   }
@@ -76,15 +79,22 @@ export interface ResolvedPlagiarismTarget {
   courseId: string;
 }
 
-// `type` accepts both "exam" and legacy "contest" for backwards compat.
 export async function resolvePlagiarismTarget(
   assessmentId: string,
   type: string | null,
 ): Promise<ResolvedPlagiarismTarget> {
-  if (type === "exam" || type === "contest") {
+  if (type === "exam") {
     const exam = await examRepo.findByIdWithCourse(assessmentId);
     if (!exam) throw new NotFoundError("Exam not found.");
     return { courseId: exam.courseId, target: { id: exam.id, type: "exam" } };
+  }
+
+  if (type === "contest") {
+    const contest = await contestRepo.findById(assessmentId);
+    if (!contest) throw new NotFoundError("Contest not found.");
+    // Contests are not course-bound; surface an empty courseId so callers
+    // that key off course membership fall back to platform-role checks.
+    return { courseId: "", target: { id: contest.id, type: "contest" } };
   }
 
   const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
@@ -119,6 +129,9 @@ export async function findPlagiarismReport(
 ): Promise<PlagiarismReportSummary | null> {
   if (target.type === "courseAssessment") {
     return plagiarismRepo.findByAssessmentId(target.id);
+  }
+  if (target.type === "contest") {
+    return plagiarismRepo.findByContestId(target.id);
   }
   return plagiarismRepo.findByExamId(target.id);
 }

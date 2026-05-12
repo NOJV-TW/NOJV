@@ -13,8 +13,10 @@
   } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
+  import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button";
   import FormError from "$lib/components/ui/FormError.svelte";
+  import { inputClassName } from "$lib/utils";
   import type { FormMessage } from "$lib/types/form-message";
   import type { ActionData, PageData } from "./$types";
 
@@ -36,6 +38,13 @@
   let typedConfirmation = $state("");
   let deleting = $state(false);
   let copying = $state(false);
+  let copyOpen = $state(false);
+  let copyTitleInput = $state(untrack(() => data.copyPreview?.suggestedTitle ?? ""));
+  $effect(() => {
+    if (copyOpen && data.copyPreview) {
+      copyTitleInput = data.copyPreview.suggestedTitle;
+    }
+  });
   let archiveSubmitting = $state(false);
   // Mirror server state locally so the toggle reflects the latest action
   // result without waiting for full page reload (kit's `update()` handles
@@ -313,23 +322,10 @@
           {m.courseSettings_copyDesc()}
         </p>
       </div>
-      <form
-        method="POST"
-        action="?/copyCourse"
-        use:kitEnhance={() => {
-          copying = true;
-          return async ({ result, update }) => {
-            copying = false;
-            await applyAction(result);
-            await update({ reset: false });
-          };
-        }}
-      >
-        <Button type="submit" variant="outline" disabled={copying}>
-          <Copy class="h-4 w-4" aria-hidden="true" />
-          {m.courseSettings_copyButton()}
-        </Button>
-      </form>
+      <Button variant="outline" onclick={() => (copyOpen = true)} disabled={copying}>
+        <Copy class="h-4 w-4" aria-hidden="true" />
+        {m.courseSettings_copyButton()}
+      </Button>
     </div>
 
     <!-- Delete row -->
@@ -386,3 +382,93 @@
     </div>
   </section>
 </div>
+
+<Dialog.Root open={copyOpen} onOpenChange={(v) => (copyOpen = v)}>
+  <Dialog.Content class="max-w-lg">
+    <Dialog.Header>
+      <Dialog.Title>{m.courseSettings_copyDialogTitle()}</Dialog.Title>
+      <Dialog.Description>{m.courseSettings_copyDialogDesc()}</Dialog.Description>
+    </Dialog.Header>
+
+    {#if data.copyPreview}
+      {@const a = data.copyPreview.assessments}
+      {@const e = data.copyPreview.exams}
+      <form
+        method="POST"
+        action="?/copyCourse"
+        use:kitEnhance={() => {
+          copying = true;
+          return async ({ result, update }) => {
+            copying = false;
+            await applyAction(result);
+            await update({ reset: false });
+          };
+        }}
+        class="space-y-5"
+      >
+        <div>
+          <label for="copy-new-title" class="text-sm font-medium">
+            {m.courseSettings_copyTitleLabel()}
+          </label>
+          <input
+            id="copy-new-title"
+            name="newTitle"
+            type="text"
+            required
+            maxlength="120"
+            class={inputClassName}
+            bind:value={copyTitleInput}
+          />
+        </div>
+
+        <div class="rounded-md border border-border bg-muted/30 px-4 py-3 text-caption">
+          <div class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground">
+            {m.courseSettings_copyPreviewIncluded()}
+          </div>
+          <ul class="space-y-1.5 leading-relaxed">
+            <li>
+              {m.courseSettings_copyPreviewAssessments({
+                total: a.total,
+                draft: a.byStatus.draft,
+                published: a.byStatus.published,
+                archived: a.byStatus.archived
+              })}
+            </li>
+            <li>
+              {m.courseSettings_copyPreviewExams({
+                total: e.total,
+                draft: e.byStatus.draft,
+                published: e.byStatus.published,
+                archived: e.byStatus.archived
+              })}
+            </li>
+            <li>
+              {m.courseSettings_copyPreviewProblemLinks({
+                count: a.problemLinks + e.problemLinks
+              })}
+            </li>
+          </ul>
+        </div>
+
+        <div class="rounded-md border border-border bg-muted/30 px-4 py-3 text-caption">
+          <div class="mb-2 font-mono text-micro uppercase tracking-wider text-muted-foreground">
+            {m.courseSettings_copyPreviewExcluded()}
+          </div>
+          <p class="leading-relaxed text-muted-foreground">
+            {m.courseSettings_copyPreviewExcludedDesc()}
+          </p>
+        </div>
+
+        <Dialog.Footer class="flex justify-end gap-2">
+          <Button type="button" variant="outline" onclick={() => (copyOpen = false)}>
+            {m.courseSettings_copyCancel()}
+          </Button>
+          <Button type="submit" disabled={copying || copyTitleInput.trim().length === 0}>
+            <Copy class="h-4 w-4" aria-hidden="true" />
+            {m.courseSettings_copyConfirm()}
+          </Button>
+        </Dialog.Footer>
+      </form>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>

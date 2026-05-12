@@ -55,7 +55,7 @@ export interface ExamAutoCloseInput {
 // `(targetType, targetId)` is the plagiarism report identity (state is inline on the target row).
 export interface PlagiarismCheckInput {
   targetId: string;
-  targetType: "courseAssessment" | "exam";
+  targetType: "courseAssessment" | "exam" | "contest";
   triggeredById: string;
 }
 

@@ -4,6 +4,7 @@ import type { RequestHandler } from "./$types";
 
 import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
 import { canManageCourse, plagiarismDomain } from "@nojv/domain";
+import { contestRepo } from "@nojv/db";
 import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 
 const {
@@ -14,6 +15,26 @@ const {
   dispatchPlagiarismCheck,
 } = plagiarismDomain;
 
+async function assertCanManagePlagiarism(
+  event: Parameters<typeof requireApiAuth>[0],
+  resolved: Awaited<ReturnType<typeof resolvePlagiarismTarget>>,
+  denialMessage: string,
+): Promise<void> {
+  const actor = requireApiAuth(event);
+  // Contest plagiarism: domain returns empty courseId since contests are not
+  // course-bound. Fall back to organizer / platform-admin authorization.
+  if (resolved.target.type === "contest") {
+    if (actor.platformRole === "admin") return;
+    const contest = await contestRepo.findById(resolved.target.id);
+    if (contest?.createdByUserId === actor.userId) return;
+    throw new ForbiddenError(denialMessage);
+  }
+  const role = await getCoursePermissionRole(resolved.courseId, actor);
+  if (!role || !canManageCourse(role)) {
+    throw new ForbiddenError(denialMessage);
+  }
+}
+
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
@@ -21,13 +42,10 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const { courseId, target } = await resolvePlagiarismTarget(assessmentId, type);
-  const role = await getCoursePermissionRole(courseId, actor);
+  const resolved = await resolvePlagiarismTarget(assessmentId, type);
+  await assertCanManagePlagiarism(event, resolved, "Only staff can trigger plagiarism checks.");
 
-  if (!role || !canManageCourse(role)) {
-    throw new ForbiddenError("Only course staff can trigger plagiarism checks.");
-  }
-
+  const { target } = resolved;
   await createPlagiarismReport(target, actor.userId);
 
   await dispatchPlagiarismCheck({
@@ -40,17 +58,14 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
-  const actor = requireApiAuth(event);
   const assessmentId = event.params.assessmentId;
   if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const { courseId, target } = await resolvePlagiarismTarget(assessmentId, type);
-  const role = await getCoursePermissionRole(courseId, actor);
+  const resolved = await resolvePlagiarismTarget(assessmentId, type);
+  await assertCanManagePlagiarism(event, resolved, "Only staff can view plagiarism reports.");
 
-  if (!role || !canManageCourse(role)) {
-    throw new ForbiddenError("Only course staff can view plagiarism reports.");
-  }
+  const { target } = resolved;
 
   // If source=true, return a specific submission's source code for comparison
   const source = event.url.searchParams.get("source");
