@@ -4,7 +4,7 @@ import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import { examDomain } from "@nojv/domain";
 
-import { getAuth } from "$lib/auth";
+import { getAuth } from "$lib/auth.server";
 import { createLogger } from "$lib/server/logger";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
 import { getPageLockedContext, type PageLockedContext } from "$lib/server/page-lock";

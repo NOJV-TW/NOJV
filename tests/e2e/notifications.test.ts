@@ -50,9 +50,9 @@ test.describe("Notifications API", () => {
   test("read-all is idempotent and returns updated count", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/notifications/read-all`, {
+    const res = await page.request.patch(`/api/notifications`, {
       headers: apiWriteHeaders,
-      data: {},
+      data: { action: "read-all" },
     });
     expect(res.ok()).toBe(true);
     const body = await res.json();
@@ -64,9 +64,9 @@ test.describe("Notifications API", () => {
   test("marking a nonexistent id as read is harmless", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/notifications/nonexistent-id/read`, {
+    const res = await page.request.patch(`/api/notifications/nonexistent-id`, {
       headers: apiWriteHeaders,
-      data: {},
+      data: { read: true },
     });
     // Endpoint reports `updated` count; with an unknown id it should
     // still be a 2xx with `updated: 0`, never a 5xx.
@@ -77,9 +77,9 @@ test.describe("Notifications API", () => {
   });
 
   test("read-all rejects unauthenticated callers", async ({ page }) => {
-    const res = await page.request.post(`/api/notifications/read-all`, {
+    const res = await page.request.patch(`/api/notifications`, {
       headers: apiWriteHeaders,
-      data: {},
+      data: { action: "read-all" },
     });
     expect(res.status()).toBe(401);
   });
@@ -87,8 +87,8 @@ test.describe("Notifications API", () => {
   test("CSRF gate blocks read-all without X-Requested-With", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/notifications/read-all`, {
-      data: {},
+    const res = await page.request.patch(`/api/notifications`, {
+      data: { action: "read-all" },
       // Intentionally omit `x-requested-with: fetch` to exercise the CSRF gate.
       headers: { origin: "http://localhost:5173" },
     });

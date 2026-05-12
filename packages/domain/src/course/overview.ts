@@ -4,8 +4,8 @@ import type { AnnouncementAudience, PlatformRole } from "@nojv/core";
 
 import * as announcementDomain from "../announcement";
 import {
-  aggregateAssessmentClassStats,
-  aggregateAssessmentMyStatus,
+  aggregateAssignmentClassStats,
+  aggregateAssignmentMyStatus,
   aggregateExamMyStatus,
 } from "../shared/list-aggregations";
 
@@ -111,7 +111,7 @@ function rankAssignment(
   return RANK_BAND_TERMINAL - (row.closesAt?.getTime() ?? 0);
 }
 
-interface RawAssessmentRow {
+interface RawAssignmentRow {
   id: string;
   title: string;
   status: string;
@@ -120,8 +120,8 @@ interface RawAssessmentRow {
   _count: { problems: number };
 }
 
-function mapAssessmentToOverviewRow(
-  row: RawAssessmentRow,
+function mapAssignmentToOverviewRow(
+  row: RawAssignmentRow,
   now: Date,
 ): { row: AssignmentOverviewRow; rank: number } {
   let status: AssignmentOverviewStatus;
@@ -162,15 +162,15 @@ export async function listAssignmentOverviewForCourse(
     options.limit,
   );
 
-  const mapped = rows.map((row) => mapAssessmentToOverviewRow(row, now));
+  const mapped = rows.map((row) => mapAssignmentToOverviewRow(row, now));
 
   mapped.sort((a, b) => a.rank - b.rank);
   const top = mapped.slice(0, options.limit).map((entry) => entry.row);
-  await fillAssessmentStats(top, courseId, options);
+  await fillAssignmentStats(top, courseId, options);
   return top;
 }
 
-async function fillAssessmentStats(
+async function fillAssignmentStats(
   rows: AssignmentOverviewRow[],
   courseId: string,
   options: { isManager: boolean; forUserId: string },
@@ -178,10 +178,10 @@ async function fillAssessmentStats(
   if (rows.length === 0) return;
   const aggInput = rows.map((r) => ({ id: r.id, courseId, problemCount: r.problemCount }));
   if (options.isManager) {
-    const stats = await aggregateAssessmentClassStats(aggInput);
+    const stats = await aggregateAssignmentClassStats(aggInput);
     for (const r of rows) r.classStats = stats.get(r.id) ?? null;
   } else {
-    const my = await aggregateAssessmentMyStatus(options.forUserId, aggInput);
+    const my = await aggregateAssignmentMyStatus(options.forUserId, aggInput);
     for (const r of rows) r.myStatus = my.get(r.id) ?? null;
   }
 }
@@ -211,7 +211,7 @@ export interface ListAssignmentsForCourseOptions {
   now?: Date;
 }
 
-// Fetches `limit * 3` superset and caps; for courses with more than ~150 assessments chip counts will underreport.
+// Fetches `limit * 3` superset and caps; for courses with more than ~150 assignments chip counts will underreport.
 export async function listAssignmentsForCourse(
   courseId: string,
   options: ListAssignmentsForCourseOptions,
@@ -223,7 +223,7 @@ export async function listAssignmentsForCourse(
     options.limit * 3,
   );
 
-  const mapped = rows.map((row) => mapAssessmentToOverviewRow(row, now));
+  const mapped = rows.map((row) => mapAssignmentToOverviewRow(row, now));
 
   const counts: AssignmentListCounts = {
     all: 0,
@@ -253,7 +253,7 @@ export async function listAssignmentsForCourse(
   filtered.sort((a, b) => a.rank - b.rank);
 
   const visibleRows = filtered.slice(0, options.limit).map((entry) => entry.row);
-  await fillAssessmentStats(visibleRows, courseId, {
+  await fillAssignmentStats(visibleRows, courseId, {
     isManager: options.includeDrafts,
     forUserId: options.forUserId,
   });

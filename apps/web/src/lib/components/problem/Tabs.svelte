@@ -5,7 +5,7 @@
   import { ChevronDown, Plus } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { fetchWithCsrf } from "$lib/utils";
+  import { fetchWithCsrf } from "$lib/http";
   import type { problemDomain } from "@nojv/domain";
   import PublicProblemsTab from "./PublicProblemsTab.svelte";
   import MyProblemsTab, { type EditableProblemCard } from "./MyProblemsTab.svelte";
@@ -32,7 +32,7 @@
     creating = true;
     showCreateMenu = false;
     try {
-      const res = await fetchWithCsrf("/api/problems/create", {
+      const res = await fetchWithCsrf("/api/problems", {
         method: "POST",
         body: JSON.stringify({ mode })
       });
@@ -60,7 +60,7 @@
 
   let showDeleteConfirm = $state(false);
   let deletingProblemId = $state<string | null>(null);
-  let deleting = $state(false);
+  let isDeleting = $state(false);
 
   function handleDeleteClick(problemId: string) {
     deletingProblemId = problemId;
@@ -70,10 +70,10 @@
   async function handleDeleteConfirmed() {
     if (!deletingProblemId) return;
     showDeleteConfirm = false;
-    deleting = true;
+    isDeleting = true;
     const fd = new FormData();
     await fetch(`/problems/${deletingProblemId}/edit?/deleteProblem`, { method: "POST", body: fd });
-    deleting = false;
+    isDeleting = false;
     deletingProblemId = null;
     await invalidateAll();
   }
@@ -148,7 +148,7 @@
     <MyProblemsTab
       editableProblems={editableProblems ?? []}
       {deletingProblemId}
-      {deleting}
+      {isDeleting}
       onDeleteClick={handleDeleteClick}
     />
   {/if}

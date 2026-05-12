@@ -1,7 +1,7 @@
 import type { RequestHandler } from "@sveltejs/kit";
 import { toSvelteKitHandler } from "better-auth/svelte-kit";
 
-import { getAuth } from "$lib/auth";
+import { getAuth } from "$lib/auth.server";
 import { createLogger } from "$lib/server/logger";
 
 const logger = createLogger("auth-route");

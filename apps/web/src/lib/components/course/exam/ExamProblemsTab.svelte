@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import type { examDomain } from "@nojv/domain";
 
-  export type ProblemsTabDetail = examDomain.ExamDetailPageData;
+  export type ProblemsTabDetail = examDomain.ExamDetailPage;
   export type ProblemsLiveStatus =
     | "draft"
     | "upcoming"
@@ -18,7 +18,7 @@
   import Plus from "@lucide/svelte/icons/plus";
 
   import { Button } from "$lib/components/ui/button";
-  import { cn, inputClassName } from "$lib/utils";
+  import { cn, inputClassName } from "$lib/css";
   import { m } from "$lib/paraglide/messages.js";
   import type { ActionData } from "../../../../routes/(app)/exams/[examId]/$types";
 

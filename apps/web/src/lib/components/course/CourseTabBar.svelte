@@ -10,17 +10,17 @@
 
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
 
   interface Props {
     courseId: string;
-    active: CourseTabKey;
+    activeTabKey: CourseTabKey;
     counts?: CourseTabCounts;
     showSettings: boolean;
     class?: string;
   }
 
-  let { courseId, active, counts, showSettings, class: className }: Props = $props();
+  let { courseId, activeTabKey, counts, showSettings, class: className }: Props = $props();
 
   interface TabDef {
     key: CourseTabKey;
@@ -81,7 +81,7 @@
 >
   <div class="flex items-center gap-1">
     {#each tabs as tab (tab.key)}
-      {@const isActive = tab.key === active}
+      {@const isActive = tab.key === activeTabKey}
       <a
         href={tab.href}
         aria-current={isActive ? "page" : undefined}

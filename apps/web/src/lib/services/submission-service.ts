@@ -9,14 +9,14 @@ import {
   type SubmissionRunCase,
 } from "@nojv/core";
 
-import { fetchWithCsrf } from "$lib/utils";
+import { fetchWithCsrf } from "$lib/http";
 
 export interface SubmissionAssessmentContext {
   assessmentId: string;
   courseId: string;
 }
 
-export interface SubmissionWorkspaceFilePayload {
+export interface SubmissionWorkspaceFile {
   path: string;
   content: string;
 }
@@ -31,7 +31,7 @@ export interface SubmissionRequest {
   sampleOnly?: boolean;
   sourceCode: string;
   // Workspace-file mode: server merges these with DB-stored hidden files to rebuild the judge context.
-  sourceFiles?: SubmissionWorkspaceFilePayload[];
+  sourceFiles?: SubmissionWorkspaceFile[];
 }
 
 export interface ExecuteSubmissionOptions {

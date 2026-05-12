@@ -88,10 +88,8 @@
   async function handleUnfreeze() {
     unfreezing = true;
     try {
-      const res = await fetch(`/api/contests/${contestId}/scoreboard/unfreeze`, {
-        method: "POST",
-        headers: { "X-Requested-With": "fetch" }
-      });
+      const fd = new FormData();
+      const res = await fetch("?/unfreeze", { method: "POST", body: fd });
       if (res.ok) {
         await invalidateAll();
       }
@@ -248,7 +246,7 @@
             { value: "friends", label: m.contestScoreboard_filterFriends() },
             { value: "around", label: m.contestScoreboard_filterAround() }
           ]}
-          active="all"
+          activeTabValue="all"
           onChange={() => {}}
         />
       </div>

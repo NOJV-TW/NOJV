@@ -38,7 +38,7 @@ vi.mock("@nojv/db", () => ({
     }),
 }));
 
-vi.mock("../../../packages/domain/src/shared/ip-utils", () => ({
+vi.mock("../../../packages/domain/src/shared/ip", () => ({
   checkIpLock: checkIpLockMock,
 }));
 

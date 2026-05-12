@@ -8,7 +8,7 @@
     type ProblemType
   } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils";
+  import { inputClassName } from "$lib/css";
   import WorkspaceFileList from "$lib/components/problem/workspace/WorkspaceFileList.svelte";
   import WorkspaceFileEditor, {
     type WorkspaceFile

@@ -16,7 +16,7 @@ import { dispatchExamAutoClose } from "@nojv/job-dispatch";
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireCourse, requireUser } from "../shared/require";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };
@@ -267,13 +267,13 @@ export async function updateExamRecord(
   });
 }
 
-export interface ExamLifecycleInfo {
+export interface ExamLifecycleSnapshot {
   endsAt: string;
   scoringMode: string;
   startsAt: string;
 }
 
-export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycleInfo> {
+export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycleSnapshot> {
   const exam = await examRepo.findInfoById(examId);
   return {
     endsAt: exam.endsAt.toISOString(),
@@ -282,11 +282,18 @@ export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycl
   };
 }
 
-export async function activateExam(examId: string): Promise<void> {
+/**
+ * Status writes called by the Temporal lifecycle workflow when the scheduled
+ * window boundaries are reached. No permission / state checks — the workflow
+ * is the source of truth for these transitions. Distinct from the user-driven
+ * `publishExam` (draft → published, with validation) and `archiveExam`
+ * (published → archived, with validation).
+ */
+export async function markExamPublished(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "published" });
 }
 
-export async function finalizeExam(examId: string): Promise<void> {
+export async function markExamArchived(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "archived" });
 }
 

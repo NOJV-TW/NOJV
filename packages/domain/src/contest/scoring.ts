@@ -22,7 +22,7 @@ import {
 
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
 
-export interface ScoreboardData {
+export interface Scoreboard {
   entries: ScoreboardEntry[];
   problems: ScoreboardProblem[];
   scoringMode: ContestScoringMode;
@@ -31,7 +31,7 @@ export interface ScoreboardData {
   isFrozen: boolean;
 }
 
-export interface ChartData {
+export interface ScoreboardChart {
   series: {
     userId: string;
     username: string;
@@ -156,7 +156,7 @@ export async function updateContestScores(contestParticipationId: string): Promi
 export async function getScoreboard(
   contestId: string,
   options?: { unfrozen?: boolean; isPrivileged?: boolean },
-): Promise<ScoreboardData> {
+): Promise<Scoreboard> {
   const contest = await contestRepo.findForScoreboardById(contestId);
 
   if (!contest || contest.visibility === "draft") {
@@ -240,7 +240,10 @@ export async function getScoreboard(
   };
 }
 
-export async function getScoreboardChart(contestId: string, topN: number): Promise<ChartData> {
+export async function getScoreboardChart(
+  contestId: string,
+  topN: number,
+): Promise<ScoreboardChart> {
   const scoreboardData = await getScoreboard(contestId, { unfrozen: false });
 
   const topEntries = scoreboardData.entries.slice(0, topN);

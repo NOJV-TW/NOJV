@@ -50,7 +50,7 @@ export interface ExamDetailManagerFields {
   submitCooldownSec: number;
 }
 
-export interface ExamDetailPageData {
+export interface ExamDetailPage {
   id: string;
   courseId: string;
   title: string;
@@ -113,7 +113,7 @@ function deriveStatus(
 export async function getExamDetailPage(
   examId: string,
   options: GetExamDetailPageOptions,
-): Promise<ExamDetailPageData | null> {
+): Promise<ExamDetailPage | null> {
   const now = options.now ?? new Date();
   const exam = await examRepo.findDetailForRegistrationPage(examId);
   if (!exam) return null;
@@ -165,7 +165,7 @@ export async function getExamDetailPage(
         problemId: { in: problemIds },
         sampleOnly: false,
       }),
-      resolveOverridesForContext({ contextType: "exam", contextId: examId }),
+      resolveOverridesForContext({ type: "exam", examId }),
     ]);
 
     const bestByProblem = new Map<string, { best: number; count: number }>();

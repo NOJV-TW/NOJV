@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils.js";
+  import { cn } from "$lib/css.js";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
@@ -193,7 +193,7 @@
 
   <!-- Action bar -->
   <div class="flex flex-wrap items-center gap-3">
-    <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} active="overview" onChange={() => {}} />
+    <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} activeTabValue="overview" onChange={() => {}} />
 
     <div class="ml-auto flex flex-wrap gap-3">
       {#if canSetOverride}
@@ -273,7 +273,7 @@
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
-          pairDiffBase={`/contests/${contest.id}/plagiarism/pairs`}
+          diffContext={{ type: "contest", id: contest.id }}
           problems={(contest.problems ?? []).map((p, i) => ({
             problemId: p.id,
             letter: String.fromCharCode(65 + i),

@@ -9,7 +9,7 @@
   } from "$lib/types";
   import { formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
-  import { fetchWithCsrf } from "$lib/utils";
+  import { fetchWithCsrf } from "$lib/http";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
@@ -23,7 +23,7 @@
     /**
      * Server-computed flag controlling whether the "Rejudge this submission"
      * button is rendered in the submission detail view. The real gate lives
-     * on `/api/rejudge`; this is progressive disclosure only.
+     * on `/api/submissions/[id]/rejudge`; this is progressive disclosure only.
      */
     canRejudge?: boolean;
     /** Assignment-only daily submission quota shown in the SpecialLabels strip.
@@ -92,9 +92,8 @@
     if (rejudgingId !== null) return;
     rejudgingId = submissionId;
     try {
-      const res = await fetchWithCsrf("/api/rejudge", {
-        method: "POST",
-        body: JSON.stringify({ mode: "single", submissionId })
+      const res = await fetchWithCsrf(`/api/submissions/${submissionId}/rejudge`, {
+        method: "POST"
       });
       if (res.ok) {
         toasts.add({ type: "success", message: m.rejudge_toast_queuedSingle() });

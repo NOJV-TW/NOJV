@@ -39,7 +39,7 @@ export interface ContestProblemSummary {
   title: string;
 }
 
-export interface ContestDetailData {
+export interface ContestDetail {
   allowedLanguages: Language[];
   endsAt: string;
   frozenAt: string | null;
@@ -57,7 +57,7 @@ export interface ContestDetailData {
   visibility: "draft" | "published" | "archived";
 }
 
-export interface ContestWorkspaceData extends ContestDetailData {
+export interface ContestWorkspaceDetail extends ContestDetail {
   participation: {
     penaltySeconds: number;
     score: number;
@@ -87,10 +87,7 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
 
 type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailById>>>;
 
-type ContestDetailBase = Omit<
-  ContestDetailData,
-  "isManager" | "problemsHidden" | "problems"
-> & {
+type ContestDetailBase = Omit<ContestDetail, "isManager" | "problemsHidden" | "problems"> & {
   problems: ContestProblemSummary[];
 };
 
@@ -175,7 +172,7 @@ function resolveVisibility(
 export async function getContestDetail(
   contestId: string,
   options: ContestDetailOptions,
-): Promise<ContestDetailData> {
+): Promise<ContestDetail> {
   const contest = await contestRepo.findDetailById(contestId);
   if (contest?.visibility !== "published") {
     throw new NotFoundError(`Contest not found: ${contestId}`);
@@ -201,7 +198,7 @@ export async function getContestWorkspaceData(
   contestId: string,
   userId: string,
   options: { now: Date; platformRole?: PlatformRole | null },
-): Promise<ContestWorkspaceData> {
+): Promise<ContestWorkspaceDetail> {
   const contest = await contestRepo.findWorkspaceById(contestId, userId);
   if (contest?.visibility !== "published") {
     throw new NotFoundError(`Contest not found: ${contestId}`);
@@ -250,7 +247,7 @@ export interface ContestContextResult {
   viewerIsManager: boolean;
 }
 
-// intentional-nullable: paired with getAssessmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
+// intentional-nullable: paired with getAssignmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
 export async function getContestContext(
   contestId: string,
   options: GetContestContextOptions,

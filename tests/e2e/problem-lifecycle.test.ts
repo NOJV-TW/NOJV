@@ -14,7 +14,7 @@ test.describe("Problem Lifecycle", () => {
   test("teacher can create a problem via API", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post("/api/problems/create", { headers: apiWriteHeaders });
+    const res = await page.request.post("/api/problems", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const body = await res.json();
     problemId = body.id;
@@ -98,7 +98,7 @@ test.describe("Problem Lifecycle", () => {
     const page = await context.newPage();
 
     // Create a throwaway problem
-    const createRes = await page.request.post("/api/problems/create", {
+    const createRes = await page.request.post("/api/problems", {
       headers: apiWriteHeaders,
     });
     const { id: deleteId } = await createRes.json();

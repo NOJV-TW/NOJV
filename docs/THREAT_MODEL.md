@@ -71,21 +71,23 @@ Student Code ------|---> Sandbox Container     Redis
 
 **Authenticated API routes:**
 
-| Route                                      | Methods   | Auth                                                     |
-| ------------------------------------------ | --------- | -------------------------------------------------------- |
-| `/api/submissions`                         | POST      | `requireApiAuth` + rate limiter                          |
-| `/api/submissions/[id]`                    | GET       | `requireApiAuth` + ownership check                       |
-| `/api/submissions/[id]/source`             | GET       | `requireApiAuth` + ownership or admin                    |
-| `/api/submissions/[id]/stream`             | GET       | `getActorContext` + ownership or admin                   |
-| `/api/events/stream`                       | GET       | `getActorContext` + `hasActorUsername`                   |
-| `/api/contests/[slug]/scoreboard`          | GET       | Optional auth (privileged view for admin/teacher)        |
-| `/api/contests/[slug]/scoreboard/unfreeze` | POST      | `requireApiAuth` + `requirePlatformRole(admin, teacher)` |
-| `/api/plagiarism/[assessmentId]`           | GET, POST | `requireApiAuth` + `canManageCourse(role)`               |
-| `/api/problems/[id]/editorials`            | GET, POST | `requireApiAuth` + AC-gated for students                 |
-| `/api/problems/[id]/images`                | POST      | `requireApiAuth` + `canEditProblem(platformRole)`        |
-| `/api/problems/create`                     | POST      | `requireApiAuth` + `requirePlatformRole(admin, teacher)` |
-| `/api/ip-violations`                       | GET       | `requireApiAuth` + admin/teacher                         |
-| `/api/healthz`                             | GET       | Public, no auth                                          |
+| Route                                 | Methods   | Auth                                                               |
+| ------------------------------------- | --------- | ------------------------------------------------------------------ |
+| `/api/submissions`                    | POST      | `requireApiAuth` + rate limiter                                    |
+| `/api/submissions/[id]`               | GET       | `requireApiAuth` + ownership check                                 |
+| `/api/submissions/[id]/source`        | GET       | `requireApiAuth` + ownership or admin                              |
+| `/api/submissions/[id]/stream`        | GET       | `getActorContext` + ownership or admin                             |
+| `/api/events/stream`                  | GET       | `getActorContext` + `hasActorUsername`                             |
+| `/api/contests/[slug]/scoreboard`     | GET       | Optional auth (privileged view for admin/teacher)                  |
+| `/contests/[id]/scoreboard?/unfreeze` | POST      | Form action: `requireAuth` + `requirePlatformRole(admin, teacher)` |
+| `/api/plagiarism/[assignmentId]`      | GET, POST | `requireApiAuth` + `canManageCourse(role)`                         |
+| `/api/plagiarism-flags`               | POST      | `requireApiAuth` + `canManageCourse(role)`                         |
+| `/api/plagiarism-flags/[id]`          | DELETE    | `requireApiAuth` + `canManageCourse(role)`                         |
+| `/api/problems/[id]/editorials`       | GET, POST | `requireApiAuth` + AC-gated for students                           |
+| `/api/problems/[id]/images`           | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                  |
+| `/api/problems`                       | POST      | `requireApiAuth` + `requirePlatformRole(admin, teacher)`           |
+| `/api/ip-violations`                  | GET       | `requireApiAuth` + admin/teacher                                   |
+| `/api/healthz`                        | GET       | Public, no auth                                                    |
 
 **Authenticated page routes (layout-gated):**
 

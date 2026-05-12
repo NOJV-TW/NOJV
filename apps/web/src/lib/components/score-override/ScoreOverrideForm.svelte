@@ -88,14 +88,21 @@
     try {
       let res: Response;
       if (mode === "create") {
+        // Body shape mirrors `ScoreOverrideContext` discriminated union:
+        // `{ context: { type, (assignmentId|examId|contestId) }, ... }`.
+        const context =
+          contextType === "assignment"
+            ? { type: contextType, assignmentId: contextId }
+            : contextType === "exam"
+              ? { type: contextType, examId: contextId }
+              : { type: contextType, contestId: contextId };
         res = await fetch("/api/overrides", {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
           body: JSON.stringify({
             userId,
             problemId,
-            contextType,
-            contextId,
+            context,
             overrideScore,
             reason
           })

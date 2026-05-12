@@ -7,18 +7,17 @@ const PROBLEM_ID = "problem_warmup-sum";
 
 test.describe("Rejudge API", () => {
   test("rejects unauthenticated callers", async ({ page }) => {
-    const res = await page.request.post(`/api/rejudge`, {
-      data: { mode: "single", submissionId: "sub-doesnt-exist" },
+    const res = await page.request.post(`/api/submissions/sub-doesnt-exist/rejudge`, {
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(401);
   });
 
-  test("rejects malformed bodies", async ({ browser }) => {
+  test("rejects malformed batch bodies", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/rejudge`, {
-      data: { mode: "weird-mode" },
+    const res = await page.request.post(`/api/rejudges`, {
+      data: { problemId: "" }, // empty problemId fails schema validation
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(400);
@@ -28,8 +27,7 @@ test.describe("Rejudge API", () => {
   test("single mode returns 404 for an unknown submission", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/rejudge`, {
-      data: { mode: "single", submissionId: "submission-doesnt-exist" },
+    const res = await page.request.post(`/api/submissions/submission-doesnt-exist/rejudge`, {
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(404);
@@ -39,9 +37,8 @@ test.describe("Rejudge API", () => {
   test("batch mode runs the authz check (no 5xx leaks)", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/rejudge`, {
+    const res = await page.request.post(`/api/rejudges`, {
       data: {
-        mode: "batch",
         problemId: PROBLEM_ID,
         assessmentId: HW1_ID,
       },

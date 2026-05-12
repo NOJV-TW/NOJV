@@ -4,22 +4,19 @@ export {
   freezeScoreboard,
   finalizeContest,
   updateContestScores,
-} from "./contest";
-
-export { getAssessmentInfo, activateAssessment, closeAssessment } from "./assessment";
-
-export { closeActiveSessionsForExam } from "./exam-session";
-
-export { runPlagiarismCheck } from "./plagiarism";
-
-export {
+  getAssessmentInfo,
+  activateAssessment,
+  closeAssessment,
+  closeActiveSessionsForExam,
   publishVerdict,
   publishContestEvent,
   publishAssessmentDeadline,
   fanoutAssignmentDueSoon,
   fanoutExamStartingSoon,
   fanoutContestStartingSoon,
-} from "./notification";
+} from "./lifecycle";
+
+export { runPlagiarismCheck } from "./plagiarism";
 
 export {
   getRedis,
@@ -30,4 +27,4 @@ export {
   cacheGet,
   cacheSet,
   cacheDel,
-} from "./redis";
+} from "./utils";

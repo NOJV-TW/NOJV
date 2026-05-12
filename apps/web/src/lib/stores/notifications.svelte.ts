@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
 
-import { fetchWithCsrf } from "$lib/utils";
+import { fetchWithCsrf } from "$lib/http";
 
 export interface NotificationItem {
   id: string;
@@ -11,7 +11,7 @@ export interface NotificationItem {
   createdAt: string;
 }
 
-interface SseNotificationPayload {
+interface SseNotificationEvent {
   id?: string; // present for single-event pushes; absent for batch signals
   notificationType: string;
   params: unknown;
@@ -37,7 +37,7 @@ class NotificationsStore {
 
   // Called by the SSE client when a "notification" event arrives.
   // Batch signals (no id) trigger a re-fetch; single events prepend directly.
-  handleSseEvent(payload: SseNotificationPayload) {
+  handleSseEvent(payload: SseNotificationEvent) {
     if (!payload.id || !payload.createdAt) {
       // Batch signal — refetch to get the authoritative recent list
       void this.init();
@@ -77,7 +77,10 @@ class NotificationsStore {
     this.items[idx] = { ...original, readAt: new Date().toISOString() };
     this.unreadCount = Math.max(0, this.unreadCount - 1);
 
-    const res = await fetchWithCsrf(`/api/notifications/${id}/read`, { method: "POST" });
+    const res = await fetchWithCsrf(`/api/notifications/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ read: true }),
+    });
     if (!res.ok) {
       // Rollback on server failure
       this.items[idx] = original;
@@ -94,7 +97,10 @@ class NotificationsStore {
     this.items = this.items.map((i) => (i.readAt ? i : { ...i, readAt: now }));
     this.unreadCount = 0;
 
-    const res = await fetchWithCsrf("/api/notifications/read-all", { method: "POST" });
+    const res = await fetchWithCsrf("/api/notifications", {
+      method: "PATCH",
+      body: JSON.stringify({ action: "read-all" }),
+    });
     if (!res.ok) {
       this.items = originalItems;
       this.unreadCount = originalCount;
