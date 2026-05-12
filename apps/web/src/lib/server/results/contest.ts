@@ -1,4 +1,4 @@
-import { buildScoreStats, type ScoreStats } from "./shared/score-stats";
+import { buildScoreStats, type ScoreStats } from "../shared/score-stats";
 
 export type ContestResultsData = ScoreStats;
 

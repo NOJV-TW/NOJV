@@ -21,7 +21,7 @@ import { requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
-import { buildExamResults, type ExamResultsData } from "$lib/server/exam-results";
+import { buildExamResults, type ExamResultsData } from "$lib/server/results/exam";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {

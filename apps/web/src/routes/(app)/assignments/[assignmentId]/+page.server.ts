@@ -35,7 +35,7 @@ import {
   toIsoOrUndefined,
   tryParseJsonField,
 } from "$lib/server/shared/form-utils";
-import { buildAssignmentResults } from "$lib/server/assignment-results";
+import { buildAssignmentResults } from "$lib/server/results/assignment";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;

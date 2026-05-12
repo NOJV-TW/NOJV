@@ -1,6 +1,6 @@
 import type { examDomain } from "@nojv/domain";
 
-import { buildScoreStats, type ScoreStats } from "./shared/score-stats";
+import { buildScoreStats, type ScoreStats } from "../shared/score-stats";
 
 export interface ExamResultProblemCol {
   id: string;
