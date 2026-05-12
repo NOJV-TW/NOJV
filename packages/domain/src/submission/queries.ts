@@ -8,7 +8,7 @@ import {
 
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError } from "../shared/errors";
-import { canOperateOnSubmission } from "./authz";
+import { canOperateOnSubmission } from "./permissions";
 
 export async function getSubmissionForUser(
   submissionId: string,

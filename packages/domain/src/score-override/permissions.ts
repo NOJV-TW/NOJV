@@ -4,7 +4,7 @@ import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError } from "../shared/errors";
 import type { ScoreOverrideContext } from "./types";
 
-// Same shape as submission/authz.ts's private helper — replicated locally
+// Same shape as submission/permissions.ts's private helper — replicated locally
 // to avoid leaking a private helper across modules. Keep in sync if the
 // course-staff definition ever widens.
 async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {

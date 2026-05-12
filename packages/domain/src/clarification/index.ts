@@ -14,7 +14,7 @@ import { pubsub } from "@nojv/redis";
 import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
-import { canAnswerInContext, canAskClarification, canSeeAuthor } from "./authz";
+import { canAnswerInContext, canAskClarification, canSeeAuthor } from "./permissions";
 import { fromContextDbFields, toContextDbFields, type ClarificationContext } from "./types";
 
 export {
@@ -24,7 +24,7 @@ export {
   canViewClarifications,
   assertCanAnswerInContext,
   assertCanAskClarification,
-} from "./authz";
+} from "./permissions";
 export {
   fromContextDbFields,
   toContextDbFields,

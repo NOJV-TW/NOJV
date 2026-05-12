@@ -12,7 +12,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
-import { assertProblemViewAccess } from "../problem/helpers";
+import { assertProblemViewAccess } from "../problem/permissions";
 
 export type { ActorContext };
 

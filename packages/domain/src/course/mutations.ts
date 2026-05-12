@@ -26,7 +26,7 @@ import * as notificationDomain from "../notification";
 import {
   assertCourseProblemAccess,
   assertProblemHasWorkspaceForLanguages,
-} from "../problem/helpers";
+} from "../problem/permissions";
 
 // Defensive re-check so form-post handlers never rely on trusted loader state.
 async function assertCourseManager(

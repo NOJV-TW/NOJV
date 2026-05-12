@@ -10,7 +10,7 @@ import { updateContestScores } from "../contest/scoring";
 import { updateExamScores } from "../exam/scoring";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError, ValidationError } from "../shared/errors";
-import { assertCanSetScoreOverride } from "./authz";
+import { assertCanSetScoreOverride } from "./permissions";
 import { fromContextDbFields, toContextDbFields, type ScoreOverrideContext } from "./types";
 
 /**
@@ -54,7 +54,7 @@ async function invalidateScoreboardForOverride(
   }
 }
 
-export { assertCanSetScoreOverride, canSetScoreOverride } from "./authz";
+export { assertCanSetScoreOverride, canSetScoreOverride } from "./permissions";
 export {
   fromContextDbFields,
   toContextDbFields,

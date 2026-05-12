@@ -12,7 +12,7 @@ import type { CourseAssessmentUpdate, Language } from "@nojv/core";
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {

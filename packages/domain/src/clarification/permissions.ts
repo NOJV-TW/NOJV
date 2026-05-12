@@ -12,8 +12,8 @@ import { ForbiddenError } from "../shared/errors";
 import type { ClarificationContext } from "./types";
 
 /**
- * Shared helper — same definition as submission/authz and
- * score-override/authz. Kept private to the module so the three files
+ * Shared helper — same definition as submission/permissions and
+ * score-override/permissions. Kept private to the module so the three files
  * evolve independently if the course-staff definition ever widens.
  */
 async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {

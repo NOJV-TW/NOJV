@@ -29,7 +29,7 @@ export {
   canOperateOnSubmission,
   assertCanOperateOnSubmission,
   assertBatchRejudgeAccess,
-} from "./authz";
+} from "./permissions";
 export { snapshotForRejudge, finalizeRejudgeLog } from "./rejudge-log";
 export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
 export { deriveSubmissionMode } from "./mode";

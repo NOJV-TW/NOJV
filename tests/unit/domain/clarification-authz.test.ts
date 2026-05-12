@@ -29,7 +29,7 @@ import {
   canAskClarification,
   canAnswerInContext,
   canSeeAuthor,
-} from "../../../packages/domain/src/clarification/authz";
+} from "../../../packages/domain/src/clarification/permissions";
 
 function actor(
   overrides: Partial<{
