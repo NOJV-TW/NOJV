@@ -109,12 +109,12 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
     expect(rowB.type).toBe("assignment_due_soon");
     expect(rowB.linkUrl).toBe(`/assignments/${assessment.id}`);
     const params = rowB.params as {
-      assessmentId: string;
+      assignmentId: string;
       courseId: string;
       title: string;
       dueAt: string;
     };
-    expect(params.assessmentId).toBe(assessment.id);
+    expect(params.assignmentId).toBe(assessment.id);
     expect(params.courseId).toBe(course.id);
     expect(params.title).toBe("HW 1");
     expect(params.dueAt).toBe(closesAt.toISOString());

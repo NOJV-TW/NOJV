@@ -93,7 +93,7 @@ describe("course queries (real DB)", () => {
       const cards = await listCourseCards();
       expect(cards).toHaveLength(1);
       expect(cards[0]!.memberCount).toBe(1);
-      expect(cards[0]!.assessmentCount).toBe(1);
+      expect(cards[0]!.assignmentCount).toBe(1);
     });
   });
 
