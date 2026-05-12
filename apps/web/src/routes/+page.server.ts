@@ -4,8 +4,8 @@ import { courseDomain } from "@nojv/domain";
 import { DEFAULT_LOCALE } from "@nojv/core";
 import { getActorContext } from "$lib/server/auth";
 
-const { listAnnouncements, listUpcomingAssessments } = courseDomain;
-import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
+const { listAnnouncements, listUpcomingAssignments } = courseDomain;
+import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/types";
 
 interface AnnouncementTranslationRow {
   locale: string;
@@ -46,18 +46,18 @@ export const load: PageServerLoad = async (event) => {
     const announcements = await listAnnouncements(actor);
     return {
       announcements: announcements.map(flattenAnnouncement),
-      assessments: [],
+      assignments: [],
     };
   }
 
   const now = new Date().toISOString();
-  const [announcements, rawAssessments] = await Promise.all([
+  const [announcements, rawAssignments] = await Promise.all([
     listAnnouncements(actor),
-    listUpcomingAssessments(user.id),
+    listUpcomingAssignments(user.id),
   ]);
 
-  const assessments = rawAssessments.map((a) => {
-    const windowState = deriveAssessmentWindowState({
+  const assignments = rawAssignments.map((a) => {
+    const windowState = deriveAssignmentWindowState({
       closesAt: a.closesAt,
       dueAt: a.dueAt,
       now,
@@ -74,6 +74,6 @@ export const load: PageServerLoad = async (event) => {
 
   return {
     announcements: announcements.map(flattenAnnouncement),
-    assessments,
+    assignments,
   };
 };

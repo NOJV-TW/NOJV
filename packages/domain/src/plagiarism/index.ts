@@ -13,8 +13,8 @@ export {
   createPlagiarismReport,
   findPlagiarismReport,
   getPlagiarismSourceCode,
-  listAssessmentPlagiarismReports,
-  getAssessmentProblemMap,
+  listAssignmentPlagiarismReports,
+  getAssignmentProblemMap,
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,
 } from "./queries";

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/utils";
+  import { inputClassName } from "$lib/css";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
 
   export interface WorkspaceFile {

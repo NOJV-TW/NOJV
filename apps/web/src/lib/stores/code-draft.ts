@@ -3,7 +3,7 @@ import { z } from "zod";
 export type DraftContext =
   | { kind: "practice" }
   | { kind: "exam"; examId: string }
-  | { kind: "assignment"; assessmentId: string }
+  | { kind: "assignment"; assignmentId: string }
   | { kind: "contest"; contestId: string };
 
 export interface DraftKey {
@@ -31,7 +31,7 @@ function contextSegment(context: DraftContext): string {
     case "exam":
       return `exam:${context.examId}`;
     case "assignment":
-      return `assignment:${context.assessmentId}`;
+      return `assignment:${context.assignmentId}`;
     case "contest":
       return `contest:${context.contestId}`;
   }
@@ -127,7 +127,7 @@ const ROUTE_PATTERNS: {
   {
     prefix: "/(app)/assignments/[assignmentId]/problems/[problemId]",
     build: (params) =>
-      params.assignmentId ? { kind: "assignment", assessmentId: params.assignmentId } : null,
+      params.assignmentId ? { kind: "assignment", assignmentId: params.assignmentId } : null,
   },
   {
     prefix: "/(app)/contests/[contestId]/problems/[problemId]",

@@ -1,11 +1,11 @@
-import { redirect } from "@sveltejs/kit";
+import { fail, redirect } from "@sveltejs/kit";
 
-import type { PageServerLoad } from "./$types";
+import type { Actions, PageServerLoad } from "./$types";
 
-import { getActorContext } from "$lib/server/auth";
+import { getActorContext, requireAuth, requirePlatformRole } from "$lib/server/auth";
 import { contestDomain } from "@nojv/domain";
 
-const { getContestDetail, getScoreboard, getScoreboardChart } = contestDomain;
+const { getContestDetail, getScoreboard, getScoreboardChart, unfreezeContest } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const { contestId } = event.params;
@@ -39,3 +39,17 @@ export const load: PageServerLoad = async (event) => {
     scoreboard,
   };
 };
+
+export const actions = {
+  unfreeze: async (event) => {
+    const actor = requireAuth(event);
+    requirePlatformRole(actor, "admin", "teacher");
+
+    const result = await unfreezeContest(event.params.contestId);
+    if (!result) {
+      return fail(404, { error: "Contest not found." });
+    }
+
+    return { success: true };
+  },
+} satisfies Actions;

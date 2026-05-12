@@ -50,15 +50,15 @@ function letterFor(ordinal: number): string {
 // Does not re-check permissions; route loader must gate on `isManager` before calling.
 export async function buildSubmissionsMatrix(
   courseId: string,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<SubmissionsMatrix> {
-  const [assessment, students] = await Promise.all([
-    assessmentRepo.findDetailById(courseId, assessmentId),
+  const [assignment, students] = await Promise.all([
+    assessmentRepo.findDetailById(courseId, assignmentId),
     courseMembershipRepo.findStudents(courseId),
   ]);
-  if (!assessment) throw new NotFoundError("Assignment not found.");
+  if (!assignment) throw new NotFoundError("Assignment not found.");
 
-  const problems: MatrixProblemColumn[] = assessment.problems.map((p) => ({
+  const problems: MatrixProblemColumn[] = assignment.problems.map((p) => ({
     problemId: p.problem.id,
     letter: letterFor(p.ordinal),
     ordinal: p.ordinal,
@@ -80,7 +80,7 @@ export async function buildSubmissionsMatrix(
   const problemIds = problems.map((p) => p.problemId);
 
   const grouped = await submissionRepo.groupBestScores({
-    assessmentId,
+    assessmentId: assignmentId,
     studentIds,
     problemIds,
   });
@@ -88,7 +88,7 @@ export async function buildSubmissionsMatrix(
   const scoreIndex = new Map<string, { best: number; count: number }>();
   // `groupBestScores` only returns `_max.score`; the second call also folds in attempt counts.
   const fullGrouped = await submissionRepo.groupByUserAndProblem({
-    courseAssessmentId: assessmentId,
+    courseAssessmentId: assignmentId,
     userId: { in: studentIds },
     problemId: { in: problemIds },
     sampleOnly: false,
@@ -105,8 +105,8 @@ export async function buildSubmissionsMatrix(
   // score and also "unlock" a cell that otherwise had 0 attempts — a teacher
   // can assign credit for an off-platform solution.
   const overrides = await resolveOverridesForContext({
-    contextType: "assignment",
-    contextId: assessmentId,
+    type: "assignment",
+    assignmentId,
   });
 
   const rows: MatrixRow[] = students.map((student) => {

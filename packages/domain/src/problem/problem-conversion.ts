@@ -10,7 +10,7 @@ import { ConflictError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 
 import { bestEffortDeleteProblemStandardBlobs } from "./blobs";
-import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
+import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 // Data-lossy: workspace files, testcase sets, samples, and judgeConfig are
 // discarded. The UI shows an explicit warning before calling this.

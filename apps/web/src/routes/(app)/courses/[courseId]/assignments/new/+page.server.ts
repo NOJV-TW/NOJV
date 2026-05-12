@@ -9,7 +9,7 @@ import { requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
 
-const { createCourseAssessmentRecord } = courseDomain;
+const { createCourseAssignmentRecord } = courseDomain;
 const { listEditableProblems } = problemDomain;
 
 export const load: PageServerLoad = async (event) => {
@@ -44,7 +44,7 @@ async function submitAssignment(event: RequestEvent, status: "draft" | "publishe
   if (!form.valid) return fail(400, { form });
 
   try {
-    await createCourseAssessmentRecord(actor, courseId, {
+    await createCourseAssignmentRecord(actor, courseId, {
       ...form.data,
       status,
     });

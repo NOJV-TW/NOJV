@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn } from "$lib/utils.js";
+	import { cn } from "$lib/css.js";
 	import type { HTMLAttributes } from "svelte/elements";
 
 	export type SkeletonVariant = "text" | "circle" | "block";

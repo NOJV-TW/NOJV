@@ -17,11 +17,11 @@
 
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/ui/button";
-  import { cn, inputClassName } from "$lib/utils";
+  import { cn, inputClassName } from "$lib/css";
 
   interface Props {
     problems: ProblemsTabProblem[];
-    assessmentId: string;
+    assignmentId: string;
     canEdit?: boolean;
     candidateProblems?: CandidateProblem[];
     class?: string;
@@ -29,7 +29,7 @@
 
   let {
     problems,
-    assessmentId,
+    assignmentId,
     canEdit = false,
     candidateProblems = [],
     class: className
@@ -160,7 +160,7 @@
     <div class="grid gap-3">
       {#each problems as problem (problem.problemId)}
         <a
-          href={`/assignments/${assessmentId}/problems/${problem.problemId}`}
+          href={`/assignments/${assignmentId}/problems/${problem.problemId}`}
           class="group grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-md border border-border bg-[color:var(--color-panel)] px-5 py-4 no-underline transition-[transform,border-color,box-shadow] duration-fast ease-out-soft hover:translate-x-[2px] hover:border-border-strong hover:shadow-rest"
         >
           <div

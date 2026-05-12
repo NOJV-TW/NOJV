@@ -165,7 +165,7 @@ export async function getExamDetailPage(
         problemId: { in: problemIds },
         sampleOnly: false,
       }),
-      resolveOverridesForContext({ contextType: "exam", contextId: examId }),
+      resolveOverridesForContext({ type: "exam", examId }),
     ]);
 
     const bestByProblem = new Map<string, { best: number; count: number }>();

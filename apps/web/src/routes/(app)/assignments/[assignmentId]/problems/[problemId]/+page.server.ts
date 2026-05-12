@@ -9,11 +9,11 @@ import { loadProblemSolveData } from "$lib/server/problem-solve";
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const parent = await event.parent();
-  const { assessment, isManager, course } = parent;
+  const { assignment, isManager, course } = parent;
   const { problemId } = event.params;
 
   // Archived courses: non-managers lose click-through even after the
-  // assessment closes.  Managers can still open the problem to review.
+  // assignment closes.  Managers can still open the problem to review.
   if (!isManager && course.archived) {
     error(403, "This course is archived.");
   }
@@ -21,15 +21,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   let isEnded = false;
   if (!isManager) {
     const now = new Date();
-    const opens = new Date(assessment.opensAt);
-    const closes = new Date(assessment.closesAt);
+    const opens = new Date(assignment.opensAt);
+    const closes = new Date(assignment.closesAt);
     if (now < opens) {
       error(404, "Problem not available.");
     }
     isEnded = now > closes;
   }
 
-  const problemInScope = await assignmentDomain.isProblemInAssessment(assessment.id, problemId);
+  const problemInScope = await assignmentDomain.isProblemInAssignment(assignment.id, problemId);
   if (!problemInScope) {
     // 404 so we don't leak whether the problem exists outside this assignment.
     error(404, "Problem not found in this assignment.");
@@ -37,18 +37,18 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const [solveProps, siblingProblems] = await Promise.all([
     loadProblemSolveData(problemId, actor, {
-      kind: "assessment",
-      assessmentId: assessment.id,
-      courseId: assessment.courseId,
-      allowedLanguages: assessment.allowedLanguages,
+      kind: "assignment",
+      assignmentId: assignment.id,
+      courseId: assignment.courseId,
+      allowedLanguages: assignment.allowedLanguages,
       backLink: {
-        href: `/assignments/${assessment.id}`,
+        href: `/assignments/${assignment.id}`,
         type: "assignment",
       },
       problemInScope: true,
     }),
-    assignmentDomain.listAssessmentProblemSiblings({
-      assessmentId: assessment.id,
+    assignmentDomain.listAssignmentProblemSiblings({
+      assignmentId: assignment.id,
       activeProblemId: problemId,
       actorUserId: actor.userId,
     }),
@@ -57,11 +57,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const dailyAttempts = isManager
     ? null
     : {
-        used: await submissionDomain.countAssessmentSubmissionsToday(
+        used: await submissionDomain.countAssignmentSubmissionsToday(
           actor.userId,
-          assessment.id,
+          assignment.id,
         ),
-        max: assessment.maxAttemptsPerDay,
+        max: assignment.maxAttemptsPerDay,
       };
 
   return { solveProps, siblingProblems, isEnded, dailyAttempts };

@@ -219,7 +219,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
-    const res = await page.request.post("/api/problems/create", { headers: apiWriteHeaders });
+    const res = await page.request.post("/api/problems", { headers: apiWriteHeaders });
     expect(res.ok()).toBe(true);
     const body = await res.json();
     problemId = body.id;

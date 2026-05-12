@@ -14,12 +14,8 @@ import { pubsub } from "@nojv/redis";
 import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
-import {
-  canAnswerInContext,
-  canAskClarification,
-  canSeeAuthor,
-  type ClarificationContextType,
-} from "./authz";
+import { canAnswerInContext, canAskClarification, canSeeAuthor } from "./permissions";
+import { fromContextDbFields, toContextDbFields, type ClarificationContext } from "./types";
 
 export {
   canAnswerInContext,
@@ -28,8 +24,13 @@ export {
   canViewClarifications,
   assertCanAnswerInContext,
   assertCanAskClarification,
-} from "./authz";
-export type { ClarificationContextType } from "./authz";
+} from "./permissions";
+export {
+  fromContextDbFields,
+  toContextDbFields,
+  type ClarificationContext,
+  type ClarificationContextType,
+} from "./types";
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT_COUNT = 5;
@@ -39,8 +40,7 @@ const ANSWER_MIN = 1;
 const ANSWER_MAX = 1000;
 
 export interface AskInput {
-  contextType: ClarificationContextType;
-  contextId: string;
+  context: ClarificationContext;
   problemId?: string | null;
   questionText: string;
 }
@@ -89,19 +89,20 @@ export async function ask(
   if (text.length < QUESTION_MIN || text.length > QUESTION_MAX) {
     throw new ConflictError("Question must be 10-1000 characters.");
   }
-  if (!(await canAskClarification(actor, input.contextType, input.contextId))) {
+  if (!(await canAskClarification(actor, input.context))) {
     throw new ForbiddenError("Only participants may ask clarifications.");
   }
-  await assertContextActiveForAsk(input.contextType, input.contextId);
+  await assertContextActiveForAsk(input.context);
   if (input.problemId) {
-    await assertProblemInContext(input.contextType, input.contextId, input.problemId);
+    await assertProblemInContext(input.context, input.problemId);
   }
 
+  const db = toContextDbFields(input.context);
   const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MS);
   const recent = await clarificationRepo.countInWindow(
     actor.userId,
-    input.contextType,
-    input.contextId,
+    db.contextType,
+    db.contextId,
     windowStart,
   );
   if (recent >= RATE_LIMIT_COUNT) {
@@ -109,8 +110,8 @@ export async function ask(
   }
 
   const row = await clarificationRepo.create({
-    contextType: input.contextType,
-    contextId: input.contextId,
+    contextType: db.contextType,
+    contextId: db.contextId,
     problemId: input.problemId ?? null,
     askedByUserId: actor.userId,
     questionText: text,
@@ -118,7 +119,7 @@ export async function ask(
   await publishClarificationEvent("created", row);
   // Asker is not staff — even on their own POST they get the masked
   // projection. They recover identity via the bell notification.
-  const isStaff = await canSeeAuthor(actor, input.contextType, input.contextId);
+  const isStaff = await canSeeAuthor(actor, input.context);
   return projectRow(row, isStaff);
 }
 
@@ -133,7 +134,8 @@ export async function answer(
   }
   const row = await clarificationRepo.findById(id);
   if (!row) throw new NotFoundError("Clarification not found.");
-  if (!(await canAnswerInContext(actor, row.contextType, row.contextId))) {
+  const context = fromContextDbFields(row);
+  if (!(await canAnswerInContext(actor, context))) {
     throw new ForbiddenError("Not permitted to answer clarifications in this context.");
   }
   if (row.state === "dismissed") {
@@ -162,7 +164,7 @@ export async function answer(
           clarificationId: row.id,
           questionPreview: row.questionText.slice(0, 80),
         },
-        linkUrl: buildClarificationLink(row.contextType, row.contextId, row.id),
+        linkUrl: buildClarificationLink(context, row.id),
       });
     } catch {
       // Notification delivery is best-effort; the answer has already
@@ -179,7 +181,8 @@ export async function dismiss(
 ): Promise<ProjectedClarification> {
   const row = await clarificationRepo.findById(id);
   if (!row) throw new NotFoundError("Clarification not found.");
-  if (!(await canAnswerInContext(actor, row.contextType, row.contextId))) {
+  const context = fromContextDbFields(row);
+  if (!(await canAnswerInContext(actor, context))) {
     throw new ForbiddenError("Not permitted to dismiss clarifications in this context.");
   }
   if (row.state === "answered") {
@@ -192,32 +195,28 @@ export async function dismiss(
 
 export async function listForViewer(
   viewer: ActorContext,
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
   since?: Date,
 ): Promise<ProjectedClarification[]> {
-  const rows = await clarificationRepo.listForContext(contextType, contextId, since);
-  const isStaff = await canSeeAuthor(viewer, contextType, contextId);
+  const db = toContextDbFields(context);
+  const rows = await clarificationRepo.listForContext(db.contextType, db.contextId, since);
+  const isStaff = await canSeeAuthor(viewer, context);
   return rows.map((r) => projectRow(r, isStaff));
 }
 
 /**
  * Build a deep link for the `clarification_answered` notification. Uses
  * cuid URLs per the CUID URL unification convention (contestId / examId
- * / assessmentId, never slug).
+ * / assignmentId, never slug).
  */
-export function buildClarificationLink(
-  contextType: ClarificationContextType,
-  contextId: string,
-  id: string,
-): string {
-  switch (contextType) {
+export function buildClarificationLink(context: ClarificationContext, id: string): string {
+  switch (context.type) {
     case "contest":
-      return `/contests/${contextId}#clarification-${id}`;
+      return `/contests/${context.contestId}#clarification-${id}`;
     case "exam":
-      return `/exams/${contextId}#clarification-${id}`;
+      return `/exams/${context.examId}#clarification-${id}`;
     case "assignment":
-      return `/assignments/${contextId}#clarification-${id}`;
+      return `/assignments/${context.assignmentId}#clarification-${id}`;
   }
 }
 
@@ -260,20 +259,19 @@ async function publishClarificationEvent(
 }
 
 async function assertProblemInContext(
-  contextType: ClarificationContextType,
-  contextId: string,
+  context: ClarificationContext,
   problemId: string,
 ): Promise<void> {
   let belongs = false;
-  switch (contextType) {
+  switch (context.type) {
     case "contest":
-      belongs = await contestProblemRepo.existsById(contextId, problemId);
+      belongs = await contestProblemRepo.existsById(context.contestId, problemId);
       break;
     case "exam":
-      belongs = await examProblemRepo.exists(contextId, problemId);
+      belongs = await examProblemRepo.exists(context.examId, problemId);
       break;
     case "assignment":
-      belongs = await assessmentProblemRepo.exists(contextId, problemId);
+      belongs = await assessmentProblemRepo.exists(context.assignmentId, problemId);
       break;
   }
   if (!belongs) {
@@ -285,14 +283,11 @@ async function assertProblemInContext(
  * Reject POST outside the context's active window. Reads remain open
  * so historical review works after the context ends.
  */
-async function assertContextActiveForAsk(
-  contextType: ClarificationContextType,
-  contextId: string,
-): Promise<void> {
+async function assertContextActiveForAsk(context: ClarificationContext): Promise<void> {
   const now = new Date();
-  switch (contextType) {
+  switch (context.type) {
     case "contest": {
-      const contest = await contestRepo.findById(contextId);
+      const contest = await contestRepo.findById(context.contestId);
       if (!contest) throw new NotFoundError("Contest not found.");
       if (now < contest.startsAt || now > contest.endsAt) {
         throw new ConflictError("This contest is not currently accepting questions.");
@@ -300,7 +295,7 @@ async function assertContextActiveForAsk(
       return;
     }
     case "exam": {
-      const exam = await examRepo.findById(contextId);
+      const exam = await examRepo.findById(context.examId);
       if (!exam) throw new NotFoundError("Exam not found.");
       if (now < exam.startsAt || now > exam.endsAt) {
         throw new ConflictError("This exam is not currently accepting questions.");
@@ -308,9 +303,9 @@ async function assertContextActiveForAsk(
       return;
     }
     case "assignment": {
-      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
-      if (!assessment) throw new NotFoundError("Assignment not found.");
-      if (now < assessment.opensAt || now > assessment.closesAt) {
+      const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
+      if (!assignment) throw new NotFoundError("Assignment not found.");
+      if (now < assignment.opensAt || now > assignment.closesAt) {
         throw new ConflictError("This assignment is not currently accepting questions.");
       }
       return;

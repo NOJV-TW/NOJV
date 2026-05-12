@@ -81,7 +81,7 @@ export async function buildExamSubmissionsMatrix(
       problemId: { in: problemIds },
       sampleOnly: false,
     }),
-    resolveOverridesForContext({ contextType: "exam", contextId: input.examId }),
+    resolveOverridesForContext({ type: "exam", examId: input.examId }),
   ]);
 
   const scoreIndex = new Map<string, { best: number; count: number }>();

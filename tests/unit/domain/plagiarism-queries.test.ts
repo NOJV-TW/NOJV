@@ -102,10 +102,10 @@ describe("resolvePlagiarismTarget", () => {
     expect(examFindByIdWithCourse).not.toHaveBeenCalled();
   });
 
-  it("throws 'Assessment not found.' when no type and the assessment is missing", async () => {
+  it("throws 'Assignment not found.' when no type and the assignment is missing", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue(null);
     await expect(resolvePlagiarismTarget("asg_missing", null)).rejects.toThrow(
-      "Assessment not found.",
+      "Assignment not found.",
     );
   });
 });

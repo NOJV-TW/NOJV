@@ -41,7 +41,7 @@ test.describe("Plagiarism — reports + flag API", () => {
   });
 
   test("flag pair API rejects unauthenticated callers", async ({ page }) => {
-    const res = await page.request.post(`/api/plagiarism/flag`, {
+    const res = await page.request.post(`/api/plagiarism-flags`, {
       data: {
         contextType: "assessment",
         contextId: HW1_ID,
@@ -58,7 +58,7 @@ test.describe("Plagiarism — reports + flag API", () => {
   test("flag pair API rejects students", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/plagiarism/flag`, {
+    const res = await page.request.post(`/api/plagiarism-flags`, {
       data: {
         contextType: "assessment",
         contextId: HW1_ID,
@@ -75,7 +75,7 @@ test.describe("Plagiarism — reports + flag API", () => {
   test("flag pair API validates body shape", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/plagiarism/flag`, {
+    const res = await page.request.post(`/api/plagiarism-flags`, {
       data: {
         // missing required `contextType`, `userBId` etc.
         contextId: HW1_ID,
@@ -90,7 +90,7 @@ test.describe("Plagiarism — reports + flag API", () => {
   test("DELETE flag returns 4xx on missing flag for staff", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.fetch(`/api/plagiarism/flag/nonexistent-flag-id`, {
+    const res = await page.request.fetch(`/api/plagiarism-flags/nonexistent-flag-id`, {
       method: "DELETE",
       headers: apiWriteHeaders,
     });

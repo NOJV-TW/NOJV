@@ -96,8 +96,8 @@ export interface ProblemDetail extends ProblemOverview {
   }[];
 }
 
-export function assessmentPath(assessmentId: string): string {
-  return `/assignments/${assessmentId}`;
+export function assignmentPath(assignmentId: string): string {
+  return `/assignments/${assignmentId}`;
 }
 
 export function examPath(examId: string): string {
@@ -108,9 +108,9 @@ export function contestPath(contestId: string): string {
   return `/contests/${contestId}`;
 }
 
-export type AssessmentWindowState = "upcoming" | "open" | "grace" | "closed";
+export type AssignmentWindowState = "upcoming" | "open" | "grace" | "closed";
 
-interface AssessmentWindowStateInput {
+interface AssignmentWindowStateInput {
   closesAt: string;
   /** Soft deadline — null = no late penalty configured (no `grace` state). */
   dueAt: string | null;
@@ -118,17 +118,17 @@ interface AssessmentWindowStateInput {
   opensAt: string;
 }
 
-export interface AssessmentPresentation {
+export interface AssignmentPresentation {
   heroLabel: string;
   supportLabel: string;
 }
 
-export function deriveAssessmentWindowState({
+export function deriveAssignmentWindowState({
   closesAt,
   dueAt,
   now,
   opensAt,
-}: AssessmentWindowStateInput): AssessmentWindowState {
+}: AssignmentWindowStateInput): AssignmentWindowState {
   const currentTime = now ? new Date(now) : new Date();
   const opensDate = new Date(opensAt);
   const closesDate = new Date(closesAt);
@@ -151,18 +151,18 @@ export function deriveAssessmentWindowState({
   return "closed";
 }
 
-const windowStateColors: Record<AssessmentWindowState, string> = {
+const windowStateColors: Record<AssignmentWindowState, string> = {
   closed: "text-[color:var(--color-muted-foreground)]",
   grace: "text-amber-600 dark:text-amber-400",
   open: "text-emerald-600 dark:text-emerald-400",
   upcoming: "text-blue-600 dark:text-blue-400",
 };
 
-export function windowStateColorClass(state: AssessmentWindowState) {
+export function windowStateColorClass(state: AssignmentWindowState) {
   return windowStateColors[state];
 }
 
-export const assessmentPresentation: AssessmentPresentation = {
+export const assignmentPresentation: AssignmentPresentation = {
   heroLabel: "Deadline-driven assignment workspace",
   supportLabel: "Coursework framing with open, due, and close windows",
 };

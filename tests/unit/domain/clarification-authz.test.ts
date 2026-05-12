@@ -29,7 +29,7 @@ import {
   canAskClarification,
   canAnswerInContext,
   canSeeAuthor,
-} from "../../../packages/domain/src/clarification/authz";
+} from "../../../packages/domain/src/clarification/permissions";
 
 function actor(
   overrides: Partial<{
@@ -45,6 +45,12 @@ function actor(
     email: "actor@example.com",
   };
 }
+
+// Shorthand factories so the tests stay readable after the move to the
+// discriminated `ClarificationContext` union.
+const contestCtx = (id = "ctst_1") => ({ type: "contest" as const, contestId: id });
+const examCtx = (id = "exm_1") => ({ type: "exam" as const, examId: id });
+const assignmentCtx = (id = "ca_1") => ({ type: "assignment" as const, assignmentId: id });
 
 const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -74,41 +80,37 @@ beforeEach(() => {
 describe("canAskClarification — admin", () => {
   it("denies admins on every context (staff cannot drop hints via questions)", async () => {
     const admin = actor({ platformRole: "admin" });
-    expect(await canAskClarification(admin, "contest", "ctst_1")).toBe(false);
-    expect(await canAskClarification(admin, "exam", "exm_1")).toBe(false);
-    expect(await canAskClarification(admin, "assignment", "ca_1")).toBe(false);
+    expect(await canAskClarification(admin, contestCtx())).toBe(false);
+    expect(await canAskClarification(admin, examCtx())).toBe(false);
+    expect(await canAskClarification(admin, assignmentCtx())).toBe(false);
   });
 });
 
 describe("canAskClarification — contest", () => {
   it("allows a participant", async () => {
     contestListParticipantUserIds.mockResolvedValue(["usr_student", "usr_other"]);
-    expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1"),
-    ).toBe(true);
+    expect(await canAskClarification(actor({ userId: "usr_student" }), contestCtx())).toBe(
+      true,
+    );
   });
 
   it("denies a non-participant", async () => {
     contestListParticipantUserIds.mockResolvedValue(["usr_other"]);
-    expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "contest", "ctst_1"),
-    ).toBe(false);
+    expect(await canAskClarification(actor({ userId: "usr_student" }), contestCtx())).toBe(
+      false,
+    );
   });
 });
 
 describe("canAskClarification — exam", () => {
   it("allows a participant", async () => {
     examListParticipantUserIds.mockResolvedValue(["usr_student"]);
-    expect(await canAskClarification(actor({ userId: "usr_student" }), "exam", "exm_1")).toBe(
-      true,
-    );
+    expect(await canAskClarification(actor({ userId: "usr_student" }), examCtx())).toBe(true);
   });
 
   it("denies a non-participant", async () => {
     examListParticipantUserIds.mockResolvedValue(["usr_other"]);
-    expect(await canAskClarification(actor({ userId: "usr_student" }), "exam", "exm_1")).toBe(
-      false,
-    );
+    expect(await canAskClarification(actor({ userId: "usr_student" }), examCtx())).toBe(false);
   });
 });
 
@@ -126,9 +128,9 @@ describe("canAskClarification — assignment", () => {
       role: "student",
       status: "active",
     });
-    expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1"),
-    ).toBe(true);
+    expect(await canAskClarification(actor({ userId: "usr_student" }), assignmentCtx())).toBe(
+      true,
+    );
   });
 
   it("denies a teacher (not a student)", async () => {
@@ -147,8 +149,7 @@ describe("canAskClarification — assignment", () => {
     expect(
       await canAskClarification(
         actor({ userId: "usr_teacher", platformRole: "teacher" }),
-        "assignment",
-        "ca_1",
+        assignmentCtx(),
       ),
     ).toBe(false);
   });
@@ -166,9 +167,9 @@ describe("canAskClarification — assignment", () => {
       role: "student",
       status: "removed",
     });
-    expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1"),
-    ).toBe(false);
+    expect(await canAskClarification(actor({ userId: "usr_student" }), assignmentCtx())).toBe(
+      false,
+    );
   });
 
   it("denies a user with no membership", async () => {
@@ -179,15 +180,15 @@ describe("canAskClarification — assignment", () => {
       closesAt: future,
     });
     courseMembershipFindByComposite.mockResolvedValue(null);
-    expect(
-      await canAskClarification(actor({ userId: "usr_stranger" }), "assignment", "ca_1"),
-    ).toBe(false);
+    expect(await canAskClarification(actor({ userId: "usr_stranger" }), assignmentCtx())).toBe(
+      false,
+    );
   });
 
   it("denies when the assessment is missing", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue(null);
     expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_missing"),
+      await canAskClarification(actor({ userId: "usr_student" }), assignmentCtx("ca_missing")),
     ).toBe(false);
   });
 
@@ -204,18 +205,18 @@ describe("canAskClarification — assignment", () => {
       role: "student",
       status: "active",
     });
-    expect(
-      await canAskClarification(actor({ userId: "usr_student" }), "assignment", "ca_1"),
-    ).toBe(false);
+    expect(await canAskClarification(actor({ userId: "usr_student" }), assignmentCtx())).toBe(
+      false,
+    );
   });
 });
 
 describe("canAnswerInContext — admin", () => {
   it("always permits admins", async () => {
     const admin = actor({ platformRole: "admin" });
-    expect(await canAnswerInContext(admin, "contest", "ctst_1")).toBe(true);
-    expect(await canAnswerInContext(admin, "exam", "exm_1")).toBe(true);
-    expect(await canAnswerInContext(admin, "assignment", "ca_1")).toBe(true);
+    expect(await canAnswerInContext(admin, contestCtx())).toBe(true);
+    expect(await canAnswerInContext(admin, examCtx())).toBe(true);
+    expect(await canAnswerInContext(admin, assignmentCtx())).toBe(true);
   });
 });
 
@@ -227,9 +228,9 @@ describe("canAnswerInContext — contest", () => {
       startsAt: past,
       endsAt: future,
     });
-    expect(
-      await canAnswerInContext(actor({ userId: "usr_organizer" }), "contest", "ctst_1"),
-    ).toBe(true);
+    expect(await canAnswerInContext(actor({ userId: "usr_organizer" }), contestCtx())).toBe(
+      true,
+    );
   });
 
   it("denies a non-organizer", async () => {
@@ -239,14 +240,14 @@ describe("canAnswerInContext — contest", () => {
       startsAt: past,
       endsAt: future,
     });
-    expect(
-      await canAnswerInContext(actor({ userId: "usr_stranger" }), "contest", "ctst_1"),
-    ).toBe(false);
+    expect(await canAnswerInContext(actor({ userId: "usr_stranger" }), contestCtx())).toBe(
+      false,
+    );
   });
 
   it("denies when contest is missing", async () => {
     contestFindById.mockResolvedValue(null);
-    expect(await canAnswerInContext(actor({ userId: "usr_x" }), "contest", "ctst_gone")).toBe(
+    expect(await canAnswerInContext(actor({ userId: "usr_x" }), contestCtx("ctst_gone"))).toBe(
       false,
     );
   });
@@ -269,8 +270,7 @@ describe("canAnswerInContext — exam", () => {
     expect(
       await canAnswerInContext(
         actor({ userId: "usr_teacher", platformRole: "teacher" }),
-        "exam",
-        "exm_1",
+        examCtx(),
       ),
     ).toBe(true);
   });
@@ -288,7 +288,7 @@ describe("canAnswerInContext — exam", () => {
       role: "ta",
       status: "active",
     });
-    expect(await canAnswerInContext(actor({ userId: "usr_ta" }), "exam", "exm_1")).toBe(true);
+    expect(await canAnswerInContext(actor({ userId: "usr_ta" }), examCtx())).toBe(true);
   });
 
   it("denies a student", async () => {
@@ -304,9 +304,7 @@ describe("canAnswerInContext — exam", () => {
       role: "student",
       status: "active",
     });
-    expect(await canAnswerInContext(actor({ userId: "usr_student" }), "exam", "exm_1")).toBe(
-      false,
-    );
+    expect(await canAnswerInContext(actor({ userId: "usr_student" }), examCtx())).toBe(false);
   });
 });
 
@@ -327,8 +325,7 @@ describe("canAnswerInContext — assignment", () => {
     expect(
       await canAnswerInContext(
         actor({ userId: "usr_teacher", platformRole: "teacher" }),
-        "assignment",
-        "ca_1",
+        assignmentCtx(),
       ),
     ).toBe(true);
   });
@@ -346,9 +343,9 @@ describe("canAnswerInContext — assignment", () => {
       role: "student",
       status: "active",
     });
-    expect(
-      await canAnswerInContext(actor({ userId: "usr_student" }), "assignment", "ca_1"),
-    ).toBe(false);
+    expect(await canAnswerInContext(actor({ userId: "usr_student" }), assignmentCtx())).toBe(
+      false,
+    );
   });
 });
 
@@ -360,15 +357,11 @@ describe("canSeeAuthor", () => {
       startsAt: past,
       endsAt: new Date(Date.now() - 60_000),
     });
-    expect(await canSeeAuthor(actor({ userId: "usr_organizer" }), "contest", "ctst_1")).toBe(
-      true,
-    );
+    expect(await canSeeAuthor(actor({ userId: "usr_organizer" }), contestCtx())).toBe(true);
   });
 
   it("returns false for non-staff", async () => {
     contestFindById.mockResolvedValue({ id: "ctst_1", createdByUserId: "usr_organizer" });
-    expect(await canSeeAuthor(actor({ userId: "usr_student" }), "contest", "ctst_1")).toBe(
-      false,
-    );
+    expect(await canSeeAuthor(actor({ userId: "usr_student" }), contestCtx())).toBe(false);
   });
 });

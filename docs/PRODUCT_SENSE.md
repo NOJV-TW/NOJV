@@ -60,7 +60,7 @@
 - Exam Settings tab: basic info, scoring mode, scoreboard mode, allowed languages, submit cooldown, proctoring (page lock / IP binding / IP whitelist / violation mode), lifecycle (publish / archive / delete-draft) with status-aware field locks
 - Editable Problems tab: attach / detach / reorder / per-problem points (locked once exam starts)
 - Submissions sub-tab: students × problems matrix with best score + attempt count, CSV export, search, sort, pagination
-- Session-based proctoring: `/api/exam-session/start` binds the student IP pin; heartbeat endpoint records visibility events; end endpoint closes the session
+- Session-based proctoring: `?/startExam` form action binds the student IP pin; `/api/exam-sessions/[examId]/heartbeat` records visibility events; `?/releaseSession` form action closes the session
 - Page lock confines the student to `/exams/[examId]/*` while the session is active
 - Student post-close review block on the detail page — links fall back to ordinary practice URLs
 

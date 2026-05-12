@@ -39,10 +39,10 @@ describe("buildDraftKey", () => {
     ).toBe("nojv:draft:v1:exam:exam_1:prob_123:python");
   });
 
-  it("formats assignment key with assessmentId", () => {
+  it("formats assignment key with assignmentId", () => {
     expect(
       buildDraftKey({
-        context: { kind: "assignment", assessmentId: "as_1" },
+        context: { kind: "assignment", assignmentId: "as_1" },
         problemId: PROBLEM_ID,
         language: LANGUAGE,
       }),
@@ -151,7 +151,7 @@ describe("inferDraftContext", () => {
         assignmentId: "a1",
         problemId: "p1",
       }),
-    ).toEqual({ kind: "assignment", assessmentId: "a1" });
+    ).toEqual({ kind: "assignment", assignmentId: "a1" });
   });
 
   it("maps contest route", () => {
