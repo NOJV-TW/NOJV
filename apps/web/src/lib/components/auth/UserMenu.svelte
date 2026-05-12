@@ -60,7 +60,7 @@
     {#if open}
       <div
         bind:this={dropdownEl}
-        class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
+        class="absolute right-0 top-full z-50 mt-2 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-modal backdrop-blur-sm"
         role="menu"
       >
         <div class="border-b border-border-subtle px-4 py-2.5">

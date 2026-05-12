@@ -1,4 +1,9 @@
-import { courseMembershipRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentProblemRepo,
+  courseMembershipRepo,
+  examProblemRepo,
+  submissionRepo,
+} from "@nojv/db";
 
 export interface ClassStats {
   submittedUsers: number;
@@ -9,6 +14,8 @@ export interface ClassStats {
 export interface MyStatus {
   solved: number;
   total: number;
+  score: number;
+  totalPoints: number;
 }
 
 interface AssessmentRowLike {
@@ -75,10 +82,12 @@ export async function aggregateAssessmentMyStatus(
   const out = new Map<string, MyStatus>();
   if (rows.length === 0) return out;
 
-  const accepted = await submissionRepo.groupAcceptedByAssessmentForUser({
-    assessmentIds: rows.map((r) => r.id),
-    userId,
-  });
+  const assessmentIds = rows.map((r) => r.id);
+  const [accepted, scores, pointSums] = await Promise.all([
+    submissionRepo.groupAcceptedByAssessmentForUser({ assessmentIds, userId }),
+    submissionRepo.groupBestScoresByAssessmentForUser({ assessmentIds, userId }),
+    assessmentProblemRepo.sumPointsByAssessment(assessmentIds),
+  ]);
 
   const solvedByAssessment = new Map<string, Set<string>>();
   for (const g of accepted) {
@@ -92,10 +101,25 @@ export async function aggregateAssessmentMyStatus(
     solved.add(g.problemId);
   }
 
+  const scoreByAssessment = new Map<string, number>();
+  for (const g of scores) {
+    const aid = g.courseAssessmentId;
+    if (!aid) continue;
+    const score = g._max.score ?? 0;
+    scoreByAssessment.set(aid, (scoreByAssessment.get(aid) ?? 0) + score);
+  }
+
+  const totalPointsByAssessment = new Map<string, number>();
+  for (const g of pointSums) {
+    totalPointsByAssessment.set(g.assessmentId, g._sum.points ?? 0);
+  }
+
   for (const row of rows) {
     out.set(row.id, {
       solved: solvedByAssessment.get(row.id)?.size ?? 0,
       total: row.problemCount,
+      score: scoreByAssessment.get(row.id) ?? 0,
+      totalPoints: totalPointsByAssessment.get(row.id) ?? 0,
     });
   }
   return out;
@@ -146,10 +170,12 @@ export async function aggregateExamMyStatus(
   const out = new Map<string, MyStatus>();
   if (rows.length === 0) return out;
 
-  const accepted = await submissionRepo.groupAcceptedByExamForUser({
-    examIds: rows.map((r) => r.id),
-    userId,
-  });
+  const examIds = rows.map((r) => r.id);
+  const [accepted, scores, pointSums] = await Promise.all([
+    submissionRepo.groupAcceptedByExamForUser({ examIds, userId }),
+    submissionRepo.groupBestScoresByExamForUser({ examIds, userId }),
+    examProblemRepo.sumPointsByExam(examIds),
+  ]);
 
   const solvedByExam = new Map<string, Set<string>>();
   for (const g of accepted) {
@@ -163,10 +189,25 @@ export async function aggregateExamMyStatus(
     solved.add(g.problemId);
   }
 
+  const scoreByExam = new Map<string, number>();
+  for (const g of scores) {
+    const eid = g.examId;
+    if (!eid) continue;
+    const score = g._max.score ?? 0;
+    scoreByExam.set(eid, (scoreByExam.get(eid) ?? 0) + score);
+  }
+
+  const totalPointsByExam = new Map<string, number>();
+  for (const g of pointSums) {
+    totalPointsByExam.set(g.examId, g._sum.points ?? 0);
+  }
+
   for (const row of rows) {
     out.set(row.id, {
       solved: solvedByExam.get(row.id)?.size ?? 0,
       total: row.problemCount,
+      score: scoreByExam.get(row.id) ?? 0,
+      totalPoints: totalPointsByExam.get(row.id) ?? 0,
     });
   }
   return out;

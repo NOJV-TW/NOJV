@@ -59,7 +59,7 @@
 <article
   id={`clarification-${item.id}`}
   class={cn(
-    "rounded-2xl border border-border bg-[color:var(--color-panel)] p-5",
+    "rounded-xl border border-border bg-[color:var(--color-panel)] p-3",
     item.state === "dismissed" && "opacity-60"
   )}
 >
@@ -87,7 +87,7 @@
   </p>
 
   {#if item.answerText}
-    <div class="mt-4 rounded-xl border border-border-subtle bg-[color:var(--color-panel-strong)] p-4">
+    <div class="mt-4 rounded-lg border border-border-subtle bg-[color:var(--color-panel-strong)] p-2">
       <p class="whitespace-pre-wrap text-body text-foreground">{item.answerText}</p>
       {#if item.answeredBy}
         <p class="mt-2 text-caption text-muted-foreground">

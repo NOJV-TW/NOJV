@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Badge } from "$lib/components/ui/badge";
+  import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
   import {
     formatDateTimeCompact,
     formatRelativeFromNow,
@@ -43,10 +44,8 @@
         </Dialog.Description>
       </Dialog.Header>
 
-      <div
-        class="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-body text-foreground"
-      >
-        {announcement.content}
+      <div class="max-h-[60vh] overflow-y-auto text-body text-foreground">
+        <MarkdownRenderer content={announcement.content} />
       </div>
 
       {#if announcement.expiresAt}

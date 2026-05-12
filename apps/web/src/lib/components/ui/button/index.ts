@@ -10,7 +10,6 @@ import LinkButton, { type LinkButtonProps } from "./LinkButton.svelte";
 export {
   Root,
   type ButtonProps as Props,
-  //
   Root as Button,
   IconButton,
   LinkButton,

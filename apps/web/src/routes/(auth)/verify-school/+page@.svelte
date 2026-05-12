@@ -28,7 +28,7 @@
   <Card variant="elevated" size="hero" class="w-full max-w-sm text-center">
     {#if data.status === "success"}
       <div class="flex flex-col items-center gap-4">
-        <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-success/15">
+        <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-success/15">
           <CheckCircle2 class="h-8 w-8 text-success" aria-hidden="true" />
         </div>
         <h1 class="text-title-lg font-semibold text-success">
@@ -41,7 +41,7 @@
       </div>
     {:else}
       <div class="flex flex-col items-center gap-4">
-        <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-destructive/15">
+        <div class="flex h-16 w-16 items-center justify-center rounded-lg bg-destructive/15">
           <XCircle class="h-8 w-8 text-destructive" aria-hidden="true" />
         </div>
         <h1 class="text-title-lg font-semibold text-destructive">

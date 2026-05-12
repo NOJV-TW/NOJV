@@ -190,7 +190,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Network exfiltration**: Code sends hidden testcase data to external server. _Mitigation_: `--network none` blocks all network access by default. When network is enabled per-problem, firewall rules whitelist specific hosts/ports only. Traffic is logged.
 - **Filesystem escape**: Code reads sensitive files on host filesystem. _Mitigation_: Read-only rootfs. Only `/tmp` (tmpfs) is writable. No host volume mounts. Container runs as non-root.
 - **Compiler/runtime exploit**: Malicious source exploits compiler or runtime vulnerability. _Mitigation_: Compilation runs inside the same sandboxed container. seccomp profile limits available syscalls.
-- **Submission flooding**: Attacker submits thousands of requests to overwhelm sandbox workers. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest cooldown via Redis. Temporal task queue provides natural backpressure. Worker capacity is sized via static replicas + PodDisruptionBudget (KEDA autoscaling removed in commit `c1ed096`); excess workflows queue rather than execute when at capacity.
+- **Submission flooding**: Attacker submits thousands of requests to overwhelm sandbox workers. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest cooldown via Redis. Temporal task queue provides natural backpressure. Worker capacity model lives in [RELIABILITY.md → Worker Unavailable](RELIABILITY.md#worker-unavailable).
 - **Sandbox output manipulation**: Code produces output designed to exploit the checker. _Mitigation_: Checker scripts also run inside sandbox with same isolation. Output is treated as untrusted data throughout the pipeline.
 
 ### 3.4 Image Upload and Object Storage

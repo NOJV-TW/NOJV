@@ -21,7 +21,7 @@
     </Tooltip.Trigger>
     <Tooltip.Portal>
       <Tooltip.Content
-        class="z-50 max-w-xs whitespace-pre-line rounded-xl border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
+        class="z-50 max-w-xs whitespace-pre-line rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
         sideOffset={4}
       >
         {text}

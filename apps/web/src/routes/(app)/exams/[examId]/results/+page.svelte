@@ -39,11 +39,11 @@
   />
 
   <!-- Header band with stats -->
-  <div class="glass rounded-2xl p-6 shadow-rest lg:p-7">
+  <div class="glass rounded-xl p-4 shadow-rest lg:p-5">
     <div class="flex flex-wrap items-center gap-5">
       <div class="flex items-center gap-3">
         <div
-          class="rounded-xl p-2.5"
+          class="rounded-lg p-2.5"
           style="background: color-mix(in oklab, var(--primary) 12%, transparent);"
         >
           <TypeIcon kind="exam" size={20} />
@@ -97,7 +97,7 @@
   </div>
 
   <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
-    <!-- ICPC-style class table -->
+    <!-- Class score table -->
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5"
@@ -213,7 +213,7 @@
           {m.examResults_recentSubmissionsHeading()}
         </div>
         <div
-          class="mt-3 rounded-lg border border-dashed border-border-subtle px-3 py-6 text-center text-caption text-muted-foreground"
+          class="mt-3 rounded-md border border-dashed border-border-subtle px-3 py-6 text-center text-caption text-muted-foreground"
         >
           {m.examResults_comingSoon()}
         </div>
@@ -226,13 +226,13 @@
         <div class="mt-3 flex flex-col gap-2">
           <a
             href={`/exams/${data.examId}`}
-            class="rounded-lg border border-border-subtle px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+            class="rounded-md border border-border-subtle px-3 py-2 text-caption font-medium transition-colors hover:border-border"
           >
             {m.examResults_backToExam()}
           </a>
           <a
             href={`/exams/${data.examId}/review`}
-            class="rounded-lg border border-border-subtle px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+            class="rounded-md border border-border-subtle px-3 py-2 text-caption font-medium transition-colors hover:border-border"
           >
             {m.examResults_viewPersonalReview()}
           </a>

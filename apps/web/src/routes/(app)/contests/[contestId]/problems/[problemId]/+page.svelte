@@ -69,7 +69,7 @@
   <MobileWorkspaceBlocker problem={data.problem} />
 </div>
 
-<div class="hidden h-[calc(100vh-9.5rem)] overflow-hidden rounded-2xl border border-border-subtle shadow-rest md:flex">
+<div class="hidden h-[calc(100vh-9.5rem)] overflow-hidden rounded-xl border border-border-subtle shadow-rest md:flex">
   <ProblemWorkspace
     allowedLanguages={data.contestData.allowedLanguages}
     backLink={{ href: `/contests/${data.contestId}`, type: "contest" }}

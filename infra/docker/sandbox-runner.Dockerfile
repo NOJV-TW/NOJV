@@ -4,6 +4,7 @@ RUN corepack enable
 
 WORKDIR /build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY patches/ patches/
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/sandbox-runner/package.json apps/sandbox-runner/
 COPY packages/core/package.json packages/core/

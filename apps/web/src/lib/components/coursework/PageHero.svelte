@@ -32,7 +32,7 @@
   }: Props = $props();
 </script>
 
-<div class="relative overflow-hidden glass rounded-2xl shadow-rest p-7 lg:p-9">
+<div class="relative overflow-hidden glass rounded-xl shadow-rest p-5 lg:p-9">
   {#if kind === "assignment"}
     <DotGrid opacity={0.16} />
   {:else if kind === "exam"}

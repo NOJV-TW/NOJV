@@ -109,9 +109,8 @@
   <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Basic -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionBasic()}
@@ -186,9 +185,8 @@
       </div>
     </section>
 
-    <!-- Scoring -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionScoring()}
@@ -268,9 +266,8 @@
       </div>
     </section>
 
-    <!-- Proctoring -->
     <section
-      class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
+      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionProctoring()}
@@ -359,9 +356,8 @@
     </div>
   </form>
 
-  <!-- Lifecycle -->
   <section
-    class="rounded-2xl border border-border bg-[color:var(--color-panel)] p-6 shadow-rest"
+    class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
   >
     <h3 class="mb-4 text-title-sm font-medium">
       {m.examDetail_settingsSectionLifecycle()}
@@ -421,10 +417,9 @@
     </div>
   </section>
 
-  <!-- Danger zone (delete) -->
   {#if isDraft}
     <section
-      class="space-y-3 rounded-2xl border border-destructive/30 bg-destructive/[0.04] px-6 py-5"
+      class="space-y-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] px-6 py-5"
     >
       <div class="flex items-baseline gap-2">
         <AlertTriangle class="size-4 shrink-0 text-destructive" aria-hidden="true" />

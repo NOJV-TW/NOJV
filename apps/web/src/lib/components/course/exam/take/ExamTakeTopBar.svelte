@@ -70,7 +70,7 @@
     <button
       type="button"
       onclick={onSubmit}
-      class="rounded-lg bg-primary px-4 py-2 text-caption font-semibold text-primary-foreground transition-opacity hover:opacity-95"
+      class="rounded-md bg-primary px-4 py-2 text-caption font-semibold text-primary-foreground transition-opacity hover:opacity-95"
     >
       {m.examTake_submitButton()}
     </button>

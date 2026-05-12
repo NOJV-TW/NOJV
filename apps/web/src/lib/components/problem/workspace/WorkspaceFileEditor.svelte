@@ -55,7 +55,7 @@
     </label>
     <button
       type="button"
-      class="self-end rounded-lg border border-border px-3 py-1.5 text-caption text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+      class="self-end rounded-md border border-border px-3 py-1.5 text-caption text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
       onclick={() => ondelete?.()}
     >
       {m.common_delete()}

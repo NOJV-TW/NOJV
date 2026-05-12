@@ -152,6 +152,23 @@ export async function listUserSubmissions(userId: string) {
   });
 }
 
+/**
+ * How many submissions the user has made against an assessment since UTC
+ * midnight. Matches the boundary used by the daily-quota gate in
+ * `createQueuedSubmissionRecord` so the displayed count and the enforced
+ * count agree.
+ */
+export async function countAssessmentSubmissionsToday(
+  userId: string,
+  assessmentId: string,
+): Promise<number> {
+  const now = new Date();
+  const startOfDayUtc = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+  );
+  return submissionRepo.countForUserAndAssessmentSince(userId, assessmentId, startOfDayUtc);
+}
+
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,

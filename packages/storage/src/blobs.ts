@@ -55,10 +55,6 @@ export async function deleteBlob(client: S3Client, key: string): Promise<void> {
   );
 }
 
-/**
- * Lists every object under `prefix` and deletes them in batches of 1000.
- * No-ops silently when the prefix has no objects.
- */
 export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Promise<void> {
   let continuationToken: string | undefined;
 

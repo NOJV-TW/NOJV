@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { ProblemType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { Tooltip } from "bits-ui";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
@@ -7,6 +8,7 @@
 
   interface Props {
     activeSection?: string;
+    problemType: ProblemType;
     canPublish?: boolean;
     showPublish?: boolean;
     publishing?: boolean;
@@ -23,6 +25,7 @@
 
   let {
     activeSection = $bindable("basic"),
+    problemType,
     canPublish = false,
     showPublish = false,
     publishing = false,
@@ -60,12 +63,20 @@
     convertFormEl?.submit();
   }
 
-  const sections: { id: string; label: string; icon: string }[] = [
+  const sections = $derived<{ id: string; label: string; icon: string }[]>([
     { id: "basic", label: m.admin_tabBasicInfo(), icon: "📝" },
-    { id: "workspace", label: m.admin_tabWorkspace(), icon: "💻" },
+    ...(problemType === "multi_file"
+      ? [{ id: "workspace", label: m.admin_tabWorkspace(), icon: "💻" }]
+      : []),
     { id: "testcase", label: m.admin_tabTestcase(), icon: "🧪" },
     { id: "judge", label: m.admin_tabJudge(), icon: "⚖️" },
-  ];
+  ]);
+
+  $effect(() => {
+    if (!sections.some((s) => s.id === activeSection)) {
+      activeSection = "basic";
+    }
+  });
 
   function handleSectionClick(id: string) {
     if (id === activeSection) return;
@@ -104,8 +115,7 @@
 </script>
 
 <div class="flex gap-6">
-  <!-- Left nav -->
-  <nav class="w-52 shrink-0 rounded-2xl border border-border bg-[color:var(--color-panel)] p-2 shadow-rest">
+  <nav class="w-52 shrink-0 rounded-xl border border-border bg-[color:var(--color-panel)] p-2 shadow-rest">
     <ul class="space-y-1">
       {#each sections as section (section.id)}
         {@const locked = isLocked(section.id)}
@@ -113,7 +123,7 @@
           <Tooltip.Provider delayDuration={200}>
             <Tooltip.Root>
               <Tooltip.Trigger
-                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft
+                class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft
                   {locked
                     ? 'cursor-not-allowed text-muted-foreground/40'
                     : activeSection === section.id
@@ -130,7 +140,7 @@
               {#if locked}
                 <Tooltip.Portal>
                   <Tooltip.Content
-                    class="z-50 max-w-xs rounded-lg border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
+                    class="z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
                     sideOffset={4}
                   >
                     {m.admin_tabLocked()}
@@ -167,7 +177,7 @@
               </Tooltip.Trigger>
               <Tooltip.Portal>
                 <Tooltip.Content
-                  class="z-50 max-w-xs rounded-lg border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
+                  class="z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
                   sideOffset={4}
                 >
                   {m.admin_publishTooltip()}
@@ -200,7 +210,6 @@
     {/if}
   </nav>
 
-  <!-- Main content -->
   <div class="min-w-0 flex-1">
     {#if activeSection === "basic" && basic}
       {@render basic()}
@@ -233,7 +242,7 @@
           <p class="text-muted-foreground">
             {m.admin_convertToAdvancedDesc()}
           </p>
-          <div class="rounded-lg border border-warning/40 bg-warning/10 p-3 text-caption text-warning">
+          <div class="rounded-md border border-warning/40 bg-warning/10 p-3 text-caption text-warning">
             <p class="font-semibold">{m.admin_convertToAdvancedWarningHeader()}</p>
             <ul class="mt-2 list-disc space-y-1 pl-4">
               <li>{m.admin_convertToAdvancedWarningItem1()}</li>
@@ -248,7 +257,7 @@
           </p>
           <input
             type="text"
-            class="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-body-sm outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft focus:border-primary"
+            class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft focus:border-primary"
             placeholder="CONVERT"
             bind:value={convertConfirmText}
             disabled={converting}

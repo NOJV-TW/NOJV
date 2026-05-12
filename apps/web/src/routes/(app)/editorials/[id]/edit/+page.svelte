@@ -4,6 +4,7 @@
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/ui/Section.svelte";
+  import ImageDropZone from "$lib/components/ui/ImageDropZone.svelte";
   import { toasts } from "$lib/stores/toast";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
@@ -84,12 +85,13 @@
       >
         {m.editorial_contentLabel()}
       </label>
-      <textarea
+      <ImageDropZone
         id="editorial-edit-content"
         class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
         rows="20"
+        name="content"
         bind:value={content}
-      ></textarea>
+      />
       <p class="mt-1 text-micro text-muted-foreground tabular-nums">
         {content.length} / 50000
       </p>

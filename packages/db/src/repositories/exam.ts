@@ -277,6 +277,15 @@ export const examProblemRepo = {
       .then((row) => row !== null);
   },
 
+  sumPointsByExam(examIds: string[]) {
+    if (examIds.length === 0) return Promise.resolve([]);
+    return prisma.examProblem.groupBy({
+      by: ["examId"],
+      _sum: { points: true },
+      where: { examId: { in: examIds } },
+    });
+  },
+
   // Practice-after-close: a registered participant of a published exam
   // that has ended retains read/submit access to the exam's problems —
   // for practice only, no scoring.

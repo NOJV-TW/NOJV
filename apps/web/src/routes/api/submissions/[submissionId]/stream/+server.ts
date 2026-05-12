@@ -54,13 +54,12 @@ export const GET: RequestHandler = (event) => {
       const encoder = new TextEncoder();
       const startTime = Date.now();
 
-      // Handle client disconnect
       event.request.signal.addEventListener("abort", () => {
         releaseOnce();
         try {
           controller.close();
         } catch {
-          // Already closed
+          // ignore: controller already closed
         }
       });
 
@@ -75,7 +74,6 @@ export const GET: RequestHandler = (event) => {
             send({ status, submissionId });
 
             if (TERMINAL_STATUSES.has(status)) {
-              // Fetch final result from DB for complete details
               const submission = await getSubmissionForUser(submissionId, userId, isAdmin);
               send({
                 result: submission.verdictDetail,

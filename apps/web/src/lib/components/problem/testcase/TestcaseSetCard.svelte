@@ -50,11 +50,9 @@
   let confirmDeleteTestcaseId = $state<string | null>(null);
   let saving = $state(false);
 
-  // Edit state for set
   let editName = $state(untrack(() => set.name));
   let editWeight = $state(untrack(() => set.weight));
 
-  // Edit state for testcase
   let editInput = $state("");
   let editOutput = $state("");
 
@@ -126,8 +124,7 @@
   }
 </script>
 
-<div class="rounded-xl border border-border-subtle p-4 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
-  <!-- Header -->
+<div class="rounded-lg border border-border-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
   <div class="flex items-center gap-3">
     <button
       class="flex items-center gap-1 text-body-sm font-semibold"
@@ -156,7 +153,7 @@
       <span>{m.testcases_scoringStrategy()}</span>
       <HelpTooltip text={m.testcases_scoringStrategyHint()} />
       <select
-        class="ml-1 rounded-lg border border-border bg-[color:var(--color-panel)] px-2 py-1 text-caption"
+        class="ml-1 rounded-md border border-border bg-[color:var(--color-panel)] px-2 py-1 text-caption"
         value={set.scoringStrategy}
         disabled={saving}
         onchange={(e) => void changeScoringStrategy((e.target as HTMLSelectElement).value)}
@@ -187,20 +184,19 @@
     </div>
   </div>
 
-  <!-- Inline edit for set -->
   {#if editing}
-    <div class="mt-3 flex flex-wrap items-end gap-3 rounded-lg border border-border-subtle bg-[color:var(--color-panel)] p-3">
+    <div class="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)] p-3">
       <label class="grid gap-1">
         <span class="text-caption font-medium text-muted-foreground">{m.testcases_editSetName()}</span>
         <input
-          class="rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+          class="rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
           bind:value={editName}
         />
       </label>
       <label class="grid gap-1">
         <span class="text-caption font-medium text-muted-foreground">{m.testcases_editSetWeight()}</span>
         <input
-          class="w-20 rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
+          class="w-20 rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
           type="number"
           min="0"
           bind:value={editWeight}
@@ -226,9 +222,8 @@
     </div>
   {/if}
 
-  <!-- Confirm delete -->
   {#if confirmDelete}
-    <div class="mt-3 flex items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+    <div class="mt-3 flex items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3">
       <span class="text-body-sm text-destructive">
         {m.testcases_confirmDeleteSet({ name: set.name })}
       </span>
@@ -250,18 +245,16 @@
     </div>
   {/if}
 
-  <!-- Expanded testcases -->
   {#if expanded}
     <div class="mt-3 space-y-2">
       {#each set.testcases as tc (tc.id)}
-        <div class="rounded-lg border border-border-subtle p-3">
+        <div class="rounded-md border border-border-subtle p-3">
           {#if editingTestcaseId === tc.id}
-            <!-- Editing testcase -->
             <div class="space-y-2">
               <label class="grid gap-1 text-caption text-muted-foreground">
                 {m.testcases_input()}
                 <textarea
-                  class="w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
+                  class="w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
                   rows={3}
                   bind:value={editInput}
                 ></textarea>
@@ -269,7 +262,7 @@
               <label class="grid gap-1 text-caption text-muted-foreground">
                 {m.testcases_output()}
                 <textarea
-                  class="w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
+                  class="w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
                   rows={3}
                   bind:value={editOutput}
                 ></textarea>
@@ -293,7 +286,6 @@
               </div>
             </div>
           {:else if confirmDeleteTestcaseId === tc.id}
-            <!-- Confirm delete testcase -->
             <div class="flex items-center gap-3">
               <span class="text-body-sm text-destructive">
                 {m.testcases_confirmDeleteCase({ ordinal: tc.ordinal })}
@@ -315,7 +307,6 @@
               </button>
             </div>
           {:else}
-            <!-- View testcase -->
             <div class="flex items-start gap-3">
               <span class="shrink-0 text-caption font-medium text-muted-foreground tabular-nums">
                 #{tc.ordinal}

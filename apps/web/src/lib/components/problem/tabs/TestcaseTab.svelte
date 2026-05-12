@@ -30,7 +30,7 @@
   let { testcaseSets, problemId }: Props = $props();
 
   const smallInputClassName =
-    "w-full rounded-xl border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
+    "w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-2 py-1.5 text-caption font-mono";
 
   let subtaskSets = $derived(testcaseSets.filter((s) => s.weight > 0));
 
@@ -47,7 +47,6 @@
 
   let error = $state<string | null>(null);
 
-  // ZIP upload state
   let regexPattern = $state("(\\d\\d)(\\d\\d)");
   let inExt = $state(".in");
   let outExt = $state(".out");
@@ -168,8 +167,7 @@
 </script>
 
 <div class="space-y-6">
-  <!-- Subtask sets (weight>0) -->
-  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+  <section class="rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <div class="mb-4">
       <p class="text-body-sm font-bold">{m.testcases_hiddenCases()}</p>
       <p class="mt-1 text-caption text-muted-foreground">
@@ -186,7 +184,7 @@
         {/each}
       </div>
 
-      <div class="mt-4 rounded-lg bg-muted/50 px-3 py-2">
+      <div class="mt-4 rounded-md bg-muted/50 px-3 py-2">
         <span class="text-caption text-muted-foreground">{m.testcases_totalScoreLabel()}: </span>
         <span class="text-caption font-mono"
           >{subtaskSets
@@ -197,8 +195,7 @@
     {/if}
   </section>
 
-  <!-- ZIP upload section -->
-  <section class="rounded-2xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
+  <section class="rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <p class="text-body-sm font-bold">
       {m.testcases_uploadZip()} <HelpTooltip text={m.testcases_zipFormatHelp()} />
     </p>
@@ -207,7 +204,7 @@
     </p>
 
     <div
-      class="mt-3 rounded-xl border border-dashed border-border-subtle bg-[color:var(--color-panel)] px-4 py-3"
+      class="mt-3 rounded-lg border border-dashed border-border-subtle bg-[color:var(--color-panel)] px-4 py-3"
     >
       <div class="flex flex-wrap items-end gap-3">
         <div class="grid gap-1">
@@ -303,13 +300,13 @@
           </div>
           {#each subtasks as subtask, si (`subtask-${si}`)}
             <div
-              class="rounded-xl border border-border bg-[color:var(--color-panel)] px-5 py-4 shadow-rest"
+              class="rounded-lg border border-border bg-[color:var(--color-panel)] px-5 py-4 shadow-rest"
             >
               <div class="flex flex-wrap items-center gap-3">
                 <label class="grid gap-1">
                   <span class="text-caption font-medium text-muted-foreground">{m.testcases_subtaskLabel()}</span>
                   <input
-                    class="rounded-xl border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm font-semibold"
+                    class="rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm font-semibold"
                     oninput={(e) =>
                       updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
                     value={subtask.name}
@@ -319,7 +316,7 @@
                   <span class="text-caption font-medium text-muted-foreground">{m.testcases_subtaskWeight()}</span>
                   <div class="flex items-center gap-1">
                     <input
-                      class="w-20 rounded-xl border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-body-sm font-bold text-primary tabular-nums"
+                      class="w-20 rounded-lg border-2 border-primary/30 bg-[color:var(--color-panel)] px-2 py-2 text-body-sm font-bold text-primary tabular-nums"
                       min="0"
                       oninput={(e) =>
                         updateSubtask(si, {
@@ -364,7 +361,7 @@
 
   {#if error}
     <div
-      class="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
+      class="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-body-sm text-destructive"
     >
       {error}
     </div>

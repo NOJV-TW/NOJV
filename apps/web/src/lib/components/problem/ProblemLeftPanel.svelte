@@ -9,9 +9,11 @@
   } from "$lib/types";
   import { formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
+  import { fetchWithCsrf } from "$lib/utils";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
+  import ImageDropZone from "../ui/ImageDropZone.svelte";
   import SpecialLabels from "./SpecialLabels.svelte";
   import SubtaskResults from "./SubtaskResults.svelte";
   import { toasts } from "$lib/stores/toast";
@@ -24,6 +26,9 @@
      * on `/api/rejudge`; this is progressive disclosure only.
      */
     canRejudge?: boolean;
+    /** Assignment-only daily submission quota shown in the SpecialLabels strip.
+     *  `max: null` means unlimited — the badge renders `{used} / ∞`. */
+    dailyAttempts?: { used: number; max: number | null } | undefined;
     /**
      * Bindable submission history. Parents (the right-pane Editor / advanced
      * uploader) mutate this array to push freshly-completed submissions; the
@@ -45,6 +50,7 @@
   let {
     backLink,
     canRejudge = false,
+    dailyAttempts,
     submissions = $bindable([]),
     leftTab: initialLeftTab = "description",
     viewingIndex: initialViewingIndex = null,
@@ -86,9 +92,8 @@
     if (rejudgingId !== null) return;
     rejudgingId = submissionId;
     try {
-      const res = await fetch("/api/rejudge", {
+      const res = await fetchWithCsrf("/api/rejudge", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ mode: "single", submissionId })
       });
       if (res.ok) {
@@ -103,7 +108,6 @@
     }
   }
 
-  // ── Editorials state ──────────────────────────────────────────────────────
   let editorials = $state<ProblemEditorialEntry[]>([]);
   let editorialsLoaded = $state(false);
   let editorialsLoading = $state(false);
@@ -136,9 +140,8 @@
     if (editorialSubmitting) return;
     editorialSubmitting = true;
     try {
-      const res = await fetch(`/api/problems/${problem.id}/editorials`, {
+      const res = await fetchWithCsrf(`/api/problems/${problem.id}/editorials`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ content: editorialContent, language: editorialLanguage })
       });
       if (res.ok) {
@@ -201,7 +204,6 @@
   });
 </script>
 
-<!-- Tab bar -->
 <div class="flex h-9 items-center border-b border-border-subtle px-2">
   {#if backLink}
     <a
@@ -247,13 +249,34 @@
   </button>
 </div>
 
-<!-- Content -->
 <div class="flex-1 overflow-y-auto">
   {#if leftTab === "description"}
     <div class="p-5">
-      <h1 class="text-body-lg font-semibold leading-snug">
-        {formatProblemDisplayName(problem)}
-      </h1>
+      <div class="flex items-center gap-3">
+        <h1 class="text-body-lg font-semibold leading-snug">
+          {formatProblemDisplayName(problem)}
+        </h1>
+        {#if dailyAttempts}
+          {@const remaining =
+            dailyAttempts.max == null
+              ? null
+              : Math.max(0, dailyAttempts.max - dailyAttempts.used)}
+          <div class="ml-auto flex shrink-0 items-center gap-2">
+            <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+              {m.problemDetail_dailyAttemptsTitle()}
+            </span>
+            <span
+              class="rounded-full px-2.5 py-0.5 text-caption font-medium tabular-nums {remaining === 0
+                ? 'bg-destructive/15 text-destructive'
+                : remaining !== null && remaining <= 2
+                  ? 'bg-warning/15 text-warning'
+                  : 'bg-muted text-muted-foreground'}"
+            >
+              {dailyAttempts.used} / {dailyAttempts.max ?? "∞"}
+            </span>
+          </div>
+        {/if}
+      </div>
 
       {#if problem.tags.length > 0}
         <div class="mt-3 flex flex-wrap items-center gap-1.5">
@@ -303,11 +326,11 @@
           <div class="mt-3 space-y-3 text-caption">
             <div>
               <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_input()}</p>
-              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
+              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
             </div>
             <div>
               <p class="text-caption font-medium text-muted-foreground">{m.problemDetail_output()}</p>
-              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
+              <pre class="mt-1 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
             </div>
           </div>
         </div>
@@ -322,7 +345,7 @@
           <p class="text-body font-semibold">{m.problemDetail_testcaseSets()}</p>
           <ul class="mt-3 space-y-3">
             {#each subtaskSets as set, idx (set.id)}
-              <li class="rounded-lg border border-border-subtle px-4 py-3">
+              <li class="rounded-md border border-border-subtle px-4 py-3">
                 <div class="flex items-baseline justify-between gap-3">
                   <span class="text-caption font-medium text-muted-foreground tabular-nums">
                     #subtask{idx + 1}
@@ -416,7 +439,7 @@
 
           <div class="mt-5">
             {#if loadingSourceId === entry.id && entry.sourceCode === undefined}
-              <div class="flex items-center gap-2 rounded-lg bg-muted px-4 py-3">
+              <div class="flex items-center gap-2 rounded-md bg-muted px-4 py-3">
                 <div
                   class="size-4 animate-spin rounded-full border-2 border-border border-t-foreground"
                 ></div>
@@ -432,7 +455,7 @@
           {#each submissions as entry, index (`sub-${index}`)}
             {@const label = formatVerdictLabel(entry.result.verdict)}
             <button
-              class="rounded-lg border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
+              class="rounded-md border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
               onclick={() => (viewingIndex = index)}
               type="button"
             >
@@ -484,7 +507,7 @@
         </div>
 
         {#if showEditorialForm}
-          <div class="mb-6 rounded-lg border border-border-subtle p-4">
+          <div class="mb-6 rounded-md border border-border-subtle p-4">
             <div class="mb-3">
               <label class="mb-1 block text-caption font-medium text-muted-foreground" for={editorialLanguageId}>
                 {m.editorials_language()}
@@ -500,12 +523,13 @@
               </select>
             </div>
             <div class="mb-3">
-              <textarea
+              <ImageDropZone
                 class="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-body-sm leading-6"
                 rows="10"
+                name="editorialContent"
                 placeholder={m.editorials_contentPlaceholder()}
                 bind:value={editorialContent}
-              ></textarea>
+              />
             </div>
             <button
               class="rounded-md bg-primary px-4 py-1.5 text-caption font-medium text-primary-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-primary/90 disabled:opacity-50"
@@ -525,7 +549,7 @@
         {:else}
           <div class="grid gap-4">
             {#each editorials as editorial (editorial.id)}
-              <div class="rounded-lg border border-border-subtle p-4">
+              <div class="rounded-md border border-border-subtle p-4">
                 <div class="mb-3 flex items-center gap-2 text-caption text-muted-foreground">
                   <span>{m.editorials_by()} {editorial.user.name ?? editorial.user.username}</span>
                   <span class="rounded-full bg-muted px-2 py-0.5 font-medium">

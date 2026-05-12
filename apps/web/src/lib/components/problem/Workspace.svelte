@@ -17,6 +17,7 @@
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     contestId?: string | undefined;
+    dailyAttempts?: { used: number; max: number | null } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
@@ -28,6 +29,7 @@
     backLink,
     canRejudge = false,
     contestId,
+    dailyAttempts,
     initialSubmissions,
     problem,
     testcaseSets = []
@@ -55,8 +57,8 @@
     // head entry in `submissions`.
   }
 
-  // ── Resizable panels ──
   let leftPanelWidth = $state(42);
+  let isResizing = $state(false);
 
   function startResize(e: MouseEvent) {
     e.preventDefault();
@@ -74,8 +76,10 @@
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      isResizing = false;
     };
 
+    isResizing = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
@@ -83,14 +87,14 @@
   }
 </script>
 
-<!-- Left panel -->
 <div
-  class="flex w-full shrink-0 flex-col overflow-hidden bg-card lg:border-r lg:border-border"
+  class="flex w-full shrink-0 flex-col overflow-hidden bg-card"
   style="width: {leftPanelWidth}%"
 >
   <ProblemLeftPanel
     {backLink}
     {canRejudge}
+    {dailyAttempts}
     bind:submissions
     {problem}
     {testcaseSets}
@@ -99,9 +103,11 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<!-- Resize handle (desktop only) — role="separator" carries keyboard intent -->
+<!-- Resize handle (desktop only) — role="separator" carries keyboard intent.
+     Hit area is 8px wide; the visible line is 1px and stays transparent
+     until hover / focus / active drag, à la VS Code. -->
 <div
-  class="hidden w-1 cursor-col-resize items-center justify-center bg-border transition-colors hover:bg-primary/40 active:bg-primary/60 lg:flex"
+  class="group hidden w-2 shrink-0 cursor-col-resize items-stretch justify-center outline-none lg:flex"
   role="separator"
   aria-orientation="vertical"
   aria-label={m.common_resizePanels()}
@@ -111,9 +117,15 @@
     if (e.key === "ArrowLeft") leftPanelWidth = Math.max(20, leftPanelWidth - 2);
     if (e.key === "ArrowRight") leftPanelWidth = Math.min(80, leftPanelWidth + 2);
   }}
-></div>
+>
+  <span
+    aria-hidden="true"
+    class="w-px transition-colors duration-fast {isResizing
+      ? 'bg-primary'
+      : 'bg-transparent group-hover:bg-primary/60 group-focus-visible:bg-primary/60'}"
+  ></span>
+</div>
 
-<!-- Right panel (desktop only) -->
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
   <ProblemEditor
     {allowedLanguages}

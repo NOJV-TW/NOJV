@@ -89,7 +89,7 @@
           <button
             type="button"
             onclick={() => onSelect(p.id)}
-            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors {isActive
+            class="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors {isActive
               ? ''
               : 'hover:bg-muted'}"
             style:background={isActive ? "var(--panel)" : undefined}
@@ -124,7 +124,7 @@
 
   {#if !collapsed}
     <div
-      class="mx-3 mt-4 space-y-1.5 rounded-lg border border-border-subtle p-3 text-micro"
+      class="mx-3 mt-4 space-y-1.5 rounded-md border border-border-subtle p-3 text-micro"
       style="background: var(--panel);"
     >
       <div class="mb-1.5 font-mono uppercase tracking-wider text-muted-foreground">

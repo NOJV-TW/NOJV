@@ -69,7 +69,7 @@
   <!-- Rows -->
   {#if assignments.length === 0}
     <div
-      class="animate-in animate-in-2 rounded-2xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
+      class="animate-in animate-in-2 rounded-xl border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
       {m.courseAssignments_empty()}
     </div>
@@ -80,7 +80,7 @@
         {@const hint = urgencyHint(assignment.status, assignment.opensAt, assignment.closesAt)}
         <a
           href={`/assignments/${assignment.id}`}
-          class="group relative grid grid-cols-[1fr_auto] items-center gap-6 rounded-2xl border bg-[color:var(--color-panel)] px-6 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
+          class="group relative grid grid-cols-[1fr_auto] items-center gap-6 rounded-xl border bg-[color:var(--color-panel)] px-6 py-5 text-foreground no-underline transition-[transform,box-shadow,border-color] duration-fast ease-out-soft hover:translate-x-[3px] hover:border-border-strong hover:shadow-rest {assignment.status ===
           'draft'
             ? 'border-dashed bg-transparent'
             : 'border-border'}"
@@ -153,21 +153,26 @@
               </div>
             {:else}
               {@const myStatus = assignment.myStatus}
-              {@const pct =
-                myStatus && myStatus.total > 0
-                  ? (myStatus.solved / myStatus.total) * 100
-                  : 0}
+              {@const showScore =
+                myStatus &&
+                assignment.status !== "upcoming" &&
+                assignment.status !== "draft"}
               <div
-                class="relative flex h-11 w-11 items-center justify-center rounded-full"
-                style="background: conic-gradient(var(--color-primary) {pct}%, var(--color-border) {pct}%);"
-                aria-hidden="true"
+                class="text-right font-mono text-caption text-muted-foreground tabular-nums leading-[1.4]"
               >
-                <span
-                  class="absolute inset-[4px] rounded-full bg-[color:var(--color-panel)]"
-                ></span>
-                <span class="relative text-caption font-semibold tabular-nums">
-                  {#if myStatus}{myStatus.solved}/{myStatus.total}{:else}—{/if}
-                </span>
+                {#if showScore && myStatus}
+                  <span class="block text-title-sm font-medium text-foreground">
+                    {myStatus.score}/{myStatus.totalPoints}
+                  </span>
+                  {m.courseOverview_scoreCaption()}
+                {:else}
+                  <span class="block text-title-sm font-medium text-foreground">—</span>
+                  {#if assignment.status === "upcoming"}
+                    {m.courseAssignments_classStatsUpcomingHint()}
+                  {:else if assignment.status === "draft"}
+                    {m.courseAssignments_classStatsDraftHint()}
+                  {/if}
+                {/if}
               </div>
               {#if assignment.status === "open"}
                 <span class={buttonVariants({ variant: "default", size: "sm" })}>

@@ -230,14 +230,14 @@
       <button
         type="button"
         onclick={() => (showConfirm = false)}
-        class="rounded-lg border border-border px-4 py-2 text-body-sm font-medium transition-colors hover:bg-muted"
+        class="rounded-md border border-border px-4 py-2 text-body-sm font-medium transition-colors hover:bg-muted"
       >
         {m.examTake_confirmCancel()}
       </button>
       <button
         type="button"
         onclick={confirmSubmit}
-        class="rounded-lg bg-primary px-5 py-2 text-body-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
+        class="rounded-md bg-primary px-5 py-2 text-body-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
       >
         {m.examTake_confirmConfirm()}
       </button>

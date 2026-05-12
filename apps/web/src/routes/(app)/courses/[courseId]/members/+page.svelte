@@ -111,13 +111,13 @@
   <div class="animate-in animate-in-3">
     {#if filtered.length === 0}
       <div
-        class="rounded-2xl border border-dashed border-border px-6 py-10 text-center text-body-sm text-muted-foreground"
+        class="rounded-xl border border-dashed border-border px-6 py-10 text-center text-body-sm text-muted-foreground"
       >
         {m.members_empty()}
       </div>
     {:else}
       <div
-        class="overflow-hidden rounded-2xl border border-border bg-[color:var(--color-panel)]"
+        class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
       >
         {#each filtered as member (member.userId)}
           <div
