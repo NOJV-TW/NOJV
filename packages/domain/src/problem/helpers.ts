@@ -96,12 +96,17 @@ export async function assertProblemViewAccess(
 
 // Every listed language must have an editable main.<ext> workspace file,
 // otherwise students in that language have no entry file to submit.
+// full_source problems always ship the system template and short-circuit here.
 export async function assertProblemHasWorkspaceForLanguages(
   tx: TransactionClient,
   problemId: string,
   allowedLanguages: Language[],
 ): Promise<void> {
   if (allowedLanguages.length === 0) return;
+
+  const problem = await problemRepo.withTx(tx).findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  if (problem.type !== "multi_file") return;
 
   const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problemId);
 

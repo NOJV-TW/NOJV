@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import type { ProblemType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { Tooltip } from "bits-ui";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
@@ -7,6 +8,7 @@
 
   interface Props {
     activeSection?: string;
+    problemType: ProblemType;
     canPublish?: boolean;
     showPublish?: boolean;
     publishing?: boolean;
@@ -23,6 +25,7 @@
 
   let {
     activeSection = $bindable("basic"),
+    problemType,
     canPublish = false,
     showPublish = false,
     publishing = false,
@@ -60,12 +63,20 @@
     convertFormEl?.submit();
   }
 
-  const sections: { id: string; label: string; icon: string }[] = [
+  const sections = $derived<{ id: string; label: string; icon: string }[]>([
     { id: "basic", label: m.admin_tabBasicInfo(), icon: "📝" },
-    { id: "workspace", label: m.admin_tabWorkspace(), icon: "💻" },
+    ...(problemType === "multi_file"
+      ? [{ id: "workspace", label: m.admin_tabWorkspace(), icon: "💻" }]
+      : []),
     { id: "testcase", label: m.admin_tabTestcase(), icon: "🧪" },
     { id: "judge", label: m.admin_tabJudge(), icon: "⚖️" },
-  ];
+  ]);
+
+  $effect(() => {
+    if (!sections.some((s) => s.id === activeSection)) {
+      activeSection = "basic";
+    }
+  });
 
   function handleSectionClick(id: string) {
     if (id === activeSection) return;

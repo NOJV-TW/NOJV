@@ -140,7 +140,7 @@
   let workspaceFilesForLanguage = $derived(
     problem.workspaceFiles.filter((f) => f.language === language)
   );
-  let isWorkspaceMode = $derived(workspaceFilesForLanguage.length > 0);
+  let isWorkspaceMode = $derived(problem.type === "multi_file");
   let selectedWorkspaceIndex = $state(0);
 
   // Hydrate per-language draft on first visit + on language switch. Workspace
@@ -419,6 +419,7 @@
       <LanguageSelector
         value={language}
         {allowedLanguages}
+        problemType={problem.type}
         workspaceFiles={problem.workspaceFiles}
         onchange={(next) => (language = next)}
         onavailablechange={(available) => (availableLanguages = available)}

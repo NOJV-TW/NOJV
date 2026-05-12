@@ -63,8 +63,10 @@
   // Build WorkspaceSection initial payload from loaded problem + files.
   // The workspace is a scratchpad the user edits before saving; capture the
   // initial values once via untrack() so re-runs of `data` don't discard edits.
-  // Only consumed by the standard layout below — advanced mode skips this.
+  // Only consumed by `multi_file` problems — full_source uses system templates
+  // and advanced mode routes to its own layout.
   const workspaceInitial = untrack(() => {
+    if (data.problem.type !== "multi_file") return undefined;
     const runtime = (data.problem.judgeConfig?.runtime as
       | { timeLimitMs: number; memoryLimitMb: number; env: Record<string, string> }
       | undefined) ?? {
@@ -72,15 +74,10 @@
       memoryLimitMb: data.problem.memoryLimitMb,
       env: {}
     };
-    // WorkspaceSection only handles the two user-switchable code-edit modes;
-    // special_env routes to the advanced layout further down and never reads
-    // workspaceInitial.
-    const workspaceType: "full_source" | "multi_file" =
-      data.problem.type === "multi_file" ? "multi_file" : "full_source";
     return {
       runtime,
       allowedLanguages: [] as Language[],
-      type: workspaceType,
+      type: "multi_file" as "full_source" | "multi_file",
       files: data.workspaceFiles.map((f) => ({
         language: f.language,
         path: f.path,
@@ -92,7 +89,7 @@
     };
   });
 
-  async function handleWorkspaceSave(payload: typeof workspaceInitial) {
+  async function handleWorkspaceSave(payload: NonNullable<typeof workspaceInitial>) {
     const fd = new FormData();
     fd.set("data", JSON.stringify(payload));
     const res = await fetch("?/updateWorkspace", { method: "POST", body: fd });
@@ -235,6 +232,7 @@
   {:else}
     <ProblemSections
       bind:activeSection
+      problemType={data.problem.type}
       showPublish={data.problem.status === "draft"}
       showConvertToAdvanced
       {canPublish}
@@ -249,11 +247,13 @@
       {/snippet}
 
       {#snippet workspace()}
-        <WorkspaceSection
-          initial={workspaceInitial}
-          ondirtychange={(d) => dirty = d}
-          onsave={handleWorkspaceSave}
-        />
+        {#if workspaceInitial}
+          <WorkspaceSection
+            initial={workspaceInitial}
+            ondirtychange={(d) => dirty = d}
+            onsave={handleWorkspaceSave}
+          />
+        {/if}
       {/snippet}
 
       {#snippet testcase()}

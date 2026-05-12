@@ -132,21 +132,19 @@ export async function createQueuedSubmissionRecord(
       throw new ForbiddenError("Language not allowed in this assignment");
     }
 
-    // special_env problems ship no workspace; other types must have an editable main.<ext>.
-    if (problem.type !== "special_env") {
+    // multi_file problems must have an editable main.<ext> for the chosen language.
+    // full_source ships a single source file (system template); special_env has no workspace.
+    if (problem.type === "multi_file") {
       const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problem.id);
-      // full_source problems with no workspace files submit a single source file directly.
-      if (workspaceFiles.length > 0 || problem.type !== "full_source") {
-        const entryPath = entryFileNameFor(payload.language);
-        const hasEntry = workspaceFiles.some(
-          (f) =>
-            f.language === payload.language &&
-            f.path === entryPath &&
-            f.visibility === "editable",
-        );
-        if (!hasEntry) {
-          throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
-        }
+      const entryPath = entryFileNameFor(payload.language);
+      const hasEntry = workspaceFiles.some(
+        (f) =>
+          f.language === payload.language &&
+          f.path === entryPath &&
+          f.visibility === "editable",
+      );
+      if (!hasEntry) {
+        throw new ForbiddenError(`No starter workspace available for ${payload.language}`);
       }
     }
 
