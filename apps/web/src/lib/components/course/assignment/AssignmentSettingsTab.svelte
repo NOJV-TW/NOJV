@@ -116,7 +116,6 @@
   <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Basic -->
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
@@ -203,7 +202,6 @@
       </div>
     </section>
 
-    <!-- Scoring -->
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
@@ -266,7 +264,6 @@
     </div>
   </form>
 
-  <!-- Lifecycle -->
   <section
     class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
   >

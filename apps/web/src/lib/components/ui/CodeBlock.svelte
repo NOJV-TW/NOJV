@@ -13,7 +13,6 @@
   let copied = $state(false);
 
   let lines = $derived(code.split("\n"));
-  // Remove trailing empty line (common in source code)
   let displayLines = $derived(
     lines.length > 1 && lines[lines.length - 1] === "" ? lines.slice(0, -1) : lines
   );
@@ -29,7 +28,6 @@
 </script>
 
 <div class="overflow-hidden rounded-lg border border-border">
-  <!-- Header -->
   <div class="flex items-center justify-between bg-muted/60 px-4 py-2">
     {#if language}
       <span class="text-xs font-medium text-muted-foreground">{language}</span>
@@ -50,7 +48,6 @@
       {/if}
     </button>
   </div>
-  <!-- Code -->
   <div class="overflow-auto bg-[color:var(--color-panel)]" style="max-height: {maxHeight}">
     <table class="w-full border-collapse">
       <tbody>

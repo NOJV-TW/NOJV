@@ -109,7 +109,6 @@
   <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <!-- Basic -->
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
@@ -186,7 +185,6 @@
       </div>
     </section>
 
-    <!-- Scoring -->
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
@@ -268,7 +266,6 @@
       </div>
     </section>
 
-    <!-- Proctoring -->
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
@@ -359,7 +356,6 @@
     </div>
   </form>
 
-  <!-- Lifecycle -->
   <section
     class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
   >
@@ -421,7 +417,6 @@
     </div>
   </section>
 
-  <!-- Danger zone (delete) -->
   {#if isDraft}
     <section
       class="space-y-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] px-6 py-5"

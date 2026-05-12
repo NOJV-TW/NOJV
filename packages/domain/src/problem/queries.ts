@@ -241,7 +241,6 @@ export async function listProblemCards(
   const pageSize = Math.min(100, Math.max(1, params.pageSize ?? 30));
   const page = Math.max(1, params.page ?? 1);
 
-  // Build the where clause
   const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
   // Full-text search: find matching problem IDs via GIN index + LIKE fallback
@@ -264,12 +263,10 @@ export async function listProblemCards(
     if (parsed.success) where.difficulty = parsed.data;
   }
 
-  // Tag filter.
   if (params.tags && params.tags.length > 0) {
     where.tags = { hasEvery: params.tags };
   }
 
-  // Count + fetch in parallel
   const [totalCount, persistedProblems] = await Promise.all([
     problemRepo.count(where),
     problemRepo.listWithCounts({

@@ -50,11 +50,9 @@
   let confirmDeleteTestcaseId = $state<string | null>(null);
   let saving = $state(false);
 
-  // Edit state for set
   let editName = $state(untrack(() => set.name));
   let editWeight = $state(untrack(() => set.weight));
 
-  // Edit state for testcase
   let editInput = $state("");
   let editOutput = $state("");
 
@@ -127,7 +125,6 @@
 </script>
 
 <div class="rounded-lg border border-border-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
-  <!-- Header -->
   <div class="flex items-center gap-3">
     <button
       class="flex items-center gap-1 text-body-sm font-semibold"
@@ -187,7 +184,6 @@
     </div>
   </div>
 
-  <!-- Inline edit for set -->
   {#if editing}
     <div class="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)] p-3">
       <label class="grid gap-1">
@@ -226,7 +222,6 @@
     </div>
   {/if}
 
-  <!-- Confirm delete -->
   {#if confirmDelete}
     <div class="mt-3 flex items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3">
       <span class="text-body-sm text-destructive">
@@ -250,13 +245,11 @@
     </div>
   {/if}
 
-  <!-- Expanded testcases -->
   {#if expanded}
     <div class="mt-3 space-y-2">
       {#each set.testcases as tc (tc.id)}
         <div class="rounded-md border border-border-subtle p-3">
           {#if editingTestcaseId === tc.id}
-            <!-- Editing testcase -->
             <div class="space-y-2">
               <label class="grid gap-1 text-caption text-muted-foreground">
                 {m.testcases_input()}
@@ -293,7 +286,6 @@
               </div>
             </div>
           {:else if confirmDeleteTestcaseId === tc.id}
-            <!-- Confirm delete testcase -->
             <div class="flex items-center gap-3">
               <span class="text-body-sm text-destructive">
                 {m.testcases_confirmDeleteCase({ ordinal: tc.ordinal })}
@@ -315,7 +307,6 @@
               </button>
             </div>
           {:else}
-            <!-- View testcase -->
             <div class="flex items-start gap-3">
               <span class="shrink-0 text-caption font-medium text-muted-foreground tabular-nums">
                 #{tc.ordinal}

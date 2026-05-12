@@ -70,7 +70,6 @@
     };
   });
 
-  // Sync language changes
   $effect(() => {
     const lang = language;
     if (!monacoEditor || !monacoModule) return;
@@ -79,7 +78,8 @@
     monacoModule.editor.setModelLanguage(model, getMonacoLanguage(lang));
   });
 
-  // Sync value changes from outside (avoid loop by checking current value)
+  // External value changes overwrite the buffer only when they differ — guards
+  // against an infinite loop with `onDidChangeModelContent`.
   $effect(() => {
     const val = value;
     if (!monacoEditor) return;
@@ -88,7 +88,6 @@
     }
   });
 
-  // Sync readonly changes
   $effect(() => {
     const ro = readonly;
     if (!monacoEditor) return;

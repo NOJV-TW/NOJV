@@ -413,7 +413,6 @@
     ? "fixed inset-0 z-50 flex flex-col overflow-hidden bg-[color:var(--color-panel)]"
     : "flex h-full flex-col overflow-hidden bg-[color:var(--color-panel)]"}
 >
-  <!-- Top toolbar -->
   <div
     class="flex h-9 items-center justify-between border-b border-border-subtle bg-muted/40 px-3"
   >
@@ -487,7 +486,6 @@
     {/if}
   </div>
 
-  <!-- Action bar -->
   <div
     class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-1"
   >

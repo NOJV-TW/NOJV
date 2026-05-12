@@ -179,7 +179,6 @@ export async function getScoreboard(
 
   const scoringMode = contest.scoringMode;
 
-  // When scoreboardMode is "hidden", only privileged users can see entries
   if (scoreboardMode === "hidden" && !options?.isPrivileged) {
     return {
       entries: [],
@@ -202,7 +201,6 @@ export async function getScoreboard(
     };
   }
 
-  // Fetch all non-sample submissions for this contest
   const participationIds = contest.participations.map((p) => p.id);
   const allSubmissions = await submissionRepo.findForContestScoreboard(participationIds);
 
@@ -243,7 +241,6 @@ export async function getScoreboard(
 }
 
 export async function getScoreboardChart(contestId: string, topN: number): Promise<ChartData> {
-  // Get the scoreboard to determine top N
   const scoreboardData = await getScoreboard(contestId, { unfrozen: false });
 
   const topEntries = scoreboardData.entries.slice(0, topN);
@@ -253,10 +250,9 @@ export async function getScoreboardChart(contestId: string, topN: number): Promi
 
   const topUserIds = new Set(topEntries.map((e) => e.userId));
 
-  // Reuse problem points from scoreboard instead of re-fetching contest
+  // Reuse problem points from scoreboard instead of re-fetching the contest row.
   const pointsMap = new Map(scoreboardData.problems.map((p) => [p.id, p.points]));
 
-  // Fetch only startsAt and participations for top users
   const contest = await contestRepo.findForChartById(contestId, [...topUserIds]);
 
   if (!contest) return { series: [] };

@@ -85,7 +85,6 @@
 </script>
 
 <div class="flex h-full flex-col">
-  <!-- Bottom tabs -->
   <div class="flex items-center border-b border-border-subtle px-2">
     <button
       class="px-3 py-2 text-caption font-medium transition-[color,border-color] duration-fast ease-out-soft {tab === 'testcase'
@@ -134,7 +133,6 @@
     {/if}
   </div>
 
-  <!-- Bottom content -->
   <div class="flex-1 overflow-y-auto px-4 py-3">
     {#if tab === "testcase"}
       {#if readOnly}

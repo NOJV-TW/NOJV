@@ -19,7 +19,6 @@ export {
   Header,
   Title,
   Action,
-  //
   Root as Card,
   Content as CardContent,
   Description as CardDescription,
@@ -27,7 +26,6 @@ export {
   Header as CardHeader,
   Title as CardTitle,
   Action as CardAction,
-  //
   cardVariants,
   type CardProps,
   type CardVariant,

@@ -35,10 +35,8 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    // ── Active exam lockout: forbid piping a submission through any
-    // foreign context while an exam session is live. The exam endpoint
-    // attaches examId via the dedicated flow; letting clients pass an
-    // assessment/contest id here would bypass exam cooldown, IP binding,
+    // Active-exam lockout: while a session is live, no foreign context (assessment
+    // or contest) can ride along. Bypass would skip exam cooldown, IP binding,
     // and per-day limits. Admins are exempt for operational recovery.
     if (activeExamSession && actor.platformRole !== "admin") {
       if (courseContext || payload.contestId) {
@@ -48,7 +46,6 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // ── Authorization: verify user is enrolled in the course ──
     if (courseContext) {
       const membership = await courseMembershipRepo
         .withTx(tx)
@@ -108,14 +105,13 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    // ── Visibility: a private problem is only submittable by its author,
-    // admins, or a viewer whose (already-validated) context contains it.
-    // Without this, a user could submit to any private problem by cuid.
-    // The async path also admits historical participants (practice-after-close). ──
+    // Private-problem visibility: author, admin, or a viewer whose validated
+    // context contains the problem. Without this, any private problem could be
+    // submitted to by cuid. The async path also admits historical participants
+    // (practice-after-close).
     const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
-    // ── Language restriction: contest ──
     if (
       contestResult &&
       contestResult.contest.allowedLanguages.length > 0 &&

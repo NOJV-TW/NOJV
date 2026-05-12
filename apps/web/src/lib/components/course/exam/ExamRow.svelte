@@ -57,7 +57,6 @@
   style="animation-delay: {delay}ms"
 >
   <div class="grid grid-cols-[136px_1fr] items-stretch md:grid-cols-[136px_1fr_auto]">
-    <!-- Date gutter -->
     <div
       class="relative flex flex-col items-center justify-center border-r border-border-subtle px-3 py-5"
       style:background={past
@@ -79,7 +78,6 @@
       </div>
     </div>
 
-    <!-- Body -->
     <div class="min-w-0 p-5">
       <div class="flex flex-wrap items-center gap-2">
         <span
@@ -110,7 +108,6 @@
       </div>
     </div>
 
-    <!-- CTA strip -->
     <div
       class="hidden flex-col items-end justify-between gap-3 border-l border-border-subtle p-5 md:flex md:min-w-[200px]"
     >

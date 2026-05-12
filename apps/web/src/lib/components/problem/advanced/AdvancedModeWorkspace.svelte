@@ -72,7 +72,6 @@
     // head entry in `submissions`.
   }
 
-  // ── Resizable panels ──────────────────────────────────────────────────────
   let leftPanelWidth = $state(42);
   let isResizing = $state(false);
 
@@ -336,7 +335,6 @@
   }
 </script>
 
-<!-- Left panel (description / submissions / editorials) -->
 <div
   class="flex w-full shrink-0 flex-col overflow-hidden bg-card"
   style="width: {leftPanelWidth}%"
@@ -375,10 +373,8 @@
   ></span>
 </div>
 
-<!-- Right panel (upload + submit) — desktop only -->
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
   <div class="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-[color:var(--color-panel)]">
-    <!-- Top bar -->
     <div class="flex h-11 items-center justify-between border-b border-border-subtle bg-muted/40 px-3">
       <div class="flex items-center gap-3">
         <span class="text-caption font-semibold text-foreground/70">&lt;/&gt;</span>
@@ -397,7 +393,6 @@
       {/if}
     </div>
 
-    <!-- Upload area -->
     <div class="flex-1 overflow-y-auto p-6">
       <p class="text-body-sm leading-6 text-muted-foreground">
         {m.advancedMode_uploadInstructions()}
@@ -467,7 +462,6 @@
       {/if}
     </div>
 
-    <!-- Action bar -->
     <div
       class="flex items-center justify-between border-t border-border-subtle bg-muted/40 px-4 py-2.5"
     >

@@ -19,12 +19,10 @@
 
   let { problem, ondirtychange }: Props = $props();
 
-  // Seed state from the current judgeConfig snapshot.
   const cfg = untrack(() => problem.judgeConfig ?? {});
 
   let judgeType = $state<JudgeType>(cfg.type ?? "standard");
 
-  // Checker + interactor.
   let checkerScript = $state(cfg.checkerScript ?? "");
   let checkerLanguage = $state<JudgeScriptLanguage>(cfg.checkerLanguage ?? "python");
   let interactorScript = $state(cfg.interactorScript ?? "");
@@ -32,7 +30,6 @@
     cfg.interactorLanguage ?? "python"
   );
 
-  // ─── Save ──────────────────────────────────────────────────────────
   function buildJudgeConfig() {
     const config: Record<string, unknown> = {
       type: judgeType
@@ -97,7 +94,6 @@
 </script>
 
 <div class="space-y-4">
-  <!-- ─── Judge Type ───────────────────────── -->
   <div class="rounded-lg border border-border-subtle p-2">
     <h3 class="text-body-sm font-semibold">{m.admin_judgeType()}</h3>
     <p class="mt-0.5 text-caption text-muted-foreground">
@@ -217,7 +213,6 @@
     {/if}
   </div>
 
-  <!-- ─── Save ──────────────────────────────── -->
   <div class="mt-2 flex justify-end">
     <div class="flex items-center gap-3">
       <button

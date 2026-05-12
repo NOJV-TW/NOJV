@@ -115,7 +115,6 @@
 </script>
 
 <div class="flex gap-6">
-  <!-- Left nav -->
   <nav class="w-52 shrink-0 rounded-xl border border-border bg-[color:var(--color-panel)] p-2 shadow-rest">
     <ul class="space-y-1">
       {#each sections as section (section.id)}
@@ -211,7 +210,6 @@
     {/if}
   </nav>
 
-  <!-- Main content -->
   <div class="min-w-0 flex-1">
     {#if activeSection === "basic" && basic}
       {@render basic()}

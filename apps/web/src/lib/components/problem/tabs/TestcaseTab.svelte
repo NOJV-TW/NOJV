@@ -47,7 +47,6 @@
 
   let error = $state<string | null>(null);
 
-  // ZIP upload state
   let regexPattern = $state("(\\d\\d)(\\d\\d)");
   let inExt = $state(".in");
   let outExt = $state(".out");
@@ -168,7 +167,6 @@
 </script>
 
 <div class="space-y-6">
-  <!-- Subtask sets (weight>0) -->
   <section class="rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <div class="mb-4">
       <p class="text-body-sm font-bold">{m.testcases_hiddenCases()}</p>
@@ -197,7 +195,6 @@
     {/if}
   </section>
 
-  <!-- ZIP upload section -->
   <section class="rounded-xl border border-border bg-[color:var(--color-panel)] px-6 py-6 shadow-rest backdrop-blur-sm">
     <p class="text-body-sm font-bold">
       {m.testcases_uploadZip()} <HelpTooltip text={m.testcases_zipFormatHelp()} />

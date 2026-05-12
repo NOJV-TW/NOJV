@@ -58,7 +58,6 @@ export function buildSubtaskResults(
     } else if (strategy === "MINIMUM") {
       rawScore = allPassed ? ts.weight : 0;
     } else {
-      // ALL_OR_NOTHING default
       rawScore = allPassed ? ts.weight : 0;
     }
 

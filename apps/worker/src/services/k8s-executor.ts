@@ -78,7 +78,6 @@ export class K8sExecutor implements SandboxExecutor {
     const mainSourceName = sourceFileNames[request.language];
     let wroteMainSource = false;
 
-    // Source code and optional project files
     for (const sourceFile of request.sourceFiles ?? []) {
       const normalizedPath = normalizeRelativePath(sourceFile.path);
       if (!normalizedPath) {
@@ -110,7 +109,6 @@ export class K8sExecutor implements SandboxExecutor {
       data[`interactor.${ext}`] = request.judgeConfig.interactorScript;
     }
 
-    // Testcase data as flat keys
     for (const tc of request.testcases) {
       data[`testcase-${String(tc.index)}-input.txt`] = tc.input;
       if (tc.output != null) {

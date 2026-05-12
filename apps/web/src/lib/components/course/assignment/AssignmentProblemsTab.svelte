@@ -157,7 +157,6 @@
   </div>
 
   {#if !canEdit}
-    <!-- Read-only (unchanged from prior behaviour) -->
     <div class="grid gap-3">
       {#each problems as problem (problem.problemId)}
         <a
@@ -194,7 +193,6 @@
       {/each}
     </div>
   {:else}
-    <!-- Edit mode -->
     {#if errorMsg}
       <p class="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-body-sm text-destructive">
         {errorMsg}
@@ -268,7 +266,6 @@
       </div>
     {/if}
 
-    <!-- Attach candidates -->
     <div
       class="mt-4 rounded-md border border-border bg-[color:var(--color-panel-strong)]/40"
     >

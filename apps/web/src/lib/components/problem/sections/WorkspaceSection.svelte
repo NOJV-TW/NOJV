@@ -41,7 +41,6 @@
   // editing, external changes to `initial` must not clobber in-progress state.
   // Wrap every read of `initial` in untrack() to capture a one-shot snapshot.
 
-  // ─── Runtime ──────────────────────────────────────────────────────
   let timeLimitMs = $state(untrack(() => initial.runtime.timeLimitMs));
   let memoryLimitMb = $state(untrack(() => initial.runtime.memoryLimitMb));
   let envRows = $state<{ key: string; value: string }[]>(
@@ -55,10 +54,8 @@
     envRows = envRows.filter((_, idx) => idx !== i);
   }
 
-  // ─── Problem type ─────────────────────────────────────────────────
   let mode = $state<WorkspaceMode>(untrack(() => initial.type));
 
-  // ─── Allowed languages ────────────────────────────────────────────
   let allowedLanguages = $state<Language[]>(
     untrack(() =>
       initial.allowedLanguages.length > 0
@@ -73,7 +70,6 @@
       : [...allowedLanguages, lang];
   }
 
-  // ─── Files ────────────────────────────────────────────────────────
   let activeLang = $state<Language>(
     untrack(() => allowedLanguages[0] ?? supportedLanguages[0] ?? "c")
   );
@@ -143,7 +139,6 @@
     );
   }
 
-  // ─── Save ─────────────────────────────────────────────────────────
   let saving = $state(false);
   let saveMessage = $state("");
 
@@ -239,7 +234,6 @@
 </script>
 
 <div class="space-y-6">
-  <!-- ─── Problem type ───────────────────────────────── -->
   <section class="rounded-lg border border-border-subtle p-2">
     <h3 class="text-body-sm font-semibold">{m.admin_workspaceModeTitle()}</h3>
     <p class="mt-0.5 text-caption text-muted-foreground">{m.admin_workspaceModeHint()}</p>
@@ -286,7 +280,6 @@
     </div>
   </section>
 
-  <!-- ─── Runtime ────────────────────────────────────── -->
   <section class="rounded-lg border border-border-subtle p-2">
     <h3 class="text-body-sm font-semibold">{m.admin_runtime()}</h3>
     <div class="mt-3 grid gap-3 md:grid-cols-2">
@@ -356,7 +349,6 @@
     </div>
   </section>
 
-  <!-- ─── Allowed languages ──────────────────────────── -->
   <section class="rounded-lg border border-border-subtle p-2">
     <h3 class="text-body-sm font-semibold">{m.admin_allowedLanguages()}</h3>
     <p class="mt-0.5 text-caption text-muted-foreground">{m.admin_allowedLanguagesHint()}</p>
@@ -389,7 +381,6 @@
     </div>
   </section>
 
-  <!-- ─── Files ──────────────────────────────────────── -->
   <section class="rounded-lg border border-border-subtle p-2">
     <div>
       <h3 class="text-body-sm font-semibold">{filesTitle}</h3>
@@ -417,7 +408,6 @@
         {m.admin_workspaceNoLanguagesSelected()}
       </div>
     {:else}
-      <!-- Language tabs -->
       <div class="mt-4 -mx-1 flex flex-wrap items-center gap-1 border-b border-border-subtle pb-2">
         {#each allowedLanguages as lang (lang)}
           {@const isActive = lang === activeLang}
@@ -447,7 +437,6 @@
         {/each}
       </div>
 
-      <!-- File list + editor/empty state -->
       <div class="mt-3 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
         <WorkspaceFileList
           files={filesForActiveLang.map((e) => e.file)}
@@ -503,7 +492,6 @@
     {/if}
   </section>
 
-  <!-- ─── Save ───────────────────────────────────────── -->
   <div class="flex items-center justify-end gap-3">
     <button
       type="button"

@@ -45,17 +45,18 @@ export class AdvancedModeExecutor {
     request: SandboxRequest,
     config: AdvancedModeConfig,
   ): Promise<SandboxResult> {
-    if (!request.advanced) {
+    const advanced = request.advanced;
+    if (!advanced) {
       return sandboxSystemError("advanced-mode dispatch called without payload");
     }
 
     // If the image was uploaded as a tarball, stream it out of storage
     // and load it into the local docker daemon before dispatching.
     // The resulting image tag is parsed from `docker load` output.
-    let imageRef = request.advanced.imageRef;
-    if (request.advanced.imageSource === "tarball") {
+    let imageRef = advanced.imageRef;
+    if (advanced.imageSource === "tarball") {
       try {
-        imageRef = await this.ensureTarballLoaded(request.advanced.imageRef);
+        imageRef = await this.ensureTarballLoaded(advanced.imageRef);
       } catch (err) {
         return advancedFallbackResult(
           request,
@@ -67,132 +68,136 @@ export class AdvancedModeExecutor {
     const workspaceDir = join(tempDir, "workspace");
     const submissionDir = join(workspaceDir, "submission");
     const outputDir = join(workspaceDir, "output");
-    await mkdir(workspaceDir, { mode: 0o777, recursive: true });
-    await mkdir(submissionDir, { mode: 0o777, recursive: true });
-    await mkdir(outputDir, { mode: 0o777, recursive: true });
-
-    // 1. Student sources → /workspace/submission/
-    const fileWrites: Promise<void>[] = [];
     const defaultSourcePath = sourceFileNames[request.language];
-    let wroteDefault = false;
 
-    for (const sf of request.sourceFiles ?? []) {
-      const normalized = normalizeRelativePath(sf.path);
-      if (!normalized) continue;
-      if (normalized === defaultSourcePath) wroteDefault = true;
-      const dest = join(submissionDir, normalized);
-      fileWrites.push(
-        (async () => {
-          await mkdir(dirname(dest), { recursive: true });
-          await writeFile(dest, sf.content, "utf8");
-        })(),
-      );
-    }
-    if (!wroteDefault && request.sourceCode) {
-      fileWrites.push(
-        writeFile(join(submissionDir, defaultSourcePath), request.sourceCode, "utf8"),
-      );
-    }
+    const prepareWorkspace = async (): Promise<void> => {
+      await mkdir(workspaceDir, { mode: 0o777, recursive: true });
+      await mkdir(submissionDir, { mode: 0o777, recursive: true });
+      await mkdir(outputDir, { mode: 0o777, recursive: true });
 
-    // 2. meta.json — tells the TA image what it's grading.
-    const meta = {
-      submissionId: request.submissionId,
-      language: request.language,
-      submissionFiles: [defaultSourcePath],
-      resourceLimits: {
-        totalTimeMs: request.advanced.totalTimeMs,
-        memoryMb: request.advanced.memoryMb,
-      },
+      const fileWrites: Promise<void>[] = [];
+      let wroteDefault = false;
+
+      for (const sf of request.sourceFiles ?? []) {
+        const normalized = normalizeRelativePath(sf.path);
+        if (!normalized) continue;
+        if (normalized === defaultSourcePath) wroteDefault = true;
+        const dest = join(submissionDir, normalized);
+        fileWrites.push(
+          (async () => {
+            await mkdir(dirname(dest), { recursive: true });
+            await writeFile(dest, sf.content, "utf8");
+          })(),
+        );
+      }
+      if (!wroteDefault && request.sourceCode) {
+        fileWrites.push(
+          writeFile(join(submissionDir, defaultSourcePath), request.sourceCode, "utf8"),
+        );
+      }
+
+      const meta = {
+        submissionId: request.submissionId,
+        language: request.language,
+        submissionFiles: [defaultSourcePath],
+        resourceLimits: {
+          totalTimeMs: advanced.totalTimeMs,
+          memoryMb: advanced.memoryMb,
+        },
+      };
+      fileWrites.push(
+        writeFile(join(workspaceDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8"),
+      );
+
+      await Promise.all(fileWrites);
+      await chmod(workspaceDir, 0o777);
     };
-    fileWrites.push(
-      writeFile(join(workspaceDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8"),
-    );
 
-    await Promise.all(fileWrites);
-    await chmod(workspaceDir, 0o777);
-
-    // 4. Spawn the TA image
-    const containerName = `nojv-advanced-${sanitizeId(request.submissionId).slice(0, 40)}`;
-    // Advanced Mode containers are fully network-isolated. Any packages
-    // or test data the TA image needs must be baked into the image at
-    // build time — runtime fetches are not allowed.
-    const networkArgs = ["--network", "none"];
-
-    const args = [
-      "run",
-      "--rm",
-      "--name",
-      containerName,
-      ...networkArgs,
-      "--cap-drop",
-      "ALL",
-      "--security-opt",
-      "no-new-privileges",
-      "-v",
-      `${workspaceDir}:/workspace`,
-      "--cpus",
-      config.cpuLimit,
-      "--memory",
-      `${String(request.advanced.memoryMb)}m`,
-      "--pids-limit",
-      String(config.pidsLimit),
-      "--workdir",
-      "/workspace",
-      imageRef,
-    ];
-
-    const outerTimeoutMs = request.advanced.totalTimeMs + 30_000;
-
-    const dockerOutcome = await new Promise<{
+    const spawnContainer = (): Promise<{
       exitCode: number | null;
       stderr: string;
       timedOut: boolean;
-    }>((resolve) => {
-      const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-      let stderr = "";
-      let timedOut = false;
-      let settled = false;
+    }> => {
+      const containerName = `nojv-advanced-${sanitizeId(request.submissionId).slice(0, 40)}`;
+      // Advanced Mode containers are fully network-isolated. Any packages
+      // or test data the TA image needs must be baked into the image at
+      // build time — runtime fetches are not allowed.
+      const networkArgs = ["--network", "none"];
 
-      const settle = (value: {
-        exitCode: number | null;
-        stderr: string;
-        timedOut: boolean;
-      }) => {
-        if (settled) return;
-        settled = true;
-        resolve(value);
-      };
+      const args = [
+        "run",
+        "--rm",
+        "--name",
+        containerName,
+        ...networkArgs,
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "-v",
+        `${workspaceDir}:/workspace`,
+        "--cpus",
+        config.cpuLimit,
+        "--memory",
+        `${String(advanced.memoryMb)}m`,
+        "--pids-limit",
+        String(config.pidsLimit),
+        "--workdir",
+        "/workspace",
+        imageRef,
+      ];
 
-      const timer = setTimeout(() => {
-        timedOut = true;
-        forceRemoveContainer(containerName);
-        child.kill("SIGKILL");
-      }, outerTimeoutMs);
+      const outerTimeoutMs = advanced.totalTimeMs + 30_000;
 
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stderr.on("data", (chunk: string) => {
-        stderr += chunk;
+      return new Promise((resolve) => {
+        const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
+        let stderr = "";
+        let timedOut = false;
+        let settled = false;
+
+        const settle = (value: {
+          exitCode: number | null;
+          stderr: string;
+          timedOut: boolean;
+        }) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+
+        const timer = setTimeout(() => {
+          timedOut = true;
+          forceRemoveContainer(containerName);
+          child.kill("SIGKILL");
+        }, outerTimeoutMs);
+
+        child.stdout.setEncoding("utf8");
+        child.stderr.setEncoding("utf8");
+        child.stderr.on("data", (chunk: string) => {
+          stderr += chunk;
+        });
+
+        child.on("error", (err: Error) => {
+          clearTimeout(timer);
+          settle({ exitCode: null, stderr: `spawn failed: ${err.message}`, timedOut: false });
+        });
+
+        child.on("close", (code: number | null) => {
+          clearTimeout(timer);
+          settle({ exitCode: code, stderr, timedOut });
+        });
+
+        child.stdin.end();
       });
+    };
 
-      child.on("error", (err: Error) => {
-        clearTimeout(timer);
-        settle({ exitCode: null, stderr: `spawn failed: ${err.message}`, timedOut: false });
-      });
-
-      child.on("close", (code: number | null) => {
-        clearTimeout(timer);
-        settle({ exitCode: code, stderr, timedOut });
-      });
-
-      child.stdin.end();
-    });
+    await prepareWorkspace();
+    const dockerOutcome = await spawnContainer();
 
     if (dockerOutcome.timedOut) {
       return advancedFallbackResult(request, "Advanced judge image timed out.");
     }
 
-    // 5. Read /workspace/output/result.json
     let resultJson: unknown;
     try {
       const raw = await readFile(join(outputDir, "result.json"), "utf8");

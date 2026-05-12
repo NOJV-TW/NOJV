@@ -50,7 +50,7 @@ export function runProcess(
     const stdoutBuf = createBoundedBuffer();
     const stderrBuf = createBoundedBuffer();
     const memoryPoller = typeof proc.pid === "number" ? createMemoryPoller(proc.pid) : null;
-    let killed = false;
+    let forceKilledViaFallbackTimer = false;
 
     proc.stdout!.on("data", (chunk: Buffer) => {
       stdoutBuf.push(chunk);
@@ -67,7 +67,7 @@ export function runProcess(
 
     // Fallback timer in case spawn timeout doesn't fire
     const timer = setTimeout(() => {
-      killed = true;
+      forceKilledViaFallbackTimer = true;
       proc.kill("SIGKILL");
     }, options.timeoutMs + 500);
 
@@ -85,7 +85,8 @@ export function runProcess(
         exitCode: code ?? -1,
         timeMs: Math.round(elapsedMs),
         memoryKb,
-        timedOut: killed || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
+        timedOut:
+          forceKilledViaFallbackTimer || signal === "SIGTERM" || elapsedMs > options.timeoutMs,
         signal,
         spawnError: false,
       });

@@ -7,11 +7,8 @@ function avatarKey(userId: string): string {
   return `avatars/${userId}.webp`;
 }
 
-/**
- * Uploads (or overwrites) the avatar at `avatars/{userId}.webp`.
- * Returns a public URL with a `?v={timestamp}` cache-buster so the browser
- * picks up the new image immediately even though the storage key is stable.
- */
+// `?v={timestamp}` cache-buster: the storage key is stable so browsers
+// would otherwise serve the previous avatar from cache.
 export async function uploadUserAvatar(
   client: S3Client,
   userId: string,

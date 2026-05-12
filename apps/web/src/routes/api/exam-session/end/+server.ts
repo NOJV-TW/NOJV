@@ -42,8 +42,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     });
   }
 
-  // reason === "released_by_instructor" — schema has already enforced
-  // that `userId` is present in this branch.
   const updated = await examDomain.session.releaseSessionAsInstructor(actor, {
     examId: body.examId,
     targetUserId: body.userId,

@@ -75,7 +75,6 @@
     $form.problemIds = next;
   }
 
-  // ── Drag and drop ordering ─────────────────────────────────────────
   let dragIndex = $state<number | null>(null);
 
   function handleDragStart(index: number) {
@@ -90,7 +89,6 @@
     dragIndex = null;
   }
 
-  // ── Language toggle ────────────────────────────────────────────────
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }

@@ -57,7 +57,6 @@
     // head entry in `submissions`.
   }
 
-  // ── Resizable panels ──
   let leftPanelWidth = $state(42);
   let isResizing = $state(false);
 
@@ -88,7 +87,6 @@
   }
 </script>
 
-<!-- Left panel -->
 <div
   class="flex w-full shrink-0 flex-col overflow-hidden bg-card"
   style="width: {leftPanelWidth}%"
@@ -128,7 +126,6 @@
   ></span>
 </div>
 
-<!-- Right panel (desktop only) -->
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
   <ProblemEditor
     {allowedLanguages}

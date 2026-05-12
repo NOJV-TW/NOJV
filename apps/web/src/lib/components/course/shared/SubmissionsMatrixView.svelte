@@ -181,7 +181,6 @@
     </span>
   </div>
 
-  <!-- Toolbar -->
   <div class="flex flex-wrap items-center gap-3 border-b border-border-subtle pb-4">
     {#if showRoleFilter && labels.filterAll && labels.filterStudents}
       <select
@@ -333,7 +332,6 @@
       </table>
     </div>
 
-    <!-- Legend -->
     <div class="flex flex-wrap items-center gap-5 text-caption text-muted-foreground">
       <span class="inline-flex items-center gap-1.5">
         <span
@@ -362,7 +360,6 @@
       </span>
     </div>
 
-    <!-- Pagination -->
     <div class="flex items-center justify-between text-caption text-muted-foreground">
       <span>
         {labels.paginationLabel({ from, to, total: totalRows })}

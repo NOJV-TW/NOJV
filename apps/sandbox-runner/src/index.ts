@@ -18,6 +18,7 @@ import { judgeInteractive } from "./judges/interactive.js";
 import { normalizeRelativePath } from "@nojv/core";
 
 const SUBMISSION_DIR = "/submission";
+const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
 /** Log to stderr only — stdout is reserved for the JSON result. */
 function log(message: string): void {
@@ -149,8 +150,8 @@ async function loadTestcasesFromDirs(
       index,
       input,
       expected,
-      weight: meta.weight ?? 1,
-      isSample: meta.isSample ?? false,
+      weight: meta.weight ?? DEFAULT_TESTCASE_META.weight,
+      isSample: meta.isSample ?? DEFAULT_TESTCASE_META.isSample,
     });
   }
 
@@ -184,7 +185,7 @@ async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
       // expected is optional
     }
 
-    testcases.push({ index, input, expected, weight: 1, isSample: false });
+    testcases.push({ index, input, expected, ...DEFAULT_TESTCASE_META });
   }
 
   return testcases;

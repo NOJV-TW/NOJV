@@ -37,7 +37,6 @@
     }
   }
 
-  // --- Name form ---
   const {
     form: nameForm,
     errors: nameErrors,
@@ -67,7 +66,6 @@
     $nameMessage?.kind === "error" ? mapCode($nameMessage.text) : null
   );
 
-  // --- Username form ---
   const {
     form: usernameForm,
     errors: usernameErrors,

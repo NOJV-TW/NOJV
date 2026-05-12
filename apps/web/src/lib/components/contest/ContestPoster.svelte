@@ -91,7 +91,6 @@
       </div>
     </div>
 
-    <!-- Right CTA panel -->
     <div
       class="self-stretch flex flex-col items-end justify-between p-6 sm:pl-6 lg:pr-7 sm:min-w-[260px] border-t sm:border-t-0 sm:border-l"
       style="border-color: var(--border-subtle); {isLive

@@ -85,7 +85,6 @@
 
   let { editableProblems, publicResult, showCreate }: Props = $props();
 
-  // ─── Public tab: URL-driven state ─────────────────────────────────
   let currentUrl = $derived($page.url);
   let tab = $derived<"public" | "mine">(
     showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public"
@@ -121,7 +120,6 @@
     ])].sort()
   );
 
-  // Debounce timer for search input
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let searchInputValue = $state("");
 
@@ -184,7 +182,6 @@
     goto(target, { keepFocus: true, noScroll: true });
   }
 
-  // Build page numbers for pagination
   let paginationPages = $derived.by(() => {
     const pages: number[] = [];
     const maxVisible = 7;
@@ -208,7 +205,6 @@
     return pages;
   });
 
-  // ─── Mine tab: client-side filtering (unchanged) ──────────────────
   let mineSearch = $state("");
   let mineDifficulty = $state<Difficulty>("all");
   let mineSelectedTags = $state<Set<string>>(new Set());
@@ -351,7 +347,6 @@
   </div>
 
   {#if tab === "public"}
-    <!-- Public tab: filter bar (URL-driven) -->
     <div class="flex flex-col gap-3">
       <div class="relative">
         <Search
@@ -434,7 +429,6 @@
       {/if}
     </div>
 
-    <!-- Public problem list -->
     <section class="grid gap-4">
       {#if publicResult.totalCount === 0 && !publicSearch && publicDifficulty === "all" && publicSelectedTags.size === 0}
         <EmptyState
@@ -506,7 +500,6 @@
       {/each}
     </section>
 
-    <!-- Pagination -->
     {#if totalPages > 1}
       <nav class="flex justify-center gap-2 pt-2" aria-label={m.problems_pagination()}>
         {#if currentPage > 1}
@@ -549,7 +542,6 @@
   {/if}
 
   {#if tab === "mine" && showCreate}
-    <!-- Mine tab: filter bar (client-side) -->
     <div class="flex flex-col gap-3">
       <div class="relative">
         <Search

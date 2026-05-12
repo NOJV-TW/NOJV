@@ -133,7 +133,7 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         } catch {
-          // Controller may already be closed
+          // ignore: controller already closed
         }
       }
 
@@ -151,7 +151,6 @@ export const GET: RequestHandler = async (event) => {
         send(message);
       });
 
-      // Keepalive
       const keepalive = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
@@ -160,7 +159,6 @@ export const GET: RequestHandler = async (event) => {
         }
       }, KEEPALIVE_MS);
 
-      // Timeout
       const timeout = setTimeout(() => {
         cleanup("timeout");
       }, MAX_DURATION_MS);
@@ -176,7 +174,7 @@ export const GET: RequestHandler = async (event) => {
         try {
           controller.close();
         } catch {
-          // Already closed
+          // ignore: controller already closed
         }
 
         const finalReason: SseCloseReason = droppedFault ? "subscribe_failed" : reason;
@@ -188,7 +186,6 @@ export const GET: RequestHandler = async (event) => {
         }
       }
 
-      // Handle client disconnect
       event.request.signal.addEventListener("abort", () => cleanup("client_abort"));
     },
   });

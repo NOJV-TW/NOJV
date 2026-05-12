@@ -61,10 +61,8 @@ export async function deleteProblemImage(client: S3Client, imageUrl: string): Pr
   );
 }
 
-/**
- * Returns the opaque S3 key (not a URL) — callers persist it on
- * `Problem.advancedImageRef` and resolve it later for `docker load`.
- */
+// Returns the opaque S3 key (not a URL) — callers persist it on
+// `Problem.advancedImageRef` and resolve it later for `docker load`.
 export async function uploadAdvancedImageTarball(
   client: S3Client,
   problemId: string,

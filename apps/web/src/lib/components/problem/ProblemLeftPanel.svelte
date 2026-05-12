@@ -108,7 +108,6 @@
     }
   }
 
-  // ── Editorials state ──────────────────────────────────────────────────────
   let editorials = $state<ProblemEditorialEntry[]>([]);
   let editorialsLoaded = $state(false);
   let editorialsLoading = $state(false);
@@ -206,7 +205,6 @@
   });
 </script>
 
-<!-- Tab bar -->
 <div class="flex h-9 items-center border-b border-border-subtle px-2">
   {#if backLink}
     <a
@@ -252,7 +250,6 @@
   </button>
 </div>
 
-<!-- Content -->
 <div class="flex-1 overflow-y-auto">
   {#if leftTab === "description"}
     <div class="p-5">
