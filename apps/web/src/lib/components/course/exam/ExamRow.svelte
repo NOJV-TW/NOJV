@@ -116,7 +116,7 @@
             {m.examRow_ctaUpcoming()}
           </div>
           <div class="mt-1">
-            <Countdown iso={exam.startsAt} compact />
+            <Countdown iso={exam.startsAt} isCompact />
           </div>
         </div>
         <div class="text-caption text-muted-foreground">{m.examRow_ctaViewDetails()}</div>
@@ -128,7 +128,7 @@
             {m.examRow_ctaRunning()}
           </div>
           <div class="mt-1">
-            <Countdown iso={exam.endsAt} compact />
+            <Countdown iso={exam.endsAt} isCompact />
           </div>
         </div>
         <div class="text-caption text-primary">{m.examRow_ctaViewDetails()}</div>

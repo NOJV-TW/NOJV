@@ -34,11 +34,11 @@
   interface Props {
     editableProblems: EditableProblemCard[];
     deletingProblemId: string | null;
-    deleting: boolean;
+    isDeleting: boolean;
     onDeleteClick: (problemId: string) => void;
   }
 
-  let { editableProblems, deletingProblemId, deleting, onDeleteClick }: Props = $props();
+  let { editableProblems, deletingProblemId, isDeleting, onDeleteClick }: Props = $props();
 
   let currentUrl = $derived($page.url);
   let sortDirection = $derived<"asc" | "desc">(
@@ -238,7 +238,7 @@
           <Button
             variant="destructive"
             size="sm"
-            disabled={deleting && deletingProblemId === problem.id}
+            disabled={isDeleting && deletingProblemId === problem.id}
             onclick={() => onDeleteClick(problem.id)}
           >
             <Trash2 class="size-3" aria-hidden="true" />

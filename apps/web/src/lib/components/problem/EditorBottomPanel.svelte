@@ -22,7 +22,7 @@
      * the TA image owns the testcase format and a generic stdin panel
      * would be misleading.
      */
-    readOnly?: boolean;
+    isReadOnly?: boolean;
     /** Active tab — bound so the parent can flip to "result" when a run starts. */
     tab: "testcase" | "result";
     /** Final verdict from the most recent Run invocation, if any. */
@@ -49,7 +49,7 @@
 
   let {
     runCases = $bindable(),
-    readOnly = false,
+    isReadOnly = false,
     tab,
     runResult,
     runStatus,
@@ -135,7 +135,7 @@
 
   <div class="flex-1 overflow-y-auto px-4 py-3">
     {#if tab === "testcase"}
-      {#if readOnly}
+      {#if isReadOnly}
         <p class="py-4 text-body-sm text-muted-foreground">
           {m.editor_runCasesDisabled()}
         </p>

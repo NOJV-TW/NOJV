@@ -246,7 +246,7 @@
             { value: "friends", label: m.contestScoreboard_filterFriends() },
             { value: "around", label: m.contestScoreboard_filterAround() }
           ]}
-          active="all"
+          activeTabValue="all"
           onChange={() => {}}
         />
       </div>

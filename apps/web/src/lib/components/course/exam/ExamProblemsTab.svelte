@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import type { examDomain } from "@nojv/domain";
 
-  export type ProblemsTabDetail = examDomain.ExamDetailPageData;
+  export type ProblemsTabDetail = examDomain.ExamDetailPage;
   export type ProblemsLiveStatus =
     | "draft"
     | "upcoming"

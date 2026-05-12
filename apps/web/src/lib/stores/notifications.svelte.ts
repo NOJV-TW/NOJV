@@ -11,7 +11,7 @@ export interface NotificationItem {
   createdAt: string;
 }
 
-interface SseNotificationPayload {
+interface SseNotificationEvent {
   id?: string; // present for single-event pushes; absent for batch signals
   notificationType: string;
   params: unknown;
@@ -37,7 +37,7 @@ class NotificationsStore {
 
   // Called by the SSE client when a "notification" event arrives.
   // Batch signals (no id) trigger a re-fetch; single events prepend directly.
-  handleSseEvent(payload: SseNotificationPayload) {
+  handleSseEvent(payload: SseNotificationEvent) {
     if (!payload.id || !payload.createdAt) {
       // Batch signal — refetch to get the authoritative recent list
       void this.init();

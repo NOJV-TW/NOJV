@@ -1,8 +1,8 @@
-export { buildContestResults, type ContestResultsData } from "./contest";
+export { buildContestResults, type ContestResults } from "./contest";
 export {
   buildExamResults,
   type ExamResultProblemCol,
   type ExamResultRow,
-  type ExamResultsData,
+  type ExamResults,
 } from "./exam";
-export { buildAssignmentResults, type AssignmentResultsData } from "./assignment";
+export { buildAssignmentResults, type AssignmentResults } from "./assignment";

@@ -12,7 +12,7 @@
 
   let { data, children }: Props = $props();
 
-  const active = $derived<CourseTabKey>(deriveActiveTab(page.url.pathname, data.course.id));
+  const activeTabKey = $derived<CourseTabKey>(deriveActiveTab(page.url.pathname, data.course.id));
 
   function deriveActiveTab(pathname: string, courseId: string): CourseTabKey {
     const prefix = `/courses/${courseId}`;
@@ -38,7 +38,7 @@
 <CourseHero course={data.course} isManager={data.isManager} />
 <CourseTabBar
   courseId={data.course.id}
-  {active}
+  {activeTabKey}
   counts={data.counts}
   showSettings={data.isManager}
 />

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import ScoreDistributionPanel from "$lib/components/results/ScoreDistributionPanel.svelte";
-  import type { AssignmentResultsData } from "$lib/server/results/assignment";
+  import type { AssignmentResults } from "$lib/server/results/assignment";
 
   interface Props {
-    data: AssignmentResultsData;
+    data: AssignmentResults;
   }
 
   let { data }: Props = $props();

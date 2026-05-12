@@ -320,3 +320,18 @@ export async function revertAssignmentToDraft(
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
   });
 }
+
+/**
+ * Status writes called by the Temporal lifecycle workflow when the scheduled
+ * window boundaries are reached. No permission / state checks — the workflow
+ * is the source of truth for these transitions. Distinct from the user-driven
+ * `publishAssignment` (draft → published, with validation) and
+ * `archiveAssignment` (published → archived, with validation).
+ */
+export async function markAssignmentPublished(assignmentId: string): Promise<void> {
+  await assessmentRepo.update(assignmentId, { status: "published" });
+}
+
+export async function markAssignmentArchived(assignmentId: string): Promise<void> {
+  await assessmentRepo.update(assignmentId, { status: "archived" });
+}

@@ -8,11 +8,11 @@
 <script lang="ts">
   interface Props {
     tabs: TabStripItem[];
-    active: string;
+    activeTabValue: string;
     onChange: (value: string) => void;
   }
 
-  let { tabs, active, onChange }: Props = $props();
+  let { tabs, activeTabValue, onChange }: Props = $props();
 </script>
 
 <div
@@ -23,7 +23,7 @@
     <button
       type="button"
       onclick={() => onChange(t.value)}
-      class="rounded-full px-3 py-1.5 transition-colors {active === t.value
+      class="rounded-full px-3 py-1.5 transition-colors {activeTabValue === t.value
         ? 'bg-primary text-primary-foreground'
         : 'text-muted-foreground hover:text-foreground'}"
     >

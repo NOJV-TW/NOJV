@@ -95,7 +95,7 @@
           <span class="font-mono">{m.countdown_past()}</span>
         {:else}
           <span class="font-mono">{m.assignmentCard_countdownPrefix()}</span>
-          <Countdown iso={assignment.closesAt} compact />
+          <Countdown iso={assignment.closesAt} isCompact />
           {#if urgent}
             <span
               class="text-micro font-mono uppercase tracking-wider"
