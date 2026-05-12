@@ -472,7 +472,7 @@
     <EditorCore
       {language}
       {drafts}
-      hidden={isWorkspaceMode}
+      isHidden={isWorkspaceMode}
       onchange={(value) => (drafts[language] = value)}
     />
     {#if isWorkspaceMode}
@@ -539,7 +539,7 @@
   <div class="shrink-0" style="height: {bottomPanelHeight}px">
     <EditorBottomPanel
       bind:runCases={panelRunCases}
-      readOnly={isSpecialEnv}
+      isReadOnly={isSpecialEnv}
       tab={bottomTab}
       {runResult}
       {runStatus}

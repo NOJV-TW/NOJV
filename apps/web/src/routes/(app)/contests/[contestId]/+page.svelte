@@ -193,7 +193,7 @@
 
   <!-- Action bar -->
   <div class="flex flex-wrap items-center gap-3">
-    <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} active="overview" onChange={() => {}} />
+    <TabStrip tabs={[{ value: "overview", label: m.contestDetail_tabOverview() }]} activeTabValue="overview" onChange={() => {}} />
 
     <div class="ml-auto flex flex-wrap gap-3">
       {#if canSetOverride}

@@ -153,7 +153,7 @@
               value={selectedContent}
               onchange={onfilechange}
               language={file.language}
-              readonly={file.visibility === "readonly"}
+              isReadOnly={file.visibility === "readonly"}
               height="100%"
             />
           {/key}

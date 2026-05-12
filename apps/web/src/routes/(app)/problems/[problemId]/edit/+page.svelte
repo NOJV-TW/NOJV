@@ -23,12 +23,12 @@
   let isAdvanced = $derived(data.problem.type === "special_env");
 
   let activeSection = $state("basic");
-  let publishing = $state(false);
-  let dirty = $state(false);
+  let isPublishing = $state(false);
+  let isDirty = $state(false);
   let showPublishConfirm = $state(false);
   let showDeleteConfirm = $state(false);
   let showRejudgeDialog = $state(false);
-  let deleting = $state(false);
+  let isDeleting = $state(false);
 
   // Advanced-mode image config — only meaningful when isAdvanced is true.
   // Initialised once via untrack so re-runs of `data` don't clobber edits.
@@ -53,7 +53,7 @@
     data.problem.status === "draft" && data.testcaseSets.length > 0
   );
 
-  let basicInfoComplete = $derived(
+  let isBasicInfoComplete = $derived(
     data.problem.title !== "Untitled Problem" &&
     data.problem.statement !== "" &&
     data.problem.inputFormat !== "" &&
@@ -103,22 +103,22 @@
 
   function handleDeleteConfirmed() {
     showDeleteConfirm = false;
-    deleting = true;
+    isDeleting = true;
     const fd = new FormData();
     fetch(`?/deleteProblem`, { method: "POST", body: fd, redirect: "follow" }).then(() => {
       window.location.href = "/problems?tab=mine";
     }).catch(() => {
-      deleting = false;
+      isDeleting = false;
     });
   }
 
   function handlePublishConfirmed() {
     showPublishConfirm = false;
-    publishing = true;
+    isPublishing = true;
     const fd = new FormData();
     fetch(`?/publish`, { method: "POST", body: fd }).then(async (res) => {
       if (res.ok) await invalidateAll();
-      publishing = false;
+      isPublishing = false;
     });
   }
 
@@ -193,10 +193,10 @@
         <Button
           variant="outline"
           size="sm"
-          disabled={deleting}
+          disabled={isDeleting}
           onclick={() => (showDeleteConfirm = true)}
         >
-          {deleting ? m.common_deleting() : m.common_delete()}
+          {isDeleting ? m.common_deleting() : m.common_delete()}
         </Button>
       {/if}
     </div>
@@ -236,21 +236,21 @@
       showPublish={data.problem.status === "draft"}
       showConvertToAdvanced
       {canPublish}
-      {publishing}
-      {basicInfoComplete}
+      {isPublishing}
+      {isBasicInfoComplete}
       testcaseCount={data.testcaseSets.length}
-      bind:dirty
+      bind:isDirty
       onpublish={handlePublishClick}
     >
       {#snippet basic()}
-        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => dirty = d} />
+        <BasicInfoTab formData={data.form} problemId={data.problem.id} ondirtychange={(d) => isDirty = d} />
       {/snippet}
 
       {#snippet workspace()}
         {#if workspaceInitial}
           <WorkspaceSection
             initial={workspaceInitial}
-            ondirtychange={(d) => dirty = d}
+            ondirtychange={(d) => isDirty = d}
             onsave={handleWorkspaceSave}
           />
         {/if}
@@ -263,7 +263,7 @@
       {#snippet judge()}
         <JudgeTab
           problem={data.problem}
-          ondirtychange={(d) => dirty = d}
+          ondirtychange={(d) => isDirty = d}
         />
       {/snippet}
     </ProblemSections>
