@@ -19,6 +19,7 @@ import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
 import { buildContestResults, type ContestResultsData } from "$lib/server/contest-results";
 import type { FormMessage } from "$lib/types/form-message";
 
@@ -26,22 +27,9 @@ const {
   getContestDetail,
   getScoreboard,
   listContestParticipantsWithUser,
-  getContestSubmissionsMatrix,
+  buildContestSubmissionsMatrix,
   updateContestRecord,
 } = contestDomain;
-
-function toDateTimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toIsoOrUndefined(local: string): string | undefined {
-  if (!local) return undefined;
-  const date = new Date(local);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return date.toISOString();
-}
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const { params, locals } = event;
@@ -89,16 +77,19 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   if (contest.isManager) {
     const actor = getActorContext(event);
     if (actor && hasActorUsername(actor)) {
-      const [allowed, participants, matrixData, plagReport, plagFlags] = await Promise.all([
+      const [allowed, participants, plagReport, plagFlags] = await Promise.all([
         scoreOverrideDomain.canSetScoreOverride(actor, "contest", contest.id),
         listContestParticipantsWithUser(contest.id),
-        getContestSubmissionsMatrix(contest.id),
         plagiarismDomain
           .findPlagiarismReport({ type: "contest", id: contest.id })
           .catch(() => null),
         plagiarismDomain.listFlagsForContext("contest", contest.id).catch(() => []),
       ]);
-      matrix = matrixData;
+      matrix = await buildContestSubmissionsMatrix({
+        contestId: contest.id,
+        problems: contest.problems ?? [],
+        participants,
+      });
       plagiarism = plagReport;
       plagiarismFlags = plagFlags;
       canSetOverride = allowed;

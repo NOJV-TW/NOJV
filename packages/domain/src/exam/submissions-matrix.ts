@@ -1,6 +1,7 @@
 import { courseMembershipRepo, examRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
+import { problemLetter } from "../shared/problem-letter";
 import { resolveOverridesForContext } from "../scoring/resolve-final-score";
 
 export type ExamMatrixCellState = "ac" | "partial" | "zero" | "empty";
@@ -35,18 +36,6 @@ export interface ExamMatrixData {
   studentCount: number;
 }
 
-function letterFor(ordinal: number): string {
-  if (ordinal < 1) return String(ordinal);
-  let n = ordinal;
-  let label = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    label = String.fromCharCode(65 + rem) + label;
-    n = Math.floor((n - 1) / 26);
-  }
-  return label;
-}
-
 // Does not re-check permissions; route loader must gate on `isManager` before calling.
 export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatrixData> {
   const exam = await examRepo.findDetailById(examId);
@@ -56,7 +45,7 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
 
   const problems: ExamMatrixProblemColumn[] = exam.problems.map((p) => ({
     problemId: p.problem.id,
-    letter: letterFor(p.ordinal),
+    letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
     title: p.problem.title,
     points: p.points,

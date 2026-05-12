@@ -29,6 +29,7 @@
     min: number;
     submitted: number;
     total: number;
+    maxScore: number;
     buckets: ResultsBucket[];
   }
 </script>
@@ -44,7 +45,6 @@
 
   let { data }: Props = $props();
 
-  // Cell colour ramps from green (=max) → muted (=0).
   function cellColor(score: number, max: number): string {
     if (max <= 0) return "var(--muted-foreground)";
     const ratio = score / max;
@@ -56,7 +56,6 @@
 </script>
 
 <div class="space-y-5">
-  <!-- Header band with stats -->
   <div class="glass rounded-xl p-4 shadow-rest lg:p-5">
     <div class="flex flex-wrap items-center gap-5">
       <div class="flex gap-6">
@@ -73,7 +72,7 @@
             {m.results_avgLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
-            {data.classAvg}
+            {data.classAvg}<span class="text-body-sm text-muted-foreground"> / {data.maxScore}</span>
           </div>
         </div>
         <div>
@@ -81,7 +80,7 @@
             {m.results_medianLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
-            {data.median}
+            {data.median}<span class="text-body-sm text-muted-foreground"> / {data.maxScore}</span>
           </div>
         </div>
         <div>
@@ -89,7 +88,7 @@
             {m.results_minMaxLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
-            {data.max} / {data.min}
+            {data.max} / {data.min}<span class="text-body-sm text-muted-foreground"> / {data.maxScore}</span>
           </div>
         </div>
       </div>
@@ -97,7 +96,6 @@
   </div>
 
   <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
-    <!-- Class score table -->
     <GlassPanel class="overflow-hidden">
       <div
         class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5"
@@ -119,12 +117,12 @@
               <th class="px-3 py-2.5 text-left">{m.results_studentColHeader()}</th>
               <th class="px-3 py-2.5 text-left">{m.results_handleColHeader()}</th>
               {#each data.problems as p (p.id)}
-                <th class="w-14 px-2 py-2.5 text-center">
+                <th class="w-16 px-2 py-2.5 text-center">
                   {p.letter}<br />
-                  <span class="text-[10px] normal-case opacity-60">/{p.max}</span>
+                  <span class="text-[10px] normal-case opacity-60">/ {p.max}</span>
                 </th>
               {/each}
-              <th class="w-16 px-4 py-2.5 text-right">{m.results_totalColHeader()}</th>
+              <th class="w-20 px-4 py-2.5 text-right">{m.results_totalColHeader()}</th>
             </tr>
           </thead>
           <tbody>
@@ -152,11 +150,11 @@
                     class="px-2 py-2 text-center font-mono tabular-nums"
                     style:color={cellColor(score, max)}
                   >
-                    {score}
+                    {score}<span class="text-[10px] opacity-60"> / {max}</span>
                   </td>
                 {/each}
                 <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums">
-                  {row.total}
+                  {row.total}<span class="text-[10px] font-normal text-muted-foreground"> / {data.maxScore}</span>
                 </td>
               </tr>
             {/each}
@@ -175,24 +173,8 @@
       </div>
     </GlassPanel>
 
-    <!-- Right column -->
     <div class="space-y-4">
       <ScoreDistributionPanel buckets={data.buckets} submitted={data.submitted} />
-
-      <!--
-        TODO: needs a domain query (`listRecentExamSubmissions(examId, limit)`)
-        we don't have yet. Placeholder keeps the layout balanced.
-      -->
-      <GlassPanel class="p-5">
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.results_recentSubmissionsHeading()}
-        </div>
-        <div
-          class="mt-3 rounded-md border border-dashed border-border-subtle px-3 py-6 text-center text-caption text-muted-foreground"
-        >
-          {m.results_comingSoon()}
-        </div>
-      </GlassPanel>
     </div>
   </div>
 </div>

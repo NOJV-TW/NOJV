@@ -1,7 +1,8 @@
-import { contestRepo, contestParticipationRepo, submissionRepo } from "@nojv/db";
+import { submissionRepo } from "@nojv/db";
 
-import { NotFoundError } from "../shared/errors";
+import { problemLetter } from "../shared/problem-letter";
 import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import type { ContestProblemSummary } from "./queries";
 
 export type ContestMatrixCellState = "ac" | "partial" | "zero" | "empty";
 
@@ -35,50 +36,43 @@ export interface ContestMatrixData {
   studentCount: number;
 }
 
-function letterFor(ordinal: number): string {
-  if (ordinal < 1) return String(ordinal);
-  let n = ordinal;
-  let label = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    label = String.fromCharCode(65 + rem) + label;
-    n = Math.floor((n - 1) / 26);
-  }
-  return label;
+export interface ContestMatrixParticipant {
+  userId: string;
+  user: { id: string; name: string; username: string | null };
 }
 
-// Does not re-check permissions; route loader must gate on `isManager` before calling.
-export async function getContestSubmissionsMatrix(
-  contestId: string,
+export interface BuildContestMatrixInput {
+  contestId: string;
+  problems: ContestProblemSummary[];
+  participants: ContestMatrixParticipant[];
+}
+
+export async function buildContestSubmissionsMatrix(
+  input: BuildContestMatrixInput,
 ): Promise<ContestMatrixData> {
-  const contest = await contestRepo.findDetailById(contestId);
-  if (!contest) throw new NotFoundError("Contest not found.");
-
-  const participants = await contestParticipationRepo.listParticipantsWithUser(contestId);
-
-  const problems: ContestMatrixProblemColumn[] = contest.problems.map((p) => ({
-    problemId: p.problem.id,
-    letter: letterFor(p.ordinal),
+  const problems: ContestMatrixProblemColumn[] = input.problems.map((p) => ({
+    problemId: p.id,
+    letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
-    title: p.problem.title,
+    title: p.title,
     points: p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
 
-  if (participants.length === 0 || problems.length === 0) {
+  if (input.participants.length === 0 || problems.length === 0) {
     return {
       problems,
       rows: [],
       totalPoints,
-      studentCount: participants.length,
+      studentCount: input.participants.length,
     };
   }
 
-  const userIds = participants.map((p) => p.userId);
+  const userIds = input.participants.map((p) => p.userId);
   const problemIds = problems.map((p) => p.problemId);
 
   const grouped = await submissionRepo.groupByUserAndProblem({
-    contestId,
+    contestId: input.contestId,
     userId: { in: userIds },
     problemId: { in: problemIds },
     sampleOnly: false,
@@ -94,10 +88,10 @@ export async function getContestSubmissionsMatrix(
 
   const overrides = await resolveOverridesForContext({
     contextType: "contest",
-    contextId: contestId,
+    contextId: input.contestId,
   });
 
-  const rows: ContestMatrixRow[] = participants.map((participant) => {
+  const rows: ContestMatrixRow[] = input.participants.map((participant) => {
     const cells: ContestMatrixCell[] = problems.map((problem) => {
       const key = `${participant.userId}::${problem.problemId}`;
       const override = overrides.get(key);
@@ -137,6 +131,6 @@ export async function getContestSubmissionsMatrix(
     problems,
     rows,
     totalPoints,
-    studentCount: participants.length,
+    studentCount: input.participants.length,
   };
 }
