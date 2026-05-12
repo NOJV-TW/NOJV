@@ -1,10 +1,10 @@
 import { courseDomain } from "@nojv/domain";
 
-const { listUserAssessments } = courseDomain;
+const { listUserAssignments } = courseDomain;
 
-import { deriveAssessmentWindowState, windowStateColorClass } from "$lib/types";
+import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/types";
 
-export function createAssessmentListLoader() {
+export function createAssignmentListLoader() {
   return async ({ locals }: { locals: App.Locals }) => {
     const userId = locals.user?.id ?? null;
 
@@ -12,12 +12,12 @@ export function createAssessmentListLoader() {
       return { items: null };
     }
 
-    const items = await listUserAssessments(userId);
+    const items = await listUserAssignments(userId);
     const now = new Date().toISOString();
 
     return {
       items: items.map((a) => {
-        const windowState = deriveAssessmentWindowState({
+        const windowState = deriveAssignmentWindowState({
           closesAt: a.closesAt,
           dueAt: a.dueAt,
           now,

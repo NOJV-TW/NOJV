@@ -9,11 +9,14 @@ export {
   setExecutor,
 } from "./judge";
 
-export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
-
-export { publishVerdict, publishContestEvent, publishAssessmentDeadline } from "./notification";
-
-export { updateContestScores } from "./contest";
+export {
+  updateUserStats,
+  adjustUserStatsForRejudge,
+  publishVerdict,
+  publishContestEvent,
+  publishAssessmentDeadline,
+  updateContestScores,
+} from "./lifecycle";
 
 export {
   getRedis,
@@ -24,4 +27,4 @@ export {
   cacheGet,
   cacheSet,
   cacheDel,
-} from "./redis";
+} from "./utils";

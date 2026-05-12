@@ -33,9 +33,9 @@
   const backTarget = $derived.by(() => {
     const ctx = submission.context;
     const problemId = submission.problem.id;
-    if (ctx.kind === "assessment") {
+    if (ctx.kind === "assignment") {
       return {
-        href: `/assignments/${ctx.assessmentId}/problems/${problemId}`,
+        href: `/assignments/${ctx.assignmentId}/problems/${problemId}`,
         label: m.submissionDetail_backToAssignment(),
       };
     }
@@ -184,12 +184,12 @@
         >
           {m.submissionDetail_contextContest({ contestTitle: submission.context.contestTitle })}
         </p>
-      {:else if submission.context.kind === "assessment"}
+      {:else if submission.context.kind === "assignment"}
         <p
           class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
         >
           {m.submissionDetail_contextAssessment({
-            assessmentTitle: submission.context.assessmentTitle,
+            assessmentTitle: submission.context.assignmentTitle,
             courseTitle: submission.context.courseTitle,
           })}
         </p>

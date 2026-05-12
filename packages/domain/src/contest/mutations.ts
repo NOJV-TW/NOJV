@@ -22,7 +22,7 @@ import {
   ValidationError,
 } from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };

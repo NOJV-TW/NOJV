@@ -49,20 +49,20 @@ export async function requireUser(tx: TransactionClient, userId: string) {
   return existing;
 }
 
-export async function requireCourseAssessment(
+export async function requireCourseAssignment(
   tx: TransactionClient,
   courseId: string,
-  assessmentId: string,
+  assignmentId: string,
 ) {
   const course = await requireCourse(tx, courseId);
-  const assessment = await assessmentRepo.withTx(tx).findByCompositeId(course.id, assessmentId);
+  const assignment = await assessmentRepo.withTx(tx).findByCompositeId(course.id, assignmentId);
 
-  if (!assessment) {
-    throw new NotFoundError(`Assessment not found: ${courseId}/${assessmentId}`);
+  if (!assignment) {
+    throw new NotFoundError(`Assignment not found: ${courseId}/${assignmentId}`);
   }
 
   return {
-    assessment,
+    assignment,
     course,
   };
 }

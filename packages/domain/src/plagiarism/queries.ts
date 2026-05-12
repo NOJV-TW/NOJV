@@ -80,28 +80,28 @@ export interface ResolvedPlagiarismTarget {
 }
 
 export async function resolvePlagiarismTarget(
-  assessmentId: string,
+  targetId: string,
   type: string | null,
 ): Promise<ResolvedPlagiarismTarget> {
   if (type === "exam") {
-    const exam = await examRepo.findByIdWithCourse(assessmentId);
+    const exam = await examRepo.findByIdWithCourse(targetId);
     if (!exam) throw new NotFoundError("Exam not found.");
     return { courseId: exam.courseId, target: { id: exam.id, type: "exam" } };
   }
 
   if (type === "contest") {
-    const contest = await contestRepo.findById(assessmentId);
+    const contest = await contestRepo.findById(targetId);
     if (!contest) throw new NotFoundError("Contest not found.");
     // Contests are not course-bound; surface an empty courseId so callers
     // that key off course membership fall back to platform-role checks.
     return { courseId: "", target: { id: contest.id, type: "contest" } };
   }
 
-  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
-  if (!assessment) throw new NotFoundError("Assessment not found.");
+  const assignment = await assessmentRepo.findByIdWithCourseId(targetId);
+  if (!assignment) throw new NotFoundError("Assignment not found.");
   return {
-    courseId: assessment.course.id,
-    target: { id: assessment.id, type: "courseAssessment" },
+    courseId: assignment.course.id,
+    target: { id: assignment.id, type: "courseAssessment" },
   };
 }
 
@@ -156,17 +156,17 @@ export async function getPlagiarismSourceCode(
 
 // Returns 0 or 1 reports as an array so the route layer can keep its existing
 // list-style UI loop without a special empty-state branch.
-export async function listAssessmentPlagiarismReports(
-  assessmentId: string,
+export async function listAssignmentPlagiarismReports(
+  assignmentId: string,
 ): Promise<PlagiarismReportSummary[]> {
-  const report = await plagiarismRepo.findByAssessmentId(assessmentId);
+  const report = await plagiarismRepo.findByAssessmentId(assignmentId);
   return report ? [report] : [];
 }
 
-export async function getAssessmentProblemMap(assessmentId: string) {
-  const assessmentProblems = await assessmentProblemRepo.findByAssessmentId(assessmentId);
+export async function getAssignmentProblemMap(assignmentId: string) {
+  const assignmentProblems = await assessmentProblemRepo.findByAssessmentId(assignmentId);
   return Object.fromEntries(
-    assessmentProblems.map((ap) => [
+    assignmentProblems.map((ap) => [
       ap.problemId,
       { id: ap.problem.id, title: ap.problem.title },
     ]),

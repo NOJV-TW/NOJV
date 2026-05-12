@@ -28,7 +28,7 @@ function requireId(event: { params: { id?: string } }): string {
   return id;
 }
 
-export const PUT: RequestHandler = writeApiHandler(async (event) => {
+export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const id = requireId(event);
   const payload = editorialUpdateSchema.parse(await event.request.json());

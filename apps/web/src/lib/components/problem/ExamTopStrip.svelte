@@ -57,10 +57,10 @@
     if (!window.confirm(m.examMode_submitEndConfirm())) return;
     ending = true;
     try {
-      const res = await fetch("/api/exam-session/end", {
+      const fd = new FormData();
+      const res = await fetch(`/exams/${context.examId}?/releaseSession`, {
         method: "POST",
-        headers: { "content-type": "application/json", "X-Requested-With": "fetch" },
-        body: JSON.stringify({ examId: context.examId, reason: "submitted" })
+        body: fd
       });
       if (!res.ok) {
         ending = false;

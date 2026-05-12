@@ -60,7 +60,7 @@ test.describe("Advanced Mode Lifecycle", () => {
     // from Tabs.svelte (handleCreate("advanced")). Sending the mode through
     // the JSON body keeps the test surface narrow and avoids depending on a
     // fragile click path through the dropdown menu.
-    const res = await page.request.post("/api/problems/create", {
+    const res = await page.request.post("/api/problems", {
       data: { mode: "advanced" },
       headers: apiWriteHeaders,
     });
@@ -146,7 +146,7 @@ test.describe("Advanced Mode Lifecycle", () => {
 
   // The student-side rendering of the Advanced Mode upload UI was
   // tested separately, but that path required publishing AND flipping
-  // visibility to public — `/api/problems/create` defaults to
+  // visibility to public — `/api/problems` defaults to
   // `visibility: "private"`. The teacher-side render at the test above
   // already covers the same `AdvancedModeWorkspace` component, so the
   // student-only assertion was redundant noise once visibility started

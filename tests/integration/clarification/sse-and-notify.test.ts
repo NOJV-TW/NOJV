@@ -53,8 +53,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
 
     try {
       await clarificationDomain.ask(actorFor(contestant), {
-        contextType: "contest",
-        contextId: contest.id,
+        context: { type: "contest", contestId: contest.id },
         questionText: "Is this mod 1e9+7?",
       });
 
@@ -83,8 +82,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     const { organizer, contestant, contest } = await seedContestWithParticipant();
 
     const asked = await clarificationDomain.ask(actorFor(contestant), {
-      contextType: "contest",
-      contextId: contest.id,
+      context: { type: "contest", contestId: contest.id },
       questionText: "Is this modular arithmetic?",
     });
 
@@ -127,8 +125,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     const { organizer, contestant, contest } = await seedContestWithParticipant();
 
     const asked = await clarificationDomain.ask(actorFor(contestant), {
-      contextType: "contest",
-      contextId: contest.id,
+      context: { type: "contest", contestId: contest.id },
       questionText: "This question will be dismissed.",
     });
 
@@ -145,8 +142,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     const { organizer, contestant, contest } = await seedContestWithParticipant();
 
     const asked = await clarificationDomain.ask(actorFor(contestant), {
-      contextType: "contest",
-      contextId: contest.id,
+      context: { type: "contest", contestId: contest.id },
       questionText: "This question will be answered.",
     });
 
@@ -165,8 +161,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     // First 5 asks succeed.
     for (let i = 0; i < 5; i++) {
       await clarificationDomain.ask(actorFor(contestant), {
-        contextType: "contest",
-        contextId: contest.id,
+        context: { type: "contest", contestId: contest.id },
         questionText: `Question number ${i + 1} about the problem.`,
       });
     }
@@ -174,8 +169,7 @@ describe("clarification — SSE round trip + notification (real DB + Redis)", ()
     // The 6th trips the limiter.
     await expect(
       clarificationDomain.ask(actorFor(contestant), {
-        contextType: "contest",
-        contextId: contest.id,
+        context: { type: "contest", contestId: contest.id },
         questionText: "One too many questions here now.",
       }),
     ).rejects.toBeInstanceOf(ConflictError);

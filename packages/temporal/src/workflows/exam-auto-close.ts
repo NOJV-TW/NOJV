@@ -1,15 +1,14 @@
 import { proxyActivities, sleep } from "@temporalio/workflow";
 import type { ExamAutoCloseInput } from "../types";
-import type * as examSessionActivities from "../activities/exam-session";
-import type * as notificationActivities from "../activities/notification";
+import type * as lifecycleActivities from "../activities/lifecycle";
 import { SHORT_ACTIVITY } from "./activity-options";
 import { computeAutoCloseDelayMs } from "./exam-auto-close-helpers";
 
 const { closeActiveSessionsForExam } =
-  proxyActivities<typeof examSessionActivities>(SHORT_ACTIVITY);
+  proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 // `fanoutExamStartingSoon` persists notification rows + chunked Redis
 // pub/sub; use SHORT's 30s budget and 3 retries.
-const notification = proxyActivities<typeof notificationActivities>(SHORT_ACTIVITY);
+const notification = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 
 const START_REMINDER_MINUTES = 15;
 

@@ -20,7 +20,7 @@ import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
-import { buildContestResults, type ContestResultsData } from "$lib/server/contest-results";
+import { buildContestResults, type ContestResultsData } from "$lib/server/results/contest";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -82,7 +82,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     const actor = getActorContext(event);
     if (actor && hasActorUsername(actor)) {
       const [allowed, participants, plagReport, plagFlags] = await Promise.all([
-        scoreOverrideDomain.canSetScoreOverride(actor, "contest", contest.id),
+        scoreOverrideDomain.canSetScoreOverride(actor, {
+          type: "contest",
+          contestId: contest.id,
+        }),
         listContestParticipantsWithUser(contest.id),
         plagiarismDomain
           .findPlagiarismReport({ type: "contest", id: contest.id })
@@ -139,9 +142,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   let canViewClar = false;
   if (actor && hasActorUsername(actor)) {
     [canAskClar, canAnswerClar, canViewClar] = await Promise.all([
-      clarificationDomain.canAskClarification(actor, "contest", contest.id),
-      clarificationDomain.canAnswerInContext(actor, "contest", contest.id),
-      clarificationDomain.canViewClarifications(actor, "contest", contest.id),
+      clarificationDomain.canAskClarification(actor, {
+        type: "contest",
+        contestId: contest.id,
+      }),
+      clarificationDomain.canAnswerInContext(actor, { type: "contest", contestId: contest.id }),
+      clarificationDomain.canViewClarifications(actor, {
+        type: "contest",
+        contestId: contest.id,
+      }),
     ]);
   }
 

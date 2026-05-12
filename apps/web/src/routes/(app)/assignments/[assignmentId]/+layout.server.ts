@@ -16,15 +16,15 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const actor = requireAuth(event);
   const { assignmentId } = event.params;
 
-  // Look up the assessment first — this mirrors the old `/courses/[courseId]/…`
+  // Look up the assignment first — this mirrors the old `/courses/[courseId]/…`
   // tree where courseId was in the URL.  In the id-unified tree we derive it
-  // from the assessment row.
-  const assessment = await assignmentDomain.getAssessmentWithCourseId(assignmentId);
-  if (!assessment) {
+  // from the assignment row.
+  const assignment = await assignmentDomain.getAssignmentWithCourseId(assignmentId);
+  if (!assignment) {
     throw new NotFoundError("Assignment not found.");
   }
 
-  const courseId = assessment.course.id;
+  const courseId = assignment.course.id;
 
   // Load the course header (also enforces course visibility + fetches
   // the viewer's membership).
@@ -51,32 +51,32 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   // proctoring — no page-lock, no IP lock, no Redis gate).  Managers
   // always see drafts/closed/upcoming so they can edit before open.
   if (!isManager) {
-    if (assessment.status !== "published") {
+    if (assignment.status !== "published") {
       throw new NotFoundError("Assignment not found.");
     }
     const now = new Date();
-    if (now < assessment.opensAt) {
+    if (now < assignment.opensAt) {
       // Upcoming: the detail page may still render in "upcoming" mode,
       // but child problem pages are locked.  Shell stays visible so the
       // student can read the title / opens-at.
     }
-    if (now > assessment.closesAt && course.archived) {
+    if (now > assignment.closesAt && course.archived) {
       // Archived + closed: deny click-through.  Matches the behaviour in
-      // getAssessmentContext().
+      // getAssignmentContext().
       throw new ForbiddenError("This assignment is closed.");
     }
   }
 
   return {
-    assessment: {
-      id: assessment.id,
-      title: assessment.title,
+    assignment: {
+      id: assignment.id,
+      title: assignment.title,
       courseId,
-      status: assessment.status,
-      opensAt: assessment.opensAt.toISOString(),
-      closesAt: assessment.closesAt.toISOString(),
-      allowedLanguages: assessment.allowedLanguages,
-      maxAttemptsPerDay: assessment.maxAttemptsPerDay,
+      status: assignment.status,
+      opensAt: assignment.opensAt.toISOString(),
+      closesAt: assignment.closesAt.toISOString(),
+      allowedLanguages: assignment.allowedLanguages,
+      maxAttemptsPerDay: assignment.maxAttemptsPerDay,
     },
     course: {
       id: course.id,

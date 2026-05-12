@@ -73,7 +73,6 @@
       .filter((s) => s.length > 0);
 
     const payload: Record<string, unknown> = {
-      mode: "batch",
       problemId
     };
     if (contextType === "contest") payload.contestId = contextId.trim();
@@ -87,7 +86,7 @@
 
     submitting = true;
     try {
-      const res = await fetch("/api/rejudge", {
+      const res = await fetch("/api/rejudges", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify(payload)

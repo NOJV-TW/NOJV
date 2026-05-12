@@ -5,7 +5,7 @@ export interface AdjustmentInputs {
   submittedAt: Date;
   /** Soft deadline — used as `startFrom: "due"` anchor. */
   dueAt: Date | null;
-  /** Hard close of the assessment — used as `startFrom: "final_day"` anchor and by `final_day_zero`. */
+  /** Hard close of the assignment — used as `startFrom: "final_day"` anchor and by `final_day_zero`. */
   finalDay: Date | null;
   runtimeMs: number;
   rawScore: number;
@@ -68,7 +68,7 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   return { score, adjustments: log };
 }
 
-// Returns `null` (and logs once per missing anchor kind) when the assessment context lacks the field.
+// Returns `null` (and logs once per missing anchor kind) when the assignment context lacks the field.
 function resolveAnchor(
   startFrom: "due" | "final_day",
   dueAt: Date | null,
