@@ -30,8 +30,11 @@
     loading = true;
     try {
       const url = new URL("/api/overrides", window.location.origin);
-      url.searchParams.set("contextType", contextType);
-      url.searchParams.set("contextId", contextId);
+      // Query carries the discriminated context flat:
+      // `type=<assignment|exam|contest>&(assignmentId|examId|contestId)=...`.
+      url.searchParams.set("type", contextType);
+      const idKey = `${contextType}Id` as const;
+      url.searchParams.set(idKey, contextId);
       const res = await fetch(url.toString());
       if (res.ok) {
         const body = (await res.json()) as { items: OverrideListRow[] };

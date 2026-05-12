@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn, type WithElementRef } from "$lib/utils.js";
+	import { cn, type WithElementRef } from "$lib/css.js";
 	import type { HTMLAttributes } from "svelte/elements";
 	import { type VariantProps, tv } from "tailwind-variants";
 

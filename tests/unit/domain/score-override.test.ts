@@ -65,8 +65,7 @@ function actor(
 const baseInput = {
   userId: "usr_student",
   problemId: "prob_1",
-  contextType: "assignment" as const,
-  contextId: "ca_hw1",
+  context: { type: "assignment", assignmentId: "ca_hw1" } as const,
   overrideScore: 80,
   reason: "Manual adjustment after grading dispute.",
 };
@@ -78,24 +77,39 @@ beforeEach(() => {
 describe("canSetScoreOverride", () => {
   it("admin is always permitted", async () => {
     expect(
-      await canSetScoreOverride(actor({ platformRole: "admin" }), "assignment", "ca_hw1"),
+      await canSetScoreOverride(actor({ platformRole: "admin" }), {
+        type: "assignment",
+        assignmentId: "ca_hw1",
+      }),
     ).toBe(true);
-    expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "contest", "c_1")).toBe(
-      true,
-    );
-    expect(await canSetScoreOverride(actor({ platformRole: "admin" }), "exam", "e_1")).toBe(
-      true,
-    );
+    expect(
+      await canSetScoreOverride(actor({ platformRole: "admin" }), {
+        type: "contest",
+        contestId: "c_1",
+      }),
+    ).toBe(true);
+    expect(
+      await canSetScoreOverride(actor({ platformRole: "admin" }), {
+        type: "exam",
+        examId: "e_1",
+      }),
+    ).toBe(true);
   });
 
   it("contest: only organizer allowed", async () => {
     contestFindById.mockResolvedValue({ id: "c_1", createdByUserId: "usr_org" });
-    expect(await canSetScoreOverride(actor({ userId: "usr_org" }), "contest", "c_1")).toBe(
-      true,
-    );
-    expect(await canSetScoreOverride(actor({ userId: "usr_other" }), "contest", "c_1")).toBe(
-      false,
-    );
+    expect(
+      await canSetScoreOverride(actor({ userId: "usr_org" }), {
+        type: "contest",
+        contestId: "c_1",
+      }),
+    ).toBe(true);
+    expect(
+      await canSetScoreOverride(actor({ userId: "usr_other" }), {
+        type: "contest",
+        contestId: "c_1",
+      }),
+    ).toBe(false);
   });
 
   it("assignment: only course teacher/TA allowed", async () => {
@@ -104,33 +118,43 @@ describe("canSetScoreOverride", () => {
       role: "teacher",
       status: "active",
     });
-    expect(await canSetScoreOverride(actor({ userId: "usr_t" }), "assignment", "ca_1")).toBe(
-      true,
-    );
+    expect(
+      await canSetScoreOverride(actor({ userId: "usr_t" }), {
+        type: "assignment",
+        assignmentId: "ca_1",
+      }),
+    ).toBe(true);
 
     courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
-    expect(await canSetScoreOverride(actor({ userId: "usr_s" }), "assignment", "ca_1")).toBe(
-      false,
-    );
+    expect(
+      await canSetScoreOverride(actor({ userId: "usr_s" }), {
+        type: "assignment",
+        assignmentId: "ca_1",
+      }),
+    ).toBe(false);
 
     courseMembershipFindByComposite.mockResolvedValue({ role: "ta", status: "active" });
-    expect(await canSetScoreOverride(actor({ userId: "usr_ta" }), "assignment", "ca_1")).toBe(
-      true,
-    );
+    expect(
+      await canSetScoreOverride(actor({ userId: "usr_ta" }), {
+        type: "assignment",
+        assignmentId: "ca_1",
+      }),
+    ).toBe(true);
   });
 
   it("exam: only course teacher/TA allowed", async () => {
     examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
-    expect(await canSetScoreOverride(actor({ userId: "usr_t" }), "exam", "e_1")).toBe(true);
+    expect(
+      await canSetScoreOverride(actor({ userId: "usr_t" }), { type: "exam", examId: "e_1" }),
+    ).toBe(true);
 
     courseMembershipFindByComposite.mockResolvedValue(null);
     expect(
-      await canSetScoreOverride(
-        actor({ userId: "usr_other", platformRole: "teacher" }),
-        "exam",
-        "e_1",
-      ),
+      await canSetScoreOverride(actor({ userId: "usr_other", platformRole: "teacher" }), {
+        type: "exam",
+        examId: "e_1",
+      }),
     ).toBe(false);
   });
 });
@@ -139,7 +163,7 @@ describe("createOverride", () => {
   beforeEach(() => {
     assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
-    overrideCreate.mockResolvedValue({ id: "ov_1", ...baseInput });
+    overrideCreate.mockResolvedValue({ id: "ov_1" });
     auditCreate.mockResolvedValue({});
   });
 

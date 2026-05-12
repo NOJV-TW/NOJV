@@ -87,8 +87,8 @@ export async function buildContestSubmissionsMatrix(
   }
 
   const overrides = await resolveOverridesForContext({
-    contextType: "contest",
-    contextId: input.contestId,
+    type: "contest",
+    contestId: input.contestId,
   });
 
   const rows: ContestMatrixRow[] = input.participants.map((participant) => {

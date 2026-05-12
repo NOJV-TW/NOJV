@@ -280,11 +280,11 @@ button.
 
 ### Routes / API
 
-- `apps/web/src/routes/api/plagiarism/[assessmentId]/+server.ts` — POST
+- `apps/web/src/routes/api/plagiarism/[assignmentId]/+server.ts` — POST
   trigger + GET report + GET source code.
-- `apps/web/src/routes/api/plagiarism/flag/+server.ts` — POST flag a
+- `apps/web/src/routes/api/plagiarism-flags/+server.ts` — POST flag a
   pair as false-positive.
-- `apps/web/src/routes/api/plagiarism/flag/[id]/+server.ts` — DELETE
+- `apps/web/src/routes/api/plagiarism-flags/[id]/+server.ts` — DELETE
   unflag.
 - `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.server.ts`
   — loads report + flag list for staff via

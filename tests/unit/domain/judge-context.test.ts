@@ -364,7 +364,7 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.adjustment.dueAt).toEqual(dueAt);
       expect(ctx.adjustment.finalDay).toEqual(closesAt);
-      expect(ctx.adjustment.assessmentAdjustmentRules).toHaveLength(1);
+      expect(ctx.adjustment.assignmentAdjustmentRules).toHaveLength(1);
       expect(ctx.adjustment.submittedAt).toEqual(row.createdAt);
     });
 
@@ -388,7 +388,7 @@ describe("getJudgeContext", () => {
       // (Implementation pins to `assessment?.adjustmentRules`, so without
       //  an assessment row this is undefined — adjustments.ts treats
       //  undefined and null identically.)
-      expect(ctx.adjustment.assessmentAdjustmentRules).toBeFalsy();
+      expect(ctx.adjustment.assignmentAdjustmentRules).toBeFalsy();
     });
 
     it("returns null dueAt / finalDay for free-practice submissions (no context)", async () => {
@@ -396,7 +396,7 @@ describe("getJudgeContext", () => {
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.adjustment.dueAt).toBeNull();
       expect(ctx.adjustment.finalDay).toBeNull();
-      expect(ctx.adjustment.assessmentAdjustmentRules).toBeFalsy();
+      expect(ctx.adjustment.assignmentAdjustmentRules).toBeFalsy();
     });
   });
 });

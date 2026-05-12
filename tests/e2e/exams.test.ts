@@ -48,18 +48,19 @@ test.describe("Exams — list, detail, problem visibility", () => {
   });
 
   test("starting an exam session requires authentication", async ({ page }) => {
-    const res = await page.request.post("/api/exam-session/start", {
-      data: { examId: MIDTERM_ID },
+    const res = await page.request.post(`/exams/${MIDTERM_ID}?/startExam`, {
+      form: {},
       headers: apiWriteHeaders,
     });
-    expect(res.status()).toBe(401);
+    // Form actions redirect anon → /signin with 303, or return 401/403.
+    expect([303, 401, 403]).toContain(res.status());
   });
 
   test("starting a session for a nonexistent exam fails for a student", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post("/api/exam-session/start", {
-      data: { examId: "exam_does-not-exist" },
+    const res = await page.request.post(`/exams/exam_does-not-exist?/startExam`, {
+      form: {},
       headers: apiWriteHeaders,
     });
     // Either 404 (not found), 403 (not enrolled / not running), or 400

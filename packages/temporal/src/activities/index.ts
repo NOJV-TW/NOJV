@@ -10,32 +10,28 @@ export {
 } from "./judge";
 export type { CompletedSubmission, SubmissionJudgeContext, TestcaseSetGroup } from "./judge";
 
-export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
-
 export {
   getContestInfo,
   activateContest,
   freezeScoreboard,
   finalizeContest,
   updateContestScores,
-} from "./contest";
-export type { ContestInfo } from "./contest";
-
-export { getAssessmentInfo, activateAssessment, closeAssessment } from "./assessment";
-export type { AssessmentInfo } from "./assessment";
-
-export { closeActiveSessionsForExam } from "./exam-session";
-
-export { runPlagiarismCheck } from "./plagiarism";
-
-export {
+  getAssessmentInfo,
+  activateAssessment,
+  closeAssessment,
+  closeActiveSessionsForExam,
   publishVerdict,
   publishContestEvent,
   publishAssessmentDeadline,
   fanoutAssignmentDueSoon,
   fanoutExamStartingSoon,
   fanoutContestStartingSoon,
-} from "./notification";
+  updateUserStats,
+  adjustUserStatsForRejudge,
+} from "./lifecycle";
+export type { ContestInfo, AssessmentInfo } from "./lifecycle";
+
+export { runPlagiarismCheck } from "./plagiarism";
 
 export {
   getRedis,
@@ -46,4 +42,4 @@ export {
   cacheGet,
   cacheSet,
   cacheDel,
-} from "./redis";
+} from "./utils";

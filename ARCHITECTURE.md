@@ -294,7 +294,7 @@ sequenceDiagram
     Web-->>Browser: 201 (fresh) or 200 (idempotent re-entry)
 
     loop every ~30s while tab open
-        Browser->>Web: POST /api/exam-session/heartbeat {examId}
+        Browser->>Web: POST /api/exam-sessions/{examId}/heartbeat
         Web->>Postgres: heartbeatWithThrottle (bump lastHeartbeatAt, throttle event insert)
     end
 
@@ -306,7 +306,7 @@ sequenceDiagram
     Browser->>Web: submit problem (see Submission Judging Lifecycle)
 
     alt student submits exam
-        Browser->>Web: POST /api/exam-session/end {reason: "submitted"}
+        Browser->>Web: POST /exams/{examId}?/releaseSession (reason: "submitted")
         Web->>Postgres: endSession (endedAt, releaseReason, event "release")
         Web-->>Browser: 200
     else timer reaches endsAt

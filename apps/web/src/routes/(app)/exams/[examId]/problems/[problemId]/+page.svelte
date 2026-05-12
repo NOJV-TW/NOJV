@@ -6,8 +6,9 @@
   let { data } = $props();
 
   // Defense-in-depth UX: hooks.server.ts is the real gate; real release
-  // runs through /api/exam-session/end.  This mirrors the legacy route's
-  // pop-state guard so the student cannot browser-back out of exam mode.
+  // runs through the `releaseSession` form action on /exams/[examId].
+  // This mirrors the legacy route's pop-state guard so the student
+  // cannot browser-back out of exam mode.
   $effect(() => {
     if (typeof window === "undefined") return;
 

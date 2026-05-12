@@ -9,7 +9,7 @@ import {
 import { submissionDomain } from "@nojv/domain";
 
 import type { RejudgeInput } from "../types";
-import { judgeLatencyHistogram, recordJudgeLatency } from "./metrics";
+import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
 
@@ -202,7 +202,7 @@ export async function fetchSubmissionIdsForRejudge(
   return submissionDomain.findForRejudge({
     problemId: input.problemId,
     ...(input.contestId ? { contestId: input.contestId } : {}),
-    ...(input.assessmentId ? { assessmentId: input.assessmentId } : {}),
+    ...(input.assessmentId ? { assignmentId: input.assessmentId } : {}),
     ...(input.examId ? { examId: input.examId } : {}),
     ...(input.userIds ? { userIds: input.userIds } : {}),
     ...(input.since ? { since: new Date(input.since) } : {}),

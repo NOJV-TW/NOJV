@@ -1,9 +1,12 @@
-import { scoreOverrideRepo, submissionRepo, type OverrideContextType } from "@nojv/db";
+import { scoreOverrideRepo, submissionRepo } from "@nojv/db";
 
-export interface ResolvedScoreContext {
-  contextType: OverrideContextType;
-  contextId: string;
-}
+import {
+  toContextDbFields,
+  type ScoreOverrideContext,
+  type ScoreOverrideContextType,
+} from "../score-override/types";
+
+export type ResolvedScoreContext = ScoreOverrideContext;
 
 export interface ResolvedScore {
   score: number;
@@ -17,7 +20,7 @@ export interface ResolvedScore {
  * back to the best submission score.
  *
  * Practice context is not a valid override target (the
- * `OverrideContextType` enum makes it unrepresentable), so practice
+ * `ScoreOverrideContext` union makes it unrepresentable), so practice
  * callers should NOT funnel through this helper.
  */
 export async function resolveFinalScore(
@@ -25,43 +28,45 @@ export async function resolveFinalScore(
   problemId: string,
   context: ResolvedScoreContext,
 ): Promise<ResolvedScore> {
+  const db = toContextDbFields(context);
   const override = await scoreOverrideRepo.findUnique({
     userId,
     problemId,
-    contextType: context.contextType,
-    contextId: context.contextId,
+    contextType: db.contextType,
+    contextId: db.contextId,
   });
   if (override) {
     return { score: override.overrideScore, source: "override" };
   }
 
   // Fall back to the best submission score for this (user, problem, context).
-  const whereByType: Record<OverrideContextType, Record<string, unknown>> = {
-    assignment: { courseAssessmentId: context.contextId },
-    exam: { examId: context.contextId },
-    contest: { contestId: context.contextId },
+  const whereByType: Record<ScoreOverrideContextType, Record<string, unknown>> = {
+    assignment: { courseAssessmentId: db.contextId },
+    exam: { examId: db.contextId },
+    contest: { contestId: db.contextId },
   };
   const grouped = await submissionRepo.groupByUserAndProblem({
     userId,
     problemId,
     sampleOnly: false,
-    ...whereByType[context.contextType],
+    ...whereByType[context.type],
   });
   const best = grouped[0]?._max.score ?? 0;
   return { score: best, source: "submission" };
 }
 
 /**
- * Bulk variant — fetches every override row for a given (contextType,
- * contextId) in a single query and returns a lookup map keyed by
- * `${userId}::${problemId}`. Readers that already have best-score data
- * in a Map (e.g. submissions-matrix builders) can overlay this map
- * without adding a per-cell round trip.
+ * Bulk variant — fetches every override row for a given context in a
+ * single query and returns a lookup map keyed by `${userId}::${problemId}`.
+ * Readers that already have best-score data in a Map (e.g.
+ * submissions-matrix builders) can overlay this map without adding a
+ * per-cell round trip.
  */
 export async function resolveOverridesForContext(
   context: ResolvedScoreContext,
 ): Promise<Map<string, number>> {
-  const rows = await scoreOverrideRepo.findAllByContext(context.contextType, context.contextId);
+  const db = toContextDbFields(context);
+  const rows = await scoreOverrideRepo.findAllByContext(db.contextType, db.contextId);
   const map = new Map<string, number>();
   for (const row of rows) {
     map.set(`${row.userId}::${row.problemId}`, row.overrideScore);

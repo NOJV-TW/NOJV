@@ -4,14 +4,14 @@ import {
   runTransaction,
   scoreOverrideAuditLogRepo,
   scoreOverrideRepo,
-  type OverrideContextType,
 } from "@nojv/db";
 
 import { updateContestScores } from "../contest/scoring";
 import { updateExamScores } from "../exam/scoring";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError, ValidationError } from "../shared/errors";
-import { assertCanSetScoreOverride } from "./authz";
+import { assertCanSetScoreOverride } from "./permissions";
+import { fromContextDbFields, toContextDbFields, type ScoreOverrideContext } from "./types";
 
 /**
  * Fire-and-forget scoreboard invalidation after an override mutation.
@@ -23,25 +23,24 @@ import { assertCanSetScoreOverride } from "./authz";
  *
  * Errors are swallowed on purpose: the mutation already succeeded, a
  * stale Redis ZSET self-heals on the next submission, and the UI re-reads
- * overrides directly in submissions-matrix / assessment-detail.
+ * overrides directly in submissions-matrix / assignment-detail.
  */
 async function invalidateScoreboardForOverride(
-  contextType: OverrideContextType,
-  contextId: string,
+  context: ScoreOverrideContext,
   userId: string,
 ): Promise<void> {
   try {
-    if (contextType === "contest") {
+    if (context.type === "contest") {
       const participationId = await contestParticipationRepo.findIdByContestAndUser(
-        contextId,
+        context.contestId,
         userId,
       );
       if (participationId) {
         await updateContestScores(participationId);
       }
-    } else if (contextType === "exam") {
+    } else if (context.type === "exam") {
       const participationId = await examParticipationRepo.findIdByExamAndUser(
-        contextId,
+        context.examId,
         userId,
       );
       if (participationId) {
@@ -55,13 +54,18 @@ async function invalidateScoreboardForOverride(
   }
 }
 
-export { assertCanSetScoreOverride, canSetScoreOverride } from "./authz";
+export { assertCanSetScoreOverride, canSetScoreOverride } from "./permissions";
+export {
+  fromContextDbFields,
+  toContextDbFields,
+  type ScoreOverrideContext,
+  type ScoreOverrideContextType,
+} from "./types";
 
 export interface OverrideInput {
   userId: string;
   problemId: string;
-  contextType: OverrideContextType;
-  contextId: string;
+  context: ScoreOverrideContext;
   /** Non-negative integer. */
   overrideScore: number;
   /** 1-500 chars, staff-internal — never surfaced to students. */
@@ -87,16 +91,17 @@ function validateReason(reason: string) {
 }
 
 export async function createOverride(actor: ActorContext, input: OverrideInput) {
-  await assertCanSetScoreOverride(actor, input.contextType, input.contextId);
+  await assertCanSetScoreOverride(actor, input.context);
   validateScore(input.overrideScore);
   validateReason(input.reason);
 
+  const db = toContextDbFields(input.context);
   const row = await runTransaction(async (tx) => {
     const created = await scoreOverrideRepo.create(tx, {
       userId: input.userId,
       problemId: input.problemId,
-      contextType: input.contextType,
-      contextId: input.contextId,
+      contextType: db.contextType,
+      contextId: db.contextId,
       overrideScore: input.overrideScore,
       reason: input.reason,
       createdByUserId: actor.userId,
@@ -107,8 +112,8 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
       overrideId: created.id,
       userId: input.userId,
       problemId: input.problemId,
-      contextType: input.contextType,
-      contextId: input.contextId,
+      contextType: db.contextType,
+      contextId: db.contextId,
       action: "create",
       oldScore: null,
       newScore: input.overrideScore,
@@ -120,7 +125,7 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
     return created;
   });
 
-  await invalidateScoreboardForOverride(input.contextType, input.contextId, input.userId);
+  await invalidateScoreboardForOverride(input.context, input.userId);
   return row;
 }
 
@@ -129,7 +134,8 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
   if (!existing) {
     throw new NotFoundError("Score override not found.");
   }
-  await assertCanSetScoreOverride(actor, existing.contextType, existing.contextId);
+  const existingContext = fromContextDbFields(existing);
+  await assertCanSetScoreOverride(actor, existingContext);
 
   if (patch.overrideScore !== undefined) validateScore(patch.overrideScore);
   if (patch.reason !== undefined) validateReason(patch.reason);
@@ -158,11 +164,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
     return row;
   });
 
-  await invalidateScoreboardForOverride(
-    existing.contextType,
-    existing.contextId,
-    existing.userId,
-  );
+  await invalidateScoreboardForOverride(existingContext, existing.userId);
   return updated;
 }
 
@@ -171,7 +173,8 @@ export async function deleteOverride(actor: ActorContext, id: string) {
   if (!existing) {
     throw new NotFoundError("Score override not found.");
   }
-  await assertCanSetScoreOverride(actor, existing.contextType, existing.contextId);
+  const existingContext = fromContextDbFields(existing);
+  await assertCanSetScoreOverride(actor, existingContext);
 
   await runTransaction(async (tx) => {
     // `overrideId: null` on the audit row so the log survives the subsequent
@@ -195,21 +198,15 @@ export async function deleteOverride(actor: ActorContext, id: string) {
     await scoreOverrideRepo.delete(tx, id);
   });
 
-  await invalidateScoreboardForOverride(
-    existing.contextType,
-    existing.contextId,
-    existing.userId,
-  );
+  await invalidateScoreboardForOverride(existingContext, existing.userId);
 }
 
-export async function listByContext(contextType: OverrideContextType, contextId: string) {
-  return scoreOverrideRepo.listByContext(contextType, contextId);
+export async function listByContext(context: ScoreOverrideContext) {
+  const db = toContextDbFields(context);
+  return scoreOverrideRepo.listByContext(db.contextType, db.contextId);
 }
 
-export async function listAuditForContext(
-  contextType: OverrideContextType,
-  contextId: string,
-  limit = 100,
-) {
-  return scoreOverrideAuditLogRepo.listForContext(contextType, contextId, limit);
+export async function listAuditForContext(context: ScoreOverrideContext, limit = 100) {
+  const db = toContextDbFields(context);
+  return scoreOverrideAuditLogRepo.listForContext(db.contextType, db.contextId, limit);
 }

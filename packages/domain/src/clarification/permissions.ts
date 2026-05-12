@@ -1,0 +1,150 @@
+import {
+  assessmentRepo,
+  contestParticipationRepo,
+  contestRepo,
+  courseMembershipRepo,
+  examParticipationRepo,
+  examRepo,
+} from "@nojv/db";
+
+import type { ActorContext } from "../shared/actor-context";
+import { ForbiddenError } from "../shared/errors";
+import type { ClarificationContext } from "./types";
+
+/**
+ * Shared helper — same definition as submission/permissions and
+ * score-override/permissions. Kept private to the module so the three files
+ * evolve independently if the course-staff definition ever widens.
+ */
+async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<boolean> {
+  const membership = await courseMembershipRepo.findByComposite(courseId, userId);
+  if (membership?.status !== "active") return false;
+  return membership.role === "teacher" || membership.role === "ta";
+}
+
+async function hasContestParticipation(userId: string, contestId: string): Promise<boolean> {
+  // `listParticipantUserIds` is the cheapest existing read; a dedicated
+  // point lookup (exists(contestId, userId)) would be marginally faster
+  // but needs a new repo method. Keep it simple until there's a hot path.
+  const ids = await contestParticipationRepo.listParticipantUserIds(contestId);
+  return ids.includes(userId);
+}
+
+async function hasExamParticipation(userId: string, examId: string): Promise<boolean> {
+  const ids = await examParticipationRepo.listParticipantUserIds(examId);
+  return ids.includes(userId);
+}
+
+async function isActiveStudentInAssignment(
+  userId: string,
+  assignmentId: string,
+): Promise<boolean> {
+  const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
+  if (!assignment) return false;
+  const membership = await courseMembershipRepo.findByComposite(assignment.courseId, userId);
+  if (membership?.status !== "active") return false;
+  return membership.role === "student";
+}
+
+async function isParticipantOfContext(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<boolean> {
+  if (actor.platformRole === "admin") return false;
+  switch (context.type) {
+    case "contest":
+      return hasContestParticipation(actor.userId, context.contestId);
+    case "exam":
+      return hasExamParticipation(actor.userId, context.examId);
+    case "assignment":
+      return isActiveStudentInAssignment(actor.userId, context.assignmentId);
+  }
+}
+
+async function isStaffOfContext(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<boolean> {
+  if (actor.platformRole === "admin") return true;
+  switch (context.type) {
+    case "contest": {
+      const contest = await contestRepo.findById(context.contestId);
+      return contest?.createdByUserId === actor.userId;
+    }
+    case "exam": {
+      const exam = await examRepo.findById(context.examId);
+      if (!exam) return false;
+      return isCourseTeacherOrTa(actor.userId, exam.courseId);
+    }
+    case "assignment": {
+      const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
+      if (!assignment) return false;
+      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
+    }
+  }
+}
+
+async function isContextWindowOpen(context: ClarificationContext): Promise<boolean> {
+  const now = new Date();
+  switch (context.type) {
+    case "contest": {
+      const contest = await contestRepo.findById(context.contestId);
+      if (!contest) return false;
+      return now >= contest.startsAt && now <= contest.endsAt;
+    }
+    case "exam": {
+      const exam = await examRepo.findById(context.examId);
+      if (!exam) return false;
+      return now >= exam.startsAt && now <= exam.endsAt;
+    }
+    case "assignment": {
+      const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
+      if (!assignment) return false;
+      return now >= assignment.opensAt && now <= assignment.closesAt;
+    }
+  }
+}
+
+export async function canAskClarification(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<boolean> {
+  if (!(await isParticipantOfContext(actor, context))) return false;
+  return isContextWindowOpen(context);
+}
+
+export async function canAnswerInContext(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<boolean> {
+  if (!(await isStaffOfContext(actor, context))) return false;
+  return isContextWindowOpen(context);
+}
+
+export async function canViewClarifications(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<boolean> {
+  if (await isStaffOfContext(actor, context)) return true;
+  return isParticipantOfContext(actor, context);
+}
+
+export const canSeeAuthor = isStaffOfContext;
+
+export async function assertCanAskClarification(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<void> {
+  if (!(await canAskClarification(actor, context))) {
+    throw new ForbiddenError("Only participants may ask clarifications.");
+  }
+}
+
+export async function assertCanAnswerInContext(
+  actor: ActorContext,
+  context: ClarificationContext,
+): Promise<void> {
+  if (!(await canAnswerInContext(actor, context))) {
+    throw new ForbiddenError("Not permitted to answer clarifications in this context.");
+  }
+}

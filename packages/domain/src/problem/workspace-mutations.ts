@@ -8,7 +8,7 @@ import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 
 import { bestEffortDeleteWorkspaceBlob, writeWorkspaceFileBlob } from "./blobs";
-import { assertProblemOwnership, type ProblemActorContext } from "./helpers";
+import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 export interface UpdateWorkspacePayload {
   runtime?: {

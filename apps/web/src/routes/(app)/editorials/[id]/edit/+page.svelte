@@ -27,7 +27,7 @@
     saving = true;
     try {
       const res = await fetch(`/api/editorials/${data.editorial.id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ content, language })
       });

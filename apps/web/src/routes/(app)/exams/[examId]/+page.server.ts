@@ -21,7 +21,7 @@ import { requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
-import { buildExamResults, type ExamResultsData } from "$lib/server/exam-results";
+import { buildExamResults, type ExamResultsData } from "$lib/server/results/exam";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -58,11 +58,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
-      ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", examId)
+      ? scoreOverrideDomain.canSetScoreOverride(actor, { type: "exam", examId })
       : Promise.resolve(false),
-    clarificationDomain.canAskClarification(actor, "exam", examId),
-    clarificationDomain.canAnswerInContext(actor, "exam", examId),
-    clarificationDomain.canViewClarifications(actor, "exam", examId),
+    clarificationDomain.canAskClarification(actor, { type: "exam", examId }),
+    clarificationDomain.canAnswerInContext(actor, { type: "exam", examId }),
+    clarificationDomain.canViewClarifications(actor, { type: "exam", examId }),
     isManager
       ? plagiarismDomain.findPlagiarismReport({ type: "exam", id: examId }).catch(() => null)
       : Promise.resolve(null),
@@ -160,6 +160,22 @@ export const actions = {
     try {
       await examDomain.session.startSessionWithGate(actor, {
         examId: event.params.examId,
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return fail(err.status, { error: err.message });
+      }
+      throw err;
+    }
+    return { success: true };
+  },
+
+  releaseSession: async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await examDomain.session.endSession(actor, {
+        examId: event.params.examId,
+        reason: "submitted",
       });
     } catch (err) {
       if (err instanceof HttpError) {

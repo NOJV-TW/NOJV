@@ -16,7 +16,7 @@ import { dispatchExamAutoClose } from "@nojv/job-dispatch";
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireCourse, requireUser } from "../shared/require";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { stripUndefined } from "../shared/strip-undefined";
 
 export type { ActorContext };

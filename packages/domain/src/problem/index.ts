@@ -1,5 +1,5 @@
 export * from "./queries";
-export * from "./helpers";
+export * from "./permissions";
 export * from "./problem-crud";
 export * from "./workspace-mutations";
 export * from "./testcase-mutations";

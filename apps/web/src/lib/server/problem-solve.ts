@@ -23,19 +23,19 @@ import type { ActorContext } from "$lib/server/auth";
  * visible to the viewer and return the uniform `solveProps` shape that
  * `<ProblemSolveView>` consumes.
  *
- * `assessment` is the assignment-shell variant.  `contest` and `exam` hooks
+ * `assignment` is the assignment-shell variant.  `contest` and `exam` hooks
  * are stubbed for the parallel agents working on those trees — they can
  * extend this type without breaking the assignment flow.
  */
 export type ProblemSolveContext =
   | {
-      kind: "assessment";
-      assessmentId: string;
+      kind: "assignment";
+      assignmentId: string;
       courseId: string;
       allowedLanguages: Language[];
       /** Link shown on the solve-page header to return to the shell. */
       backLink: { href: string; type: "assignment" };
-      /** Already verified by the shell layout — `exists(assessmentId, problemId)`. */
+      /** Already verified by the shell layout — `exists(assignmentId, problemId)`. */
       problemInScope: boolean;
     }
   | {
@@ -47,7 +47,7 @@ export type ProblemSolveContext =
     }
   | {
       kind: "exam";
-      assessmentId: string;
+      assignmentId: string;
       courseId: string;
       allowedLanguages: Language[];
       backLink: { href: string; type: "assignment" };
@@ -56,7 +56,12 @@ export type ProblemSolveContext =
 
 export interface ProblemSolvePropsShape {
   allowedLanguages: Language[];
-  assessmentProp:
+  /**
+   * Shape mirrors `assessmentContextSchema` (core wire-format) so it flows
+   * directly into ProblemSolveView's `assessment` prop. Keeping the
+   * `assessmentId` field name matches the schema.
+   */
+  assignmentProp:
     | {
         assessmentId: string;
         courseId: string;
@@ -129,9 +134,9 @@ export async function loadProblemSolveData(
     caseCount: set.testcases.length,
   }));
 
-  const assessmentProp =
-    context.kind === "assessment" || context.kind === "exam"
-      ? { assessmentId: context.assessmentId, courseId: context.courseId }
+  const assignmentProp =
+    context.kind === "assignment" || context.kind === "exam"
+      ? { assessmentId: context.assignmentId, courseId: context.courseId }
       : undefined;
 
   const contestId = context.kind === "contest" ? context.contestId : undefined;
@@ -142,8 +147,8 @@ export async function loadProblemSolveData(
   const submissions = await listProblemSubmissions(
     actor.userId,
     problemId,
-    context.kind === "assessment" || context.kind === "exam"
-      ? { assessmentId: context.assessmentId, courseId: context.courseId }
+    context.kind === "assignment" || context.kind === "exam"
+      ? { assignmentId: context.assignmentId, courseId: context.courseId }
       : undefined,
   );
 
@@ -163,14 +168,14 @@ export async function loadProblemSolveData(
       userId: actor.userId,
       problemId,
       contestId: context.kind === "contest" ? context.contestId : null,
-      courseAssessmentId: context.kind === "assessment" ? context.assessmentId : null,
+      courseAssessmentId: context.kind === "assignment" ? context.assignmentId : null,
       examId: null,
     },
   );
 
   return {
     allowedLanguages: context.allowedLanguages,
-    assessmentProp,
+    assignmentProp,
     backLink: context.backLink,
     canRejudge,
     contestId,

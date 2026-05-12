@@ -2,6 +2,7 @@ import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { createSubscriber, keys } from "@nojv/redis";
 import { clarificationDomain } from "@nojv/domain";
+type ClarificationContext = clarificationDomain.ClarificationContext;
 import { createLogger } from "$lib/server/logger";
 import {
   sseConnectionDuration,
@@ -14,18 +15,18 @@ const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as
 
 type ClarificationContextType = "contest" | "exam" | "assignment";
 
-interface ClarificationSub {
-  contextType: ClarificationContextType;
-  contextId: string;
-}
-
 /**
- * Parse `clarificationSub` query params in `contextType:contextId` form.
- * Silently drops malformed entries — a malformed subscription request
- * does not break the whole SSE connection.
+ * Parse `clarificationSub` query params in `contextType:contextId` form
+ * into discriminated `ClarificationContext` values. Silently drops
+ * malformed entries — a malformed subscription request does not break
+ * the whole SSE connection.
+ *
+ * The wire form on this endpoint stays flat (`contextType:contextId`)
+ * for backward compatibility with the JS client; we lift it into the
+ * discriminated union here at the boundary.
  */
-function parseClarificationSubs(url: URL): ClarificationSub[] {
-  const out: ClarificationSub[] = [];
+function parseClarificationSubs(url: URL): ClarificationContext[] {
+  const out: ClarificationContext[] = [];
   const seen = new Set<string>();
   for (const raw of url.searchParams.getAll("clarificationSub")) {
     const idx = raw.indexOf(":");
@@ -37,7 +38,17 @@ function parseClarificationSubs(url: URL): ClarificationSub[] {
     const key = `${contextType}:${contextId}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ contextType: contextType as ClarificationContextType, contextId });
+    switch (contextType as ClarificationContextType) {
+      case "contest":
+        out.push({ type: "contest", contestId: contextId });
+        break;
+      case "exam":
+        out.push({ type: "exam", examId: contextId });
+        break;
+      case "assignment":
+        out.push({ type: "assignment", assignmentId: contextId });
+        break;
+    }
   }
   return out;
 }
@@ -96,11 +107,12 @@ export const GET: RequestHandler = async (event) => {
   const authorizedClarChannels: string[] = [];
   for (const sub of requestedSubs) {
     const [canAsk, canAnswer] = await Promise.all([
-      clarificationDomain.canAskClarification(actor, sub.contextType, sub.contextId),
-      clarificationDomain.canAnswerInContext(actor, sub.contextType, sub.contextId),
+      clarificationDomain.canAskClarification(actor, sub),
+      clarificationDomain.canAnswerInContext(actor, sub),
     ]);
     if (canAsk || canAnswer) {
-      authorizedClarChannels.push(keys.clarificationChannel(sub.contextType, sub.contextId));
+      const { contextType, contextId } = clarificationDomain.toContextDbFields(sub);
+      authorizedClarChannels.push(keys.clarificationChannel(contextType, contextId));
     }
   }
 

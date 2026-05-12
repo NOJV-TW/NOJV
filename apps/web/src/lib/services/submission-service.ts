@@ -9,7 +9,7 @@ import {
   type SubmissionRunCase,
 } from "@nojv/core";
 
-import { fetchWithCsrf } from "$lib/utils";
+import { fetchWithCsrf } from "$lib/http";
 
 export interface SubmissionAssessmentContext {
   assessmentId: string;
