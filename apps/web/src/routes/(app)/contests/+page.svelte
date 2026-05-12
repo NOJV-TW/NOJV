@@ -70,7 +70,7 @@
       <Button variant="outline" type="button" onclick={() => (joinDialogOpen = true)}>
         {m.contestsList_joinByCode()}
       </Button>
-      <Button href="/contests/create">
+      <Button href="/contests/new">
         <Plus class="h-4 w-4" />
         {m.contestsList_create()}
       </Button>

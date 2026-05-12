@@ -180,6 +180,10 @@ export const contestRepo = {
           where: { id },
         });
       },
+
+      delete(id: string) {
+        return tx.contest.delete({ where: { id } });
+      },
     };
   },
 };
@@ -217,6 +221,10 @@ export const contestProblemRepo = {
     return {
       create(data: Prisma.ContestProblemUncheckedCreateInput) {
         return tx.contestProblem.create({ data });
+      },
+
+      countByContestId(contestId: string) {
+        return tx.contestProblem.count({ where: { contestId } });
       },
 
       deleteByContestId(contestId: string) {

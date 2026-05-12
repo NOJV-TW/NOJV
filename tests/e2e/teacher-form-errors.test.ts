@@ -8,7 +8,7 @@ const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/t
 // split (commit b21759a) creation lives in three separate routes:
 //   /courses/[id]/assignments/new
 //   /courses/[id]/exams/new
-//   /contests/create
+//   /contests/new
 // The legacy unified page is gone, so the form-submission scenarios it
 // hosted no longer have a home. We keep the shape of the suite (smoke
 // the new-creation flows are reachable) and drop the dead form-error
@@ -36,7 +36,7 @@ test.describe("Teacher creation entrypoints", () => {
   test("teacher can open the standalone contest creation page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto(`/contests/create`);
+    await page.goto(`/contests/new`);
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();
   });

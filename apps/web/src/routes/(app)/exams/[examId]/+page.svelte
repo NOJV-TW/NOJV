@@ -638,6 +638,7 @@
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
+          pairDiffBase={`/exams/${detail.id}/plagiarism/pairs`}
           problems={detail.problems.map((p) => ({
             problemId: p.id,
             letter: p.letter,

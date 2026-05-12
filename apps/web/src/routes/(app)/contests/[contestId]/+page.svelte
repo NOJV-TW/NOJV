@@ -71,9 +71,11 @@
   const settingsLiveStatus: ContestLiveStatus = $derived(
     contest.visibility === "draft"
       ? "draft"
-      : status === "live"
-        ? "running"
-        : status
+      : contest.visibility === "archived"
+        ? "archived"
+        : status === "live"
+          ? "running"
+          : status
   );
   const scoringLabel = $derived(
     contest.scoringMode === "problem_count"
@@ -271,6 +273,7 @@
         <AssignmentPlagiarismReport
           report={data.plagiarism}
           flags={data.plagiarismFlags ?? []}
+          pairDiffBase={`/contests/${contest.id}/plagiarism/pairs`}
           problems={(contest.problems ?? []).map((p, i) => ({
             problemId: p.id,
             letter: String.fromCharCode(65 + i),
