@@ -1,10 +1,6 @@
 import { BlockList, isIPv4, isIPv6 } from "node:net";
 
-import {
-  examParticipationIpRepo,
-  ipViolationLogRepo,
-  type TransactionClient,
-} from "@nojv/db";
+import { examParticipationIpRepo, ipViolationLogRepo, type TransactionClient } from "@nojv/db";
 
 import { logViolationInTx } from "../proctoring/violation-logger";
 

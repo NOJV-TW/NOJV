@@ -39,10 +39,7 @@ export async function listEditorialsPage({
   return { items, total, page: safePage, pageSize: safeSize };
 }
 
-/**
- * Fetch a single editorial by id. Returns null for unknown ids and for
- * soft-deleted rows alike — the caller (domain or route) maps to 404.
- */
+// intentional-nullable: edit-page loader maps null to the standard 404; mutations promote it to NotFoundError. Caller chooses the error so this stays a plain "row not visible" signal.
 export async function getEditorialById(id: string) {
   const row = await editorialRepo.findById(id);
   if (!row || row.deletedAt) return null;

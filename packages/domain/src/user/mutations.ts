@@ -1,7 +1,7 @@
 import { runTransaction, userRepo, type TransactionClient } from "@nojv/db";
+import { isReservedUsername } from "@nojv/core";
 
 import { ConflictError, ForbiddenError, ValidationError } from "../shared/errors";
-import { isReservedUsername } from "./reserved-username";
 
 export interface EnsureUserInput {
   displayName?: string;

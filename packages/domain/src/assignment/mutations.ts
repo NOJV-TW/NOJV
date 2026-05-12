@@ -320,3 +320,11 @@ export async function revertAssignmentToDraft(
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
   });
 }
+
+export async function activateAssignment(assignmentId: string): Promise<void> {
+  await assessmentRepo.update(assignmentId, { status: "published" });
+}
+
+export async function closeAssignment(assignmentId: string): Promise<void> {
+  await assessmentRepo.update(assignmentId, { status: "archived" });
+}
