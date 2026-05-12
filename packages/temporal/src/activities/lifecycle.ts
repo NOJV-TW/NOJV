@@ -9,7 +9,7 @@ import { pubsub } from "@nojv/redis";
 
 // --- Contest ------------------------------------------------------------
 
-export type ContestInfo = contestDomain.ContestLifecycleInfo;
+export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
 
 export async function getContestInfo(contestId: string): Promise<ContestInfo> {
   return contestDomain.getContestLifecycleInfo(contestId);

@@ -24,8 +24,8 @@ export const announcementCreateSchema = z.object({
 
 export const announcementUpdateSchema = announcementCreateSchema;
 
-export type AnnouncementCreatePayload = z.input<typeof announcementCreateSchema>;
-export type AnnouncementUpdatePayload = z.input<typeof announcementUpdateSchema>;
+export type AnnouncementCreateInput = z.input<typeof announcementCreateSchema>;
+export type AnnouncementUpdateInput = z.input<typeof announcementUpdateSchema>;
 
 // Fan out `announcement_published` to recipients. Platform-wide announcements
 // (courseId == null) reach every active user; course-scoped announcements
@@ -54,7 +54,7 @@ async function fanoutAnnouncementPublished(
 
 // Two writes intentionally not wrapped in a transaction — admin authoring is
 // low-volume and the translation upsert is retry-safe.
-export async function createAnnouncement(data: AnnouncementCreatePayload) {
+export async function createAnnouncement(data: AnnouncementCreateInput) {
   const parsed = announcementCreateSchema.parse(data);
   const announcement = await announcementRepo.create({
     pinned: parsed.pinned,
@@ -83,7 +83,7 @@ export async function createAnnouncement(data: AnnouncementCreatePayload) {
 /**
  * Update an announcement plus its default-locale translation.
  */
-export async function updateAnnouncement(id: string, data: AnnouncementUpdatePayload) {
+export async function updateAnnouncement(id: string, data: AnnouncementUpdateInput) {
   const parsed = announcementUpdateSchema.parse(data);
   // Snapshot prior row so we can detect the draft → published transition and
   // know which course (if any) to fan out to.

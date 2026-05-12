@@ -248,7 +248,7 @@ export async function updateContestRecord(
   });
 }
 
-export interface ContestLifecycleInfo {
+export interface ContestLifecycleSnapshot {
   endsAt: string;
   freezeTime: string | null;
   scoringMode: string;
@@ -257,7 +257,7 @@ export interface ContestLifecycleInfo {
 
 export async function getContestLifecycleInfo(
   contestId: string,
-): Promise<ContestLifecycleInfo> {
+): Promise<ContestLifecycleSnapshot> {
   const contest = await contestRepo.findInfoById(contestId);
   return {
     endsAt: contest.endsAt.toISOString(),

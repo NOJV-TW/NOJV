@@ -300,7 +300,7 @@ export async function convertProblemToAdvancedMode(
 // Workspace mutations
 // ─────────────────────────────────────────────────────────────────────────
 
-export interface UpdateWorkspacePayload {
+export interface UpdateWorkspaceInput {
   runtime?: {
     timeLimitMs: number;
     memoryLimitMb: number;
@@ -324,14 +324,14 @@ const MAX_WORKSPACE_BYTES_PER_LANGUAGE = 1_048_576;
 export async function updateProblemWorkspace(
   actor: ProblemActorContext,
   problemId: string,
-  payload: UpdateWorkspacePayload,
+  payload: UpdateWorkspaceInput,
 ) {
   // Workspace-mode invariant: every language present in the payload
   // must ship EXACTLY ONE editable file named `main.<ext>`. The judge
   // and submission validator both rely on this — violating it means
   // students in that language cannot submit anything.
   if (payload.files.length > 0) {
-    const filesByLanguage = new Map<Language, UpdateWorkspacePayload["files"]>();
+    const filesByLanguage = new Map<Language, UpdateWorkspaceInput["files"]>();
     for (const file of payload.files) {
       const bucket = filesByLanguage.get(file.language);
       if (bucket) bucket.push(file);
@@ -409,7 +409,7 @@ export async function updateProblemWorkspace(
   interface PreparedWorkspaceFile {
     id: string;
     contentKey: string;
-    file: UpdateWorkspacePayload["files"][number];
+    file: UpdateWorkspaceInput["files"][number];
   }
   const prepared: PreparedWorkspaceFile[] = await Promise.all(
     payload.files.map(async (file) => {

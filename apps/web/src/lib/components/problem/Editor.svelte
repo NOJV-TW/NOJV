@@ -16,7 +16,7 @@
   import StudentWorkspaceView from "./StudentWorkspaceView.svelte";
   import {
     executeSubmission,
-    type SubmissionWorkspaceFilePayload
+    type SubmissionWorkspaceFile
   } from "$lib/services/submission-service";
   import {
     clearDraft,
@@ -295,7 +295,7 @@
     document.addEventListener("mouseup", onUp);
   }
 
-  function currentWorkspaceFiles(): SubmissionWorkspaceFilePayload[] {
+  function currentWorkspaceFiles(): SubmissionWorkspaceFile[] {
     return workspaceFilesForLanguage
       .filter((f) => f.visibility !== "hidden")
       .map((f) => ({

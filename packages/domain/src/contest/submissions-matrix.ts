@@ -29,7 +29,7 @@ export interface ContestMatrixRow {
   total: number;
 }
 
-export interface ContestMatrixData {
+export interface ContestSubmissionsMatrix {
   problems: ContestMatrixProblemColumn[];
   rows: ContestMatrixRow[];
   totalPoints: number;
@@ -49,7 +49,7 @@ export interface BuildContestMatrixInput {
 
 export async function buildContestSubmissionsMatrix(
   input: BuildContestMatrixInput,
-): Promise<ContestMatrixData> {
+): Promise<ContestSubmissionsMatrix> {
   const problems: ContestMatrixProblemColumn[] = input.problems.map((p) => ({
     problemId: p.id,
     letter: problemLetter(p.ordinal),

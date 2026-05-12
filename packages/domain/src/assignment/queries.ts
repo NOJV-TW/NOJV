@@ -22,14 +22,14 @@ export async function isProblemInAssignment(
   return assessmentProblemRepo.exists(assignmentId, problemId);
 }
 
-export interface AssignmentInfo {
+export interface AssignmentTiming {
   closesAt: string;
   /** Nullable: assignments without a soft deadline have no late penalty. */
   dueAt: string | null;
   opensAt: string;
 }
 
-export async function getAssignmentInfo(assignmentId: string): Promise<AssignmentInfo> {
+export async function getAssignmentInfo(assignmentId: string): Promise<AssignmentTiming> {
   const assignment = await assessmentRepo.findInfoById(assignmentId);
 
   return {

@@ -267,13 +267,13 @@ export async function updateExamRecord(
   });
 }
 
-export interface ExamLifecycleInfo {
+export interface ExamLifecycleSnapshot {
   endsAt: string;
   scoringMode: string;
   startsAt: string;
 }
 
-export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycleInfo> {
+export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycleSnapshot> {
   const exam = await examRepo.findInfoById(examId);
   return {
     endsAt: exam.endsAt.toISOString(),
