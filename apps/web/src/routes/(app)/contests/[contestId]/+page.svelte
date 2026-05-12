@@ -13,8 +13,13 @@
   import StatusPill from "$lib/components/coursework/StatusPill.svelte";
   import TabStrip from "$lib/components/coursework/TabStrip.svelte";
   import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
   import ContestProblemsTab from "$lib/components/contest/ContestProblemsTab.svelte";
   import ContestResultsTab from "$lib/components/contest/ContestResultsTab.svelte";
+  import ContestSettingsTab, {
+    type ContestLiveStatus
+  } from "$lib/components/contest/ContestSettingsTab.svelte";
+  import ContestSubmissionsMatrix from "$lib/components/contest/ContestSubmissionsMatrix.svelte";
   import { contestStatusFor, durationMinutes } from "$lib/components/contest/format";
   import { fmtDate } from "$lib/utils/datetime.js";
 
@@ -63,6 +68,13 @@
   const isLive = $derived(status === "live");
   const isPast = $derived(status === "ended");
   const isUpcoming = $derived(status === "upcoming");
+  const settingsLiveStatus: ContestLiveStatus = $derived(
+    contest.visibility === "draft"
+      ? "draft"
+      : status === "live"
+        ? "running"
+        : status
+  );
   const scoringLabel = $derived(
     contest.scoringMode === "problem_count"
       ? m.contestDetail_scoringProblemCount()
@@ -239,25 +251,13 @@
         {isManager}
       />
     {:else if activeSubTab === "submissions"}
-      <!--
-        TODO(NOJV): no `getContestSubmissionsMatrix` exists in
-        `packages/domain/src/contest` yet. The exam matrix builder
-        (`getExamSubmissionsMatrix`) is the closest analogue to copy when
-        wiring this. For now the scoreboard route serves as the canonical
-        per-user view, linked below.
-      -->
-      <GlassPanel class="p-8 text-center">
-        <p class="text-body text-muted-foreground">
+      {#if data.matrix}
+        <ContestSubmissionsMatrix matrix={data.matrix} contestId={contest.id} />
+      {:else}
+        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
           {m.contestDetail_submissionsTabPlaceholder()}
-        </p>
-        <Button
-          variant="outline"
-          class="mt-4"
-          onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}
-        >
-          {m.contestDetail_actionScoreboard()}
-        </Button>
-      </GlassPanel>
+        </GlassPanel>
+      {/if}
     {:else if activeSubTab === "results"}
       {#if data.results}
         <ContestResultsTab data={data.results} />
@@ -267,29 +267,32 @@
         </GlassPanel>
       {/if}
     {:else if activeSubTab === "plagiarism"}
-      <!--
-        TODO(NOJV): `plagiarismDomain.resolvePlagiarismTarget` only
-        supports `exam` and `courseAssessment` targets. Contest plagiarism
-        needs a new target shape (e.g. `{ type: "contest", id }`) wired
-        through `plagiarismTargetFilter`. Stubbed for now.
-      -->
-      <GlassPanel class="p-8 text-center">
-        <p class="text-body text-muted-foreground">
-          {m.contestDetail_plagiarismTabPlaceholder()}
-        </p>
+      <GlassPanel class="p-5">
+        <AssignmentPlagiarismReport
+          report={data.plagiarism}
+          flags={data.plagiarismFlags ?? []}
+          problems={(contest.problems ?? []).map((p, i) => ({
+            problemId: p.id,
+            letter: String.fromCharCode(65 + i),
+            title: p.title
+          }))}
+          students={data.matrix
+            ? data.matrix.rows.map((r) => ({
+                userId: r.userId,
+                displayName: r.displayName,
+                handle: r.handle
+              }))
+            : []}
+        />
       </GlassPanel>
     {:else if activeSubTab === "settings"}
-      <!--
-        TODO(NOJV): no contest settings form exists yet. `updateContestRecord`
-        is defined in `packages/domain/src/contest/mutations.ts` but not
-        wired to a route action. Should mirror `AssignmentSettingsTab` once
-        an `assessmentSettingsFormSchema`-equivalent contest schema lands.
-      -->
-      <GlassPanel class="p-8 text-center">
-        <p class="text-body text-muted-foreground">
+      {#if data.settingsForm}
+        <ContestSettingsTab form={data.settingsForm} liveStatus={settingsLiveStatus} />
+      {:else}
+        <GlassPanel class="p-8 text-center text-body text-muted-foreground">
           {m.contestDetail_settingsTabPlaceholder()}
-        </p>
-      </GlassPanel>
+        </GlassPanel>
+      {/if}
     {:else if activeSubTab === "clarifications" && data.clarification.canView}
       <GlassPanel class="p-6">
         <ClarificationTab
