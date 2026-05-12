@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import type { EChartsOption } from "echarts";
+  import type { ECharts, EChartsOption } from "echarts";
 
   interface Props {
     option: EChartsOption;
@@ -9,7 +9,7 @@
 
   let { option, class: className = "" }: Props = $props();
   let container: HTMLDivElement;
-  let chart: any;
+  let chart: ECharts | undefined;
   let observer: ResizeObserver | undefined;
   let ready = $state(false);
   // Dedup: $derived option objects are recreated on every reactive tick

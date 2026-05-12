@@ -1,6 +1,8 @@
 import { browser } from "$app/environment";
 import type { ClarificationSSEEvent } from "@nojv/core";
 
+import { fetchWithCsrf } from "$lib/utils";
+
 export interface ClarificationItem {
   id: string;
   contextType: "contest" | "exam" | "assignment";
@@ -77,9 +79,8 @@ export function createClarificationsStore(
   }
 
   async function ask(questionText: string, problemId: string | null): Promise<void> {
-    const r = await fetch("/api/clarifications", {
+    const r = await fetchWithCsrf("/api/clarifications", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
       body: JSON.stringify({ contextType, contextId, problemId, questionText }),
     });
     if (!r.ok) {
@@ -92,18 +93,16 @@ export function createClarificationsStore(
   }
 
   async function answer(id: string, answerText: string): Promise<void> {
-    const r = await fetch(`/api/clarifications/${id}`, {
+    const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
       body: JSON.stringify({ answerText }),
     });
     if (!r.ok) throw new Error("Answer failed");
   }
 
   async function dismiss(id: string): Promise<void> {
-    const r = await fetch(`/api/clarifications/${id}`, {
+    const r = await fetchWithCsrf(`/api/clarifications/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
       body: JSON.stringify({ state: "dismissed" }),
     });
     if (!r.ok) throw new Error("Dismiss failed");
@@ -113,9 +112,8 @@ export function createClarificationsStore(
     id: string,
     templateKey: "noComment" | "readProblem" | "yes" | "no",
   ): Promise<void> {
-    const r = await fetch(`/api/clarifications/${id}/canned`, {
+    const r = await fetchWithCsrf(`/api/clarifications/${id}/canned`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
       body: JSON.stringify({ templateKey }),
     });
     if (!r.ok) throw new Error("Canned reply failed");

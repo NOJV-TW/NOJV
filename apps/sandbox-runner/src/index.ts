@@ -11,7 +11,7 @@ import {
   type TestcaseResult,
 } from "./types.js";
 import { compile, compileChecker, sourceFileName } from "./compiler.js";
-import { pathExists } from "./utils.js";
+import { cleanupTempDir, pathExists } from "./utils.js";
 import { judgeStandard } from "./judges/standard.js";
 import { judgeChecker } from "./judges/checker.js";
 import { judgeInteractive } from "./judges/interactive.js";
@@ -334,7 +334,7 @@ async function main(): Promise<void> {
   try {
     await runJudge(workDir, config);
   } finally {
-    await fs.rm(workDir, { force: true, recursive: true }).catch(() => undefined);
+    await cleanupTempDir(workDir);
   }
 }
 

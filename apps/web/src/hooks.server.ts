@@ -66,13 +66,32 @@ function isProfileExempt(pathname: string): boolean {
   return PROFILE_EXEMPT_PREFIXES.some((p) => clean.startsWith(p));
 }
 
-/** In-memory cache for page lock checks (30s TTL per user, max 10k entries). */
-const pageLockCache = new Map<
-  string,
-  { context: PageLockedContext | null; expiresAt: number }
->();
-const PAGE_LOCK_CACHE_TTL = 30_000;
-const PAGE_LOCK_CACHE_MAX = 10_000;
+/** Bounded FIFO/LRU memoizer for per-user lock lookups: stale entries at
+ *  most delay a freshly-released user from leaving the locked surface. */
+function createTtlCache<T>(ttlMs: number, maxEntries: number) {
+  const store = new Map<string, { value: T; expiresAt: number }>();
+  return {
+    async getOrLoad(key: string, load: () => Promise<T>): Promise<T> {
+      const now = Date.now();
+      const hit = store.get(key);
+      if (hit && hit.expiresAt > now) return hit.value;
+
+      const value = await load();
+
+      // Re-inserting on set promotes to the tail; first key is the oldest.
+      store.delete(key);
+      if (store.size >= maxEntries) {
+        const oldest = store.keys().next().value;
+        if (oldest != null) store.delete(oldest);
+      }
+      store.set(key, { value, expiresAt: now + ttlMs });
+      return value;
+    },
+  };
+}
+
+const pageLockCache = createTtlCache<PageLockedContext | null>(30_000, 10_000);
+const examContextCache = createTtlCache<ActiveExamContext | null>(30_000, 10_000);
 
 function isPageLockExempt(pathname: string): boolean {
   return (
@@ -105,49 +124,6 @@ function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boo
 
 function pageLockRedirectTarget(ctx: PageLockedContext): string {
   return `/exams/${ctx.examId}`;
-}
-
-async function getCachedPageLockContext(userId: string): Promise<PageLockedContext | null> {
-  const now = Date.now();
-  const cached = pageLockCache.get(userId);
-  if (cached && cached.expiresAt > now) return cached.context;
-
-  const context = await getPageLockedContext(userId);
-
-  // FIFO/LRU eviction: re-inserting on set promotes to the tail; first key is the oldest.
-  pageLockCache.delete(userId);
-  if (pageLockCache.size >= PAGE_LOCK_CACHE_MAX) {
-    const oldestKey = pageLockCache.keys().next().value;
-    if (oldestKey != null) pageLockCache.delete(oldestKey);
-  }
-  pageLockCache.set(userId, { context, expiresAt: now + PAGE_LOCK_CACHE_TTL });
-
-  return context;
-}
-
-// 30s TTL / bounded FIFO-LRU: stale entries at most delay a freshly-released user from leaving the exam.
-const examContextCache = new Map<
-  string,
-  { context: ActiveExamContext | null; expiresAt: number }
->();
-const EXAM_CONTEXT_CACHE_TTL = 30_000;
-const EXAM_CONTEXT_CACHE_MAX = 10_000;
-
-async function getCachedActiveExamContext(userId: string): Promise<ActiveExamContext | null> {
-  const now = Date.now();
-  const cached = examContextCache.get(userId);
-  if (cached && cached.expiresAt > now) return cached.context;
-
-  const context = await getActiveExamContext(userId);
-
-  examContextCache.delete(userId);
-  if (examContextCache.size >= EXAM_CONTEXT_CACHE_MAX) {
-    const oldestKey = examContextCache.keys().next().value;
-    if (oldestKey != null) examContextCache.delete(oldestKey);
-  }
-  examContextCache.set(userId, { context, expiresAt: now + EXAM_CONTEXT_CACHE_TTL });
-
-  return context;
 }
 
 /**
@@ -263,7 +239,8 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   if (event.locals.sessionUser) {
     if (!isPageLockExempt(cleanPath)) {
-      const lockCtx = await getCachedPageLockContext(event.locals.sessionUser.id);
+      const userId = event.locals.sessionUser.id;
+      const lockCtx = await pageLockCache.getOrLoad(userId, () => getPageLockedContext(userId));
       if (lockCtx && !isProctoredEntityAllowed(cleanPath, lockCtx)) {
         redirect(302, pageLockRedirectTarget(lockCtx));
       }
@@ -275,7 +252,9 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     const sessionUser = event.locals.sessionUser;
     let examCtx: ActiveExamContext | null = null;
     try {
-      examCtx = await getCachedActiveExamContext(sessionUser.id);
+      examCtx = await examContextCache.getOrLoad(sessionUser.id, () =>
+        getActiveExamContext(sessionUser.id),
+      );
     } catch (err) {
       examLockLogger.warn("getActiveExamContext failed — failing open", {
         userId: sessionUser.id,

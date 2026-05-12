@@ -1,6 +1,8 @@
 import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 
+import { getStorageBaseUrl } from "./client";
+
 const BUCKET = process.env.S3_BUCKET ?? "nojv";
 
 function avatarKey(userId: string): string {
@@ -25,8 +27,7 @@ export async function uploadUserAvatar(
     }),
   );
 
-  const baseUrl = process.env.S3_PUBLIC_URL ?? process.env.S3_ENDPOINT ?? "";
-  return `${baseUrl}/${BUCKET}/${key}?v=${String(Date.now())}`;
+  return `${getStorageBaseUrl()}/${BUCKET}/${key}?v=${String(Date.now())}`;
 }
 
 export async function deleteUserAvatar(client: S3Client, userId: string): Promise<void> {

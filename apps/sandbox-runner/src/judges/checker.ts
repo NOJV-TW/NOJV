@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
+import { cleanupTempDir } from "../utils.js";
 import { runProcess, classifySolutionVerdict, parseJudgeOutput } from "./run-process.js";
 
 const CHECKER_TIMEOUT_MS = 30_000;
@@ -105,6 +106,6 @@ export async function judgeChecker(
     }
     return result;
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupTempDir(tmpDir);
   }
 }

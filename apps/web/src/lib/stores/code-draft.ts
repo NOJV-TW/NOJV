@@ -41,19 +41,20 @@ export function buildDraftKey(key: DraftKey): string {
   return `${KEY_PREFIX}${contextSegment(key.context)}:${key.problemId}:${key.language}`;
 }
 
-export function loadDraft(key: DraftKey): DraftRecord | null {
-  const raw = localStorage.getItem(buildDraftKey(key));
+function parseDraftRecord(raw: string | null): DraftRecord | null {
   if (raw === null) return null;
-
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
     return null;
   }
-
   const parsed = draftRecordSchema.safeParse(json);
   return parsed.success ? parsed.data : null;
+}
+
+export function loadDraft(key: DraftKey): DraftRecord | null {
+  return parseDraftRecord(localStorage.getItem(buildDraftKey(key)));
 }
 
 // QuotaExceededError can be a DOMException with name "QuotaExceededError" or
@@ -77,18 +78,9 @@ function listDraftsByAge(): IndexedDraft[] {
   for (let i = 0; i < localStorage.length; i++) {
     const storageKey = localStorage.key(i);
     if (!storageKey?.startsWith(KEY_PREFIX)) continue;
-    const raw = localStorage.getItem(storageKey);
-    if (raw === null) continue;
-    let json: unknown;
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      // Malformed entries are oldest-first candidates — treat them as savedAt 0.
-      entries.push({ storageKey, savedAt: 0 });
-      continue;
-    }
-    const parsed = draftRecordSchema.safeParse(json);
-    entries.push({ storageKey, savedAt: parsed.success ? parsed.data.savedAt : 0 });
+    // Malformed entries are oldest-first candidates — treat them as savedAt 0.
+    const record = parseDraftRecord(localStorage.getItem(storageKey));
+    entries.push({ storageKey, savedAt: record?.savedAt ?? 0 });
   }
   entries.sort((a, b) => a.savedAt - b.savedAt);
   return entries;

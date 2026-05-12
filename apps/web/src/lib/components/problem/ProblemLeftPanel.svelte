@@ -9,6 +9,7 @@
   } from "$lib/types";
   import { formatVerdictLabel, tagClass, verdictColor } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
+  import { fetchWithCsrf } from "$lib/utils";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "../layout/MarkdownRenderer.svelte";
   import CodeBlock from "../ui/CodeBlock.svelte";
@@ -91,9 +92,8 @@
     if (rejudgingId !== null) return;
     rejudgingId = submissionId;
     try {
-      const res = await fetch("/api/rejudge", {
+      const res = await fetchWithCsrf("/api/rejudge", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ mode: "single", submissionId })
       });
       if (res.ok) {
@@ -140,9 +140,8 @@
     if (editorialSubmitting) return;
     editorialSubmitting = true;
     try {
-      const res = await fetch(`/api/problems/${problem.id}/editorials`, {
+      const res = await fetchWithCsrf(`/api/problems/${problem.id}/editorials`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
         body: JSON.stringify({ content: editorialContent, language: editorialLanguage })
       });
       if (res.ok) {

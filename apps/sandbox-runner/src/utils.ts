@@ -10,6 +10,12 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+// Best-effort cleanup — judges run in single-use containers, so a failed rm
+// only matters when running locally; swallowing the error keeps shutdown clean.
+export function cleanupTempDir(dir: string): Promise<void> {
+  return fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+}
+
 export interface MemoryPoller {
   /** Stop polling and return the peak resident set size observed, in KB. */
   stop(): number;

@@ -11,6 +11,28 @@ import {
 
 type TxClient = TransactionClient;
 
+// Shared list shape for contest / exam submission feeds — identical columns,
+// different scoping. Keep extracted so adding a column updates one place.
+const contestExamListSelect = {
+  id: true,
+  createdAt: true,
+  language: true,
+  score: true,
+  status: true,
+  runtimeMs: true,
+  problem: { select: problemMiniSelect },
+  user: { select: userMiniSelect },
+} satisfies Prisma.SubmissionSelect;
+
+// Scoring base — chart, scoreboard, and per-participation scoring share these
+// four columns; each method spreads it and adds the nesting it needs.
+const scoringBaseSelect = {
+  createdAt: true,
+  problemId: true,
+  score: true,
+  status: true,
+} satisfies Prisma.SubmissionSelect;
+
 export const submissionRepo = {
   findById(id: string) {
     return prisma.submission.findUnique({ where: { id } });
@@ -288,16 +310,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { contestId: opts.contestId, sampleOnly: false },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        createdAt: true,
-        language: true,
-        score: true,
-        status: true,
-        runtimeMs: true,
-        problem: { select: problemMiniSelect },
-        user: { select: userMiniSelect },
-      },
+      select: contestExamListSelect,
       take: opts.take ?? 100,
     });
   },
@@ -306,16 +319,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: { examId: opts.examId, sampleOnly: false },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        createdAt: true,
-        language: true,
-        score: true,
-        status: true,
-        runtimeMs: true,
-        problem: { select: problemMiniSelect },
-        user: { select: userMiniSelect },
-      },
+      select: contestExamListSelect,
       take: opts.take ?? 100,
     });
   },
@@ -324,11 +328,8 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: {
+        ...scoringBaseSelect,
         contestParticipation: { select: { userId: true } },
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
       },
       where: {
         contestParticipationId: { in: participationIds },
@@ -341,11 +342,8 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: {
+        ...scoringBaseSelect,
         contestParticipationId: true,
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
       },
       where: {
         contestParticipationId: { in: participationIds },
@@ -357,12 +355,7 @@ export const submissionRepo = {
   findForParticipationScoring(participationId: string) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
-      select: {
-        createdAt: true,
-        problemId: true,
-        score: true,
-        status: true,
-      },
+      select: scoringBaseSelect,
       where: {
         contestParticipationId: participationId,
         sampleOnly: false,

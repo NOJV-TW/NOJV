@@ -1,7 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { createSubscriber, keys } from "@nojv/redis";
-import { userChannel } from "@nojv/core";
 import { clarificationDomain } from "@nojv/domain";
 import { createLogger } from "$lib/server/logger";
 import {
@@ -118,7 +117,7 @@ export const GET: RequestHandler = async (event) => {
       const encoder = new TextEncoder();
       const subscriber = createSubscriber(redisUrl);
       const channels = [
-        userChannel(userId),
+        keys.userChannel(userId),
         keys.notificationChannel(userId),
         ...authorizedClarChannels,
       ];

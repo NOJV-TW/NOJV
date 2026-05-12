@@ -4,7 +4,12 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { parseJudgeOutput } from "./run-process.js";
-import { createBoundedBuffer, createMemoryPoller, withProcessLimit } from "../utils.js";
+import {
+  cleanupTempDir,
+  createBoundedBuffer,
+  createMemoryPoller,
+  withProcessLimit,
+} from "../utils.js";
 
 /**
  * Bidirectional pipe between the solution and the interactor:
@@ -28,7 +33,7 @@ export async function judgeInteractive(
   try {
     return await runInteractive(runCommand, testcase, interactorCommand, inputFile, timeoutMs);
   } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    await cleanupTempDir(tmpDir);
   }
 }
 
