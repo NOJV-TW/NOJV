@@ -24,9 +24,6 @@ students by default (archived detail page is manager-only).
 - As a **student**, I want mid-exam navigation to any non-exam page to
   auto-redirect me back and log a `visibility_lost` event, so that the
   page lock is enforced without silently failing.
-- As a **teacher**, I want the scoreboard to freeze at an instructor-
-  chosen moment (`setExamBoardFrozen`) and unfreeze on demand, so that the
-  final reveal is controlled.
 - As a **teacher**, I want a submissions matrix (students × problems,
   best score + attempts + AC/partial/zero cells) that recomputes on every
   load, so that I can spot-check performance without running SQL.
@@ -185,13 +182,10 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 
 ### Scoreboard
 
-- WHEN `setExamBoardFrozen(actor, examId, true)` is called by a manager,
-  THEN `scoreboard.freezeScoreboard(examId)` snapshots the live zset into
-  the frozen key and sets `Exam.frozenBoard = true`.
-- WHEN `setExamBoardFrozen(..., false)` is called, THEN the frozen key
-  is deleted (live key stays authoritative) and `frozenBoard = false`.
-- GIVEN `setExamBoardFrozen` with a non-manager actor, THEN
-  `ForbiddenError(...)`.
+- Exams do not support manual scoreboard freezing — `scoreboardMode`
+  alone drives visibility (`hidden` / `live` / `frozen`). The contest
+  use-case for instructor-controlled freeze does not apply to in-class
+  exams where the assessment ends at `endsAt`.
 
 ### Submissions matrix
 
@@ -234,10 +228,6 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - **Auto-close workflow replayed after manual unarchive.** The workflow
   only runs once per publish dispatch; re-publishing an archived exam
   dispatches a fresh workflow.
-- **Freeze then new submissions arrive.** Live key continues updating
-  (ZADD is idempotent with TTL refresh); the frozen key is a snapshot.
-  `getScoreboard` returns the frozen view until `unfreezeScoreboard` DELs
-  the frozen key.
 - **`recordEvent('visibility_lost')` fails.** Hooks still redirect —
   logging path is fire-and-forget with a `warn` line.
 
@@ -247,8 +237,7 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 
 - `packages/domain/src/exam/mutations.ts` — `createExamRecord`,
   `updateExamRecord`, `publishExam`, `deleteExamDraft`, `archiveExam`,
-  `unarchiveExam`, `setExamBoardFrozen`, `freezeExamBoard`,
-  `unfreezeExamBoard`, `assertExamManagePermission`.
+  `unarchiveExam`, `assertExamManagePermission`.
 - `packages/domain/src/exam/session.ts` — `startSession`,
   `startSessionWithGate`, `heartbeat`, `heartbeatWithThrottle`,
   `endSession`, `recordEvent`, `autoCloseForExam`,

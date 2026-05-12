@@ -1,16 +1,50 @@
+<script lang="ts" module>
+  export interface ResultsProblemCol {
+    id: string;
+    letter: string;
+    title: string;
+    max: number;
+  }
+
+  export interface ResultsRow {
+    rank: number;
+    user: string;
+    sid: string;
+    total: number;
+    scores: number[];
+    me: boolean;
+  }
+
+  export interface ResultsBucket {
+    label: string;
+    count: number;
+  }
+
+  export interface ExamResultsTabData {
+    problems: ResultsProblemCol[];
+    rows: ResultsRow[];
+    classAvg: number;
+    median: number;
+    max: number;
+    min: number;
+    submitted: number;
+    total: number;
+    buckets: ResultsBucket[];
+  }
+</script>
+
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import Crumbs from "$lib/components/coursework/Crumbs.svelte";
-  import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
   import GlassPanel from "$lib/components/coursework/GlassPanel.svelte";
-  import type { PageData } from "./$types";
+  import ScoreDistributionPanel from "$lib/components/results/ScoreDistributionPanel.svelte";
 
-  let { data }: { data: PageData } = $props();
+  interface Props {
+    data: ExamResultsTabData;
+  }
 
-  const totalMax = $derived(data.problems.reduce((s, p) => s + p.max, 0));
+  let { data }: Props = $props();
 
-  // Cell colour ramps from green (=max) → muted (=0). Mirrors the
-  // design's per-cell tinting which acts as a quick visual scan.
+  // Cell colour ramps from green (=max) → muted (=0).
   function cellColor(score: number, max: number): string {
     if (max <= 0) return "var(--muted-foreground)";
     const ratio = score / max;
@@ -19,50 +53,16 @@
     if (ratio > 0) return "oklch(0.55 0.13 70)";
     return "var(--muted-foreground)";
   }
-
-  const bucketColors = [
-    "var(--success)",
-    "var(--chart-1)",
-    "var(--chart-2)",
-    "var(--chart-4)",
-    "var(--destructive)"
-  ];
 </script>
 
-<div class="space-y-5 fade-up pb-20">
-  <Crumbs
-    items={[
-      { label: "exam", href: "/exams" },
-      { label: data.examCode, href: `/exams/${data.examId}` },
-      { label: m.examResults_crumb() }
-    ]}
-  />
-
+<div class="space-y-5">
   <!-- Header band with stats -->
   <div class="glass rounded-xl p-4 shadow-rest lg:p-5">
     <div class="flex flex-wrap items-center gap-5">
-      <div class="flex items-center gap-3">
-        <div
-          class="rounded-lg p-2.5"
-          style="background: color-mix(in oklab, var(--primary) 12%, transparent);"
-        >
-          <TypeIcon kind="exam" size={20} />
-        </div>
-        <div>
-          <div
-            class="font-mono text-micro uppercase tracking-[0.2em] text-muted-foreground"
-          >
-            {m.examResults_eyebrow({ code: data.examCode })}
-          </div>
-          <h1 class="text-headline font-semibold tracking-tight">
-            {data.examTitle}
-          </h1>
-        </div>
-      </div>
-      <div class="ml-auto flex flex-wrap gap-6">
+      <div class="flex gap-6">
         <div>
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-            {m.examResults_submittedLabel()}
+            {m.results_submittedLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
             {data.submitted}/{data.total}
@@ -70,7 +70,7 @@
         </div>
         <div>
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-            {m.examResults_avgLabel()}
+            {m.results_avgLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
             {data.classAvg}
@@ -78,7 +78,7 @@
         </div>
         <div>
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-            {m.examResults_medianLabel()}
+            {m.results_medianLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
             {data.median}
@@ -86,7 +86,7 @@
         </div>
         <div>
           <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-            {m.examResults_minMaxLabel()}
+            {m.results_minMaxLabel()}
           </div>
           <div class="mt-1 text-title font-semibold tabular-nums">
             {data.max} / {data.min}
@@ -102,9 +102,9 @@
       <div
         class="flex items-center justify-between border-b border-border-subtle px-5 py-3.5"
       >
-        <h2 class="text-title font-semibold">{m.examResults_studentScoresHeading()}</h2>
+        <h2 class="text-title font-semibold">{m.results_studentScoresHeading()}</h2>
         <div class="text-caption text-muted-foreground">
-          {m.examResults_studentCount({ count: data.rows.length })}
+          {m.results_studentCount({ count: data.rows.length })}
         </div>
       </div>
       <div class="overflow-x-auto">
@@ -116,15 +116,15 @@
               class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
             >
               <th class="w-12 px-4 py-2.5 text-left">#</th>
-              <th class="px-3 py-2.5 text-left">{m.examResults_studentColHeader()}</th>
-              <th class="px-3 py-2.5 text-left">{m.examResults_handleColHeader()}</th>
+              <th class="px-3 py-2.5 text-left">{m.results_studentColHeader()}</th>
+              <th class="px-3 py-2.5 text-left">{m.results_handleColHeader()}</th>
               {#each data.problems as p (p.id)}
                 <th class="w-14 px-2 py-2.5 text-center">
                   {p.letter}<br />
                   <span class="text-[10px] normal-case opacity-60">/{p.max}</span>
                 </th>
               {/each}
-              <th class="w-16 px-4 py-2.5 text-right">{m.examResults_totalColHeader()}</th>
+              <th class="w-16 px-4 py-2.5 text-right">{m.results_totalColHeader()}</th>
             </tr>
           </thead>
           <tbody>
@@ -141,7 +141,7 @@
                   {#if row.me}
                     <span
                       class="ml-1.5 font-mono text-micro uppercase tracking-wider text-primary"
-                      >{m.examResults_youBadge()}</span
+                      >{m.results_youBadge()}</span
                     >
                   {/if}
                 </td>
@@ -166,7 +166,7 @@
                   colspan={3 + data.problems.length + 1}
                   class="px-4 py-12 text-center text-body-sm text-muted-foreground"
                 >
-                  {m.examResults_emptyState()}
+                  {m.results_emptyState()}
                 </td>
               </tr>
             {/if}
@@ -177,65 +177,20 @@
 
     <!-- Right column -->
     <div class="space-y-4">
-      <GlassPanel class="p-5">
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.examResults_distributionHeading()}
-        </div>
-        <div class="mt-3 space-y-1.5">
-          {#each data.buckets as b, i (b.label)}
-            {@const pct = data.submitted > 0 ? (b.count / data.submitted) * 100 : 0}
-            <div class="flex items-center gap-2 text-caption">
-              <div class="w-14 font-mono text-muted-foreground">{b.label}</div>
-              <div
-                class="h-4 flex-1 overflow-hidden rounded-sm"
-                style="background: var(--muted);"
-              >
-                <div
-                  class="h-full"
-                  style:width={`${pct}%`}
-                  style:background={bucketColors[i] ?? "var(--muted-foreground)"}
-                  style="opacity: 0.55;"
-                ></div>
-              </div>
-              <div class="w-6 text-right font-mono tabular-nums">{b.count}</div>
-            </div>
-          {/each}
-        </div>
-      </GlassPanel>
+      <ScoreDistributionPanel buckets={data.buckets} submitted={data.submitted} />
 
       <!--
-        TODO(NOJV): the design's "recent submissions" panel needs a
-        domain query (`listRecentExamSubmissions(examId, limit)`) we
-        don't have yet. Placeholder text keeps the layout balanced.
+        TODO: needs a domain query (`listRecentExamSubmissions(examId, limit)`)
+        we don't have yet. Placeholder keeps the layout balanced.
       -->
       <GlassPanel class="p-5">
         <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.examResults_recentSubmissionsHeading()}
+          {m.results_recentSubmissionsHeading()}
         </div>
         <div
           class="mt-3 rounded-md border border-dashed border-border-subtle px-3 py-6 text-center text-caption text-muted-foreground"
         >
-          {m.examResults_comingSoon()}
-        </div>
-      </GlassPanel>
-
-      <GlassPanel class="p-5">
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.examResults_quickLinksHeading()}
-        </div>
-        <div class="mt-3 flex flex-col gap-2">
-          <a
-            href={`/exams/${data.examId}`}
-            class="rounded-md border border-border-subtle px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-          >
-            {m.examResults_backToExam()}
-          </a>
-          <a
-            href={`/exams/${data.examId}/review`}
-            class="rounded-md border border-border-subtle px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-          >
-            {m.examResults_viewPersonalReview()}
-          </a>
+          {m.results_comingSoon()}
         </div>
       </GlassPanel>
     </div>

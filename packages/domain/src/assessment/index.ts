@@ -1,4 +1,5 @@
 import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db";
+import { submissionVerdicts } from "@nojv/core";
 
 export * from "./mutations";
 
@@ -46,6 +47,64 @@ export async function activateAssessment(assessmentId: string): Promise<void> {
 
 export async function closeAssessment(assessmentId: string): Promise<void> {
   await assessmentRepo.update(assessmentId, { status: "archived" });
+}
+
+export interface AssessmentProblemSibling {
+  id: string;
+  letter: string;
+  title: string;
+  bestScore?: number | undefined;
+  maxScore: number;
+  isActive: boolean;
+  href: string;
+}
+
+function letterForIndex(index: number): string {
+  if (index < 0) return String(index + 1);
+  if (index < 26) return String.fromCharCode(65 + index);
+  return String(index + 1);
+}
+
+/**
+ * Build the assignment's sibling-problem list for the float problem switcher.
+ * Submission filter is scoped by (assessmentId, userId, problemId) — cross-
+ * assignment data cannot leak through.
+ */
+export async function listAssessmentProblemSiblings(options: {
+  assessmentId: string;
+  activeProblemId: string;
+  actorUserId: string;
+}): Promise<AssessmentProblemSibling[]> {
+  const rows = await assessmentProblemRepo.findByAssessmentId(options.assessmentId);
+  if (rows.length === 0) return [];
+
+  const ordered = rows.slice().sort((a, b) => a.ordinal - b.ordinal);
+  const problemIds = ordered.map((r) => r.problemId);
+
+  const bestRows = await submissionRepo.groupByUserAndProblem({
+    courseAssessmentId: options.assessmentId,
+    userId: options.actorUserId,
+    problemId: { in: problemIds },
+    sampleOnly: false,
+    status: { in: [...submissionVerdicts] },
+  });
+
+  const bestByProblemId = new Map<string, number>();
+  for (const row of bestRows) {
+    if (row._max.score !== null) {
+      bestByProblemId.set(row.problemId, row._max.score);
+    }
+  }
+
+  return ordered.map((r, index) => ({
+    id: r.problemId,
+    letter: letterForIndex(index),
+    title: r.problem.title,
+    bestScore: bestByProblemId.get(r.problemId),
+    maxScore: r.points,
+    isActive: r.problemId === options.activeProblemId,
+    href: `/assignments/${options.assessmentId}/problems/${r.problemId}`,
+  }));
 }
 
 /**
