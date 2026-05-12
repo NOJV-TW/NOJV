@@ -43,12 +43,16 @@
   }
 </script>
 
-<PageContainer>
+<PageContainer class="fade-up">
   <PageHeader
     eyebrow={m.courses_eyebrow()}
     title={m.navigation_courses()}
     description={m.courses_subtitle()}
-  />
+  >
+    {#snippet icon()}
+      <GraduationCap class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
+    {/snippet}
+  </PageHeader>
 
   <div class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border">
     <div role="tablist" aria-label="Course tabs" class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">

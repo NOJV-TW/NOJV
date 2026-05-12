@@ -1,11 +1,12 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { Plus } from "@lucide/svelte";
+  import { Plus, Trophy } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
-  import PageHero from "$lib/components/coursework/PageHero.svelte";
+  import PageContainer from "$lib/components/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/layout/PageHeader.svelte";
   import ContestSection from "$lib/components/contest/ContestSection.svelte";
   import ContestPoster from "$lib/components/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/contest/ContestRowPast.svelte";
@@ -54,15 +55,17 @@
   const past = $derived(all.filter((x) => x.status === "ended"));
 </script>
 
-<div class="space-y-8 fade-up px-6 py-8 lg:px-10">
-  <PageHero
-    kind="contest"
-    eyebrow="Programming Contests"
-    title={m.contestsList_heroTitle()}
-    titleEn="Contests"
-    description={m.contestsList_heroDescription()}
-    accentStripe
-  />
+<PageContainer>
+  <div class="space-y-8 fade-up">
+    <PageHeader
+      eyebrow={m.contests_eyebrow()}
+      title={m.contestsList_heroTitle()}
+      description={m.contestsList_heroDescription()}
+    >
+      {#snippet icon()}
+        <Trophy class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
+      {/snippet}
+    </PageHeader>
 
   <div class="flex flex-wrap items-center gap-3">
     {#if data.loggedIn}
@@ -161,4 +164,5 @@
       </form>
     </Dialog.Content>
   </Dialog.Root>
-</div>
+  </div>
+</PageContainer>

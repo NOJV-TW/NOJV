@@ -1,6 +1,16 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
+  import {
+    ClipboardList,
+    Code2,
+    FileCheck,
+    GraduationCap,
+    LayoutDashboard,
+    Shield,
+    Trophy
+  } from "@lucide/svelte";
+  import type { Component } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale, setLocale, locales } from "$lib/paraglide/runtime.js";
   import { shortcuts } from "$lib/stores/shortcuts.svelte.js";
@@ -13,21 +23,23 @@
   let user = $derived($page.data.user);
   let currentPath = $derived($page.url.pathname);
 
-  let navItems = $derived(
+  type NavItem = { href: string; label: string; icon: Component };
+
+  let navItems = $derived<NavItem[]>(
     user?.username
       ? [
-          { href: "/dashboard", label: m.navigation_dashboard() },
-          { href: "/problems", label: m.navigation_problems() },
-          { href: "/courses", label: m.navigation_courses() },
+          { href: "/dashboard", label: m.navigation_dashboard(), icon: LayoutDashboard },
+          { href: "/problems", label: m.navigation_problems(), icon: Code2 },
+          { href: "/courses", label: m.navigation_courses(), icon: GraduationCap },
           ...(user.platformRole === "student"
             ? [
-                { href: "/assignments", label: m.navigation_assignments() },
-                { href: "/exams", label: m.navigation_exams() }
+                { href: "/assignments", label: m.navigation_assignments(), icon: ClipboardList },
+                { href: "/exams", label: m.navigation_exams(), icon: FileCheck }
               ]
             : []),
-          { href: "/contests", label: m.navigation_contests() },
+          { href: "/contests", label: m.navigation_contests(), icon: Trophy },
           ...(user.platformRole === "admin"
-            ? [{ href: "/admin", label: m.navigation_admin() }]
+            ? [{ href: "/admin", label: m.navigation_admin(), icon: Shield }]
             : [])
         ]
       : []
@@ -98,18 +110,20 @@
     </a>
 
     {#if navItems.length > 0}
-      <nav class="flex flex-wrap items-center gap-4 text-body-sm font-medium">
+      <nav class="flex flex-wrap items-center gap-2 text-body-sm font-medium">
         {#each navItems as item (item.href)}
+          {@const Icon = item.icon}
           <a
             class={cn(
-              "rounded-md px-3 py-1.5 transition-colors duration-fast ease-out-soft",
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition-colors duration-fast ease-out-soft",
               isActive(item.href)
                 ? "text-foreground bg-accent/60"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent/40"
             )}
             href={item.href}
           >
-            {item.label}
+            <Icon class="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <span>{item.label}</span>
           </a>
         {/each}
       </nav>
