@@ -41,12 +41,12 @@ const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
 const { listEditableProblems } = problemDomain;
 const {
-  archiveAssessment,
-  deleteAssessmentDraft,
-  publishAssessment,
-  revertAssessmentToDraft,
-  unarchiveAssessment,
-  updateAssessmentRecord,
+  archiveAssignment,
+  deleteAssignmentDraft,
+  publishAssignment,
+  revertAssignmentToDraft,
+  unarchiveAssignment,
+  updateAssignmentRecord,
 } = assignmentDomain;
 
 function localToIso(local: string): string {
@@ -56,9 +56,9 @@ function localToIso(local: string): string {
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const parent = await event.parent();
-  const { assessment, isManager } = parent;
-  const assessmentId = assessment.id;
-  const courseId = assessment.courseId;
+  const { assignment, isManager } = parent;
+  const assignmentId = assignment.id;
+  const courseId = assignment.courseId;
 
   if (isManager) {
     const [
@@ -72,18 +72,18 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canAnswerClar,
       canViewClar,
     ] = await Promise.all([
-      getAssignmentDetail(courseId, assessmentId, {
+      getAssignmentDetail(courseId, assignmentId, {
         viewerUserId: actor.userId,
         isManager: true,
       }),
-      buildSubmissionsMatrix(courseId, assessmentId),
-      findPlagiarismReport({ type: "courseAssessment", id: assessmentId }).catch(() => null),
-      listFlagsForContext("assessment", assessmentId).catch(() => []),
+      buildSubmissionsMatrix(courseId, assignmentId),
+      findPlagiarismReport({ type: "courseAssessment", id: assignmentId }).catch(() => null),
+      listFlagsForContext("assessment", assignmentId).catch(() => []),
       listEditableProblems(actor.userId),
-      scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assessmentId),
-      clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
-      clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId),
-      clarificationDomain.canViewClarifications(actor, "assignment", assessmentId),
+      scoreOverrideDomain.canSetScoreOverride(actor, "assignment", assignmentId),
+      clarificationDomain.canAskClarification(actor, "assignment", assignmentId),
+      clarificationDomain.canAnswerInContext(actor, "assignment", assignmentId),
+      clarificationDomain.canViewClarifications(actor, "assignment", assignmentId),
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -136,13 +136,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
 
   const [detail, canAskClar, canAnswerClar, canViewClar] = await Promise.all([
-    getAssignmentDetail(courseId, assessmentId, {
+    getAssignmentDetail(courseId, assignmentId, {
       viewerUserId: actor.userId,
       isManager: false,
     }),
-    clarificationDomain.canAskClarification(actor, "assignment", assessmentId),
-    clarificationDomain.canAnswerInContext(actor, "assignment", assessmentId),
-    clarificationDomain.canViewClarifications(actor, "assignment", assessmentId),
+    clarificationDomain.canAskClarification(actor, "assignment", assignmentId),
+    clarificationDomain.canAnswerInContext(actor, "assignment", assignmentId),
+    clarificationDomain.canViewClarifications(actor, "assignment", assignmentId),
   ]);
   return {
     mode: "student" as const,
@@ -161,7 +161,7 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     const form = await superValidate(event, zod4(assessmentSettingsFormSchema));
     if (!form.valid) return fail(400, { form });
@@ -177,7 +177,7 @@ export const actions = {
     };
 
     try {
-      await updateAssessmentRecord(actor, assessmentId, payload);
+      await updateAssignmentRecord(actor, assignmentId, payload);
     } catch (err) {
       const classified = classifyError(err);
       return message(form, { kind: "error", text: classified.message }, { status: 400 });
@@ -191,7 +191,7 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     const formData = await event.request.formData();
     const parsed = tryParseJsonField(formData.get("payload"), updateProblemsPayloadSchema);
@@ -208,7 +208,7 @@ export const actions = {
     };
 
     try {
-      await updateAssessmentRecord(actor, assessmentId, payload);
+      await updateAssignmentRecord(actor, assignmentId, payload);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
@@ -222,10 +222,10 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     try {
-      await publishAssessment(actor, assessmentId);
+      await publishAssignment(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
@@ -239,10 +239,10 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     try {
-      await revertAssessmentToDraft(actor, assessmentId);
+      await revertAssignmentToDraft(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
@@ -256,10 +256,10 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     try {
-      await archiveAssessment(actor, assessmentId);
+      await archiveAssignment(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
@@ -273,10 +273,10 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     try {
-      await unarchiveAssessment(actor, assessmentId);
+      await unarchiveAssignment(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
@@ -290,10 +290,10 @@ export const actions = {
     if (limited) return limited;
 
     const actor = requireAuth(event);
-    const assessmentId = event.params.assignmentId;
+    const assignmentId = event.params.assignmentId;
 
     try {
-      await deleteAssessmentDraft(actor, assessmentId);
+      await deleteAssignmentDraft(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });

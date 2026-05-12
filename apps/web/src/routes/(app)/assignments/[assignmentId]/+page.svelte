@@ -498,7 +498,7 @@
         {#if activeSubTab === "problems"}
           <AssignmentProblemsTab
             problems={detail.problems}
-            assessmentId={detail.id}
+            assignmentId={detail.id}
             canEdit={data.mode === "teacher" && detail.status !== "closed"}
             candidateProblems={data.mode === "teacher" ? data.candidateProblems : []}
           />
@@ -506,7 +506,7 @@
           <AssignmentSubmissionsMatrix
             matrix={data.matrix}
             courseId={detail.courseId}
-            assessmentId={detail.id}
+            assignmentId={detail.id}
           />
         {:else if activeSubTab === "results" && data.results}
           <AssignmentResultsTab data={data.results} />
@@ -531,7 +531,7 @@
             form={data.settingsForm}
             {detail}
             liveStatus={deriveAssignmentLiveStatus(
-              data.assessment.status,
+              data.assignment.status,
               detail.opensAt,
               detail.closesAt
             )}

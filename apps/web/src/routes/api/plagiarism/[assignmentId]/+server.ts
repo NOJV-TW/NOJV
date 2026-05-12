@@ -38,11 +38,11 @@ async function assertCanManagePlagiarism(
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  const assessmentId = event.params.assessmentId;
-  if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
+  const assignmentId = event.params.assignmentId;
+  if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const resolved = await resolvePlagiarismTarget(assessmentId, type);
+  const resolved = await resolvePlagiarismTarget(assignmentId, type);
   await assertCanManagePlagiarism(event, resolved, "Only staff can trigger plagiarism checks.");
 
   const { target } = resolved;
@@ -58,11 +58,11 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
-  const assessmentId = event.params.assessmentId;
-  if (!assessmentId) return json({ message: "Missing assessmentId." }, { status: 400 });
+  const assignmentId = event.params.assignmentId;
+  if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const resolved = await resolvePlagiarismTarget(assessmentId, type);
+  const resolved = await resolvePlagiarismTarget(assignmentId, type);
   await assertCanManagePlagiarism(event, resolved, "Only staff can view plagiarism reports.");
 
   const { target } = resolved;

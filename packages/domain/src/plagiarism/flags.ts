@@ -39,7 +39,7 @@ async function isCourseTeacherOrTa(userId: string, courseId: string): Promise<bo
 /**
  * Permission rules:
  *   - platform admin   → always
- *   - assessment       → course teacher / TA (via CourseAssessment.courseId)
+ *   - assessment       → course teacher / TA (assignment, via CourseAssessment.courseId)
  *   - exam             → course teacher / TA (via Exam.courseId)
  *   - contest          → contest organizer (Contest.createdByUserId)
  */
@@ -52,9 +52,9 @@ async function canManagePlagiarismFlag(
 
   switch (contextType) {
     case "assessment": {
-      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
-      if (!assessment) return false;
-      return isCourseTeacherOrTa(actor.userId, assessment.courseId);
+      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      if (!assignment) return false;
+      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
     }
     case "exam": {
       const exam = await examRepo.findById(contextId);

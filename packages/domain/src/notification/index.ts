@@ -11,7 +11,7 @@ import {
 import { pubsub } from "@nojv/redis";
 import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
-import { listStudentsBelowMaxScore } from "../assessment";
+import { listStudentsBelowMaxScore } from "../assignment";
 
 export type CreateNotificationInput = NotificationCreateInput;
 
@@ -84,35 +84,35 @@ export async function markAllAsRead(userId: string) {
 
 /**
  * Fan out `assignment_due_soon` notifications to every active student in
- * the course who has not yet reached the assessment's maximum score.
+ * the course who has not yet reached the assignment's maximum score.
  *
- * No-ops (returns silently) when the assessment was unpublished, deleted,
+ * No-ops (returns silently) when the assignment was unpublished, deleted,
  * or already closed between workflow schedule time and the fire moment.
  */
-export async function fanoutAssignmentDueSoon(assessmentId: string): Promise<void> {
-  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
-  if (!assessment) return;
-  if (assessment.status !== "published") return;
-  if (assessment.closesAt.getTime() <= Date.now()) return;
+export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
+  const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
+  if (!assignment) return;
+  if (assignment.status !== "published") return;
+  if (assignment.closesAt.getTime() <= Date.now()) return;
 
-  const studentIds = await courseMembershipRepo.listActiveStudentUserIds(assessment.courseId);
+  const studentIds = await courseMembershipRepo.listActiveStudentUserIds(assignment.courseId);
   if (studentIds.length === 0) return;
 
-  const notYetMaxed = await listStudentsBelowMaxScore(assessmentId, studentIds);
+  const notYetMaxed = await listStudentsBelowMaxScore(assignmentId, studentIds);
   if (notYetMaxed.length === 0) return;
 
-  const dueAtIso = assessment.closesAt.toISOString();
+  const dueAtIso = assignment.closesAt.toISOString();
   await createNotificationBatch(
     notYetMaxed.map((userId) => ({
       userId,
       type: "assignment_due_soon",
       params: {
-        courseId: assessment.courseId,
-        assessmentId: assessment.id,
-        title: assessment.title,
+        courseId: assignment.courseId,
+        assignmentId: assignment.id,
+        title: assignment.title,
         dueAt: dueAtIso,
       },
-      linkUrl: `/assignments/${assessment.id}`,
+      linkUrl: `/assignments/${assignment.id}`,
     })),
   );
 }

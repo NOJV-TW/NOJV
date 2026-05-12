@@ -12,7 +12,7 @@
 <ProblemSolveView
   mode="practice"
   allowedLanguages={data.allowedLanguages}
-  assessment={data.assessmentProp}
+  assessment={data.assignmentProp}
   {endedKind}
   backLink={data.backLink}
   canRejudge={data.canRejudge}

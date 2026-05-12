@@ -43,9 +43,9 @@ export async function canSetScoreOverride(
       return contest?.createdByUserId === actor.userId;
     }
     case "assignment": {
-      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
-      if (!assessment) return false;
-      return isCourseTeacherOrTa(actor.userId, assessment.courseId);
+      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      if (!assignment) return false;
+      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
     }
     case "exam": {
       const exam = await examRepo.findById(contextId);

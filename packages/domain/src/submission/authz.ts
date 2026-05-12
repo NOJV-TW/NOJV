@@ -50,9 +50,9 @@ export async function canOperateOnSubmission(
   }
 
   if (submission.courseAssessmentId) {
-    const assessment = await assessmentRepo.findByIdWithCourseId(submission.courseAssessmentId);
-    if (!assessment) return false;
-    return isCourseTeacherOrTa(actor.userId, assessment.courseId);
+    const assignment = await assessmentRepo.findByIdWithCourseId(submission.courseAssessmentId);
+    if (!assignment) return false;
+    return isCourseTeacherOrTa(actor.userId, assignment.courseId);
   }
 
   if (submission.examId) {
@@ -87,7 +87,7 @@ export async function assertCanOperateOnSubmission(
  * used by `dispatchRejudge` in batch mode. Checks the context-specific
  * permission; for an unscoped batch (bare `problemId`) the problem author
  * is allowed, but only if no matching submissions live in a non-practice
- * context (those must be scoped by contest / assessment / exam).
+ * context (those must be scoped by contest / assignment / exam).
  */
 export async function assertBatchRejudgeAccess(
   actor: ActorContext,
@@ -104,9 +104,9 @@ export async function assertBatchRejudgeAccess(
   }
 
   if (input.assessmentId) {
-    const assessment = await assessmentRepo.findByIdWithCourseId(input.assessmentId);
-    if (!assessment || !(await isCourseTeacherOrTa(actor.userId, assessment.courseId))) {
-      throw new ForbiddenError("Not course staff for this assessment.");
+    const assignment = await assessmentRepo.findByIdWithCourseId(input.assessmentId);
+    if (!assignment || !(await isCourseTeacherOrTa(actor.userId, assignment.courseId))) {
+      throw new ForbiddenError("Not course staff for this assignment.");
     }
     return;
   }

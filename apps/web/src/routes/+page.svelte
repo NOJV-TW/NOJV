@@ -9,7 +9,7 @@
   import { Button } from "$lib/components/ui/button";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
-  import { assessmentPath } from "$lib/types";
+  import { assignmentPath } from "$lib/types";
 
   let { data } = $props();
 
@@ -131,7 +131,7 @@
           {m.home_upcomingAssessments()}
         </h2>
 
-        {#if data.assessments.length === 0}
+        {#if data.assignments.length === 0}
           <EmptyState
             variant="minimal"
             icon={Calendar}
@@ -140,8 +140,8 @@
           />
         {:else}
           <div class="mt-6 space-y-3">
-            {#each data.assessments as assessment (assessment.id)}
-              {@const href = assessmentPath(assessment.id)}
+            {#each data.assignments as assignment (assignment.id)}
+              {@const href = assignmentPath(assignment.id)}
               <a
                 {href}
                 class="block rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-transform duration-fast ease-out-soft hover:-translate-y-0.5"
@@ -149,19 +149,19 @@
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
                     <p class="text-caption font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                      {assessment.courseTitle}
+                      {assignment.courseTitle}
                     </p>
                     <h3 class="mt-1 text-body-sm font-semibold text-foreground">
-                      {assessment.title}
+                      {assignment.title}
                     </h3>
                     <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums">
-                      <span>{m.assessment_opens()}: {new Date(assessment.opensAt).toLocaleDateString()}</span>
-                      <span>{m.home_due()}: {new Date(assessment.dueAt).toLocaleDateString()}</span>
+                      <span>{m.assessment_opens()}: {new Date(assignment.opensAt).toLocaleDateString()}</span>
+                      <span>{m.home_due()}: {new Date(assignment.dueAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div class="flex shrink-0 flex-col items-end gap-1.5">
                     <Badge variant="info" size="xs">
-                      {assessment.windowState}
+                      {assignment.windowState}
                     </Badge>
                     <Badge variant="muted" size="xs">
                       {m.home_assignment()}

@@ -23,7 +23,7 @@ import { assertCanSetScoreOverride } from "./authz";
  *
  * Errors are swallowed on purpose: the mutation already succeeded, a
  * stale Redis ZSET self-heals on the next submission, and the UI re-reads
- * overrides directly in submissions-matrix / assessment-detail.
+ * overrides directly in submissions-matrix / assignment-detail.
  */
 async function invalidateScoreboardForOverride(
   contextType: OverrideContextType,

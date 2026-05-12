@@ -63,7 +63,7 @@ vi.mock("@nojv/db", () => {
 
 import { assignmentDomain } from "@nojv/domain";
 
-const { updateAssessmentRecord, publishAssessment, deleteAssessmentDraft } = assignmentDomain;
+const { updateAssignmentRecord, publishAssignment, deleteAssignmentDraft } = assignmentDomain;
 
 const teacherActor = {
   userId: "usr_teacher",
@@ -96,7 +96,7 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("updateAssessmentRecord", () => {
+describe("updateAssignmentRecord", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assessmentUpdate.mockResolvedValue({ id: "asg_1" });
@@ -113,7 +113,7 @@ describe("updateAssessmentRecord", () => {
   it("applies a partial update (title only)", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
-    await updateAssessmentRecord(teacherActor, "asg_1", { title: "New title" });
+    await updateAssignmentRecord(teacherActor, "asg_1", { title: "New title" });
 
     expect(assessmentUpdate).toHaveBeenCalledTimes(1);
     const [, data] = assessmentUpdate.mock.calls[0];
@@ -123,7 +123,7 @@ describe("updateAssessmentRecord", () => {
   it("coerces opensAt / closesAt / dueAt to Date objects", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
-    await updateAssessmentRecord(teacherActor, "asg_1", {
+    await updateAssignmentRecord(teacherActor, "asg_1", {
       opensAt: "2031-01-01T00:00:00.000Z",
       closesAt: "2031-02-01T00:00:00.000Z",
       dueAt: "2031-01-20T00:00:00.000Z",
@@ -138,7 +138,7 @@ describe("updateAssessmentRecord", () => {
   it("allows dueAt to be nulled out", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
-    await updateAssessmentRecord(teacherActor, "asg_1", { dueAt: null });
+    await updateAssignmentRecord(teacherActor, "asg_1", { dueAt: null });
 
     const [, data] = assessmentUpdate.mock.calls[0];
     expect(data.dueAt).toBeNull();
@@ -149,7 +149,7 @@ describe("updateAssessmentRecord", () => {
     courseMembershipFindByComposite.mockResolvedValue(null);
 
     await expect(
-      updateAssessmentRecord(studentActor, "asg_1", { title: "hax" }),
+      updateAssignmentRecord(studentActor, "asg_1", { title: "hax" }),
     ).rejects.toThrow(/permission/i);
     expect(assessmentUpdate).not.toHaveBeenCalled();
   });
@@ -162,7 +162,7 @@ describe("updateAssessmentRecord", () => {
     });
 
     await expect(
-      updateAssessmentRecord(studentActor, "asg_1", { title: "hax" }),
+      updateAssignmentRecord(studentActor, "asg_1", { title: "hax" }),
     ).rejects.toThrow(/permission/i);
   });
 
@@ -172,7 +172,7 @@ describe("updateAssessmentRecord", () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ allowedLanguages: [] }));
     problemFindMany.mockResolvedValue([{ id: "prob_a" }, { id: "prob_b" }]);
 
-    await updateAssessmentRecord(teacherActor, "asg_1", {
+    await updateAssignmentRecord(teacherActor, "asg_1", {
       problemIds: ["prob_a", "prob_b"],
       problemOrdinals: [
         { problemId: "prob_a", points: 50 },
@@ -198,7 +198,7 @@ describe("updateAssessmentRecord", () => {
     );
 
     await expect(
-      updateAssessmentRecord(teacherActor, "asg_1", {
+      updateAssignmentRecord(teacherActor, "asg_1", {
         opensAt: new Date(opensAt.getTime() + 1_000).toISOString(),
       }),
     ).rejects.toThrow(/opensAt/);
@@ -213,7 +213,7 @@ describe("updateAssessmentRecord", () => {
     );
 
     await expect(
-      updateAssessmentRecord(teacherActor, "asg_1", {
+      updateAssignmentRecord(teacherActor, "asg_1", {
         closesAt: new Date(closesAt.getTime() - 1_000).toISOString(),
       }),
     ).rejects.toThrow(/closesAt/);
@@ -231,12 +231,12 @@ describe("updateAssessmentRecord", () => {
     );
 
     await expect(
-      updateAssessmentRecord(teacherActor, "asg_1", { title: "nope" }),
+      updateAssignmentRecord(teacherActor, "asg_1", { title: "nope" }),
     ).rejects.toThrow(/closed/i);
   });
 });
 
-describe("publishAssessment", () => {
+describe("publishAssignment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assessmentUpdate.mockResolvedValue({ id: "asg_1" });
@@ -252,7 +252,7 @@ describe("publishAssessment", () => {
   it("promotes a valid draft to published", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
-    await publishAssessment(teacherActor, "asg_1");
+    await publishAssignment(teacherActor, "asg_1");
 
     expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "published" });
   });
@@ -260,7 +260,7 @@ describe("publishAssessment", () => {
   it("blocks non-draft assessments", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ status: "published" }));
 
-    await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
+    await expect(publishAssignment(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
     expect(assessmentUpdate).not.toHaveBeenCalled();
   });
 
@@ -268,7 +268,7 @@ describe("publishAssessment", () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
     assessmentProblemFindByAssessmentId.mockResolvedValue([]);
 
-    await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(
+    await expect(publishAssignment(teacherActor, "asg_1")).rejects.toThrow(
       /at least one problem/i,
     );
   });
@@ -276,7 +276,7 @@ describe("publishAssessment", () => {
   it("requires at least one allowed language", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ allowedLanguages: [] }));
 
-    await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(/language/i);
+    await expect(publishAssignment(teacherActor, "asg_1")).rejects.toThrow(/language/i);
   });
 
   it("refuses when closesAt is already in the past", async () => {
@@ -289,7 +289,7 @@ describe("publishAssessment", () => {
       }),
     );
 
-    await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(/closesAt/);
+    await expect(publishAssignment(teacherActor, "asg_1")).rejects.toThrow(/closesAt/);
   });
 
   it("refuses when dueAt falls outside [opensAt, closesAt]", async () => {
@@ -302,18 +302,18 @@ describe("publishAssessment", () => {
       }),
     );
 
-    await expect(publishAssessment(teacherActor, "asg_1")).rejects.toThrow(/dueAt/);
+    await expect(publishAssignment(teacherActor, "asg_1")).rejects.toThrow(/dueAt/);
   });
 
   it("rejects unauthorised callers", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
     courseMembershipFindByComposite.mockResolvedValue(null);
 
-    await expect(publishAssessment(studentActor, "asg_1")).rejects.toThrow(/permission/i);
+    await expect(publishAssignment(studentActor, "asg_1")).rejects.toThrow(/permission/i);
   });
 });
 
-describe("deleteAssessmentDraft", () => {
+describe("deleteAssignmentDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assessmentDelete.mockResolvedValue({ id: "asg_1" });
@@ -326,7 +326,7 @@ describe("deleteAssessmentDraft", () => {
   it("deletes a draft", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
-    await deleteAssessmentDraft(teacherActor, "asg_1");
+    await deleteAssignmentDraft(teacherActor, "asg_1");
 
     expect(assessmentDelete).toHaveBeenCalledWith("asg_1");
   });
@@ -334,13 +334,13 @@ describe("deleteAssessmentDraft", () => {
   it("refuses to delete a published assessment", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ status: "published" }));
 
-    await expect(deleteAssessmentDraft(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
+    await expect(deleteAssignmentDraft(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
     expect(assessmentDelete).not.toHaveBeenCalled();
   });
 
   it("refuses to delete an archived assessment", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ status: "archived" }));
 
-    await expect(deleteAssessmentDraft(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
+    await expect(deleteAssignmentDraft(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
   });
 });

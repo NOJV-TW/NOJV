@@ -82,12 +82,12 @@ export async function assertProblemViewAccess(
   // each hits a single indexed join table so the cost is bounded.
   if (actor?.userId) {
     const now = opts?.now ?? new Date();
-    const [assessment, contest, exam] = await Promise.all([
+    const [assignment, contest, exam] = await Promise.all([
       assessmentProblemRepo.hasEndedAssessmentForUser(problem.id, actor.userId, now),
       contestProblemRepo.hasEndedContestForUser(problem.id, actor.userId, now),
       examProblemRepo.hasEndedExamForUser(problem.id, actor.userId, now),
     ]);
-    if (assessment || contest || exam) return;
+    if (assignment || contest || exam) return;
   }
 
   // Mask the existence of the private problem — use 404 not 403.

@@ -31,20 +31,23 @@ export async function updateContestScores(contestParticipationId: string): Promi
   await contestDomain.updateContestScores(contestParticipationId);
 }
 
-// --- Assessment ---------------------------------------------------------
+// --- Assignment ---------------------------------------------------------
+// Activity names (getAssessmentInfo, activateAssessment, closeAssessment) are
+// preserved as the temporal-worker wire identifier — renaming them would break
+// in-flight workflows. Internally they delegate to the renamed domain helpers.
 
-export type AssessmentInfo = Awaited<ReturnType<typeof assignmentDomain.getAssessmentInfo>>;
+export type AssessmentInfo = Awaited<ReturnType<typeof assignmentDomain.getAssignmentInfo>>;
 
 export async function getAssessmentInfo(assessmentId: string) {
-  return assignmentDomain.getAssessmentInfo(assessmentId);
+  return assignmentDomain.getAssignmentInfo(assessmentId);
 }
 
 export async function activateAssessment(assessmentId: string): Promise<void> {
-  await assignmentDomain.activateAssessment(assessmentId);
+  await assignmentDomain.activateAssignment(assessmentId);
 }
 
 export async function closeAssessment(assessmentId: string): Promise<void> {
-  await assignmentDomain.closeAssessment(assessmentId);
+  await assignmentDomain.closeAssignment(assessmentId);
 }
 
 // --- Exam session -------------------------------------------------------
@@ -59,8 +62,8 @@ export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;
 export const publishAssessmentDeadline = pubsub.publishAssessmentDeadline;
 
-export async function fanoutAssignmentDueSoon(assessmentId: string): Promise<void> {
-  await notificationDomain.fanoutAssignmentDueSoon(assessmentId);
+export async function fanoutAssignmentDueSoon(assignmentId: string): Promise<void> {
+  await notificationDomain.fanoutAssignmentDueSoon(assignmentId);
 }
 
 export async function fanoutExamStartingSoon(examId: string): Promise<void> {

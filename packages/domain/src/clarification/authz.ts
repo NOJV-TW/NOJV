@@ -36,13 +36,13 @@ async function hasExamParticipation(userId: string, examId: string): Promise<boo
   return ids.includes(userId);
 }
 
-async function isActiveStudentInAssessment(
+async function isActiveStudentInAssignment(
   userId: string,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<boolean> {
-  const assessment = await assessmentRepo.findByIdWithCourseId(assessmentId);
-  if (!assessment) return false;
-  const membership = await courseMembershipRepo.findByComposite(assessment.courseId, userId);
+  const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
+  if (!assignment) return false;
+  const membership = await courseMembershipRepo.findByComposite(assignment.courseId, userId);
   if (membership?.status !== "active") return false;
   return membership.role === "student";
 }
@@ -59,7 +59,7 @@ async function isParticipantOfContext(
     case "exam":
       return hasExamParticipation(actor.userId, contextId);
     case "assignment":
-      return isActiveStudentInAssessment(actor.userId, contextId);
+      return isActiveStudentInAssignment(actor.userId, contextId);
   }
 }
 
@@ -80,9 +80,9 @@ async function isStaffOfContext(
       return isCourseTeacherOrTa(actor.userId, exam.courseId);
     }
     case "assignment": {
-      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
-      if (!assessment) return false;
-      return isCourseTeacherOrTa(actor.userId, assessment.courseId);
+      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      if (!assignment) return false;
+      return isCourseTeacherOrTa(actor.userId, assignment.courseId);
     }
   }
 }
@@ -104,9 +104,9 @@ async function isContextWindowOpen(
       return now >= exam.startsAt && now <= exam.endsAt;
     }
     case "assignment": {
-      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
-      if (!assessment) return false;
-      return now >= assessment.opensAt && now <= assessment.closesAt;
+      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      if (!assignment) return false;
+      return now >= assignment.opensAt && now <= assignment.closesAt;
     }
   }
 }

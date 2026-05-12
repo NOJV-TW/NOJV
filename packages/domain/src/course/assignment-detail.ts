@@ -87,21 +87,21 @@ function deriveStatus(
 
 export async function getAssignmentDetail(
   courseId: string,
-  assessmentId: string,
+  assignmentId: string,
   options: GetAssignmentDetailOptions,
 ): Promise<AssignmentDetail> {
   const now = options.now ?? new Date();
-  const row = await assessmentRepo.findDetailById(courseId, assessmentId);
+  const row = await assessmentRepo.findDetailById(courseId, assignmentId);
   if (!row) throw new NotFoundError("Assignment not found.");
 
   const status = deriveStatus(row, now);
 
-  // Draft assessments are author-facing only — surface as 404 to everyone else.
+  // Draft assignments are author-facing only — surface as 404 to everyone else.
   if (!options.isManager && status === "draft") {
     throw new NotFoundError("Assignment not found.");
   }
 
-  // Non-managers see problems only once the assessment has opened. Before
+  // Non-managers see problems only once the assignment has opened. Before
   // then (upcoming) we strip the list so neither the UI nor a downstream
   // caller can leak problem titles or link targets.
   const hideProblemsFromViewer = !options.isManager && status === "upcoming";
@@ -130,14 +130,14 @@ export async function getAssignmentDetail(
     const problemIds = problems.map((p) => p.problemId);
     const [grouped, recent] = await Promise.all([
       submissionRepo.groupByUserAndProblem({
-        courseAssessmentId: assessmentId,
+        courseAssessmentId: assignmentId,
         userId: options.viewerUserId,
         problemId: { in: problemIds },
         sampleOnly: false,
       }),
       submissionRepo.findMany({
         where: {
-          courseAssessmentId: assessmentId,
+          courseAssessmentId: assignmentId,
           userId: options.viewerUserId,
           sampleOnly: false,
         },
@@ -172,7 +172,7 @@ export async function getAssignmentDetail(
     // let them win over the best-submission aggregate.
     const overrides = await resolveOverridesForContext({
       contextType: "assignment",
-      contextId: assessmentId,
+      contextId: assignmentId,
     });
 
     for (const problem of problems) {

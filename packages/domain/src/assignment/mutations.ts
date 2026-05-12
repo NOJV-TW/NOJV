@@ -15,27 +15,27 @@ import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissio
 import { assertProblemHasWorkspaceForLanguages } from "../problem/helpers";
 import { stripUndefined } from "../shared/strip-undefined";
 
-async function requireAssessment(tx: TransactionClient, assessmentId: string) {
-  const assessment = await assessmentRepo.withTx(tx).findById(assessmentId);
-  if (!assessment) {
-    throw new NotFoundError(`Assignment not found: ${assessmentId}`);
+async function requireAssignment(tx: TransactionClient, assignmentId: string) {
+  const assignment = await assessmentRepo.withTx(tx).findById(assignmentId);
+  if (!assignment) {
+    throw new NotFoundError(`Assignment not found: ${assignmentId}`);
   }
-  return assessment;
+  return assignment;
 }
 
 // Defensive re-check — callers SHOULD have already verified this at the
 // route boundary, but mutations are not allowed to trust loader state.
-async function assertAssessmentManager(
+async function assertAssignmentManager(
   tx: TransactionClient,
   actor: ActorContext,
-  assessment: { courseId: string; createdByUserId: string },
+  assignment: { courseId: string; createdByUserId: string },
 ) {
   if (actor.platformRole === "admin") return;
-  if (assessment.createdByUserId === actor.userId) return;
+  if (assignment.createdByUserId === actor.userId) return;
 
   const membership = await courseMembershipRepo
     .withTx(tx)
-    .findByComposite(assessment.courseId, actor.userId);
+    .findByComposite(assignment.courseId, actor.userId);
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
     membership?.role ?? null,
@@ -45,12 +45,12 @@ async function assertAssessmentManager(
   }
 }
 
-type AssessmentLiveStatus = "draft" | "upcoming" | "open" | "closed" | "archived";
+type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed" | "archived";
 
 function deriveLiveStatus(
   row: { status: string; opensAt: Date; closesAt: Date },
   now: Date,
-): AssessmentLiveStatus {
+): AssignmentLiveStatus {
   if (row.status === "archived") return "archived";
   if (row.status === "draft") return "draft";
   if (row.opensAt > now) return "upcoming";
@@ -63,7 +63,7 @@ function deriveLiveStatus(
 // move forward — never backward. Closed / archived assignments are fully
 // immutable via this path; the archive toggle uses a dedicated entry.
 function assertFieldsAllowedForStatus(
-  liveStatus: AssessmentLiveStatus,
+  liveStatus: AssignmentLiveStatus,
   current: { opensAt: Date; dueAt: Date | null; closesAt: Date },
   payload: CourseAssessmentUpdate,
 ): void {
@@ -97,9 +97,9 @@ function assertFieldsAllowedForStatus(
   }
 }
 
-async function replaceAssessmentProblems(
+async function replaceAssignmentProblems(
   tx: TransactionClient,
-  assessmentId: string,
+  assignmentId: string,
   problemIds: string[],
   allowedLanguages: Language[],
   pointsByProblem: Map<string, number>,
@@ -122,12 +122,12 @@ async function replaceAssessmentProblems(
     );
   }
 
-  await assessmentProblemRepo.withTx(tx).deleteByAssessmentId(assessmentId);
+  await assessmentProblemRepo.withTx(tx).deleteByAssessmentId(assignmentId);
 
   await Promise.all(
     problemIds.map(async (id, index) => {
       await assessmentProblemRepo.withTx(tx).create({
-        assessmentId,
+        assessmentId: assignmentId,
         ordinal: index + 1,
         points: pointsByProblem.get(id) ?? 100,
         problemId: id,
@@ -137,27 +137,27 @@ async function replaceAssessmentProblems(
 }
 
 /**
- * Partial update of a course assessment. Mirrors `updateExamRecord` in the
+ * Partial update of a course assignment. Mirrors `updateExamRecord` in the
  * exam domain: permission check, strip `undefined`, coerce date strings,
  * and if `problemIds` is provided, wipe-and-recreate the attach rows.
  * Emits status-aware field-lock violations as `ValidationError` (400).
  */
-export async function updateAssessmentRecord(
+export async function updateAssignmentRecord(
   actor: ActorContext,
-  assessmentId: string,
+  assignmentId: string,
   payload: CourseAssessmentUpdate,
 ): Promise<{ id: string }> {
   return runTransaction(async (tx) => {
-    const assessment = await requireAssessment(tx, assessmentId);
-    await assertAssessmentManager(tx, actor, assessment);
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assertAssignmentManager(tx, actor, assignment);
 
-    const liveStatus = deriveLiveStatus(assessment, new Date());
+    const liveStatus = deriveLiveStatus(assignment, new Date());
     assertFieldsAllowedForStatus(
       liveStatus,
       {
-        opensAt: assessment.opensAt,
-        dueAt: assessment.dueAt,
-        closesAt: assessment.closesAt,
+        opensAt: assignment.opensAt,
+        dueAt: assignment.dueAt,
+        closesAt: assignment.closesAt,
       },
       payload,
     );
@@ -176,147 +176,147 @@ export async function updateAssessmentRecord(
     }
 
     if (Object.keys(updateData).length > 0) {
-      await assessmentRepo.withTx(tx).update(assessment.id, updateData);
+      await assessmentRepo.withTx(tx).update(assignment.id, updateData);
     }
 
     if (payload.problemIds !== undefined) {
-      const enforcedLanguages = payload.allowedLanguages ?? assessment.allowedLanguages;
+      const enforcedLanguages = payload.allowedLanguages ?? assignment.allowedLanguages;
       const pointsByProblem = new Map<string, number>();
       for (const row of payload.problemOrdinals ?? []) {
         pointsByProblem.set(row.problemId, row.points);
       }
-      await replaceAssessmentProblems(
+      await replaceAssignmentProblems(
         tx,
-        assessment.id,
+        assignment.id,
         payload.problemIds,
         enforcedLanguages,
         pointsByProblem,
       );
     }
 
-    return { id: assessment.id };
+    return { id: assignment.id };
   });
 }
 
 /**
- * Publish a draft assessment. Enforces the invariants a draft can skirt:
+ * Publish a draft assignment. Enforces the invariants a draft can skirt:
  * at least one problem, at least one allowed language, sane time window,
  * and the close time must still be in the future.
  */
-export async function publishAssessment(
+export async function publishAssignment(
   actor: ActorContext,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    const assessment = await requireAssessment(tx, assessmentId);
-    await assertAssessmentManager(tx, actor, assessment);
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assertAssignmentManager(tx, actor, assignment);
 
-    if (assessment.status !== "draft") {
+    if (assignment.status !== "draft") {
       throw new ValidationError("Only draft assignments can be published.");
     }
 
-    if (assessment.allowedLanguages.length < 1) {
+    if (assignment.allowedLanguages.length < 1) {
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
 
-    const attached = await assessmentProblemRepo.findByAssessmentId(assessment.id);
+    const attached = await assessmentProblemRepo.findByAssessmentId(assignment.id);
     if (attached.length < 1) {
       throw new ValidationError("Attach at least one problem before publishing.");
     }
 
     const now = new Date();
-    if (assessment.closesAt <= now) {
+    if (assignment.closesAt <= now) {
       throw new ValidationError("closesAt must be in the future.");
     }
-    if (!(assessment.opensAt < assessment.closesAt)) {
+    if (!(assignment.opensAt < assignment.closesAt)) {
       throw new ValidationError("closesAt must be later than opensAt.");
     }
-    if (assessment.dueAt) {
-      if (!(assessment.opensAt < assessment.dueAt)) {
+    if (assignment.dueAt) {
+      if (!(assignment.opensAt < assignment.dueAt)) {
         throw new ValidationError("dueAt must be later than opensAt.");
       }
-      if (!(assessment.dueAt <= assessment.closesAt)) {
+      if (!(assignment.dueAt <= assignment.closesAt)) {
         throw new ValidationError("closesAt must be later than or equal to dueAt.");
       }
     }
 
-    await assessmentRepo.withTx(tx).update(assessment.id, { status: "published" });
+    await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
   });
 }
 
 /**
- * Delete a draft assessment. Non-draft states must go through archive
+ * Delete a draft assignment. Non-draft states must go through archive
  * (reversible) — delete is reserved for drafts that never shipped.
  */
-export async function deleteAssessmentDraft(
+export async function deleteAssignmentDraft(
   actor: ActorContext,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    const assessment = await requireAssessment(tx, assessmentId);
-    await assertAssessmentManager(tx, actor, assessment);
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assertAssignmentManager(tx, actor, assignment);
 
-    if (assessment.status !== "draft") {
+    if (assignment.status !== "draft") {
       throw new ValidationError("Only draft assignments can be deleted.");
     }
 
-    await assessmentRepo.withTx(tx).delete(assessment.id);
+    await assessmentRepo.withTx(tx).delete(assignment.id);
   });
 }
 
 /**
- * Archive a published assessment — hides it from student lists while
- * preserving submission history. Reversible via `unarchiveAssessment`.
+ * Archive a published assignment — hides it from student lists while
+ * preserving submission history. Reversible via `unarchiveAssignment`.
  */
-export async function archiveAssessment(
+export async function archiveAssignment(
   actor: ActorContext,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    const assessment = await requireAssessment(tx, assessmentId);
-    await assertAssessmentManager(tx, actor, assessment);
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assertAssignmentManager(tx, actor, assignment);
 
-    if (assessment.status !== "published") {
+    if (assignment.status !== "published") {
       throw new ValidationError("Only published assignments can be archived.");
     }
 
-    await assessmentRepo.withTx(tx).update(assessment.id, { status: "archived" });
+    await assessmentRepo.withTx(tx).update(assignment.id, { status: "archived" });
   });
 }
 
-/** Reverse of `archiveAssessment`. Returns the row to `published`. */
-export async function unarchiveAssessment(
+/** Reverse of `archiveAssignment`. Returns the row to `published`. */
+export async function unarchiveAssignment(
   actor: ActorContext,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    const assessment = await requireAssessment(tx, assessmentId);
-    await assertAssessmentManager(tx, actor, assessment);
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assertAssignmentManager(tx, actor, assignment);
 
-    if (assessment.status !== "archived") {
+    if (assignment.status !== "archived") {
       throw new ValidationError("Only archived assignments can be unarchived.");
     }
 
-    await assessmentRepo.withTx(tx).update(assessment.id, { status: "published" });
+    await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
   });
 }
 
 /** Flip status back to draft — only valid from `upcoming`. */
-export async function revertAssessmentToDraft(
+export async function revertAssignmentToDraft(
   actor: ActorContext,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    const assessment = await requireAssessment(tx, assessmentId);
-    await assertAssessmentManager(tx, actor, assessment);
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assertAssignmentManager(tx, actor, assignment);
 
-    if (assessment.status !== "published") {
+    if (assignment.status !== "published") {
       throw new ValidationError("Only published assignments can be reverted to draft.");
     }
-    if (assessment.opensAt <= new Date()) {
+    if (assignment.opensAt <= new Date()) {
       throw new ValidationError("Cannot revert an assignment that has already opened.");
     }
 
-    await assessmentRepo.withTx(tx).update(assessment.id, { status: "draft" });
+    await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
   });
 }

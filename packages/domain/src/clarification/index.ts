@@ -204,7 +204,7 @@ export async function listForViewer(
 /**
  * Build a deep link for the `clarification_answered` notification. Uses
  * cuid URLs per the CUID URL unification convention (contestId / examId
- * / assessmentId, never slug).
+ * / assignmentId, never slug).
  */
 export function buildClarificationLink(
   contextType: ClarificationContextType,
@@ -308,9 +308,9 @@ async function assertContextActiveForAsk(
       return;
     }
     case "assignment": {
-      const assessment = await assessmentRepo.findByIdWithCourseId(contextId);
-      if (!assessment) throw new NotFoundError("Assignment not found.");
-      if (now < assessment.opensAt || now > assessment.closesAt) {
+      const assignment = await assessmentRepo.findByIdWithCourseId(contextId);
+      if (!assignment) throw new NotFoundError("Assignment not found.");
+      if (now < assignment.opensAt || now > assignment.closesAt) {
         throw new ConflictError("This assignment is not currently accepting questions.");
       }
       return;

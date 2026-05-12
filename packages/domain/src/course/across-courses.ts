@@ -1,8 +1,8 @@
 import { assessmentRepo, courseMembershipRepo } from "@nojv/db";
 
 import {
-  aggregateAssessmentClassStats,
-  aggregateAssessmentMyStatus,
+  aggregateAssignmentClassStats,
+  aggregateAssignmentMyStatus,
 } from "../shared/list-aggregations";
 
 // No draft filter: drafts are course-internal and only appear inside "all" for managers.
@@ -152,25 +152,25 @@ export async function listAssignmentsAcrossCoursesForUser(
   const managedRows = visibleRows.filter((r) => managerCourseSet.has(r.courseId));
   const studentRows = visibleRows.filter((r) => !managerCourseSet.has(r.courseId));
 
-  const [classStatsByAssessment, myStatusByAssessment] = await Promise.all([
-    aggregateAssessmentClassStats(
+  const [classStatsByAssignment, myStatusByAssignment] = await Promise.all([
+    aggregateAssignmentClassStats(
       managedRows.map((r) => ({
         id: r.id,
         courseId: r.courseId,
         problemCount: r.problemCount,
       })),
     ),
-    aggregateAssessmentMyStatus(
+    aggregateAssignmentMyStatus(
       userId,
       studentRows.map((r) => ({ id: r.id, problemCount: r.problemCount })),
     ),
   ]);
 
   for (const r of managedRows) {
-    r.classStats = classStatsByAssessment.get(r.id) ?? null;
+    r.classStats = classStatsByAssignment.get(r.id) ?? null;
   }
   for (const r of studentRows) {
-    r.myStatus = myStatusByAssessment.get(r.id) ?? null;
+    r.myStatus = myStatusByAssignment.get(r.id) ?? null;
   }
 
   return {

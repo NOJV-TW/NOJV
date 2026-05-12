@@ -1,5 +1,5 @@
 export {
-  countAssessmentSubmissionsToday,
+  countAssignmentSubmissionsToday,
   getSubmissionDetail,
   getSubmissionForUser,
   getSubmissionById,

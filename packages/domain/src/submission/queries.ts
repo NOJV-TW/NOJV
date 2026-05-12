@@ -114,9 +114,9 @@ function buildSubmissionContext(submission: {
   }
   if (submission.courseAssessment) {
     return {
-      kind: "assessment" as const,
-      assessmentId: submission.courseAssessment.id,
-      assessmentTitle: submission.courseAssessment.title,
+      kind: "assignment" as const,
+      assignmentId: submission.courseAssessment.id,
+      assignmentTitle: submission.courseAssessment.title,
       courseId: submission.courseAssessment.course.id,
       courseTitle: submission.courseAssessment.course.title,
     };
@@ -153,39 +153,39 @@ export async function listUserSubmissions(userId: string) {
 }
 
 /**
- * How many submissions the user has made against an assessment since UTC
+ * How many submissions the user has made against an assignment since UTC
  * midnight. Matches the boundary used by the daily-quota gate in
  * `createQueuedSubmissionRecord` so the displayed count and the enforced
  * count agree.
  */
-export async function countAssessmentSubmissionsToday(
+export async function countAssignmentSubmissionsToday(
   userId: string,
-  assessmentId: string,
+  assignmentId: string,
 ): Promise<number> {
   const now = new Date();
   const startOfDayUtc = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
   );
-  return submissionRepo.countForUserAndAssessmentSince(userId, assessmentId, startOfDayUtc);
+  return submissionRepo.countForUserAndAssessmentSince(userId, assignmentId, startOfDayUtc);
 }
 
 export async function listProblemSubmissions(
   userId: string,
   problemId: string,
-  assessmentFilter?: { assessmentId: string; courseId: string },
+  assignmentFilter?: { assignmentId: string; courseId: string },
 ) {
   const problemP = problemRepo.findById(problemId);
 
-  const assessmentP = assessmentFilter
-    ? assessmentRepo.findByCourseAndId(assessmentFilter.courseId, assessmentFilter.assessmentId)
+  const assignmentP = assignmentFilter
+    ? assessmentRepo.findByCourseAndId(assignmentFilter.courseId, assignmentFilter.assignmentId)
     : null;
 
-  const [problem, assessment] = await Promise.all([problemP, assessmentP]);
+  const [problem, assignment] = await Promise.all([problemP, assignmentP]);
 
   if (!problem) return [];
-  if (assessmentFilter && !assessment) return [];
+  if (assignmentFilter && !assignment) return [];
 
-  const courseAssessmentId = assessment?.id;
+  const courseAssessmentId = assignment?.id;
 
   const submissions = await submissionRepo.listByUserAndProblem({
     problemId: problem.id,

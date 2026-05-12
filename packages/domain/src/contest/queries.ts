@@ -250,7 +250,7 @@ export interface ContestContextResult {
   viewerIsManager: boolean;
 }
 
-// intentional-nullable: paired with getAssessmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
+// intentional-nullable: paired with getAssignmentContext — the /problems/[id] loader needs a uniform "no usable context, fall back to practice mode" signal that masks the contest's existence.
 export async function getContestContext(
   contestId: string,
   options: GetContestContextOptions,

@@ -391,7 +391,7 @@
     </Dialog.Header>
 
     {#if data.copyPreview}
-      {@const a = data.copyPreview.assessments}
+      {@const a = data.copyPreview.assignments}
       {@const e = data.copyPreview.exams}
       <form
         method="POST"
