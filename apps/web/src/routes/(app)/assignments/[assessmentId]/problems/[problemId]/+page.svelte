@@ -15,6 +15,7 @@
   contestId={data.solveProps.contestId}
   dailyAttempts={data.dailyAttempts ?? undefined}
   problem={data.solveProps.problem}
+  siblingProblems={data.siblingProblems}
   submissions={data.solveProps.submissions}
   testcaseSets={data.solveProps.testcaseSets}
 />
