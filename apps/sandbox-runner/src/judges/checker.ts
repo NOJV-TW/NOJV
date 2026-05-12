@@ -38,6 +38,11 @@ export async function judgeChecker(
       { timeoutMs: CHECKER_TIMEOUT_MS },
     );
 
+    // Checker memory does not count against the student — only the solution's
+    // peak resident memory is reported back.
+    const memoryFields =
+      solution.memoryKb > 0 ? ({ memoryKb: solution.memoryKb } as const) : ({} as const);
+
     // Checker infrastructure failures → SE (not the user's fault)
     if (checkerResult.spawnError) {
       return {
@@ -47,6 +52,7 @@ export async function judgeChecker(
         stderr: `Checker error: ${checkerResult.stderr}`,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
+        ...memoryFields,
         feedback: "Checker failed to start (system error).",
       };
     }
@@ -59,6 +65,7 @@ export async function judgeChecker(
         stderr: solution.stderr,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
+        ...memoryFields,
         feedback: "Checker timed out (system error).",
       };
     }
@@ -72,6 +79,7 @@ export async function judgeChecker(
         stderr: `Checker crashed with signal ${checkerResult.signal}.\n${checkerResult.stderr}`,
         exitCode: solution.exitCode,
         timeMs: solution.timeMs + checkerResult.timeMs,
+        ...memoryFields,
         feedback: `Checker crashed (${checkerResult.signal}).`,
       };
     }
@@ -89,6 +97,7 @@ export async function judgeChecker(
       stderr: solution.stderr,
       exitCode: solution.exitCode,
       timeMs: solution.timeMs + checkerResult.timeMs,
+      ...memoryFields,
       score: parsed.score,
     };
     if (parsed.feedback) {

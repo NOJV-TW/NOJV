@@ -86,7 +86,14 @@ export function mapResult(
     ...(t.stderr ? { stderr: t.stderr } : {}),
     stdout: t.stdout,
     timeMs: t.timeMs,
+    ...(t.memoryKb !== undefined && t.memoryKb > 0 ? { memoryKb: t.memoryKb } : {}),
   }));
+
+  const peakMemoryKb = result.testcaseResults.reduce(
+    (peak, t) => (t.memoryKb && t.memoryKb > peak ? t.memoryKb : peak),
+    0,
+  );
+  const memoryField = peakMemoryKb > 0 ? { memoryKb: peakMemoryKb } : {};
 
   if (result.compilationError) {
     return {
@@ -105,6 +112,7 @@ export function mapResult(
       caseResults,
       feedback: `[Pipeline Error] ${result.pipelineError}`,
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
+      ...memoryField,
       score: 0,
       verdict: "compile_error",
     };
@@ -149,6 +157,7 @@ export function mapResult(
       caseResults,
       feedback: result.scoringFeedback ?? "All testcases passed",
       runtimeMs,
+      ...memoryField,
       score: result.customScore ?? score,
       subtaskResults,
       verdict: "accepted",
@@ -164,6 +173,7 @@ export function mapResult(
       feedback:
         result.scoringFeedback ?? `All testcases passed (score adjusted to ${String(score)})`,
       runtimeMs,
+      ...memoryField,
       score,
       subtaskResults,
       verdict: "accepted",
@@ -182,6 +192,7 @@ export function mapResult(
         caseResults,
         feedback,
         runtimeMs,
+        ...memoryField,
         score,
         subtaskResults,
         verdict,
@@ -194,6 +205,7 @@ export function mapResult(
     caseResults,
     feedback: "Unknown error",
     runtimeMs,
+    ...memoryField,
     score,
     subtaskResults,
     verdict: "runtime_error" as const,

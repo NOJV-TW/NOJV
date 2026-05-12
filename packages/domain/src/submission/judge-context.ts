@@ -252,6 +252,7 @@ export async function completeJudge(
 ): Promise<CompletedSubmission> {
   const submission = await submissionRepo.complete(submissionId, {
     runtimeMs: result.runtimeMs,
+    ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
     score: result.score,
     status: result.verdict,
     verdictDetail: toJsonValue(result),

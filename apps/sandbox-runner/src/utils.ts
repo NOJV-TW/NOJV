@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -7,6 +8,55 @@ export async function pathExists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export interface MemoryPoller {
+  /** Stop polling and return the peak resident set size observed, in KB. */
+  stop(): number;
+}
+
+/**
+ * Sample `/proc/<pid>/status` to track a child process's peak resident
+ * memory (VmHWM, in KB). Linux-only — `/proc` is not present on macOS
+ * dev hosts, but sandbox-runner always executes inside an Alpine container
+ * regardless of where the developer runs `pnpm dev`, so the data path is
+ * guaranteed in practice.
+ *
+ * Reads happen on a 50 ms interval, plus one synchronous read at start
+ * time so processes that finish before the first tick still get a sample.
+ */
+export function createMemoryPoller(pid: number): MemoryPoller {
+  let peakKb = 0;
+  let stopped = false;
+
+  function sample(): void {
+    if (stopped) return;
+    try {
+      const status = readFileSync(`/proc/${String(pid)}/status`, "utf-8");
+      const match = status.match(/^VmHWM:\s+(\d+)\s+kB/m);
+      if (match) {
+        const kb = Number.parseInt(match[1]!, 10);
+        if (Number.isFinite(kb) && kb > peakKb) peakKb = kb;
+      }
+    } catch {
+      // Process gone, or /proc unavailable on this host. Either way, just
+      // stop accumulating — the last known peak is still valid.
+    }
+  }
+
+  sample();
+  const interval = setInterval(sample, 50);
+
+  return {
+    stop(): number {
+      stopped = true;
+      clearInterval(interval);
+      // One final sample in case the process is still alive at stop time
+      // and VmHWM grew past the last tick.
+      sample();
+      return peakKb;
+    },
+  };
 }
 
 // Cap per-stream buffering so a runaway program printing unbounded output

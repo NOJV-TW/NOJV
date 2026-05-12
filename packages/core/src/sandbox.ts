@@ -63,6 +63,10 @@ export interface SandboxTestcaseResult {
   stderr: string;
   exitCode: number;
   timeMs: number;
+  // Peak resident set size (kB) observed for the user program during this
+  // testcase. Undefined when measurement was not possible (compile failure,
+  // advanced-mode TA image, /proc unavailable).
+  memoryKb?: number;
   score?: number;
   feedback?: string;
 }
