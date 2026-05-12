@@ -273,7 +273,7 @@
 
     <div class="flex flex-wrap items-center gap-3">
       {#if isDraft}
-        <form method="POST" action="?/publishAssessment" use:enhance class="contents">
+        <form method="POST" action="?/publishAssignment" use:enhance class="contents">
           <Button type="submit" size="sm" variant="default" disabled={$submitting}>
             <Send class="mr-1 size-4" aria-hidden="true" />
             {m.assignmentDetail_settingsPublishButton()}
@@ -295,7 +295,7 @@
              Open assignments aren't archived directly — they must close
              first; the button is hidden until `isClosed`. -->
         {#if isClosed}
-          <form method="POST" action="?/archiveAssessment" use:enhance class="contents">
+          <form method="POST" action="?/archiveAssignment" use:enhance class="contents">
             <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
               <Archive class="mr-1 size-4" aria-hidden="true" />
               {m.assignmentDetail_settingsArchiveButton()}
@@ -305,7 +305,7 @@
       {/if}
 
       {#if isArchived}
-        <form method="POST" action="?/unarchiveAssessment" use:enhance class="contents">
+        <form method="POST" action="?/unarchiveAssignment" use:enhance class="contents">
           <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
             <Archive class="mr-1 size-4" aria-hidden="true" />
             {m.assignmentDetail_settingsUnarchiveButton()}
@@ -362,7 +362,7 @@
             >
               {m.assignmentDetail_settingsDeleteConfirmCancel()}
             </Button>
-            <form method="POST" action="?/deleteAssessment" use:enhance class="contents">
+            <form method="POST" action="?/deleteAssignment" use:enhance class="contents">
               <Button type="submit" variant="destructive" size="sm" disabled={$submitting}>
                 {m.assignmentDetail_settingsDeleteConfirmConfirm()}
               </Button>

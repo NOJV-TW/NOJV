@@ -1,4 +1,4 @@
-import { fail } from "@sveltejs/kit";
+import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
@@ -29,6 +29,10 @@ const {
   listContestParticipantsWithUser,
   buildContestSubmissionsMatrix,
   updateContestRecord,
+  publishContest,
+  archiveContest,
+  unarchiveContest,
+  deleteContestDraft,
 } = contestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -207,5 +211,49 @@ export const actions: Actions = {
     }
 
     return message<FormMessage>(form, { kind: "success", text: "Saved." });
+  },
+
+  publishContest: async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await publishContest(actor, event.params.contestId);
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+    return { success: true };
+  },
+
+  archiveContest: async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await archiveContest(actor, event.params.contestId);
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+    return { success: true };
+  },
+
+  unarchiveContest: async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await unarchiveContest(actor, event.params.contestId);
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+    return { success: true };
+  },
+
+  deleteContest: async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await deleteContestDraft(actor, event.params.contestId);
+    } catch (err) {
+      const classified = classifyError(err);
+      return fail(classified.status, { error: classified.message });
+    }
+    redirect(303, "/contests");
   },
 };
