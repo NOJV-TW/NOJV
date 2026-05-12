@@ -22,8 +22,6 @@ export interface ExamScoreboardData {
   problems: ScoreboardProblem[];
   scoringMode: ContestScoringMode;
   scoreboardMode: ScoreboardMode;
-  frozenAt: string | null;
-  isFrozen: boolean;
 }
 
 export async function updateExamScores(examParticipationId: string): Promise<void> {
@@ -113,7 +111,7 @@ export async function updateExamScores(examParticipationId: string): Promise<voi
 
 export async function getExamScoreboard(
   examId: string,
-  options?: { unfrozen?: boolean; isPrivileged?: boolean },
+  options?: { isPrivileged?: boolean },
 ): Promise<ExamScoreboardData> {
   const exam = await examRepo.findForScoreboard(examId);
 
@@ -121,12 +119,7 @@ export async function getExamScoreboard(
     throw new NotFoundError("Exam not found.");
   }
 
-  const now = new Date();
   const scoreboardMode = exam.scoreboardMode;
-  const showFrozen =
-    !options?.unfrozen &&
-    (scoreboardMode === "frozen" ||
-      (exam.frozenBoard && exam.frozenAt != null && now > exam.frozenAt));
 
   const problems: ScoreboardProblem[] = exam.problems.map((ep) => ({
     id: ep.problemId,
@@ -140,8 +133,6 @@ export async function getExamScoreboard(
   if (scoreboardMode === "hidden" && !options?.isPrivileged) {
     return {
       entries: [],
-      frozenAt: exam.frozenAt?.toISOString() ?? null,
-      isFrozen: false,
       problems,
       scoreboardMode,
       scoringMode,
@@ -151,8 +142,6 @@ export async function getExamScoreboard(
   if (exam.participations.length === 0) {
     return {
       entries: [],
-      frozenAt: exam.frozenAt?.toISOString() ?? null,
-      isFrozen: showFrozen,
       problems,
       scoreboardMode,
       scoringMode,
@@ -189,7 +178,7 @@ export async function getExamScoreboard(
     id: exam.id,
     startsAt: exam.startsAt,
     endsAt: exam.endsAt,
-    frozenAt: exam.frozenAt,
+    frozenAt: null,
   };
 
   const entries = buildScoreboard(
@@ -198,13 +187,11 @@ export async function getExamScoreboard(
     participants,
     submissions,
     problems,
-    showFrozen,
+    false,
   );
 
   return {
     entries,
-    frozenAt: exam.frozenAt?.toISOString() ?? null,
-    isFrozen: showFrozen,
     problems,
     scoreboardMode,
     scoringMode,
@@ -223,7 +210,7 @@ export async function getExamScoreboardChart(
   examId: string,
   topN: number,
 ): Promise<ExamChartData> {
-  const scoreboardData = await getExamScoreboard(examId, { unfrozen: false });
+  const scoreboardData = await getExamScoreboard(examId);
 
   const topEntries = scoreboardData.entries.slice(0, topN);
   if (topEntries.length === 0) {

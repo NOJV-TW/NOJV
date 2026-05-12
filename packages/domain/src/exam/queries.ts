@@ -36,7 +36,6 @@ export interface ExamDetailData {
   allowedLanguages: Language[];
   courseId: string;
   endsAt: string;
-  frozenAt: string | null;
   id: string;
   ipBindingEnabled: boolean;
   ipViolationMode: "block" | "notify";
@@ -91,7 +90,6 @@ function mapExamDetail(exam: ExamDetailRow): ExamDetailBase {
     allowedLanguages: exam.allowedLanguages,
     courseId: exam.courseId,
     endsAt: exam.endsAt.toISOString(),
-    frozenAt: exam.frozenAt?.toISOString() ?? null,
     id: exam.id,
     ipBindingEnabled: exam.ipBindingEnabled,
     ipViolationMode: exam.ipViolationMode,

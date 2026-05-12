@@ -3,6 +3,7 @@ import { clarificationDomain, contestDomain, scoreOverrideDomain } from "@nojv/d
 
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { buildContestResults, type ContestResultsData } from "$lib/server/contest-results";
 
 const { getContestDetail, getScoreboard, listContestParticipantsWithUser } = contestDomain;
 
@@ -36,10 +37,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       )
     : [];
 
-  // Staff-only data for the score-override drawer. Students don't see the
-  // button so we skip the extra fetches entirely.
+  // Staff-only data for the score-override drawer + class results tab.
+  // Students don't see the button so we skip the extra fetches entirely.
   let canSetOverride = false;
   let overrideStudents: { id: string; username: string; name: string }[] = [];
+  let results: ContestResultsData | null = null;
 
   if (contest.isManager) {
     const actor = getActorContext(event);
@@ -49,11 +51,25 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         listContestParticipantsWithUser(contest.id),
       ]);
       canSetOverride = allowed;
-      overrideStudents = participants.map((p) => ({
-        id: p.user.id,
-        username: p.user.username ?? "",
-        name: p.user.name,
-      }));
+      const scores: number[] = [];
+      overrideStudents = participants.map((p) => {
+        scores.push(p.score);
+        return {
+          id: p.user.id,
+          username: p.user.username ?? "",
+          name: p.user.name,
+        };
+      });
+
+      // Aggregate participant scores into the shared distribution bucket
+      // shape. For point_sum contests `score` is the absolute total; for
+      // problem_count contests it's the solve count and the helper falls
+      // back to absolute-vs-max bucketing.
+      const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
+      results = buildContestResults(
+        scores,
+        contest.scoringMode === "point_sum" ? totalPoints : 0,
+      );
     }
   }
 
@@ -74,6 +90,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     canSetOverride,
     overrideStudents,
     topEntries,
+    results,
     clarification: {
       canAsk: canAskClar,
       canAnswer: canAnswerClar,
