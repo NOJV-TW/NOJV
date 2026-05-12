@@ -1,5 +1,9 @@
 import { metrics, type Histogram } from "@opentelemetry/api";
 
+import { getRedis, scoreboard, cooldown, cache } from "@nojv/redis";
+
+// --- Metrics ------------------------------------------------------------
+
 const meter = metrics.getMeter("@nojv/temporal", "0.1.0");
 
 export const judgeLatencyHistogram = meter.createHistogram("judge_latency_seconds", {
@@ -19,3 +23,15 @@ export function recordJudgeLatency(hist: Histogram, args: JudgeLatencyArgs): voi
   const seconds = Math.max(0, (args.completedAtMs - args.startedAtMs) / 1000);
   hist.record(seconds, { mode: args.mode, verdict: args.verdict });
 }
+
+// --- Redis re-exports ---------------------------------------------------
+
+export { getRedis };
+
+export const updateScoreboard = scoreboard.updateScoreboard;
+export const getScoreboard = scoreboard.getScoreboard;
+export const setCooldown = cooldown.setCooldown;
+export const checkCooldown = cooldown.checkCooldown;
+export const cacheGet = cache.cacheGet;
+export const cacheSet = cache.cacheSet;
+export const cacheDel = cache.cacheDel;
