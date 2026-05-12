@@ -87,10 +87,7 @@ function mapContestListItem(c: ContestWithCounts): ContestListItem {
 
 type ContestDetailRow = NonNullable<Awaited<ReturnType<typeof contestRepo.findDetailById>>>;
 
-type ContestDetailBase = Omit<
-  ContestDetail,
-  "isManager" | "problemsHidden" | "problems"
-> & {
+type ContestDetailBase = Omit<ContestDetail, "isManager" | "problemsHidden" | "problems"> & {
   problems: ContestProblemSummary[];
 };
 
