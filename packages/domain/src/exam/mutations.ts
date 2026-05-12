@@ -282,11 +282,18 @@ export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycl
   };
 }
 
-export async function activateExam(examId: string): Promise<void> {
+/**
+ * Status writes called by the Temporal lifecycle workflow when the scheduled
+ * window boundaries are reached. No permission / state checks — the workflow
+ * is the source of truth for these transitions. Distinct from the user-driven
+ * `publishExam` (draft → published, with validation) and `archiveExam`
+ * (published → archived, with validation).
+ */
+export async function markExamPublished(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "published" });
 }
 
-export async function finalizeExam(examId: string): Promise<void> {
+export async function markExamArchived(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "archived" });
 }
 
