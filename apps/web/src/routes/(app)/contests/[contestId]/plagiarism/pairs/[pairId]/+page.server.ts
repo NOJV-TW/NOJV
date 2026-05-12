@@ -18,7 +18,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     throw new ForbiddenError("Only contest organizers can view plagiarism diff.");
   }
 
-  return loadPlagiarismPair({
+  return await loadPlagiarismPair({
     pairId: event.params.pairId,
     target: { type: "contest", id: contest.id },
     flagContext: "contest",

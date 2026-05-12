@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { assessmentDomain, submissionDomain } from "@nojv/domain";
+import { assignmentDomain, submissionDomain } from "@nojv/domain";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { loadProblemSolveData } from "$lib/server/problem-solve";
@@ -29,7 +29,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isEnded = now > closes;
   }
 
-  const problemInScope = await assessmentDomain.isProblemInAssessment(assessment.id, problemId);
+  const problemInScope = await assignmentDomain.isProblemInAssessment(assessment.id, problemId);
   if (!problemInScope) {
     // 404 so we don't leak whether the problem exists outside this assignment.
     error(404, "Problem not found in this assignment.");
@@ -47,7 +47,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       },
       problemInScope: true,
     }),
-    assessmentDomain.listAssessmentProblemSiblings({
+    assignmentDomain.listAssessmentProblemSiblings({
       assessmentId: assessment.id,
       activeProblemId: problemId,
       actorUserId: actor.userId,
