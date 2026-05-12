@@ -81,7 +81,7 @@ pnpm db:seed:validate
    - Closes：現在 + 30 分鐘
    - 啟用 `pageLockEnabled`（可選，用於展示 lock redirect）
    - 啟用 `ipBindingEnabled` 並選 `notify`（可展示策略設定）
-4. 在教師視窗開啟 `/contests/create`，建立即時展示競賽：
+4. 在教師視窗開啟 `/contests/new`，建立即時展示競賽：
    - Slug：`demo-live-contest`
    - Title：`Demo Live Contest`
    - Problems：`warmup-sum, graph-docking`
@@ -229,7 +229,7 @@ print(a + b)
 
 ## 若 contest 不在 active 時段
 
-1. 到 `/contests/create` 立刻建立一場現在開始的短競賽
+1. 到 `/contests/new` 立刻建立一場現在開始的短競賽
 2. 在新競賽重跑 page lock/frozen board 展示
 
 ## 若遇到權限阻擋
@@ -262,7 +262,7 @@ print(a + b)
 | 課程進度矩陣與 CSV 匯出                                                              | 完整        | 完整        | 完整                    | 檢視             |
 | 觸發抄襲檢查                                                                         | 完整        | 完整        | 完整                    | 無               |
 | 抄襲結果與並排原始碼比對                                                             | 完整        | 完整        | 完整                    | 無               |
-| 建立公開競賽（`/contests/create`）                                                   | 完整        | 完整        | 完整（僅未綁課）        | 完整（僅未綁課） |
+| 建立公開競賽（`/contests/new`）                                                      | 完整        | 完整        | 完整（僅未綁課）        | 完整（僅未綁課） |
 | 將競賽綁定課程                                                                       | 完整        | 完整        | 無                      | 無               |
 | 參與競賽（`/contests/{slug}`）                                                       | 檢視        | 檢視        | 檢視                    | 檢視             |
 | Scoreboard 解凍（`/contests/{slug}/scoreboard`）                                     | 完整        | 完整        | 無                      | 無               |

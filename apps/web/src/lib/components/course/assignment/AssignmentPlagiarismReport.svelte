@@ -54,12 +54,12 @@
     problems: PlagiarismProblemEntry[];
     students: PlagiarismStudentEntry[];
     flags?: PlagiarismFlagEntry[];
-    /** Used to build the per-pair diff route. */
-    assessmentId?: string;
+    /** Base path for per-pair diff routes; `${pairDiffBase}/${encodeURIComponent(pairKey)}` is the final URL. */
+    pairDiffBase?: string;
     class?: string;
   }
 
-  let { report, problems, students, flags = [], assessmentId, class: className }: Props = $props();
+  let { report, problems, students, flags = [], pairDiffBase, class: className }: Props = $props();
 
   let showFlagged = $state(false);
 
@@ -119,8 +119,8 @@
   }
 
   function diffHrefFor(p: PlagiarismReportPair): string | null {
-    if (!assessmentId) return null;
-    return `/assignments/${assessmentId}/plagiarism/pairs/${encodeURIComponent(pairKeyOf(p))}`;
+    if (!pairDiffBase) return null;
+    return `${pairDiffBase}/${encodeURIComponent(pairKeyOf(p))}`;
   }
 
   const highPairs = $derived(visiblePairs.filter((p) => p.similarity >= 70));

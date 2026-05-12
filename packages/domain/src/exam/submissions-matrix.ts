@@ -1,6 +1,5 @@
-import { courseMembershipRepo, examRepo, submissionRepo } from "@nojv/db";
+import { courseMembershipRepo, submissionRepo } from "@nojv/db";
 
-import { NotFoundError } from "../shared/errors";
 import { problemLetter } from "../shared/problem-letter";
 import { resolveOverridesForContext } from "../scoring/resolve-final-score";
 
@@ -36,18 +35,29 @@ export interface ExamMatrixData {
   studentCount: number;
 }
 
-// Does not re-check permissions; route loader must gate on `isManager` before calling.
-export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatrixData> {
-  const exam = await examRepo.findDetailById(examId);
-  if (!exam) throw new NotFoundError("Exam not found.");
+export interface ExamMatrixProblemInput {
+  problemId: string;
+  ordinal: number;
+  title: string;
+  points: number;
+}
 
-  const students = await courseMembershipRepo.findStudents(exam.courseId);
+export interface BuildExamMatrixInput {
+  examId: string;
+  courseId: string;
+  problems: ExamMatrixProblemInput[];
+}
 
-  const problems: ExamMatrixProblemColumn[] = exam.problems.map((p) => ({
-    problemId: p.problem.id,
+export async function buildExamSubmissionsMatrix(
+  input: BuildExamMatrixInput,
+): Promise<ExamMatrixData> {
+  const students = await courseMembershipRepo.findStudents(input.courseId);
+
+  const problems: ExamMatrixProblemColumn[] = input.problems.map((p) => ({
+    problemId: p.problemId,
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
-    title: p.problem.title,
+    title: p.title,
     points: p.points,
   }));
   const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
@@ -64,15 +74,15 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
   const studentIds = students.map((s) => s.userId);
   const problemIds = problems.map((p) => p.problemId);
 
-  // `groupByUserAndProblem` gives both best score AND attempt count in one
-  // pass; the assignment variant also calls `groupBestScores` first but then
-  // discards it. Skip that dead call — one query is enough.
-  const grouped = await submissionRepo.groupByUserAndProblem({
-    examId,
-    userId: { in: studentIds },
-    problemId: { in: problemIds },
-    sampleOnly: false,
-  });
+  const [grouped, overrides] = await Promise.all([
+    submissionRepo.groupByUserAndProblem({
+      examId: input.examId,
+      userId: { in: studentIds },
+      problemId: { in: problemIds },
+      sampleOnly: false,
+    }),
+    resolveOverridesForContext({ contextType: "exam", contextId: input.examId }),
+  ]);
 
   const scoreIndex = new Map<string, { best: number; count: number }>();
   for (const g of grouped) {
@@ -81,13 +91,6 @@ export async function getExamSubmissionsMatrix(examId: string): Promise<ExamMatr
       count: g._count.id,
     });
   }
-
-  // Overlay any manual score overrides — same semantics as the assignment
-  // matrix (override wins over best-submission and can unlock an empty cell).
-  const overrides = await resolveOverridesForContext({
-    contextType: "exam",
-    contextId: examId,
-  });
 
   const rows: ExamMatrixRow[] = students.map((student) => {
     const cells: ExamMatrixCell[] = problems.map((problem) => {
