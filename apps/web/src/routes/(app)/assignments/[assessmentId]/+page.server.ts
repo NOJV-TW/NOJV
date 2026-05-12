@@ -217,7 +217,7 @@ export const actions = {
     return { success: true };
   },
 
-  publishAssessment: async (event) => {
+  publishAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
@@ -251,7 +251,7 @@ export const actions = {
     return { success: true };
   },
 
-  archiveAssessment: async (event) => {
+  archiveAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
@@ -268,7 +268,7 @@ export const actions = {
     return { success: true };
   },
 
-  unarchiveAssessment: async (event) => {
+  unarchiveAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 
@@ -285,7 +285,7 @@ export const actions = {
     return { success: true };
   },
 
-  deleteAssessment: async (event) => {
+  deleteAssignment: async (event) => {
     const limited = await consumeFormRateLimit(event);
     if (limited) return limited;
 

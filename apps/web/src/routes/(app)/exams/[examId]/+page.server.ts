@@ -28,7 +28,7 @@ const {
   archiveExam,
   deleteExamDraft,
   getExamDetailPage,
-  getExamSubmissionsMatrix,
+  buildExamSubmissionsMatrix,
   publishExam,
   unarchiveExam,
   updateExamRecord,
@@ -49,7 +49,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const [
     detail,
-    matrix,
     canSetOverride,
     canAskClar,
     canAnswerClar,
@@ -58,7 +57,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     plagiarismFlags,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
-    isManager ? getExamSubmissionsMatrix(examId) : Promise.resolve(null),
     isManager
       ? scoreOverrideDomain.canSetScoreOverride(actor, "exam", examId)
       : Promise.resolve(false),
@@ -73,9 +71,22 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       : Promise.resolve([]),
   ]);
 
-  const results: ExamResultsData | null = matrix
-    ? buildExamResults(matrix, actor.userId)
-    : null;
+  // Matrix reuses detail.problems instead of re-fetching the exam row.
+  const matrix =
+    isManager && detail
+      ? await buildExamSubmissionsMatrix({
+          examId,
+          courseId: detail.courseId,
+          problems: detail.problems.map((p) => ({
+            problemId: p.id,
+            ordinal: p.ordinal,
+            title: p.title,
+            points: p.points,
+          })),
+        })
+      : null;
+
+  const results: ExamResultsData | null = matrix ? buildExamResults(matrix, actor.userId) : null;
 
   // The layout gate already accepted this exam for the viewer; treat a
   // null payload here (draft hidden from students, archived, etc.) as a
