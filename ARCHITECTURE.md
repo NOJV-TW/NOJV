@@ -87,18 +87,18 @@ No cycles. `domain` → `job-dispatch` for dispatching workflows. `temporal` →
 
 ### Dependency Rules
 
-| Package          | May import                                                | Must NOT import             |
-| ---------------- | --------------------------------------------------------- | --------------------------- |
-| `core`           | (nothing)                                                 | everything                  |
-| `db`             | `core`                                                    | domain, redis, job-dispatch |
-| `redis`          | `core`                                                    | domain, db, job-dispatch    |
-| `job-dispatch`   | `core`                                                    | domain, db, redis, temporal |
-| `domain`         | `core`, `db`, `redis`, `job-dispatch`, `storage` *        | temporal, web, worker       |
-| `temporal`       | `core`, `domain`, `redis`                                 | db, job-dispatch, web       |
-| `storage`        | (none of `@nojv/*`)                                       | everything `@nojv/*`        |
-| `web`            | `core`, `domain`, `storage`, `redis` †, `db` ‡            | temporal                    |
-| `worker`         | `core`, `temporal`, `db`, `redis`, `storage` §            | domain, job-dispatch, web   |
-| `sandbox-runner` | `core`                                                    | everything else             |
+| Package          | May import                                          | Must NOT import             |
+| ---------------- | --------------------------------------------------- | --------------------------- |
+| `core`           | (nothing)                                           | everything                  |
+| `db`             | `core`                                              | domain, redis, job-dispatch |
+| `redis`          | `core`                                              | domain, db, job-dispatch    |
+| `job-dispatch`   | `core`                                              | domain, db, redis, temporal |
+| `domain`         | `core`, `db`, `redis`, `job-dispatch`, `storage` \* | temporal, web, worker       |
+| `temporal`       | `core`, `domain`, `redis`                           | db, job-dispatch, web       |
+| `storage`        | (none of `@nojv/*`)                                 | everything `@nojv/*`        |
+| `web`            | `core`, `domain`, `storage`, `redis` †, `db` ‡      | temporal                    |
+| `worker`         | `core`, `temporal`, `db`, `redis`, `storage` §      | domain, job-dispatch, web   |
+| `sandbox-runner` | `core`                                              | everything else             |
 
 \* `domain` reaches into `storage` from `problem/blobs.ts` to write
 problem image blobs alongside the DB row inside the same transaction.
@@ -239,14 +239,14 @@ Temporal workflow and activity definitions. Used only by `apps/worker`.
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                      | Task Queue | Workflow ID pattern                   | Signal / Query                                |
-| ----------------------------- | ---------- | ------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`     | `judge`    | `judge-{submissionId}`                                                                  | Query: `getStatus`                            |
-| `rejudgeWorkflow`             | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`        | Query: `getProgress`                          |
-| `contestLifecycleWorkflow`    | `platform` | `contest-lifecycle-{contestId}`                                                         | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `assessmentLifecycleWorkflow` | `platform` | `assessment-lifecycle-{assessmentId}`                                                   | —                                             |
-| `plagiarismCheckWorkflow`     | `platform` | `plagiarism-{targetType}-{targetId}`                                                    | Query: `getPlagiarismStatus`                  |
-| `examAutoCloseWorkflow`       | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_IF_RUNNING` on re-dispatch)     | —                                             |
+| Workflow                      | Task Queue | Workflow ID pattern                                                                 | Signal / Query                                |
+| ----------------------------- | ---------- | ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `submissionJudgeWorkflow`     | `judge`    | `judge-{submissionId}`                                                              | Query: `getStatus`                            |
+| `rejudgeWorkflow`             | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`    | Query: `getProgress`                          |
+| `contestLifecycleWorkflow`    | `platform` | `contest-lifecycle-{contestId}`                                                     | Signal: `adminOverride` (`earlyEnd`/`extend`) |
+| `assessmentLifecycleWorkflow` | `platform` | `assessment-lifecycle-{assessmentId}`                                               | —                                             |
+| `plagiarismCheckWorkflow`     | `platform` | `plagiarism-{targetType}-{targetId}`                                                | Query: `getPlagiarismStatus`                  |
+| `examAutoCloseWorkflow`       | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_IF_RUNNING` on re-dispatch) | —                                             |
 
 Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 

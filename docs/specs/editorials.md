@@ -31,7 +31,7 @@ answer." Content is markdown, rendered through the shared
   problem when the viewer has AC; otherwise 403.
 - POST `/api/problems/[id]/editorials` — upserts by
   `(userId, problemId, language)` when the poster has AC; otherwise 403.
-- PUT `/api/editorials/[id]` — author or admin only; updates content /
+- PATCH `/api/editorials/[id]` — author or admin only; updates content /
   language. Same length + enum validation as POST.
 - DELETE `/api/editorials/[id]` — author or admin only; soft-delete
   (`deletedAt = now()`). Soft-deleted rows are filtered out of every
@@ -193,7 +193,7 @@ answer." Content is markdown, rendered through the shared
 - `apps/web/src/routes/api/problems/[id]/editorials/+server.ts` — GET
   (list) + POST (upsert); local `requireProblemWithAc()` gate and
   inline `editorialSubmitSchema`.
-- `apps/web/src/routes/api/editorials/[id]/+server.ts` — PUT (update)
+- `apps/web/src/routes/api/editorials/[id]/+server.ts` — PATCH (update)
   - DELETE (soft-delete); author + admin gated via domain helpers.
 - `apps/web/src/routes/(app)/problems/[problemId]/editorials/` —
   paginated list page (AC-gated).

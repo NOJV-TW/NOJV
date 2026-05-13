@@ -6,10 +6,11 @@ the parent row (no dedicated `PlagiarismReport` table). Runs as a
 Temporal workflow keyed on target id — re-running terminates any
 in-flight check for the same target.
 
-Contest carries the same plagiarism columns for schema symmetry but the
-UI never surfaces them — contests are public CP events. Homework
-assignments and exams are the only surfaces with a "Run plagiarism"
-button.
+Contest also carries plagiarism columns and now exposes a manager-only
+plagiarism sub-tab on the contest detail page that reuses the
+`AssignmentPlagiarismReport` UI plus the pair-diff route. Homework
+assignments, exams, and contests all expose a "Run plagiarism" button
+for staff.
 
 ## User Stories
 
@@ -33,18 +34,26 @@ button.
 
 ### In scope
 
-- Inline report state on `CourseAssessment.plagiarism*` and
-  `Exam.plagiarism*` fields — six columns: `plagiarismStatus`,
-  `plagiarismResults` (Json), `plagiarismReportUrl`,
+- Inline report state on `CourseAssessment.plagiarism*`,
+  `Exam.plagiarism*`, and `Contest.plagiarism*` fields — six columns:
+  `plagiarismStatus`, `plagiarismResults` (Json), `plagiarismReportUrl`,
   `plagiarismTriggeredAt`, `plagiarismCompletedAt`,
   `plagiarismTriggeredById`. `plagiarismReportUrl` is always `null` for
   Dolos runs (everything is in-memory); the column is retained for
   schema stability and historical MOSS-era rows.
+- Pair-level Monaco diff route shipped for all three context types
+  (assessment, exam, contest). The shared route
+  `apps/web/src/routes/(app)/plagiarism/pairs/[pairId]/+page.server.ts`
+  resolves the pair against any of the three parents.
+- Contest detail page exposes a manager-only `plagiarism` sub-tab
+  (`apps/web/src/routes/(app)/contests/[contestId]/+page.svelte`) that
+  reuses `AssignmentPlagiarismReport` with
+  `diffContext = { type: "contest", id }`.
 - State lifecycle `pending → running → completed | failed`, written by
   the Temporal activity at phase boundaries.
-- POST `/api/plagiarism/[assessmentId]` (optional `?type=exam`)
+- POST `/api/plagiarism/[assignmentId]` (optional `?type=exam`)
   dispatches the workflow and sets status to `pending`.
-- GET `/api/plagiarism/[assessmentId]` returns the latest report; with
+- GET `/api/plagiarism/[assignmentId]` returns the latest report; with
   `?source=true&userId&problemId` returns a single source-code string.
 - Permission gate `canManageCourse` (admin, platform teacher, course
   teacher, course TA) on both trigger and view paths.
@@ -68,8 +77,6 @@ button.
 
 ### Out of scope
 
-- **Contests**: the schema columns exist but no UI route ever writes or
-  reads them. A direct POST to a contest id is remapped to `type: exam`.
 - **Student-visible results**: students never see plagiarism state.
 - **Automatic scoring penalty**: detection only — rejecting a submission
   or zeroing a score is a separate manual action (rejudge or score
@@ -81,9 +88,6 @@ button.
 - **Scheduled trigger**: no Temporal schedule fires plagiarism on
   assessment close; staff must click the button.
 - **Push notification / email on completion**: UI polls.
-- **Pair-level diff for exam / contest contexts**: the side-by-side
-  Monaco diff route exists for assessments only; exam + contest reports
-  surface the flag toggle but no dedicated diff page yet.
 
 ## Acceptance Criteria
 
@@ -91,7 +95,7 @@ button.
 
 - GIVEN an actor with `canManageCourse === false` (student, non-member
   teacher on a different course, etc.),
-  WHEN they POST `/api/plagiarism/[assessmentId]` for any target,
+  WHEN they POST `/api/plagiarism/[assignmentId]` for any target,
   THEN `ForbiddenError("Only course staff can trigger plagiarism checks.")`.
 - GIVEN a platform admin (`platformRole: admin`),
   WHEN they POST for any assessment / exam in any course,
@@ -105,14 +109,18 @@ button.
 - GIVEN `?type=exam` with an unknown id,
   WHEN the route resolves,
   THEN it throws 404 `Exam not found.`.
+- GIVEN `?type=contest` and an id matching `Contest.id`,
+  WHEN the route resolves,
+  THEN it returns `{ target: { type: "contest", id }, courseId: "" }` —
+  contests are not course-bound, so the empty courseId falls callers
+  back to platform-role checks.
+- GIVEN `?type=contest` with an unknown id,
+  WHEN the route resolves,
+  THEN it throws 404 `Contest not found.`.
 - GIVEN no `?type` query param (default `courseAssessment`) with an
   unknown id,
   WHEN the route resolves,
-  THEN it throws 404 `Assessment not found.`.
-- GIVEN `?type=contest` (legacy value),
-  WHEN the route resolves,
-  THEN it is remapped to `type: exam` — contests no longer have a
-  distinct resolver.
+  THEN it throws 404 `Assignment not found.`.
 
 ### Workflow lifecycle
 
@@ -161,7 +169,7 @@ button.
 ### Results retrieval
 
 - GIVEN a staff actor,
-  WHEN they GET `/api/plagiarism/[assessmentId]`,
+  WHEN they GET `/api/plagiarism/[assignmentId]`,
   THEN the response is `{ reports: [PlagiarismReportSummary | null] }`
   (array wrapper preserved for UI compatibility).
 - GIVEN a staff actor with `?source=true&userId=X&problemId=Y`,
@@ -216,9 +224,10 @@ button.
 - **Source-code lookup for a deleted user**:
   `getPlagiarismSourceCode` returns `null`; UI falls back to a "source
   unavailable" placeholder.
-- **Hand-crafted POST to `/api/plagiarism/[contestId]?type=contest`**:
-  remapped to `type: exam` — unless the id collides with an `Exam.id`
-  the response is 404 `Exam not found.`.
+- **POST to `/api/plagiarism/[contestId]?type=contest`**: resolves
+  through the contest branch. Permission falls back to platform-role
+  checks (admin or platform teacher) since contests have no course
+  membership.
 - **Legacy MOSS-era rows**: reports that completed before the Dolos
   migration still carry the old pair shape (`similarity1`,
   `similarity2`, `linesMatched`, `mossUrl`). The UI must either
@@ -251,7 +260,7 @@ button.
 - `packages/db/prisma/schema/course.prisma` —
   `CourseAssessment.plagiarism*` columns.
 - `packages/db/prisma/schema/contest.prisma` — `Exam.plagiarism*` plus
-  unused `Contest.plagiarism*` columns.
+  `Contest.plagiarism*` columns (both wired through the UI now).
 - `packages/db/src/repositories/plagiarism.ts` — per-target
   `findBy*` / `upsertFor*` / `clearFor*` methods.
 - `packages/db/src/repositories/plagiarism-pair-flag.ts` — `upsert`,
@@ -286,12 +295,13 @@ button.
   pair as false-positive.
 - `apps/web/src/routes/api/plagiarism-flags/[id]/+server.ts` — DELETE
   unflag.
-- `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.server.ts`
+- `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.ts`
   — loads report + flag list for staff via
   `findPlagiarismReport(...).catch(() => null)` and
-  `listFlagsForContext("assessment", assessmentId)`.
-- `apps/web/src/routes/(app)/assignments/[assessmentId]/plagiarism/pairs/[pairId]/+page.svelte`
-  — staff-only Monaco diff editor with mark / unmark controls.
+  `listFlagsForContext("assessment", assignmentId)`.
+- `apps/web/src/routes/(app)/plagiarism/pairs/[pairId]/+page.server.ts`
+  — staff-only Monaco diff page that resolves the pair against any of
+  the three parent context types (assessment, exam, contest).
 - `apps/web/src/lib/components/.../AssignmentPlagiarismReport.svelte` —
   histogram + table UI, bucketed by similarity, with in-product
   side-by-side source dialog and "顯示已標記為誤判" toggle.
@@ -317,8 +327,6 @@ button.
 
 ## Open Questions / TODO
 
-- Contest plagiarism columns are dead weight — consider dropping
-  `Contest.plagiarism*` in a schema cleanup pass to shrink the surface.
 - Re-triggering silently discards prior pair data with no audit trail.
   If "did someone wipe evidence?" becomes a governance question, a
   `PlagiarismTriggerLog` table is needed.

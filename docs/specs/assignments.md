@@ -24,9 +24,10 @@ viewing + un-scored submission to past participants.
 - As a **student**, I want to keep viewing and submitting to an ended
   assignment's problems for practice, so that I can still learn the material
   after the deadline without it affecting scores.
-- As a **teacher**, I want to `archive` or `unarchive` a published
-  assignment, so that old semesters hide from student lists without losing
-  submission history.
+- As a **teacher**, I want old semesters' assignments to fall out of student
+  lists once the parent course is archived, without losing submission
+  history. (Assignments themselves have no archive flag — the parent
+  `Course.archived` cascades.)
 - As a **teacher**, I want `delete-draft` that only works while the
   assignment has never been shipped, so that destructive operations never
   wipe real grades.
@@ -36,16 +37,20 @@ viewing + un-scored submission to past participants.
 ### In scope
 
 - `CourseAssessment` CRUD — create, partial update (status-aware), publish,
-  archive/unarchive, delete-draft, revert-to-draft (only while `upcoming`).
-- Lifecycle derivation `draft | upcoming | open | closed | archived` from
-  `(status, opensAt, closesAt, now)`.
+  delete-draft, revert-to-draft (only while `upcoming`).
+- Persistent `status` is `draft | published` only. Lifecycle derivation
+  `draft | upcoming | open | closed` from `(status, opensAt, closesAt,
+now)` — `closed` is purely `closesAt < now` and persists forever; there
+  is no separate archived state at this level. When the parent course is
+  archived (`Course.archived = true`), the assignment hides from student
+  list views even if `closesAt` is in the future.
 - Publish validation (≥1 problem, ≥1 allowed language, valid time window,
   `closesAt > now`, `opensAt < dueAt <= closesAt` when `dueAt` is set).
 - Status-aware field locks:
   - `draft`/`upcoming` → all fields editable.
   - `open` → `opensAt` frozen; `closesAt`/`dueAt` extend-only.
-  - `closed` → only archive allowed.
-  - `archived` → only unarchive allowed.
+  - `closed` → no field edits (only delete-draft is meaningful, and only
+    for never-published rows).
 - Per-assignment `maxAttemptsPerDay` (UTC midnight boundary).
 - Per-assignment `allowedLanguages` subset of platform-supported list.
 - `adjustmentRules` (e.g. late penalty decay) applied at submission score
@@ -86,7 +91,7 @@ viewing + un-scored submission to past participants.
 - GIVEN an assignment whose `closesAt <= now`,
   WHEN publish is attempted,
   THEN `ValidationError("closesAt must be in the future.")`.
-- GIVEN an assignment already in `published` or `archived`,
+- GIVEN an assignment already in `published`,
   WHEN publish is attempted,
   THEN `ValidationError("Only draft assignments can be published.")`.
 
@@ -98,16 +103,6 @@ viewing + un-scored submission to past participants.
 - GIVEN a `published` assignment whose `opensAt <= now` (already open),
   WHEN revert is attempted,
   THEN `ValidationError("Cannot revert an assignment that has already opened.")`.
-
-### Lifecycle — archive / unarchive
-
-- GIVEN a `published` assignment, WHEN `archiveAssessment` is called,
-  THEN `status` becomes `archived`; all existing `CourseAssessmentProblem`
-  rows and submissions are untouched.
-- GIVEN an `archived` assignment, WHEN `unarchiveAssessment` is called,
-  THEN `status` becomes `published`.
-- GIVEN a `draft`/`archived` assignment, WHEN `archiveAssessment` runs on
-  it, THEN `ValidationError("Only published assignments can be archived.")`.
 
 ### Lifecycle — delete-draft
 
@@ -127,10 +122,9 @@ viewing + un-scored submission to past participants.
 - GIVEN an `open` assignment, WHEN the payload sets `dueAt` earlier than
   the current `dueAt`,
   THEN `ValidationError("dueAt can only be extended, not moved earlier.")`.
-- GIVEN a `closed` assignment, WHEN `updateAssessmentRecord` is called,
-  THEN `ValidationError("Closed assignments can only be archived.")`.
-- GIVEN an `archived` assignment, WHEN `updateAssessmentRecord` is called,
-  THEN `ValidationError("Archived assignments can only be unarchived.")`.
+- GIVEN a `closed` assignment (`closesAt < now`), WHEN
+  `updateAssessmentRecord` is called, THEN the mutation is rejected — a
+  closed assignment is read-only forever.
 
 ### Permissions
 
@@ -196,9 +190,11 @@ viewing + un-scored submission to past participants.
   the new day's 00:00:00 (a `createdAt >= start-of-day` filter), so a
   student submitting at 23:59:59 on day N and 00:00:00 on day N+1 gets two
   attempts, not one.
-- **Archived course, published assignment.** Students can still see the
-  detail page; they cannot submit (the submissions path rejects when the
-  course is archived). Listing surfaces treat the archived course as muted.
+- **Archived course, published assignment.** When the parent
+  `Course.archived` flips true, the assignment hides from student list
+  views and submissions to it are rejected by the submissions path. The
+  assignment row itself stays `published`; it just stops being addressable
+  by students until the course is unarchived.
 
 ## Implementation References
 
@@ -206,8 +202,8 @@ viewing + un-scored submission to past participants.
 
 - `packages/domain/src/assessment/mutations.ts` —
   `updateAssessmentRecord`, `publishAssessment`, `deleteAssessmentDraft`,
-  `archiveAssessment`, `unarchiveAssessment`, `revertAssessmentToDraft`,
-  `assertFieldsAllowedForStatus` (status-aware lock), `deriveLiveStatus`.
+  `revertAssessmentToDraft`, `assertFieldsAllowedForStatus` (status-aware
+  lock), `deriveLiveStatus`.
 - `packages/domain/src/course/mutations.ts` —
   `createCourseAssessmentRecord` (initial insert; generates slug-style id).
 - `packages/domain/src/course/overview.ts` —
@@ -230,7 +226,7 @@ viewing + un-scored submission to past participants.
 
 ### Routes / API
 
-- `apps/web/src/routes/(app)/assignments/[assessmentId]/+page.server.ts`
+- `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.ts`
   — all lifecycle + settings form actions.
 - `apps/web/src/routes/(app)/courses/[courseId]/assignments/` — per-course
   list and create flows.
@@ -240,7 +236,7 @@ viewing + un-scored submission to past participants.
 ### Tests
 
 - `tests/unit/domain/assessment-mutations.test.ts` — publish / delete /
-  archive / unarchive / revert-to-draft / status-aware field locks.
+  revert-to-draft / status-aware field locks.
 - `tests/unit/domain/list-aggregations.test.ts` — class stats + my status
   aggregations.
 - `tests/unit/domain/problem-access.test.ts` — practice-after-close gate.
@@ -250,7 +246,7 @@ viewing + un-scored submission to past participants.
 - Teachers currently cannot see practice (post-close, context-less)
   submissions from their students in any matrix view — this is
   intentional per the design doc, but may become a feature request.
-- No explicit audit log for lifecycle transitions (publish / archive /
-  unarchive / delete-draft). If governance requires "who published this?"
+- No explicit audit log for lifecycle transitions (publish / delete-draft
+  / revert-to-draft). If governance requires "who published this?"
   visibility, wire through an `AssessmentEvent` or reuse the announcement
   audit pattern.

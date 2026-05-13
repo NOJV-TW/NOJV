@@ -213,8 +213,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     // /api/auth/sign-in/social and /api/auth/callback/*, which are exempt.
     const isPasswordSignIn =
       event.request.method === "POST" &&
-      (cleanPath === "/api/auth/sign-in/email" ||
-        cleanPath === "/api/auth/sign-in/username");
+      (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
     if (isPasswordSignIn) {
       try {
         await signInRateLimiter.consume(getClientIp(event));
