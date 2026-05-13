@@ -241,8 +241,9 @@ export async function publishAssignment(
 }
 
 /**
- * Delete a draft assignment. Non-draft states must go through archive
- * (reversible) — delete is reserved for drafts that never shipped.
+ * Delete a draft assignment. Non-draft assignments stay forever — by
+ * design, since their submissions remain visible to students after
+ * `closesAt`. Delete is reserved for drafts that never shipped.
  */
 export async function deleteAssignmentDraft(
   actor: ActorContext,

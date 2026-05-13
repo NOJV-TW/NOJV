@@ -2,12 +2,7 @@
   import type { examDomain } from "@nojv/domain";
 
   export type ProblemsTabDetail = examDomain.ExamDetailPage;
-  export type ProblemsLiveStatus =
-    | "draft"
-    | "upcoming"
-    | "running"
-    | "ended"
-    | "archived";
+  export type ProblemsLiveStatus = "draft" | "upcoming" | "running" | "ended";
 </script>
 
 <script lang="ts">

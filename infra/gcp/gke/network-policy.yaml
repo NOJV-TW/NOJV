@@ -54,24 +54,30 @@ spec:
       ports:
         - port: 7233
           protocol: TCP
-    # Memorystore Redis (egress to private IP — cluster needs the matching
-    # CIDR allowed in firewall rules; this NetworkPolicy alone does not
-    # open VPC routes, it only allows the pod-level egress).
+    # Memorystore Redis. Replace this CIDR with the actual Memorystore
+    # instance's /32 (or its reserved /29 subnet) at deploy time. The
+    # `10.0.0.0/8` placeholder is intentionally broad so a fresh cluster
+    # can come up before the Memorystore IP is known — narrow it before
+    # production.
     - to:
         - ipBlock:
             cidr: 10.0.0.0/8
       ports:
         - port: 6379
           protocol: TCP
-    # Cloud SQL via Cloud SQL Auth Proxy. Egress goes over Google's public
-    # API endpoint (private.googleapis.com); the proxy handles auth.
+    # Cloud SQL via Cloud SQL Auth Proxy. The proxy needs the GCP metadata
+    # server (169.254.169.254) to fetch a Workload Identity token, which
+    # on GKE is intercepted by the gke-metadata-server DaemonSet — only
+    # the pod's bound KSA can mint a token, raw GCE metadata is not
+    # reachable. So we leave 169.254/32 reachable here rather than
+    # carving it out with `except` (which would break GSA token fetch).
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
-            except:
-              - 169.254.169.254/32 # GCE metadata server — blocked outright
       ports:
         - port: 3307
           protocol: TCP
         - port: 443
+          protocol: TCP
+        - port: 80
           protocol: TCP
