@@ -145,7 +145,7 @@ function handleDefaultEvent(data: SSEEvent) {
   }
   if (data.type === SSE_NOTIFICATION) {
     // Batch signals arrive without id/createdAt; the store falls back to
-    // refetching /api/notifications/recent in that case.
+    // refetching /api/notifications in that case.
     notifications.handleSseEvent({
       notificationType: data.notificationType,
       params: data.params,

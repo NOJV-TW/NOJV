@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
   import { ChevronRight, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/coursework/Crumbs.svelte";
   import CornerMark from "$lib/components/coursework/CornerMark.svelte";
@@ -16,7 +16,7 @@
   import ExamProctoringTab from "$lib/components/course/exam/ExamProctoringTab.svelte";
   import ExamResultsTab from "$lib/components/course/exam/ExamResultsTab.svelte";
   import ExamStartModal from "$lib/components/course/exam/ExamStartModal.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/plagiarism/AssignmentPlagiarismReport.svelte";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
   import { fmtDate } from "$lib/utils/datetime.js";

@@ -152,6 +152,8 @@ export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth>
   function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     return Promise.race([
       promise,
+      // Race sentinel — caught immediately by the surrounding .catch and
+      // stringified into the health payload; never bubbles to an HTTP handler.
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
     ]);
   }

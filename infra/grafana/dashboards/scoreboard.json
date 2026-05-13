@@ -1,7 +1,7 @@
 {
   "uid": "nojv-scoreboard",
   "title": "NOJV — Scoreboard Update",
-  "description": "Redis ZADD-backed scoreboard update latency for ICPC and IOI modes. SLO target: p95 < 3s (see docs/RELIABILITY.md).",
+  "description": "Redis ZADD-backed scoreboard update latency for ICPC and IOI modes. SLO target: p95 < 3s (see docs/operations/RELIABILITY.md).",
   "tags": ["nojv", "slo", "scoreboard"],
   "timezone": "browser",
   "schemaVersion": 39,

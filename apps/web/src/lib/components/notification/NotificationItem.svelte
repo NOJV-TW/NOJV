@@ -2,7 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { notifications, type NotificationItem } from "$lib/stores/notifications.svelte";
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
 
   let { item }: { item: NotificationItem } = $props();
 

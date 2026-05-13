@@ -2,7 +2,7 @@
 
 ## Overview
 
-Use this runbook when the platform is wholly or partially unavailable, or when [Reliability SLOs](../RELIABILITY.md#service-level-objectives) are severely violated (major tier per that doc).
+Use this runbook when the platform is wholly or partially unavailable, or when [Reliability SLOs](../operations/RELIABILITY.md#service-level-objectives) are severely violated (major tier per that doc).
 
 **Rule of calm: mitigate first, diagnose second.** Restoring service for users outranks finding the root cause. Every scenario below is ordered so the top steps are the fastest path to green; capture logs and metrics before restarting anything, but do not block recovery on a perfect post-mortem trail.
 
@@ -130,7 +130,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 - Conservative Prisma connection pool limit (set per app tier, sized to Cloud SQL max_connections / replica count).
 - Slow query logging enabled in production.
-- Read replica for heavy analytics reads (plagiarism dashboards, user stats) — currently TBD, tracked in [Quality Ledger](../QUALITY_SCORE.md).
+- Read replica for heavy analytics reads (plagiarism dashboards, user stats) — currently TBD, tracked in [Quality Ledger](../operations/QUALITY_SCORE.md).
 - Cloud SQL alerts on CPU > 80%, connection count > 80%, IOPS saturation.
 
 ---
@@ -179,13 +179,13 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 ## Post-Incident
 
 1. File an incident log entry with: start time, detection time, mitigation time, resolution time, user impact summary.
-2. If an SLO was breached, cross-reference in [Reliability SLOs](../RELIABILITY.md#service-level-objectives).
-3. If a prevention item above was absent or insufficient, add / update it in the relevant doc (`SECURITY.md`, `DEPLOYMENT.md`, this runbook, or the [Quality Ledger](../QUALITY_SCORE.md)).
-4. If the bug was code, prefer a regression test over a one-off fix — see [Reliability Invariants](../RELIABILITY.md) for validation requirements.
+2. If an SLO was breached, cross-reference in [Reliability SLOs](../operations/RELIABILITY.md#service-level-objectives).
+3. If a prevention item above was absent or insufficient, add / update it in the relevant doc (`operations/SECURITY.md`, `operations/DEPLOYMENT.md`, this runbook, or the [Quality Ledger](../operations/QUALITY_SCORE.md)).
+4. If the bug was code, prefer a regression test over a one-off fix — see [Reliability Invariants](../operations/RELIABILITY.md) for validation requirements.
 
 ## Related Docs
 
-- [Reliability Invariants](../RELIABILITY.md)
-- [Deployment Guide](../DEPLOYMENT.md)
+- [Reliability Invariants](../operations/RELIABILITY.md)
+- [Deployment Guide](../operations/DEPLOYMENT.md)
 - [Backup & Restore](backup-restore.md) — durability incidents (PITR, snapshot recovery, accidental deletes)
 - [Getting Started](getting-started.md)

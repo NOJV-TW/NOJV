@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
@@ -13,7 +13,7 @@
   import StatusPill from "$lib/components/coursework/StatusPill.svelte";
   import TabStrip from "$lib/components/coursework/TabStrip.svelte";
   import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/plagiarism/AssignmentPlagiarismReport.svelte";
   import ContestProblemsTab from "$lib/components/contest/ContestProblemsTab.svelte";
   import ContestResultsTab from "$lib/components/contest/ContestResultsTab.svelte";
   import ContestSettingsTab, {

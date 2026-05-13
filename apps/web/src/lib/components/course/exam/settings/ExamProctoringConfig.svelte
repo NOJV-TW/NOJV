@@ -1,0 +1,80 @@
+<script lang="ts">
+  import type { SuperForm } from "sveltekit-superforms";
+  import type { ExamSettingsForm } from "@nojv/core";
+  import type { FormMessage } from "$lib/types/form-message";
+  import { inputClassName, monoTextareaClassName } from "$lib/utils/css";
+  import { m } from "$lib/paraglide/messages.js";
+
+  type Sf = SuperForm<ExamSettingsForm, FormMessage>;
+
+  interface Props {
+    form: Sf["form"];
+    /**
+     * Proctoring escape hatches stay live during the running phase — this
+     * lets staff yank the lock when a student is stuck.
+     */
+    editable: boolean;
+  }
+
+  let { form, editable }: Props = $props();
+</script>
+
+<section
+  class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
+>
+  <h3 class="mb-4 text-title-sm font-medium">
+    {m.examDetail_settingsSectionProctoring()}
+  </h3>
+  <div class="space-y-4">
+    <label
+      class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}"
+    >
+      <input type="checkbox" bind:checked={$form.pageLockEnabled} disabled={!editable} />
+      {m.examDetail_settingsPageLockLabel()}
+    </label>
+
+    <label
+      class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}"
+    >
+      <input type="checkbox" bind:checked={$form.ipBindingEnabled} disabled={!editable} />
+      {m.examDetail_settingsIpBindingLabel()}
+    </label>
+
+    <label
+      class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}"
+    >
+      <input type="checkbox" bind:checked={$form.ipWhitelistEnabled} disabled={!editable} />
+      {m.examDetail_settingsIpWhitelistEnabledLabel()}
+    </label>
+
+    {#if $form.ipWhitelistEnabled}
+      <div>
+        <label class="text-sm font-medium" for="settings-ipWhitelist">
+          {m.examDetail_settingsIpWhitelistLabel()}
+        </label>
+        <textarea
+          id="settings-ipWhitelist"
+          class={monoTextareaClassName}
+          bind:value={$form.ipWhitelistText}
+          disabled={!editable}
+          placeholder="10.0.0.0/24&#10;192.168.1.5/32&#10;2001:db8::/32"
+        ></textarea>
+      </div>
+    {/if}
+
+    <div>
+      <label class="text-sm font-medium" for="settings-ipViolationMode">
+        {m.examDetail_settingsIpViolationModeLabel()}
+      </label>
+      <select
+        id="settings-ipViolationMode"
+        class={inputClassName}
+        bind:value={$form.ipViolationMode}
+        disabled={!editable}
+      >
+        <option value="block">{m.examCreate_violationBlock()}</option>
+        <option value="notify">{m.examCreate_violationNotify()}</option>
+      </select>
+    </div>
+  </div>
+</section>

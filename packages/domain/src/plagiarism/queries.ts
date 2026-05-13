@@ -8,7 +8,7 @@ import {
   type PlagiarismReportSummary,
 } from "@nojv/db";
 
-import { NotFoundError } from "../shared/errors";
+import { IntegrityError, NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
@@ -119,7 +119,7 @@ export async function createPlagiarismReport(
   });
   const summary = await findPlagiarismReport(target);
   if (!summary) {
-    throw new Error("Failed to persist plagiarism report state.");
+    throw new IntegrityError("Failed to persist plagiarism report state.");
   }
   return summary;
 }

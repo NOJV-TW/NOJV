@@ -78,18 +78,20 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
   });
 }
 
-export async function dispatchRejudge(input: RejudgeInput): Promise<void> {
+export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
   const client = await getClient();
   const suffix =
     input.mode === "single"
       ? input.submissionId
       : (input.examId ?? input.contestId ?? input.assessmentId ?? input.problemId);
 
+  const workflowId = `rejudge-${suffix}-${String(Date.now())}`;
   await client.workflow.start("rejudgeWorkflow", {
     taskQueue: JUDGE_TASK_QUEUE,
-    workflowId: `rejudge-${suffix}-${String(Date.now())}`,
+    workflowId,
     args: [input],
   });
+  return { workflowId };
 }
 
 export async function dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void> {

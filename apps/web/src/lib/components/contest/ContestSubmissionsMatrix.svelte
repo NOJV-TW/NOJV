@@ -6,7 +6,7 @@
 
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import SubmissionsMatrixView from "../course/shared/SubmissionsMatrixView.svelte";
+  import MatrixView from "../course/submissions/MatrixView.svelte";
 
   interface Props {
     matrix: ContestSubmissionsMatrixData;
@@ -17,7 +17,7 @@
   let { matrix, contestId, class: className }: Props = $props();
 </script>
 
-<SubmissionsMatrixView
+<MatrixView
   {matrix}
   csvDownloadName={`contest-${contestId}-matrix.csv`}
   dataSlot="contest-submissions-matrix"

@@ -13,7 +13,7 @@
 - Secret Manager: `DATABASE_URL`, `REDIS_URL`
 - **Cloud Armor security policy** attached to the GCLB backend — source IP allowlist restricted to Cloudflare's official CIDR ranges
 
-> Provisioning + verification steps for the Cloudflare / Ingress / Cloud Armor trust boundary live in [`docs/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup](../../docs/DEPLOYMENT.md#cloudflare--cloud-armor-setup). The rationale (why no XFF fallback) is in [`docs/SECURITY.md` — Client IP Trust Model](../../docs/SECURITY.md#client-ip-trust-model-cloudflare-only).
+> Provisioning + verification steps for the Cloudflare / Ingress / Cloud Armor trust boundary live in [`docs/operations/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup](../../docs/operations/DEPLOYMENT.md#cloudflare--cloud-armor-setup). The rationale (why no XFF fallback) is in [`docs/operations/SECURITY.md` — Client IP Trust Model](../../docs/operations/SECURITY.md#client-ip-trust-model-cloudflare-only).
 
 ## Images
 

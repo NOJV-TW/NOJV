@@ -1,3 +1,5 @@
+import { ValidationError } from "../shared/errors";
+
 /**
  * Discriminated union for score-override contexts. Replaces the legacy
  * `(contextType: OverrideContextType, contextId: string)` pair on every
@@ -45,6 +47,6 @@ export function fromContextDbFields(row: {
     case "contest":
       return { type: "contest", contestId: row.contextId };
     default:
-      throw new Error(`Unknown score-override contextType: ${row.contextType}`);
+      throw new ValidationError(`Unknown score-override contextType: ${row.contextType}`);
   }
 }

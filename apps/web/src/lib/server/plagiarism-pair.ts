@@ -1,10 +1,37 @@
 import { NotFoundError, ValidationError, plagiarismDomain } from "@nojv/domain";
-import { userRepo } from "@nojv/db";
+import { canManageCourse } from "@nojv/domain";
+import { contestRepo, userRepo } from "@nojv/db";
+import type { RequestEvent } from "@sveltejs/kit";
 
+import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
 import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
 const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsForContext } =
   plagiarismDomain;
+
+/**
+ * Server-side authz gate for `/api/plagiarism/[assignmentId]/*` endpoints.
+ * Both the report listing and the source-code fetch reuse this — staff
+ * only, with the contest case falling back to organizer-or-admin since
+ * contests are not course-bound.
+ */
+export async function assertCanManagePlagiarism(
+  event: RequestEvent,
+  resolved: Awaited<ReturnType<typeof plagiarismDomain.resolvePlagiarismTarget>>,
+  denialMessage: string,
+): Promise<void> {
+  const actor = requireApiAuth(event);
+  if (resolved.target.type === "contest") {
+    if (actor.platformRole === "admin") return;
+    const contest = await contestRepo.findById(resolved.target.id);
+    if (contest?.createdByUserId === actor.userId) return;
+    throw new ForbiddenError(denialMessage);
+  }
+  const role = await getCoursePermissionRole(resolved.courseId, actor);
+  if (!role || !canManageCourse(role)) {
+    throw new ForbiddenError(denialMessage);
+  }
+}
 
 interface RawPair {
   userId1: string;

@@ -2,17 +2,25 @@ import { fail, redirect } from "@sveltejs/kit";
 
 import type { Actions, PageServerLoad } from "./$types";
 
-import { getActorContext, requireAuth, requirePlatformRole } from "$lib/server/auth";
+import { getActorContext, requireAuth } from "$lib/server/auth";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { contestDomain } from "@nojv/domain";
 
-const { getContestDetail, getScoreboard, getScoreboardChart, unfreezeContest } = contestDomain;
+const {
+  canViewLiveContestScoreboard,
+  getContestDetail,
+  getScoreboard,
+  getScoreboardChart,
+  unfreezeContest,
+} = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const { contestId } = event.params;
   const actor = getActorContext(event);
 
-  const canUnfreeze =
-    actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
+  // Only the contest organizer (and platform admin) can flip the frozen
+  // board off — the previous "any teacher" gate was too broad.
+  const canSeeLive = await canViewLiveContestScoreboard(contestId, actor);
 
   const detail = await getContestDetail(contestId, {
     now: new Date(),
@@ -28,12 +36,12 @@ export const load: PageServerLoad = async (event) => {
   }
 
   const [scoreboard, chart] = await Promise.all([
-    getScoreboard(contestId, { isPrivileged: canUnfreeze }),
+    getScoreboard(contestId, { canSeeLive }),
     getScoreboardChart(contestId, 10),
   ]);
 
   return {
-    canUnfreeze,
+    canUnfreeze: canSeeLive,
     chart,
     contestId,
     scoreboard,
@@ -41,9 +49,12 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  unfreeze: async (event) => {
+  unfreeze: withRateLimit(async (event) => {
     const actor = requireAuth(event);
-    requirePlatformRole(actor, "admin", "teacher");
+    const allowed = await canViewLiveContestScoreboard(event.params.contestId, actor);
+    if (!allowed) {
+      return fail(403, { error: "Only the contest organizer or an admin can unfreeze." });
+    }
 
     const result = await unfreezeContest(event.params.contestId);
     if (!result) {
@@ -51,5 +62,5 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 } satisfies Actions;

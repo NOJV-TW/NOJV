@@ -9,7 +9,7 @@
   import MobileWorkspaceBlocker from "../layout/MobileWorkspaceBlocker.svelte";
   import AdvancedModeWorkspace from "./advanced/AdvancedModeWorkspace.svelte";
   import ProblemSwitcherDrawer from "./ProblemSwitcherDrawer.svelte";
-  import ProblemWorkspace from "./Workspace.svelte";
+  import ProblemWorkspace from "./ProblemWorkspace.svelte";
 
   export interface ProblemSolveSibling {
     id: string;

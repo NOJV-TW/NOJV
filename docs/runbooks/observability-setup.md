@@ -347,8 +347,8 @@ expression map below mirrors `infra/grafana/dashboards/*.json` exactly.
 
 ## Related Docs
 
-- [Reliability Invariants](../RELIABILITY.md) — SLO table with per-row
+- [Reliability Invariants](../operations/RELIABILITY.md) — SLO table with per-row
   dashboard links
-- [Deployment Guide](../DEPLOYMENT.md) — env-var injection for production
+- [Deployment Guide](../operations/DEPLOYMENT.md) — env-var injection for production
 - [Incident Recovery Runbook](./incident-recovery.md) — what to do when
   an SLO burns

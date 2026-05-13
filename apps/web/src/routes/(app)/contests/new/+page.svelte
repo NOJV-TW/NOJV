@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
-  import { inputClassName } from "$lib/css";
+  import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import TrophyIcon from "@lucide/svelte/icons/trophy";

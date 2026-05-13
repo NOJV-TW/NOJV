@@ -1,3 +1,5 @@
+import { ValidationError } from "../shared/errors";
+
 /**
  * Discriminated union describing the three kinds of context a
  * clarification thread can live in. Replaces the legacy
@@ -42,6 +44,6 @@ export function fromContextDbFields(row: {
     case "contest":
       return { type: "contest", contestId: row.contextId };
     default:
-      throw new Error(`Unknown clarification contextType: ${row.contextType}`);
+      throw new ValidationError(`Unknown clarification contextType: ${row.contextType}`);
   }
 }

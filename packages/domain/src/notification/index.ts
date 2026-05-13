@@ -82,6 +82,20 @@ export async function markAllAsRead(userId: string) {
   return notificationRepo.markAllRead(userId);
 }
 
+/** Delete a single notification owned by the caller. */
+export async function deleteOne(userId: string, notificationId: string) {
+  return notificationRepo.deleteOne(userId, notificationId);
+}
+
+/**
+ * Drop every notification belonging to the caller. With `{ onlyRead: true }`
+ * we keep unread rows so the inbox-clear UX doesn't silently swallow alerts
+ * the user hasn't seen yet.
+ */
+export async function deleteAll(userId: string, opts?: { onlyRead?: boolean }) {
+  return notificationRepo.deleteAll(userId, opts);
+}
+
 /**
  * Fan out `assignment_due_soon` notifications to every active student in
  * the course who has not yet reached the assignment's maximum score.
