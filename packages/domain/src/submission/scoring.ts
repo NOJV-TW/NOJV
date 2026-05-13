@@ -24,7 +24,9 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error",
 };
 
-// `MINIMUM` collapses to `ALL_OR_NOTHING` — no partial-credit signal exists to take a minimum over today.
+// PROPORTIONAL averages per-case scores so checker partial credit (0-100)
+// flows through. ALL_OR_NOTHING / MINIMUM stay binary on verdict — partial
+// credit on those strategies would defeat their semantics.
 export function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
@@ -35,14 +37,17 @@ export function buildSubtaskResults(
 
   for (const ts of testcaseSets) {
     const cases: SubtaskResultItem["cases"] = [];
+    const caseScores: number[] = [];
     for (let ordinal = 0; ordinal < ts.testcases.length; ordinal++) {
       const sandboxCase = result.testcaseResults[flatIndex++];
+      const verdict = sandboxCase?.verdict ?? "SE";
       cases.push({
         ordinal,
         runtimeMs: sandboxCase?.timeMs ?? 0,
         testcaseId: ts.testcases[ordinal]?.id ?? "",
-        verdict: sandboxCase?.verdict ?? "SE",
+        verdict,
       });
+      caseScores.push(sandboxCase?.score ?? (verdict === "AC" ? 100 : 0));
     }
 
     const total = cases.length;
@@ -54,7 +59,8 @@ export function buildSubtaskResults(
     if (total === 0) {
       rawScore = 0;
     } else if (strategy === "PROPORTIONAL") {
-      rawScore = ts.weight * (passed / total);
+      const sumScore = caseScores.reduce((s, v) => s + v, 0);
+      rawScore = (ts.weight * sumScore) / (total * 100);
     } else if (strategy === "MINIMUM") {
       rawScore = allPassed ? ts.weight : 0;
     } else {

@@ -9,6 +9,7 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 
+import { createBoundedStringBuffer } from "./bounded-buffer";
 import { forceRemoveContainer, sanitizeId } from "./docker-process";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult } from "./sandbox-schema";
@@ -161,8 +162,8 @@ async function runContainer(
   return await new Promise<SandboxResult>((resolve) => {
     const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
 
-    let stdout = "";
-    let stderr = "";
+    const stdoutBuf = createBoundedStringBuffer();
+    const stderrBuf = createBoundedStringBuffer();
     let timedOut = false;
     let settled = false;
 
@@ -182,11 +183,11 @@ async function runContainer(
     child.stderr.setEncoding("utf8");
 
     child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
+      stdoutBuf.push(chunk);
     });
 
     child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
+      stderrBuf.push(chunk);
     });
 
     child.on("error", (error: Error) => {
@@ -196,6 +197,9 @@ async function runContainer(
 
     child.on("close", (exitCode: number | null) => {
       clearTimeout(timer);
+
+      const stdout = stdoutBuf.toString();
+      const stderr = stderrBuf.toString();
 
       if (timedOut) {
         settle(sandboxSystemError("Sandbox execution timed out."));

@@ -86,11 +86,22 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
 
 function createAuth() {
   const env = getWebEnv();
+  const isProduction = env.NODE_ENV === "production";
 
   return betterAuth({
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     database: prismaAdapter(prisma, { provider: "postgresql" }),
+    // Pin cookie attributes explicitly so a future better-auth upgrade can't
+    // silently relax defaults. sameSite=lax keeps OAuth callbacks working
+    // (the callback is a top-level GET nav from the provider).
+    advanced: {
+      defaultCookieAttributes: {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+      },
+    },
     emailAndPassword: {
       enabled: true,
       // Seeded credential accounts store bcrypt hashes; configure auth to match.

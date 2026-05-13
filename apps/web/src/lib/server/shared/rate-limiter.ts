@@ -1,7 +1,10 @@
 import { dev } from "$app/environment";
 import { fail } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit";
 import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
 import { getRedis } from "@nojv/redis";
+
+import { getClientIp } from "./client-ip";
 
 // Why: in production we run multiple web instances. A `RateLimiterMemory`
 // fallback would make the limit per-instance, which an attacker can bypass
@@ -63,11 +66,11 @@ export const apiRateLimiter = createRateLimiter(60, 60);
 export const writeApiRateLimiter = createRateLimiter(10, 60);
 const formActionRateLimiter = createRateLimiter(20, 60);
 
-export async function consumeFormRateLimit(event: {
-  getClientAddress: () => string;
-}): Promise<ReturnType<typeof fail<{ error: string }>> | null> {
+export async function consumeFormRateLimit(
+  event: RequestEvent,
+): Promise<ReturnType<typeof fail<{ error: string }>> | null> {
   try {
-    await formActionRateLimiter.consume(event.getClientAddress());
+    await formActionRateLimiter.consume(getClientIp(event));
     return null;
   } catch (err) {
     if (err instanceof RateLimiterRes || err instanceof RateLimiterFailClosedError) {

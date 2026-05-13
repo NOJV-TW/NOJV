@@ -165,6 +165,7 @@ export class K8sExecutor implements SandboxExecutor {
               securityContext: {
                 runAsUser: 10001,
                 runAsGroup: 10001,
+                runAsNonRoot: true,
                 seccompProfile: { type: "RuntimeDefault" },
               },
               containers: [
@@ -186,6 +187,7 @@ export class K8sExecutor implements SandboxExecutor {
                     allowPrivilegeEscalation: false,
                     capabilities: { drop: ["ALL"] },
                     readOnlyRootFilesystem: true,
+                    runAsNonRoot: true,
                   },
                   volumeMounts: [
                     {

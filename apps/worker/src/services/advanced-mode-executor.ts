@@ -11,6 +11,7 @@ import {
 } from "@nojv/core";
 import { createStorageClient, downloadAdvancedImageTarball } from "@nojv/storage";
 
+import { createBoundedStringBuffer } from "./bounded-buffer";
 import { forceRemoveContainer, sanitizeId } from "./docker-process";
 import { sandboxSystemError } from "./sandbox-plan";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
@@ -76,12 +77,14 @@ export class AdvancedModeExecutor {
       await mkdir(outputDir, { mode: 0o777, recursive: true });
 
       const fileWrites: Promise<void>[] = [];
+      const writtenPaths: string[] = [];
       let wroteDefault = false;
 
       for (const sf of request.sourceFiles ?? []) {
         const normalized = normalizeRelativePath(sf.path);
         if (!normalized) continue;
         if (normalized === defaultSourcePath) wroteDefault = true;
+        writtenPaths.push(normalized);
         const dest = join(submissionDir, normalized);
         fileWrites.push(
           (async () => {
@@ -91,6 +94,7 @@ export class AdvancedModeExecutor {
         );
       }
       if (!wroteDefault && request.sourceCode) {
+        writtenPaths.push(defaultSourcePath);
         fileWrites.push(
           writeFile(join(submissionDir, defaultSourcePath), request.sourceCode, "utf8"),
         );
@@ -99,7 +103,7 @@ export class AdvancedModeExecutor {
       const meta = {
         submissionId: request.submissionId,
         language: request.language,
-        submissionFiles: [defaultSourcePath],
+        submissionFiles: writtenPaths,
         resourceLimits: {
           totalTimeMs: advanced.totalTimeMs,
           memoryMb: advanced.memoryMb,
@@ -151,7 +155,7 @@ export class AdvancedModeExecutor {
 
       return new Promise((resolve) => {
         const child = spawn("docker", args, { env: process.env, stdio: "pipe" });
-        let stderr = "";
+        const stderrBuf = createBoundedStringBuffer();
         let timedOut = false;
         let settled = false;
 
@@ -174,7 +178,7 @@ export class AdvancedModeExecutor {
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
         child.stderr.on("data", (chunk: string) => {
-          stderr += chunk;
+          stderrBuf.push(chunk);
         });
 
         child.on("error", (err: Error) => {
@@ -184,7 +188,7 @@ export class AdvancedModeExecutor {
 
         child.on("close", (code: number | null) => {
           clearTimeout(timer);
-          settle({ exitCode: code, stderr, timedOut });
+          settle({ exitCode: code, stderr: stderrBuf.toString(), timedOut });
         });
 
         child.stdin.end();
@@ -237,20 +241,22 @@ export class AdvancedModeExecutor {
         env: process.env,
         stdio: ["pipe", "pipe", "pipe"],
       });
-      let stdout = "";
-      let stderr = "";
+      const stdoutBuf = createBoundedStringBuffer();
+      const stderrBuf = createBoundedStringBuffer();
       child.stdout.setEncoding("utf8");
       child.stderr.setEncoding("utf8");
       child.stdout.on("data", (c: string) => {
-        stdout += c;
+        stdoutBuf.push(c);
       });
       child.stderr.on("data", (c: string) => {
-        stderr += c;
+        stderrBuf.push(c);
       });
       child.on("error", (err: Error) => reject(err));
       child.on("close", (code: number | null) => {
+        const stdout = stdoutBuf.toString();
+        const stderr = stderrBuf.toString();
         if (code !== 0) {
-          reject(new Error(`docker load exited ${String(code)}: ${stderr.trim()}`));
+          reject(new Error(`docker load returned ${String(code)}: ${stderr.trim()}`));
           return;
         }
         // `docker load -q` prints "sha256:…" or "Loaded image: name:tag".
