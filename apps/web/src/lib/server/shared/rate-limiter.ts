@@ -66,6 +66,13 @@ export const apiRateLimiter = createRateLimiter(60, 60);
 export const writeApiRateLimiter = createRateLimiter(10, 60);
 const formActionRateLimiter = createRateLimiter(20, 60);
 
+// Password sign-in attempts (`/api/auth/sign-in/email|username`). Strict
+// cap targeted at /admin-signin brute force — OAuth flows do not hit this
+// limiter. 5 attempts per 15 minutes per IP. Acts as a coarse account
+// lockout for the only password-accessible surface (admin / seeded test
+// accounts).
+export const signInRateLimiter = createRateLimiter(5, 900);
+
 export async function consumeFormRateLimit(
   event: RequestEvent,
 ): Promise<ReturnType<typeof fail<{ error: string }>> | null> {
