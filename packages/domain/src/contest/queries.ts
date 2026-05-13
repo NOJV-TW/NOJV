@@ -24,7 +24,7 @@ export interface ContestListItem {
 }
 
 export interface ContestListItemForUser extends ContestListItem {
-  visibility: "draft" | "published" | "archived";
+  visibility: "draft" | "published";
 }
 
 export interface ContestListForUserResult {
@@ -54,7 +54,7 @@ export interface ContestDetail {
   submitCooldownSec: number;
   summary: string;
   title: string;
-  visibility: "draft" | "published" | "archived";
+  visibility: "draft" | "published";
 }
 
 export interface ContestWorkspaceDetail extends ContestDetail {

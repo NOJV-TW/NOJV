@@ -26,12 +26,10 @@ import { buildExamResults, type ExamResults } from "$lib/server/results/exam";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
-  archiveExam,
   deleteExamDraft,
   getExamDetailPage,
   buildExamSubmissionsMatrix,
   publishExam,
-  unarchiveExam,
   updateExamRecord,
 } = examDomain;
 
@@ -262,28 +260,6 @@ export const actions = {
       throw err;
     }
     redirect(303, "/exams");
-  },
-
-  archiveExam: async (event) => {
-    const actor = requireAuth(event);
-    try {
-      await archiveExam(actor, event.params.examId);
-    } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
-    }
-    return { success: true };
-  },
-
-  unarchiveExam: async (event) => {
-    const actor = requireAuth(event);
-    try {
-      await unarchiveExam(actor, event.params.examId);
-    } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
-    }
-    return { success: true };
   },
 
   updateProblems: async (event) => {

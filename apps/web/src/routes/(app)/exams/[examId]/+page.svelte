@@ -42,16 +42,15 @@
     Math.max(0, Math.round((endsAtMs - startsAtMs) / 60_000))
   );
 
-  type LiveStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
+  type LiveStatus = "draft" | "upcoming" | "running" | "ended";
   const liveStatus: LiveStatus = $derived.by(() => {
     if (detail.status === "draft") return "draft";
-    if (detail.status === "archived") return "archived";
     if (nowMs < startsAtMs) return "upcoming";
     if (nowMs >= endsAtMs) return "ended";
     return "running";
   });
 
-  const past = $derived(liveStatus === "ended" || liveStatus === "archived");
+  const past = $derived(liveStatus === "ended");
 
   function pillStatus(s: LiveStatus): string {
     if (s === "running") return "in_progress";
