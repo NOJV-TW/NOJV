@@ -83,6 +83,23 @@ export const notificationRepo = {
     await capRetentionForUsers([userId]);
     return row.count;
   },
+
+  async deleteOne(userId: string, notificationId: string) {
+    const result = await prisma.notification.deleteMany({
+      where: { id: notificationId, userId },
+    });
+    return result.count;
+  },
+
+  async deleteAll(userId: string, opts?: { onlyRead?: boolean }) {
+    const result = await prisma.notification.deleteMany({
+      where: {
+        userId,
+        ...(opts?.onlyRead ? { readAt: { not: null } } : {}),
+      },
+    });
+    return result.count;
+  },
 };
 
 // Set-based DELETE via ROW_NUMBER() — one query for N users, not N OFFSET scans.

@@ -1,12 +1,12 @@
 <script lang="ts">
   import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
   import { formatDateTimeCompact, fmtDate, fmtWeekday } from "$lib/utils/datetime";
   import AssignmentProblemsTab from "$lib/components/course/assignment/AssignmentProblemsTab.svelte";
   import AssignmentSubmissionsMatrix from "$lib/components/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentResultsTab from "$lib/components/course/assignment/AssignmentResultsTab.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/course/assignment/AssignmentSettingsTab.svelte";
   import { Button } from "$lib/components/ui/button";
   import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";

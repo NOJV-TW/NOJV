@@ -1,6 +1,6 @@
 import { browser } from "$app/environment";
 
-import { fetchWithCsrf } from "$lib/http";
+import { fetchWithCsrf } from "$lib/services/http";
 
 export interface NotificationItem {
   id: string;
@@ -28,7 +28,7 @@ class NotificationsStore {
 
   async init() {
     if (!browser) return;
-    const res = await fetch("/api/notifications/recent?limit=20");
+    const res = await fetch("/api/notifications?limit=20");
     if (!res.ok) return;
     const data = (await res.json()) as { items: NotificationItem[]; unreadCount: number };
     this.items = data.items;

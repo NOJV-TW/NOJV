@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	import type { Snippet } from "svelte";
-	import { cn, type WithElementRef } from "$lib/css.js";
+	import { cn, type WithElementRef } from "$lib/utils/css.js";
 	import type { HTMLButtonAttributes } from "svelte/elements";
 	import { buttonVariants, type ButtonVariant } from "./button.svelte";
 

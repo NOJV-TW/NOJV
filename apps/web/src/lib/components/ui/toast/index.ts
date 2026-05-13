@@ -1,7 +1,7 @@
 import ToastItem from "./ToastItem.svelte";
-import ToastContainer from "../ToastContainer.svelte";
+import ToastProvider from "../ToastProvider.svelte";
 
-export { ToastItem, ToastContainer };
+export { ToastItem, ToastProvider };
 
 export {
   toasts,

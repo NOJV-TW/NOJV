@@ -1,7 +1,7 @@
 {
   "uid": "nojv-exam-proctoring",
   "title": "NOJV — Exam Proctoring",
-  "description": "Exam heartbeat health and SSE liveness for proctored sessions. SLO target: heartbeat miss rate < 1% (see docs/RELIABILITY.md).",
+  "description": "Exam heartbeat health and SSE liveness for proctored sessions. SLO target: heartbeat miss rate < 1% (see docs/operations/RELIABILITY.md).",
   "tags": ["nojv", "slo", "exam", "sse"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -145,7 +145,7 @@
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 16 },
       "options": {
         "mode": "markdown",
-        "content": "### Heartbeat miss rate — SLO target `< 1%`\n\nWe currently emit `exam_heartbeat_miss_total` (counter) but do **not** emit a matching `exam_heartbeat_total` counter for successful heartbeats. To compute miss-rate-as-fraction we need both numerator and denominator.\n\n**Workaround until a denominator metric is added:**\n\n- The expected heartbeat cadence is one per active session per ~30s.\n- Cross-reference active session count from `apps/web` logs (`session.heartbeat`) and divide by `exam_heartbeat_miss_total` over the same window.\n\n**Action item:** instrument `exam_heartbeat_received_total` in `apps/web` so we can render this as a single PromQL expression. See `docs/RELIABILITY.md` SLO catalog."
+        "content": "### Heartbeat miss rate — SLO target `< 1%`\n\nWe currently emit `exam_heartbeat_miss_total` (counter) but do **not** emit a matching `exam_heartbeat_total` counter for successful heartbeats. To compute miss-rate-as-fraction we need both numerator and denominator.\n\n**Workaround until a denominator metric is added:**\n\n- The expected heartbeat cadence is one per active session per ~30s.\n- Cross-reference active session count from `apps/web` logs (`session.heartbeat`) and divide by `exam_heartbeat_miss_total` over the same window.\n\n**Action item:** instrument `exam_heartbeat_received_total` in `apps/web` so we can render this as a single PromQL expression. See `docs/operations/RELIABILITY.md` SLO catalog."
       }
     }
   ]

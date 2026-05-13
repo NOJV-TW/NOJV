@@ -59,7 +59,7 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 - `getPageLockedContext` — hook-layer helper that asks "is this user
   currently inside an active published exam with page lock on?"
 - Client-IP trust model: Cloudflare-only (`CF-Connecting-IP`); missing
-  header in production returns 403 (documented in `docs/SECURITY.md`).
+  header in production returns 403 (documented in `docs/operations/SECURITY.md`).
 
 ### Out of scope
 
@@ -181,7 +181,7 @@ true }`.
   the pin, the other becomes a binding violation.
 - **CF-Connecting-IP spoofing.** Mitigated by Cloud Run ingress =
   Internal + Cloud Armor allowlist of Cloudflare CIDR ranges
-  (`docs/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup section). Any
+  (`docs/operations/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup section). Any
   direct hit bypassing Cloudflare is blocked at the ingress, so the
   header is trustworthy inside the app.
 - **Violation mode change mid-exam.** If a teacher flips `block →

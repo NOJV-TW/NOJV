@@ -200,7 +200,7 @@ lsof -i :5432
 
 ### Testing IP-based proctoring locally
 
-Production resolves the client IP from Cloudflare's `CF-Connecting-IP` header (see [SECURITY.md — Client IP Trust Model](../SECURITY.md#client-ip-trust-model-cloudflare-only)). Locally (`NODE_ENV !== "production"`) `getClientIp(event)` reads an `x-dev-ip` request header first, then falls back to the socket address.
+Production resolves the client IP from Cloudflare's `CF-Connecting-IP` header (see [SECURITY.md — Client IP Trust Model](../operations/SECURITY.md#client-ip-trust-model-cloudflare-only)). Locally (`NODE_ENV !== "production"`) `getClientIp(event)` reads an `x-dev-ip` request header first, then falls back to the socket address.
 
 To exercise exam / contest IP whitelist or binding in dev:
 
@@ -216,6 +216,6 @@ The override only fires when `NODE_ENV !== "production"`. Production ignores `x-
 
 ## Related Docs
 
-- [Architecture Overview](../../ARCHITECTURE.md)
-- [Deployment Guide](../DEPLOYMENT.md)
-- [Frontend Surface](../FRONTEND.md)
+- [Architecture Overview](../architecture/ARCHITECTURE.md)
+- [Deployment Guide](../operations/DEPLOYMENT.md)
+- [Frontend Surface](../architecture/FRONTEND.md)

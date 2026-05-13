@@ -24,3 +24,15 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const updated = await notificationDomain.markAsRead(actor.userId, id);
   return json({ updated });
 });
+
+// DELETE /api/notifications/[id] — drop a single notification belonging to
+// the caller. Idempotent: 204 on success, 204 on already-deleted.
+export const DELETE: RequestHandler = writeApiHandler(async (event) => {
+  const actor = requireApiAuth(event);
+
+  const { id } = event.params;
+  if (!id) return json({ message: "Missing notification id." }, { status: 400 });
+
+  await notificationDomain.deleteOne(actor.userId, id);
+  return new Response(null, { status: 204 });
+});

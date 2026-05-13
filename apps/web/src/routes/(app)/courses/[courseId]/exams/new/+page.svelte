@@ -14,7 +14,7 @@
   import { Button } from "$lib/components/ui/button";
   import FormError from "$lib/components/ui/FormError.svelte";
   import PageHero from "$lib/components/layout/PageHero.svelte";
-  import { inputClassName } from "$lib/css";
+  import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";

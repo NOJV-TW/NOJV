@@ -31,3 +31,9 @@ export class ValidationError extends HttpError {
     super(message, 400);
   }
 }
+
+export class IntegrityError extends HttpError {
+  constructor(message = "Data integrity violation.") {
+    super(message, 500);
+  }
+}

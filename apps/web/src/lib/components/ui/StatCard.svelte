@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { Component } from "svelte";
 	import type { HTMLAttributes } from "svelte/elements";
-	import { cn, type WithElementRef } from "$lib/css.js";
+	import { cn, type WithElementRef } from "$lib/utils/css.js";
 	import { Card } from "$lib/components/ui/card/index.js";
 
 	export type StatCardProps = WithElementRef<HTMLAttributes<HTMLDivElement>> & {

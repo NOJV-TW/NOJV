@@ -328,6 +328,6 @@ a drill, not during a real incident.
 ## Related Docs
 
 - [Incident Recovery](./incident-recovery.md) — availability incidents (worker, Redis, DB HA failover, sandbox)
-- [Reliability Invariants](../RELIABILITY.md) — RPO/RTO targets feeding the retention values above
-- [Deployment Guide](../DEPLOYMENT.md) — secret rotation + Cloud Run / GKE deploy procedures
-- [Database Schema](../DATABASE.md) — what each Postgres table holds and which restores affect which features
+- [Reliability Invariants](../operations/RELIABILITY.md) — RPO/RTO targets feeding the retention values above
+- [Deployment Guide](../operations/DEPLOYMENT.md) — secret rotation + Cloud Run / GKE deploy procedures
+- [Database Schema](../architecture/DATABASE.md) — what each Postgres table holds and which restores affect which features

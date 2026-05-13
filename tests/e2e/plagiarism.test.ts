@@ -7,14 +7,14 @@ const HW2_ID = "hw2-signal-handling";
 
 test.describe("Plagiarism — reports + flag API", () => {
   test("unauthenticated user cannot read plagiarism reports", async ({ page }) => {
-    const res = await page.request.get(`/api/plagiarism/${HW1_ID}?type=assessment`);
+    const res = await page.request.get(`/api/plagiarism/${HW1_ID}/reports?type=assessment`);
     expect(res.status()).toBe(401);
   });
 
   test("student cannot read plagiarism reports", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/plagiarism/${HW1_ID}?type=assessment`);
+    const res = await page.request.get(`/api/plagiarism/${HW1_ID}/reports?type=assessment`);
     expect(res.status()).toBe(403);
     await context.close();
   });
@@ -22,7 +22,7 @@ test.describe("Plagiarism — reports + flag API", () => {
   test("teacher can read plagiarism reports for an assessment", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/plagiarism/${HW1_ID}?type=assessment`);
+    const res = await page.request.get(`/api/plagiarism/${HW1_ID}/reports?type=assessment`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(Array.isArray(body.reports)).toBe(true);
@@ -32,7 +32,7 @@ test.describe("Plagiarism — reports + flag API", () => {
   test("student cannot trigger a plagiarism check", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.post(`/api/plagiarism/${HW2_ID}?type=assessment`, {
+    const res = await page.request.post(`/api/plagiarism/${HW2_ID}/reports?type=assessment`, {
       data: {},
       headers: apiWriteHeaders,
     });

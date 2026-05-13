@@ -5,7 +5,7 @@
   import { authClient } from "$lib/auth-client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
-  import { isReservedUsername, parseSchoolEmail } from "$lib/school";
+  import { isReservedUsername, parseSchoolEmail } from "$lib/utils/school";
   import { Button } from "$lib/components/ui/button";
   import { Card } from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";

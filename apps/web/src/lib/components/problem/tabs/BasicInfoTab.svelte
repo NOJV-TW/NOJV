@@ -4,7 +4,7 @@
   import type { ProblemCreate, ProblemDifficulty, ProblemVisibility } from "@nojv/core";
   import * as Select from "$lib/components/ui/select";
   import { m } from "$lib/paraglide/messages.js";
-  import { inputClassName } from "$lib/css";
+  import { inputClassName } from "$lib/utils/css";
   import TagInput from "$lib/components/ui/TagInput.svelte";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
   import ImageDropZone from "$lib/components/ui/ImageDropZone.svelte";

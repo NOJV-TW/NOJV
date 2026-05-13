@@ -19,7 +19,7 @@
 
 <script lang="ts">
 	import type { Snippet } from "svelte";
-	import { cn } from "$lib/css.js";
+	import { cn } from "$lib/utils/css.js";
 
 	interface Props {
 		label: string;

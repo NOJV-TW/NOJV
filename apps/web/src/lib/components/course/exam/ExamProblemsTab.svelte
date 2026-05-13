@@ -13,7 +13,7 @@
   import Plus from "@lucide/svelte/icons/plus";
 
   import { Button } from "$lib/components/ui/button";
-  import { cn, inputClassName } from "$lib/css";
+  import { cn, inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
   import type { ActionData } from "../../../../routes/(app)/exams/[examId]/$types";
 

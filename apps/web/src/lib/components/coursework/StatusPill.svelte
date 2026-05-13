@@ -5,7 +5,7 @@
 </script>
 
 <script lang="ts">
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
   import { m } from "$lib/paraglide/messages.js";
 
   // Each status owns its own border-color so the pill outline stays visible

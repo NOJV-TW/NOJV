@@ -26,7 +26,7 @@ Browser ──→ SvelteKit (web) ──→ Temporal Server ──→ Worker ─
                                                         └── Kubernetes (prod)
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full architecture overview.
+See [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) for the full architecture overview.
 
 ## Repository Map
 
@@ -46,13 +46,23 @@ tooling/
   prettier/         Shared Prettier config
   typescript/       Shared TypeScript config
 
+scripts/            Repo-level maintenance scripts (lint guards, etc.)
+
 infra/
   docker/           Dockerfiles (web, worker, sandbox, migrator)
   gcp/              Cloud Build, Cloud Run, GKE deployment
+  grafana/          Grafana Cloud dashboards + provisioning script
   k8s/sandbox/      Kubernetes namespace, network policy, resource quota
 
 tests/              Vitest + Playwright test suites
-docs/               Design documents, runbooks, specifications
+docs/
+  architecture/     System, frontend, database, redis, judge pipeline, design rules
+  operations/       Deployment, reliability, security, threat model, quality ledger
+  product/          Product sense, planning system
+  runbooks/         Getting started, incident recovery, backup/restore, observability
+  playbooks/        Live demo / showcase walkthroughs
+  specs/            Per-feature acceptance specs
+  plans/            Active + completed design plans
 ```
 
 ## Key Technologies
@@ -125,7 +135,8 @@ Quick verify for judge/pipeline changes:
 ```bash
 pnpm -C packages/core build
 pnpm -C apps/sandbox-runner typecheck
-pnpm -C apps/sandbox-runner test
+pnpm test:unit -- tests/unit/sandbox-runner
+pnpm test:integration -- tests/integration/sandbox-runner
 ```
 
 Full verify before pushing:
@@ -200,22 +211,22 @@ Optional OAuth:
 
 Note: the deploy workflow keeps runner local `.env` by using checkout with `clean: false`.
 
-See [Deployment Guide](docs/DEPLOYMENT.md) for full operational details.
+See [Deployment Guide](docs/operations/DEPLOYMENT.md) for full operational details.
 
 ## Documentation Index
 
-| Document                                            | Description                                         |
-| --------------------------------------------------- | --------------------------------------------------- |
-| [CLAUDE.md](CLAUDE.md)                              | Agent entrypoint and reading order                  |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                  | System architecture overview                        |
-| [Frontend Surface](docs/FRONTEND.md)                | Routes, boundaries, UI contracts                    |
-| [Judge Pipeline](docs/JUDGE_PIPELINE.md)            | Pipeline stages, sandbox execution                  |
-| [Database Schema](docs/DATABASE.md)                 | Models, relationships, enums                        |
-| [Redis Architecture](docs/REDIS.md)                 | Key schema, pub/sub, scoreboard                     |
-| [Security](docs/SECURITY.md)                        | Auth, trust boundaries, sandbox isolation           |
-| [Reliability](docs/RELIABILITY.md)                  | Invariants, failure modes, operational expectations |
-| [Deployment](docs/DEPLOYMENT.md)                    | Docker Compose, CI/CD rollout, microservice modes   |
-| [Getting Started](docs/runbooks/getting-started.md) | Bootstrap procedures for new developers             |
+| Document                                              | Description                                         |
+| ----------------------------------------------------- | --------------------------------------------------- |
+| [CLAUDE.md](CLAUDE.md)                                | Agent entrypoint and reading order                  |
+| [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)  | System architecture overview                        |
+| [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                    |
+| [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                  |
+| [Database Schema](docs/architecture/DATABASE.md)      | Models, relationships, enums                        |
+| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub, scoreboard                     |
+| [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation           |
+| [Reliability](docs/operations/RELIABILITY.md)         | Invariants, failure modes, operational expectations |
+| [Deployment](docs/operations/DEPLOYMENT.md)           | Docker Compose, CI/CD rollout, microservice modes   |
+| [Getting Started](docs/runbooks/getting-started.md)   | Bootstrap procedures for new developers             |
 
 ## Design Documents
 
