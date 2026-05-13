@@ -114,7 +114,7 @@ upsert_secret nojv-s3-region "$S3_REGION"
 [[ -n "${GOOGLE_CLIENT_SECRET:-}" ]] && upsert_secret nojv-google-client-secret "$GOOGLE_CLIENT_SECRET"
 
 gcloud builds submit \
-  --config infra/gcp/cloudbuild.yaml \
+  --config infra/gcp/cloud-build/cloudbuild.yaml \
   --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG}"
 
 IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"

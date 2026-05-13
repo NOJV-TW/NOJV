@@ -39,7 +39,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 });
 
 // GET /api/plagiarism/[assignmentId]/reports — list reports for the target.
-// Source-code fetching has moved to `/api/plagiarism/[assignmentId]/source`.
+// Source-code fetching lives at `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]`.
 export const GET: RequestHandler = apiHandler(async (event) => {
   const assignmentId = event.params.assignmentId;
   if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });

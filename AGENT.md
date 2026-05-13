@@ -43,6 +43,7 @@ when working on a specific area, open the listed doc first.
 | Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)                       |
 | Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                           |
 | Setting up or updating Grafana metrics dashboards    | [Observability Setup](docs/runbooks/observability-setup.md)                   |
+| Where new tests belong, how to run each layer        | [Testing Strategy](docs/runbooks/testing.md)                                  |
 | Live demo / showcase walkthrough                     | [Exhibition Demo Playbook](docs/playbooks/exhibition-demo-playbook.md)        |
 | Cross-cutting quality / tech debt                    | [Quality Ledger](docs/operations/QUALITY_SCORE.md)                            |
 | Overall system map, layer boundaries                 | [Architecture Overview](docs/architecture/ARCHITECTURE.md)                    |
@@ -118,6 +119,7 @@ infra/
   k8s/sandbox/      Kubernetes namespace, network policy, resource quota
 
 tests/              Vitest + Playwright test suites
+materials/          Course materials, exam PDFs (not docs)
 docs/
   architecture/     System, frontend, database, redis, judge pipeline, design rules
   operations/       Deployment, reliability, security, threat model, quality ledger
