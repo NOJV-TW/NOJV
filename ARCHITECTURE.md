@@ -16,8 +16,10 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │ 2nd Tier                                                            │
 │                                                                     │
 │  Service           @nojv/domain                                     │
-│                    contest/ course/ problem/ submission/ user/      │
-│                    editorial/ plagiarism/ announcement/             │
+│                    admin/ announcement/ assignment/ clarification/  │
+│                    contest/ course/ editorial/ exam/ notification/  │
+│                    plagiarism/ problem/ proctoring/ score-override/ │
+│                    scoring/ shared/ submission/ user/               │
 ├─────────────────────────────────────────────────────────────────────┤
 │ 3rd Tier                                                            │
 │                                                                     │
@@ -85,18 +87,39 @@ No cycles. `domain` → `job-dispatch` for dispatching workflows. `temporal` →
 
 ### Dependency Rules
 
-| Package          | May import                            | Must NOT import                   |
-| ---------------- | ------------------------------------- | --------------------------------- |
-| `core`           | (nothing)                             | everything                        |
-| `db`             | `core`                                | domain, redis, job-dispatch       |
-| `redis`          | `core`                                | domain, db, job-dispatch          |
-| `job-dispatch`   | `core`                                | domain, db, redis, temporal       |
-| `domain`         | `core`, `db`, `redis`, `job-dispatch` | temporal, web, worker             |
-| `temporal`       | `core`, `domain`, `redis`             | db, job-dispatch, web             |
-| `storage`        | (nothing)                             | everything                        |
-| `web`            | `core`, `domain`, `storage`           | db, redis, job-dispatch, temporal |
-| `worker`         | `core`, `temporal`, `db`, `redis`     | domain, job-dispatch, web         |
-| `sandbox-runner` | `core`                                | everything else                   |
+| Package          | May import                                          | Must NOT import             |
+| ---------------- | --------------------------------------------------- | --------------------------- |
+| `core`           | (nothing)                                           | everything                  |
+| `db`             | `core`                                              | domain, redis, job-dispatch |
+| `redis`          | `core`                                              | domain, db, job-dispatch    |
+| `job-dispatch`   | `core`                                              | domain, db, redis, temporal |
+| `domain`         | `core`, `db`, `redis`, `job-dispatch`, `storage` \* | temporal, web, worker       |
+| `temporal`       | `core`, `domain`, `redis`                           | db, job-dispatch, web       |
+| `storage`        | (none of `@nojv/*`)                                 | everything `@nojv/*`        |
+| `web`            | `core`, `domain`, `storage`, `redis` †, `db` ‡      | temporal                    |
+| `worker`         | `core`, `temporal`, `db`, `redis`, `storage` §      | domain, job-dispatch, web   |
+| `sandbox-runner` | `core`                                              | everything else             |
+
+\* `domain` reaches into `storage` from `problem/blobs.ts` to write
+problem image blobs alongside the DB row inside the same transaction.
+The transaction would lose atomicity if storage writes lived in `web`.
+
+† `web` uses `@nojv/redis` directly for the SSE subscriber
+(`api/events/stream`) and for `RateLimiterRedis` in
+`shared/rate-limiter.ts`. Both want the raw Redis client, not a
+domain-shaped wrapper.
+
+‡ `web` uses `@nojv/db` for two cases: (1) `prismaAdapterClient` is
+required by the better-auth Prisma adapter and is a documented
+framework-adapter exception, and (2) a small number of routes read
+repositories directly when the data is purely structural (e.g.
+`announcementRepo` in the course layout loader) and a domain wrapper
+would add no value.
+
+§ `worker` pulls problem-image tarballs from object storage in
+`advanced-mode-executor.ts`. Adding a domain hop would require moving
+the cache logic into `@nojv/domain`, which is not worth it for one
+caller.
 
 ## Runtime Entry Points
 
@@ -112,7 +135,10 @@ Responsibilities:
 - Calls `@nojv/domain` for all business logic — **zero business logic in this layer**
 - Role-based access control (platform + course roles)
 
-Does NOT directly access: database, Redis, Temporal.
+Directly accesses: Redis (SSE subscriber + `RateLimiterRedis`), DB
+(better-auth adapter + a few repository-direct routes). See the table
+above for why. Does NOT directly access Temporal — everything goes
+through `@nojv/job-dispatch`.
 
 ### apps/worker — Temporal Worker
 
@@ -180,13 +206,18 @@ Centralized Redis operations. Contains:
 
 Stable dispatch API wrapping Temporal client. Contains:
 
-- `submitJudge()` — dispatch submission judge workflow
-- `startContestLifecycle()` — dispatch contest lifecycle workflow
-- `startAssessmentLifecycle()` — dispatch assessment lifecycle workflow
-- `triggerPlagiarismCheck()` — dispatch Dolos plagiarism workflow
-- `startRejudge()` — dispatch rejudge workflow
+- `dispatchSubmissionJudge()` — dispatch submission judge workflow
+- `dispatchContestLifecycle()` — dispatch contest lifecycle workflow
+- `dispatchAssessmentLifecycle()` — dispatch assessment lifecycle workflow
+- `dispatchPlagiarismCheck()` — dispatch Dolos plagiarism workflow
+- `dispatchRejudge()` — dispatch rejudge workflow
+- `dispatchExamAutoClose()` — dispatch exam auto-close timer workflow
+- `querySubmissionStatus()` / `queryRejudgeProgress()` / `queryPlagiarismStatus()` — workflow queries
+- `getTemporalClient()` / `closeClient()` — escape hatch (used by the admin health check)
 
-Domain and web layers never see Temporal internals (workflow IDs, task queues, gRPC).
+Web and domain consume the dispatch helpers; `domain/admin` is the
+only file that reaches for `getTemporalClient` directly, to expose
+Temporal connection state on the admin healthz endpoint.
 
 ### @nojv/storage
 
@@ -208,14 +239,14 @@ Temporal workflow and activity definitions. Used only by `apps/worker`.
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                      | Task Queue | Workflow ID pattern                   | Signal / Query                                |
-| ----------------------------- | ---------- | ------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`     | `judge`    | `judge-{submissionId}`                | Query: `getStatus`                            |
-| `rejudgeWorkflow`             | `judge`    | `rejudge-{problemId}-{timestamp}`     | Query: `getProgress`                          |
-| `contestLifecycleWorkflow`    | `platform` | `contest-lifecycle-{contestId}`       | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `assessmentLifecycleWorkflow` | `platform` | `assessment-lifecycle-{assessmentId}` | —                                             |
-| `plagiarismCheckWorkflow`     | `platform` | `plagiarism-{targetType}-{targetId}`  | Query: `getProgress`                          |
-| `examAutoCloseWorkflow`       | `platform` | `exam-auto-close-{examId}`            | Conflict: `TERMINATE_EXISTING` on re-dispatch |
+| Workflow                      | Task Queue | Workflow ID pattern                                                                 | Signal / Query                                |
+| ----------------------------- | ---------- | ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `submissionJudgeWorkflow`     | `judge`    | `judge-{submissionId}`                                                              | Query: `getStatus`                            |
+| `rejudgeWorkflow`             | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`    | Query: `getProgress`                          |
+| `contestLifecycleWorkflow`    | `platform` | `contest-lifecycle-{contestId}`                                                     | Signal: `adminOverride` (`earlyEnd`/`extend`) |
+| `assessmentLifecycleWorkflow` | `platform` | `assessment-lifecycle-{assessmentId}`                                               | —                                             |
+| `plagiarismCheckWorkflow`     | `platform` | `plagiarism-{targetType}-{targetId}`                                                | Query: `getPlagiarismStatus`                  |
+| `examAutoCloseWorkflow`       | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_IF_RUNNING` on re-dispatch) | —                                             |
 
 Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 

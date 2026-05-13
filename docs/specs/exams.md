@@ -4,8 +4,9 @@ Acceptance spec for course-embedded exams (`Exam` /
 `/exams/[examId]/...`). Exams are proctored in-class assessments: students
 must start a session, are locked to the exam routes until release, and may
 be IP-bound or IP-whitelisted. When the window ends, a Temporal workflow
-auto-closes every active session; post-close review is blocked for
-students by default (archived detail page is manager-only).
+auto-closes every active session; post-close students rely on the
+practice-after-close route through `/problems/[id]` (the exam detail page
+itself is staff-only once `endsAt < now`).
 
 ## User Stories
 
@@ -35,8 +36,10 @@ students by default (archived detail page is manager-only).
 
 ### In scope
 
-- `Exam` CRUD — create, partial update, publish, delete-draft, archive,
-  unarchive. Parallel shape to `CourseAssessment`.
+- `Exam` CRUD — create, partial update, publish, delete-draft. Parallel
+  shape to `CourseAssessment`. Persistent `status` is `draft | published`
+  only — there is no `archived` enum value. "Ended" is purely time-
+  derived from `endsAt < now`.
 - Publish validation: ≥1 problem, ≥1 allowed language, `startsAt < endsAt`,
   `endsAt > now`.
 - Session lifecycle (`ActiveExamSession`): `startSessionWithGate`,
@@ -57,10 +60,12 @@ students by default (archived detail page is manager-only).
 - Scoreboard live/frozen via `@nojv/redis` `scoreboard` module
   (zset-backed, 90-day TTL refreshed on writes).
 - Submissions matrix (`getExamSubmissionsMatrix`) — manager-only view.
-- Post-close student review block: archived / ended exams hide the
+- Proctoring sub-tab — manager-only `IpViolationLog` viewer wired into
+  the exam detail page via `ExamProctoringTab.svelte`.
+- Post-close student review block: ended exams (`endsAt < now`) hide the
   detail page from students (`getExamDetailPage` returns null for
-  non-managers when `status === 'archived'`). Practice-after-close still
-  allows accessing the problems via `/problems/[id]` (no context).
+  non-managers). Practice-after-close still allows accessing the
+  problems via `/problems/[id]` (no context).
 - `scoringMode: problem_count` (ICPC-style solved count + penalty) and
   `point_sum` (IOI-style weighted total).
 - `scoreboardMode: hidden | live | frozen`.
@@ -93,12 +98,8 @@ students by default (archived detail page is manager-only).
 - WHEN `publishExam` succeeds, THEN `dispatchExamAutoClose` is called
   post-commit with `endsAt.toISOString()`.
 
-### Archive / unarchive / delete-draft
+### Delete-draft
 
-- GIVEN a `published` exam, WHEN `archiveExam` runs, THEN `status ->
-archived` and the detail page becomes manager-only.
-- GIVEN an `archived` exam, WHEN `unarchiveExam` runs, THEN `status ->
-published`.
 - GIVEN a non-draft exam, WHEN `deleteExamDraft` runs,
   THEN `ValidationError("Only draft exams can be deleted.")`.
 
@@ -210,9 +211,9 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 
 ### Post-close review block
 
-- GIVEN a student on `/exams/[examId]` for an exam with `status =
-'archived'`, WHEN `getExamDetailPage` is called with
-  `isManager: false`, THEN it returns `null` and the loader 404s.
+- GIVEN a student on `/exams/[examId]` for an exam with `endsAt < now`,
+  WHEN `getExamDetailPage` is called with `isManager: false`, THEN it
+  returns `null` and the loader 404s.
 - The workaround for students is the practice-after-close route through
   `/problems/[id]` (no detail page needed).
 
@@ -225,9 +226,9 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
   `assertEnrolledInExamCourse`.
 - **Concurrent start of the same exam.** Idempotent — the second call
   returns the existing session with `created: false`.
-- **Auto-close workflow replayed after manual unarchive.** The workflow
-  only runs once per publish dispatch; re-publishing an archived exam
-  dispatches a fresh workflow.
+- **Auto-close workflow idempotence.** The workflow only runs once per
+  publish dispatch; replays after the exam is past `endsAt` are no-ops
+  because `autoCloseForExam` finds zero active sessions.
 - **`recordEvent('visibility_lost')` fails.** Hooks still redirect —
   logging path is fire-and-forget with a `warn` line.
 
@@ -236,8 +237,8 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 ### Domain
 
 - `packages/domain/src/exam/mutations.ts` — `createExamRecord`,
-  `updateExamRecord`, `publishExam`, `deleteExamDraft`, `archiveExam`,
-  `unarchiveExam`, `assertExamManagePermission`.
+  `updateExamRecord`, `publishExam`, `deleteExamDraft`,
+  `assertExamManagePermission`.
 - `packages/domain/src/exam/session.ts` — `startSession`,
   `startSessionWithGate`, `heartbeat`, `heartbeatWithThrottle`,
   `endSession`, `recordEvent`, `autoCloseForExam`,
@@ -284,8 +285,11 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - `apps/web/src/lib/server/page-lock.ts` — re-export of domain helper.
 - `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` —
   `startExam`, `updateSettings`, `publishExam`, `deleteExam`,
-  `archiveExam`, `unarchiveExam`, `freezeBoard`, `unfreezeBoard`,
-  `updateProblems` actions.
+  `updateProblems` actions. Also loads `listExamIpViolations` for the
+  Proctoring sub-tab when the viewer is a manager. Exams have no
+  scoreboard freeze/unfreeze surface: by product design, students do not
+  see other students' submissions during the exam, so freezing is moot —
+  `scoreboardMode` alone drives visibility.
 - `apps/web/src/routes/(app)/exams/[examId]/problems/[problemId]/+page.server.ts`
   — in-session workspace loader.
 - `apps/web/src/lib/server/shared/client-ip.ts` — `getClientIp`
@@ -296,7 +300,7 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - `tests/unit/domain/exam-session.test.ts` — start/end/heartbeat/
   release paths.
 - `tests/unit/domain/exam-publish-delete.test.ts` — lifecycle
-  transitions + freeze/unfreeze.
+  transitions (publish + delete-draft).
 - `tests/unit/domain/exam-auto-close.test.ts` — auto-close workflow +
   activity.
 - `tests/unit/domain/exam-submissions-matrix.test.ts` — matrix cells.
@@ -306,9 +310,6 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 
 ## Open Questions / TODO
 
-- Should unarchive reset `frozenBoard` state? Current code leaves it as
-  whatever it was before archive. Probably fine, but confirm with a
-  real instructor workflow.
 - No UI for bulk-releasing all active sessions (staff can only release
   one student at a time). Low priority until we hit a class-wide
   outage scenario.

@@ -12,6 +12,7 @@ import {
   clarificationDomain,
   examDomain,
   HttpError,
+  listExamIpViolations,
   plagiarismDomain,
   scoreOverrideDomain,
 } from "@nojv/domain";
@@ -25,12 +26,10 @@ import { buildExamResults, type ExamResults } from "$lib/server/results/exam";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
-  archiveExam,
   deleteExamDraft,
   getExamDetailPage,
   buildExamSubmissionsMatrix,
   publishExam,
-  unarchiveExam,
   updateExamRecord,
 } = examDomain;
 
@@ -55,6 +54,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     canViewClar,
     plagiarism,
     plagiarismFlags,
+    ipViolations,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -69,6 +69,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? plagiarismDomain.listFlagsForContext("exam", examId).catch(() => [])
       : Promise.resolve([]),
+    isManager ? listExamIpViolations({ examId }).catch(() => []) : Promise.resolve([]),
   ]);
 
   // Matrix reuses detail.problems instead of re-fetching the exam row.
@@ -149,6 +150,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canAnswer: canAnswerClar,
       canView: canViewClar,
     },
+    ipViolations: ipViolations.map((v) => ({
+      id: v.id,
+      userId: v.userId,
+      handle: v.user.displayUsername ?? v.user.email,
+      displayName: v.user.name,
+      violationType: v.violationType,
+      expectedIp: v.expectedIp,
+      actualIp: v.actualIp,
+      createdAt: v.createdAt.toISOString(),
+    })),
   };
 });
 
@@ -249,28 +260,6 @@ export const actions = {
       throw err;
     }
     redirect(303, "/exams");
-  },
-
-  archiveExam: async (event) => {
-    const actor = requireAuth(event);
-    try {
-      await archiveExam(actor, event.params.examId);
-    } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
-    }
-    return { success: true };
-  },
-
-  unarchiveExam: async (event) => {
-    const actor = requireAuth(event);
-    try {
-      await unarchiveExam(actor, event.params.examId);
-    } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
-    }
-    return { success: true };
   },
 
   updateProblems: async (event) => {

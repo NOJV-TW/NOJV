@@ -28,7 +28,8 @@ freeze/unfreeze for the final reveal.
   list until `startsAt`, so that early joiners can't read problems.
 - As a **participant**, I want the scoreboard to stay frozen at the
   configured `frozenAt` moment (for the ICPC reveal drama), and unfreeze
-  only when the creator signals it.
+  only when the creator signals it (or when `finalizeContest` runs at
+  `endsAt`).
 - As a **participant**, I want ended contests to leak their problems into
   practice mode, so that I can keep learning after the bell.
 
@@ -37,7 +38,8 @@ freeze/unfreeze for the final reveal.
 ### In scope
 
 - `Contest` creation — standalone (no `courseId`), always `published` on
-  create, `inviteCode` auto-generated when not supplied.
+  create, `inviteCode` auto-generated when not supplied. Visibility is
+  `draft | published` only — there is no `archived` enum value.
 - `Contest` partial update (title/summary/timing/scoring/scoreboard mode/
   languages/cooldown/problem list).
 - ICPC scoring (`scoring.computeProblemCountPenalty`): solved count +
@@ -70,8 +72,9 @@ freeze/unfreeze for the final reveal.
 - Course membership gating — anyone with the invite code (or on a public
   contest) can participate.
 - Session management (`ActiveExamSession` lives on `Exam` only).
-- Auto-archive workflow — contests flip to `archived` manually via
-  `finalizeContest`.
+- Archive workflow — contests have no `archived` visibility state.
+  "Ended" is purely time-derived from `endsAt < now`; the row stays
+  `published` forever after that.
 
 ## Acceptance Criteria
 
@@ -158,8 +161,10 @@ problems`; Redis zset score = `solvedCount * 1e9 - totalPenalty` so
 - WHEN a submission is judged DURING a freeze, THEN `updateScoreboard`
   still writes to the LIVE zset — `getScoreboard` continues to return
   the frozen snapshot until unfreeze.
-- WHEN `finalizeContest(contestId)` runs, THEN the frozen key is deleted,
-  `frozenBoard = false`, and `visibility = 'archived'`.
+- WHEN `finalizeContest(contestId)` runs (via the contest lifecycle
+  workflow at `endsAt`), THEN the frozen key is deleted and `frozenBoard
+= false`. Visibility stays `published` — there is no auto-archive flip
+  anymore; "ended" is derived from `endsAt < now`.
 - GIVEN `scoreboardMode === 'frozen'` OR (`frozenBoard && frozenAt <
 now`) and the viewer is not privileged, THEN `getScoreboard` returns
   the frozen view (`isFrozen: true`).
@@ -206,8 +211,9 @@ which is never negative in practice because `penalty > 0`only after
 AC — but a contest could have`solvedCount = 0, penalty = 0`entries
 by design. Verified safe in`contest-permissions.test.ts`.
 - **Freeze then finalize.** `finalizeContest` DELs the frozen key and
-  moves `visibility -> archived`. An already-rendered client view stays
-  stale until next load.
+  clears `frozenBoard`. The contest stays `visibility = 'published'` —
+  the "ended" presentation is derived client-side from `endsAt < now`.
+  An already-rendered client view stays stale until next load.
 - **Deleted problem referenced by a contest.** `ContestProblem.problemId`
   has `onDelete: Cascade` on the problem side — a rare admin wipe will
   cascade; live contests shouldn't hit this in practice because
@@ -258,9 +264,11 @@ by design. Verified safe in`contest-permissions.test.ts`.
 
 - `apps/web/src/routes/(app)/contests/+page.server.ts` — list +
   `joinByCode` action.
-- `apps/web/src/routes/(app)/contests/create/+page.server.ts` — create form.
+- `apps/web/src/routes/(app)/contests/new/+page.server.ts` — create form.
 - `apps/web/src/routes/(app)/contests/[contestId]/+page.server.ts`
-  (detail).
+  (detail). The detail page exposes a `plagiarism` sub-tab for managers
+  that reuses `AssignmentPlagiarismReport` with
+  `diffContext = { type: "contest", id }`.
 - `apps/web/src/routes/(app)/contests/[contestId]/scoreboard/+page.server.ts`
   — scoreboard view + chart (`canUnfreeze` for admins/teachers).
 - `apps/web/src/routes/(app)/contests/[contestId]/problems/[problemId]/+page.server.ts`
@@ -276,11 +284,6 @@ by design. Verified safe in`contest-permissions.test.ts`.
 
 ## Open Questions / TODO
 
-- **Contest archive surface.** `finalizeContest` is the only path that
-  flips a contest to `archived`, and it is called from the
-  `contestLifecycle` Temporal workflow when `endsAt` passes. There is
-  no route-level "archive now" action; manual SQL or a future admin
-  panel would be needed to archive before `endsAt`.
 - **Practice-after-close + public contests.** The historical-participant
   gate requires a `ContestParticipation` row. A public contest that the
   user never submitted to won't grant practice access. This is

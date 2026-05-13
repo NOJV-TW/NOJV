@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { createLogger } from "../logger";
 import { classifyError } from "./handle-action-error";
 import { apiRateLimiter, writeApiRateLimiter } from "./rate-limiter";
+import { getClientIp } from "./client-ip";
 
 const logger = createLogger("api");
 
@@ -15,7 +16,7 @@ function wrapHandler(
   rateLimiter: { consume: (key: string) => Promise<unknown> },
 ): ApiHandler {
   return async (event) => {
-    const ip = event.getClientAddress();
+    const ip = getClientIp(event);
 
     try {
       await rateLimiter.consume(ip);

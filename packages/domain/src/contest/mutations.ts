@@ -324,36 +324,18 @@ export async function deleteContestDraft(
   });
 }
 
-export async function archiveContest(actor: ActorContext, contestId: string): Promise<void> {
-  await runTransaction(async (tx) => {
-    const contest = await assertContestManageable(tx, actor, contestId);
-
-    if (contest.visibility !== "published") {
-      throw new ValidationError("Only published contests can be archived.");
-    }
-
-    await contestRepo.withTx(tx).update(contest.id, { visibility: "archived" });
-  });
-}
-
-export async function unarchiveContest(actor: ActorContext, contestId: string): Promise<void> {
-  await runTransaction(async (tx) => {
-    const contest = await assertContestManageable(tx, actor, contestId);
-
-    if (contest.visibility !== "archived") {
-      throw new ValidationError("Only archived contests can be unarchived.");
-    }
-
-    await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
-  });
-}
-
 export async function freezeContestBoard(contestId: string): Promise<void> {
   await scoreboard.freezeScoreboard(contestId);
   await contestRepo.update(contestId, { frozenBoard: true });
 }
 
+/**
+ * Called by the Temporal lifecycle workflow when the scheduled end is
+ * reached. Unfreezes the scoreboard so the final standings are visible —
+ * we no longer toggle visibility, the contest stays `published` and goes
+ * read-only purely on `endsAt < now`.
+ */
 export async function finalizeContest(contestId: string): Promise<void> {
   await scoreboard.unfreezeScoreboard(contestId);
-  await contestRepo.update(contestId, { frozenBoard: false, visibility: "archived" });
+  await contestRepo.update(contestId, { frozenBoard: false });
 }

@@ -2,16 +2,12 @@
 
 Acceptance spec for `/dashboard` — a user-scoped overview of a student's
 own activity and ability. Shows a 30-day activity heatmap, difficulty /
-verdict / tag analytics, and recent submissions. Strictly
+verdict / tag analytics, recent submissions, a current-streak callout
+(`StreakCard.svelte`), a 7-day trend chart (`WeeklyTrendCard.svelte`),
+and a "Suggested problems" rail (`SuggestedProblemsCard.svelte`), all
+wired into `apps/web/src/routes/(app)/dashboard/+page.svelte`. Strictly
 read-your-own: no teacher or admin "view another user" lens exists on
 this surface.
-
-**Doc drift to flag**: `PRODUCT_SENSE.md § User Dashboard` lists
-"problem-solving recommendations" under shipped scope, but the current
-implementation renders tag proficiency and difficulty distribution
-without a recommender — there is no personalized "next problem" query.
-This spec treats recommendations as out-of-scope and captures the drift
-in Open Questions.
 
 ## User Stories
 
@@ -29,6 +25,11 @@ in Open Questions.
 - As a **student**, I want the 10 most recent submissions listed with
   problem + verdict + timestamp, so that I can jump back into
   in-progress problems.
+- As a **student**, I want a current-streak callout and a 7-day trend
+  chart, so that the heatmap is motivating rather than decorative.
+- As a **student**, I want a short "suggested problems" rail based on my
+  history, so that I have a next thing to try without leaving the
+  dashboard.
 
 ## Scope
 
@@ -52,18 +53,20 @@ in Open Questions.
 - Empty state per chart
   (`hasHeatmapData` / `hasDifficultyData` / `hasVerdictData` /
   `hasTagData`) — replaces the chart with an `EmptyState` component.
+- Current-streak card (`StreakCard.svelte`) — current consecutive-day
+  count derived from `dailyActivity`.
+- 7-day trend card (`WeeklyTrendCard.svelte`) — submissions + AC per
+  day for the last 7 days.
+- Suggested problems rail (`SuggestedProblemsCard.svelte`) — fed by the
+  server load alongside the rest of the dashboard data.
 - 15 paraglide keys under `dashboard_*` (en + zh-TW).
 
 ### Out of scope
 
-- **Personalized recommendations**: no next-problem recommender today.
-  Tag proficiency ranks owned tags, not suggests new problems.
 - **Teacher / admin view of another user's dashboard**: no such route.
   Teachers use the course progress matrix (separate feature).
 - **Date range picker**: the 30-day window is fixed; no UI to shift it
   or widen it.
-- **Streak counter / "current streak: N days" callout**: the heatmap
-  visualizes cells but does not compute streak length.
 - **Achievements, levels, or badges**: not modeled.
 - **Cross-course assignment list**: lives on `/assignments` (covered by
   `assignments.md`).
@@ -217,6 +220,12 @@ in Open Questions.
 - `apps/web/src/routes/(app)/dashboard/+page.server.ts` — server load.
 - `apps/web/src/routes/(app)/dashboard/+page.svelte` — chart
   composition + empty states.
+- `apps/web/src/lib/components/dashboard/StreakCard.svelte` — current
+  consecutive-day streak callout.
+- `apps/web/src/lib/components/dashboard/WeeklyTrendCard.svelte` —
+  7-day submissions/AC trend.
+- `apps/web/src/lib/components/dashboard/SuggestedProblemsCard.svelte`
+  — recommended-problem rail.
 - `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` — heatmap.
 - `apps/web/src/lib/components/charts/EChart.svelte` — shared ECharts
   wrapper used by the donuts and bar chart.
@@ -239,14 +248,9 @@ in Open Questions.
 
 ## Open Questions / TODO
 
-- **Doc drift**: `PRODUCT_SENSE.md § User Dashboard` mentions
-  "problem-solving recommendations" — not shipped. Either build the
-  recommender or strike the bullet from PRODUCT_SENSE.md.
 - **Timezone handling**: a per-user timezone setting (or client-side
   UTC→local conversion) would make the heatmap more meaningful for
   non-UTC users.
 - **Date range**: users cannot see history beyond 30 days. A "view all
   time" or "month picker" would require extending
   `userDailyActivityRepo.findRange` usage and new UI.
-- **Streak counter**: trivial to compute from `dailyActivity` on the
-  client; would make the heatmap motivating rather than decorative.

@@ -3,19 +3,13 @@
   import type { AssessmentSettingsFormData } from "@nojv/core";
 
   export type SettingsTabDetail = courseDomain.AssignmentDetail;
-  export type SettingsLiveStatus =
-    | "draft"
-    | "upcoming"
-    | "open"
-    | "closed"
-    | "archived";
+  export type SettingsLiveStatus = "draft" | "upcoming" | "open" | "closed";
   export type { AssessmentSettingsFormData };
 </script>
 
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import Archive from "@lucide/svelte/icons/archive";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
@@ -60,7 +54,6 @@
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isOpen = $derived(liveStatus === "open");
   const isClosed = $derived(liveStatus === "closed");
-  const isArchived = $derived(liveStatus === "archived");
 
   // Basic fields (title / summary / languages / attempts / cooldown /
   // scoring): editable while the assignment hasn't ended.
@@ -78,7 +71,6 @@
   function lockHint(): string | null {
     if (isOpen) return m.assignmentDetail_settingsLockHintOpen();
     if (isClosed) return m.assignmentDetail_settingsLockHintClosed();
-    if (isArchived) return m.assignmentDetail_settingsLockHintArchived();
     return null;
   }
 
@@ -258,7 +250,7 @@
         type="submit"
         variant="default"
         size="sm"
-        disabled={$submitting || isClosed || isArchived}
+        disabled={$submitting || isClosed}
       >
         {m.assignmentDetail_settingsSaveButton()}
       </Button>
@@ -291,28 +283,6 @@
         </form>
       {/if}
 
-      {#if isClosed || liveStatus === "open"}
-        <!-- Managers can archive a published-but-ended (closed) assignment.
-             Open assignments aren't archived directly — they must close
-             first; the button is hidden until `isClosed`. -->
-        {#if isClosed}
-          <form method="POST" action="?/archiveAssignment" use:enhance class="contents">
-            <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-              <Archive class="mr-1 size-4" aria-hidden="true" />
-              {m.assignmentDetail_settingsArchiveButton()}
-            </Button>
-          </form>
-        {/if}
-      {/if}
-
-      {#if isArchived}
-        <form method="POST" action="?/unarchiveAssignment" use:enhance class="contents">
-          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-            <Archive class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsUnarchiveButton()}
-          </Button>
-        </form>
-      {/if}
     </div>
   </section>
 

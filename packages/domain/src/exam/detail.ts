@@ -8,7 +8,7 @@ import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { resolveOverridesForContext } from "../scoring/resolve-final-score";
 
-export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
+export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
 /** Viewer's outcome on a single problem after the exam ends. */
 export type ExamProblemViewerState = "ac" | "partial" | "zero" | "empty";
@@ -44,7 +44,7 @@ export interface ExamRosterEntry {
  */
 export interface ExamDetailManagerFields {
   /** Raw exam status — `liveStatus` still drives UI gating. */
-  rawStatus: "draft" | "published" | "archived";
+  rawStatus: "draft" | "published";
   ipWhitelist: string[];
   allowedLanguages: Language[];
   submitCooldownSec: number;
@@ -97,13 +97,12 @@ function letterFromOrdinal(ordinal: number): string {
 }
 
 function deriveStatus(
-  raw: "draft" | "published" | "archived",
+  raw: "draft" | "published",
   startsAt: Date,
   endsAt: Date,
   now: Date,
 ): ExamDetailStatus {
   if (raw === "draft") return "draft";
-  if (raw === "archived") return "archived";
   if (now < startsAt) return "upcoming";
   if (now >= endsAt) return "ended";
   return "running";
@@ -120,10 +119,6 @@ export async function getExamDetailPage(
 
   // Drafts are manager-only.
   if (exam.status === "draft" && !options.isManager) return null;
-  // Archived exams stay manager-only — managers need access to unarchive
-  // from the Settings tab; students should not see the detail page for
-  // an archived exam (they still see results via the scoreboard view).
-  if (exam.status === "archived" && !options.isManager) return null;
 
   const [roster, students] = await Promise.all([
     options.isManager

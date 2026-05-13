@@ -27,7 +27,8 @@ proctoring (see `docs/specs/contests.md` and
 - As a **teacher reviewing violations**, I want every whitelist / binding
   mismatch to land in `IpViolationLog` with `{ userId, examId,
 expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
-  review is possible.
+  review is possible — and I want the "Proctoring" sub-tab on
+  `/exams/[examId]` to show the live log without a SQL detour.
 - As a **platform operator**, I want the "enabled + empty list" case to
   **deny all** (fail-closed), so that a misconfigured exam never
   silently permits everyone.
@@ -46,6 +47,10 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
   calls compare against the pin.
 - Violation recording: `logViolation` / `logViolationInTx` insert rows
   into `IpViolationLog`. All rows are tied to an exam (FK `NOT NULL`).
+- Violation log UI: `ExamProctoringTab.svelte` is the manager-only
+  "Proctoring" sub-tab on the exam detail page; it consumes
+  `listExamIpViolations(examId)` results loaded by
+  `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts`.
 - Violation modes: `block` → `{ allowed: false, violationType }` result
   (caller rejects request); `notify` → log and `{ allowed: true }`.
 - `checkProctoringGate` / `checkExamGate` — single entry point from
@@ -223,6 +228,9 @@ notify` while students are taking the exam, ongoing blocked requests
   `getPageLockedContext`.
 - `apps/web/src/lib/server/shared/client-ip.ts` — `getClientIp`
   (Cloudflare-only trust model, production vs dev branching).
+- `apps/web/src/lib/components/course/exam/ExamProctoringTab.svelte` —
+  manager-only "Proctoring" sub-tab consumer of the IP violation log
+  (wired in `apps/web/src/routes/(app)/exams/[examId]/+page.svelte`).
 
 ### Schema
 
