@@ -30,12 +30,12 @@ Six manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_
 
 ## Service Expectations
 
-| Property              | Guarantee                                                                    |
-| --------------------- | ---------------------------------------------------------------------------- |
-| **Durability**        | PostgreSQL is the source of truth. Redis and Temporal are derived/ephemeral. |
-| **Idempotency**       | Temporal activities are designed for at-least-once execution with retry.     |
-| **Inspectability**    | Temporal UI provides workflow history, pending activities, and query state.  |
-| **Graceful shutdown** | Worker handles SIGINT/SIGTERM, drains in-flight activities before exit.      |
+| Property              | Guarantee                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Durability**        | PostgreSQL is the source of truth. Redis and Temporal are derived/ephemeral. Production Cloud SQL is configured by `infra/gcp/scripts/setup-backups.sh` (automated daily backups, 30-day retention, in-region) + PITR (14-day WAL). Daily cold exports to a versioned GCS bucket run via `infra/gcp/scripts/export-postgres-to-gcs.sh` (Cloud Scheduler → Cloud Run Job). See [Backup & Restore Runbook](runbooks/backup-restore.md). |
+| **Idempotency**       | Temporal activities are designed for at-least-once execution with retry.                                                                                                                                                                                                                                                                                                                                                              |
+| **Inspectability**    | Temporal UI provides workflow history, pending activities, and query state.                                                                                                                                                                                                                                                                                                                                                           |
+| **Graceful shutdown** | Worker handles SIGINT/SIGTERM, drains in-flight activities before exit.                                                                                                                                                                                                                                                                                                                                                               |
 
 ## Source of Truth
 
@@ -120,13 +120,15 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ## Health Checks
 
-| Service    | Endpoint           | Method                                                                    |
-| ---------- | ------------------ | ------------------------------------------------------------------------- |
-| Web        | `/api/healthz`     | HTTP GET → `{ ok: true }`                                                 |
-| Worker     | `/healthz`         | HTTP GET → `{ status: "ok" }`                                             |
-| PostgreSQL | Docker healthcheck | `pg_isready -U postgres`                                                  |
-| Redis      | Docker healthcheck | `redis-cli ping`                                                          |
-| Temporal   | Docker healthcheck | `temporal`/`tctl` health against localhost, service DNS, and container IP |
+| Service    | Endpoint             | Method                                                                                                                                            |
+| ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web        | `/api/healthz`       | Public LB probe. HTTP GET → `{ ok: boolean }` with 200 healthy / 503 not. Body is intentionally minimal; topology is not leaked.                  |
+| Web        | `/api/admin/healthz` | Admin-only mirror. `requireApiAuth` + `platformRole === "admin"`. Returns `{ status, checks: { postgres, redis, temporal } }` for ops dashboards. |
+| Worker     | `/healthz`           | Liveness. Returns `{ status, checks: { postgres, redis, temporal } }` with 200/503. Internal — exposed only inside the cluster.                   |
+| Worker     | `/readyz`            | Readiness. Returns `{ ready: boolean }` keyed on the live Temporal connection. 503 when disconnected so K8s pulls the pod out of the ready pool.  |
+| PostgreSQL | Docker healthcheck   | `pg_isready -U postgres`                                                                                                                          |
+| Redis      | Docker healthcheck   | `redis-cli ping`                                                                                                                                  |
+| Temporal   | Docker healthcheck   | `temporal`/`tctl` health against localhost, service DNS, and container IP                                                                         |
 
 ## Related Docs
 
