@@ -69,13 +69,7 @@
   const isPast = $derived(status === "ended");
   const isUpcoming = $derived(status === "upcoming");
   const settingsLiveStatus: ContestLiveStatus = $derived(
-    contest.visibility === "draft"
-      ? "draft"
-      : contest.visibility === "archived"
-        ? "archived"
-        : status === "live"
-          ? "running"
-          : status
+    contest.visibility === "draft" ? "draft" : status === "live" ? "running" : status
   );
   const scoringLabel = $derived(
     contest.scoringMode === "problem_count"

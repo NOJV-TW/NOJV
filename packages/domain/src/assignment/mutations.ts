@@ -45,13 +45,12 @@ async function assertAssignmentManager(
   }
 }
 
-type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed" | "archived";
+type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed";
 
 function deriveLiveStatus(
   row: { status: string; opensAt: Date; closesAt: Date },
   now: Date,
 ): AssignmentLiveStatus {
-  if (row.status === "archived") return "archived";
   if (row.status === "draft") return "draft";
   if (row.opensAt > now) return "upcoming";
   if (row.closesAt < now) return "closed";
@@ -60,18 +59,15 @@ function deriveLiveStatus(
 
 // Status-aware field-level lock. Once the assignment is open, we freeze
 // `opensAt` (already happened) and only allow `dueAt` / `closesAt` to
-// move forward — never backward. Closed / archived assignments are fully
-// immutable via this path; the archive toggle uses a dedicated entry.
+// move forward — never backward. Closed assignments are fully immutable
+// via this path; managers can still extend `closesAt` to reopen.
 function assertFieldsAllowedForStatus(
   liveStatus: AssignmentLiveStatus,
   current: { opensAt: Date; dueAt: Date | null; closesAt: Date },
   payload: CourseAssessmentUpdate,
 ): void {
   if (liveStatus === "closed") {
-    throw new ValidationError("Closed assignments can only be archived.");
-  }
-  if (liveStatus === "archived") {
-    throw new ValidationError("Archived assignments can only be unarchived.");
+    throw new ValidationError("Closed assignments are read-only.");
   }
 
   if (liveStatus === "draft" || liveStatus === "upcoming") return;
@@ -264,43 +260,6 @@ export async function deleteAssignmentDraft(
   });
 }
 
-/**
- * Archive a published assignment — hides it from student lists while
- * preserving submission history. Reversible via `unarchiveAssignment`.
- */
-export async function archiveAssignment(
-  actor: ActorContext,
-  assignmentId: string,
-): Promise<void> {
-  await runTransaction(async (tx) => {
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assertAssignmentManager(tx, actor, assignment);
-
-    if (assignment.status !== "published") {
-      throw new ValidationError("Only published assignments can be archived.");
-    }
-
-    await assessmentRepo.withTx(tx).update(assignment.id, { status: "archived" });
-  });
-}
-
-/** Reverse of `archiveAssignment`. Returns the row to `published`. */
-export async function unarchiveAssignment(
-  actor: ActorContext,
-  assignmentId: string,
-): Promise<void> {
-  await runTransaction(async (tx) => {
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assertAssignmentManager(tx, actor, assignment);
-
-    if (assignment.status !== "archived") {
-      throw new ValidationError("Only archived assignments can be unarchived.");
-    }
-
-    await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
-  });
-}
-
 /** Flip status back to draft — only valid from `upcoming`. */
 export async function revertAssignmentToDraft(
   actor: ActorContext,
@@ -322,16 +281,11 @@ export async function revertAssignmentToDraft(
 }
 
 /**
- * Status writes called by the Temporal lifecycle workflow when the scheduled
- * window boundaries are reached. No permission / state checks — the workflow
- * is the source of truth for these transitions. Distinct from the user-driven
- * `publishAssignment` (draft → published, with validation) and
- * `archiveAssignment` (published → archived, with validation).
+ * Status write called by the Temporal lifecycle workflow when the scheduled
+ * opens-at boundary is reached. No permission / state checks — the workflow
+ * is the source of truth for the transition. Distinct from the user-driven
+ * `publishAssignment` (draft → published, with validation).
  */
 export async function markAssignmentPublished(assignmentId: string): Promise<void> {
   await assessmentRepo.update(assignmentId, { status: "published" });
-}
-
-export async function markAssignmentArchived(assignmentId: string): Promise<void> {
-  await assessmentRepo.update(assignmentId, { status: "archived" });
 }

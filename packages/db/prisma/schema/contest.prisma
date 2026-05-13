@@ -14,7 +14,6 @@
 enum ContestVisibility {
   draft
   published
-  archived
 }
 
 enum ContestScoringMode {
@@ -35,7 +34,6 @@ enum ContestParticipationStatus {
 enum ExamStatus {
   draft
   published
-  archived
 }
 
 enum ExamScoringMode {

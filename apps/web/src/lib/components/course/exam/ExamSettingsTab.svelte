@@ -3,14 +3,13 @@
   import type { ExamSettingsForm } from "@nojv/core";
 
   export type SettingsTabDetail = examDomain.ExamDetailPage;
-  export type SettingsLiveStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
+  export type SettingsLiveStatus = "draft" | "upcoming" | "running" | "ended";
   export type { ExamSettingsForm };
 </script>
 
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import Archive from "@lucide/svelte/icons/archive";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Send from "@lucide/svelte/icons/send";
   import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
@@ -50,7 +49,6 @@
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isRunning = $derived(liveStatus === "running");
   const isEnded = $derived(liveStatus === "ended");
-  const isArchived = $derived(liveStatus === "archived");
 
   // Anything set in draft/upcoming is freely editable.
   const editableBasics = $derived(isDraft || isUpcoming);
@@ -69,7 +67,6 @@
   function lockHint(): string | null {
     if (isRunning) return m.examDetail_settingsLockHintRunning();
     if (isEnded) return m.examDetail_settingsLockHintEnded();
-    if (isArchived) return m.examDetail_settingsLockHintArchived();
     return null;
   }
 
@@ -349,7 +346,7 @@
         type="submit"
         variant="default"
         size="sm"
-        disabled={$submitting || isEnded || isArchived}
+        disabled={$submitting || isEnded}
       >
         {m.examDetail_settingsSaveButton()}
       </Button>
@@ -373,25 +370,7 @@
         </form>
       {/if}
 
-      {#if isEnded}
-        <form method="POST" action="?/archiveExam" use:enhance class="contents">
-          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-            <Archive class="mr-1 size-4" aria-hidden="true" />
-            {m.examDetail_settingsArchiveButton()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if isArchived}
-        <form method="POST" action="?/unarchiveExam" use:enhance class="contents">
-          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-            <Archive class="mr-1 size-4" aria-hidden="true" />
-            {m.examDetail_settingsUnarchiveButton()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if !isDraft && !isRunning && !isEnded && !isArchived}
+      {#if !isDraft && !isRunning && !isEnded}
         <span class="text-caption text-muted-foreground">
           {m.examDetail_settingsLifecycleNoop()}
         </span>

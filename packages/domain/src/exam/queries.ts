@@ -20,7 +20,7 @@ export interface ExamListItem {
   scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
   startsAt: string;
-  status: "draft" | "published" | "archived";
+  status: "draft" | "published";
   summary: string;
   title: string;
 }
@@ -49,7 +49,7 @@ export interface ExamDetail {
   scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
   startsAt: string;
-  status: "draft" | "published" | "archived";
+  status: "draft" | "published";
   submitCooldownSec: number;
   summary: string;
   title: string;

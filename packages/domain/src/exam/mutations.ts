@@ -283,23 +283,18 @@ export async function getExamLifecycleInfo(examId: string): Promise<ExamLifecycl
 }
 
 /**
- * Status writes called by the Temporal lifecycle workflow when the scheduled
- * window boundaries are reached. No permission / state checks — the workflow
- * is the source of truth for these transitions. Distinct from the user-driven
- * `publishExam` (draft → published, with validation) and `archiveExam`
- * (published → archived, with validation).
+ * Status write called by the Temporal lifecycle workflow when the scheduled
+ * opens-at boundary is reached. No permission / state checks — the workflow
+ * is the source of truth for the transition. Distinct from the user-driven
+ * `publishExam` (draft → published, with validation).
  */
 export async function markExamPublished(examId: string): Promise<void> {
   await examRepo.update(examId, { status: "published" });
 }
 
-export async function markExamArchived(examId: string): Promise<void> {
-  await examRepo.update(examId, { status: "archived" });
-}
-
 // Owner-of-exam or active teacher/TA of the hosting course may manage it.
-// Kept in sync with `updateExamRecord` / `createExamRecord` so Publish,
-// Delete, Archive, and Unarchive all share the same gate.
+// Kept in sync with `updateExamRecord` / `createExamRecord` so Publish and
+// Delete share the same gate.
 async function assertExamManagePermission(
   tx: TransactionClient,
   actor: ActorContext,
@@ -365,9 +360,9 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
 
 /**
  * Delete a draft exam outright. Only draft status is permitted so
- * scoreboards / submissions tied to an active or archived exam stay
- * intact. Cascading relations (ExamProblem etc.) go with it via the
- * schema's onDelete rules.
+ * scoreboards / submissions tied to a published exam stay intact.
+ * Cascading relations (ExamProblem etc.) go with it via the schema's
+ * onDelete rules.
  */
 export async function deleteExamDraft(actor: ActorContext, examId: string): Promise<void> {
   await runTransaction(async (tx) => {
@@ -379,40 +374,5 @@ export async function deleteExamDraft(actor: ActorContext, examId: string): Prom
     }
 
     await examRepo.withTx(tx).delete(exam.id);
-  });
-}
-
-/**
- * Archive a published (or already-ended) exam. The exam row is kept so
- * scoreboards and submissions remain visible; status moves to
- * `archived` so the detail page hides it from students.
- */
-export async function archiveExam(actor: ActorContext, examId: string): Promise<void> {
-  await runTransaction(async (tx) => {
-    const exam = await requireExam(tx, examId);
-    await assertExamManagePermission(tx, actor, exam);
-
-    if (exam.status !== "published") {
-      throw new ValidationError("Only published exams can be archived.");
-    }
-
-    await examRepo.withTx(tx).update(exam.id, { status: "archived" });
-  });
-}
-
-/**
- * Restore an archived exam back to `published`. Useful when an
- * instructor needs to re-open submissions review for students.
- */
-export async function unarchiveExam(actor: ActorContext, examId: string): Promise<void> {
-  await runTransaction(async (tx) => {
-    const exam = await requireExam(tx, examId);
-    await assertExamManagePermission(tx, actor, exam);
-
-    if (exam.status !== "archived") {
-      throw new ValidationError("Only archived exams can be unarchived.");
-    }
-
-    await examRepo.withTx(tx).update(exam.id, { status: "published" });
   });
 }
