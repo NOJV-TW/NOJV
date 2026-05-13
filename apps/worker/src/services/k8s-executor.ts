@@ -49,10 +49,9 @@ export class K8sExecutor implements SandboxExecutor {
     // path for that. Fail fast with a neutral learner-facing message;
     // operator-facing detail goes to the worker log.
     if (request.advanced) {
-      logger.error(
-        "K8s executor refused advanced-mode submission — switch to Docker backend",
-        { submissionId: request.submissionId },
-      );
+      logger.error("K8s executor refused advanced-mode submission — switch to Docker backend", {
+        submissionId: request.submissionId,
+      });
       return sandboxSystemError(
         "Sandbox configuration error. Please contact your administrator.",
       );
