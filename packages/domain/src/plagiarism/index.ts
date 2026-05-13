@@ -5,16 +5,16 @@ export {
   type SimilarityPair,
 } from "./types";
 export {
-  fetchSubmissionsForCheck,
-  updateReportStatus,
-  saveResults,
-  markReportFailed,
-  resolvePlagiarismTarget,
   createPlagiarismReport,
   findPlagiarismReport,
-  getPlagiarismSourceCode,
-  listAssignmentPlagiarismReports,
   getAssignmentProblemMap,
+  getPlagiarismSourceCode,
+  getPlagiarismTarget,
+  listAssignmentPlagiarismReports,
+  listSubmissionsForCheck,
+  markReportFailed,
+  saveResults,
+  updateReportStatus,
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,
 } from "./queries";

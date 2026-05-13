@@ -1,37 +1,39 @@
 export {
   countAssignmentSubmissionsToday,
+  deriveJudgeMode,
   deriveSubmissionMode,
+  findOneForRejudge,
+  getJudgeContext,
+  getSubmissionById,
   getSubmissionDetail,
   getSubmissionForUser,
-  getSubmissionById,
+  listForRejudge,
   listProblemSubmissions,
   listUserSubmissions,
 } from "./queries";
 export {
+  completeJudge,
   createQueuedSubmissionRecord,
+  finalizeRejudgeLog,
+  snapshotForRejudge,
+  updateSubmissionStatus,
   type ActorContext as SubmissionActorContext,
 } from "./mutations";
-export {
-  deriveJudgeMode,
-  getJudgeContext,
-  updateSubmissionStatus,
-  completeJudge,
-  findForRejudge,
-  findOneForRejudge,
-  type AdjustmentContext,
-  type CompletedSubmission,
-  type SubmissionJudgeContext,
-  type SubtaskStrategyMap,
-  type TestcaseSetGroup,
-  type WorkspaceFileEntry,
-} from "./judge-context";
+export type {
+  AdjustmentContext,
+  AdvancedModeContext,
+  CompletedSubmission,
+  SubmissionJudgeContext,
+  SubtaskStrategyMap,
+  TestcaseSetGroup,
+  WorkspaceFileEntry,
+} from "./types";
 export { applyAdjustmentRules, type AdjustmentInputs } from "./adjustments";
 export {
   canOperateOnSubmission,
   assertCanOperateOnSubmission,
   assertBatchRejudgeAccess,
 } from "./permissions";
-export { snapshotForRejudge, finalizeRejudgeLog } from "./rejudge-log";
 export { buildSubtaskResults, mapResult, verdictMap, type SubtaskResultItem } from "./scoring";
 export {
   dispatchRejudge,

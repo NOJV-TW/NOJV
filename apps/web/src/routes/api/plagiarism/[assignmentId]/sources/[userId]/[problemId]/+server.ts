@@ -6,7 +6,7 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { assertCanManagePlagiarism } from "$lib/server/plagiarism-pair";
 import { plagiarismDomain } from "@nojv/domain";
 
-const { resolvePlagiarismTarget, getPlagiarismSourceCode } = plagiarismDomain;
+const { getPlagiarismTarget, getPlagiarismSourceCode } = plagiarismDomain;
 
 // GET /api/plagiarism/[assignmentId]/sources/[userId]/[problemId] — fetch a
 // specific submission's source code for side-by-side diff in the plagiarism
@@ -20,7 +20,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   }
   const type = event.url.searchParams.get("type");
 
-  const resolved = await resolvePlagiarismTarget(assignmentId, type);
+  const resolved = await getPlagiarismTarget(assignmentId, type);
   await assertCanManagePlagiarism(
     event,
     resolved,

@@ -21,7 +21,7 @@ export interface PlagiarismSubmission {
   userId: string;
 }
 
-export async function fetchSubmissionsForCheck(
+export async function listSubmissionsForCheck(
   target: PlagiarismTarget,
 ): Promise<PlagiarismSubmission[]> {
   return submissionRepo.findForPlagiarism({
@@ -79,7 +79,7 @@ export interface ResolvedPlagiarismTarget {
   courseId: string;
 }
 
-export async function resolvePlagiarismTarget(
+export async function getPlagiarismTarget(
   targetId: string,
   type: string | null,
 ): Promise<ResolvedPlagiarismTarget> {

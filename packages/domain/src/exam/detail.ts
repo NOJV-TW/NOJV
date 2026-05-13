@@ -6,7 +6,7 @@ import {
 } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
-import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
@@ -160,7 +160,7 @@ export async function getExamDetailPage(
         problemId: { in: problemIds },
         sampleOnly: false,
       }),
-      resolveOverridesForContext({ type: "exam", examId }),
+      getOverridesForContext({ type: "exam", examId }),
     ]);
 
     const bestByProblem = new Map<string, { best: number; count: number }>();

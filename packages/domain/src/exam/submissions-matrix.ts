@@ -1,7 +1,7 @@
 import { courseMembershipRepo, submissionRepo } from "@nojv/db";
 
 import { problemLetter } from "../shared/problem-letter";
-import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 
 export type ExamMatrixCellState = "ac" | "partial" | "zero" | "empty";
 
@@ -81,7 +81,7 @@ export async function buildExamSubmissionsMatrix(
       problemId: { in: problemIds },
       sampleOnly: false,
     }),
-    resolveOverridesForContext({ type: "exam", examId: input.examId }),
+    getOverridesForContext({ type: "exam", examId: input.examId }),
   ]);
 
   const scoreIndex = new Map<string, { best: number; count: number }>();

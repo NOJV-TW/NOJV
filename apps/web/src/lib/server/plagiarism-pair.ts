@@ -17,7 +17,7 @@ const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsFo
  */
 export async function assertCanManagePlagiarism(
   event: RequestEvent,
-  resolved: Awaited<ReturnType<typeof plagiarismDomain.resolvePlagiarismTarget>>,
+  resolved: Awaited<ReturnType<typeof plagiarismDomain.getPlagiarismTarget>>,
   denialMessage: string,
 ): Promise<void> {
   const actor = requireApiAuth(event);

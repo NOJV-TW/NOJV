@@ -48,7 +48,7 @@ async function invalidateScoreboardForOverride(
       }
     }
     // assignment — no cached scoreboard; class stats / matrix reads
-    // call resolveOverridesForContext live.
+    // call getOverridesForContext live.
   } catch {
     // best-effort; see docstring
   }

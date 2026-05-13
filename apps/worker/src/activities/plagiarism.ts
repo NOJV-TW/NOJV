@@ -40,7 +40,7 @@ export async function runPlagiarismCheck(
   await plagiarismDomain.updateReportStatus(target, "running");
 
   try {
-    const submissions = await plagiarismDomain.fetchSubmissionsForCheck(target);
+    const submissions = await plagiarismDomain.listSubmissionsForCheck(target);
 
     if (submissions.length === 0) {
       await plagiarismDomain.saveResults(target, { pairs: [] }, null);

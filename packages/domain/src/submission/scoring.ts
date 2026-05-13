@@ -1,11 +1,7 @@
 import type { SandboxResult, SubmissionResult } from "@nojv/core";
 
 import { applyAdjustmentRules } from "./adjustments";
-import type {
-  SubmissionJudgeContext,
-  TestcaseSetGroup,
-  SubtaskStrategyMap,
-} from "./judge-context";
+import type { SubmissionJudgeContext, TestcaseSetGroup, SubtaskStrategyMap } from "./types";
 
 export interface SubtaskResultItem {
   cases: { ordinal: number; runtimeMs: number; testcaseId: string; verdict: string }[];
