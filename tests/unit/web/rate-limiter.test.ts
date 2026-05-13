@@ -15,6 +15,14 @@ describe("rate limiter fail-closed in production", () => {
     vi.resetModules();
   });
 
+  function mockClientIp(): void {
+    // rate-limiter imports getClientIp, which transitively pulls in
+    // $env/dynamic/private. Mock it directly so the env shim is bypassed.
+    vi.doMock("$lib/server/shared/client-ip", () => ({
+      getClientIp: () => "1.2.3.4",
+    }));
+  }
+
   it("falls back to memory limiter in dev when Redis is down", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: true, building: false }));
     vi.doMock("@nojv/redis", () => ({
@@ -22,6 +30,7 @@ describe("rate limiter fail-closed in production", () => {
         throw new Error("Redis not available");
       },
     }));
+    mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
     // Should not throw — dev fallback uses RateLimiterMemory and counts down points.
@@ -35,6 +44,7 @@ describe("rate limiter fail-closed in production", () => {
         throw new Error("Redis not available");
       },
     }));
+    mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
     // Every consume should reject — no in-memory fallback in production.
@@ -53,9 +63,13 @@ describe("rate limiter fail-closed in production", () => {
         throw new Error("Redis not available");
       },
     }));
+    mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
-    const result = await mod.consumeFormRateLimit({ getClientAddress: () => "1.2.3.4" });
+    // Cast: consumeFormRateLimit now takes RequestEvent but the mocked
+    // getClientIp ignores its argument, so a stub is sufficient.
+    const fakeEvent = {} as unknown as Parameters<typeof mod.consumeFormRateLimit>[0];
+    const result = await mod.consumeFormRateLimit(fakeEvent);
     expect(result).not.toBeNull();
     // SvelteKit's fail() returns an ActionFailure-shaped object with status + data.
     const failObj = result as unknown as { status: number; data: { error: string } };

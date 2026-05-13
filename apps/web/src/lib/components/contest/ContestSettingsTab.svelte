@@ -2,14 +2,13 @@
   import type { ContestSettingsForm } from "@nojv/core";
 
   export type { ContestSettingsForm };
-  export type ContestLiveStatus = "draft" | "upcoming" | "running" | "ended" | "archived";
+  export type ContestLiveStatus = "draft" | "upcoming" | "running" | "ended";
 </script>
 
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import { enhance as kitEnhance } from "$app/forms";
-  import Archive from "@lucide/svelte/icons/archive";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
 
@@ -45,7 +44,6 @@
   const isUpcoming = $derived(liveStatus === "upcoming");
   const isRunning = $derived(liveStatus === "running");
   const isEnded = $derived(liveStatus === "ended");
-  const isArchived = $derived(liveStatus === "archived");
 
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableScoring = $derived(isDraft || isUpcoming);
@@ -57,7 +55,7 @@
 
   function lockHint(): string | null {
     if (isRunning) return m.contestDetail_settingsLockHintRunning();
-    if (isEnded || isArchived) return m.contestDetail_settingsLockHintEnded();
+    if (isEnded) return m.contestDetail_settingsLockHintEnded();
     return null;
   }
 
@@ -243,7 +241,7 @@
     </section>
 
     <div class="flex items-center justify-end gap-2">
-      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded || isArchived}>
+      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
         {m.contestDetail_settingsSaveButton()}
       </Button>
     </div>
@@ -268,24 +266,6 @@
           <Button type="submit" size="sm" variant="destructive" disabled={$submitting}>
             <Trash2 class="mr-1 size-4" aria-hidden="true" />
             {m.contestDetail_settingsDeleteButton()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if isEnded}
-        <form method="POST" action="?/archiveContest" use:kitEnhance class="contents">
-          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-            <Archive class="mr-1 size-4" aria-hidden="true" />
-            {m.contestDetail_settingsArchiveButton()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if isArchived}
-        <form method="POST" action="?/unarchiveContest" use:kitEnhance class="contents">
-          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-            <Archive class="mr-1 size-4" aria-hidden="true" />
-            {m.contestDetail_settingsUnarchiveButton()}
           </Button>
         </form>
       {/if}

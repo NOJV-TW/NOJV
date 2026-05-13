@@ -11,8 +11,11 @@ import {
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
+import { createLogger } from "../logger.js";
 import { parseSandboxResult } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+
+const logger = createLogger("k8s-executor");
 
 export interface K8sExecutorConfig {
   namespace: string;
@@ -41,6 +44,20 @@ export class K8sExecutor implements SandboxExecutor {
   }
 
   async execute(request: SandboxRequest): Promise<SandboxResult> {
+    // Advanced Mode requires loading a TA-supplied tarball into a local
+    // Docker daemon (see AdvancedModeExecutor); the K8s executor has no
+    // path for that. Fail fast with a neutral learner-facing message;
+    // operator-facing detail goes to the worker log.
+    if (request.advanced) {
+      logger.error(
+        "K8s executor refused advanced-mode submission — switch to Docker backend",
+        { submissionId: request.submissionId },
+      );
+      return sandboxSystemError(
+        "Sandbox configuration error. Please contact your administrator.",
+      );
+    }
+
     const jobName = `judge-${request.submissionId}`;
     const ns = this.config.namespace;
 
@@ -165,6 +182,7 @@ export class K8sExecutor implements SandboxExecutor {
               securityContext: {
                 runAsUser: 10001,
                 runAsGroup: 10001,
+                runAsNonRoot: true,
                 seccompProfile: { type: "RuntimeDefault" },
               },
               containers: [
@@ -186,6 +204,7 @@ export class K8sExecutor implements SandboxExecutor {
                     allowPrivilegeEscalation: false,
                     capabilities: { drop: ["ALL"] },
                     readOnlyRootFilesystem: true,
+                    runAsNonRoot: true,
                   },
                   volumeMounts: [
                     {

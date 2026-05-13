@@ -1,0 +1,83 @@
+# Defence-in-depth: sandbox judges must be unable to reach anything outside
+# the cluster, and unable to reach any in-cluster pod that isn't the worker
+# itself (e.g. they can't talk to Temporal, the application Postgres, or
+# the metadata server). The worker creates a Job here, reads its logs over
+# the apiserver (allowed by Kubernetes itself, not subject to NetworkPolicy),
+# then deletes it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sandbox-deny-egress
+  namespace: nojv-sandbox
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+    - Ingress
+  egress: []
+  ingress: []
+---
+# Worker pods talk to: Temporal (nojv-temporal), Memorystore Redis (outside
+# the cluster), the application Cloud SQL via the Cloud SQL Auth Proxy
+# sidecar (loopback), and the GKE control plane for sandbox-job CRUD.
+# DNS to kube-system is required for resolving Temporal's ClusterIP.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker-egress
+  namespace: nojv
+spec:
+  podSelector:
+    matchLabels:
+      nojv-role: worker
+  policyTypes:
+    - Egress
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Temporal frontend
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: nojv-temporal
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: temporal-server
+      ports:
+        - port: 7233
+          protocol: TCP
+    # Memorystore Redis. Replace this CIDR with the actual Memorystore
+    # instance's /32 (or its reserved /29 subnet) at deploy time. The
+    # `10.0.0.0/8` placeholder is intentionally broad so a fresh cluster
+    # can come up before the Memorystore IP is known — narrow it before
+    # production.
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - port: 6379
+          protocol: TCP
+    # Cloud SQL via Cloud SQL Auth Proxy. The proxy needs the GCP metadata
+    # server (169.254.169.254) to fetch a Workload Identity token, which
+    # on GKE is intercepted by the gke-metadata-server DaemonSet — only
+    # the pod's bound KSA can mint a token, raw GCE metadata is not
+    # reachable. So we leave 169.254/32 reachable here rather than
+    # carving it out with `except` (which would break GSA token fetch).
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 3307
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP

@@ -41,11 +41,9 @@ const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
 const { listEditableProblems } = problemDomain;
 const {
-  archiveAssignment,
   deleteAssignmentDraft,
   publishAssignment,
   revertAssignmentToDraft,
-  unarchiveAssignment,
   updateAssignmentRecord,
 } = assignmentDomain;
 
@@ -246,40 +244,6 @@ export const actions = {
 
     try {
       await revertAssignmentToDraft(actor, assignmentId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
-
-    return { success: true };
-  },
-
-  archiveAssignment: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
-    const actor = requireAuth(event);
-    const assignmentId = event.params.assignmentId;
-
-    try {
-      await archiveAssignment(actor, assignmentId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
-
-    return { success: true };
-  },
-
-  unarchiveAssignment: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
-    const actor = requireAuth(event);
-    const assignmentId = event.params.assignmentId;
-
-    try {
-      await unarchiveAssignment(actor, assignmentId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });

@@ -2,6 +2,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: nojv-worker
+  namespace: nojv
 spec:
   # With `replicas: 2`, keeping at least 1 available means rolling restarts and
   # voluntary evictions (node drain, GKE upgrade) never leave zero orchestrators

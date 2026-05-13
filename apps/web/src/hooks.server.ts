@@ -1,6 +1,6 @@
 import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
 
-import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
+import { isHttpError, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import { examDomain } from "@nojv/domain";
 
@@ -16,6 +16,8 @@ import {
 import { getWebEnv } from "$lib/server/env";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
+import { getClientIp } from "$lib/server/shared/client-ip";
+import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 
 // Validate environment variables eagerly on startup.
 getWebEnv();
@@ -206,6 +208,33 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   // Let better-auth own the callback/sign-in flow without additional middleware.
   if (cleanPath.startsWith("/api/auth")) {
+    // Brute-force lockout for password sign-in: only /admin-signin (and the
+    // seeded test accounts behind it) uses this surface. OAuth flows hit
+    // /api/auth/sign-in/social and /api/auth/callback/*, which are exempt.
+    const isPasswordSignIn =
+      event.request.method === "POST" &&
+      (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
+    if (isPasswordSignIn) {
+      // Pull the IP outside the try so a misconfigured Cloudflare ingress
+      // (getClientIp throws SvelteKit 403) surfaces as 403, not as a
+      // fake "rate limited" response that masks the real failure.
+      const ip = getClientIp(event);
+      try {
+        await signInRateLimiter.consume(ip);
+      } catch (err) {
+        if (isHttpError(err)) throw err;
+        return new Response(
+          JSON.stringify({ message: "Too many sign-in attempts. Try again later." }),
+          {
+            status: 429,
+            headers: {
+              "content-type": "application/json",
+              "x-request-id": event.locals.requestId,
+            },
+          },
+        );
+      }
+    }
     const response = await resolve(event);
     response.headers.set("x-request-id", event.locals.requestId);
     return response;

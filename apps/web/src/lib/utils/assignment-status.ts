@@ -1,12 +1,9 @@
 /**
  * Live status for the assignment settings UI. Mirrors the domain's
- * `deriveStatus`, with "archived" layered on top — the existing
- * `AssignmentDetail.status` collapses archived into closed/open/upcoming
- * depending on date, which is fine for students but ambiguous for the
- * manager settings tab that wants to offer a different control surface
- * per lifecycle state.
+ * `deriveStatus`. There is no "archived" state — once closesAt is past
+ * the assignment is "closed" and stays read-only.
  */
-export type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed" | "archived";
+export type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed";
 
 export function deriveAssignmentLiveStatus(
   dbStatus: string,
@@ -14,7 +11,6 @@ export function deriveAssignmentLiveStatus(
   closesAtIso: string,
   now: Date = new Date(),
 ): AssignmentLiveStatus {
-  if (dbStatus === "archived") return "archived";
   if (dbStatus === "draft") return "draft";
   const opensAt = new Date(opensAtIso);
   const closesAt = new Date(closesAtIso);

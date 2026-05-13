@@ -30,8 +30,6 @@ const {
   buildContestSubmissionsMatrix,
   updateContestRecord,
   publishContest,
-  archiveContest,
-  unarchiveContest,
   deleteContestDraft,
 } = contestDomain;
 
@@ -226,28 +224,6 @@ export const actions: Actions = {
     const actor = requireAuth(event);
     try {
       await publishContest(actor, event.params.contestId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
-    return { success: true };
-  },
-
-  archiveContest: async (event) => {
-    const actor = requireAuth(event);
-    try {
-      await archiveContest(actor, event.params.contestId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
-    return { success: true };
-  },
-
-  unarchiveContest: async (event) => {
-    const actor = requireAuth(event);
-    try {
-      await unarchiveContest(actor, event.params.contestId);
     } catch (err) {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });

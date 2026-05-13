@@ -53,13 +53,62 @@ gcloud container node-pools create pool-sandbox \
 ## Files
 
 - `kustomization.yaml`: worker bundle entrypoint
+- `namespace.yaml`: declares `nojv`, `nojv-sandbox`, `nojv-temporal`
+- `network-policy.yaml`: sandbox-deny-egress + worker egress allowlist
 - `runtime-secrets.example.yaml`: placeholder runtime secret manifest
 - `worker-rbac.yaml`: ServiceAccount + Role for creating sandbox Jobs
-- `worker.deployment.yaml`: Temporal worker deployment (static 2 replicas)
+- `worker.deployment.yaml`: Temporal worker deployment + Cloud SQL Auth Proxy sidecar
 - `worker.pdb.yaml`: PodDisruptionBudget — keep ≥1 alive during voluntary disruptions
+- `temporal/`: self-hosted Temporal Server + dedicated Postgres + Web UI
 
-Sandbox namespace isolation resources (namespace, NetworkPolicy, ResourceQuota,
-LimitRange) live under `infra/k8s/sandbox/`.
+Sandbox per-pod resource limits (ResourceQuota, LimitRange) still live under
+`infra/k8s/sandbox/`; the namespace itself is declared here so a single
+`kubectl apply -k infra/gcp/gke` brings everything up.
+
+## Cloud SQL Auth Proxy
+
+The worker pod runs the official Cloud SQL Auth Proxy as a sidecar (image
+`gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0`). The proxy listens on
+`127.0.0.1:5432`, so `DATABASE_URL` always targets loopback; the proxy
+authenticates to Cloud SQL via Workload Identity.
+
+One-time wiring (replace `PROJECT_ID` / `CLUSTER` / `REGION`):
+
+```bash
+# Create a GSA with Cloud SQL client role
+gcloud iam service-accounts create nojv-worker \
+  --display-name="NOJV worker service account"
+
+gcloud projects add-iam-policy-binding PROJECT_ID \
+  --member="serviceAccount:nojv-worker@PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/cloudsql.client"
+
+# Bind the KSA (nojv/nojv-worker) to that GSA via Workload Identity
+gcloud iam service-accounts add-iam-policy-binding \
+  nojv-worker@PROJECT_ID.iam.gserviceaccount.com \
+  --role=roles/iam.workloadIdentityUser \
+  --member="serviceAccount:PROJECT_ID.svc.id.goog[nojv/nojv-worker]"
+
+kubectl annotate serviceaccount nojv-worker \
+  --namespace nojv \
+  iam.gke.io/gcp-service-account=nojv-worker@PROJECT_ID.iam.gserviceaccount.com
+```
+
+After that, the secret `nojv-runtime-secrets` only needs the connection
+name (`PROJECT_ID:REGION:INSTANCE`), not the GSA key.
+
+## Temporal Server
+
+`temporal/` deploys a single-pod Temporal Server using the official
+`temporalio/auto-setup:1.22` image. On first boot the image runs the
+schema migrations against the bundled Postgres (`temporal-postgres`
+StatefulSet, 10Gi PVC). Frontend gRPC is exposed at
+`temporal-frontend.nojv-temporal.svc.cluster.local:7233`; the worker
+deployment already points at that.
+
+For HA, switch to the `temporalio/temporal` helm chart and a managed
+Postgres — auto-setup is fine for educational / single-region deploys
+but lacks rolling-upgrade orchestration.
 
 ## Why No Autoscaler on the Worker
 

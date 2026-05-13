@@ -1,0 +1,126 @@
+# Temporal Server (auto-setup variant). The auto-setup image runs schema
+# migrations on first boot, then starts frontend / matching / history /
+# worker services in a single process. Suitable for a single-instance
+# deployment; for HA, switch to the temporalio/server image + helm chart.
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-frontend
+  namespace: nojv-temporal
+spec:
+  selector:
+    app.kubernetes.io/name: temporal-server
+  ports:
+    - name: grpc
+      port: 7233
+      targetPort: 7233
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-server
+  namespace: nojv-temporal
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: temporal-server
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Block startup until the Postgres StatefulSet is ready. auto-setup
+        # crashes if it can't reach the DB and retries via pod restart;
+        # waiting here gives a friendlier failure mode for operators.
+        - name: wait-for-postgres
+          image: postgres:15-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h temporal-postgres -p 5432 -U "$POSTGRES_USER"; do
+                echo "Waiting for temporal-postgres..."
+                sleep 2
+              done
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-postgres-secret
+                  key: POSTGRES_USER
+      containers:
+        - name: temporal
+          image: temporalio/auto-setup:1.22
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: DB
+              value: postgres12 # PG 12+ schema, works against PG 15
+            - name: DB_PORT
+              value: "5432"
+            - name: POSTGRES_SEEDS
+              value: temporal-postgres.nojv-temporal.svc.cluster.local
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: ENABLE_ES
+              value: "false"
+            - name: SKIP_DEFAULT_NAMESPACE_CREATION
+              value: "false"
+            - name: DEFAULT_NAMESPACE
+              value: default
+            - name: DEFAULT_NAMESPACE_RETENTION
+              value: "72h"
+            # auto-setup hosts every service on one pod; bind frontend gRPC
+            # to the pod IP so the Service can reach it.
+            - name: BIND_ON_IP
+              value: "0.0.0.0"
+          ports:
+            - containerPort: 7233
+              name: grpc-frontend
+            - containerPort: 7234
+              name: grpc-history
+            - containerPort: 7235
+              name: grpc-matching
+            - containerPort: 7239
+              name: grpc-worker
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: 7233
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 7233
+            initialDelaySeconds: 60
+            periodSeconds: 30

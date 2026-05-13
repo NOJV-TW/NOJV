@@ -41,11 +41,7 @@ export async function assessmentLifecycleWorkflow(
       await sleep(msUntilReminder);
     }
     await notificationDurable.fanoutAssignmentDueSoon(input.assessmentId);
-
-    const msUntilClose = new Date(info.closesAt).getTime() - Date.now();
-    if (msUntilClose > 0) {
-      await sleep(msUntilClose);
-    }
-    await assessment.closeAssessment(input.assessmentId);
   }
+
+  // No status flip at closesAt — "closed" is derived from `closesAt < now`.
 }

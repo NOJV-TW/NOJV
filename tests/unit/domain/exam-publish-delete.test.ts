@@ -69,7 +69,7 @@ vi.mock("@nojv/job-dispatch", () => {
 
 import { examDomain, ForbiddenError, ValidationError } from "@nojv/domain";
 
-const { publishExam, deleteExamDraft, archiveExam, unarchiveExam } = examDomain;
+const { publishExam, deleteExamDraft } = examDomain;
 
 const fakeActor = {
   userId: "usr_teacher",
@@ -220,79 +220,5 @@ describe("deleteExamDraft", () => {
       ForbiddenError,
     );
     expect(examDelete).not.toHaveBeenCalled();
-  });
-});
-
-describe("archiveExam", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("archives a published exam", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
-
-    await archiveExam(fakeActor, "exam_1");
-
-    expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "archived" });
-  });
-
-  it("rejects archiving a draft", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "draft" }));
-
-    await expect(archiveExam(fakeActor, "exam_1")).rejects.toBeInstanceOf(ValidationError);
-    expect(examUpdate).not.toHaveBeenCalled();
-  });
-
-  it("rejects archiving an already-archived exam", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "archived" }));
-
-    await expect(archiveExam(fakeActor, "exam_1")).rejects.toBeInstanceOf(ValidationError);
-    expect(examUpdate).not.toHaveBeenCalled();
-  });
-
-  it("rejects when the actor has no permission", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
-    membershipFindByComposite.mockResolvedValue(null);
-
-    await expect(archiveExam(fakeOtherActor, "exam_1")).rejects.toBeInstanceOf(ForbiddenError);
-    expect(examUpdate).not.toHaveBeenCalled();
-  });
-});
-
-describe("unarchiveExam", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("unarchives an archived exam back to published", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "archived" }));
-
-    await unarchiveExam(fakeActor, "exam_1");
-
-    expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
-  });
-
-  it("rejects unarchiving a published exam", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
-
-    await expect(unarchiveExam(fakeActor, "exam_1")).rejects.toBeInstanceOf(ValidationError);
-    expect(examUpdate).not.toHaveBeenCalled();
-  });
-
-  it("rejects unarchiving a draft", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "draft" }));
-
-    await expect(unarchiveExam(fakeActor, "exam_1")).rejects.toBeInstanceOf(ValidationError);
-    expect(examUpdate).not.toHaveBeenCalled();
-  });
-
-  it("rejects when the actor has no permission", async () => {
-    examFindById.mockResolvedValue(publishableExam({ status: "archived" }));
-    membershipFindByComposite.mockResolvedValue(null);
-
-    await expect(unarchiveExam(fakeOtherActor, "exam_1")).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
-    expect(examUpdate).not.toHaveBeenCalled();
   });
 });
