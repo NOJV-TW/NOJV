@@ -11,8 +11,11 @@ import {
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
+import { createLogger } from "../logger.js";
 import { parseSandboxResult } from "./sandbox-schema";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
+
+const logger = createLogger("k8s-executor");
 
 export interface K8sExecutorConfig {
   namespace: string;
@@ -43,13 +46,15 @@ export class K8sExecutor implements SandboxExecutor {
   async execute(request: SandboxRequest): Promise<SandboxResult> {
     // Advanced Mode requires loading a TA-supplied tarball into a local
     // Docker daemon (see AdvancedModeExecutor); the K8s executor has no
-    // path for that. Fail fast with a clear message instead of letting the
-    // request run through the standard runner image and produce confusing
-    // verdicts. Operators running advanced-mode problems must deploy the
-    // Docker backend.
+    // path for that. Fail fast with a neutral learner-facing message;
+    // operator-facing detail goes to the worker log.
     if (request.advanced) {
+      logger.error(
+        "K8s executor refused advanced-mode submission — switch to Docker backend",
+        { submissionId: request.submissionId },
+      );
       return sandboxSystemError(
-        "Advanced Mode is not supported by the Kubernetes executor. Deploy the Docker backend for problems with mode='special_env'.",
+        "Sandbox configuration error. Please contact your administrator.",
       );
     }
 

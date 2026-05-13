@@ -1,6 +1,6 @@
 import "$lib/server/otel"; // MUST be first — registers auto-instrumentation hooks before any other import loads pg/ioredis/etc.
 
-import { redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
+import { isHttpError, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
 import { examDomain } from "@nojv/domain";
 
@@ -215,9 +215,14 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
       event.request.method === "POST" &&
       (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
     if (isPasswordSignIn) {
+      // Pull the IP outside the try so a misconfigured Cloudflare ingress
+      // (getClientIp throws SvelteKit 403) surfaces as 403, not as a
+      // fake "rate limited" response that masks the real failure.
+      const ip = getClientIp(event);
       try {
-        await signInRateLimiter.consume(getClientIp(event));
-      } catch {
+        await signInRateLimiter.consume(ip);
+      } catch (err) {
+        if (isHttpError(err)) throw err;
         return new Response(
           JSON.stringify({ message: "Too many sign-in attempts. Try again later." }),
           {

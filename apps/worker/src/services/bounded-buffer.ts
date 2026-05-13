@@ -22,7 +22,13 @@ export function createBoundedStringBuffer(capBytes = DEFAULT_CAP_BYTES): Bounded
       const remaining = capBytes - totalBytes;
       const chunkBytes = Buffer.byteLength(chunk, "utf-8");
       if (chunkBytes > remaining) {
-        if (remaining > 0) parts.push(chunk.slice(0, remaining));
+        // `chunk.slice(0, remaining)` would slice by UTF-16 code units,
+        // not bytes — a chunk of 4-byte UTF-8 characters could overshoot
+        // the cap by ~4×. Round-trip through Buffer so the byte count is
+        // exact (TextDecoder drops any trailing partial codepoint).
+        if (remaining > 0) {
+          parts.push(Buffer.from(chunk, "utf-8").subarray(0, remaining).toString("utf-8"));
+        }
         totalBytes = capBytes;
         truncated = true;
         return;
