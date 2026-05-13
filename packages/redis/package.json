@@ -19,11 +19,11 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
-    "@opentelemetry/api": "^1.9.1",
-    "ioredis": "^5.10.1",
-    "zod": "^4.3.6"
+    "@opentelemetry/api": "catalog:",
+    "ioredis": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "tsdown": "^0.21.7"
+    "tsdown": "catalog:"
   }
 }

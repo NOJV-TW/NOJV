@@ -23,9 +23,9 @@
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@nojv/temporal": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "tsdown": "^0.21.7"
+    "tsdown": "catalog:"
   }
 }
