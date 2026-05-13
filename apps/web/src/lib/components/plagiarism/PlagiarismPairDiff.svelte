@@ -75,7 +75,7 @@
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest",
+          "X-Requested-With": "fetch",
         },
         body: JSON.stringify({
           contextType: data.contextType,
@@ -107,7 +107,7 @@
     try {
       const res = await fetch(`/api/plagiarism-flags/${encodeURIComponent(currentFlag.id)}`, {
         method: "DELETE",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
+        headers: { "X-Requested-With": "fetch" },
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string } | null;

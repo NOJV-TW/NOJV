@@ -77,6 +77,11 @@ require_env DATABASE_URL
 require_env REDIS_URL
 require_env BETTER_AUTH_SECRET
 require_env BETTER_AUTH_URL
+require_env S3_ENDPOINT
+require_env S3_ACCESS_KEY
+require_env S3_SECRET_KEY
+require_env S3_BUCKET
+require_env S3_REGION
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
@@ -96,6 +101,11 @@ upsert_secret nojv-database-url "$DATABASE_URL"
 upsert_secret nojv-redis-url "$REDIS_URL"
 upsert_secret nojv-auth-secret "$BETTER_AUTH_SECRET"
 upsert_secret nojv-auth-url "$BETTER_AUTH_URL"
+upsert_secret nojv-s3-endpoint "$S3_ENDPOINT"
+upsert_secret nojv-s3-access-key "$S3_ACCESS_KEY"
+upsert_secret nojv-s3-secret-key "$S3_SECRET_KEY"
+upsert_secret nojv-s3-bucket "$S3_BUCKET"
+upsert_secret nojv-s3-region "$S3_REGION"
 
 # Optional OAuth — only upsert if set
 [[ -n "${GITHUB_CLIENT_ID:-}" ]] && upsert_secret nojv-github-client-id "$GITHUB_CLIENT_ID"
@@ -122,11 +132,17 @@ gcloud run deploy "${SERVICE_PREFIX}-web" \
   --image "${IMAGE_BASE}/web:${IMAGE_TAG}" \
   --port 3000 \
   --region "$REGION" \
+  --ingress internal-and-cloud-load-balancing \
   --set-secrets "\
 DATABASE_URL=nojv-database-url:latest,\
 REDIS_URL=nojv-redis-url:latest,\
 BETTER_AUTH_SECRET=nojv-auth-secret:latest,\
 BETTER_AUTH_URL=nojv-auth-url:latest,\
+S3_ENDPOINT=nojv-s3-endpoint:latest,\
+S3_ACCESS_KEY=nojv-s3-access-key:latest,\
+S3_SECRET_KEY=nojv-s3-secret-key:latest,\
+S3_BUCKET=nojv-s3-bucket:latest,\
+S3_REGION=nojv-s3-region:latest,\
 GITHUB_CLIENT_ID=nojv-github-client-id:latest,\
 GITHUB_CLIENT_SECRET=nojv-github-client-secret:latest,\
 GOOGLE_CLIENT_ID=nojv-google-client-id:latest,\
