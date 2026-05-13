@@ -37,7 +37,7 @@ export class WorkerApp {
     this.temporalConnected = true;
 
     if (mode === "all" || mode === "judge") {
-      const { setExecutor } = await import("@nojv/temporal/activities/judge");
+      const { setExecutor } = await import("./activities/judge.js");
       const executor = createExecutor(this.env);
       setExecutor(executor);
 
@@ -45,8 +45,8 @@ export class WorkerApp {
         connection,
         namespace,
         taskQueue: JUDGE_TASK_QUEUE,
-        workflowsPath: require.resolve("@nojv/temporal/workflows"),
-        activities: await import("@nojv/temporal/activities/judge"),
+        workflowsPath: require.resolve("./workflows/index.js"),
+        activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
       });
       this.workers.push(judgeWorker);
@@ -57,8 +57,8 @@ export class WorkerApp {
         connection,
         namespace,
         taskQueue: PLATFORM_TASK_QUEUE,
-        workflowsPath: require.resolve("@nojv/temporal/workflows"),
-        activities: await import("@nojv/temporal/activities/platform"),
+        workflowsPath: require.resolve("./workflows/index.js"),
+        activities: await import("./activities/platform-bundle.js"),
         maxConcurrentActivityTaskExecutions: 10,
       });
       this.workers.push(platformWorker);

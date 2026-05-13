@@ -52,7 +52,7 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-vi.mock("@nojv/job-dispatch", () => {
+vi.mock("@nojv/temporal", () => {
   return {
     dispatchExamAutoClose,
     dispatchAssessmentLifecycle: vi.fn(),

@@ -109,7 +109,7 @@ export async function runPlagiarismCheck(
 
     await plagiarismDomain.saveResults(target, { pairs: allPairs }, null);
   } catch (err) {
-    await plagiarismDomain.markReportFailed(target).catch((markErr) => {
+    await plagiarismDomain.markReportFailed(target).catch((markErr: unknown) => {
       log.error("markReportFailed also failed; report may be stuck in 'running'", {
         targetType: target.type,
         targetId: target.id,

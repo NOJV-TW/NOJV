@@ -8,7 +8,7 @@ import {
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/domain";
 
-import type { RejudgeInput } from "../types";
+import type { RejudgeInput } from "@nojv/temporal";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
@@ -98,11 +98,11 @@ export async function executeSandbox(
 
   const useSamples = draft.sampleOnly === true;
   const useAdvanced = submissionDomain.deriveJudgeMode(judgeContext) === "advanced";
-  const hasRunCases =
-    useSamples && !useAdvanced && draft.runCases !== undefined && draft.runCases.length > 0;
+  const runCases = useSamples && !useAdvanced ? draft.runCases : undefined;
+  const hasRunCases = runCases !== undefined && runCases.length > 0;
 
   const testcasesForSandbox = hasRunCases
-    ? draft.runCases!.map((tc, i) => ({
+    ? runCases.map((tc, i) => ({
         index: i,
         input: tc.input,
         ...(tc.expectedOutput !== undefined ? { output: tc.expectedOutput } : {}),

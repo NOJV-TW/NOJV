@@ -9,7 +9,7 @@
 - 對 DB / Redis / Storage / Temporal 做組合與交易控制
 - 計分、scoreboard 更新、adjustment rule 套用
 - **不負責**：HTTP 解析、SvelteKit `RequestEvent`、Temporal SDK 直接呼叫
-- **嚴禁** import `@sveltejs/kit`、`@temporalio/*`（要 dispatch 走 `@nojv/job-dispatch`）
+- **嚴禁** import `@sveltejs/kit`、`@temporalio/*`（要 dispatch 走 `@nojv/temporal` 的 dispatch helpers；不能 import `@nojv/temporal/workflows`）
 
 ## 主要 API
 
@@ -21,8 +21,8 @@
 
 ## 依賴
 
-- 上游：`@nojv/core`、`@nojv/db`、`@nojv/redis`、`@nojv/storage`、`@nojv/job-dispatch`
-- 下游：`apps/web` 的 server routes、`@nojv/temporal` 的 activities
+- 上游：`@nojv/core`、`@nojv/db`、`@nojv/redis`、`@nojv/storage`、`@nojv/temporal`
+- 下游：`apps/web` 的 server routes、`apps/worker` 的 activities
 
 ## 本地開發
 

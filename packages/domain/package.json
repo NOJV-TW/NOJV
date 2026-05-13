@@ -20,9 +20,9 @@
   "dependencies": {
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
-    "@nojv/job-dispatch": "workspace:*",
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
+    "@nojv/temporal": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

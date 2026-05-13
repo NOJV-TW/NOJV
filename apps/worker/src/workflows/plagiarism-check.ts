@@ -1,5 +1,5 @@
 import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
-import type { PlagiarismCheckInput, PlagiarismCheckStatus } from "../types";
+import type { PlagiarismCheckInput, PlagiarismCheckStatus } from "@nojv/temporal";
 import type * as plagiarismActivities from "../activities/plagiarism";
 import { PLAGIARISM_ACTIVITY } from "./activity-options";
 

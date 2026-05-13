@@ -109,7 +109,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Roles**: `requirePlatformRole(actor, ...roles)` for admin/teacher gates
 - **Course access**: `isCourseStaff(role)`, `resolveEffectiveCourseRole(platformRole, courseRole)`
 - **Database**: Repositories exported from `@nojv/db`. Domain layer is the default path; routes that read structural data (e.g. announcement listings, layout loaders) may import repositories directly
-- **Job dispatch**: Temporal via `@nojv/job-dispatch` (`dispatchSubmissionJudge`, `dispatchPlagiarismCheck`, etc.). Workflow queries via `querySubmissionStatus` / `queryRejudgeProgress` / `queryPlagiarismStatus`
+- **Job dispatch**: Temporal via `@nojv/temporal` root entry, typically re-exported through `@nojv/domain` (`dispatchSubmissionJudge`, `dispatchPlagiarismCheck`, etc.). Workflow queries via `querySubmissionStatus` / `queryRejudgeProgress` / `queryPlagiarismStatus`
 - **Redis**: Pub/sub and rate-limiter Redis access via `@nojv/redis` (`getRedis`, `createSubscriber`, key registry)
 - **Rate limits**: `apiHandler` / `writeApiHandler` wrap read / write routes; `consumeFormRateLimit(event)` wraps form actions; `signInRateLimiter` enforced from `hooks.server.ts` on password sign-in routes. All key on `getClientIp(event)` (Cloudflare-aware)
 - **CSRF**: `hooks.server.ts` rejects `/api/**` non-GET requests without `X-Requested-With: fetch` (better-auth path exempt). Same-origin Origin header also enforced

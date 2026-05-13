@@ -1,9 +1,9 @@
 import { proxyActivities, defineQuery, setHandler, executeChild } from "@temporalio/workflow";
 import type { SubmissionDraft } from "@nojv/core";
-import type { RejudgeInput, RejudgeProgress } from "../types";
+import type { RejudgeInput, RejudgeProgress } from "@nojv/temporal";
+import { JUDGE_TASK_QUEUE } from "@nojv/temporal";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
-import { JUDGE_TASK_QUEUE } from "../task-queues";
 import { SHORT_ACTIVITY } from "./activity-options";
 
 const judge = proxyActivities<typeof judgeActivities>(SHORT_ACTIVITY);

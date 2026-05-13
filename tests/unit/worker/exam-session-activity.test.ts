@@ -22,7 +22,7 @@ vi.mock("@nojv/redis", () => ({
   },
 }));
 
-import { closeActiveSessionsForExam } from "../../../packages/temporal/src/activities/lifecycle";
+import { closeActiveSessionsForExam } from "../../../apps/worker/src/activities/lifecycle";
 
 describe("closeActiveSessionsForExam activity", () => {
   beforeEach(() => {

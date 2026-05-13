@@ -1,70 +1,23 @@
-import type { SubmissionDraft, SubmissionJudgeJob } from "@nojv/core";
+import type { SubmissionJudgeJob } from "@nojv/core";
 import { submissionJudgeJobSchema } from "@nojv/core";
 
-import { getClient } from "./client";
-
-// Task queue names must match packages/temporal/src/task-queues.ts.
-const JUDGE_TASK_QUEUE = "judge" as const;
-const PLATFORM_TASK_QUEUE = "platform" as const;
-
-// Mirrored from packages/temporal/src/types.ts to keep this package decoupled.
-export interface SubmissionJudgeInput {
-  submissionId: string;
-  draft: SubmissionDraft;
-}
-
-export type RejudgeInput =
-  | {
-      mode: "batch";
-      problemId: string;
-      contestId?: string;
-      assessmentId?: string;
-      examId?: string;
-      userIds?: string[];
-      since?: string; // ISO date
-      until?: string; // ISO date
-      triggeredByUserId: string;
-    }
-  | {
-      mode: "single";
-      submissionId: string;
-      triggeredByUserId: string;
-    };
-
-export interface ContestLifecycleInput {
-  contestId: string;
-}
-
-export interface AssessmentLifecycleInput {
-  assessmentId: string;
-}
-
-export interface ExamAutoCloseInput {
-  examId: string;
-  // ISO-8601 timestamps. Wire format is a string so the Temporal payload
-  // serializer is deterministic regardless of who built the input.
-  startsAt: string;
-  endsAt: string;
-}
-
-export interface PlagiarismCheckInput {
-  targetId: string;
-  targetType: "courseAssessment" | "exam" | "contest";
-  triggeredById: string;
-}
-
-export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";
-
-export type PlagiarismCheckStatus = "pending" | "running" | "completed" | "failed";
-
-export interface RejudgeProgress {
-  completed: number;
-  total: number;
-}
+import { getTemporalClient } from "./client";
+import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
+import type {
+  AssessmentLifecycleInput,
+  ContestLifecycleInput,
+  ExamAutoCloseInput,
+  PlagiarismCheckInput,
+  PlagiarismCheckStatus,
+  RejudgeInput,
+  RejudgeProgress,
+  SubmissionJudgeInput,
+  SubmissionJudgeStatus,
+} from "./types";
 
 export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
   const validated = submissionJudgeJobSchema.parse(payload);
-  const client = await getClient();
+  const client = await getTemporalClient();
 
   const input: SubmissionJudgeInput = {
     submissionId: validated.submissionId,
@@ -79,7 +32,7 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
 }
 
 export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
-  const client = await getClient();
+  const client = await getTemporalClient();
   const suffix =
     input.mode === "single"
       ? input.submissionId
@@ -95,7 +48,7 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
 }
 
 export async function dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void> {
-  const client = await getClient();
+  const client = await getTemporalClient();
 
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
@@ -107,7 +60,7 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
 export async function dispatchAssessmentLifecycle(
   input: AssessmentLifecycleInput,
 ): Promise<void> {
-  const client = await getClient();
+  const client = await getTemporalClient();
 
   await client.workflow.start("assessmentLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
@@ -118,7 +71,7 @@ export async function dispatchAssessmentLifecycle(
 
 // Workflow id is keyed on `examId`; re-publishing terminates the pending workflow so the new endsAt follows.
 export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void> {
-  const client = await getClient();
+  const client = await getTemporalClient();
 
   await client.workflow.start("examAutoCloseWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
@@ -129,7 +82,7 @@ export async function dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<
 }
 
 export async function dispatchPlagiarismCheck(input: PlagiarismCheckInput): Promise<void> {
-  const client = await getClient();
+  const client = await getTemporalClient();
 
   await client.workflow.start("plagiarismCheckWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
@@ -148,13 +101,13 @@ function plagiarismWorkflowId(
 export async function querySubmissionStatus(
   submissionId: string,
 ): Promise<SubmissionJudgeStatus> {
-  const client = await getClient();
+  const client = await getTemporalClient();
   const handle = client.workflow.getHandle(`judge-${submissionId}`);
   return handle.query<SubmissionJudgeStatus>("getStatus");
 }
 
 export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress> {
-  const client = await getClient();
+  const client = await getTemporalClient();
   const handle = client.workflow.getHandle(workflowId);
   return handle.query<RejudgeProgress>("getProgress");
 }
@@ -163,7 +116,7 @@ export async function queryPlagiarismStatus(
   targetType: PlagiarismCheckInput["targetType"],
   targetId: string,
 ): Promise<PlagiarismCheckStatus> {
-  const client = await getClient();
+  const client = await getTemporalClient();
   const handle = client.workflow.getHandle(plagiarismWorkflowId(targetType, targetId));
   return handle.query<PlagiarismCheckStatus>("getPlagiarismStatus");
 }

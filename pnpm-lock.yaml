@@ -258,6 +258,12 @@ importers:
 
   apps/worker:
     dependencies:
+      '@dodona/dolos-core':
+        specifier: ^1.2.1
+        version: 1.2.1
+      '@dodona/dolos-lib':
+        specifier: 3.5.1
+        version: 3.5.1
       '@kubernetes/client-node':
         specifier: ^1.4.0
         version: 1.4.0
@@ -267,6 +273,9 @@ importers:
       '@nojv/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nojv/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@nojv/redis':
         specifier: workspace:*
         version: link:../../packages/redis
@@ -294,9 +303,18 @@ importers:
       '@opentelemetry/semantic-conventions':
         specifier: ^1.40.0
         version: 1.40.0
+      '@temporalio/activity':
+        specifier: ^1.15.0
+        version: 1.15.0
+      '@temporalio/common':
+        specifier: ^1.15.0
+        version: 1.15.0
       '@temporalio/worker':
         specifier: ^1.15.0
         version: 1.15.0(@swc/helpers@0.5.21)(esbuild@0.28.0)(tslib@2.8.1)
+      '@temporalio/workflow':
+        specifier: ^1.15.0
+        version: 1.15.0
       ioredis:
         specifier: ^5.10.1
         version: 5.10.1
@@ -360,31 +378,18 @@ importers:
       '@nojv/db':
         specifier: workspace:*
         version: link:../db
-      '@nojv/job-dispatch':
-        specifier: workspace:*
-        version: link:../job-dispatch
       '@nojv/redis':
         specifier: workspace:*
         version: link:../redis
       '@nojv/storage':
         specifier: workspace:*
         version: link:../storage
+      '@nojv/temporal':
+        specifier: workspace:*
+        version: link:../temporal
       zod:
         specifier: ^4.3.6
         version: 4.3.6
-    devDependencies:
-      tsdown:
-        specifier: ^0.21.7
-        version: 0.21.7(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.2)(typescript@6.0.2)
-
-  packages/job-dispatch:
-    dependencies:
-      '@nojv/core':
-        specifier: workspace:*
-        version: link:../core
-      '@temporalio/client':
-        specifier: ^1.15.0
-        version: 1.15.0
     devDependencies:
       tsdown:
         specifier: ^0.21.7
@@ -421,39 +426,12 @@ importers:
 
   packages/temporal:
     dependencies:
-      '@dodona/dolos-core':
-        specifier: ^1.2.1
-        version: 1.2.1
-      '@dodona/dolos-lib':
-        specifier: 3.5.1
-        version: 3.5.1
       '@nojv/core':
         specifier: workspace:*
         version: link:../core
-      '@nojv/domain':
-        specifier: workspace:*
-        version: link:../domain
-      '@nojv/redis':
-        specifier: workspace:*
-        version: link:../redis
-      '@opentelemetry/api':
-        specifier: ^1.9.1
-        version: 1.9.1
-      '@temporalio/activity':
-        specifier: ^1.15.0
-        version: 1.15.0
       '@temporalio/client':
         specifier: ^1.15.0
         version: 1.15.0
-      '@temporalio/common':
-        specifier: ^1.15.0
-        version: 1.15.0
-      '@temporalio/workflow':
-        specifier: ^1.15.0
-        version: 1.15.0
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
     devDependencies:
       tsdown:
         specifier: ^0.21.7

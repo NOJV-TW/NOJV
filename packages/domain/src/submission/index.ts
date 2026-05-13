@@ -37,4 +37,4 @@ export {
   dispatchRejudge,
   dispatchSubmissionJudge,
   querySubmissionStatus,
-} from "@nojv/job-dispatch";
+} from "@nojv/temporal";

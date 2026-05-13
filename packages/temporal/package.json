@@ -11,26 +11,6 @@
       "types": "./src/index.ts",
       "import": "./dist/index.mjs",
       "default": "./dist/index.mjs"
-    },
-    "./workflows": {
-      "types": "./src/workflows/index.ts",
-      "import": "./dist/workflows/index.mjs",
-      "default": "./dist/workflows/index.mjs"
-    },
-    "./activities": {
-      "types": "./src/activities/index.ts",
-      "import": "./dist/activities/index.mjs",
-      "default": "./dist/activities/index.mjs"
-    },
-    "./activities/judge": {
-      "types": "./src/activities/judge-bundle.ts",
-      "import": "./dist/activities/judge-bundle.mjs",
-      "default": "./dist/activities/judge-bundle.mjs"
-    },
-    "./activities/platform": {
-      "types": "./src/activities/platform-bundle.ts",
-      "import": "./dist/activities/platform-bundle.mjs",
-      "default": "./dist/activities/platform-bundle.mjs"
     }
   },
   "scripts": {
@@ -38,17 +18,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@dodona/dolos-core": "^1.2.1",
-    "@dodona/dolos-lib": "3.5.1",
     "@nojv/core": "workspace:*",
-    "@nojv/domain": "workspace:*",
-    "@nojv/redis": "workspace:*",
-    "@opentelemetry/api": "^1.9.1",
-    "@temporalio/activity": "^1.15.0",
-    "@temporalio/client": "^1.15.0",
-    "@temporalio/common": "^1.15.0",
-    "@temporalio/workflow": "^1.15.0",
-    "zod": "^4.3.6"
+    "@temporalio/client": "^1.15.0"
   },
   "devDependencies": {
     "tsdown": "^0.21.7"

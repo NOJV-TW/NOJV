@@ -26,7 +26,7 @@ vi.mock("@nojv/domain", () => ({
   },
 }));
 
-import { runPlagiarismCheck } from "../../../packages/temporal/src/activities/plagiarism";
+import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
 
 const target = { type: "courseAssessment" as const, id: "asg_1" };
 

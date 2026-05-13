@@ -15,9 +15,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@dodona/dolos-core": "^1.2.1",
+    "@dodona/dolos-lib": "3.5.1",
     "@kubernetes/client-node": "^1.4.0",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
+    "@nojv/domain": "workspace:*",
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "@nojv/temporal": "workspace:*",
@@ -27,7 +30,10 @@
     "@opentelemetry/resources": "^2.7.1",
     "@opentelemetry/sdk-node": "^0.216.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
+    "@temporalio/activity": "^1.15.0",
+    "@temporalio/common": "^1.15.0",
     "@temporalio/worker": "^1.15.0",
+    "@temporalio/workflow": "^1.15.0",
     "ioredis": "^5.10.1",
     "pino": "^10.3.1",
     "zod": "^4.3.6"

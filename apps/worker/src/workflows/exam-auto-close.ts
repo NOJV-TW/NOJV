@@ -1,5 +1,5 @@
 import { proxyActivities, sleep } from "@temporalio/workflow";
-import type { ExamAutoCloseInput } from "../types";
+import type { ExamAutoCloseInput } from "@nojv/temporal";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { SHORT_ACTIVITY } from "./activity-options";
 import { computeAutoCloseDelayMs } from "./exam-auto-close-helpers";

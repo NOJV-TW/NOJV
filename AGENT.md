@@ -101,9 +101,8 @@ packages/
   db/               Prisma 7 schema, migrations, repositories
   domain/           Business logic — queries, commands, scoring, stats
   redis/            Redis connection, key registry, pub/sub, cache, cooldown
-  job-dispatch/     Temporal client wrapper, workflow dispatch API
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal workflows, activities (thin wrappers over domain)
+  temporal/         Temporal client + dispatch API + workflows + activities
 
 tooling/
   eslint/           Shared ESLint 9 flat config

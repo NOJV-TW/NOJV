@@ -1,5 +1,5 @@
 import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
-import type { SubmissionJudgeInput, SubmissionJudgeStatus } from "../types";
+import type { SubmissionJudgeInput, SubmissionJudgeStatus } from "@nojv/temporal";
 
 import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";

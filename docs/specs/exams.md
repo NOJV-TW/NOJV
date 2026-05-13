@@ -274,7 +274,7 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
   `examAutoCloseWorkflow`.
 - `packages/temporal/src/activities/exam-session.ts` —
   `closeActiveSessionsForExam`.
-- `packages/job-dispatch/src/dispatch.ts` — `dispatchExamAutoClose`.
+- `packages/temporal/src/dispatch.ts` — `dispatchExamAutoClose`.
 
 ### Routes / API
 

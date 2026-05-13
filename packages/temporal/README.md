@@ -1,30 +1,30 @@
 # @nojv/temporal
 
-> Temporal workflows、activities 與 task queue 定義。worker 啟動時註冊的 task queue 內容。
+> Temporal client、dispatch API、task queue 常數與 workflow input/output types。
 
 ## 職責
 
-- 定義所有 workflow（submission judge、rejudge、contest/assessment lifecycle、exam auto-close、plagiarism）
-- 定義所有 activity（judge bundle、platform bundle、plagiarism、lifecycle、utils）
-- 集中管理 task queue 名稱與 activity options（retry policy、timeout）
-- activity 是「薄封裝」：呼叫 `@nojv/domain` 完成業務邏輯，不直接碰 Prisma
-- **不負責**：dispatch workflow（那是 `@nojv/job-dispatch`）、長駐 worker 程序（那是 `apps/worker`）
+- 提供 Temporal client 單例（`getTemporalClient` / `closeTemporalClient`）
+- 提供 dispatch API：`dispatchSubmissionJudge`、`dispatchRejudge`、`dispatchContestLifecycle`、`dispatchAssessmentLifecycle`、`dispatchExamAutoClose`、`dispatchPlagiarismCheck`，以及對應的 workflow query helpers
+- 定義 task queue 名稱（`JUDGE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`）
+- 定義 dispatch input/output 與 workflow signal types
+
+**這個 package 故意 _沒_ 依賴 `@nojv/domain` 或任何 workflow / activity 程式碼** —— 那是為了避免 `domain → temporal → domain` 的循環依賴。workflow 定義與 activity 實作都放在 `apps/worker/`，由 worker 啟動時 register 給 Temporal SDK。
 
 ## 主要入口
 
-- `src/index.ts` — 對外型別與 task queue 常數
-- `src/workflows/index.ts` — workflow 集合（`./workflows` subpath export）
-- `src/activities/index.ts` — activity 集合（`./activities` subpath export）
-- `src/activities/judge-bundle.ts` — judge worker 註冊用 bundle
-- `src/activities/platform-bundle.ts` — platform worker 註冊用 bundle
-- `src/workflows/submission-judge.ts` — 提交判題主流程
-- `src/workflows/contest-lifecycle.ts` — 比賽 start / freeze / end
-- `src/workflows/plagiarism-check.ts` — MOSS / Dolos 抄襲檢測流程
+- `src/index.ts` — 對外型別、task queue 常數、client 與 dispatch API
+- `src/client.ts` — Temporal client 連線單例
+- `src/dispatch.ts` — workflow dispatch / query helpers
+- `src/types.ts` — workflow input / output / signal types
+- `src/task-queues.ts` — task queue 名稱常數
+
+workflow 與 activity 程式：見 `apps/worker/src/workflows/`、`apps/worker/src/activities/`。
 
 ## 依賴
 
-- 上游：`@nojv/core`、`@nojv/domain`、`@nojv/redis`、`@temporalio/*`、`@dodona/dolos-*`
-- 下游：`apps/worker`（註冊並執行）、`@nojv/job-dispatch`（透過 workflow type）
+- 上游：`@nojv/core`、`@temporalio/client`
+- 下游：`@nojv/domain`（dispatch helpers + types）、`apps/worker`（workflows + activities 自行 register）
 
 ## 本地開發
 

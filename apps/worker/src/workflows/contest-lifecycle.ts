@@ -5,7 +5,7 @@ import {
   sleep,
   condition,
 } from "@temporalio/workflow";
-import type { ContestLifecycleInput, AdminOverrideSignal } from "../types";
+import type { ContestLifecycleInput, AdminOverrideSignal } from "@nojv/temporal";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
@@ -28,7 +28,8 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
   setHandler(adminOverrideSignal, (signal) => {
     if (signal.action === "earlyEnd") {
       earlyEnd = true;
-    } else if (signal.action === "extend") {
+    } else {
+      // Signal narrows to `{ action: "extend", newEndsAt }` here.
       endsAt = new Date(signal.newEndsAt).getTime();
     }
   });
@@ -56,12 +57,16 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     const msUntilFreeze = new Date(contestInfo.freezeTime).getTime() - Date.now();
     if (msUntilFreeze > 0) {
       const shouldContinue = await condition(() => earlyEnd, msUntilFreeze);
+      // `earlyEnd` is mutated by the signal handler above; eslint's type-aware
+      // narrowing can't see through async signal callbacks.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!shouldContinue && !earlyEnd) {
         await contest.freezeScoreboard(input.contestId);
       }
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!earlyEnd) {
     const msUntilEnd = endsAt - Date.now();
     if (msUntilEnd > 0) {
