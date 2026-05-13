@@ -16,6 +16,8 @@ import {
 import { getWebEnv } from "$lib/server/env";
 import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
+import { getClientIp } from "$lib/server/shared/client-ip";
+import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 
 // Validate environment variables eagerly on startup.
 getWebEnv();
@@ -206,6 +208,29 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
 
   // Let better-auth own the callback/sign-in flow without additional middleware.
   if (cleanPath.startsWith("/api/auth")) {
+    // Brute-force lockout for password sign-in: only /admin-signin (and the
+    // seeded test accounts behind it) uses this surface. OAuth flows hit
+    // /api/auth/sign-in/social and /api/auth/callback/*, which are exempt.
+    const isPasswordSignIn =
+      event.request.method === "POST" &&
+      (cleanPath === "/api/auth/sign-in/email" ||
+        cleanPath === "/api/auth/sign-in/username");
+    if (isPasswordSignIn) {
+      try {
+        await signInRateLimiter.consume(getClientIp(event));
+      } catch {
+        return new Response(
+          JSON.stringify({ message: "Too many sign-in attempts. Try again later." }),
+          {
+            status: 429,
+            headers: {
+              "content-type": "application/json",
+              "x-request-id": event.locals.requestId,
+            },
+          },
+        );
+      }
+    }
     const response = await resolve(event);
     response.headers.set("x-request-id", event.locals.requestId);
     return response;

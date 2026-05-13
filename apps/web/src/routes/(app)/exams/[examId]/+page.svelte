@@ -13,6 +13,7 @@
   import ExamSubmissionsMatrix from "$lib/components/course/exam/ExamSubmissionsMatrix.svelte";
   import ExamSettingsTab from "$lib/components/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/course/exam/ExamProblemsTab.svelte";
+  import ExamProctoringTab from "$lib/components/course/exam/ExamProctoringTab.svelte";
   import ExamResultsTab from "$lib/components/course/exam/ExamResultsTab.svelte";
   import ExamStartModal from "$lib/components/course/exam/ExamStartModal.svelte";
   import AssignmentPlagiarismReport from "$lib/components/course/assignment/AssignmentPlagiarismReport.svelte";
@@ -114,6 +115,7 @@
     | "submissions"
     | "results"
     | "plagiarism"
+    | "proctoring"
     | "settings"
     | "clarifications";
   let activeSubTabKey = $state<SubTab>("problems");
@@ -600,6 +602,18 @@
       <button
         type="button"
         role="tab"
+        aria-selected={activeSubTabKey === "proctoring"}
+        onclick={() => (activeSubTabKey = "proctoring")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
+        'proctoring'
+          ? 'bg-[color:var(--color-primary)]/14 text-primary'
+          : 'text-muted-foreground hover:text-foreground'}"
+      >
+        {m.examDetail_subTabProctoring()}
+      </button>
+      <button
+        type="button"
+        role="tab"
         aria-selected={activeSubTabKey === "settings"}
         onclick={() => (activeSubTabKey = "settings")}
         class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
@@ -652,6 +666,10 @@
               }))
             : []}
         />
+      </GlassPanel>
+    {:else if activeSubTabKey === "proctoring"}
+      <GlassPanel class="p-5">
+        <ExamProctoringTab violations={data.ipViolations ?? []} />
       </GlassPanel>
     {:else if activeSubTabKey === "settings" && data.settingsForm}
       <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
