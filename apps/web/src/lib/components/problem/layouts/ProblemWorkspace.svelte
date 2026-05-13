@@ -5,7 +5,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { inferDraftContext } from "$lib/stores/code-draft";
   import type { ProblemDetail, ProblemSubmissionEntry, ProblemTestcaseSetSummary } from "$lib/types";
-  import ProblemEditor from "./Editor.svelte";
+  import ProblemEditor from "../editors/Editor.svelte";
   import ProblemLeftPanel from "./ProblemLeftPanel.svelte";
 
   interface Props {

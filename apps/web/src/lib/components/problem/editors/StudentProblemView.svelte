@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemDetail } from "$lib/types";
-  import MonacoScriptEditor from "./editors/MonacoScriptEditor.svelte";
+  import MonacoScriptEditor from "./MonacoScriptEditor.svelte";
 
   type WorkspaceFile = ProblemDetail["workspaceFiles"][number];
 

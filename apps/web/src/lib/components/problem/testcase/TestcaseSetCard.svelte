@@ -1,10 +1,12 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import { ChevronDown, ChevronRight, Pencil, Trash2, Eye, EyeOff } from "@lucide/svelte";
+  import { ChevronDown, ChevronRight, Pencil, Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { postProblemAction } from "$lib/utils/actions";
   import HelpTooltip from "$lib/components/ui/HelpTooltip.svelte";
+  import TestcaseRow from "./TestcaseRow.svelte";
+  import TestcaseSetEditForm from "./TestcaseSetEditForm.svelte";
 
   interface TestcaseData {
     id: string;
@@ -117,11 +119,6 @@
       saving = false;
     }
   }
-
-  function truncate(text: string, maxLen: number = 80): string {
-    if (text.length <= maxLen) return text;
-    return text.slice(0, maxLen) + "...";
-  }
 </script>
 
 <div class="rounded-lg border border-border-subtle p-2 transition-[box-shadow] duration-fast ease-out-soft hover:shadow-rest">
@@ -185,41 +182,15 @@
   </div>
 
   {#if editing}
-    <div class="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)] p-3">
-      <label class="grid gap-1">
-        <span class="text-caption font-medium text-muted-foreground">{m.testcases_editSetName()}</span>
-        <input
-          class="rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
-          bind:value={editName}
-        />
-      </label>
-      <label class="grid gap-1">
-        <span class="text-caption font-medium text-muted-foreground">{m.testcases_editSetWeight()}</span>
-        <input
-          class="w-20 rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm tabular-nums"
-          type="number"
-          min="0"
-          bind:value={editWeight}
-        />
-      </label>
-      <div class="flex gap-2">
-        <button
-          class="rounded-full bg-primary px-4 py-2 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
-          onclick={saveSet}
-          disabled={saving}
-          type="button"
-        >
-          {saving ? m.admin_saving() : m.common_save()}
-        </button>
-        <button
-          class="rounded-full border border-border px-4 py-2 text-caption font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5"
-          onclick={() => (editing = false)}
-          type="button"
-        >
-          {m.common_cancel()}
-        </button>
-      </div>
-    </div>
+    <TestcaseSetEditForm
+      {editName}
+      {editWeight}
+      {saving}
+      onSave={() => void saveSet()}
+      onCancel={() => (editing = false)}
+      onNameChange={(v) => (editName = v)}
+      onWeightChange={(v) => (editWeight = v)}
+    />
   {/if}
 
   {#if confirmDelete}
@@ -248,100 +219,22 @@
   {#if expanded}
     <div class="mt-3 space-y-2">
       {#each set.testcases as tc (tc.id)}
-        <div class="rounded-md border border-border-subtle p-3">
-          {#if editingTestcaseId === tc.id}
-            <div class="space-y-2">
-              <label class="grid gap-1 text-caption text-muted-foreground">
-                {m.testcases_input()}
-                <textarea
-                  class="w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
-                  rows={3}
-                  bind:value={editInput}
-                ></textarea>
-              </label>
-              <label class="grid gap-1 text-caption text-muted-foreground">
-                {m.testcases_output()}
-                <textarea
-                  class="w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 font-mono text-caption"
-                  rows={3}
-                  bind:value={editOutput}
-                ></textarea>
-              </label>
-              <div class="flex gap-2">
-                <button
-                  class="rounded-full bg-primary px-4 py-1.5 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
-                  onclick={() => saveTestcase(tc.id)}
-                  disabled={saving}
-                  type="button"
-                >
-                  {saving ? m.admin_saving() : m.common_save()}
-                </button>
-                <button
-                  class="rounded-full border border-border px-4 py-1.5 text-caption font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5"
-                  onclick={() => (editingTestcaseId = null)}
-                  type="button"
-                >
-                  {m.common_cancel()}
-                </button>
-              </div>
-            </div>
-          {:else if confirmDeleteTestcaseId === tc.id}
-            <div class="flex items-center gap-3">
-              <span class="text-body-sm text-destructive">
-                {m.testcases_confirmDeleteCase({ ordinal: tc.ordinal })}
-              </span>
-              <button
-                class="rounded-full bg-destructive px-4 py-1.5 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
-                onclick={() => deleteTestcase(tc.id)}
-                disabled={saving}
-                type="button"
-              >
-                {saving ? m.testcases_deleting() : m.testcases_confirm()}
-              </button>
-              <button
-                class="rounded-full border border-border px-4 py-1.5 text-caption font-semibold transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5"
-                onclick={() => (confirmDeleteTestcaseId = null)}
-                type="button"
-              >
-                {m.common_cancel()}
-              </button>
-            </div>
-          {:else}
-            <div class="flex items-start gap-3">
-              <span class="shrink-0 text-caption font-medium text-muted-foreground tabular-nums">
-                #{tc.ordinal}
-              </span>
-              <div class="min-w-0 flex-1 grid gap-1">
-                <div class="text-caption text-muted-foreground">
-                  <span class="font-medium">{m.testcases_input()}:</span>
-                  <code class="ml-1 break-all">{truncate(tc.input)}</code>
-                </div>
-                <div class="text-caption text-muted-foreground">
-                  <span class="font-medium">{m.testcases_output()}:</span>
-                  <code class="ml-1 break-all">{truncate(tc.output ?? "")}</code>
-                </div>
-              </div>
-              <div class="flex shrink-0 gap-1">
-                <button
-                  class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-                  onclick={() => startEditTestcase(tc)}
-                  type="button"
-                  title={m.testcases_editTestcase()}
-                >
-                  <Pencil class="size-3" />
-                </button>
-                <button
-                  class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
-                  onclick={() => (confirmDeleteTestcaseId = tc.id)}
-                  type="button"
-                  title={m.testcases_deleteTestcase()}
-                >
-                  <Trash2 class="size-3" />
-                </button>
-              </div>
-            </div>
-          {/if}
-        </div>
+        <TestcaseRow
+          {tc}
+          editing={editingTestcaseId === tc.id}
+          confirmingDelete={confirmDeleteTestcaseId === tc.id}
+          {saving}
+          {editInput}
+          {editOutput}
+          onStartEdit={() => startEditTestcase(tc)}
+          onSaveEdit={() => void saveTestcase(tc.id)}
+          onCancelEdit={() => (editingTestcaseId = null)}
+          onStartDelete={() => (confirmDeleteTestcaseId = tc.id)}
+          onConfirmDelete={() => void deleteTestcase(tc.id)}
+          onCancelDelete={() => (confirmDeleteTestcaseId = null)}
+          onInputChange={(v) => (editInput = v)}
+          onOutputChange={(v) => (editOutput = v)}
+        />
       {/each}
 
       {#if set.testcases.length === 0}

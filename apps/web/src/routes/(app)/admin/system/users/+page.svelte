@@ -26,7 +26,7 @@
     const params = new URLSearchParams();
     if (searchValue) params.set("search", searchValue);
     if (roleValue) params.set("role", roleValue);
-    goto(`/admin/users?${params.toString()}`);
+    goto(`/admin/system/users?${params.toString()}`);
   }
 </script>
 

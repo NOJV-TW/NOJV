@@ -3,7 +3,7 @@
   import { onMount } from "svelte";
   import type { Language } from "@nojv/core";
   import { defineNojvThemes, getNojvThemeName } from "$lib/utils/monaco-themes";
-  import { registerCompletionProviders } from "./editor-completions";
+  import { registerCompletionProviders } from "../editor-completions";
 
   interface Props {
     /** Current language — drives Monaco model language + the buffer we sync. */

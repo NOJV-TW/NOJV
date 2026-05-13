@@ -7,8 +7,8 @@
   import { Button } from "$lib/components/ui/button";
   import { fetchWithCsrf } from "$lib/services/http";
   import type { problemDomain } from "@nojv/domain";
-  import PublicProblemsTab from "./PublicProblemsTab.svelte";
-  import MyProblemsTab, { type EditableProblemCard } from "./MyProblemsTab.svelte";
+  import PublicProblemsTab from "../listings/PublicProblemsTab.svelte";
+  import MyProblemsTab, { type EditableProblemCard } from "../listings/MyProblemsTab.svelte";
 
   type ProblemListResult = problemDomain.ProblemListResult;
 

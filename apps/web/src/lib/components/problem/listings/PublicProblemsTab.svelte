@@ -15,7 +15,7 @@
     renderJudgeMethod,
     renderProblemType,
     type Difficulty,
-  } from "./problem-display";
+  } from "../problem-display";
 
   interface Props {
     publicResult: problemDomain.ProblemListResult;

@@ -3,7 +3,7 @@
   import { cubicOut } from "svelte/easing";
 
   import { m } from "$lib/paraglide/messages.js";
-  import type { ProblemSolveSibling } from "./ProblemSolveView.svelte";
+  import type { ProblemSolveSibling } from "../views/ProblemSolveView.svelte";
 
   interface Props {
     siblings: ProblemSolveSibling[];

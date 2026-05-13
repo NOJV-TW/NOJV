@@ -6,10 +6,10 @@
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary
   } from "$lib/types";
-  import MobileWorkspaceBlocker from "../layout/MobileWorkspaceBlocker.svelte";
-  import AdvancedModeWorkspace from "./advanced/AdvancedModeWorkspace.svelte";
-  import ProblemSwitcherDrawer from "./ProblemSwitcherDrawer.svelte";
-  import ProblemWorkspace from "./ProblemWorkspace.svelte";
+  import MobileWorkspaceBlocker from "../../layout/MobileWorkspaceBlocker.svelte";
+  import AdvancedModeWorkspace from "../advanced/AdvancedModeWorkspace.svelte";
+  import ProblemSwitcherDrawer from "../layouts/ProblemSwitcherDrawer.svelte";
+  import ProblemWorkspace from "../layouts/ProblemWorkspace.svelte";
 
   export interface ProblemSolveSibling {
     id: string;

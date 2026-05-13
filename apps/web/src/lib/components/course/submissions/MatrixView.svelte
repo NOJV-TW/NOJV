@@ -61,9 +61,11 @@
 </script>
 
 <script lang="ts">
-  import { Download, Search } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils/css.js";
+  import MatrixTable from "./MatrixTable.svelte";
+  import MatrixLegend from "./MatrixLegend.svelte";
+  import MatrixToolbar from "./MatrixToolbar.svelte";
 
   interface Props {
     matrix: MatrixViewData;
@@ -181,46 +183,13 @@
     </span>
   </div>
 
-  <div class="flex flex-wrap items-center gap-3 border-b border-border-subtle pb-4">
-    {#if showRoleFilter && labels.filterAll && labels.filterStudents}
-      <select
-        class="h-9 min-w-[140px] rounded-md border border-border bg-[color:var(--color-panel)] px-3 text-body-sm text-foreground"
-        disabled
-        title={labels.roleFilterTooltip?.()}
-      >
-        <option value="all">{labels.filterAll()}</option>
-        <option value="students">{labels.filterStudents()}</option>
-      </select>
-    {/if}
-
-    <select
-      bind:value={sortKey}
-      class="h-9 min-w-[140px] rounded-md border border-border bg-[color:var(--color-panel)] px-3 text-body-sm text-foreground"
-    >
-      <option value="totalDesc">{labels.sortTotalDesc()}</option>
-      <option value="handleAsc">{labels.sortHandleAsc()}</option>
-      <option value="nameAsc">{labels.sortNameAsc()}</option>
-    </select>
-
-    <div class="relative max-w-[260px] flex-1">
-      <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-        <Search class="size-4" aria-hidden="true" />
-      </span>
-      <input
-        type="text"
-        bind:value={search}
-        placeholder={labels.searchPlaceholder()}
-        class="h-9 w-full rounded-md border border-border bg-[color:var(--color-panel)] pl-9 pr-3 text-body-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-      />
-    </div>
-
-    <span class="flex-1"></span>
-
-    <Button variant="outline" size="sm" onclick={exportCsv}>
-      <Download class="size-4" aria-hidden="true" />
-      {labels.exportCsv()}
-    </Button>
-  </div>
+  <MatrixToolbar
+    bind:sortKey
+    bind:search
+    {showRoleFilter}
+    {labels}
+    onExport={exportCsv}
+  />
 
   {#if totalRows === 0}
     <div
@@ -229,136 +198,15 @@
       {labels.empty()}
     </div>
   {:else}
-    <div class="overflow-x-auto rounded-md border border-border">
-      <table class="w-full border-separate border-spacing-0 tabular-nums">
-        <thead>
-          <tr>
-            <th
-              class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
-              style="min-width: 200px"
-            >
-              {labels.student()}
-            </th>
-            {#each matrix.problems as problem (problem.problemId)}
-              <th
-                class="border-b border-r border-border-subtle bg-muted px-3 py-3 text-center text-caption font-semibold"
-                style="min-width: 88px"
-              >
-                <span
-                  class="block text-title font-medium leading-none tracking-[-0.02em] text-foreground"
-                >
-                  {problem.letter}
-                </span>
-                <span class="mt-1 block text-micro font-normal text-muted-foreground">
-                  {labels.maxPoints({ points: problem.points })}
-                </span>
-              </th>
-            {/each}
-            <th
-              class="border-b border-r border-border-subtle bg-[color:rgba(196,104,45,0.06)] px-3 py-3 text-center text-caption font-semibold text-primary"
-              style="min-width: 110px"
-            >
-              {labels.total()}
-            </th>
-            {#if viewHref}
-              <th
-                class="border-b border-border-subtle bg-muted px-3 py-3 text-center text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
-                style="min-width: 72px"
-              >
-              </th>
-            {/if}
-          </tr>
-        </thead>
-        <tbody>
-          {#each pageRows as row (row.userId)}
-            <tr>
-              <td
-                class="sticky left-0 z-[1] border-b border-r border-border-subtle bg-[color:var(--color-panel)] px-5 py-3 text-left"
-              >
-                <div class="font-medium tracking-[-0.005em] text-foreground">{row.displayName}</div>
-                {#if row.handle}
-                  <div class="mt-0.5 font-mono text-caption text-muted-foreground">
-                    {row.handle}
-                  </div>
-                {/if}
-              </td>
-              {#each row.cells as cell (cell.problemId)}
-                <td
-                  class={cn(
-                    "border-b border-r border-border-subtle px-3 py-3 text-center text-body-sm",
-                    cell.state === "ac" && "bg-[color:rgba(77,141,91,0.14)] font-semibold text-success",
-                    cell.state === "partial" && "bg-[color:rgba(184,55,42,0.1)] text-destructive",
-                    cell.state === "zero" && "bg-[color:rgba(184,55,42,0.18)] font-semibold text-destructive",
-                    cell.state === "empty" && "text-muted-foreground"
-                  )}
-                  style={cell.state === "empty"
-                    ? "background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(79, 52, 35, 0.04) 4px, rgba(79, 52, 35, 0.04) 8px);"
-                    : ""}
-                >
-                  {#if cell.state === "empty"}
-                    <span>—</span>
-                  {:else}
-                    <span>{cell.score}</span>
-                    {#if cell.state === "ac"}
-                      <span class="ml-1 font-bold">✓</span>
-                    {/if}
-                    <span class="mt-0.5 block text-micro font-normal opacity-70">
-                      {labels.attempts({ count: cell.attempts })}
-                    </span>
-                  {/if}
-                </td>
-              {/each}
-              <td
-                class="border-b border-r border-border-subtle bg-[color:rgba(196,104,45,0.03)] px-3 py-3 text-center text-body-lg font-medium text-foreground"
-              >
-                {row.total}<span class="font-normal text-muted-foreground"> / </span>
-                <span class="text-caption font-normal text-muted-foreground">
-                  {matrix.totalPoints}
-                </span>
-              </td>
-              {#if viewHref}
-                <td class="border-b border-border-subtle px-3 py-3 text-center">
-                  <a
-                    href={viewHref(row.userId)}
-                    class="text-caption font-medium text-primary hover:underline"
-                  >
-                    {labels.viewAction?.()}
-                  </a>
-                </td>
-              {/if}
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+    <MatrixTable
+      problems={matrix.problems}
+      rows={pageRows}
+      totalPoints={matrix.totalPoints}
+      {labels}
+      {viewHref}
+    />
 
-    <div class="flex flex-wrap items-center gap-5 text-caption text-muted-foreground">
-      <span class="inline-flex items-center gap-1.5">
-        <span
-          class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-[color:rgba(77,141,91,0.14)]"
-        ></span>
-        {labels.legendAc()}
-      </span>
-      <span class="inline-flex items-center gap-1.5">
-        <span
-          class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-[color:rgba(184,55,42,0.1)]"
-        ></span>
-        {labels.legendPartial()}
-      </span>
-      <span class="inline-flex items-center gap-1.5">
-        <span
-          class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle bg-[color:rgba(184,55,42,0.18)]"
-        ></span>
-        {labels.legendZero()}
-      </span>
-      <span class="inline-flex items-center gap-1.5">
-        <span
-          class="inline-block h-[14px] w-[18px] rounded-[2px] border border-border-subtle"
-          style="background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(79, 52, 35, 0.04) 3px, rgba(79, 52, 35, 0.04) 6px);"
-        ></span>
-        {labels.legendEmpty()}
-      </span>
-    </div>
+    <MatrixLegend {labels} />
 
     <div class="flex items-center justify-between text-caption text-muted-foreground">
       <span>

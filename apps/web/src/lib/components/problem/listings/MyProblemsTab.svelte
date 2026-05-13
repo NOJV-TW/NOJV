@@ -17,7 +17,7 @@
     renderJudgeMethod,
     renderProblemType,
     type Difficulty,
-  } from "./problem-display";
+  } from "../problem-display";
 
   export interface EditableProblemCard {
     difficulty: ProblemDifficulty;

@@ -6,9 +6,9 @@
     ProblemTestcaseSetSummary
   } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
-  import ProblemDescriptionPanel from "./left-panel/ProblemDescriptionPanel.svelte";
-  import SubmissionHistoryPanel from "./left-panel/SubmissionHistoryPanel.svelte";
-  import EditorialListPanel from "./left-panel/EditorialListPanel.svelte";
+  import ProblemDescriptionPanel from "../left-panel/ProblemDescriptionPanel.svelte";
+  import SubmissionHistoryPanel from "../left-panel/SubmissionHistoryPanel.svelte";
+  import EditorialListPanel from "../left-panel/EditorialListPanel.svelte";
 
   export interface ProblemLeftPanelProps {
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
