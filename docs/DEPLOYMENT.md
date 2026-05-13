@@ -74,16 +74,16 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Worker
 
-| Variable             | Default              | Purpose                                             |
-| -------------------- | -------------------- | --------------------------------------------------- |
-| `EXECUTION_BACKEND`  | `docker`             | Sandbox executor: `docker` or `kubernetes`          |
-| `SANDBOX_IMAGE`      | `nojv-sandbox:local` | Sandbox container image                             |
-| `SANDBOX_CPU_LIMIT`  | `1`                  | CPU limit per sandbox                               |
-| `SANDBOX_MEMORY_MB`  | `256`                | Memory limit per sandbox (MB)                       |
-| `SANDBOX_PIDS_LIMIT` | `64`                 | PID limit per sandbox                               |
-| `PORT`               | `8082`               | Health server port (avoid 8080 used by Temporal UI) |
-| `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue                 |
-| `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`             |
+| Variable             | Default              | Purpose                                           |
+| -------------------- | -------------------- | ------------------------------------------------- |
+| `EXECUTION_BACKEND`  | `docker`             | Sandbox executor: `docker` or `kubernetes`        |
+| `SANDBOX_IMAGE`      | `nojv-sandbox:local` | Sandbox container image                           |
+| `SANDBOX_CPU_LIMIT`  | `1`                  | CPU limit per sandbox                             |
+| `SANDBOX_MEMORY_MB`  | `256`                | Memory limit per sandbox (MB)                     |
+| `SANDBOX_PIDS_LIMIT` | `64`                 | PID limit per sandbox                             |
+| `PORT`               | `8080`               | Worker health server port (`/healthz`, `/readyz`) |
+| `WORKER_CONCURRENCY` | `4`                  | Activity concurrency per task queue               |
+| `WORKER_MODE`        | `all`                | Task queues: `all`, `judge`, `platform`           |
 
 ### Object Storage (S3-Compatible)
 
@@ -202,6 +202,12 @@ export DATABASE_URL=...
 export REDIS_URL=...
 export BETTER_AUTH_SECRET=...
 export BETTER_AUTH_URL=...
+# S3-compatible object storage (required — script exits at entry if any are unset)
+export S3_ENDPOINT=...
+export S3_ACCESS_KEY=...
+export S3_SECRET_KEY=...
+export S3_BUCKET=...
+export S3_REGION=...
 
 bash infra/gcp/deploy.sh
 ```
@@ -210,10 +216,10 @@ The script:
 
 1. Enables required GCP APIs (Artifact Registry, Cloud Build, Cloud Run, Secret Manager).
 2. Ensures the Artifact Registry repository exists.
-3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, plus optional OAuth secrets).
+3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, the five `nojv-s3-*` entries, plus optional OAuth secrets).
 4. Submits Cloud Build (`infra/gcp/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, and `migrator` images.
 5. Deploys the migrator Cloud Run Job and runs it (Prisma migrations).
-6. Deploys `web` to Cloud Run.
+6. Deploys `web` to Cloud Run with `--ingress=internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is unreachable and all traffic must traverse GCLB → Cloud Armor → CF (see [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)) and injects the `S3_*` env from Secret Manager.
 7. Verifies the web URL is serving and prints the worker + sandbox image refs for the GKE rollout.
 
 The image tag defaults to the short git SHA (with a `-dirty-<timestamp>`
@@ -235,8 +241,11 @@ gcloud builds submit --config infra/gcp/cloudbuild.yaml \
 
 1. Patch the image refs in `infra/gcp/gke/worker.deployment.yaml` (the
    `deploy.sh` output prints the canonical refs).
-2. Apply the worker bundle: `kubectl apply -k infra/gcp/gke` (namespace,
-   ServiceAccount + RBAC, Deployment, PodDisruptionBudget).
+2. Apply the worker bundle: `kubectl apply -k infra/gcp/gke`. The kustomization includes:
+   - `namespace.yaml` — declares `nojv`, `nojv-sandbox`, `nojv-temporal`.
+   - `temporal/` — self-hosted Temporal Server (`temporalio/auto-setup:1.22`) + a dedicated 10 Gi Postgres StatefulSet + the Temporal Web UI, running in `nojv-temporal`.
+   - `network-policy.yaml` — `sandbox-deny-egress` (sandbox pods can't talk to anything) and `worker-egress` (worker can only reach Postgres, Redis, Temporal, S3).
+   - `worker-rbac.yaml`, `worker.deployment.yaml`, `worker.pdb.yaml` — RBAC, Deployment (with the Cloud SQL Auth Proxy sidecar — `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` on `127.0.0.1:5432`, Workload Identity), and PodDisruptionBudget. Sets `TEMPORAL_ADDRESS` / `TEMPORAL_NAMESPACE` for the in-cluster Temporal.
 3. Apply the sandbox namespace guardrails: `kubectl apply -f infra/k8s/sandbox`
    (namespace, NetworkPolicy, ResourceQuota, LimitRange).
 
@@ -387,6 +396,17 @@ pnpm db:validate
 
 In production, migrations run in the deployment workflow before new `web`/`worker` containers are rolled out.
 
+## Backup Automation
+
+Two scripts under `infra/gcp/scripts/`:
+
+| Script                      | Purpose                                                                                                                                                                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `setup-backups.sh`          | One-shot, idempotent. Enables Cloud SQL automated daily backups (30-day retention, in-region) + PITR (14-day WAL) and creates a versioned GCS bucket for cold exports. Run once per environment after provisioning the instance. |
+| `export-postgres-to-gcs.sh` | Daily cold export via `gcloud sql export`. Designed to be triggered by Cloud Scheduler → Cloud Run Job.                                                                                                                          |
+
+See [Backup & Restore Runbook](runbooks/backup-restore.md) for the restore drill and PITR procedure.
+
 ## CI Pipeline
 
 Workflow: `.github/workflows/ci.yml`
@@ -395,11 +415,12 @@ Workflow: `.github/workflows/ci.yml`
 pnpm ci:verify
 ```
 
-Steps:
+Steps (from `package.json`):
 
 1. `pnpm format` — Prettier formatting check
-2. `pnpm db:generate` — Regenerate Prisma client
-3. `turbo run build lint test` — Build, lint, and test all packages
+2. `pnpm lint:domain-queries` — Guards that no `prisma.*` call leaks outside `packages/db` / `packages/domain`
+3. `pnpm db:generate` — Regenerate Prisma client
+4. `turbo run build typecheck lint test` — Build, typecheck, lint, and test all packages
 
 Additional validations:
 

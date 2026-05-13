@@ -95,27 +95,27 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Attacker-Controlled Inputs
 
-| Input                 | Entry Point                               | Validation                                    |
-| --------------------- | ----------------------------------------- | --------------------------------------------- |
-| Source code           | `POST /api/submissions` body              | `submissionDraftSchema` (Zod), 1-50,000 chars |
-| Problem statements    | Form actions on problem create/edit       | Zod per-field limits, markdown text           |
-| Testcase input/output | Form actions on problem edit              | Zod, stored as `@db.Text`                     |
-| Image file upload     | `POST /api/problems/[id]/images` formData | Type whitelist, 5 MB limit                    |
-| URL slugs             | Route params (`[slug]`, `[id]`)           | `slugSchema` (3+ chars, `[a-z0-9-]+`)         |
-| OAuth callback params | `/api/auth/[...path]`                     | better-auth validates state/code              |
-| Contest invite codes  | Form action on contest join               | Zod validation                                |
-| Course join tokens    | `/courses/[slug]/join/[token]` URL param  | Token lookup in DB                            |
-| Editorial content     | `POST /api/problems/[id]/editorials`      | Zod, 10-50,000 chars                          |
-| IP addresses          | `event.getClientAddress()`                | Trusted from reverse proxy, not user-supplied |
-| User-Agent / headers  | HTTP headers                              | Logged per session, not validated             |
-| Query parameters      | Various GET endpoints                     | Parsed per-route                              |
+| Input                 | Entry Point                               | Validation                                      |
+| --------------------- | ----------------------------------------- | ----------------------------------------------- |
+| Source code           | `POST /api/submissions` body              | `submissionDraftSchema` (Zod), 1-50,000 chars   |
+| Problem statements    | Form actions on problem create/edit       | Zod per-field limits, markdown text             |
+| Testcase input/output | Form actions on problem edit              | Zod, stored as `@db.Text`                       |
+| Image file upload     | `POST /api/problems/[id]/images` formData | Type whitelist, 5 MB limit                      |
+| URL slugs             | Route params (`[slug]`, `[id]`)           | `slugSchema` (3+ chars, `[a-z0-9-]+`)           |
+| OAuth callback params | `/api/auth/[...path]`                     | better-auth validates state/code                |
+| Contest invite codes  | Form action on contest join               | Zod validation                                  |
+| Course join tokens    | `/courses/[slug]/join/[token]` URL param  | Token lookup in DB                              |
+| Editorial content     | `POST /api/problems/[id]/editorials`      | Zod, 10-50,000 chars                            |
+| IP addresses          | `getClientIp(event)` (`CF-Connecting-IP`) | Production trusts only CF header; missing = 403 |
+| User-Agent / headers  | HTTP headers                              | Logged per session, not validated               |
+| Query parameters      | Various GET endpoints                     | Parsed per-route                                |
 
 ### Assumptions
 
 1. **TLS termination** happens at the load balancer or reverse proxy (Cloud Run, nginx). The application does not handle TLS directly.
 2. **Internal network** between SvelteKit, PostgreSQL, Redis, Temporal, and S3 is not routable from the public internet in production.
 3. **Single-tenant deployment** — one NOJV instance per organization. No multi-tenant isolation concerns.
-4. **Reverse proxy provides** `X-Forwarded-For` — `event.getClientAddress()` returns the real client IP.
+4. **Cloudflare is the sole ingress path in production** — `getClientIp(event)` reads `CF-Connecting-IP` only, refuses any fallback to `X-Forwarded-For` / socket address, and fails with 403 if the header is missing. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
 5. **Docker daemon access** on the worker host is restricted to the worker process. In production, Kubernetes RBAC limits the worker's service account to sandbox job creation only.
 6. **Secrets management** — production uses GCP Secret Manager. Development uses `.env` (untracked).
 7. **Redis has no authentication** in development. Production uses Memorystore with VPC-only access.
@@ -138,7 +138,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Attacker stories:**
 
-- **Credential stuffing**: Attacker tries common password lists against `/api/auth/[...path]`. _Mitigation_: `apiRateLimiter` (60 req/min per IP) on all API routes. bcrypt cost factor slows brute force.
+- **Credential stuffing**: Attacker tries common password lists against `/api/auth/[...path]`. _Mitigation_: `signInRateLimiter` (5 attempts / 15 min per IP, Redis-backed) gates `POST /api/auth/sign-in/email` and `/api/auth/sign-in/username` in `hooks.server.ts` — acts as a coarse per-IP lockout for the password surface. `apiRateLimiter` (60 req/min per IP) covers all other API routes. bcrypt cost factor slows any attempts that get through. OAuth sign-in is intentionally exempt — anti-abuse is the provider's responsibility there.
 - **Session hijack via cookie theft**: XSS or network interception steals session cookie. _Mitigation_: httpOnly prevents JS access. Secure flag in production enforces HTTPS. Session IP/UA tracking enables anomaly detection.
 - **OAuth callback replay**: Attacker captures and replays OAuth authorization code. _Mitigation_: better-auth validates `state` parameter and uses single-use authorization codes per OAuth spec.
 - **Session fixation**: Attacker pre-sets a session token before victim authenticates. _Mitigation_: better-auth generates new session token on successful authentication.
@@ -174,9 +174,12 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Mitigations:**
 
 - Container hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `tmpfs /tmp` only
+- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/services/k8s-executor.ts`); Docker images run as a non-root UID
 - Network isolation: `--network none` (default, configurable per-problem)
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
-- seccomp profile restricts system calls
+- Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/services/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
+- seccomp: Docker default profile only — explicitly NOT a custom allowlist. Rationale: the default already blocks ~44 high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, ...) and the marginal gain from a custom profile is dwarfed by the false-negative cost across language runtimes. See [SECURITY.md — Sandbox Hardening](SECURITY.md#sandbox-hardening-seccomp-posture).
+- K8s executor refuses Advanced Mode (`request.advanced`) with a System Error verdict — that path can't `docker load` a tarball
 - Sandbox-runner depends only on `@nojv/core` — minimal attack surface
 - Source code validated by `submissionDraftSchema` (1-50,000 chars)
 - Temporal workflow ID is deterministic (`judge-{submissionId}`) — duplicate dispatches are idempotent
@@ -203,7 +206,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 - `requireApiAuth(event)` — must be authenticated
 - `canEditProblem(actor.platformRole)` — admin or teacher only
-- File type whitelist: `image/png`, `image/jpeg`, `image/gif`, `image/webp` (checked against `file.type`)
+- File type whitelist: `image/png`, `image/jpeg`, `image/gif`, `image/webp` — checked first against the client-reported `file.type`, then **re-validated server-side via `detectImageType(buffer)` magic-number sniffing** before storage. A request that passes MIME but fails byte-header detection is rejected with 400.
 - Size limit: 5 MB per file
 - UUID filenames: `problems/{problemId}/images/{uuid}.{ext}` — no user-controlled path components
 - Images stored in S3-compatible storage (MinIO local, GCS/R2/S3 production)
@@ -211,7 +214,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Attacker stories:**
 
-- **Malicious file upload (polyglot)**: Attacker uploads a file with valid image header but embedded script. _Mitigation_: Type whitelist checks MIME type. UUID filenames prevent path guessing. Images served from a separate S3 origin, not the application domain (reduces XSS risk).
+- **Malicious file upload (polyglot)**: Attacker uploads a file with a spoofed `Content-Type` header and a non-image payload. _Mitigation_: After the MIME whitelist check, `detectImageType(buffer)` reads the file's magic bytes and rejects anything that doesn't match png/jpeg/gif/webp signatures. UUID filenames prevent path guessing. Images served from a separate S3 origin, not the application domain (reduces XSS risk).
 - **Path traversal**: Attacker manipulates `problemId` to write files outside the intended directory. _Mitigation_: `problemId` comes from URL route param (CUID format). Storage path is constructed server-side: `problems/{problemId}/images/{uuid}.{ext}`. No user-supplied path segments.
 - **Storage exhaustion**: Attacker uploads many large images to fill storage. _Mitigation_: 5 MB per file. `requireApiAuth` + `canEditProblem` limits uploaders to admin/teacher. `writeApiRateLimiter` limits upload rate. _Gap_: No per-problem or per-user storage quota.
 - **XSS via SVG**: SVG files can contain JavaScript. _Mitigation_: SVG is not in the allowed type list (`image/svg+xml` is rejected). Only `png`, `jpeg`, `gif`, `webp` are accepted.
@@ -227,7 +230,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **IP whitelist**: When `ipWhitelistEnabled`, only whitelisted IPs can participate.
 - **Page lock**: When `pageLockEnabled`, JavaScript visibility API prevents opening new tabs. Violations detected client-side.
 - **Submit cooldown**: Redis `SET NX EX` prevents rapid-fire submissions. Configurable per-contest (`submitCooldownSec`). Cross-instance consistent.
-- **Scoreboard freeze**: `RENAME` creates a frozen snapshot in Redis. Public reads go to `:frozen` key. Admin/teacher see the live key. Final scores always computed from PostgreSQL.
+- **Scoreboard freeze**: `freezeScoreboard` snapshots the live sorted set into a separate `:frozen` key with `ZRANGE`+`ZADD` (not `RENAME`) so the live key keeps updating during the freeze window. `getScoreboard` returns the frozen key when it exists, so public viewers see the snapshot; `unfreezeScoreboard` deletes the frozen key. Admin/teacher views can read the live key directly. Final scores always computed from PostgreSQL.
 - **Allowed languages**: Contest can restrict which languages are accepted.
 - **Max attempt limits**: Configurable per-contest.
 
@@ -307,7 +310,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 - `.env` untracked in git (gitignored)
 - Production secrets stored in GCP Secret Manager
-- Health endpoints (`/api/healthz`, worker `/healthz`) return minimal information (`{ ok: true }`)
+- Public health endpoint `/api/healthz` returns only `{ ok: boolean }` with 200/503 — internal topology (`postgres`/`redis`/`temporal` status) is admin-only via `/api/admin/healthz`, which requires `requireApiAuth` + `platformRole === "admin"`. Worker `/healthz` returns the full check breakdown but is only exposed inside the cluster.
 - `apiHandler()` catches all errors — unhandled errors logged server-side, only `classified.message` returned to client (no stack traces)
 - Docker Compose services on internal Docker network (Temporal, PostgreSQL, Redis not exposed to public)
 - Cloud Build CI validates formatting, linting, types, and tests before deployment
@@ -317,7 +320,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **Secret leakage via error messages**: Application error exposes database URL or auth secret in response. _Mitigation_: `apiHandler()` classifies errors and returns only safe messages. `logger.error()` logs full details server-side only. ZodError responses include validation issues (field paths and messages) but no internal state.
-- **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/healthz` is intentionally public but returns only `{ ok: true }`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) should be firewalled in production.
+- **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/healthz` is intentionally public but returns only `{ ok }` (status code carries the signal). Detailed per-subsystem status is admin-only at `/api/admin/healthz`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) should be firewalled in production.
 - **Misconfigured CORS**: API endpoints accessible from arbitrary origins. _Mitigation_: SvelteKit handles CORS via its built-in mechanisms. Same-origin by default for form actions.
 - **Docker daemon exposure**: Attacker accesses Docker socket to create privileged containers. _Mitigation_: In production, sandbox runs as Kubernetes Jobs with dedicated service account. Worker's K8s RBAC is scoped to sandbox namespace only. In development, Docker socket access is local.
 - **CI/CD pipeline compromise**: Attacker injects malicious code via pull request. _Mitigation_: CD deploys only from `main` branch after CI passes. Self-hosted runner workspace is persistent. Clean checkout uses exact CI-passing SHA.
@@ -366,22 +369,22 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | Page lock bypass                       | Client-side deterrent only. No server-side enforcement possible for tab switching. |
 | Verbose Zod error messages             | Field paths exposed, but no secrets or internal state.                             |
 | Development-only insecure defaults     | Local MinIO credentials in `.env`, Redis no-auth — development environment only.   |
-| Health endpoint information disclosure | Returns only `{ ok: true }` / `{ status: "ok" }` — minimal exposure.               |
+| Health endpoint information disclosure | Public `/api/healthz` returns only `{ ok }`; per-subsystem detail is admin-only.   |
 
 ## 5. Open Gaps and Recommendations
 
-| #   | Gap                                                 | Current State                                                                              | Recommendation                                                                              | Priority |
-| --- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | -------- |
-| 1   | No per-user SSE connection limit                    | Any authenticated user can open unlimited SSE streams                                      | Add a per-user concurrent connection counter in Redis; reject above threshold               | Medium   |
-| 2   | No per-problem/per-user storage quota               | Teachers can upload unlimited 5 MB images                                                  | Track upload count/size per problem; enforce a reasonable ceiling                           | Medium   |
-| 3   | Rate limiter is in-memory in current implementation | `RateLimiterMemory` does not share state across SvelteKit instances                        | Migrate to `RateLimiterRedis` for cross-instance consistency (as documented in SECURITY.md) | High     |
-| 4   | Redis unauthenticated in development                | Any local process can access Redis                                                         | Acceptable for development. Ensure production uses VPC-restricted Memorystore               | Low      |
-| 5   | Page lock is client-side only                       | Determined attacker can bypass with custom HTTP client                                     | Document limitation. Consider logging tab-visibility violations server-side as evidence     | Low      |
-| 6   | No CSRF token on API routes                         | SvelteKit form actions have built-in CSRF. API routes rely on same-origin and auth headers | Verify `Origin` header checking is active on all mutation endpoints                         | Medium   |
-| 7   | File type validation uses `file.type`               | MIME type is client-reported and can be spoofed                                            | Add magic-number (file header) validation for uploaded images                               | Medium   |
-| 8   | Temporal UI exposed in development                  | Port 8080 accessible on localhost                                                          | Ensure Temporal UI is not publicly accessible in production (firewall or VPN)               | High     |
-| 9   | Plagiarism concurrency cap                          | No per-worker cap on concurrent Dolos runs                                                 | Add a semaphore / Temporal activity concurrency limit if operator sees parser contention    | Low      |
-| 10  | No account lockout on failed login                  | bcrypt slows brute force but no explicit lockout                                           | Consider temporary account lockout after N failed attempts                                  | Medium   |
+| #   | Gap                                                    | Current State                                                                                                                                                                                                           | Recommendation                                                                                                                            | Priority |
+| --- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | No per-user SSE connection limit                       | Any authenticated user can open unlimited SSE streams                                                                                                                                                                   | Add a per-user concurrent connection counter in Redis; reject above threshold                                                             | Medium   |
+| 2   | No per-problem/per-user storage quota                  | Teachers can upload unlimited 5 MB images                                                                                                                                                                               | Track upload count/size per problem; enforce a reasonable ceiling                                                                         | Medium   |
+| 3   | ~~Rate limiter is in-memory~~ — **CLOSED**             | `RateLimiterRedis` keyed on `getClientIp(event)`; production falls back to `failClosedLimiter` (deny all) if Redis is unreachable. Memory fallback only in dev.                                                         | —                                                                                                                                         | —        |
+| 4   | Redis unauthenticated in development                   | Any local process can access Redis                                                                                                                                                                                      | Acceptable for development. Ensure production uses VPC-restricted Memorystore                                                             | Low      |
+| 5   | Page lock is client-side only                          | Determined attacker can bypass with custom HTTP client                                                                                                                                                                  | Document limitation. Consider logging tab-visibility violations server-side as evidence                                                   | Low      |
+| 6   | No CSRF token on API routes                            | SvelteKit form actions have built-in CSRF. API routes rely on same-origin and auth headers                                                                                                                              | Verify `Origin` header checking is active on all mutation endpoints                                                                       | Medium   |
+| 7   | ~~File type validation uses `file.type`~~ — **CLOSED** | Magic-number validation via `detectImageType(buffer)` in `apps/web/src/routes/api/problems/[id]/images/+server.ts` rejects payloads whose bytes don't match png/jpeg/gif/webp signatures, even if the MIME header lies. | —                                                                                                                                         | —        |
+| 8   | Temporal UI exposed in development                     | Port 8080 accessible on localhost                                                                                                                                                                                       | Ensure Temporal UI is not publicly accessible in production (firewall or VPN)                                                             | High     |
+| 9   | Plagiarism concurrency cap                             | No per-worker cap on concurrent Dolos runs                                                                                                                                                                              | Add a semaphore / Temporal activity concurrency limit if operator sees parser contention                                                  | Low      |
+| 10  | Account lockout on failed login — **PARTIALLY CLOSED** | `signInRateLimiter` (5 / 15 min per IP) gates the password sign-in endpoints. OAuth flows are exempt and rely on the upstream provider.                                                                                 | Per-account (rather than per-IP) lockout would further harden against distributed brute-force from many source IPs targeting one account. | Low      |
 
 ## Related Docs
 
