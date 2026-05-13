@@ -92,7 +92,7 @@ No cycles. `domain` → `temporal` for dispatch helpers and Temporal client. `wo
 | `domain`         | `core`, `db`, `redis`, `storage` \*, `temporal`          | `@nojv/temporal/workflows`, web, worker                                   |
 | `temporal`       | `core`                                                   | db, redis, domain, web, worker (must stay self-contained to avoid cycles) |
 | `storage`        | (none of `@nojv/*`)                                      | everything `@nojv/*`                                                      |
-| `web`            | `core`, `domain`, `storage`, `redis` †, `db` ‡           | temporal/workflows                                                        |
+| `web`            | `core`, `domain`, `storage` ‖, `redis` †, `db` ‡         | temporal/workflows                                                        |
 | `worker`         | `core`, `temporal`, `domain`, `db`, `redis`, `storage` § | web                                                                       |
 | `sandbox-runner` | `core`                                                   | everything else                                                           |
 
@@ -103,14 +103,23 @@ The transaction would lose atomicity if storage writes lived in `web`.
 † `web` uses `@nojv/redis` directly for the SSE subscriber
 (`api/events/stream`) and for `RateLimiterRedis` in
 `shared/rate-limiter.ts`. Both want the raw Redis client, not a
-domain-shaped wrapper.
+domain-shaped wrapper. These two files are the only exceptions —
+everything else goes through `@nojv/domain`. The
+`no-restricted-imports` ESLint rule in `apps/web/eslint.config.mjs`
+enforces this and lists the exact allow-list of files.
 
-‡ `web` uses `@nojv/db` for two cases: (1) `prismaAdapterClient` is
-required by the better-auth Prisma adapter and is a documented
-framework-adapter exception, and (2) a small number of routes read
-repositories directly when the data is purely structural (e.g.
-`announcementRepo` in the course layout loader) and a domain wrapper
-would add no value.
+‡ `web` uses `@nojv/db` only via `prismaAdapterClient` from
+`src/lib/auth.server.ts`, where the better-auth Prisma adapter
+requires a raw `PrismaClient`. All other route / loader / action code
+goes through `@nojv/domain`; the ESLint rule above blocks new direct
+`@nojv/db` imports outside `auth.server.ts`.
+
+‖ `web` may use `@nojv/storage` from inside `src/lib/server/storage/*`
+adapters (currently `avatar.ts`, `problem-image.ts`,
+`user-content-image.ts`, `advanced-image.ts`). Routes, loaders, and
+actions must call those adapters or go through `@nojv/domain` (e.g.
+`problemDomain.hydrateTestcaseSets`) — they must not import
+`@nojv/storage` directly. The ESLint rule above enforces this too.
 
 § `worker` pulls problem-image tarballs from object storage in
 `advanced-mode-executor.ts`. Adding a domain hop would require moving

@@ -5,6 +5,16 @@ export function listAllAnnouncements() {
   return announcementRepo.listAll();
 }
 
+/**
+ * Thin wrapper around `announcementRepo.findById`. Used by the course page
+ * actions to verify the announcement actually belongs to the current
+ * course before mutating it (i.e. forbid moving an announcement between
+ * courses through the update/toggle/delete endpoints).
+ */
+export function getAnnouncementById(id: string) {
+  return announcementRepo.findById(id);
+}
+
 interface ActorRoleHint {
   platformRole: PlatformRole;
 }

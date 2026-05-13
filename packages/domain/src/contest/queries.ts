@@ -234,6 +234,16 @@ export async function findContestByInviteCode(inviteCode: string) {
   return contestRepo.findByInviteCode(inviteCode);
 }
 
+/**
+ * Thin wrapper around `contestRepo.findById` — used where callers need the
+ * raw contest row (e.g. plagiarism authz checking `createdByUserId`).
+ * Returns null when the row is missing; callers decide how to map that
+ * to a 404 or forbidden.
+ */
+export async function getContestById(id: string) {
+  return contestRepo.findById(id);
+}
+
 export interface GetContestContextOptions {
   viewerUserId: string;
   viewerPlatformRole: PlatformRole;
