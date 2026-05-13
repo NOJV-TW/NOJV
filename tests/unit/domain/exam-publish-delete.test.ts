@@ -222,4 +222,3 @@ describe("deleteExamDraft", () => {
     expect(examDelete).not.toHaveBeenCalled();
   });
 });
-

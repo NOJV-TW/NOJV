@@ -29,20 +29,21 @@ into a fresh one without dragging history along.
 `archived = false` (defaults).
 - `CourseMembership` — exactly one row: actor → `teacher`, `status:
 'active'`. No other members copied.
-- `CourseAssessment` rows — ALL statuses of the source (including
-  `published` and `archived`) are cloned, each reset to `status:
-'draft'`. Carried fields: `title`, `summary`, `allowedLanguages`,
-  `opensAt`, `closesAt`, `dueAt`, `maxAttemptsPerDay`,
-  `adjustmentRules`.
+- `CourseAssessment` rows — every assessment of the source is cloned,
+  each reset to `status: 'draft'`. (Assessments themselves no longer
+  have an `archived` status; the parent course is what gets archived.)
+  Carried fields: `title`, `summary`, `allowedLanguages`, `opensAt`,
+  `closesAt`, `dueAt`, `maxAttemptsPerDay`, `adjustmentRules`.
 - `CourseAssessmentProblem` rows — every attached problem on every
   cloned assessment, preserving `ordinal` and `points`. Problem rows
   themselves are shared by reference (same `problemId`).
-- `Exam` rows — ALL statuses cloned, each reset to `status: 'draft'`.
-  Carried fields: `title`, `summary`, `startsAt`, `endsAt`,
-  `allowedLanguages`, `scoringMode`, `scoreboardMode`,
-  `submitCooldownSec`, all proctoring fields (`pageLockEnabled`,
-  `ipBindingEnabled`, `ipWhitelistEnabled`, `ipWhitelist`,
-  `ipViolationMode`).
+- `Exam` rows — every exam of the source is cloned, each reset to
+  `status: 'draft'`. (Exams no longer have an `archived` status either;
+  the parent course is what gets archived.) Carried fields: `title`,
+  `summary`, `startsAt`, `endsAt`, `allowedLanguages`, `scoringMode`,
+  `scoreboardMode`, `submitCooldownSec`, all proctoring fields
+  (`pageLockEnabled`, `ipBindingEnabled`, `ipWhitelistEnabled`,
+  `ipWhitelist`, `ipViolationMode`).
 - `ExamProblem` rows — every attached problem, preserving `ordinal`
   and `points`.
 
@@ -95,8 +96,9 @@ addedByUserId: actor.userId)`.
 
 ### Assessment clones
 
-- For each `CourseAssessment` in the source, regardless of its `status`,
-  a new row exists on the new course with:
+- For each `CourseAssessment` in the source (status is `draft` or
+  `published` — there is no `archived` at this level), a new row exists
+  on the new course with:
   - Same `title`, `summary`, `allowedLanguages`, `opensAt`, `closesAt`,
     `dueAt`, `maxAttemptsPerDay`, `adjustmentRules`.
   - `status: 'draft'` (always reset).
@@ -108,7 +110,8 @@ addedByUserId: actor.userId)`.
 
 ### Exam clones
 
-- For each `Exam` in the source, a new row exists on the new course with:
+- For each `Exam` in the source (status is `draft` or `published`), a
+  new row exists on the new course with:
   - Same `title`, `summary`, `startsAt`, `endsAt`, `allowedLanguages`,
     `scoringMode`, `scoreboardMode`, `submitCooldownSec`, and all
     proctoring fields (`pageLockEnabled`, `ipBindingEnabled`,

@@ -28,24 +28,24 @@ The scoreboard 90-day TTL is refreshed on every write (see `SCOREBOARD_TTL_SECON
 
 Channels are unprefixed (no `nojv:`). They're consumed by the SSE endpoint at `/api/events/stream`, which keeps the connection open for up to 10 minutes with 30-second keepalive pings.
 
-| Channel                                     | Producer                         | Purpose                                |
-| ------------------------------------------- | -------------------------------- | -------------------------------------- |
-| `user:{userId}`                             | `publishVerdict`                 | Submission verdict toasts to the owner |
-| `notification:{userId}`                     | `publishNotification` / batch    | Durable notification fan-out           |
-| `contest:{contestId}`                       | `publishContestEvent`            | Contest lifecycle events               |
-| `assessment:{assessmentId}`                 | `publishAssessmentDeadline`      | Assessment deadline reminders          |
-| `clarification:{contextType}:{contextId}`   | `publishClarification`           | Clarification thread updates           |
+| Channel                                   | Producer                      | Purpose                                |
+| ----------------------------------------- | ----------------------------- | -------------------------------------- |
+| `user:{userId}`                           | `publishVerdict`              | Submission verdict toasts to the owner |
+| `notification:{userId}`                   | `publishNotification` / batch | Durable notification fan-out           |
+| `contest:{contestId}`                     | `publishContestEvent`         | Contest lifecycle events               |
+| `assessment:{assessmentId}`               | `publishAssessmentDeadline`   | Assessment deadline reminders          |
+| `clarification:{contextType}:{contextId}` | `publishClarification`        | Clarification thread updates           |
 
 **Event Types** (string constants in `packages/core/src/queue.ts:5-10`, discriminator field `type`):
 
-| Event                 | Payload                                                            | When                                       |
-| --------------------- | ------------------------------------------------------------------ | ------------------------------------------ |
-| `submission:verdict`  | `{ type, submissionId, verdict, score, problemId }`                | Submission judging completes               |
-| `contest:starting`    | `{ type }`                                                         | Contest becomes active                     |
-| `contest:ending`      | `{ type }`                                                         | Contest ends                               |
-| `assignment:deadline` | `{ type }` (assessmentId carried in the channel name)              | Assessment deadline approaching            |
-| `notification`        | `{ type, id?, notificationType, params, linkUrl, createdAt? }`     | New durable notification (id/createdAt omitted on batch-signal pings) |
-| `clarification`       | `{ type, action, payload }` (action: created / updated / dismissed) | Clarification thread mutation              |
+| Event                 | Payload                                                             | When                                                                  |
+| --------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `submission:verdict`  | `{ type, submissionId, verdict, score, problemId }`                 | Submission judging completes                                          |
+| `contest:starting`    | `{ type }`                                                          | Contest becomes active                                                |
+| `contest:ending`      | `{ type }`                                                          | Contest ends                                                          |
+| `assignment:deadline` | `{ type }` (assessmentId carried in the channel name)               | Assessment deadline approaching                                       |
+| `notification`        | `{ type, id?, notificationType, params, linkUrl, createdAt? }`      | New durable notification (id/createdAt omitted on batch-signal pings) |
+| `clarification`       | `{ type, action, payload }` (action: created / updated / dismissed) | Clarification thread mutation                                         |
 
 Events are published by Temporal activities and by domain mutations that emit notifications/clarifications. The full Zod schema lives in `packages/core/src/queue.ts` (`sseEventSchema`).
 
@@ -62,12 +62,12 @@ Contest leaderboards use Redis sorted sets for O(1) score updates and O(log N + 
 
 ### Operations
 
-| Operation       | Redis Command                                                            | When                          |
-| --------------- | ------------------------------------------------------------------------ | ----------------------------- |
-| Update score    | `ZADD nojv:scoreboard:{contestId} {score} {participationId}` + `EXPIRE`  | After each submission verdict |
-| Get leaderboard | `ZREVRANGE … WITHSCORES` on frozen key if present, else live             | Scoreboard page load          |
-| Freeze          | `ZRANGE` live → `ZADD` into `:frozen` (snapshot copy)                    | At freeze time                |
-| Unfreeze        | `DEL nojv:scoreboard:{contestId}:frozen`                                 | When the freeze window ends   |
+| Operation       | Redis Command                                                           | When                          |
+| --------------- | ----------------------------------------------------------------------- | ----------------------------- |
+| Update score    | `ZADD nojv:scoreboard:{contestId} {score} {participationId}` + `EXPIRE` | After each submission verdict |
+| Get leaderboard | `ZREVRANGE … WITHSCORES` on frozen key if present, else live            | Scoreboard page load          |
+| Freeze          | `ZRANGE` live → `ZADD` into `:frozen` (snapshot copy)                   | At freeze time                |
+| Unfreeze        | `DEL nojv:scoreboard:{contestId}:frozen`                                | When the freeze window ends   |
 
 Freeze is a snapshot copy, not a rename: the live key keeps accepting writes (so post-freeze submissions are not lost), and `getScoreboard` returns the frozen snapshot whenever the `:frozen` key exists — for every caller, regardless of role. Public and staff views are identical during the freeze window. Both keys get `EXPIRE SCOREBOARD_TTL_SECONDS` (90 days) refreshed on each write.
 
