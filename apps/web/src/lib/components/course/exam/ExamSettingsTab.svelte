@@ -14,13 +14,15 @@
   import Send from "@lucide/svelte/icons/send";
   import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
 
-  import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/ui/button";
   import FormError from "$lib/components/ui/FormError.svelte";
-  import { cn, inputClassName, monoTextareaClassName } from "$lib/css";
-  import { toggleArrayItem } from "$lib/utils";
+  import { cn } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
+  import ExamBasicSettings from "./settings/ExamBasicSettings.svelte";
+  import ExamTimelineConfig from "./settings/ExamTimelineConfig.svelte";
+  import ExamProblemConfig from "./settings/ExamProblemConfig.svelte";
+  import ExamProctoringConfig from "./settings/ExamProctoringConfig.svelte";
 
   interface Props {
     form: SuperValidated<ExamSettingsForm, FormMessage>;
@@ -29,7 +31,10 @@
     class?: string;
   }
 
-  let { form: formProp, detail, liveStatus, class: className }: Props = $props();
+  // `detail` is reserved for future per-tab context (current exam metadata,
+  // server-rendered helpers). Keep it in the prop surface so callers don't
+  // have to remove it when we wire it back in.
+  let { form: formProp, detail: _detail, liveStatus, class: className }: Props = $props();
 
   const {
     form,
@@ -59,11 +64,6 @@
   // student can submit.
   const editableScoring = $derived(isDraft || isUpcoming);
 
-  function toggleLanguage(lang: Language) {
-    if (!editableScoring) return;
-    $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
-  }
-
   function lockHint(): string | null {
     if (isRunning) return m.examDetail_settingsLockHintRunning();
     if (isEnded) return m.examDetail_settingsLockHintEnded();
@@ -75,10 +75,7 @@
   const lockMsg = $derived(lockHint());
 </script>
 
-<section
-  data-slot="exam-settings-tab"
-  class={cn("space-y-6", className)}
->
+<section data-slot="exam-settings-tab" class={cn("space-y-6", className)}>
   <header class="flex items-baseline justify-between gap-4">
     <div>
       <h2 class="text-title font-medium leading-tight">
@@ -106,256 +103,35 @@
   <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
+    <ExamBasicSettings {form} {errors} editable={editableBasics} />
+
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
         {m.examDetail_settingsSectionBasic()}
       </h3>
-      <div class="space-y-4">
-        <div>
-          <label class="text-sm font-medium" for="settings-title">
-            {m.examDetail_settingsTitleLabel()}
-          </label>
-          <input
-            id="settings-title"
-            class={inputClassName}
-            type="text"
-            bind:value={$form.title}
-            disabled={!editableBasics}
-            aria-invalid={$errors.title ? "true" : undefined}
-          />
-          {#if $errors.title}
-            <p class="mt-1 text-xs text-destructive">{$errors.title}</p>
-          {/if}
-        </div>
-
-        <div>
-          <label class="text-sm font-medium" for="settings-summary">
-            {m.examDetail_settingsSummaryLabel()}
-          </label>
-          <textarea
-            id="settings-summary"
-            class="{inputClassName} min-h-24 resize-y"
-            bind:value={$form.summary}
-            disabled={!editableBasics}
-          ></textarea>
-        </div>
-
-        <div class="grid gap-4 md:grid-cols-2">
-          <div>
-            <label class="text-sm font-medium" for="settings-starts">
-              {m.examDetail_settingsStartsLabel()}
-            </label>
-            <input
-              id="settings-starts"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.startsAt}
-              disabled={!editableBasics}
-            />
-            {#if $errors.startsAt}
-              <p class="mt-1 text-xs text-destructive">{$errors.startsAt}</p>
-            {/if}
-          </div>
-          <div>
-            <label class="text-sm font-medium" for="settings-ends">
-              {m.examDetail_settingsEndsLabel()}
-            </label>
-            <input
-              id="settings-ends"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.endsAt}
-              disabled={!editableBasics && !isRunning}
-            />
-            {#if $errors.endsAt}
-              <p class="mt-1 text-xs text-destructive">{$errors.endsAt}</p>
-            {/if}
-            {#if isRunning}
-              <p class="mt-1 text-caption text-muted-foreground">
-                {m.examDetail_settingsEndsRunningHint()}
-              </p>
-            {/if}
-          </div>
-        </div>
-      </div>
+      <ExamTimelineConfig
+        {form}
+        {errors}
+        editableStart={editableBasics}
+        editableEnd={editableBasics || isRunning}
+        {isRunning}
+      />
     </section>
 
-    <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <h3 class="mb-4 text-title-sm font-medium">
-        {m.examDetail_settingsSectionScoring()}
-      </h3>
-      <div class="space-y-4">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div>
-            <label class="text-sm font-medium" for="settings-scoringMode">
-              {m.examDetail_settingsScoringModeLabel()}
-            </label>
-            <select
-              id="settings-scoringMode"
-              class={inputClassName}
-              bind:value={$form.scoringMode}
-              disabled={!editableScoring}
-            >
-              <option value="problem_count">{m.examDetail_scoringProblemCount()}</option>
-              <option value="point_sum">{m.examDetail_scoringPointSum()}</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-sm font-medium" for="settings-scoreboardMode">
-              {m.examDetail_settingsScoreboardModeLabel()}
-            </label>
-            <select
-              id="settings-scoreboardMode"
-              class={inputClassName}
-              bind:value={$form.scoreboardMode}
-              disabled={!editableScoring}
-            >
-              <option value="live">{m.examCreate_scoreboardLive()}</option>
-              <option value="frozen">{m.examCreate_scoreboardFrozen()}</option>
-              <option value="hidden">{m.examCreate_scoreboardHidden()}</option>
-            </select>
-          </div>
-        </div>
+    <ExamProblemConfig {form} {errors} editable={editableScoring} />
 
-        <div>
-          <div class="text-sm font-medium">
-            {m.examDetail_settingsLanguagesLabel()}
-          </div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            {#each supportedLanguages as lang (lang)}
-              {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
-              <button
-                type="button"
-                class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {checked
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border bg-[color:var(--color-panel)] text-foreground hover:border-border-strong'}"
-                onclick={() => toggleLanguage(lang)}
-                aria-pressed={checked}
-                disabled={!editableScoring}
-              >
-                {lang}
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        <div>
-          <label class="text-sm font-medium" for="settings-cooldown">
-            {m.examDetail_settingsCooldownLabel()}
-          </label>
-          <input
-            id="settings-cooldown"
-            class={inputClassName}
-            type="number"
-            min="0"
-            max="600"
-            bind:value={$form.submitCooldownSec}
-            disabled={!editableScoring}
-          />
-          {#if $errors.submitCooldownSec}
-            <p class="mt-1 text-xs text-destructive">{$errors.submitCooldownSec}</p>
-          {/if}
-        </div>
-      </div>
-    </section>
-
-    <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <h3 class="mb-4 text-title-sm font-medium">
-        {m.examDetail_settingsSectionProctoring()}
-      </h3>
-      <div class="space-y-4">
-        <label
-          class="flex items-center gap-3 text-body-sm {editableProctoring
-            ? ''
-            : 'opacity-60'}"
-        >
-          <input
-            type="checkbox"
-            bind:checked={$form.pageLockEnabled}
-            disabled={!editableProctoring}
-          />
-          {m.examDetail_settingsPageLockLabel()}
-        </label>
-
-        <label
-          class="flex items-center gap-3 text-body-sm {editableProctoring
-            ? ''
-            : 'opacity-60'}"
-        >
-          <input
-            type="checkbox"
-            bind:checked={$form.ipBindingEnabled}
-            disabled={!editableProctoring}
-          />
-          {m.examDetail_settingsIpBindingLabel()}
-        </label>
-
-        <label
-          class="flex items-center gap-3 text-body-sm {editableProctoring
-            ? ''
-            : 'opacity-60'}"
-        >
-          <input
-            type="checkbox"
-            bind:checked={$form.ipWhitelistEnabled}
-            disabled={!editableProctoring}
-          />
-          {m.examDetail_settingsIpWhitelistEnabledLabel()}
-        </label>
-
-        {#if $form.ipWhitelistEnabled}
-          <div>
-            <label class="text-sm font-medium" for="settings-ipWhitelist">
-              {m.examDetail_settingsIpWhitelistLabel()}
-            </label>
-            <textarea
-              id="settings-ipWhitelist"
-              class={monoTextareaClassName}
-              bind:value={$form.ipWhitelistText}
-              disabled={!editableProctoring}
-              placeholder="10.0.0.0/24&#10;192.168.1.5/32&#10;2001:db8::/32"
-            ></textarea>
-          </div>
-        {/if}
-
-        <div>
-          <label class="text-sm font-medium" for="settings-ipViolationMode">
-            {m.examDetail_settingsIpViolationModeLabel()}
-          </label>
-          <select
-            id="settings-ipViolationMode"
-            class={inputClassName}
-            bind:value={$form.ipViolationMode}
-            disabled={!editableProctoring}
-          >
-            <option value="block">{m.examCreate_violationBlock()}</option>
-            <option value="notify">{m.examCreate_violationNotify()}</option>
-          </select>
-        </div>
-      </div>
-    </section>
+    <ExamProctoringConfig {form} editable={editableProctoring} />
 
     <div class="flex items-center justify-end gap-2">
-      <Button
-        type="submit"
-        variant="default"
-        size="sm"
-        disabled={$submitting || isEnded}
-      >
+      <Button type="submit" variant="default" size="sm" disabled={$submitting || isEnded}>
         {m.examDetail_settingsSaveButton()}
       </Button>
     </div>
   </form>
 
-  <section
-    class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
-  >
+  <section class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest">
     <h3 class="mb-4 text-title-sm font-medium">
       {m.examDetail_settingsSectionLifecycle()}
     </h3>
@@ -405,9 +181,7 @@
           </Button>
         </div>
       {:else}
-        <div
-          class="rounded-md border border-destructive/40 bg-destructive/[0.06] px-4 py-3"
-        >
+        <div class="rounded-md border border-destructive/40 bg-destructive/[0.06] px-4 py-3">
           <div class="font-semibold text-destructive">
             {m.examDetail_settingsDeleteConfirmTitle()}
           </div>
@@ -425,12 +199,7 @@
               {m.examDetail_settingsDeleteConfirmCancel()}
             </Button>
             <form method="POST" action="?/deleteExam" use:enhance class="contents">
-              <Button
-                type="submit"
-                variant="destructive"
-                size="sm"
-                disabled={$submitting}
-              >
+              <Button type="submit" variant="destructive" size="sm" disabled={$submitting}>
                 {m.examDetail_settingsDeleteConfirmConfirm()}
               </Button>
             </form>

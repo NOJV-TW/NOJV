@@ -1,6 +1,6 @@
 <script lang="ts">
   import DOMPurify from "isomorphic-dompurify";
-  import { marked, PURIFY_CONFIG } from "$lib/markdown";
+  import { marked, PURIFY_CONFIG } from "$lib/utils/markdown";
   import "katex/dist/katex.min.css";
 
   let { content = "" }: { content: string } = $props();

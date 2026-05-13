@@ -4,24 +4,21 @@ import type { RequestHandler } from "./$types";
 
 import { getActorContext } from "$lib/server/auth";
 import { contestDomain } from "@nojv/domain";
-
-const { getScoreboard } = contestDomain;
 import { apiHandler } from "$lib/server/shared/api-handler";
 
+const { canViewLiveContestScoreboard, getScoreboard } = contestDomain;
+
+// View resolution is server-side only — admins and the contest organizer
+// see the live board, every other caller sees the frozen / hidden view.
+// We deliberately ignore any client-supplied freeze flag.
 export const GET: RequestHandler = apiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing contest id." }, { status: 400 });
 
   const actor = getActorContext(event);
-  const unfrozen = event.url.searchParams.get("unfrozen") === "true";
+  const canSeeLive = await canViewLiveContestScoreboard(id, actor);
 
-  const canUnfreeze =
-    actor != null && (actor.platformRole === "admin" || actor.platformRole === "teacher");
-
-  const scoreboard = await getScoreboard(id, {
-    isPrivileged: canUnfreeze,
-    unfrozen: unfrozen && canUnfreeze,
-  });
+  const scoreboard = await getScoreboard(id, { canSeeLive });
 
   return json(scoreboard);
 });

@@ -3,7 +3,7 @@
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
-  import { parseSchoolEmail } from "$lib/school";
+  import { parseSchoolEmail } from "$lib/utils/school";
   import { Button } from "$lib/components/ui/button";
   import { Badge } from "$lib/components/ui/badge";
   import { Input } from "$lib/components/ui/input";

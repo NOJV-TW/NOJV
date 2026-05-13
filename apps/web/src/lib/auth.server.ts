@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
 import { getWebEnv } from "$lib/server/env";
-import { extractStudentId, parseSchoolEmail } from "$lib/school";
+import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
 
 const authLogger = createLogger("auth-hooks");

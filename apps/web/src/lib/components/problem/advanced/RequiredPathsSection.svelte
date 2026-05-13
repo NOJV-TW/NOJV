@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { Folder, FileText, X, Plus } from "@lucide/svelte";
   import { requiredPathSchema } from "@nojv/core";
-  import { inputClassName } from "$lib/css";
+  import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {

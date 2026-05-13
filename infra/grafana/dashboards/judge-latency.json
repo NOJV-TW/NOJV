@@ -1,7 +1,7 @@
 {
   "uid": "nojv-judge-latency",
   "title": "NOJV — Judge Latency",
-  "description": "Submission judging latency, throughput, and verdict distribution. SLO target: p95 < 15s (see docs/RELIABILITY.md).",
+  "description": "Submission judging latency, throughput, and verdict distribution. SLO target: p95 < 15s (see docs/operations/RELIABILITY.md).",
   "tags": ["nojv", "slo", "judge"],
   "timezone": "browser",
   "schemaVersion": 39,

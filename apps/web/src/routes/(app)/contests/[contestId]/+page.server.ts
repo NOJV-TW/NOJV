@@ -17,6 +17,7 @@ import {
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
@@ -48,11 +49,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // contests (no entries exist) and tolerate hidden boards by reading the
   // user-facing view (entries auto-blank when `scoreboardMode === "hidden"`).
   const showLeaderboard = now >= new Date(contest.startsAt);
-  const isPrivileged =
-    locals.sessionUser?.platformRole === "admin" ||
-    locals.sessionUser?.platformRole === "teacher";
+  const canSeeLive = await contestDomain.canViewLiveContestScoreboard(
+    contest.id,
+    user ? { userId: user.id, platformRole: locals.sessionUser?.platformRole ?? null } : null,
+  );
   const topEntries = showLeaderboard
-    ? await getScoreboard(contest.id, { isPrivileged }).then((sb) =>
+    ? await getScoreboard(contest.id, { canSeeLive }).then((sb) =>
         sb.entries.slice(0, 5).map((e) => ({
           rank: e.rank,
           username: e.username,
@@ -185,7 +187,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions: Actions = {
-  updateSettings: async (event) => {
+  updateSettings: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ContestSettingsForm, FormMessage>(
       event,
@@ -218,9 +220,9 @@ export const actions: Actions = {
     }
 
     return message<FormMessage>(form, { kind: "success", text: "Saved." });
-  },
+  }),
 
-  publishContest: async (event) => {
+  publishContest: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
       await publishContest(actor, event.params.contestId);
@@ -229,9 +231,9 @@ export const actions: Actions = {
       return fail(classified.status, { error: classified.message });
     }
     return { success: true };
-  },
+  }),
 
-  deleteContest: async (event) => {
+  deleteContest: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
       await deleteContestDraft(actor, event.params.contestId);
@@ -240,5 +242,5 @@ export const actions: Actions = {
       return fail(classified.status, { error: classified.message });
     }
     redirect(303, "/contests");
-  },
+  }),
 };

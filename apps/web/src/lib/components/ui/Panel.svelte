@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn } from "$lib/css.js";
+	import { cn } from "$lib/utils/css.js";
 	import { Card, type CardProps } from "$lib/components/ui/card/index.js";
 
 	export type PanelProps = CardProps;

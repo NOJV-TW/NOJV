@@ -5,7 +5,7 @@ import { userDomain } from "@nojv/domain";
 
 import { createLogger } from "../logger";
 import { consumeFormRateLimit } from "./rate-limiter";
-import { extractStudentId, parseSchoolEmail } from "$lib/school";
+import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 
 const logger = createLogger("school-verification");
 

@@ -13,7 +13,7 @@
   import ContainerContractSection from "$lib/components/problem/advanced/ContainerContractSection.svelte";
   import RequiredPathsSection from "$lib/components/problem/advanced/RequiredPathsSection.svelte";
   import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import RejudgeDialog from "$lib/components/problem/RejudgeDialog.svelte";
+  import RejudgeDialog from "$lib/components/problem/admin/RejudgeDialog.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { toasts } from "$lib/stores/toast";

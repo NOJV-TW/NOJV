@@ -19,6 +19,7 @@ import {
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
@@ -164,7 +165,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  startExam: async (event) => {
+  startExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
       await examDomain.session.startSessionWithGate(actor, {
@@ -177,9 +178,9 @@ export const actions = {
       throw err;
     }
     return { success: true };
-  },
+  }),
 
-  releaseSession: async (event) => {
+  releaseSession: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
       await examDomain.session.endSession(actor, {
@@ -193,9 +194,9 @@ export const actions = {
       throw err;
     }
     return { success: true };
-  },
+  }),
 
-  updateSettings: async (event) => {
+  updateSettings: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ExamSettingsForm, FormMessage>(
       event,
@@ -238,9 +239,9 @@ export const actions = {
       kind: "success",
       text: "Saved.",
     });
-  },
+  }),
 
-  publishExam: async (event) => {
+  publishExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
       await publishExam(actor, event.params.examId);
@@ -249,9 +250,9 @@ export const actions = {
       throw err;
     }
     return { success: true };
-  },
+  }),
 
-  deleteExam: async (event) => {
+  deleteExam: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     try {
       await deleteExamDraft(actor, event.params.examId);
@@ -260,9 +261,9 @@ export const actions = {
       throw err;
     }
     redirect(303, "/exams");
-  },
+  }),
 
-  updateProblems: async (event) => {
+  updateProblems: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     // `problemIds` is sent once per row (repeated) in the canonical
@@ -294,5 +295,5 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 } satisfies Actions;

@@ -3,7 +3,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
-import { isReservedUsername } from "$lib/school";
+import { isReservedUsername } from "$lib/utils/school";
 import { requireAuth } from "$lib/server/auth";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
 import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";

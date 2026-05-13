@@ -1,7 +1,7 @@
 {
   "uid": "nojv-api-latency",
   "title": "NOJV — API Latency",
-  "description": "SvelteKit API route latency, request rate, and error share. SLO target: p99 < 500ms (see docs/RELIABILITY.md).",
+  "description": "SvelteKit API route latency, request rate, and error share. SLO target: p99 < 500ms (see docs/operations/RELIABILITY.md).",
   "tags": ["nojv", "slo", "api"],
   "timezone": "browser",
   "schemaVersion": 39,

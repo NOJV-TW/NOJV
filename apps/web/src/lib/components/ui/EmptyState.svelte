@@ -2,7 +2,7 @@
 	import type { Component } from "svelte";
 	import { Check, ExternalLink } from "@lucide/svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
-	import { cn } from "$lib/css.js";
+	import { cn } from "$lib/utils/css.js";
 
 	type ActionVariant = "default" | "outline" | "ghost";
 

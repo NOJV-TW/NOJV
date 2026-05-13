@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
 
   interface Props {
     options: FilterChipOption[];

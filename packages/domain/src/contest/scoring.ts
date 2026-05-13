@@ -153,10 +153,18 @@ export async function updateContestScores(contestParticipationId: string): Promi
   );
 }
 
+/**
+ * Render a contest scoreboard. The single `canSeeLive` flag controls both
+ * the freeze and the `hidden` mode bypass — callers MUST decide based on
+ * server-side actor identity (admin or contest organizer), never on a
+ * client-supplied query parameter, otherwise a student can leak the
+ * unfrozen ranking by toggling a URL flag.
+ */
 export async function getScoreboard(
   contestId: string,
-  options?: { unfrozen?: boolean; isPrivileged?: boolean },
+  options?: { canSeeLive?: boolean },
 ): Promise<Scoreboard> {
+  const canSeeLive = options?.canSeeLive === true;
   const contest = await contestRepo.findForScoreboardById(contestId);
 
   if (!contest || contest.visibility === "draft") {
@@ -166,7 +174,7 @@ export async function getScoreboard(
   const now = new Date();
   const scoreboardMode = contest.scoreboardMode;
   const showFrozen =
-    !options?.unfrozen &&
+    !canSeeLive &&
     (scoreboardMode === "frozen" ||
       (contest.frozenBoard && contest.frozenAt != null && now > contest.frozenAt));
 
@@ -179,7 +187,7 @@ export async function getScoreboard(
 
   const scoringMode = contest.scoringMode;
 
-  if (scoreboardMode === "hidden" && !options?.isPrivileged) {
+  if (scoreboardMode === "hidden" && !canSeeLive) {
     return {
       entries: [],
       frozenAt: contest.frozenAt?.toISOString() ?? null,
@@ -244,7 +252,9 @@ export async function getScoreboardChart(
   contestId: string,
   topN: number,
 ): Promise<ScoreboardChart> {
-  const scoreboardData = await getScoreboard(contestId, { unfrozen: false });
+  // Chart is read-only data for the top-N table — frozen view is fine for
+  // everyone (admin / organizer overlays the live picture elsewhere).
+  const scoreboardData = await getScoreboard(contestId, { canSeeLive: false });
 
   const topEntries = scoreboardData.entries.slice(0, topN);
   if (topEntries.length === 0) {

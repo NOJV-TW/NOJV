@@ -2,7 +2,7 @@
   import BellIcon from "@lucide/svelte/icons/bell";
   import { m } from "$lib/paraglide/messages.js";
   import { notifications } from "$lib/stores/notifications.svelte";
-  import { cn } from "$lib/css.js";
+  import { cn } from "$lib/utils/css.js";
   import NotificationDropdown from "./NotificationDropdown.svelte";
 
   let open = $state(false);

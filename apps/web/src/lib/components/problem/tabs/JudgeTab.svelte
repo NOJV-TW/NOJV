@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import type { ProblemDetail } from "$lib/types";
   import type { JudgeScriptLanguage, JudgeType } from "@nojv/core";
-  import { inputClassName } from "$lib/css";
+  import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/problem/editors/MonacoScriptEditor.svelte";
   import {

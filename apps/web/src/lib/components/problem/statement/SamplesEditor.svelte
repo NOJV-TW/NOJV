@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { inputClassName, monoTextareaClassName } from "$lib/css";
+  import { inputClassName, monoTextareaClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Sample {
