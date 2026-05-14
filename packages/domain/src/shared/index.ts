@@ -8,4 +8,5 @@ export * from "./pick-problem-statement";
 export * from "./problem-letter";
 export * from "./require";
 export * from "./strip-undefined";
+export * from "./submissions-matrix";
 export * from "./to-json-value";

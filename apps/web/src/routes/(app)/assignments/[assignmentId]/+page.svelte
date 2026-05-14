@@ -14,8 +14,8 @@
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import DotGrid from "$lib/components/primitives/visual/DotGrid.svelte";
-  import TypeIcon from "$lib/components/primitives/visual/TypeIcon.svelte";
-  import StatusPill from "$lib/components/primitives/visual/StatusPill.svelte";
+  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
+  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";

@@ -6,7 +6,7 @@
   import * as Card from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { difficultyClass, tagClass } from "$lib/types";
+  import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { problemDomain } from "@nojv/domain";
   import {

@@ -1,8 +1,7 @@
 export * from "./shared";
 export { canManageContest } from "./contest/permissions";
-export type { ContestPermissionInput, CourseMembershipRow } from "./contest/permissions";
 export { canManageExam } from "./exam/permissions";
-export type { ExamPermissionInput } from "./exam/permissions";
+export { listExamIpViolations } from "./exam/queries";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as assignmentDomain from "./assignment";

@@ -36,5 +36,5 @@ export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   await deleteAvatar(actor);
   await userDomain.setUserAvatar(actor.userId, null);
 
-  return json({ ok: true });
+  return new Response(null, { status: 204 });
 });

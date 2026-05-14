@@ -3,7 +3,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
 import { getActorContext, requireAuth } from "$lib/server/auth";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
 import { contestDomain } from "@nojv/domain";
 
@@ -16,10 +16,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  joinByCode: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  joinByCode: withRateLimit(async (event) => {
     requireAuth(event);
 
     const formData = await event.request.formData();
@@ -36,5 +33,5 @@ export const actions = {
     }
 
     redirect(303, `/contests/${contest.id}`);
-  },
+  }),
 } satisfies Actions;

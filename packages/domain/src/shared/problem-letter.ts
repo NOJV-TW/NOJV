@@ -10,7 +10,3 @@ export function problemLetter(ordinal: number): string {
   }
   return label;
 }
-
-export function problemLetterByIndex(index: number): string {
-  return problemLetter(index + 1);
-}

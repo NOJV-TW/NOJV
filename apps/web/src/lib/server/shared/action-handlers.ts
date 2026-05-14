@@ -1,7 +1,7 @@
 import type { RequestEvent } from "@sveltejs/kit";
-import { consumeFormRateLimit } from "./rate-limiter";
+import { consumeFormRateLimitInternal } from "./rate-limiter";
 
-type RateLimitFailure = NonNullable<Awaited<ReturnType<typeof consumeFormRateLimit>>>;
+type RateLimitFailure = NonNullable<Awaited<ReturnType<typeof consumeFormRateLimitInternal>>>;
 
 /**
  * Wraps a SvelteKit form action so it consults the per-IP form rate limiter
@@ -16,7 +16,7 @@ export function withRateLimit<E extends RequestEvent, R>(
   handler: (event: E) => Promise<R>,
 ): (event: E) => Promise<R | RateLimitFailure> {
   return async (event) => {
-    const limited = await consumeFormRateLimit(event);
+    const limited = await consumeFormRateLimitInternal(event);
     if (limited) return limited;
     return handler(event);
   };

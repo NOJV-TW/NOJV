@@ -2,7 +2,7 @@
   import type { SubmissionResult } from "@nojv/core";
   import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
 
   interface RunCase {
     input: string;

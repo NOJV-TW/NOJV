@@ -9,6 +9,7 @@ import {
   sseConnectionDroppedTotal,
   type SseCloseReason,
 } from "$lib/server/metrics";
+import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
 import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
@@ -61,25 +62,6 @@ const sseEnvSchema = z.object({
 
 const MAX_DURATION_MS = 600_000; // 10 min
 const KEEPALIVE_MS = 30_000;
-const MAX_SSE_PER_USER = 5;
-
-const sseConnectionCounts = new Map<string, number>();
-
-function acquireSseSlot(userId: string): boolean {
-  const current = sseConnectionCounts.get(userId) ?? 0;
-  if (current >= MAX_SSE_PER_USER) return false;
-  sseConnectionCounts.set(userId, current + 1);
-  return true;
-}
-
-function releaseSseSlot(userId: string): void {
-  const current = sseConnectionCounts.get(userId) ?? 0;
-  if (current <= 1) {
-    sseConnectionCounts.delete(userId);
-  } else {
-    sseConnectionCounts.set(userId, current - 1);
-  }
-}
 
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
@@ -95,7 +77,7 @@ export const GET: RequestHandler = async (event) => {
   const userId = actor.userId;
   const redisUrl = envResult.data.REDIS_URL;
 
-  if (!acquireSseSlot(userId)) {
+  if (!acquireSseSlot("events", userId)) {
     return new Response("Too many concurrent connections", { status: 429 });
   }
 
@@ -120,7 +102,7 @@ export const GET: RequestHandler = async (event) => {
   function releaseOnce() {
     if (!released) {
       released = true;
-      releaseSseSlot(userId);
+      releaseSseSlot("events", userId);
     }
   }
 

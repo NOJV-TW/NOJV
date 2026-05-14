@@ -8,7 +8,7 @@ import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -68,10 +68,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  bulkAdd: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  bulkAdd: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     // Defensive backstop for direct POSTs: `event.parent()` is unavailable in form actions.
     const role = await getCoursePermissionRole(event.params.courseId, actor);
@@ -108,12 +105,9 @@ export const actions = {
         { status: 400 },
       );
     }
-  },
+  }),
 
-  changeRole: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  changeRole: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
     if (!canManageCourse(role)) {
@@ -141,12 +135,9 @@ export const actions = {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
     }
-  },
+  }),
 
-  remove: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  remove: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
     if (!canManageCourse(role)) {
@@ -166,5 +157,5 @@ export const actions = {
       const classified = classifyError(err);
       return fail(classified.status, { error: classified.message });
     }
-  },
+  }),
 } satisfies Actions;

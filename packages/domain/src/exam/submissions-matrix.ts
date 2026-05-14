@@ -1,24 +1,17 @@
 import { courseMembershipRepo, submissionRepo } from "@nojv/db";
 
 import { problemLetter } from "../shared/problem-letter";
+import {
+  buildMatrixRowCells,
+  type MatrixCell,
+  type MatrixCellState,
+  type MatrixProblemColumn,
+} from "../shared/submissions-matrix";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 
-export type ExamMatrixCellState = "ac" | "partial" | "zero" | "empty";
-
-export interface ExamMatrixProblemColumn {
-  problemId: string;
-  letter: string;
-  ordinal: number;
-  title: string;
-  points: number;
-}
-
-export interface ExamMatrixCell {
-  problemId: string;
-  score: number | null;
-  attempts: number;
-  state: ExamMatrixCellState;
-}
+export type ExamMatrixCellState = MatrixCellState;
+export type ExamMatrixProblemColumn = MatrixProblemColumn;
+export type ExamMatrixCell = MatrixCell;
 
 export interface ExamMatrixRow {
   userId: string;
@@ -93,32 +86,12 @@ export async function buildExamSubmissionsMatrix(
   }
 
   const rows: ExamMatrixRow[] = students.map((student) => {
-    const cells: ExamMatrixCell[] = problems.map((problem) => {
-      const key = `${student.userId}::${problem.problemId}`;
-      const override = overrides.get(key);
-      const hit = scoreIndex.get(key);
-      if (override !== undefined) {
-        let state: ExamMatrixCellState;
-        if (override >= problem.points) state = "ac";
-        else if (override > 0) state = "partial";
-        else state = "zero";
-        return {
-          problemId: problem.problemId,
-          score: override,
-          attempts: hit?.count ?? 0,
-          state,
-        };
-      }
-      if (!hit || hit.count === 0) {
-        return { problemId: problem.problemId, score: null, attempts: 0, state: "empty" };
-      }
-      let state: ExamMatrixCellState;
-      if (hit.best >= problem.points) state = "ac";
-      else if (hit.best > 0) state = "partial";
-      else state = "zero";
-      return { problemId: problem.problemId, score: hit.best, attempts: hit.count, state };
+    const { cells, total } = buildMatrixRowCells({
+      userId: student.userId,
+      problems,
+      scoreIndex,
+      overrides,
     });
-    const total = cells.reduce((sum, c) => sum + (c.score ?? 0), 0);
     return {
       userId: student.userId,
       displayName: student.user.name,

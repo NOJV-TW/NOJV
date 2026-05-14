@@ -1,4 +1,4 @@
-export const monacoLanguageMap: Record<string, string> = {
+const monacoLanguageMap: Record<string, string> = {
   c: "c",
   cpp: "cpp",
   cc: "cpp",

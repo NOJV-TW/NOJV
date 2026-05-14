@@ -3,7 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
 
   let { data } = $props();
 </script>

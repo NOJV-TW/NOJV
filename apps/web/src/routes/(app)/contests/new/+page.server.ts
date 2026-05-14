@@ -5,7 +5,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { contestDomain } from "@nojv/domain";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
@@ -17,10 +17,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  create: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  create: withRateLimit(async (event) => {
     const actor = requireAuth(event);
 
     const form = await superValidate(event, zod4(contestFormSchema));
@@ -46,5 +43,5 @@ export const actions = {
       const msg = err instanceof Error ? err.message : "Contest creation failed.";
       return message(form, { kind: "error", text: msg }, { status: 400 });
     }
-  },
+  }),
 } satisfies Actions;

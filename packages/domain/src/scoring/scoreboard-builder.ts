@@ -10,7 +10,7 @@ import {
 } from "./rank-util";
 
 // "problem_count" runs ICPC rules; anything else runs IOI rules.
-export type ScoringMode = "problem_count" | (string & {});
+type ScoringMode = "problem_count" | (string & {});
 
 export function buildScoreboard(
   session: TimedSession,

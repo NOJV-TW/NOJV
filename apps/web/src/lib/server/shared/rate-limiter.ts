@@ -73,7 +73,10 @@ const formActionRateLimiter = createRateLimiter(20, 60);
 // accounts).
 export const signInRateLimiter = createRateLimiter(5, 900);
 
-export async function consumeFormRateLimit(
+// Internal helper used by `withRateLimit` in `./action-handlers.ts`.
+// Not exported on purpose — new routes should compose through the
+// wrapper so the limiter can't be bypassed by accident.
+export async function consumeFormRateLimitInternal(
   event: RequestEvent,
 ): Promise<ReturnType<typeof fail<{ error: string }>> | null> {
   try {

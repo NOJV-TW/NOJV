@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  assignmentPresentation,
-  deriveAssignmentWindowState,
-  windowStateColorClass,
-} from "$lib/types";
+import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/utils/coursework-path";
 import { resolveCoursePermissionRole } from "$lib/server/auth";
 
 describe("resolveCoursePermissionRole", () => {
@@ -92,12 +88,6 @@ describe("deriveAssignmentWindowState", () => {
     expect(deriveAssignmentWindowState({ ...base, now: "2026-03-22T12:00:01.000Z" })).toBe(
       "closed",
     );
-  });
-});
-
-describe("assignmentPresentation", () => {
-  it("uses deadline framing", () => {
-    expect(assignmentPresentation.heroLabel).toContain("Deadline");
   });
 });
 

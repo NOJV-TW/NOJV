@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Check, Copy, Download, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
   let { data } = $props();

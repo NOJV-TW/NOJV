@@ -28,7 +28,7 @@
 <script lang="ts">
   import { fmtWeekday } from "$lib/utils/datetime.js";
   import { m } from "$lib/paraglide/messages.js";
-  import StatusPill from "$lib/components/primitives/visual/StatusPill.svelte";
+  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import type { examDomain } from "@nojv/domain";
 

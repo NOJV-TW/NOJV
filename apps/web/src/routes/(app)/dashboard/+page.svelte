@@ -11,7 +11,7 @@
   import StreakCard from "$lib/components/features/dashboard/StreakCard.svelte";
   import WeeklyTrendCard from "$lib/components/features/dashboard/WeeklyTrendCard.svelte";
   import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
-  import { formatVerdictLabel } from "$lib/types";
+  import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { BadgeVariant } from "$lib/components/primitives/ui/badge";
   import type { EChartsOption } from "echarts";
