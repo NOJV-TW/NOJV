@@ -2,7 +2,7 @@
   import { enhance } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth-client";
+  import { authClient } from "$lib/auth.client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
   import { isReservedUsername, parseSchoolEmail } from "$lib/utils/school";

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { authClient } from "$lib/auth-client";
+  import { authClient } from "$lib/auth.client";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/ui/button";
 

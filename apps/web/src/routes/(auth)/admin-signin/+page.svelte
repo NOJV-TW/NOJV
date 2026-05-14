@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth-client";
+  import { authClient } from "$lib/auth.client";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Card } from "$lib/components/ui/card";

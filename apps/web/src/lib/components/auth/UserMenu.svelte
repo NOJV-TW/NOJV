@@ -2,7 +2,7 @@
   import { page } from "$app/stores";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth-client";
+  import { authClient } from "$lib/auth.client";
   import UserIcon from "@lucide/svelte/icons/user";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
 
