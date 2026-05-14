@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ProblemSolveView from "$lib/components/problem/views/ProblemSolveView.svelte";
+  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

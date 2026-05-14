@@ -1,8 +1,8 @@
 <script lang="ts">
   import { Code2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import Section from "$lib/components/ui/Section.svelte";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Section from "$lib/components/primitives/ui/Section.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { formatVerdictLabel, verdictColor } from "$lib/types";
 
   let { data } = $props();

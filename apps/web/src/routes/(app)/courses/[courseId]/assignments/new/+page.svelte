@@ -4,13 +4,13 @@
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
-  import FormError from "$lib/components/ui/FormError.svelte";
-  import PageHero from "$lib/components/layout/PageHero.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule
-  } from "$lib/components/course/LatePenaltyRuleBuilder.svelte";
+  } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import { toggleArrayItem } from "$lib/utils";
   import type { PageData } from "./$types";

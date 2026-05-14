@@ -3,11 +3,11 @@
   import { page } from "$app/state";
   import { ArrowRight, BookOpen, GraduationCap, Plus } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
-  import PageContainer from "$lib/components/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import TeacherBadge from "$lib/components/common/TeacherBadge.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import TeacherBadge from "$lib/components/features/course/TeacherBadge.svelte";
   import type { PageData } from "./$types";
 
   type TabKey = "enrolled" | "managing";

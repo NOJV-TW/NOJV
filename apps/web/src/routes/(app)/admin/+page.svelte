@@ -13,13 +13,13 @@
     Trophy,
     Users
   } from "@lucide/svelte";
-  import EChart from "$lib/components/charts/EChart.svelte";
+  import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import type { EChartsOption } from "echarts";
   import { onMount } from "svelte";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import StatCard from "$lib/components/ui/StatCard.svelte";
-  import { Card } from "$lib/components/ui/card";
-  import { Badge } from "$lib/components/ui/badge";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import StatCard from "$lib/components/primitives/ui/StatCard.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Badge } from "$lib/components/primitives/ui/badge";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 

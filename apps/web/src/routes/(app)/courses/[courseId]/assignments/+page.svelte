@@ -2,8 +2,8 @@
   import { page } from "$app/state";
   import { ChevronRight, Plus } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button, buttonVariants } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 

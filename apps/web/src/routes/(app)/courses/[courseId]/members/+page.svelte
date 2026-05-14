@@ -2,8 +2,8 @@
   import { invalidateAll } from "$app/navigation";
   import { Search, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import FilterChips from "$lib/components/common/FilterChips.svelte";
-  import BulkHandleAddPanel from "$lib/components/course/BulkHandleAddPanel.svelte";
+  import FilterChips from "$lib/components/primitives/ui/FilterChips.svelte";
+  import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
