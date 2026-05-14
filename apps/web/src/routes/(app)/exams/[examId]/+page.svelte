@@ -170,7 +170,7 @@
             class="flex items-center gap-2 font-mono text-micro uppercase tracking-[0.2em] text-muted-foreground"
           >
             <TypeIcon kind="exam" size={14} />
-            <span>Examination</span>
+            <span>{m.examDetail_typeLabel()}</span>
             <span class="opacity-60">|</span>
             <span>{examCode}</span>
           </div>

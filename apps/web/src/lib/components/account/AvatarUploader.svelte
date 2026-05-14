@@ -79,7 +79,7 @@
     try {
       const fd = new FormData();
       fd.append("file", blob, "avatar.webp");
-      const res = await fetch("/api/account/avatar", { method: "POST", body: fd });
+      const res = await fetch("/api/account/avatar", { method: "PUT", body: fd });
       if (!res.ok) {
         toasts.error(m.account_avatar_uploadFailed());
         return;

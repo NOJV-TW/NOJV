@@ -6,9 +6,9 @@ import { NotFoundError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/domain";
 
-// POST /api/submissions/[id]/rejudges — create a single rejudge for one
-// submission. `rejudges` is the plural sub-resource; the POST returns 202
-// with the Temporal workflow id so the client can correlate progress.
+// POST /api/submissions/[id]/rejudge — create a single rejudge for one
+// submission. POST returns 202 with the Temporal workflow id so the client
+// can correlate progress. Bulk rejudge lives at POST /api/rejudges.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 

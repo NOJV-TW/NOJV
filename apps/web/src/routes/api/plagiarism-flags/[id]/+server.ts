@@ -14,5 +14,5 @@ export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   if (!id) return json({ message: "Missing flag id." }, { status: 400 });
 
   await unflagPair(actor, id);
-  return json({ ok: true });
+  return new Response(null, { status: 204 });
 });

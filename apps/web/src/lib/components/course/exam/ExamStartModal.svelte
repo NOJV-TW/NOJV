@@ -23,13 +23,13 @@
     action = "?/startExam"
   }: Props = $props();
 
-  let agreed = $state(false);
+  let hasAgreed = $state(false);
   let submitting = $state(false);
 
   // Reset agreement state when dialog closes so reopening starts fresh.
   $effect(() => {
     if (!open) {
-      agreed = false;
+      hasAgreed = false;
       submitting = false;
     }
   });
@@ -81,7 +81,7 @@
     <label class="mt-4 flex cursor-pointer select-none items-center gap-2.5 text-body-sm">
       <input
         type="checkbox"
-        bind:checked={agreed}
+        bind:checked={hasAgreed}
         class="size-4 rounded"
         style="accent-color: var(--primary);"
       />
@@ -114,7 +114,7 @@
       >
         <button
           type="submit"
-          disabled={!agreed || submitting}
+          disabled={!hasAgreed || submitting}
           class="rounded-md bg-primary px-5 py-2 text-body-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {m.examStartModal_start()}

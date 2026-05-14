@@ -124,16 +124,6 @@ export async function loadProblemSolveData(
     { contextIncludesProblem: context.problemInScope },
   );
 
-  const fullTestcaseSets = await getProblemTestcaseSets(problemId);
-  const testcaseSets = fullTestcaseSets.map((set) => ({
-    id: set.id,
-    name: set.name,
-    description: set.description,
-    weight: set.weight,
-    ordinal: set.ordinal,
-    caseCount: set.testcases.length,
-  }));
-
   const assignmentProp =
     context.kind === "assignment" || context.kind === "exam"
       ? { assessmentId: context.assignmentId, courseId: context.courseId }
@@ -144,34 +134,45 @@ export async function loadProblemSolveData(
   // Submissions are always scoped to the shell's context so that
   // a student's assignment submissions don't leak into a contest view
   // (and vice-versa).
-  const submissions = await listProblemSubmissions(
-    actor.userId,
-    problemId,
-    context.kind === "assignment" || context.kind === "exam"
-      ? { assignmentId: context.assignmentId, courseId: context.courseId }
-      : undefined,
-  );
-
   // Submissions listed here all share the same context, so the rejudge
   // authz decision is homogeneous — compute once. The synthetic submission
   // only needs the context fields; id/userId do not affect the check.
-  const canRejudge = await canOperateOnSubmission(
-    {
-      userId: actor.userId,
-      username: actor.username ?? "",
-      displayName: actor.displayName,
-      email: actor.email,
-      platformRole: actor.platformRole,
-    },
-    {
-      id: "",
-      userId: actor.userId,
+  const [fullTestcaseSets, submissions, canRejudge] = await Promise.all([
+    getProblemTestcaseSets(problemId),
+    listProblemSubmissions(
+      actor.userId,
       problemId,
-      contestId: context.kind === "contest" ? context.contestId : null,
-      courseAssessmentId: context.kind === "assignment" ? context.assignmentId : null,
-      examId: null,
-    },
-  );
+      context.kind === "assignment" || context.kind === "exam"
+        ? { assignmentId: context.assignmentId, courseId: context.courseId }
+        : undefined,
+    ),
+    canOperateOnSubmission(
+      {
+        userId: actor.userId,
+        username: actor.username ?? "",
+        displayName: actor.displayName,
+        email: actor.email,
+        platformRole: actor.platformRole,
+      },
+      {
+        id: "",
+        userId: actor.userId,
+        problemId,
+        contestId: context.kind === "contest" ? context.contestId : null,
+        courseAssessmentId: context.kind === "assignment" ? context.assignmentId : null,
+        examId: null,
+      },
+    ),
+  ]);
+
+  const testcaseSets = fullTestcaseSets.map((set) => ({
+    id: set.id,
+    name: set.name,
+    description: set.description,
+    weight: set.weight,
+    ordinal: set.ordinal,
+    caseCount: set.testcases.length,
+  }));
 
   return {
     allowedLanguages: context.allowedLanguages,

@@ -65,41 +65,40 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ### API Routes
 
-| Endpoint                                | Methods       | Purpose                                                                                        |
-| --------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
-| `/api/auth/[...path]`                   | GET, POST     | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
-| `/api/healthz`                          | GET           | Public liveness probe. Returns `{ ok }` with HTTP 200 or 503                                   |
-| `/api/admin/healthz`                    | GET           | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
-| `/api/submissions`                      | POST          | Create submission, dispatch to Temporal                                                        |
-| `/api/submissions/[id]`                 | GET           | Submission result and verdict                                                                  |
-| `/api/submissions/[id]/source`          | GET           | Submission source code                                                                         |
-| `/api/submissions/[id]/stream`          | GET           | SSE: poll Temporal workflow query for status                                                   |
-| `/api/submissions/[id]/rejudge`         | POST          | Rejudge a single submission (admin/teacher)                                                    |
-| `/api/rejudges`                         | POST          | Batch rejudge by problem/context filters                                                       |
-| `/api/events/stream`                    | GET           | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
-| `/api/contests/[id]/scoreboard`         | GET           | Scoreboard data from Redis (or DB rebuild fallback)                                            |
-| `/api/contests/[id]/scoreboard/chart`   | GET           | Scoreboard chart data                                                                          |
-| `/api/exam-sessions/[examId]/heartbeat` | POST          | Record page-lock heartbeat / visibility events                                                 |
-| `/api/plagiarism/[assignmentId]`        | GET, POST     | Plagiarism reports and trigger detection                                                       |
-| `/api/plagiarism-flags`                 | POST          | Flag a plagiarism pair (admin/teacher)                                                         |
-| `/api/plagiarism-flags/[id]`            | DELETE        | Remove a plagiarism flag                                                                       |
-| `/api/problems`                         | POST          | Create problem (admin/teacher)                                                                 |
-| `/api/problems/[id]/editorials`         | GET, POST     | Problem editorials (AC-gated)                                                                  |
-| `/api/problems/[id]/images`             | POST          | Upload problem image (magic-number validated)                                                  |
-| `/api/problems/[id]/advanced-image`     | POST          | Upload advanced-mode judge image tarball                                                       |
-| `/api/uploads/image`                    | POST          | Generic image upload (announcements, editorials)                                               |
-| `/api/account/avatar`                   | POST          | Upload account avatar                                                                          |
-| `/api/notifications`                    | PATCH         | Bulk mark notifications read (body: `{action:"read-all"}`)                                     |
-| `/api/notifications/[id]`               | PATCH         | Mark one notification read (body: `{read:true}`)                                               |
-| `/api/notifications/recent`             | GET           | Recent notifications                                                                           |
-| `/api/notifications/unread-count`       | GET           | Unread notification count                                                                      |
-| `/api/clarifications`                   | GET, POST     | Clarifications list / new                                                                      |
-| `/api/clarifications/[id]`              | PATCH         | Answer or dismiss a clarification                                                              |
-| `/api/clarifications/[id]/replies`      | POST          | Canned-reply / templated answer                                                                |
-| `/api/editorials/[id]`                  | PATCH, DELETE | Edit / soft-delete editorial                                                                   |
-| `/api/overrides`                        | GET, POST     | List / create score overrides                                                                  |
-| `/api/overrides/[id]`                   | PATCH, DELETE | Update / remove score override                                                                 |
-| `/api/ip-violations`                    | GET           | IP violation logs (manager/admin). Surfaced in the Exam → Proctoring sub-tab                   |
+| Endpoint                                | Methods            | Purpose                                                                                        |
+| --------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
+| `/api/auth/[...path]`                   | GET, POST          | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
+| `/api/healthz`                          | GET                | Public liveness probe. Returns `{ ok }` with HTTP 200 or 503                                   |
+| `/api/admin/healthz`                    | GET                | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
+| `/api/submissions`                      | POST               | Create submission, dispatch to Temporal                                                        |
+| `/api/submissions/[id]`                 | GET                | Submission result and verdict                                                                  |
+| `/api/submissions/[id]/source`          | GET                | Submission source code                                                                         |
+| `/api/submissions/[id]/stream`          | GET                | SSE: poll Temporal workflow query for status                                                   |
+| `/api/submissions/[id]/rejudge`         | POST               | Rejudge a single submission (admin/teacher)                                                    |
+| `/api/rejudges`                         | POST               | Batch rejudge by problem/context filters                                                       |
+| `/api/events/stream`                    | GET                | SSE: real-time events (verdicts, contest, deadlines, clarifications, notifications)            |
+| `/api/contests/[id]/scoreboard`         | GET                | Scoreboard data from Redis (or DB rebuild fallback)                                            |
+| `/api/contests/[id]/scoreboard/chart`   | GET                | Scoreboard chart data                                                                          |
+| `/api/exam-sessions/[examId]/heartbeat` | POST               | Record page-lock heartbeat / visibility events                                                 |
+| `/api/plagiarism/[assignmentId]`        | GET, POST          | Plagiarism reports and trigger detection                                                       |
+| `/api/plagiarism-flags`                 | POST               | Flag a plagiarism pair (admin/teacher)                                                         |
+| `/api/plagiarism-flags/[id]`            | DELETE             | Remove a plagiarism flag                                                                       |
+| `/api/problems`                         | POST               | Create problem (admin/teacher)                                                                 |
+| `/api/problems/[id]/editorials`         | GET, POST          | Problem editorials (AC-gated)                                                                  |
+| `/api/problems/[id]/images`             | POST               | Upload problem image (magic-number validated)                                                  |
+| `/api/problems/[id]/advanced-image`     | POST               | Upload advanced-mode judge image tarball                                                       |
+| `/api/uploads/image`                    | POST               | Generic image upload (announcements, editorials)                                               |
+| `/api/account/avatar`                   | PUT, DELETE        | Replace / remove account avatar                                                                |
+| `/api/notifications`                    | GET, PATCH, DELETE | List + bulk mark-read (`{action:"markAllRead"}`) + bulk clear-read (`?status=read`)            |
+| `/api/notifications/[id]`               | PATCH, DELETE      | Mark one notification read (body: `{read:true}`) / drop one                                    |
+| `/api/notifications/unread-count`       | GET                | Unread notification count                                                                      |
+| `/api/clarifications`                   | GET, POST          | Clarifications list / new                                                                      |
+| `/api/clarifications/[id]`              | PATCH              | Answer or dismiss a clarification                                                              |
+| `/api/clarifications/[id]/replies`      | POST               | Canned-reply / templated answer                                                                |
+| `/api/editorials/[id]`                  | PATCH, DELETE      | Edit / soft-delete editorial                                                                   |
+| `/api/overrides`                        | GET, POST          | List / create score overrides                                                                  |
+| `/api/overrides/[id]`                   | PATCH, DELETE      | Update / remove score override                                                                 |
+| `/api/exams/[examId]/ip-violations`     | GET                | IP violation logs (manager/admin). Surfaced in the Exam → Proctoring sub-tab                   |
 
 ## Runtime Boundaries
 

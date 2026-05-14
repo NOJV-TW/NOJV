@@ -1,20 +1,12 @@
 import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db";
 import { submissionVerdicts } from "@nojv/core";
 
-/**
- * Load the assignment row with its course id, used by shell loaders to
- * derive the `courseId` for the URL params. Returns null when missing;
- * callers surface that as a 404.
- */
 export async function getAssignmentWithCourseId(assignmentId: string) {
   return assessmentRepo.findByIdWithCourseId(assignmentId);
 }
 
-/**
- * Existence check for an assignment-problem attach row. Used by the
- * assignment problem-solve loader so we don't leak whether the problem
- * exists outside the assignment scope.
- */
+// Used as a 404 gate so the problem-solve loader does not leak whether the
+// problem exists outside the assignment scope.
 export async function isProblemInAssignment(
   assignmentId: string,
   problemId: string,
@@ -47,12 +39,6 @@ export interface AssignmentProblemSibling {
   maxScore: number;
   isActive: boolean;
   href: string;
-}
-
-function letterForIndex(index: number): string {
-  if (index < 0) return String(index + 1);
-  if (index < 26) return String.fromCharCode(65 + index);
-  return String(index + 1);
 }
 
 /**
@@ -88,7 +74,7 @@ export async function listAssignmentProblemSiblings(options: {
 
   return ordered.map((r, index) => ({
     id: r.problemId,
-    letter: letterForIndex(index),
+    letter: index < 26 ? String.fromCharCode(65 + index) : String(index + 1),
     title: r.problem.title,
     bestScore: bestByProblemId.get(r.problemId),
     maxScore: r.points,

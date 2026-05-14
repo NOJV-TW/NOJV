@@ -13,8 +13,6 @@ import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
 
-export type CreateNotificationInput = NotificationCreateInput;
-
 function toSseEvent(row: {
   id: string;
   type: string;
@@ -32,13 +30,13 @@ function toSseEvent(row: {
   };
 }
 
-export async function createNotification(input: CreateNotificationInput) {
+export async function createNotification(input: NotificationCreateInput) {
   const row = await notificationRepo.createAndCap(input);
   await pubsub.publishNotification(input.userId, toSseEvent(row));
   return row;
 }
 
-export async function createNotificationBatch(inputs: CreateNotificationInput[]) {
+export async function createNotificationBatch(inputs: NotificationCreateInput[]) {
   if (inputs.length === 0) return 0;
 
   const BATCH = 500;
@@ -50,7 +48,7 @@ export async function createNotificationBatch(inputs: CreateNotificationInput[])
   // One signal per unique userId — clients refetch /api/notifications/recent
   // regardless of how many rows landed, so per-row publishes would be waste.
   // Pick the first row's detail as a sample payload for debugging in Redis logs.
-  const firstPerUser = new Map<string, CreateNotificationInput>();
+  const firstPerUser = new Map<string, NotificationCreateInput>();
   for (const input of inputs) {
     if (!firstPerUser.has(input.userId)) firstPerUser.set(input.userId, input);
   }
