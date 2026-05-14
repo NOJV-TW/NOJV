@@ -111,7 +111,6 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     },
   });
 
-  // Create a default statement
   await testPrisma.problemStatementI18n.create({
     data: {
       problemId: problem.id,
@@ -123,7 +122,6 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     },
   });
 
-  // Create a default testcase set with one testcase
   const testcaseSet = await testPrisma.testcaseSet.create({
     data: {
       problemId: problem.id,

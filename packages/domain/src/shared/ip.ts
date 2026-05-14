@@ -1,6 +1,6 @@
 import { BlockList, isIPv4, isIPv6 } from "node:net";
 
-import { examParticipationIpRepo, ipViolationLogRepo, type TransactionClient } from "@nojv/db";
+import { examParticipationIpRepo, type TransactionClient } from "@nojv/db";
 
 import { logViolationInTx } from "../proctoring/violation-logger";
 
@@ -105,11 +105,4 @@ export async function checkIpLock(
   }
 
   return { allowed: true };
-}
-
-export function listExamIpViolations(opts: { examId: string; take?: number }) {
-  return ipViolationLogRepo.listByExam({
-    examId: opts.examId,
-    take: opts.take ?? 200,
-  });
 }

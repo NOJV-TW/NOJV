@@ -1,4 +1,4 @@
-import Root, {
+import Button, {
   type ButtonProps,
   type ButtonSize,
   type ButtonVariant,
@@ -8,9 +8,7 @@ import IconButton, { type IconButtonProps, type IconButtonSize } from "./IconBut
 import LinkButton, { type LinkButtonProps } from "./LinkButton.svelte";
 
 export {
-  Root,
-  type ButtonProps as Props,
-  Root as Button,
+  Button,
   IconButton,
   LinkButton,
   buttonVariants,

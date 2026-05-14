@@ -41,10 +41,6 @@ export type AdminOverrideSignal =
   | { action: "earlyEnd" }
   | { action: "extend"; newEndsAt: string };
 
-export interface AssessmentLifecycleInput {
-  assessmentId: string;
-}
-
 export interface ExamAutoCloseInput {
   examId: string;
   // Passed as strings so the Temporal payload is deterministic across SDK serializers.

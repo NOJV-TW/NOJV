@@ -1,14 +1,8 @@
 import { contestRepo } from "@nojv/db";
-import type { CourseRole, CourseMembershipStatus, PlatformRole } from "@nojv/core";
+import type { PlatformRole } from "@nojv/core";
 
 export interface ContestPermissionInput {
   createdByUserId: string | null;
-}
-
-export interface CourseMembershipRow {
-  courseId: string;
-  role: CourseRole;
-  status: CourseMembershipStatus;
 }
 
 // Contests are standalone — creator OR platform admin can manage. Course-role

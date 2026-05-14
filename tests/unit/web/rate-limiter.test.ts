@@ -56,7 +56,7 @@ describe("rate limiter fail-closed in production", () => {
     );
   });
 
-  it("consumeFormRateLimit returns 429 fail() when fail-closed in production", async () => {
+  it("consumeFormRateLimitInternal returns 429 fail() when fail-closed in production", async () => {
     vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
     vi.doMock("@nojv/redis", () => ({
       getRedis: () => {
@@ -66,10 +66,10 @@ describe("rate limiter fail-closed in production", () => {
     mockClientIp();
 
     const mod = await import("$lib/server/shared/rate-limiter");
-    // Cast: consumeFormRateLimit now takes RequestEvent but the mocked
+    // Cast: consumeFormRateLimitInternal now takes RequestEvent but the mocked
     // getClientIp ignores its argument, so a stub is sufficient.
-    const fakeEvent = {} as unknown as Parameters<typeof mod.consumeFormRateLimit>[0];
-    const result = await mod.consumeFormRateLimit(fakeEvent);
+    const fakeEvent = {} as unknown as Parameters<typeof mod.consumeFormRateLimitInternal>[0];
+    const result = await mod.consumeFormRateLimitInternal(fakeEvent);
     expect(result).not.toBeNull();
     // SvelteKit's fail() returns an ActionFailure-shaped object with status + data.
     const failObj = result as unknown as { status: number; data: { error: string } };

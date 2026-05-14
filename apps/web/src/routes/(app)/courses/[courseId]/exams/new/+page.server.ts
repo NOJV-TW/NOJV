@@ -17,7 +17,7 @@ import { canManageCourse, examDomain, problemDomain } from "@nojv/domain";
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import type { FormMessage } from "$lib/types/form-message";
 
@@ -116,51 +116,50 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
   });
 }
 
-async function runCreateAction(event: RequestEvent, status: ExamPublishStatus) {
-  const limited = await consumeFormRateLimit(event);
-  if (limited) return limited;
+function runCreateAction(status: ExamPublishStatus) {
+  return withRateLimit(async (event: RequestEvent) => {
+    const actor = requireAuth(event);
+    const courseId = event.params.courseId;
+    const permissionRole = await getCoursePermissionRole(courseId, actor);
+    if (!canManageCourse(permissionRole)) {
+      return fail(403, { error: "Forbidden" });
+    }
 
-  const actor = requireAuth(event);
-  const courseId = event.params.courseId;
-  const permissionRole = await getCoursePermissionRole(courseId, actor);
-  if (!canManageCourse(permissionRole)) {
-    return fail(403, { error: "Forbidden" });
-  }
+    const form = await superValidate<ExamFormData, FormMessage>(event, zod4(examFormSchema));
+    if (!form.valid) {
+      return fail(400, { form });
+    }
 
-  const form = await superValidate<ExamFormData, FormMessage>(event, zod4(examFormSchema));
-  if (!form.valid) {
-    return fail(400, { form });
-  }
+    // Defence in depth: reject POSTs that retarget to a different course via the hidden form field.
+    if (form.data.courseId !== courseId) {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: "Course mismatch." },
+        { status: 400 },
+      );
+    }
 
-  // Defence in depth: reject POSTs that retarget to a different course via the hidden form field.
-  if (form.data.courseId !== courseId) {
-    return message<FormMessage>(
-      form,
-      { kind: "error", text: "Course mismatch." },
-      { status: 400 },
-    );
-  }
+    let examId: string;
+    try {
+      const payload = buildCreatePayload(form.data, status);
+      const created = await createExamRecord(actor, payload);
+      examId = created.id;
+    } catch (err) {
+      const classified = classifyError(err);
+      // `message()` narrows status to the superforms-accepted literal
+      // union — collapse 4xx domain errors to 400 for the surface.
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: classified.message },
+        { status: 400 },
+      );
+    }
 
-  let examId: string;
-  try {
-    const payload = buildCreatePayload(form.data, status);
-    const created = await createExamRecord(actor, payload);
-    examId = created.id;
-  } catch (err) {
-    const classified = classifyError(err);
-    // `message()` narrows status to the superforms-accepted literal
-    // union — collapse 4xx domain errors to 400 for the surface.
-    return message<FormMessage>(
-      form,
-      { kind: "error", text: classified.message },
-      { status: 400 },
-    );
-  }
-
-  redirect(303, `/exams/${examId}`);
+    redirect(303, `/exams/${examId}`);
+  });
 }
 
 export const actions = {
-  saveDraft: (event) => runCreateAction(event, "draft"),
-  publish: (event) => runCreateAction(event, "published"),
+  saveDraft: runCreateAction("draft"),
+  publish: runCreateAction("published"),
 } satisfies Actions;

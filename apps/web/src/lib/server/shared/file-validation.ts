@@ -2,6 +2,25 @@ import { ValidationError } from "@nojv/domain";
 
 export type ImageFormat = "webp" | "png" | "jpeg" | "gif";
 
+export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
+export const IMAGE_FORMAT_TO_MIME: Record<ImageFormat, string> = {
+  webp: "image/webp",
+  png: "image/png",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+};
+
+export const ALLOWED_IMAGE_TYPES: ReadonlySet<string> = new Set(
+  Object.values(IMAGE_FORMAT_TO_MIME),
+);
+
+/** Detect by magic bytes and return the MIME type. Returns null if unknown. */
+export function detectImageMime(buffer: Buffer | Uint8Array): string | null {
+  const format = detectImageFormat(buffer);
+  return format ? IMAGE_FORMAT_TO_MIME[format] : null;
+}
+
 export function detectImageFormat(buffer: Buffer | Uint8Array): ImageFormat | null {
   if (buffer.length < 12) return null;
 

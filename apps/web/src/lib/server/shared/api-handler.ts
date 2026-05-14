@@ -21,7 +21,7 @@ function wrapHandler(
     try {
       await rateLimiter.consume(ip);
     } catch {
-      return json({ error: "Too many requests" }, { status: 429 });
+      return json({ message: "Too many requests" }, { status: 429 });
     }
 
     try {

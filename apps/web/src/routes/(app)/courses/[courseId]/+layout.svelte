@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { page } from "$app/state";
   import CourseHero from "$lib/components/features/course/CourseHero.svelte";
   import CourseTabBar from "$lib/components/features/course/CourseTabBar.svelte";
@@ -7,7 +8,7 @@
 
   interface Props {
     data: LayoutData;
-    children?: import("svelte").Snippet;
+    children?: Snippet;
   }
 
   let { data, children }: Props = $props();

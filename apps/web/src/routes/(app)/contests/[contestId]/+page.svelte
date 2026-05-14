@@ -10,9 +10,9 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import Marquee from "$lib/components/primitives/visual/Marquee.svelte";
-  import StatusPill from "$lib/components/primitives/visual/StatusPill.svelte";
+  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
-  import TypeIcon from "$lib/components/primitives/visual/TypeIcon.svelte";
+  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
   import ContestResultsTab from "$lib/components/features/contest/ContestResultsTab.svelte";

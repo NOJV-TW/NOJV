@@ -55,7 +55,6 @@ vi.mock("@nojv/db", () => {
 vi.mock("@nojv/temporal", () => {
   return {
     dispatchExamAutoClose,
-    dispatchAssessmentLifecycle: vi.fn(),
     dispatchContestLifecycle: vi.fn(),
     dispatchPlagiarismCheck: vi.fn(),
     dispatchRejudge: vi.fn(),

@@ -29,7 +29,7 @@ import {
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import {
   toDateTimeLocal,
   toIsoOrUndefined,
@@ -157,10 +157,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  updateSettings: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateSettings: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -185,12 +182,9 @@ export const actions = {
     }
 
     return message(form, { kind: "success", text: "ok" });
-  },
+  }),
 
-  updateProblems: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateProblems: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -216,12 +210,9 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 
-  publishAssignment: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  publishAssignment: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -233,12 +224,9 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 
-  revertToDraft: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  revertToDraft: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -250,12 +238,9 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 
-  deleteAssignment: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  deleteAssignment: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -267,5 +252,5 @@ export const actions = {
     }
 
     redirect(303, "/assignments");
-  },
+  }),
 } satisfies Actions;

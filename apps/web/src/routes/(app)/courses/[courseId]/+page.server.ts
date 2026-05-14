@@ -13,7 +13,7 @@ import { requireAuth } from "$lib/server/auth";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 const {
   listRecentAnnouncementsForCourse,
@@ -93,10 +93,7 @@ function readExpiresAt(formData: FormData): Date | null {
 }
 
 export const actions = {
-  createAnnouncement: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  createAnnouncement: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -133,12 +130,9 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 
-  updateAnnouncement: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateAnnouncement: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -178,12 +172,9 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 
-  togglePinAnnouncement: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  togglePinAnnouncement: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -210,12 +201,9 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 
-  deleteAnnouncement: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  deleteAnnouncement: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -242,5 +230,5 @@ export const actions = {
     }
 
     return { success: true };
-  },
+  }),
 } satisfies Actions;

@@ -6,7 +6,6 @@ export {
   fetchSingleSubmissionForRejudge,
   snapshotSubmissionForRejudge,
   finalizeRejudgeLog,
-  setExecutor,
 } from "./judge";
 
 export {
