@@ -1,10 +1,10 @@
-import { fail, type RequestEvent } from "@sveltejs/kit";
+import { fail } from "@sveltejs/kit";
 import { Resend } from "resend";
 import { env } from "$env/dynamic/private";
 import { userDomain } from "@nojv/domain";
 
 import { createLogger } from "../logger";
-import { consumeFormRateLimit } from "./rate-limiter";
+import { withRateLimit } from "./action-handlers";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 
 const logger = createLogger("school-verification");
@@ -75,10 +75,7 @@ export async function processSchoolVerification(
 // Shared form action handler for the "send school verification email"
 // button. /account and /complete-profile both POST to ?/sendVerification
 // with identical semantics, so both routes alias this single handler.
-export async function handleSendVerificationAction(event: RequestEvent) {
-  const limited = await consumeFormRateLimit(event);
-  if (limited) return limited;
-
+export const handleSendVerificationAction = withRateLimit(async (event) => {
   const user = event.locals.user;
   if (!user) {
     return fail(401, { error: "Unauthorized" });
@@ -93,4 +90,4 @@ export async function handleSendVerificationAction(event: RequestEvent) {
   }
 
   return { success: true };
-}
+});

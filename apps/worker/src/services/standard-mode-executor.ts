@@ -132,6 +132,16 @@ async function runContainer(
     "--name",
     containerName,
     ...networkArgs,
+    // Mirror the K8s `securityContext` (runAsUser=10001, runAsNonRoot,
+    // seccompProfile: RuntimeDefault). The Dockerfile already declares
+    // `USER sandbox` (UID 10001) and Docker applies a default seccomp
+    // profile, but pinning both explicitly is defense in depth — it stops
+    // an accidental Dockerfile edit or `--user 0` overlay from regressing
+    // the standard-mode isolation.
+    "--user",
+    "10001:10001",
+    "--security-opt",
+    "seccomp=default",
     "--cap-drop",
     "ALL",
     "--security-opt",

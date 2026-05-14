@@ -5,7 +5,7 @@ import { DEFAULT_LOCALE } from "@nojv/core";
 import { getActorContext } from "$lib/server/auth";
 
 const { listAnnouncements, listUpcomingAssignments } = courseDomain;
-import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/types";
+import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/utils/coursework-path";
 
 interface AnnouncementTranslationRow {
   locale: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatVerdictLabel, verdictColor } from "$lib/types";
+import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
 
 describe("verdictColor", () => {
   it("maps accepted to emerald", () => {

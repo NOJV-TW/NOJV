@@ -1,14 +1,8 @@
-import type { CourseRole, CourseMembershipStatus } from "@nojv/core";
+import type { CourseMembershipRow } from "../shared/permissions";
 
 export interface ExamPermissionInput {
   createdByUserId: string | null;
   courseId: string;
-}
-
-export interface CourseMembershipRow {
-  courseId: string;
-  role: CourseRole;
-  status: CourseMembershipStatus;
 }
 
 // Pure: callers pre-fetch memberships so the list page can batch-resolve without N+1.

@@ -5,8 +5,8 @@ import { writeApiHandler } from "$lib/server/shared/api-handler";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_SIZE,
-  detectImageType,
-} from "$lib/server/shared/image-upload";
+  detectImageMime,
+} from "$lib/server/shared/file-validation";
 import { canEditProblem, problemDomain } from "@nojv/domain";
 import { uploadProblemImage } from "$lib/server/storage/problem-image";
 
@@ -42,7 +42,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const detectedType = detectImageType(buffer);
+  const detectedType = detectImageMime(buffer);
   if (!detectedType || !ALLOWED_IMAGE_TYPES.has(detectedType)) {
     error(400, "Invalid file type. File content does not match an allowed image format.");
   }

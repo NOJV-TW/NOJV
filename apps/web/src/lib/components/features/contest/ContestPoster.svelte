@@ -1,6 +1,6 @@
 <script lang="ts">
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import StatusPill from "$lib/components/primitives/visual/StatusPill.svelte";
+  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { fmtDate } from "$lib/utils/datetime.js";
 

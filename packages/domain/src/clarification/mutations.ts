@@ -13,7 +13,12 @@ import { pubsub } from "@nojv/redis";
 
 import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { canAnswerInContext, canAskClarification, canSeeAuthor } from "./permissions";
 import { buildClarificationLink, projectRow, type ProjectedClarification } from "./queries";
 import { fromContextDbFields, toContextDbFields, type ClarificationContext } from "./types";
@@ -41,7 +46,7 @@ export async function ask(
 ): Promise<ProjectedClarification> {
   const text = input.questionText;
   if (text.length < QUESTION_MIN || text.length > QUESTION_MAX) {
-    throw new ConflictError("Question must be 10-1000 characters.");
+    throw new ValidationError("Question must be 10-1000 characters.");
   }
   if (!(await canAskClarification(actor, input.context))) {
     throw new ForbiddenError("Only participants may ask clarifications.");

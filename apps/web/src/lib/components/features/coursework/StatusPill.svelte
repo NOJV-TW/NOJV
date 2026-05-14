@@ -1,7 +1,11 @@
 <script lang="ts" module>
   export type CourseworkKind = "assignment" | "exam" | "contest";
 
-  type Def = { label: () => string; cls: string; style?: string };
+  interface Def {
+    label: () => string;
+    cls: string;
+    style?: string;
+  }
 </script>
 
 <script lang="ts">
@@ -17,8 +21,6 @@
     "background: color-mix(in oklab, var(--primary) 14%, transparent); color: var(--primary); border-color: color-mix(in oklab, var(--primary) 32%, transparent);";
   const DESTRUCTIVE_STYLE =
     "background: color-mix(in oklab, var(--destructive) 14%, transparent); color: oklch(0.55 0.2 27); border-color: color-mix(in oklab, var(--destructive) 32%, transparent);";
-  const SUCCESS_STYLE =
-    "background: color-mix(in oklab, var(--success) 15%, transparent); color: oklch(0.45 0.13 160); border-color: color-mix(in oklab, var(--success) 32%, transparent);";
   const INFO_STYLE =
     "background: color-mix(in oklab, var(--info) 15%, transparent); color: oklch(0.45 0.12 230); border-color: color-mix(in oklab, var(--info) 32%, transparent);";
 

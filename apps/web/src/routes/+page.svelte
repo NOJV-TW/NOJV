@@ -9,7 +9,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
-  import { assignmentPath } from "$lib/types";
+  import { assignmentPath } from "$lib/utils/coursework-path";
 
   let { data } = $props();
 

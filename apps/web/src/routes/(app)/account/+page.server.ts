@@ -6,7 +6,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { isReservedUsername } from "$lib/utils/school";
 import { requireAuth } from "$lib/server/auth";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
 import type { Actions, PageServerLoad } from "./$types";
@@ -64,10 +64,7 @@ export const load: PageServerLoad = async (event) => {
 export const actions = {
   sendVerification: handleSendVerificationAction,
 
-  updateName: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateName: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate(event, zod4(nameSchema));
     if (!form.valid) {
@@ -86,12 +83,9 @@ export const actions = {
     }
 
     return message<FormMessage>(form, { kind: "success", text: "OK" });
-  },
+  }),
 
-  updateUsername: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateUsername: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate(event, zod4(usernameSchema));
     if (!form.valid) {
@@ -115,5 +109,5 @@ export const actions = {
       kind: "success",
       text: merged ? "MERGED" : "OK",
     });
-  },
+  }),
 } satisfies Actions;

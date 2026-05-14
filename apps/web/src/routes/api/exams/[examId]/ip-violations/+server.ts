@@ -15,11 +15,11 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const examId = event.params.examId;
   if (!examId) {
-    return json({ error: "examId required" }, { status: 400 });
+    return json({ message: "examId required" }, { status: 400 });
   }
 
   if (actor.platformRole === "student") {
-    return json({ error: "Forbidden" }, { status: 403 });
+    return json({ message: "Forbidden" }, { status: 403 });
   }
 
   const violations = await listExamIpViolations({ examId });

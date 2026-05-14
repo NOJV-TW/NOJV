@@ -4,7 +4,6 @@ import { submissionJudgeJobSchema } from "@nojv/core";
 import { getTemporalClient } from "./client";
 import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
 import type {
-  AssessmentLifecycleInput,
   ContestLifecycleInput,
   ExamAutoCloseInput,
   PlagiarismCheckInput,
@@ -53,18 +52,6 @@ export async function dispatchContestLifecycle(input: ContestLifecycleInput): Pr
   await client.workflow.start("contestLifecycleWorkflow", {
     taskQueue: PLATFORM_TASK_QUEUE,
     workflowId: `contest-lifecycle-${input.contestId}`,
-    args: [input],
-  });
-}
-
-export async function dispatchAssessmentLifecycle(
-  input: AssessmentLifecycleInput,
-): Promise<void> {
-  const client = await getTemporalClient();
-
-  await client.workflow.start("assessmentLifecycleWorkflow", {
-    taskQueue: PLATFORM_TASK_QUEUE,
-    workflowId: `assessment-lifecycle-${input.assessmentId}`,
     args: [input],
   });
 }

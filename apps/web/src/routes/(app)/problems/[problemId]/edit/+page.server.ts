@@ -18,7 +18,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { z } from "zod";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, type CompletedActorContext } from "$lib/server/auth";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { parseJsonField, readStringField } from "$lib/server/shared/form-utils";
 import { problemDomain } from "@nojv/domain";
@@ -143,16 +143,13 @@ function problemEditAction<T>(
     event: RequestEvent;
   }) => Promise<T>,
 ) {
-  return async (event: RequestEvent) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  return withRateLimit(async (event: RequestEvent) => {
     const actor = requireAuth(event);
     const problemId = event.params.problemId;
     if (!problemId) error(400, "Missing problem id");
 
     return handler({ actor, problemId, event });
-  };
+  });
 }
 
 // Shared judgeConfig save handler. The edit UI has two tabs (Judge

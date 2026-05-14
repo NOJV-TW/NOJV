@@ -11,10 +11,10 @@ import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
 const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
-// `fanoutContestStartingSoon` persists notification rows + chunked Redis
-// pub/sub; give it SHORT's 30s budget and 3 retries instead of the 10s
-// pub/sub default.
-const notificationDurable = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
+// Durable fanouts (`fanoutContestStartingSoon`) persist notification rows
+// plus chunked Redis pub/sub. They reuse `contest`'s SHORT_ACTIVITY budget
+// (30s, 3 retries) — the pub/sub-only NOTIFICATION_ACTIVITY (10s, 2 retries)
+// is too tight for the DB write path.
 
 const START_REMINDER_MINUTES = 15;
 
@@ -43,7 +43,7 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
   if (msUntilReminder > 0) {
     await sleep(msUntilReminder);
   }
-  await notificationDurable.fanoutContestStartingSoon(input.contestId);
+  await contest.fanoutContestStartingSoon(input.contestId);
 
   const msUntilStart = startsAtMs - Date.now();
   if (msUntilStart > 0) {

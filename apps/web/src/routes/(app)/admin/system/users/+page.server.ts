@@ -1,7 +1,7 @@
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
 import { userDomain } from "@nojv/domain";
 
@@ -29,10 +29,7 @@ export const load: PageServerLoad = async ({ url }) => {
 };
 
 export const actions = {
-  updateRole: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateRole: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     if (actor.platformRole !== "admin") {
       return fail(403, { error: "Admin access required." });
@@ -50,12 +47,9 @@ export const actions = {
 
     await updateUserRole(userId, role);
     return { success: true };
-  },
+  }),
 
-  toggleDisabled: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  toggleDisabled: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     if (actor.platformRole !== "admin") {
       return fail(403, { error: "Admin access required." });
@@ -73,5 +67,5 @@ export const actions = {
     if (!result) return fail(404, { error: "User not found." });
 
     return { success: true };
-  },
+  }),
 } satisfies Actions;

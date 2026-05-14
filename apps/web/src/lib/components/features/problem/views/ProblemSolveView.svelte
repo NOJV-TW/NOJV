@@ -6,8 +6,8 @@
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary
   } from "$lib/types";
-  import MobileWorkspaceBlocker from "$lib/components/primitives/layout/MobileWorkspaceBlocker.svelte";
   import AdvancedModeWorkspace from "../advanced/AdvancedModeWorkspace.svelte";
+  import MobileWorkspaceBlocker from "../layouts/MobileWorkspaceBlocker.svelte";
   import ProblemSwitcherDrawer from "../layouts/ProblemSwitcherDrawer.svelte";
   import ProblemWorkspace from "../layouts/ProblemWorkspace.svelte";
 

@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 
 import { NativeConnection, Worker } from "@temporalio/worker";
 
-import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "@nojv/temporal";
+import { closeTemporalClient, JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "@nojv/temporal";
 
 const require = createRequire(import.meta.url);
 
@@ -19,13 +19,17 @@ export class WorkerApp {
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
   private shutdownPromise: Promise<void> | null = null;
-  private temporalConnected = false;
 
   constructor(env: WorkerEnv) {
     this.env = env;
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
-      isTemporalConnected: () => this.temporalConnected,
+      // Readiness is derived live from each Worker's `getState()`. A stale
+      // boolean would let `/readyz` keep returning 200 after a mid-run
+      // disconnect (state would transition to `FAILED` / `STOPPED` but the
+      // flag would still read `true`).
+      isTemporalConnected: () =>
+        this.workers.length > 0 && this.workers.every((w) => w.getState() === "RUNNING"),
     });
   }
 
@@ -34,7 +38,6 @@ export class WorkerApp {
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
     const connection = await NativeConnection.connect({ address });
-    this.temporalConnected = true;
 
     if (mode === "all" || mode === "judge") {
       const { setExecutor } = await import("./activities/judge.js");
@@ -91,8 +94,6 @@ export class WorkerApp {
 
     logger.info("shutting down", { signal });
 
-    this.temporalConnected = false;
-
     this.shutdownPromise = (async () => {
       await closeServerSafely(this.healthServer);
       for (const w of this.workers) {
@@ -109,6 +110,11 @@ export class WorkerApp {
           throw err;
         }
       }
+      // Close the shared dispatch-side Temporal client so the process can
+      // exit cleanly. The worker uses `NativeConnection` (closed by
+      // `Worker.shutdown()`); this drops the high-level client kept alive
+      // by `@nojv/temporal` dispatch helpers.
+      await closeTemporalClient();
     })();
 
     await this.shutdownPromise;

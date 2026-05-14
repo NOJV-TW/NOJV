@@ -8,7 +8,7 @@ import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyError } from "$lib/server/shared/handle-action-error";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 const {
   findCourseWithMembership,
@@ -55,10 +55,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  updateInfo: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  updateInfo: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -73,12 +70,9 @@ export const actions = {
     }
 
     return message(form, { kind: "success", text: "ok" });
-  },
+  }),
 
-  copyCourse: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  copyCourse: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -98,12 +92,9 @@ export const actions = {
     }
 
     redirect(303, `/courses/${newCourseId}/settings`);
-  },
+  }),
 
-  toggleArchive: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  toggleArchive: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -118,12 +109,9 @@ export const actions = {
     }
 
     return { archived: next };
-  },
+  }),
 
-  deleteCourse: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  deleteCourse: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -147,5 +135,5 @@ export const actions = {
     }
 
     redirect(303, "/courses");
-  },
+  }),
 } satisfies Actions;

@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from "./$types";
 
 import { getActorContext, requireAuth } from "$lib/server/auth";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { contestDomain } from "@nojv/domain";
 
 const {
@@ -14,7 +15,7 @@ const {
   unfreezeContest,
 } = contestDomain;
 
-export const load: PageServerLoad = async (event) => {
+export const load: PageServerLoad = handleLoad(async (event) => {
   const { contestId } = event.params;
   const actor = getActorContext(event);
 
@@ -46,7 +47,7 @@ export const load: PageServerLoad = async (event) => {
     contestId,
     scoreboard,
   };
-};
+});
 
 export const actions = {
   unfreeze: withRateLimit(async (event) => {

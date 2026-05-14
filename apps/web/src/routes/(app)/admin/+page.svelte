@@ -22,8 +22,9 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import type { PageData } from "./$types";
 
-  let { data }: { data: any } = $props();
+  let { data }: { data: PageData } = $props();
 
   type UiLang = "zh" | "en";
   let uiLang = $state<UiLang>("zh");
@@ -251,7 +252,7 @@
     />
     <StatCard
       label={t("events")}
-      value={data.kpi.totalAssessments}
+      value={data.kpi.totalContests + data.kpi.totalAssignments}
       icon={Trophy}
     />
     <StatCard

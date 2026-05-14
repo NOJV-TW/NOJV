@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ProblemSubmissionEntry } from "$lib/types";
-  import { formatVerdictLabel, verdictColor } from "$lib/types";
+  import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
   import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";

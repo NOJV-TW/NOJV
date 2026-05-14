@@ -1,21 +1,27 @@
 import { submissionDraftSchema } from "@nojv/core";
+import { submissionDomain } from "@nojv/domain";
 import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
-import { dispatchSubmissionJob } from "$lib/server/queue";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { getClientIp } from "$lib/server/shared/client-ip";
-import { createQueuedSubmissionRecord } from "$lib/server/submission/mutations";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
   const payload = submissionDraftSchema.parse(await event.request.json());
 
-  const submission = await createQueuedSubmissionRecord(payload, actor, getClientIp(event));
-  await dispatchSubmissionJob({ draft: payload, submissionId: submission.id });
+  const submission = await submissionDomain.createQueuedSubmissionRecord(
+    payload,
+    actor,
+    getClientIp(event),
+  );
+  await submissionDomain.dispatchSubmissionJudge({
+    draft: payload,
+    submissionId: submission.id,
+  });
 
   return json(
     {

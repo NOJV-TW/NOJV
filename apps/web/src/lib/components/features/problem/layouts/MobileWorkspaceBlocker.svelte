@@ -3,7 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import type { ProblemDetail } from "$lib/types";
   import { Button } from "$lib/components/primitives/ui/button";
-  import MarkdownRenderer from "./MarkdownRenderer.svelte";
+  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
 
   // Pure-CSS visibility blocker shown on screens narrower than `md`. The
   // server-side IP / page-lock checks remain authoritative; this component is

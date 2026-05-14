@@ -7,6 +7,7 @@ import {
   sseEventSchema,
   type SSEEvent,
 } from "@nojv/core";
+import { m } from "$lib/paraglide/messages.js";
 import { notifications } from "./notifications.svelte";
 import { toasts } from "./toast";
 
@@ -135,13 +136,13 @@ export function unsubscribeClarificationChannel(
 
 function handleDefaultEvent(data: SSEEvent) {
   if (data.type === SSE_CONTEST_STARTING) {
-    toasts.add({ message: "Contest starting soon!", type: "info" });
+    toasts.add({ message: m.sse_contestStartingSoon(), type: "info" });
   }
   if (data.type === SSE_CONTEST_ENDING) {
-    toasts.add({ message: "Contest ending soon!", type: "info" });
+    toasts.add({ message: m.sse_contestEndingSoon(), type: "info" });
   }
   if (data.type === SSE_ASSIGNMENT_DEADLINE) {
-    toasts.add({ message: "Assignment deadline approaching!", type: "info" });
+    toasts.add({ message: m.sse_assignmentDeadlineApproaching(), type: "info" });
   }
   if (data.type === SSE_NOTIFICATION) {
     // Batch signals arrive without id/createdAt; the store falls back to

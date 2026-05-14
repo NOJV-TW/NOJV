@@ -1,5 +1,6 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
+import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
 import { submissionDomain } from "@nojv/domain";
 
 const { getSubmissionForUser, querySubmissionStatus } = submissionDomain;
@@ -7,25 +8,6 @@ const { getSubmissionForUser, querySubmissionStatus } = submissionDomain;
 const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
 const TERMINAL_STATUSES = new Set(["completed", "failed"]);
-const MAX_SSE_PER_USER = 5;
-
-const sseConnectionCounts = new Map<string, number>();
-
-function acquireSseSlot(userId: string): boolean {
-  const current = sseConnectionCounts.get(userId) ?? 0;
-  if (current >= MAX_SSE_PER_USER) return false;
-  sseConnectionCounts.set(userId, current + 1);
-  return true;
-}
-
-function releaseSseSlot(userId: string): void {
-  const current = sseConnectionCounts.get(userId) ?? 0;
-  if (current <= 1) {
-    sseConnectionCounts.delete(userId);
-  } else {
-    sseConnectionCounts.set(userId, current - 1);
-  }
-}
 
 export const GET: RequestHandler = (event) => {
   const actor = getActorContext(event);
@@ -37,7 +19,7 @@ export const GET: RequestHandler = (event) => {
   const userId = actor.userId;
   const isAdmin = actor.platformRole === "admin";
 
-  if (!acquireSseSlot(userId)) {
+  if (!acquireSseSlot("submission", userId)) {
     return new Response("Too many concurrent connections", { status: 429 });
   }
 
@@ -45,7 +27,7 @@ export const GET: RequestHandler = (event) => {
   function releaseOnce() {
     if (!released) {
       released = true;
-      releaseSseSlot(userId);
+      releaseSseSlot("submission", userId);
     }
   }
 

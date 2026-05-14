@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ProblemDetail, ProblemTestcaseSetSummary } from "$lib/types";
-  import { tagClass } from "$lib/types";
+  import { tagClass } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";

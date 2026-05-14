@@ -1,4 +1,4 @@
-import { courseMembershipRepo, examRepo, runTransaction } from "@nojv/db";
+import { courseMembershipRepo, examRepo, ipViolationLogRepo, runTransaction } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -376,5 +376,12 @@ export async function checkExamIpAccess(
 ): Promise<IpCheckResult> {
   return runTransaction(async (tx) => {
     return checkIpLock(tx, config, clientIp, participation, { userId, examId });
+  });
+}
+
+export function listExamIpViolations(opts: { examId: string; take?: number }) {
+  return ipViolationLogRepo.listByExam({
+    examId: opts.examId,
+    take: opts.take ?? 200,
   });
 }

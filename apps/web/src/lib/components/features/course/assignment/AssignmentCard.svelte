@@ -7,9 +7,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import StatusPill from "$lib/components/primitives/visual/StatusPill.svelte";
+  import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
-  import TypeIcon from "$lib/components/primitives/visual/TypeIcon.svelte";
+  import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import { diffMs, fmtCountdown } from "$lib/utils/datetime";
 
   interface Props {

@@ -36,5 +36,5 @@ export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const id = requireId(event);
   await scoreOverrideDomain.deleteOverride(actor, id);
-  return json({ ok: true });
+  return new Response(null, { status: 204 });
 });

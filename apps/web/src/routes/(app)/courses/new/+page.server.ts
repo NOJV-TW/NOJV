@@ -7,7 +7,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
-import { consumeFormRateLimit } from "$lib/server/shared/rate-limiter";
+import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 const { createCourseRecord } = courseDomain;
 
@@ -21,10 +21,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  default: async (event) => {
-    const limited = await consumeFormRateLimit(event);
-    if (limited) return limited;
-
+  default: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     if (!canCreateCourse(actor.platformRole)) {
       redirect(303, "/courses");
@@ -43,5 +40,5 @@ export const actions = {
     }
 
     redirect(303, `/courses/${createdCourseId}`);
-  },
+  }),
 } satisfies Actions;

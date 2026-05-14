@@ -12,7 +12,7 @@ import { adminDomain } from "@nojv/domain";
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   if (actor.platformRole !== "admin") {
-    return json({ error: "Forbidden" }, { status: 403 });
+    return json({ message: "Forbidden" }, { status: 403 });
   }
 
   const checks = await adminDomain.checkSystemHealth();
