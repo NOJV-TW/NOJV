@@ -5,20 +5,20 @@ export {
   type SimilarityPair,
 } from "./types";
 export {
-  fetchSubmissionsForCheck,
-  updateReportStatus,
-  saveResults,
-  markReportFailed,
-  resolvePlagiarismTarget,
   createPlagiarismReport,
   findPlagiarismReport,
-  getPlagiarismSourceCode,
-  listAssignmentPlagiarismReports,
   getAssignmentProblemMap,
+  getPlagiarismSourceCode,
+  getPlagiarismTarget,
+  listAssignmentPlagiarismReports,
+  listSubmissionsForCheck,
+  markReportFailed,
+  saveResults,
+  updateReportStatus,
   type PlagiarismSubmission,
   type ResolvedPlagiarismTarget,
 } from "./queries";
-export { dispatchPlagiarismCheck } from "@nojv/job-dispatch";
+export { dispatchPlagiarismCheck } from "@nojv/temporal";
 export {
   buildPairKey,
   flagPair,

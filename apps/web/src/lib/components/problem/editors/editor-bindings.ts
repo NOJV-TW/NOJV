@@ -7,7 +7,11 @@
  */
 import { entryFileNameFor, languageSchema, type Language, type ProblemType } from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
-import type { SubmissionWorkspaceFile } from "$lib/services/submission-service";
+import type {
+  SubmissionAssessmentContext,
+  SubmissionRequest,
+  SubmissionWorkspaceFile,
+} from "$lib/services/submission-service";
 
 const LANGUAGE_STORAGE_KEY = "nojv:editor:language";
 
@@ -166,4 +170,58 @@ export function createBottomResizeHandler({
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   };
+}
+
+/**
+ * Build the submission-service request payload, branching on workspace vs
+ * single-file mode. Keeps the run/submit flow in Editor.svelte mechanical.
+ */
+export function buildSubmissionRequest(args: {
+  problemId: string;
+  language: Language;
+  isWorkspaceMode: boolean;
+  drafts: Record<string, string>;
+  workspaceFiles: WorkspaceFile[];
+  workspaceDrafts: Record<string, string>;
+  sampleOnly: boolean;
+  runCases?: { input: string; expectedOutput?: string }[] | undefined;
+  assessment?: SubmissionAssessmentContext | undefined;
+  contestId?: string | undefined;
+}): SubmissionRequest {
+  const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
+    language: args.language,
+    problemId: args.problemId,
+    sampleOnly: args.sampleOnly,
+    ...(args.assessment ? { assessment: args.assessment } : {}),
+    ...(args.contestId ? { contestId: args.contestId } : {}),
+    ...(args.runCases ? { runCases: args.runCases } : {}),
+  };
+  if (args.isWorkspaceMode) {
+    const files = projectWorkspaceFilesForSubmit(args.workspaceFiles, args.workspaceDrafts);
+    const firstEditable =
+      args.workspaceFiles.find((f) => f.visibility === "editable") ?? args.workspaceFiles[0];
+    const sourceCode = firstEditable
+      ? (files.find((c) => c.path === firstEditable.path)?.content ?? "")
+      : "";
+    return { ...base, sourceCode, sourceFiles: files };
+  }
+  return { ...base, sourceCode: args.drafts[args.language] ?? "" };
+}
+
+/**
+ * Project the active source as a single string for the post-submit callback.
+ * Workspace mode concatenates editable files with banner comments; single-file
+ * mode returns the active draft.
+ */
+export function projectSubmittedSource(args: {
+  language: Language;
+  isWorkspaceMode: boolean;
+  drafts: Record<string, string>;
+  workspaceFiles: WorkspaceFile[];
+  workspaceDrafts: Record<string, string>;
+}): string {
+  if (!args.isWorkspaceMode) return args.drafts[args.language] ?? "";
+  return projectWorkspaceFilesForSubmit(args.workspaceFiles, args.workspaceDrafts)
+    .map((f) => `// --- ${f.path} ---\n${f.content}`)
+    .join("\n\n");
 }

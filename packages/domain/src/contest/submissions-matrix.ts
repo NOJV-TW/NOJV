@@ -1,7 +1,7 @@
 import { submissionRepo } from "@nojv/db";
 
 import { problemLetter } from "../shared/problem-letter";
-import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 import type { ContestProblemSummary } from "./queries";
 
 export type ContestMatrixCellState = "ac" | "partial" | "zero" | "empty";
@@ -86,7 +86,7 @@ export async function buildContestSubmissionsMatrix(
     });
   }
 
-  const overrides = await resolveOverridesForContext({
+  const overrides = await getOverridesForContext({
     type: "contest",
     contestId: input.contestId,
   });

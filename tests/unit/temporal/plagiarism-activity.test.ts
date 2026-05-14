@@ -9,10 +9,10 @@ vi.mock("@temporalio/activity", () => ({
   },
 }));
 
-const { updateReportStatus, fetchSubmissionsForCheck, saveResults, markReportFailed } =
+const { updateReportStatus, listSubmissionsForCheck, saveResults, markReportFailed } =
   vi.hoisted(() => ({
     updateReportStatus: vi.fn(),
-    fetchSubmissionsForCheck: vi.fn(),
+    listSubmissionsForCheck: vi.fn(),
     saveResults: vi.fn(),
     markReportFailed: vi.fn(),
   }));
@@ -20,13 +20,13 @@ const { updateReportStatus, fetchSubmissionsForCheck, saveResults, markReportFai
 vi.mock("@nojv/domain", () => ({
   plagiarismDomain: {
     updateReportStatus,
-    fetchSubmissionsForCheck,
+    listSubmissionsForCheck,
     saveResults,
     markReportFailed,
   },
 }));
 
-import { runPlagiarismCheck } from "../../../packages/temporal/src/activities/plagiarism";
+import { runPlagiarismCheck } from "../../../apps/worker/src/activities/plagiarism";
 
 const target = { type: "courseAssessment" as const, id: "asg_1" };
 
@@ -64,20 +64,20 @@ function sub(
 
 beforeEach(() => {
   updateReportStatus.mockReset().mockResolvedValue(undefined);
-  fetchSubmissionsForCheck.mockReset();
+  listSubmissionsForCheck.mockReset();
   saveResults.mockReset().mockResolvedValue(undefined);
   markReportFailed.mockReset().mockResolvedValue(undefined);
 });
 
 describe("runPlagiarismCheck — bookkeeping", () => {
   it("writes status='running' before doing work", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([]);
+    listSubmissionsForCheck.mockResolvedValue([]);
     await runPlagiarismCheck(target.id, target.type);
     expect(updateReportStatus).toHaveBeenCalledWith(target, "running");
   });
 
   it("short-circuits to empty results when there are no accepted submissions", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([]);
+    listSubmissionsForCheck.mockResolvedValue([]);
     await runPlagiarismCheck(target.id, target.type);
     expect(saveResults).toHaveBeenCalledWith(target, { pairs: [] }, null);
   });
@@ -85,7 +85,7 @@ describe("runPlagiarismCheck — bookkeeping", () => {
 
 describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)", () => {
   it("keeps only the best-scoring submission per (user, problem) before pairing", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
+    listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 50, DIFFERENT_PY),
       sub("usr_a", "prob_1", 100, IDENTICAL_PY),
       sub("usr_b", "prob_1", 80, IDENTICAL_PY),
@@ -104,7 +104,7 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
   });
 
   it("skips groups with fewer than 2 submissions", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([sub("usr_a", "prob_solo", 100, IDENTICAL_PY)]);
+    listSubmissionsForCheck.mockResolvedValue([sub("usr_a", "prob_solo", 100, IDENTICAL_PY)]);
     await runPlagiarismCheck(target.id, target.type);
     expect(saveResults).toHaveBeenCalledWith(target, { pairs: [] }, null);
   });
@@ -112,7 +112,7 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
   it("keeps cpp and c in separate groups (one parser per language)", async () => {
     const cppSrc = "int main(){int x=0;for(int i=0;i<10;i++)x+=i;return x;}\n";
     const cSrc = "int main(){int x=0;for(int i=0;i<10;i++)x+=i;return x;}\n";
-    fetchSubmissionsForCheck.mockResolvedValue([
+    listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, cppSrc, "cpp"),
       sub("usr_b", "prob_1", 100, cSrc, "c"),
     ]);
@@ -124,7 +124,7 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
   });
 
   it("silently skips submissions in unmapped languages", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
+    listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, "brainfuck_source", "brainfuck"),
       sub("usr_b", "prob_1", 100, IDENTICAL_PY, "python"),
       sub("usr_c", "prob_1", 100, IDENTICAL_PY, "python"),
@@ -141,7 +141,7 @@ describe("runPlagiarismCheck — dedup + grouping (integration with real Dolos)"
 
 describe("runPlagiarismCheck — pair emission", () => {
   it("emits similarity as an integer 0..100 on an identical-source pair", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
+    listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, IDENTICAL_PY),
       sub("usr_b", "prob_1", 100, IDENTICAL_PY),
     ]);
@@ -159,7 +159,7 @@ describe("runPlagiarismCheck — pair emission", () => {
   });
 
   it("reports near-zero similarity on clearly different submissions", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
+    listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, IDENTICAL_PY),
       sub("usr_b", "prob_1", 100, DIFFERENT_PY),
     ]);
@@ -176,7 +176,7 @@ describe("runPlagiarismCheck — pair emission", () => {
   });
 
   it("strips file extension from user ids in the persisted pair", async () => {
-    fetchSubmissionsForCheck.mockResolvedValue([
+    listSubmissionsForCheck.mockResolvedValue([
       sub("usr_a", "prob_1", 100, IDENTICAL_PY),
       sub("usr_b", "prob_1", 100, IDENTICAL_PY),
     ]);
@@ -192,7 +192,7 @@ describe("runPlagiarismCheck — pair emission", () => {
 describe("runPlagiarismCheck — error handling", () => {
   it("marks the report failed and rethrows when the domain layer errors", async () => {
     const boom = new Error("fetchSubmissions blew up");
-    fetchSubmissionsForCheck.mockRejectedValue(boom);
+    listSubmissionsForCheck.mockRejectedValue(boom);
 
     await expect(runPlagiarismCheck(target.id, target.type)).rejects.toThrow(boom);
     expect(markReportFailed).toHaveBeenCalledWith(target);

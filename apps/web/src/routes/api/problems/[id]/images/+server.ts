@@ -8,7 +8,7 @@ import {
   detectImageType,
 } from "$lib/server/shared/image-upload";
 import { canEditProblem, problemDomain } from "@nojv/domain";
-import { createStorageClient, uploadProblemImage } from "@nojv/storage";
+import { uploadProblemImage } from "$lib/server/storage/problem-image";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -40,7 +40,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "File too large (max 5MB)");
   }
 
-  const client = createStorageClient();
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const detectedType = detectImageType(buffer);
@@ -48,7 +47,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "Invalid file type. File content does not match an allowed image format.");
   }
 
-  const url = await uploadProblemImage(client, problemId, buffer, detectedType);
+  const url = await uploadProblemImage(problemId, buffer, detectedType);
 
   return json({ url });
 });

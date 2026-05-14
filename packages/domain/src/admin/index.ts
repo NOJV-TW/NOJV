@@ -8,7 +8,7 @@ import {
   userRepo,
 } from "@nojv/db";
 import { getRedis } from "@nojv/redis";
-import { getTemporalClient } from "@nojv/job-dispatch";
+import { getTemporalClient } from "@nojv/temporal";
 
 function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);

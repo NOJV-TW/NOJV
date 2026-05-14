@@ -1,6 +1,11 @@
-import { NotFoundError, ValidationError, plagiarismDomain } from "@nojv/domain";
+import {
+  NotFoundError,
+  ValidationError,
+  contestDomain,
+  plagiarismDomain,
+  userDomain,
+} from "@nojv/domain";
 import { canManageCourse } from "@nojv/domain";
-import { contestRepo, userRepo } from "@nojv/db";
 import type { RequestEvent } from "@sveltejs/kit";
 
 import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
@@ -17,13 +22,13 @@ const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsFo
  */
 export async function assertCanManagePlagiarism(
   event: RequestEvent,
-  resolved: Awaited<ReturnType<typeof plagiarismDomain.resolvePlagiarismTarget>>,
+  resolved: Awaited<ReturnType<typeof plagiarismDomain.getPlagiarismTarget>>,
   denialMessage: string,
 ): Promise<void> {
   const actor = requireApiAuth(event);
   if (resolved.target.type === "contest") {
     if (actor.platformRole === "admin") return;
-    const contest = await contestRepo.findById(resolved.target.id);
+    const contest = await contestDomain.getContestById(resolved.target.id);
     if (contest?.createdByUserId === actor.userId) return;
     throw new ForbiddenError(denialMessage);
   }
@@ -98,8 +103,8 @@ export async function loadPlagiarismPair(
     getPlagiarismSourceCode(input.target, userAId, problemId),
     getPlagiarismSourceCode(input.target, userBId, problemId),
     listFlagsForContext(input.flagContext, input.target.id),
-    userRepo.findById(userAId),
-    userRepo.findById(userBId),
+    userDomain.getUserById(userAId),
+    userDomain.getUserById(userBId),
   ]);
 
   const pair = report

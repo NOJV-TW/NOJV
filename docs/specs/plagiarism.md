@@ -284,7 +284,7 @@ for staff.
 - `packages/temporal/src/workflows/activity-options.ts` —
   `PLAGIARISM_ACTIVITY` sets `startToCloseTimeout: "10m"`,
   `maximumAttempts: 3`.
-- `packages/job-dispatch/src/dispatch.ts` —
+- `packages/temporal/src/dispatch.ts` —
   `dispatchPlagiarismCheck` (workflow-id scheme).
 
 ### Routes / API

@@ -4,22 +4,28 @@
   "globalEnv": ["NODE_ENV", "CI"],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".svelte-kit/**"]
+      "dependsOn": ["^build", "paraglide:compile"],
+      "outputs": ["dist/**", ".svelte-kit/**", "build/**", "generated/**"]
     },
     "dev": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "paraglide:compile"],
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^build", "build"]
-    },
-    "test": {
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["paraglide:compile"],
+      "outputs": []
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["paraglide:compile"],
+      "outputs": []
+    },
+    "paraglide:compile": {
+      "inputs": ["project.inlang/**", "messages/**"],
+      "outputs": ["src/lib/paraglide/**"]
+    },
+    "db:generate": {
+      "outputs": ["generated/**"]
     }
   }
 }

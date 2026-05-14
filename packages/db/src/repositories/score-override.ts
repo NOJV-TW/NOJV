@@ -75,7 +75,7 @@ export const scoreOverrideRepo = {
     });
   },
 
-  // Bulk variant used by resolveFinalScoresForContext — returns every
+  // Bulk variant used by getOverridesForContext — returns every
   // override row in the given (contextType, contextId) scope keyed by
   // `${userId}::${problemId}` composite.
   findAllByContext(contextType: OverrideContextType, contextId: string) {

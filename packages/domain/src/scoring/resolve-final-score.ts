@@ -23,7 +23,7 @@ export interface ResolvedScore {
  * `ScoreOverrideContext` union makes it unrepresentable), so practice
  * callers should NOT funnel through this helper.
  */
-export async function resolveFinalScore(
+export async function getFinalScore(
   userId: string,
   problemId: string,
   context: ResolvedScoreContext,
@@ -62,7 +62,7 @@ export async function resolveFinalScore(
  * submissions-matrix builders) can overlay this map without adding a
  * per-cell round trip.
  */
-export async function resolveOverridesForContext(
+export async function getOverridesForContext(
   context: ResolvedScoreContext,
 ): Promise<Map<string, number>> {
   const db = toContextDbFields(context);

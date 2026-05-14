@@ -123,7 +123,7 @@ enum ScoreOverrideAction {
 }
 
 /// Staff-only per-(user, problem, context) manual score override.
-/// `resolveFinalScore` short-circuits the best-submission aggregate when
+/// `getFinalScore` short-circuits the best-submission aggregate when
 /// a matching row is present. Practice context is not a valid target —
 /// `OverrideContextType` makes that unrepresentable at the type level.
 model ScoreOverride {

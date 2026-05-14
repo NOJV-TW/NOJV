@@ -31,6 +31,15 @@ export function aggregateByTag(rows: readonly AcRow[]): TagAcCount[] {
     .slice(0, MAX_TAGS);
 }
 
+/**
+ * Thin wrapper around `userRepo.findById`. Used where callers only need
+ * the raw user row (display name / username) — e.g. the plagiarism
+ * pair-diff view rendering both authors. Returns null on miss.
+ */
+export async function getUserById(id: string) {
+  return userRepo.findById(id);
+}
+
 export interface UserSearchParams {
   search?: string;
   roleFilter?: string;

@@ -4,7 +4,7 @@
   import type { Language, ProblemImageSource } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import ProblemSections from "$lib/components/problem/ProblemSections.svelte";
+  import ProblemSections from "$lib/components/problem/views/ProblemSections.svelte";
   import BasicInfoTab from "$lib/components/problem/tabs/BasicInfoTab.svelte";
   import TestcaseTab from "$lib/components/problem/tabs/TestcaseTab.svelte";
   import JudgeTab from "$lib/components/problem/tabs/JudgeTab.svelte";

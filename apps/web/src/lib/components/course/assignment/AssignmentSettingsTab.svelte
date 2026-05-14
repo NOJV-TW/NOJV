@@ -10,10 +10,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
-  import Send from "@lucide/svelte/icons/send";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
-  import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
-  import Undo2 from "@lucide/svelte/icons/undo-2";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/ui/button";
@@ -22,6 +18,8 @@
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
+  import AssignmentLifecycleSection from "./AssignmentLifecycleSection.svelte";
+  import AssignmentBasicSection from "./AssignmentBasicSection.svelte";
 
   interface Props {
     form: SuperValidated<AssessmentSettingsFormData, FormMessage>;
@@ -75,8 +73,6 @@
   }
 
   const lockMsg = $derived(lockHint());
-
-  let confirmingDelete = $state(false);
 </script>
 
 <section data-slot="assignment-settings-tab" class={cn("space-y-6", className)}>
@@ -109,91 +105,13 @@
   <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <section
-      class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
-    >
-      <h3 class="mb-4 text-title-sm font-medium">
-        {m.assignmentDetail_settingsSectionBasic()}
-      </h3>
-      <div class="space-y-4">
-        <div>
-          <label class="text-sm font-medium" for="settings-title">
-            {m.assignmentDetail_settingsTitleLabel()}
-          </label>
-          <input
-            id="settings-title"
-            class={inputClassName}
-            type="text"
-            bind:value={$form.title}
-            disabled={!editableBasics}
-            aria-invalid={$errors.title ? "true" : undefined}
-          />
-          {#if $errors.title}
-            <p class="mt-1 text-xs text-destructive">{$errors.title}</p>
-          {/if}
-        </div>
-
-        <div>
-          <label class="text-sm font-medium" for="settings-summary">
-            {m.assignmentDetail_settingsSummaryLabel()}
-          </label>
-          <textarea
-            id="settings-summary"
-            class="{inputClassName} min-h-24 resize-y"
-            bind:value={$form.summary}
-            disabled={!editableBasics}
-          ></textarea>
-        </div>
-
-        <div class="grid gap-4 md:grid-cols-3">
-          <div>
-            <label class="text-sm font-medium" for="settings-opens">
-              {m.assignmentDetail_settingsOpensLabel()}
-            </label>
-            <input
-              id="settings-opens"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.opensAt}
-              disabled={!editableOpensAt}
-            />
-            {#if $errors.opensAt}
-              <p class="mt-1 text-xs text-destructive">{$errors.opensAt}</p>
-            {/if}
-          </div>
-          <div>
-            <label class="text-sm font-medium" for="settings-due">
-              {m.assignmentDetail_settingsDueLabel()}
-            </label>
-            <input
-              id="settings-due"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.dueAt}
-              disabled={!editableDeadlines}
-            />
-            {#if $errors.dueAt}
-              <p class="mt-1 text-xs text-destructive">{$errors.dueAt}</p>
-            {/if}
-          </div>
-          <div>
-            <label class="text-sm font-medium" for="settings-closes">
-              {m.assignmentDetail_settingsClosesLabel()}
-            </label>
-            <input
-              id="settings-closes"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.closesAt}
-              disabled={!editableDeadlines}
-            />
-            {#if $errors.closesAt}
-              <p class="mt-1 text-xs text-destructive">{$errors.closesAt}</p>
-            {/if}
-          </div>
-        </div>
-      </div>
-    </section>
+    <AssignmentBasicSection
+      {form}
+      {errors}
+      {editableBasics}
+      {editableOpensAt}
+      {editableDeadlines}
+    />
 
     <section
       class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
@@ -257,90 +175,10 @@
     </div>
   </form>
 
-  <section
-    class="rounded-xl border border-border bg-[color:var(--color-panel)] p-4 shadow-rest"
-  >
-    <h3 class="mb-4 text-title-sm font-medium">
-      {m.assignmentDetail_settingsSectionLifecycle()}
-    </h3>
-
-    <div class="flex flex-wrap items-center gap-3">
-      {#if isDraft}
-        <form method="POST" action="?/publishAssignment" use:enhance class="contents">
-          <Button type="submit" size="sm" variant="default" disabled={$submitting}>
-            <Send class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsPublishButton()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if isUpcoming}
-        <form method="POST" action="?/revertToDraft" use:enhance class="contents">
-          <Button type="submit" size="sm" variant="outline" disabled={$submitting}>
-            <Undo2 class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsRevertToDraftButton()}
-          </Button>
-        </form>
-      {/if}
-
-    </div>
-  </section>
-
-  <!-- Danger zone (delete, drafts only) -->
-  {#if isDraft}
-    <section
-      class="space-y-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] px-6 py-5"
-    >
-      <div class="flex items-baseline gap-2">
-        <AlertTriangle class="size-4 shrink-0 text-destructive" aria-hidden="true" />
-        <h4 class="text-body-lg font-medium text-destructive">
-          {m.assignmentDetail_settingsDangerZone()}
-        </h4>
-      </div>
-
-      {#if !confirmingDelete}
-        <div class="flex items-center justify-between gap-4">
-          <p class="text-caption text-muted-foreground">
-            {m.assignmentDetail_settingsDeleteConfirmBody()}
-          </p>
-          <Button
-            variant="destructive"
-            size="sm"
-            type="button"
-            onclick={() => (confirmingDelete = true)}
-          >
-            <Trash2 class="mr-1 size-4" aria-hidden="true" />
-            {m.assignmentDetail_settingsDeleteButton()}
-          </Button>
-        </div>
-      {:else}
-        <div
-          class="rounded-md border border-destructive/40 bg-destructive/[0.06] px-4 py-3"
-        >
-          <div class="font-semibold text-destructive">
-            {m.assignmentDetail_settingsDeleteConfirmTitle()}
-          </div>
-          <p class="mt-1 text-caption text-muted-foreground">
-            {m.assignmentDetail_settingsDeleteConfirmBody()}
-          </p>
-          <div class="mt-3 flex items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onclick={() => (confirmingDelete = false)}
-              disabled={$submitting}
-            >
-              {m.assignmentDetail_settingsDeleteConfirmCancel()}
-            </Button>
-            <form method="POST" action="?/deleteAssignment" use:enhance class="contents">
-              <Button type="submit" variant="destructive" size="sm" disabled={$submitting}>
-                {m.assignmentDetail_settingsDeleteConfirmConfirm()}
-              </Button>
-            </form>
-          </div>
-        </div>
-      {/if}
-    </section>
-  {/if}
+  <AssignmentLifecycleSection
+    {isDraft}
+    {isUpcoming}
+    submitting={$submitting}
+    {enhance}
+  />
 </section>

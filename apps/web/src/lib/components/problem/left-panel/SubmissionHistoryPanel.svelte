@@ -4,7 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
   import CodeBlock from "$lib/components/ui/CodeBlock.svelte";
-  import SubtaskResults from "$lib/components/problem/SubtaskResults.svelte";
+  import SubtaskResults from "./SubtaskResults.svelte";
   import { toasts } from "$lib/stores/toast";
 
   interface Props {

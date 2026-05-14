@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeAutoCloseDelayMs } from "../../../packages/temporal/src/workflows/exam-auto-close-helpers";
+import { computeAutoCloseDelayMs } from "../../../apps/worker/src/workflows/exam-auto-close-helpers";
 
 /**
  * The workflow itself is a 3-line thin wrapper — sleep for the

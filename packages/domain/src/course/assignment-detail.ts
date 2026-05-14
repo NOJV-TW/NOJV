@@ -2,7 +2,7 @@ import { assessmentRepo, submissionRepo } from "@nojv/db";
 import type { Language } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
@@ -170,7 +170,7 @@ export async function getAssignmentDetail(
 
     // Fetch overrides for this assignment (scoped to this viewer) and
     // let them win over the best-submission aggregate.
-    const overrides = await resolveOverridesForContext({
+    const overrides = await getOverridesForContext({
       type: "assignment",
       assignmentId,
     });
