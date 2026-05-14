@@ -3,16 +3,24 @@ import {
   examSessionRepo,
   problemWorkspaceFileRepo,
   runTransaction,
+  submissionRejudgeLogRepo,
   submissionRepo,
 } from "@nojv/db";
-import { entryFileNameFor, validateRequiredPaths, type SubmissionDraft } from "@nojv/core";
+import {
+  entryFileNameFor,
+  validateRequiredPaths,
+  type SubmissionDraft,
+  type SubmissionResult,
+} from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
 import { assertProblemViewAccess } from "../problem/permissions";
+import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
 
@@ -207,5 +215,90 @@ export async function createQueuedSubmissionRecord(
       status: "queued",
       userId: user.id,
     });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Verdict writes
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function updateSubmissionStatus(
+  submissionId: string,
+  status: string,
+): Promise<void> {
+  await submissionRepo.updateStatus(submissionId, status);
+}
+
+export async function completeJudge(
+  submissionId: string,
+  result: SubmissionResult,
+): Promise<CompletedSubmission> {
+  const submission = await submissionRepo.complete(submissionId, {
+    runtimeMs: result.runtimeMs,
+    ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
+    score: result.score,
+    status: result.verdict,
+    verdictDetail: toJsonValue(result),
+  });
+
+  return {
+    contestParticipationId: submission.contestParticipationId,
+    createdAt: submission.createdAt,
+    id: submission.id,
+    language: submission.language,
+    problemId: submission.problemId,
+    sampleOnly: submission.sampleOnly,
+    score: submission.score,
+    status: submission.status,
+    userId: submission.userId,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Rejudge audit log
+//
+// Two-pass audit for rejudges.
+//
+// `snapshotForRejudge` writes a log row with the pre-rejudge state
+// before the sandbox runs; `finalizeRejudgeLog` fills in the post-
+// rejudge fields after `completeJudge` writes the new verdict.
+//
+// The two passes are deliberately separate: the snapshot must see the
+// pre-rejudge row, and `completeJudge` overwrites it in place.
+// new* columns are nullable so the snapshot is a valid standalone
+// row if the workflow dies between the two calls (Temporal retries
+// land on the already-snapshotted row rather than duplicating).
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function snapshotForRejudge(
+  submissionId: string,
+  triggeredByUserId: string | null,
+): Promise<{ logId: string; oldStatus: string } | null> {
+  const current = await submissionRepo.findById(submissionId);
+  if (!current) return null;
+
+  const row = await submissionRejudgeLogRepo.create({
+    submissionId,
+    rejudgedByUserId: triggeredByUserId,
+    oldVerdict: current.status,
+    oldScore: current.score,
+    oldResultJson: current.verdictDetail === null ? null : toJsonValue(current.verdictDetail),
+  });
+
+  return { logId: row.id, oldStatus: current.status };
+}
+
+export async function finalizeRejudgeLog(
+  submissionId: string,
+  _triggeredByUserId: string | null,
+  logId: string,
+): Promise<void> {
+  const updated = await submissionRepo.findById(submissionId);
+  if (!updated) return;
+
+  await submissionRejudgeLogRepo.update(logId, {
+    newVerdict: updated.status,
+    newScore: updated.score,
+    newResultJson: updated.verdictDetail === null ? null : toJsonValue(updated.verdictDetail),
   });
 }

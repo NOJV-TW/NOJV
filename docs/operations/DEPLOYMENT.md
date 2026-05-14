@@ -193,7 +193,7 @@ See [Observability Setup Runbook](runbooks/observability-setup.md).
 
 ### Deployment Flow
 
-The canonical entry point is `infra/gcp/deploy.sh`. It orchestrates the full
+The canonical entry point is `infra/gcp/cloud-build/deploy.sh`. It orchestrates the full
 pipeline:
 
 ```bash
@@ -209,7 +209,7 @@ export S3_SECRET_KEY=...
 export S3_BUCKET=...
 export S3_REGION=...
 
-bash infra/gcp/deploy.sh
+bash infra/gcp/cloud-build/deploy.sh
 ```
 
 The script:
@@ -217,7 +217,7 @@ The script:
 1. Enables required GCP APIs (Artifact Registry, Cloud Build, Cloud Run, Secret Manager).
 2. Ensures the Artifact Registry repository exists.
 3. Upserts secrets (`nojv-database-url`, `nojv-redis-url`, `nojv-auth-secret`, `nojv-auth-url`, the five `nojv-s3-*` entries, plus optional OAuth secrets).
-4. Submits Cloud Build (`infra/gcp/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, and `migrator` images.
+4. Submits Cloud Build (`infra/gcp/cloud-build/cloudbuild.yaml`) which builds and pushes `web`, `worker`, `sandbox`, and `migrator` images.
 5. Deploys the migrator Cloud Run Job and runs it (Prisma migrations).
 6. Deploys `web` to Cloud Run with `--ingress=internal-and-cloud-load-balancing` so the default `*.a.run.app` URL is unreachable and all traffic must traverse GCLB → Cloud Armor → CF (see [Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)) and injects the `S3_*` env from Secret Manager.
 7. Verifies the web URL is serving and prints the worker + sandbox image refs for the GKE rollout.
@@ -233,7 +233,7 @@ After `deploy.sh` finishes, apply the GKE manifests separately — see
 To run only the build step manually:
 
 ```bash
-gcloud builds submit --config infra/gcp/cloudbuild.yaml \
+gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
   --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260312
 ```
 

@@ -1,7 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
 
 import { examDomain } from "@nojv/domain";
-import { examRepo } from "@nojv/db";
 
 import { requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";
@@ -13,7 +12,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   const { examId, problemId } = event.params;
 
-  const exam = await examRepo.findById(examId);
+  const exam = await examDomain.getExamById(examId);
   if (!exam) error(404, "Exam not found");
   if (new Date() > exam.endsAt) {
     redirect(302, `/problems/${problemId}?ended=exam`);

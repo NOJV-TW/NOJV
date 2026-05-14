@@ -11,7 +11,7 @@ import {
 } from "@nojv/db";
 import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
 
-import { dispatchExamAutoClose } from "@nojv/job-dispatch";
+import { dispatchExamAutoClose } from "@nojv/temporal";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";

@@ -14,7 +14,7 @@
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary
   } from "$lib/types";
-  import ProblemLeftPanel from "../ProblemLeftPanel.svelte";
+  import ProblemLeftPanel from "../layouts/ProblemLeftPanel.svelte";
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
 

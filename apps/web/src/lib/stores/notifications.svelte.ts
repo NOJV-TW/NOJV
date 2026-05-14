@@ -97,9 +97,8 @@ class NotificationsStore {
     this.items = this.items.map((i) => (i.readAt ? i : { ...i, readAt: now }));
     this.unreadCount = 0;
 
-    const res = await fetchWithCsrf("/api/notifications", {
-      method: "PATCH",
-      body: JSON.stringify({ action: "read-all" }),
+    const res = await fetchWithCsrf("/api/notifications/read-all", {
+      method: "POST",
     });
     if (!res.ok) {
       this.items = originalItems;

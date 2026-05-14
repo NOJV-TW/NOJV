@@ -7,7 +7,7 @@ import {
   MAX_IMAGE_SIZE,
   detectImageType,
 } from "$lib/server/shared/image-upload";
-import { createStorageClient, uploadUserContentImage } from "@nojv/storage";
+import { uploadUserContentImage } from "$lib/server/storage/user-content-image";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -34,8 +34,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "Invalid file type. File content does not match an allowed image format.");
   }
 
-  const client = createStorageClient();
-  const url = await uploadUserContentImage(client, actor.userId, buffer, detectedType);
+  const url = await uploadUserContentImage(actor.userId, buffer, detectedType);
 
   return json({ url });
 });

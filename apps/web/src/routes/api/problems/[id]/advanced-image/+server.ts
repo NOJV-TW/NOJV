@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { canEditProblem, problemDomain } from "@nojv/domain";
-import { createStorageClient, uploadAdvancedImageTarball } from "@nojv/storage";
+import { uploadAdvancedImageTarball } from "$lib/server/storage/advanced-image";
 
 const { updateProblemRecord } = problemDomain;
 
@@ -51,8 +51,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "File does not look like a tar archive");
   }
 
-  const client = createStorageClient();
-  const key = await uploadAdvancedImageTarball(client, problemId, buffer);
+  const key = await uploadAdvancedImageTarball(problemId, buffer);
 
   await updateProblemRecord(
     { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },

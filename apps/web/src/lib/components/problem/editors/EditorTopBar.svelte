@@ -3,7 +3,7 @@
   import type { Language, ProblemType } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
-  import LanguageSelector from "$lib/components/problem/LanguageSelector.svelte";
+  import LanguageSelector from "./LanguageSelector.svelte";
 
   interface Props {
     language: Language;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { recordJudgeLatency } from "../../../../packages/temporal/src/activities/utils";
+import { recordJudgeLatency } from "../../../../apps/worker/src/activities/utils";
 
 describe("judge latency metric", () => {
   it("records latency in seconds with mode + verdict labels", () => {

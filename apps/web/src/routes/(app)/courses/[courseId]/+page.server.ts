@@ -1,6 +1,5 @@
 import { fail } from "@sveltejs/kit";
 import type { PlatformRole } from "@nojv/core";
-import { announcementRepo } from "@nojv/db";
 import {
   ForbiddenError,
   announcementDomain,
@@ -22,8 +21,13 @@ const {
   listExamOverviewForCourse,
   getCourseHeaderById,
 } = courseDomain;
-const { createAnnouncement, updateAnnouncement, deleteAnnouncement, toggleAnnouncementPin } =
-  announcementDomain;
+const {
+  createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
+  toggleAnnouncementPin,
+  getAnnouncementById,
+} = announcementDomain;
 
 const ANNOUNCEMENT_LIMIT = 5;
 const ASSESSMENT_LIMIT = 3;
@@ -154,7 +158,7 @@ export const actions = {
     }
 
     // Forbid moving an announcement between courses through this endpoint.
-    const existing = await announcementRepo.findById(id);
+    const existing = await getAnnouncementById(id);
     if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });
     }
@@ -193,7 +197,7 @@ export const actions = {
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
-    const existing = await announcementRepo.findById(id);
+    const existing = await getAnnouncementById(id);
     if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });
     }
@@ -225,7 +229,7 @@ export const actions = {
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
 
-    const existing = await announcementRepo.findById(id);
+    const existing = await getAnnouncementById(id);
     if (existing?.courseId !== courseId) {
       return fail(404, { error: "Announcement not found in this course." });
     }

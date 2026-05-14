@@ -1,7 +1,7 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
 import { NotFoundError } from "../shared/errors";
-import { resolveOverridesForContext } from "../scoring/resolve-final-score";
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 
 export type MatrixCellState = "ac" | "partial" | "zero" | "empty";
 
@@ -104,7 +104,7 @@ export async function buildSubmissionsMatrix(
   // Overlay any manual score overrides. Overrides win over the best-submission
   // score and also "unlock" a cell that otherwise had 0 attempts — a teacher
   // can assign credit for an off-platform solution.
-  const overrides = await resolveOverridesForContext({
+  const overrides = await getOverridesForContext({
     type: "assignment",
     assignmentId,
   });

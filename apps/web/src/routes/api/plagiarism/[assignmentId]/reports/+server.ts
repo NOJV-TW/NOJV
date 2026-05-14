@@ -8,7 +8,7 @@ import { assertCanManagePlagiarism } from "$lib/server/plagiarism-pair";
 import { plagiarismDomain } from "@nojv/domain";
 
 const {
-  resolvePlagiarismTarget,
+  getPlagiarismTarget,
   createPlagiarismReport,
   findPlagiarismReport,
   dispatchPlagiarismCheck,
@@ -23,7 +23,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const resolved = await resolvePlagiarismTarget(assignmentId, type);
+  const resolved = await getPlagiarismTarget(assignmentId, type);
   await assertCanManagePlagiarism(event, resolved, "Only staff can trigger plagiarism checks.");
 
   const { target } = resolved;
@@ -39,13 +39,13 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 });
 
 // GET /api/plagiarism/[assignmentId]/reports — list reports for the target.
-// Source-code fetching has moved to `/api/plagiarism/[assignmentId]/source`.
+// Source-code fetching lives at `/api/plagiarism/[assignmentId]/sources/[userId]/[problemId]`.
 export const GET: RequestHandler = apiHandler(async (event) => {
   const assignmentId = event.params.assignmentId;
   if (!assignmentId) return json({ message: "Missing assignmentId." }, { status: 400 });
   const type = event.url.searchParams.get("type");
 
-  const resolved = await resolvePlagiarismTarget(assignmentId, type);
+  const resolved = await getPlagiarismTarget(assignmentId, type);
   await assertCanManagePlagiarism(event, resolved, "Only staff can view plagiarism reports.");
 
   // Report is 1:1 with its parent, but the response is still an array so `reports[0]` clients keep working.

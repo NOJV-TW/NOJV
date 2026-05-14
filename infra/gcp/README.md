@@ -17,7 +17,7 @@
 
 ## Images
 
-`infra/gcp/cloudbuild.yaml` builds and pushes four images:
+`infra/gcp/cloud-build/cloudbuild.yaml` builds and pushes four images:
 
 - `web`
 - `worker`
@@ -26,13 +26,15 @@
 
 The `sandbox` image is not a long-running service. It is the image the Kubernetes worker launches for each isolated judge job.
 
-## Files
+## Layout
 
-- `cloudbuild.yaml`: builds and pushes runtime images
+- `cloud-build/`: Cloud Build orchestration
+  - `cloudbuild.yaml`: builds and pushes runtime images
+  - `deploy.sh`: builds images, deploys `web`, runs `migrator`, and prints the image refs used by GKE
+- `gke/`: GKE worker deployment, autoscaling, RBAC, and Temporal manifests
+- `scripts/`: Cloud SQL backup / GCS export helpers (`setup-backups.sh`, `export-postgres-to-gcs.sh`)
 - `web.cloudrun.yaml`: reference manifest for the web control plane
 - `migrator.job.yaml`: reference Cloud Run Job for Prisma migrations
-- `deploy.sh`: builds images, deploys `web`, runs `migrator`, and prints the image refs used by GKE
-- `gke/`: worker deployment and autoscaling manifests
 
 The sandbox namespace guardrails now live under `infra/k8s/sandbox/`.
 
@@ -50,7 +52,7 @@ The sandbox namespace guardrails now live under `infra/k8s/sandbox/`.
 
 1. Install and authenticate `gcloud`.
 2. Export the required environment variables.
-3. Run `bash infra/gcp/deploy.sh`.
+3. Run `bash infra/gcp/cloud-build/deploy.sh`.
 4. The script:
    - enables required GCP APIs
    - ensures the Artifact Registry repository exists

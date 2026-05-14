@@ -185,3 +185,77 @@ export async function writeWorkspaceFileBlob(
 export async function readWorkspaceFileBlob(contentKey: string): Promise<string> {
   return getText(getClient(), contentKey);
 }
+
+// --- Edit-page hydration helpers -----------------------------------------
+//
+// The /problems/[id]/edit loader needs each testcase's input/output text
+// and each workspace file's content body. Both live in object storage, so
+// the loader used to reach for `createStorageClient` + `getText` directly.
+// Encapsulating that here keeps `apps/web` off `@nojv/storage` and lets the
+// domain layer evolve the storage backing without touching SvelteKit code.
+//
+// Signatures are generic so the Prisma-inferred enum types (`visibility`,
+// `scoringStrategy`, `language`, …) propagate through to the caller — the
+// previous inline maps returned exactly these widened-but-still-enum
+// shapes and downstream Svelte components depend on them.
+
+interface TestcaseRowLike {
+  inputKey: string;
+  outputKey: string | null;
+}
+
+interface TestcaseSetRowLike {
+  testcases: readonly TestcaseRowLike[];
+}
+
+type HydratedTestcase<T extends TestcaseRowLike> = Omit<T, "inputKey" | "outputKey"> & {
+  input: string;
+  output: string | null;
+};
+
+type HydratedTestcaseSetOf<T extends TestcaseSetRowLike> = Omit<T, "testcases"> & {
+  testcases: HydratedTestcase<T["testcases"][number]>[];
+};
+
+export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
+  sets: readonly T[],
+): Promise<HydratedTestcaseSetOf<T>[]> {
+  const client = getClient();
+  return Promise.all(
+    sets.map(async (set) => {
+      const testcases = await Promise.all(
+        set.testcases.map(async (tc) => {
+          const [input, output] = await Promise.all([
+            getText(client, tc.inputKey),
+            tc.outputKey ? getText(client, tc.outputKey) : Promise.resolve(null),
+          ]);
+          // Spread tc so caller-supplied enum types (e.g. `visibility`)
+          // propagate; the redundant `inputKey`/`outputKey` are typed
+          // away by `Omit` in `HydratedTestcase`.
+          return { ...tc, input, output } as HydratedTestcase<T["testcases"][number]>;
+        }),
+      );
+      return { ...set, testcases } as HydratedTestcaseSetOf<T>;
+    }),
+  );
+}
+
+interface WorkspaceFileRowLike {
+  contentKey: string;
+}
+
+type HydratedWorkspaceFileOf<T extends WorkspaceFileRowLike> = Omit<T, "contentKey"> & {
+  content: string;
+};
+
+export async function hydrateWorkspaceFiles<T extends WorkspaceFileRowLike>(
+  files: readonly T[],
+): Promise<HydratedWorkspaceFileOf<T>[]> {
+  const client = getClient();
+  return Promise.all(
+    files.map(async (f) => {
+      const content = await getText(client, f.contentKey);
+      return { ...f, content } as HydratedWorkspaceFileOf<T>;
+    }),
+  );
+}

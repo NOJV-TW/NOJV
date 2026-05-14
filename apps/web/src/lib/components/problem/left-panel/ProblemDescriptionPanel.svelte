@@ -4,7 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
-  import SpecialLabels from "$lib/components/problem/SpecialLabels.svelte";
+  import SpecialLabels from "./SpecialLabels.svelte";
 
   interface Props {
     problem: ProblemDetail;

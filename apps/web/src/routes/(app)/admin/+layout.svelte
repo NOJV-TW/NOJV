@@ -7,8 +7,8 @@
 
   const tabs = [
     { href: "/admin", key: "overview" as const },
-    { href: "/admin/users", key: "users" as const },
-    { href: "/admin/announcements", key: "announcements" as const }
+    { href: "/admin/system/users", key: "users" as const },
+    { href: "/admin/content/announcements", key: "announcements" as const }
   ];
 
   function tabLabel(key: "overview" | "users" | "announcements"): string {
