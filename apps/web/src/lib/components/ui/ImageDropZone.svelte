@@ -19,9 +19,9 @@
 
   let textarea: HTMLTextAreaElement;
   let fileInput: HTMLInputElement;
-  let uploading = $state(false);
-  let dragOver = $state(false);
-  let previewing = $state(false);
+  let isUploading = $state(false);
+  let isDragOver = $state(false);
+  let isPreviewing = $state(false);
 
   const uploadUrl = $derived(
     problemId ? `/api/problems/${problemId}/images` : `/api/uploads/image`,
@@ -32,7 +32,7 @@
     const images = [...files].filter((f) => f.type.startsWith("image/"));
     if (!images.length) return;
 
-    uploading = true;
+    isUploading = true;
     try {
       for (const file of images) {
         const form = new FormData();
@@ -50,7 +50,7 @@
         }
       }
     } finally {
-      uploading = false;
+      isUploading = false;
     }
   }
 
@@ -68,7 +68,7 @@
 
   function onDrop(e: DragEvent) {
     e.preventDefault();
-    dragOver = false;
+    isDragOver = false;
     handleFiles(e.dataTransfer?.files ?? null);
   }
 
@@ -94,18 +94,18 @@
     ondrop={onDrop}
     ondragover={(e) => {
       e.preventDefault();
-      dragOver = true;
+      isDragOver = true;
     }}
     ondragleave={() => {
-      dragOver = false;
+      isDragOver = false;
     }}
     onpaste={onPaste}
-    class="{className} {dragOver ? 'ring-2 ring-primary' : ''}"
-    hidden={previewing}
+    class="{className} {isDragOver ? 'ring-2 ring-primary' : ''}"
+    hidden={isPreviewing}
     {...restProps}
   ></textarea>
 
-  {#if previewing}
+  {#if isPreviewing}
     <div class="{className} overflow-auto" role="region" aria-label={m.imageUpload_preview()}>
       {#if value.trim()}
         <MarkdownRenderer content={value} />
@@ -126,20 +126,20 @@
 
   <button
     type="button"
-    onclick={() => (previewing = !previewing)}
-    title={previewing ? m.imageUpload_write() : m.imageUpload_preview()}
-    aria-label={previewing ? m.imageUpload_write() : m.imageUpload_preview()}
-    aria-pressed={previewing}
+    onclick={() => (isPreviewing = !isPreviewing)}
+    title={isPreviewing ? m.imageUpload_write() : m.imageUpload_preview()}
+    aria-label={isPreviewing ? m.imageUpload_write() : m.imageUpload_preview()}
+    aria-pressed={isPreviewing}
     class="absolute top-2.5 right-3 inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground opacity-40 transition-[opacity,color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-focus-within/imgzone:opacity-100 group-hover/imgzone:opacity-100"
   >
-    {#if previewing}
+    {#if isPreviewing}
       <Pencil class="h-4 w-4" aria-hidden="true" />
     {:else}
       <Eye class="h-4 w-4" aria-hidden="true" />
     {/if}
   </button>
 
-  {#if !previewing}
+  {#if !isPreviewing}
     <button
       type="button"
       onclick={() => fileInput.click()}
@@ -151,7 +151,7 @@
     </button>
   {/if}
 
-  {#if uploading}
+  {#if isUploading}
     <div
       class="absolute inset-0 flex items-center justify-center rounded-md bg-background/60 pointer-events-none"
     >
@@ -159,7 +159,7 @@
     </div>
   {/if}
 
-  {#if dragOver}
+  {#if isDragOver}
     <div
       class="absolute inset-0 flex items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary/5 pointer-events-none"
     >

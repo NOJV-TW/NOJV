@@ -27,13 +27,6 @@ export interface OverviewAnnouncement {
   expiresAt: string | null;
 }
 
-// First character handles CJK single-char names ("王") and Latin ("Alice") alike.
-function pickInitial(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "?";
-  return trimmed.charAt(0) || "?";
-}
-
 // Sort bands: open rows < upcoming < draft < closed/ended.
 // Within each band the row's own time pushes the rank.
 const RANK_BAND_UPCOMING = 1_000_000_000_000;
@@ -61,7 +54,8 @@ export async function listRecentAnnouncementsForCourse(
       content: localized.content,
       createdAt: row.createdAt.toISOString(),
       authorName,
-      authorInitial: pickInitial(authorName),
+      // First char handles CJK ("王") and Latin ("Alice") alike.
+      authorInitial: authorName.trim().charAt(0) || "?",
       pinned: row.pinned,
       published: row.status === "published",
       audience: row.audience,

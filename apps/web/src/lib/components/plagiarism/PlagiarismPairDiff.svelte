@@ -22,7 +22,7 @@
   let localFlag = $state<{ value: FlagShape } | null>(null);
   const currentFlag = $derived<FlagShape>(localFlag ? localFlag.value : data.flag);
 
-  let busy = $state(false);
+  let isLoading = $state(false);
   let actionError = $state<string | null>(null);
 
   onMount(() => {
@@ -68,7 +68,7 @@
   });
 
   async function handleMark() {
-    busy = true;
+    isLoading = true;
     actionError = null;
     try {
       const res = await fetch("/api/plagiarism-flags", {
@@ -96,13 +96,13 @@
     } catch (err) {
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
-      busy = false;
+      isLoading = false;
     }
   }
 
   async function handleUnmark() {
     if (!currentFlag) return;
-    busy = true;
+    isLoading = true;
     actionError = null;
     try {
       const res = await fetch(`/api/plagiarism-flags/${encodeURIComponent(currentFlag.id)}`, {
@@ -117,7 +117,7 @@
     } catch (err) {
       actionError = err instanceof Error ? err.message : String(err);
     } finally {
-      busy = false;
+      isLoading = false;
     }
   }
 
@@ -147,11 +147,11 @@
         >
           {m.plagiarism_flaggedBadge()}
         </span>
-        <Button variant="outline" size="sm" disabled={busy} onclick={() => void handleUnmark()}>
+        <Button variant="outline" size="sm" disabled={isLoading} onclick={() => void handleUnmark()}>
           {m.plagiarism_unmark()}
         </Button>
       {:else}
-        <Button variant="default" size="sm" disabled={busy} onclick={() => void handleMark()}>
+        <Button variant="default" size="sm" disabled={isLoading} onclick={() => void handleMark()}>
           {m.plagiarism_markFalsePositive()}
         </Button>
       {/if}

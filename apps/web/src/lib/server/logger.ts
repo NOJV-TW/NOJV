@@ -1,47 +1,36 @@
 import pino, { type LoggerOptions } from "pino";
 import type { RequestEvent } from "@sveltejs/kit";
 
-// In production on GCP (Cloud Run / GKE) emit JSON aligned with the Cloud
-// Logging structured-log spec so log entries land with the right severity,
-// message, and timestamp instead of being parsed as text payloads.
-//
-// The two-signal detection (NODE_ENV=production AND one of K_SERVICE /
-// GOOGLE_CLOUD_PROJECT) means a local `NODE_ENV=production node ...` run still
-// gets the plain pino default JSON, which is friendlier for grep + jq.
+// In production on GCP (Cloud Run / GKE) we emit JSON aligned with Cloud
+// Logging's structured-log spec so entries land with the right severity,
+// message, and timestamp instead of being parsed as a text payload.
+// The two-signal detection means a local `NODE_ENV=production node ...` run
+// still gets plain pino JSON, which is friendlier for grep + jq.
 const isGcpProduction =
   process.env.NODE_ENV === "production" &&
   Boolean(process.env.K_SERVICE ?? process.env.GOOGLE_CLOUD_PROJECT);
 
-// pino numeric level → GCP severity. Cloud Logging accepts these strings
-// directly. Anything below debug we still surface as DEBUG.
 function pinoLevelToSeverity(level: number): string {
   if (level >= 60) return "CRITICAL";
   if (level >= 50) return "ERROR";
   if (level >= 40) return "WARNING";
   if (level >= 30) return "INFO";
-  if (level >= 20) return "DEBUG";
   return "DEBUG";
 }
 
 const gcpOptions: LoggerOptions = {
   level: process.env.LOG_LEVEL ?? "info",
-  // Cloud Logging keys off `message` (text payload) and `timestamp`.
   messageKey: "message",
   timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
   formatters: {
-    // Replace pino's numeric `level` with `severity`.
     level(_label, number) {
       return { severity: pinoLevelToSeverity(number) };
     },
-    // Flatten everything else to the root: child bindings (`context: ...`)
-    // and per-call data are merged with the message payload so they show up
-    // as top-level fields in jsonPayload.
     log(record) {
       return record;
     },
   },
-  // pid + hostname add noise in Cloud Run where the platform records its own
-  // resource metadata; drop them.
+  // Cloud Run records its own resource metadata; pid + hostname are noise.
   base: null,
 };
 
