@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import ProblemSolveView from "$lib/components/problem/views/ProblemSolveView.svelte";
+  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
 
   let { data } = $props();
 

@@ -12,11 +12,11 @@
   import { enhance } from "$app/forms";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
-  import ConfirmDialog from "$lib/components/ui/ConfirmDialog.svelte";
-  import CourseAnnouncementDialog from "$lib/components/course/CourseAnnouncementDialog.svelte";
-  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
+  import CourseAnnouncementDialog from "$lib/components/features/course/CourseAnnouncementDialog.svelte";
+  import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
   import { formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 

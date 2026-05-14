@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ProblemSolveView from "$lib/components/problem/views/ProblemSolveView.svelte";
+  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
   import { m } from "$lib/paraglide/messages.js";
 
   let { data } = $props();

@@ -1,11 +1,11 @@
 <script lang="ts">
   import { Mail, MessageSquare, Star } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/ui/card";
-  import { Button } from "$lib/components/ui/button";
-  import PublicHeader from "$lib/components/layout/PublicHeader.svelte";
-  import Footer from "$lib/components/layout/Footer.svelte";
-  import GithubMark from "$lib/components/layout/GithubMark.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import PublicHeader from "$lib/components/primitives/layout/PublicHeader.svelte";
+  import Footer from "$lib/components/primitives/layout/Footer.svelte";
+  import GithubMark from "$lib/components/primitives/layout/GithubMark.svelte";
 
   let { data } = $props();
 

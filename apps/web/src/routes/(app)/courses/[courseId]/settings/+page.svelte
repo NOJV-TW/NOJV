@@ -13,9 +13,9 @@
   } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
-  import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import { Button } from "$lib/components/ui/button";
-  import FormError from "$lib/components/ui/FormError.svelte";
+  import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import { inputClassName } from "$lib/utils/css";
   import type { FormMessage } from "$lib/types/form-message";
   import type { ActionData, PageData } from "./$types";

@@ -62,12 +62,61 @@ const layerBoundaryRule = [
   },
 ];
 
+// Architectural layer rule: primitives/ is domain-agnostic and must
+// never reach into features/. features/ may freely import primitives/.
+// Combined with componentSandboxRule below for primitives files.
+const primitivesNoFeaturesRule = [
+  "error",
+  {
+    paths: ["@nojv/temporal", "@nojv/job-dispatch"].map((name) => ({
+      name,
+      message: `${name} is server-only — do not import from Svelte components. Move the call to a +page.server.ts / +layout.server.ts / API route and pass data via the load function.`,
+    })),
+    patterns: [
+      {
+        group: ["**/*.server", "**/*.server.ts", "**/*.server.js"],
+        message:
+          "Server-only modules (*.server.ts) must not be imported from Svelte components. Move the call to a server load/action and pass data through.",
+      },
+      {
+        group: [
+          "@nojv/db",
+          "@nojv/db/*",
+          "@nojv/redis",
+          "@nojv/redis/*",
+          "@nojv/storage",
+          "@nojv/storage/*",
+        ],
+        message:
+          "apps/web components must not touch @nojv/db, @nojv/redis, or @nojv/storage. Move the call to a server load/action and pass typed data through.",
+      },
+      {
+        group: ["$lib/components/features/*", "**/components/features/**"],
+        message:
+          "Primitives must not import from features (architectural layer rule). Primitives are domain-agnostic; if you need domain shape, move the component to features/.",
+      },
+    ],
+  },
+];
+
 export default [
   ...baseConfig,
   {
     files: ["src/lib/components/**/*.ts", "src/lib/components/**/*.tsx"],
     rules: {
       "no-restricted-imports": componentSandboxRule,
+    },
+  },
+  // Primitives layer guard: ESLint in this repo only parses .ts / .tsx
+  // (Svelte single-file components are silently ignored — see eslint
+  // `--print-config` against any *.svelte file). The TS-companion files
+  // under primitives/ are still covered, and the architectural intent is
+  // documented for human reviewers. Listed AFTER the broader components
+  // rule so it overrides for the narrower file set.
+  {
+    files: ["src/lib/components/primitives/**/*.ts", "src/lib/components/primitives/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": primitivesNoFeaturesRule,
     },
   },
   {

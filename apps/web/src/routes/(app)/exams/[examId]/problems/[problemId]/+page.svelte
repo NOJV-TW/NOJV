@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import ExamTopStrip from "$lib/components/problem/layouts/ExamTopStrip.svelte";
-  import ProblemSolveView from "$lib/components/problem/views/ProblemSolveView.svelte";
+  import ExamTopStrip from "$lib/components/features/problem/layouts/ExamTopStrip.svelte";
+  import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
 
   let { data } = $props();
 

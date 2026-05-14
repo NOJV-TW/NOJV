@@ -3,10 +3,10 @@
   import { page } from "$app/state";
   import { ClipboardList } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { buttonVariants } from "$lib/components/ui/button";
-  import PageContainer from "$lib/components/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import AssignmentCard from "$lib/components/course/assignment/AssignmentCard.svelte";
+  import { buttonVariants } from "$lib/components/primitives/ui/button";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import AssignmentCard from "$lib/components/features/course/assignment/AssignmentCard.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

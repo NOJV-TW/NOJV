@@ -1,14 +1,14 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import { RadioGroup } from "bits-ui";
-  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
-  import { Card } from "$lib/components/ui/card";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import FormField from "$lib/components/ui/FormField.svelte";
-  import { Input } from "$lib/components/ui/input";
+  import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import FormField from "$lib/components/primitives/ui/FormField.svelte";
+  import { Input } from "$lib/components/primitives/ui/input";
   import { m } from "$lib/paraglide/messages.js";
   import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 

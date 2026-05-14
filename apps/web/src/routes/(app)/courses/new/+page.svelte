@@ -3,8 +3,8 @@
   import { ArrowRight, ChevronLeft, Info } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/ui/button";
-  import FormError from "$lib/components/ui/FormError.svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import type { PageData } from "./$types";
 

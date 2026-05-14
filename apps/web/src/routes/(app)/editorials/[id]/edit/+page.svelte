@@ -3,8 +3,8 @@
   import { goto } from "$app/navigation";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import Section from "$lib/components/ui/Section.svelte";
-  import ImageDropZone from "$lib/components/ui/ImageDropZone.svelte";
+  import Section from "$lib/components/primitives/ui/Section.svelte";
+  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import { toasts } from "$lib/stores/toast";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 

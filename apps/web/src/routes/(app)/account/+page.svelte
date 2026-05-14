@@ -3,11 +3,11 @@
   import { m } from "$lib/paraglide/messages.js";
   import { superForm } from "sveltekit-superforms/client";
   import { Check, Pencil, X } from "@lucide/svelte";
-  import AvatarUploader from "$lib/components/account/AvatarUploader.svelte";
-  import SchoolVerificationSection from "$lib/components/auth/SchoolVerification.svelte";
-  import Section from "$lib/components/ui/Section.svelte";
-  import { Card } from "$lib/components/ui/card";
-  import { Badge } from "$lib/components/ui/badge";
+  import AvatarUploader from "$lib/components/features/account/AvatarUploader.svelte";
+  import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
+  import Section from "$lib/components/primitives/ui/Section.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Badge } from "$lib/components/primitives/ui/badge";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
   import type { PageData } from "./$types";

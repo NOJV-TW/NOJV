@@ -2,13 +2,13 @@
   import { m } from "$lib/paraglide/messages.js";
   import { page } from "$app/stores";
   import { Megaphone, Calendar, Pin } from "@lucide/svelte";
-  import Header from "$lib/components/layout/Header.svelte";
-  import Footer from "$lib/components/layout/Footer.svelte";
-  import { Card } from "$lib/components/ui/card";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import AnnouncementViewDialog from "$lib/components/announcement/AnnouncementViewDialog.svelte";
+  import Header from "$lib/components/features/layout/Header.svelte";
+  import Footer from "$lib/components/primitives/layout/Footer.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
   import { assignmentPath } from "$lib/types";
 
   let { data } = $props();

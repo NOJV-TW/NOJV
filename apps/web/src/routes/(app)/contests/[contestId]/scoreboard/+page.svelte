@@ -50,13 +50,13 @@
   import { invalidateAll } from "$app/navigation";
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import Crumbs from "$lib/components/coursework/Crumbs.svelte";
-  import GlassPanel from "$lib/components/coursework/GlassPanel.svelte";
-  import RankBadge from "$lib/components/coursework/RankBadge.svelte";
-  import TabStrip from "$lib/components/coursework/TabStrip.svelte";
-  import SolveCountCell from "$lib/components/contest/SolveCountCell.svelte";
-  import PointSumCell from "$lib/components/contest/PointSumCell.svelte";
+  import { Button } from "$lib/components/primitives/ui/button/index.js";
+  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
+  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
+  import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
+  import SolveCountCell from "$lib/components/features/contest/SolveCountCell.svelte";
+  import PointSumCell from "$lib/components/features/contest/PointSumCell.svelte";
 
   let { data } = $props();
   const scoreboard = $derived(data.scoreboard);

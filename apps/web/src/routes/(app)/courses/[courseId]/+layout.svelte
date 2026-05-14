@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import CourseHero from "$lib/components/course/CourseHero.svelte";
-  import CourseTabBar from "$lib/components/course/CourseTabBar.svelte";
-  import type { CourseTabKey } from "$lib/components/course/CourseTabBar.svelte";
+  import CourseHero from "$lib/components/features/course/CourseHero.svelte";
+  import CourseTabBar from "$lib/components/features/course/CourseTabBar.svelte";
+  import type { CourseTabKey } from "$lib/components/features/course/CourseTabBar.svelte";
   import type { LayoutData } from "./$types";
 
   interface Props {

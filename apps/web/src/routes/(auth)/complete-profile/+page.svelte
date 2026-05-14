@@ -2,14 +2,14 @@
   import { enhance } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { authClient } from "$lib/auth-client";
+  import { authClient } from "$lib/auth.client";
   import { actionErrorSchema, broadcastVerifiedSchema } from "@nojv/core";
   import { USERNAME_INPUT_PATTERN, isValidUsername } from "$lib/utils";
   import { isReservedUsername, parseSchoolEmail } from "$lib/utils/school";
-  import { Button } from "$lib/components/ui/button";
-  import { Card } from "$lib/components/ui/card";
-  import { Input } from "$lib/components/ui/input";
-  import FormField from "$lib/components/ui/FormField.svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Input } from "$lib/components/primitives/ui/input";
+  import FormField from "$lib/components/primitives/ui/FormField.svelte";
 
   type Mode = "choose" | "school" | "general";
   const RESEND_COOLDOWN = 60;

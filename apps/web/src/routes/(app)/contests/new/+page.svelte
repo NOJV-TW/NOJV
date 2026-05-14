@@ -10,9 +10,9 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import CodeIcon from "@lucide/svelte/icons/code";
   import ListIcon from "@lucide/svelte/icons/list";
-  import { Card } from "$lib/components/ui/card/index.js";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import FormError from "$lib/components/ui/FormError.svelte";
+  import { Card } from "$lib/components/primitives/ui/card/index.js";
+  import { Button } from "$lib/components/primitives/ui/button/index.js";
+  import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import type { FormMessage } from "$lib/types/form-message";
 
   let { data } = $props();

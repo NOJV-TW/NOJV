@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import OAuthButtons from "$lib/components/auth/OAuthButtons.svelte";
-  import { Card } from "$lib/components/ui/card";
+  import OAuthButtons from "$lib/components/features/auth/OAuthButtons.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
 </script>
 
 <div class="flex min-h-[60vh] items-center justify-center">

@@ -1,19 +1,19 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import { Code2, LineChart, PieChart } from "@lucide/svelte";
-  import EChart from "$lib/components/charts/EChart.svelte";
-  import ActivityHeatmap from "$lib/components/charts/ActivityHeatmap.svelte";
-  import { Card } from "$lib/components/ui/card";
-  import { Badge } from "$lib/components/ui/badge";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
-  import PageContainer from "$lib/components/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import StreakCard from "$lib/components/dashboard/StreakCard.svelte";
-  import WeeklyTrendCard from "$lib/components/dashboard/WeeklyTrendCard.svelte";
-  import SuggestedProblemsCard from "$lib/components/dashboard/SuggestedProblemsCard.svelte";
+  import EChart from "$lib/components/primitives/charts/EChart.svelte";
+  import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import StreakCard from "$lib/components/features/dashboard/StreakCard.svelte";
+  import WeeklyTrendCard from "$lib/components/features/dashboard/WeeklyTrendCard.svelte";
+  import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
   import { formatVerdictLabel } from "$lib/types";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
-  import type { BadgeVariant } from "$lib/components/ui/badge";
+  import type { BadgeVariant } from "$lib/components/primitives/ui/badge";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();

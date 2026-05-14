@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PlagiarismPairDiff from "$lib/components/plagiarism/PlagiarismPairDiff.svelte";
+  import PlagiarismPairDiff from "$lib/components/features/plagiarism/PlagiarismPairDiff.svelte";
 
   let { data } = $props();
 </script>
