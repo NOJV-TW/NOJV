@@ -47,5 +47,5 @@ export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const id = requireId(event);
 
   await softDeleteEditorial(actor, id);
-  return json({ ok: true });
+  return new Response(null, { status: 204 });
 });

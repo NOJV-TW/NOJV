@@ -32,7 +32,7 @@
     if (rejudgingId !== null) return;
     rejudgingId = submissionId;
     try {
-      const res = await fetchWithCsrf(`/api/submissions/${submissionId}/rejudges`, {
+      const res = await fetchWithCsrf(`/api/submissions/${submissionId}/rejudge`, {
         method: "POST"
       });
       if (res.ok) {

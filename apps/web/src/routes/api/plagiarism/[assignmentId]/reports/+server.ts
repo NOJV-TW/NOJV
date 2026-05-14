@@ -35,7 +35,15 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     triggeredById: actor.userId,
   });
 
-  return json({ targetId: target.id, status: "pending" }, { status: 202 });
+  // Clients poll GET on the same collection URL to see when the report
+  // appears (`reports[0].status` flips to "completed"). The Location
+  // header points there per RFC 7231 §6.3.3.
+  const pollUrl = new URL(event.url);
+  pollUrl.search = type ? `?type=${encodeURIComponent(type)}` : "";
+  return json(
+    { targetId: target.id, status: "pending" },
+    { status: 202, headers: { Location: pollUrl.pathname + pollUrl.search } },
+  );
 });
 
 // GET /api/plagiarism/[assignmentId]/reports — list reports for the target.

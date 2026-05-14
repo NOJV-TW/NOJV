@@ -86,7 +86,7 @@ Student Code ------|---> Sandbox Container     Redis
 | `/api/problems/[id]/editorials`       | GET, POST | `requireApiAuth` + AC-gated for students                           |
 | `/api/problems/[id]/images`           | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                  |
 | `/api/problems`                       | POST      | `requireApiAuth` + `requirePlatformRole(admin, teacher)`           |
-| `/api/ip-violations`                  | GET       | `requireApiAuth` + admin/teacher                                   |
+| `/api/exams/[examId]/ip-violations`   | GET       | `requireApiAuth` + admin/teacher                                   |
 | `/api/healthz`                        | GET       | Public, no auth                                                    |
 
 **Authenticated page routes (layout-gated):**
@@ -236,7 +236,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Attacker stories:**
 
-- **Multi-account cheating**: Student uses multiple accounts to submit from different "identities". _Mitigation_: IP binding detects same-IP multi-account. Admin can view IP violation logs via `/api/ip-violations`. _Gap_: No device fingerprinting beyond IP. VPN/proxy can bypass IP binding.
+- **Multi-account cheating**: Student uses multiple accounts to submit from different "identities". _Mitigation_: IP binding detects same-IP multi-account. Admin can view IP violation logs via `/api/exams/[examId]/ip-violations`. _Gap_: No device fingerprinting beyond IP. VPN/proxy can bypass IP binding.
 - **IP spoofing**: Attacker forges IP to bypass IP binding. _Mitigation_: In production the only trusted source is Cloudflare's `CF-Connecting-IP` header (CF edge overwrites any client-supplied value before the request leaves CF). Cloud Run Ingress = "Internal and Cloud Load Balancing" + GCLB Cloud Armor CIDR allowlist restrict ingress to CF's published IP ranges, so direct-to-origin requests carrying a forged `CF-Connecting-IP` cannot reach the app. `X-Forwarded-For` is **never** trusted — `getClientIp(event)` refuses to fall back to it. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
 - **Submission flooding during contest**: Attacker floods submissions to degrade service for other participants. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest `submitCooldownSec` via Redis. Rate limit is per-IP, cross-instance.
 - **Scoreboard manipulation**: Attacker modifies Redis sorted set directly. _Mitigation_: Redis is on internal network only, not publicly accessible. Scores are always verified against PostgreSQL on final computation.
