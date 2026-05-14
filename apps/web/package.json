@@ -11,7 +11,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "dev": "vite dev",
     "dev:host": "vite dev --host 0.0.0.0 --port 5173 --strictPort",
-    "lint": "eslint .",
+    "lint": "svelte-kit sync && eslint .",
     "paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",
     "preview": "vite preview",
     "start": "node build",
