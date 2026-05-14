@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { page } from "$app/stores";
-  import Header from "$lib/components/layout/Header.svelte";
-  import Footer from "$lib/components/layout/Footer.svelte";
+  import Header from "$lib/components/features/layout/Header.svelte";
+  import Footer from "$lib/components/primitives/layout/Footer.svelte";
   import { notifications } from "$lib/stores/notifications.svelte";
   import { connectSSE, disconnectSSE } from "$lib/stores/sse";
 

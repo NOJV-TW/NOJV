@@ -1,7 +1,7 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { Card } from "$lib/components/ui/card";
-  import { Button } from "$lib/components/ui/button";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Button } from "$lib/components/primitives/ui/button";
   import { CheckCircle2, XCircle } from "@lucide/svelte";
 
   let { data } = $props();

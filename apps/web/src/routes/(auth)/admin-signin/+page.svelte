@@ -2,11 +2,11 @@
   import { page } from "$app/stores";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
-  import { Card } from "$lib/components/ui/card";
-  import { Input } from "$lib/components/ui/input";
-  import FormField from "$lib/components/ui/FormField.svelte";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import { Input } from "$lib/components/primitives/ui/input";
+  import FormField from "$lib/components/primitives/ui/FormField.svelte";
 
   let error = $state("");
   let loading = $state(false);

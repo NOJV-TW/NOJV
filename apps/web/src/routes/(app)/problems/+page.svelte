@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Code2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import PageContainer from "$lib/components/layout/PageContainer.svelte";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import ProblemsTabs from "$lib/components/problem/views/ProblemTabs.svelte";
+  import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import ProblemsTabs from "$lib/components/features/problem/views/ProblemTabs.svelte";
 
   let { data } = $props();
 </script>

@@ -6,8 +6,8 @@
   import Shield from "@lucide/svelte/icons/shield";
   import { m } from "$lib/paraglide/messages.js";
   import { getLocale } from "$lib/paraglide/runtime.js";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

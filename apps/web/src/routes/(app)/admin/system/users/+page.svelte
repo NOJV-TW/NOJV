@@ -2,16 +2,16 @@
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { Users } from "@lucide/svelte";
-  import { Card } from "$lib/components/ui/card";
-  import PageHeader from "$lib/components/layout/PageHeader.svelte";
-  import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import { Card } from "$lib/components/primitives/ui/card";
+  import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import SystemTextToggle, {
     type UiLang
-  } from "$lib/components/admin/SystemTextToggle.svelte";
-  import FilterBar from "$lib/components/admin/users/FilterBar.svelte";
-  import UsersTable from "$lib/components/admin/users/UsersTable.svelte";
-  import Pagination from "$lib/components/admin/users/Pagination.svelte";
-  import { getUsersPageLabels } from "$lib/components/admin/users/labels";
+  } from "$lib/components/features/admin/SystemTextToggle.svelte";
+  import FilterBar from "$lib/components/features/admin/users/FilterBar.svelte";
+  import UsersTable from "$lib/components/features/admin/users/UsersTable.svelte";
+  import Pagination from "$lib/components/features/admin/users/Pagination.svelte";
+  import { getUsersPageLabels } from "$lib/components/features/admin/users/labels";
   import { m } from "$lib/paraglide/messages.js";
 
   let { data } = $props();

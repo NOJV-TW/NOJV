@@ -1,8 +1,8 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import Header from "$lib/components/layout/Header.svelte";
-  import Footer from "$lib/components/layout/Footer.svelte";
-  import MarkdownRenderer from "$lib/components/layout/MarkdownRenderer.svelte";
+  import Header from "$lib/components/features/layout/Header.svelte";
+  import Footer from "$lib/components/primitives/layout/Footer.svelte";
+  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
 </script>
 
 <svelte:head>

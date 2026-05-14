@@ -11,9 +11,9 @@
   import Shield from "@lucide/svelte/icons/shield";
 
   import { supportedLanguages, type Language } from "@nojv/core";
-  import { Button } from "$lib/components/ui/button";
-  import FormError from "$lib/components/ui/FormError.svelte";
-  import PageHero from "$lib/components/layout/PageHero.svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import FormError from "$lib/components/primitives/ui/FormError.svelte";
+  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";

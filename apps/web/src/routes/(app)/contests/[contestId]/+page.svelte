@@ -3,24 +3,24 @@
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
-  import { Button } from "$lib/components/ui/button";
-  import ScoreOverrideDrawer from "$lib/components/score-override/ScoreOverrideDrawer.svelte";
-  import ClarificationTab from "$lib/components/clarification/ClarificationTab.svelte";
-  import Crumbs from "$lib/components/coursework/Crumbs.svelte";
-  import Countdown from "$lib/components/coursework/Countdown.svelte";
-  import GlassPanel from "$lib/components/coursework/GlassPanel.svelte";
-  import Marquee from "$lib/components/coursework/Marquee.svelte";
-  import StatusPill from "$lib/components/coursework/StatusPill.svelte";
-  import TabStrip from "$lib/components/coursework/TabStrip.svelte";
-  import TypeIcon from "$lib/components/coursework/TypeIcon.svelte";
-  import AssignmentPlagiarismReport from "$lib/components/plagiarism/AssignmentPlagiarismReport.svelte";
-  import ContestProblemsTab from "$lib/components/contest/ContestProblemsTab.svelte";
-  import ContestResultsTab from "$lib/components/contest/ContestResultsTab.svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
+  import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
+  import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
+  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
+  import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import Marquee from "$lib/components/primitives/visual/Marquee.svelte";
+  import StatusPill from "$lib/components/primitives/visual/StatusPill.svelte";
+  import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
+  import TypeIcon from "$lib/components/primitives/visual/TypeIcon.svelte";
+  import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
+  import ContestResultsTab from "$lib/components/features/contest/ContestResultsTab.svelte";
   import ContestSettingsTab, {
     type ContestLiveStatus
-  } from "$lib/components/contest/ContestSettingsTab.svelte";
-  import ContestSubmissionsMatrix from "$lib/components/contest/ContestSubmissionsMatrix.svelte";
-  import { contestStatusFor, durationMinutes } from "$lib/components/contest/format";
+  } from "$lib/components/features/contest/ContestSettingsTab.svelte";
+  import ContestSubmissionsMatrix from "$lib/components/features/contest/ContestSubmissionsMatrix.svelte";
+  import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
   import { fmtDate } from "$lib/utils/datetime.js";
 
   let { data } = $props();
