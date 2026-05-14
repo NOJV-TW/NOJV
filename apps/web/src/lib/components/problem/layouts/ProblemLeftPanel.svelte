@@ -15,7 +15,7 @@
     /**
      * Server-computed flag controlling whether the "Rejudge this submission"
      * button is rendered in the submission detail view. The real gate lives
-     * on `/api/submissions/[id]/rejudges`; this is progressive disclosure only.
+     * on `/api/submissions/[id]/rejudge`; this is progressive disclosure only.
      */
     canRejudge?: boolean;
     /** Assignment-only daily submission quota shown in the SpecialLabels strip.

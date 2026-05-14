@@ -70,18 +70,22 @@ test.describe("Exams — list, detail, problem visibility", () => {
     await context.close();
   });
 
-  test("ip-violations endpoint requires examId", async ({ browser }) => {
+  test("ip-violations endpoint handles unknown exam id gracefully", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.get("/api/ip-violations");
-    expect(res.status()).toBe(400);
+    // examId is now a path segment; unknown ids return an empty list (the
+    // repository filters by examId — no row means no violations). The
+    // important contract is "no 5xx, no auth bypass" — students should
+    // still get 403 (see next test).
+    const res = await page.request.get("/api/exams/exam_does-not-exist/ip-violations");
+    expect(res.status()).toBeLessThan(500);
     await context.close();
   });
 
   test("ip-violations endpoint forbids students", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/ip-violations?examId=${MIDTERM_ID}`);
+    const res = await page.request.get(`/api/exams/${MIDTERM_ID}/ip-violations`);
     expect(res.status()).toBe(403);
     await context.close();
   });
@@ -89,7 +93,7 @@ test.describe("Exams — list, detail, problem visibility", () => {
   test("teacher can list ip-violations for a real exam", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/ip-violations?examId=${MIDTERM_ID}`);
+    const res = await page.request.get(`/api/exams/${MIDTERM_ID}/ip-violations`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(Array.isArray(body.violations)).toBe(true);

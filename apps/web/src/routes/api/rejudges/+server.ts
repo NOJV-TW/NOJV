@@ -18,7 +18,7 @@ const batchSchema = z.object({
 });
 
 // Batch rejudge — fan out across a problem + optional context filters.
-// Single-submission rejudge lives at `POST /api/submissions/[id]/rejudges`.
+// Single-submission rejudge lives at `POST /api/submissions/[id]/rejudge`.
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const body = batchSchema.parse(await event.request.json());

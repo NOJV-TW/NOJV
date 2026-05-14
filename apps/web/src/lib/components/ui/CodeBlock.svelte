@@ -10,7 +10,7 @@
 
   let { code, language = "", maxHeight = "50vh" }: Props = $props();
 
-  let copied = $state(false);
+  let isCopied = $state(false);
 
   let lines = $derived(code.split("\n"));
   let displayLines = $derived(
@@ -20,9 +20,9 @@
 
   async function handleCopy() {
     await navigator.clipboard.writeText(code);
-    copied = true;
+    isCopied = true;
     setTimeout(() => {
-      copied = false;
+      isCopied = false;
     }, 2000);
   }
 </script>
@@ -39,7 +39,7 @@
       onclick={handleCopy}
       type="button"
     >
-      {#if copied}
+      {#if isCopied}
         <Check class="h-3.5 w-3.5 text-emerald-500" />
         <span class="text-emerald-500">{m.common_copied()}</span>
       {:else}
