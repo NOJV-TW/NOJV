@@ -541,6 +541,39 @@ export const submissionRepo = {
     });
   },
 
+  // Verdict distribution across a set of assessments — backs the class-analytics
+  // verdict pie. Counts every real submission (Run-mode dry-runs excluded).
+  groupStatusByAssessments(assessmentIds: string[]) {
+    if (assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["status"],
+      where: {
+        courseAssessmentId: { in: assessmentIds },
+        sampleOnly: false,
+      },
+      _count: { _all: true },
+    });
+  },
+
+  // Per-problem people-based stats scoped to a set of assessments: distinct
+  // attempters and distinct solvers. Drives the "hardest problems" panel —
+  // people-based so one student spamming submissions can't skew the AC rate.
+  async countUserStatsByProblemForAssessments(
+    assessmentIds: string[],
+  ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
+    if (assessmentIds.length === 0) return [];
+    return prisma.$queryRaw<{ problemId: string; attempters: number; solvers: number }[]>`
+      SELECT
+        "problemId",
+        COUNT(DISTINCT "userId")::int AS attempters,
+        COUNT(DISTINCT "userId") FILTER (WHERE status = 'accepted')::int AS solvers
+      FROM "Submission"
+      WHERE "courseAssessmentId" = ANY(${assessmentIds}::text[])
+        AND "sampleOnly" = false
+      GROUP BY "problemId"
+    `;
+  },
+
   groupBestScores(opts: { assessmentId: string; studentIds: string[]; problemIds: string[] }) {
     if (opts.studentIds.length === 0 || opts.problemIds.length === 0)
       return Promise.resolve([]);

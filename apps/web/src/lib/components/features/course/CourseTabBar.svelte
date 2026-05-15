@@ -1,5 +1,11 @@
 <script lang="ts" module>
-  export type CourseTabKey = "overview" | "assignments" | "exams" | "members" | "settings";
+  export type CourseTabKey =
+    | "overview"
+    | "assignments"
+    | "exams"
+    | "members"
+    | "analytics"
+    | "settings";
 
   export interface CourseTabCounts {
     assignments?: number;
@@ -16,11 +22,19 @@
     courseId: string;
     activeTabKey: CourseTabKey;
     counts?: CourseTabCounts;
+    showAnalytics: boolean;
     showSettings: boolean;
     class?: string;
   }
 
-  let { courseId, activeTabKey, counts, showSettings, class: className }: Props = $props();
+  let {
+    courseId,
+    activeTabKey,
+    counts,
+    showAnalytics,
+    showSettings,
+    class: className
+  }: Props = $props();
 
   interface TabDef {
     key: CourseTabKey;
@@ -58,6 +72,16 @@
       `/courses/${courseId}/members`,
       counts?.members
     ),
+    ...(showAnalytics
+      ? [
+          makeTab(
+            "analytics",
+            m.course_tabAnalytics(),
+            `/courses/${courseId}/analytics`,
+            undefined
+          )
+        ]
+      : []),
     ...(showSettings
       ? [
           makeTab(

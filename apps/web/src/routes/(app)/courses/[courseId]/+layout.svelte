@@ -28,6 +28,8 @@
         return "exams";
       case "members":
         return "members";
+      case "analytics":
+        return "analytics";
       case "settings":
         return "settings";
       default:
@@ -41,6 +43,7 @@
   courseId={data.course.id}
   {activeTabKey}
   counts={data.counts}
+  showAnalytics={data.isManager}
   showSettings={data.isManager}
 />
 {@render children?.()}
