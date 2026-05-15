@@ -71,9 +71,31 @@ out of scope for unattended verification.
 
 ## Status log
 
-- [ ] Wave 1 — schema
-- [ ] Wave 2 — section 一 fixes
-- [ ] Wave 3 — class analytics
-- [ ] Wave 4 — upsolve
-- [ ] Wave 5 — virtual contest
-- [ ] Wave 6 — section 二/三 fixes
+All waves landed on the branch 2026-05-16. Final verification:
+`typecheck` 10/10 · `lint` 8/8 · `test:unit` 79 files / 700 tests ·
+`format` clean. Integration/e2e not run (no DB in the unattended env).
+
+- [x] Wave 1 — schema (`VirtualContest`, `ExamParticipation.version`)
+- [x] Wave 2 — section 一 fixes (MINIMUM scoring, Exam optimistic lock)
+- [x] Wave 3 — class analytics
+- [x] Wave 4 — upsolve
+- [x] Wave 5 — virtual contest
+- [x] Wave 6 — section 二/三 fixes (6a judge pipeline, 6b data layer,
+      6c admin i18n + doc drift)
+
+### Deferred (need a dedicated session — not safe to batch unattended)
+
+- Mobile solve workspace — a real responsive editor is its own project.
+- `adjustmentRules` editing UI — the rules engine exists; exposing it
+  is a feature-let of its own.
+- Plagiarism re-scan history archive — needs a new table + multi-point
+  wiring; current trigger who/when is already recorded inline.
+- Route-level integration tests (plagiarism/editorials 403 gates) —
+  need a running DB; cannot be verified in the unattended env.
+
+### Migrations pending apply
+
+`20260516000000_add_virtual_contest_and_exam_version` and
+`20260516010000_add_clarification_soft_delete` are written but not
+applied — no DB in the unattended env. Run `pnpm db:migrate` (prod)
+or `pnpm db:push` (dev) before exercising the new features.
