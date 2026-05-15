@@ -24,6 +24,9 @@ export interface SubmissionWorkspaceFile {
 export interface SubmissionRequest {
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
+  // Virtual-contest re-run tag. Practice-like server-side; mutually exclusive
+  // with `contestId` / `assessment`.
+  virtualContestId?: string | undefined;
   language: Language;
   problemId: string;
   // Server rejects runCases when `sampleOnly` is false — they must never touch graded submissions.
@@ -47,15 +50,18 @@ const MAX_POLL_DELAY_MS = 3_000;
 const POLL_BACKOFF_FACTOR = 1.5;
 
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
-  const mode: "contest" | "assignment" | "practice" = request.contestId
+  const mode: "contest" | "assignment" | "practice" | "virtual" = request.contestId
     ? "contest"
-    : request.assessment
-      ? "assignment"
-      : "practice";
+    : request.virtualContestId
+      ? "virtual"
+      : request.assessment
+        ? "assignment"
+        : "practice";
 
   const commonFields: Record<string, unknown> = {
     assessment: request.assessment,
     contestId: request.contestId,
+    virtualContestId: request.virtualContestId,
     language: request.language,
     mode,
     problemId: request.problemId,

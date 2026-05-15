@@ -1,0 +1,311 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  contestFindById,
+  contestFindDetailById,
+  contestFindForScoreboardById,
+  vcFindById,
+  vcFindByContestAndUser,
+  vcCreate,
+  submissionGroupByUserAndProblem,
+  submissionFindForContestScoreboard,
+  submissionFindForVirtualContestScoreboard,
+} = vi.hoisted(() => ({
+  contestFindById: vi.fn(),
+  contestFindDetailById: vi.fn(),
+  contestFindForScoreboardById: vi.fn(),
+  vcFindById: vi.fn(),
+  vcFindByContestAndUser: vi.fn(),
+  vcCreate: vi.fn(),
+  submissionGroupByUserAndProblem: vi.fn(),
+  submissionFindForContestScoreboard: vi.fn(),
+  submissionFindForVirtualContestScoreboard: vi.fn(),
+}));
+
+vi.mock("@nojv/db", () => ({
+  contestRepo: {
+    findById: contestFindById,
+    findDetailById: contestFindDetailById,
+    findForScoreboardById: contestFindForScoreboardById,
+  },
+  virtualContestRepo: {
+    findById: vcFindById,
+    findByContestAndUser: vcFindByContestAndUser,
+    create: vcCreate,
+  },
+  submissionRepo: {
+    groupByUserAndProblem: submissionGroupByUserAndProblem,
+    findForContestScoreboard: submissionFindForContestScoreboard,
+    findForVirtualContestScoreboard: submissionFindForVirtualContestScoreboard,
+  },
+  // getScoreboard imports `scoreOverrideRepo` indirectly via contest/scoring's
+  // module graph; supplying an empty stub keeps the mock total.
+  scoreOverrideRepo: {},
+  contestParticipationRepo: {},
+  ParticipationVersionConflict: class extends Error {},
+}));
+
+// contest/scoring.ts imports `scoreboard` from @nojv/redis at module load.
+vi.mock("@nojv/redis", () => ({
+  scoreboard: {},
+}));
+
+import { virtualContestDomain } from "@nojv/domain";
+
+const { startVirtualContest, getVirtualContestScoreboard, assertCanSubmitToVirtualContest } =
+  virtualContestDomain;
+
+const ACTOR = {
+  userId: "u_me",
+  username: "me",
+  displayName: "Me",
+  email: "me@test.dev",
+  platformRole: "user" as const,
+};
+
+// Original contest: starts 2026-01-01 00:00, ends 03:00 (3h duration).
+const C_START = new Date("2026-01-01T00:00:00.000Z");
+const C_END = new Date("2026-01-01T03:00:00.000Z");
+const AFTER_C_END = new Date("2026-01-02T00:00:00.000Z");
+const BEFORE_C_END = new Date("2026-01-01T02:00:00.000Z");
+
+function publishedContest(over: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: "ctst_1",
+    title: "Winter Cup",
+    visibility: "published",
+    startsAt: C_START,
+    endsAt: C_END,
+    scoringMode: "point_sum",
+    ...over,
+  };
+}
+
+function contestDetail(
+  problems: { id: string; ordinal: number; points: number; title: string }[],
+) {
+  return {
+    id: "ctst_1",
+    title: "Winter Cup",
+    visibility: "published",
+    scoringMode: "point_sum",
+    problems: problems.map((p) => ({
+      ordinal: p.ordinal,
+      points: p.points,
+      problem: { id: p.id, title: p.title },
+    })),
+  };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("startVirtualContest", () => {
+  it("creates a virtual contest with a timer matching the original duration", async () => {
+    vcFindByContestAndUser.mockResolvedValue(null);
+    contestFindById.mockResolvedValue(publishedContest());
+    vcCreate.mockImplementation((data) => Promise.resolve({ id: "vc_1", ...data }));
+
+    const result = await startVirtualContest(ACTOR, "ctst_1", AFTER_C_END);
+
+    expect(vcCreate).toHaveBeenCalledTimes(1);
+    const arg = vcCreate.mock.calls[0]![0] as { startedAt: Date; endsAt: Date };
+    // 3h duration → endsAt = startedAt + 3h.
+    expect(arg.endsAt.getTime() - arg.startedAt.getTime()).toBe(3 * 60 * 60 * 1000);
+    expect(arg.startedAt).toEqual(AFTER_C_END);
+    expect(result.id).toBe("vc_1");
+  });
+
+  it("is idempotent — returns the existing run without creating a new one", async () => {
+    const existing = { id: "vc_existing", contestId: "ctst_1", userId: "u_me" };
+    vcFindByContestAndUser.mockResolvedValue(existing);
+
+    const result = await startVirtualContest(ACTOR, "ctst_1", AFTER_C_END);
+
+    expect(result).toBe(existing);
+    expect(contestFindById).not.toHaveBeenCalled();
+    expect(vcCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects starting a virtual contest before the original contest ends", async () => {
+    vcFindByContestAndUser.mockResolvedValue(null);
+    contestFindById.mockResolvedValue(publishedContest());
+
+    await expect(startVirtualContest(ACTOR, "ctst_1", BEFORE_C_END)).rejects.toThrow(
+      /after the contest ends/i,
+    );
+    expect(vcCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unpublished or missing contest", async () => {
+    vcFindByContestAndUser.mockResolvedValue(null);
+    contestFindById.mockResolvedValueOnce(publishedContest({ visibility: "draft" }));
+    await expect(startVirtualContest(ACTOR, "ctst_1", AFTER_C_END)).rejects.toThrow(
+      /not found/i,
+    );
+
+    vcFindByContestAndUser.mockResolvedValue(null);
+    contestFindById.mockResolvedValueOnce(null);
+    await expect(startVirtualContest(ACTOR, "ctst_x", AFTER_C_END)).rejects.toThrow(
+      /not found/i,
+    );
+  });
+});
+
+describe("assertCanSubmitToVirtualContest", () => {
+  it("passes for an active run when the problem belongs to the contest", async () => {
+    vcFindById.mockResolvedValue({
+      id: "vc_1",
+      userId: "u_me",
+      contestId: "ctst_1",
+      endsAt: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    contestFindDetailById.mockResolvedValue(
+      contestDetail([{ id: "p1", ordinal: 1, points: 100, title: "Alpha" }]),
+    );
+
+    const gate = await assertCanSubmitToVirtualContest(
+      "vc_1",
+      "u_me",
+      "p1",
+      new Date("2026-01-02T00:00:00.000Z"),
+    );
+    expect(gate).toEqual({ virtualContestId: "vc_1", contestId: "ctst_1" });
+  });
+
+  it("rejects a submission after the personal timer has expired", async () => {
+    vcFindById.mockResolvedValue({
+      id: "vc_1",
+      userId: "u_me",
+      contestId: "ctst_1",
+      endsAt: new Date("2026-01-02T00:00:00.000Z"),
+    });
+
+    await expect(
+      assertCanSubmitToVirtualContest(
+        "vc_1",
+        "u_me",
+        "p1",
+        new Date("2026-01-02T00:00:01.000Z"),
+      ),
+    ).rejects.toThrow(/timer has ended/i);
+    expect(contestFindDetailById).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the run belongs to another user", async () => {
+    vcFindById.mockResolvedValue({
+      id: "vc_1",
+      userId: "u_other",
+      contestId: "ctst_1",
+      endsAt: new Date("2026-01-03T00:00:00.000Z"),
+    });
+
+    await expect(
+      assertCanSubmitToVirtualContest(
+        "vc_1",
+        "u_me",
+        "p1",
+        new Date("2026-01-02T00:00:00.000Z"),
+      ),
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it("rejects a problem that is not part of the replayed contest", async () => {
+    vcFindById.mockResolvedValue({
+      id: "vc_1",
+      userId: "u_me",
+      contestId: "ctst_1",
+      endsAt: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    contestFindDetailById.mockResolvedValue(
+      contestDetail([{ id: "p1", ordinal: 1, points: 100, title: "Alpha" }]),
+    );
+
+    await expect(
+      assertCanSubmitToVirtualContest(
+        "vc_1",
+        "u_me",
+        "p_unrelated",
+        new Date("2026-01-02T00:00:00.000Z"),
+      ),
+    ).rejects.toThrow(/not part of the contest/i);
+  });
+});
+
+describe("getVirtualContestScoreboard", () => {
+  it("builds the user's live row from virtual-tagged submissions and appends ghost rows", async () => {
+    vcFindByContestAndUser.mockResolvedValue({
+      id: "vc_1",
+      contestId: "ctst_1",
+      userId: "u_me",
+      startedAt: new Date("2026-02-01T00:00:00.000Z"),
+      endsAt: new Date("2026-02-01T03:00:00.000Z"),
+    });
+    contestFindDetailById.mockResolvedValue(
+      contestDetail([{ id: "p1", ordinal: 1, points: 100, title: "Alpha" }]),
+    );
+
+    // getScoreboard → original contest final board (one ghost participant).
+    contestFindForScoreboardById.mockResolvedValue({
+      id: "ctst_1",
+      visibility: "published",
+      scoringMode: "point_sum",
+      scoreboardMode: "live",
+      frozenBoard: false,
+      frozenAt: null,
+      startsAt: C_START,
+      endsAt: C_END,
+      problems: [{ problemId: "p1", ordinal: 1, points: 100, problem: { title: "Alpha" } }],
+      participations: [
+        {
+          id: "part_ghost",
+          userId: "u_ghost",
+          user: { username: "ghost", displayUsername: "ghost", name: "Ghost" },
+        },
+      ],
+    });
+    submissionFindForContestScoreboard.mockResolvedValue([
+      {
+        createdAt: new Date("2026-01-01T01:00:00.000Z"),
+        problemId: "p1",
+        score: 100,
+        status: "accepted",
+        contestParticipation: { userId: "u_ghost" },
+      },
+    ]);
+
+    // The viewer's own virtual-tagged submission — full score 30min in.
+    submissionFindForVirtualContestScoreboard.mockResolvedValue([
+      {
+        createdAt: new Date("2026-02-01T00:30:00.000Z"),
+        problemId: "p1",
+        score: 100,
+        status: "accepted",
+        userId: "u_me",
+      },
+    ]);
+
+    const board = await getVirtualContestScoreboard("ctst_1", "u_me");
+
+    expect(board).not.toBeNull();
+    const rows = board!.rows;
+    // One ghost + the viewer.
+    expect(rows).toHaveLength(2);
+    const me = rows.find((r) => r.isMe);
+    const ghost = rows.find((r) => r.isGhost);
+    expect(me).toBeDefined();
+    expect(ghost).toBeDefined();
+    expect(me!.totalScore).toBe(100);
+    expect(me!.isGhost).toBe(false);
+    expect(ghost!.isMe).toBe(false);
+  });
+
+  it("returns null when the user has no virtual contest", async () => {
+    vcFindByContestAndUser.mockResolvedValue(null);
+
+    const board = await getVirtualContestScoreboard("ctst_1", "u_me");
+    expect(board).toBeNull();
+    expect(contestFindDetailById).not.toHaveBeenCalled();
+  });
+});

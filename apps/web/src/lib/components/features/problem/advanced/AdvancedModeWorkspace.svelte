@@ -29,6 +29,7 @@
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     contestId?: string | undefined;
+    virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
@@ -42,6 +43,7 @@
     backLink,
     canRejudge = false,
     contestId,
+    virtualContestId,
     dailyAttempts,
     initialSubmissions,
     problem,
@@ -131,8 +133,15 @@
     const body = {
       assessment,
       contestId,
+      virtualContestId,
       language: placeholderLanguage,
-      mode: contestId ? "contest" : assessment ? "assignment" : "practice",
+      mode: contestId
+        ? "contest"
+        : virtualContestId
+          ? "virtual"
+          : assessment
+            ? "assignment"
+            : "practice",
       problemId: problem.id,
       sampleOnly: false,
       sourceCode: placeholderSource,

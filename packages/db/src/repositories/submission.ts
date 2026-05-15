@@ -144,6 +144,7 @@ export const submissionRepo = {
     userId: string;
     statusIn: SubmissionStatus[];
     courseAssessmentId?: string;
+    virtualContestId?: string;
     take?: number;
   }) {
     return prisma.submission.findMany({
@@ -153,6 +154,7 @@ export const submissionRepo = {
         sampleOnly: false,
         status: { in: opts.statusIn },
         ...(opts.courseAssessmentId ? { courseAssessmentId: opts.courseAssessmentId } : {}),
+        ...(opts.virtualContestId ? { virtualContestId: opts.virtualContestId } : {}),
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -359,6 +361,26 @@ export const submissionRepo = {
       },
       where: {
         contestParticipationId: { in: participationIds },
+        sampleOnly: false,
+      },
+    });
+  },
+
+  /**
+   * Real (non-sample) submissions tagged to one virtual contest, in
+   * chronological order. Drives the compute-on-read virtual scoreboard:
+   * a virtual contest has a single participant so no participation join
+   * is needed — `userId` is carried directly on the row.
+   */
+  findForVirtualContestScoreboard(virtualContestId: string) {
+    return prisma.submission.findMany({
+      orderBy: { createdAt: "asc" },
+      select: {
+        ...scoringBaseSelect,
+        userId: true,
+      },
+      where: {
+        virtualContestId,
         sampleOnly: false,
       },
     });

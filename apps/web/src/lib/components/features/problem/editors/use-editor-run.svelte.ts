@@ -24,6 +24,7 @@ interface EditorRunArgs {
   workspaceFiles: () => WorkspaceFile[];
   assessment?: (() => { assessmentId: string; courseId: string } | undefined) | undefined;
   contestId?: (() => string | undefined) | undefined;
+  virtualContestId?: (() => string | undefined) | undefined;
   onSubmissionComplete?:
     | ((result: SubmissionResult, language: string, sourceCode: string) => void)
     | undefined;
@@ -74,6 +75,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       workspaceFiles: args.workspaceFiles(),
       ...(args.assessment?.() ? { assessment: args.assessment() } : {}),
       ...(args.contestId?.() ? { contestId: args.contestId() } : {}),
+      ...(args.virtualContestId?.() ? { virtualContestId: args.virtualContestId() } : {}),
       ...(runCases ? { runCases } : {}),
     });
 
