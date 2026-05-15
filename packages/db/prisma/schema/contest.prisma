@@ -123,6 +123,7 @@ model Contest {
   problems              ContestProblem[]
   participations        ContestParticipation[]
   submissions           Submission[]
+  virtualContests       VirtualContest[]
 }
 
 model ContestProblem {
@@ -241,6 +242,10 @@ model ExamParticipation {
   penaltySeconds     Int                     @default(0)
   subtaskScores      Json?
   ipPin              String?
+  /// Optimistic-lock counter — bumped on every score recompute so
+  /// concurrent `updateExamScores` calls cannot silently overwrite
+  /// each other. Mirrors `ContestParticipation.version`.
+  version            Int                     @default(0)
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
   exam               Exam                    @relation(fields: [examId], references: [id], onDelete: Cascade)
@@ -312,4 +317,38 @@ model ExamSessionEvent {
   session ActiveExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, occurredAt])
+}
+
+enum VirtualContestStatus {
+  active
+  finished
+}
+
+/// One user's time-shifted personal re-run of a past contest. Lets a
+/// user replay an already-ended contest on their own clock — the
+/// original contest is untouched; scores/penalty here are private to
+/// the virtual run. At most one per (contest, user).
+model VirtualContest {
+  id             String               @id @default(cuid())
+  contestId      String
+  userId         String
+  startedAt      DateTime             @default(now())
+  endsAt         DateTime
+  status         VirtualContestStatus @default(active)
+  score          Int                  @default(0)
+  penaltySeconds Int                  @default(0)
+  subtaskScores  Json?
+  /// Optimistic-lock counter — bumped on every score recompute so
+  /// concurrent score updates cannot silently overwrite each other.
+  /// Mirrors `ContestParticipation.version`.
+  version        Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@unique([contestId, userId])
+  @@index([userId, createdAt])
 }

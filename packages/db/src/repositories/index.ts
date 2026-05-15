@@ -55,3 +55,4 @@ export type {
 } from "./submission-rejudge-log";
 export { userRepo } from "./user";
 export { userDailyActivityRepo } from "./user-daily-activity";
+export { virtualContestRepo, VirtualContestVersionConflict } from "./virtual-contest";

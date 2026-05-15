@@ -22,6 +22,7 @@ project review. Sequenced into waves; each wave is verified
 ## Locked v1 designs
 
 ### Section 一 fixes
+
 - `MINIMUM` subtask strategy: currently an exact duplicate of
   `ALL_OR_NOTHING` (`submission/scoring.ts:60-64`). Give it real
   semantics — subtask score = `min(per-case score) * weight / 100` —
@@ -31,6 +32,7 @@ project review. Sequenced into waves; each wave is verified
   `updateExamScores` mirroring `contest/scoring.ts`.
 
 ### Class Analytics Dashboard
+
 - Route `/(app)/courses/[courseId]/analytics`, course-staff gated.
 - Domain `course/analytics.ts` → `getCourseAnalytics(courseId)`.
 - No schema change — aggregates existing `Submission` / assessment data.
@@ -40,6 +42,7 @@ project review. Sequenced into waves; each wave is verified
 - Nav link in course layout. i18n keys in en + zh-TW.
 
 ### Upsolve
+
 - Route `/(app)/contests/[contestId]/upsolve`, visible only after
   `endsAt`. Read-only curated index.
 - Domain `contest/upsolve.ts` → `getUpsolveView(contestId, userId)`:
@@ -48,6 +51,7 @@ project review. Sequenced into waves; each wave is verified
 - No schema change, no gate changes in v1.
 
 ### Virtual Contest (v1)
+
 - New model `VirtualContest` (one row = one user's replay of a past
   contest). `Submission.virtualContestId` FK tags virtual submissions.
 - A user may start a virtual run only of an **ended** contest. Personal
