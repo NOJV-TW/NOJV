@@ -41,7 +41,7 @@ const notificationEventSchema = z.object({
 
 const clarificationEventSchema = z.object({
   type: z.literal(SSE_CLARIFICATION),
-  action: z.enum(["created", "updated", "dismissed"]),
+  action: z.enum(["created", "updated", "dismissed", "deleted"]),
   payload: z.object({
     id: z.string(),
     contextType: z.enum(["contest", "exam", "assignment"]),

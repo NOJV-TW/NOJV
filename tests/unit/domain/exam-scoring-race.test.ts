@@ -46,6 +46,9 @@ vi.mock("@nojv/db", () => ({
 vi.mock("@nojv/redis", () => ({
   scoreboard: {
     updateScoreboard: updateScoreboardMock,
+    // Pure TTL helper — scoring passes its result straight to
+    // updateScoreboard; a fixed number keeps the race assertions stable.
+    scoreboardTtlForEndsAt: () => 604800,
   },
 }));
 
@@ -128,7 +131,13 @@ describe("updateExamScores — optimistic locking", () => {
 
     // Scoreboard reflects the value that actually landed.
     expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(EXAM_ID, PARTICIPATION_ID, 80, "ioi");
+    expect(updateScoreboardMock).toHaveBeenCalledWith(
+      EXAM_ID,
+      PARTICIPATION_ID,
+      80,
+      "ioi",
+      expect.any(Number),
+    );
   });
 
   it("uses optimistic locking on the problem_count (ICPC) path too", async () => {
@@ -162,6 +171,7 @@ describe("updateExamScores — optimistic locking", () => {
       PARTICIPATION_ID,
       expect.any(Number),
       "icpc",
+      expect.any(Number),
     );
   });
 
