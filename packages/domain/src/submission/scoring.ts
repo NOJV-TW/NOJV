@@ -20,9 +20,13 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "runtime_error",
 };
 
-// PROPORTIONAL averages per-case scores so checker partial credit (0-100)
-// flows through. ALL_OR_NOTHING / MINIMUM stay binary on verdict — partial
-// credit on those strategies would defeat their semantics.
+// Subtask scoring strategies:
+// - PROPORTIONAL: subtask score = weight × (mean of per-case scores) / 100,
+//   so checker partial credit (0-100) flows through every case.
+// - MINIMUM: subtask score = weight × (lowest per-case score) / 100 — the
+//   worst case caps the subtask, but a non-zero floor still earns credit.
+// - ALL_OR_NOTHING: subtask earns full weight only if every case is AC,
+//   otherwise 0 — purely binary, ignores per-case partial scores.
 export function buildSubtaskResults(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
@@ -58,7 +62,9 @@ export function buildSubtaskResults(
       const sumScore = caseScores.reduce((s, v) => s + v, 0);
       rawScore = (ts.weight * sumScore) / (total * 100);
     } else if (strategy === "MINIMUM") {
-      rawScore = allPassed ? ts.weight : 0;
+      // `total === 0` is handled above, so `caseScores` is non-empty here.
+      const minScore = Math.min(...caseScores);
+      rawScore = (ts.weight * minScore) / 100;
     } else {
       rawScore = allPassed ? ts.weight : 0;
     }
