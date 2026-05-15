@@ -108,8 +108,10 @@ itself is staff-only once `endsAt < now`).
 - GIVEN an exam in `published` status with `now >= startsAt -
 START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
   course member, WHEN `startSessionWithGate` is called,
-  THEN a new `ActiveExamSession` is created with `ipPin = input.ipPin`,
-  an `enter` event is recorded, and the result includes `created: true`.
+  THEN a new `ActiveExamSession` is created (carrying only
+  `userId`, `examId`, `startedAt`, `lastHeartbeatAt` — IP binding lives
+  on `ExamParticipation.ipPin`, not the session row), an `enter` event
+  is recorded, and the result includes `created: true`.
 - GIVEN `now < startsAt - START_GRACE_MS`, WHEN start runs,
   THEN `HttpError("Exam has not started yet.", 410)`.
 - GIVEN `now >= endsAt`, WHEN start runs,

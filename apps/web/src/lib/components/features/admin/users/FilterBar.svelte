@@ -4,25 +4,24 @@
   import { Card } from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
-  import type { UsersPageLabels } from "./labels";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     search: string;
     role: string;
-    labels: UsersPageLabels;
     onApply: () => void;
   }
 
-  let { search = $bindable(), role = $bindable(), labels, onApply }: Props = $props();
+  let { search = $bindable(), role = $bindable(), onApply }: Props = $props();
 </script>
 
 <Card variant="flat" size="md">
   <div class="flex flex-wrap items-end gap-3">
     <div class="min-w-[240px] flex-1">
-      <FormField label={labels.search} for="search">
+      <FormField label={m.admin_usersSearch()} for="search">
         <Input
           id="search"
-          placeholder={labels.searchPlaceholder}
+          placeholder={m.admin_usersSearchPlaceholder()}
           type="text"
           bind:value={search}
           onkeydown={(e) => e.key === "Enter" && onApply()}
@@ -34,7 +33,7 @@
         class="mb-1.5 inline-flex items-center gap-1 text-body-sm font-medium"
         for="role-filter"
       >
-        <Shield class="h-3.5 w-3.5 text-muted-foreground" /> {labels.role}
+        <Shield class="h-3.5 w-3.5 text-muted-foreground" /> {m.admin_usersRole()}
       </label>
       <select
         id="role-filter"
@@ -42,7 +41,7 @@
         bind:value={role}
         onchange={onApply}
       >
-        <option value="">{labels.allRoles}</option>
+        <option value="">{m.admin_usersAllRoles()}</option>
         <option value="admin">Admin</option>
         <option value="teacher">Teacher</option>
         <option value="student">Student</option>
@@ -50,7 +49,7 @@
     </div>
     <Button variant="default" type="button" onclick={onApply}>
       <Search class="h-4 w-4" />
-      {labels.search}
+      {m.admin_usersSearch()}
     </Button>
   </div>
 </Card>
