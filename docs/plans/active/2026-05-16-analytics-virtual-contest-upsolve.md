@@ -93,9 +93,9 @@ All waves landed on the branch 2026-05-16. Final verification:
 - Route-level integration tests (plagiarism/editorials 403 gates) —
   need a running DB; cannot be verified in the unattended env.
 
-### Migrations pending apply
+### Migrations
 
 `20260516000000_add_virtual_contest_and_exam_version` and
-`20260516010000_add_clarification_soft_delete` are written but not
-applied — no DB in the unattended env. Run `pnpm db:migrate` (prod)
-or `pnpm db:push` (dev) before exercising the new features.
+`20260516010000_add_clarification_soft_delete` applied to the local
+dev DB on 2026-05-16 via `prisma migrate deploy` (alongside 3 older
+pending migrations). `prisma migrate status` → schema up to date.
