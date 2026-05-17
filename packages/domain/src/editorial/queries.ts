@@ -10,6 +10,24 @@ export async function hasUserAcProblem(userId: string, problemId: string): Promi
   return count > 0;
 }
 
+/**
+ * Editorial visibility gate. A user may view editorials if they currently
+ * have an accepted submission OR they have already authored an editorial
+ * for the problem. The second clause grandfathers authors past a rejudge
+ * that overturns their AC — losing access to your own editorial would be
+ * surprising and breaks the edit flow.
+ */
+export async function canViewEditorials(
+  userId: string,
+  problemId: string,
+): Promise<boolean> {
+  const [ac, authored] = await Promise.all([
+    hasUserAcProblem(userId, problemId),
+    editorialRepo.existsForUserProblem(userId, problemId),
+  ]);
+  return ac || authored;
+}
+
 export async function listProblemEditorials(problemId: string) {
   return editorialRepo.listByProblemId(problemId);
 }

@@ -1,7 +1,7 @@
 import { error } from "@sveltejs/kit";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
-import { problemDomain, submissionDomain } from "@nojv/domain";
+import { editorialDomain, problemDomain, submissionDomain } from "@nojv/domain";
 
 const {
   assertProblemViewAccess,
@@ -10,6 +10,7 @@ const {
   getProblemTestcaseSets,
 } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
+const { canViewEditorials } = editorialDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
@@ -67,20 +68,26 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   // Practice-context submissions carry no contest/assessment/exam id, so the
   // authz decision is homogeneous across the list — compute once. Uses a
   // synthetic submission shape (id/userId are irrelevant to the check).
-  const canRejudge = await canOperateOnSubmission(actorContext, {
-    id: "",
-    userId,
-    problemId,
-    contestId: null,
-    courseAssessmentId: null,
-    examId: null,
-  });
+  // `editorialAccess` grandfathers editorial authors whose AC was later
+  // overturned by a rejudge — the client `hasAc` derive alone cannot.
+  const [canRejudge, editorialAccess] = await Promise.all([
+    canOperateOnSubmission(actorContext, {
+      id: "",
+      userId,
+      problemId,
+      contestId: null,
+      courseAssessmentId: null,
+      examId: null,
+    }),
+    canViewEditorials(userId, problemId),
+  ]);
 
   return {
     allowedLanguages: [],
     assignmentProp: undefined,
     backLink: undefined,
     canRejudge,
+    canViewEditorials: editorialAccess,
     contestId: undefined,
     problem,
     submissions,

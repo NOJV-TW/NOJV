@@ -17,6 +17,7 @@ export {
 export { courseRepo, courseMembershipRepo } from "./course";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
+export { editorialReportRepo } from "./editorial-report";
 export {
   examRepo,
   examProblemRepo,

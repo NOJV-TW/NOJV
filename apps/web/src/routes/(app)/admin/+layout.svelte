@@ -8,12 +8,16 @@
   const tabs = [
     { href: "/admin", key: "overview" as const },
     { href: "/admin/system/users", key: "users" as const },
-    { href: "/admin/content/announcements", key: "announcements" as const }
+    { href: "/admin/content/announcements", key: "announcements" as const },
+    { href: "/admin/content/editorial-reports", key: "editorialReports" as const }
   ];
 
-  function tabLabel(key: "overview" | "users" | "announcements"): string {
+  function tabLabel(
+    key: "overview" | "users" | "announcements" | "editorialReports"
+  ): string {
     if (key === "overview") return m.admin_tabOverview();
     if (key === "users") return m.admin_tabUsers();
+    if (key === "editorialReports") return m.admin_tabEditorialReports();
     return m.admin_tabAnnouncements();
   }
 

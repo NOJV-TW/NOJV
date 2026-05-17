@@ -28,6 +28,8 @@
     } | undefined;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
+    /** Server-computed editorial visibility (AC or authored an editorial). */
+    canViewEditorials?: boolean;
     contestId?: string | undefined;
     virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null } | undefined;
@@ -42,6 +44,7 @@
     assessment,
     backLink,
     canRejudge = false,
+    canViewEditorials = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -210,6 +213,7 @@
   <ProblemLeftPanel
     {backLink}
     {canRejudge}
+    {canViewEditorials}
     {dailyAttempts}
     bind:submissions
     {problem}
