@@ -12,16 +12,19 @@
 </script>
 
 <script lang="ts">
+  import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
 
   interface Props {
     violations: IpViolationRow[];
+    activeSessionCount: number;
     class?: string;
   }
 
-  let { violations, class: className }: Props = $props();
+  let { violations, activeSessionCount, class: className }: Props = $props();
 
   function formatDate(iso: string): string {
     const d = new Date(iso);
@@ -30,6 +33,24 @@
 </script>
 
 <Card class={className}>
+  <div
+    class="mb-5 flex items-center justify-between gap-3 border-b border-border pb-5"
+  >
+    <div>
+      <h2 class="text-title font-semibold">
+        {m.examProctoring_sessionsHeading()}
+      </h2>
+      <p class="text-body-sm text-muted-foreground">
+        {m.examProctoring_sessionsActive({ count: activeSessionCount })}
+      </p>
+    </div>
+    <form method="POST" action="?/releaseAllSessions" use:enhance>
+      <Button type="submit" variant="outline" size="sm" disabled={activeSessionCount === 0}>
+        {m.examProctoring_releaseAll()}
+      </Button>
+    </form>
+  </div>
+
   <div class="flex items-center justify-between gap-3">
     <div>
       <h2 class="text-title font-semibold">
