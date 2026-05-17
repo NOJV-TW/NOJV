@@ -78,7 +78,11 @@ export function buildActivityModel(
   const heatmapDays: ActivityDay[] = [];
   for (let i = windowDays - 1; i >= 0; i--) {
     // Date-constructor arithmetic normalises overflow and is DST-safe.
-    const d = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() - i);
+    const d = new Date(
+      todayStart.getFullYear(),
+      todayStart.getMonth(),
+      todayStart.getDate() - i,
+    );
     const bucket = byDay.get(localDayKey(d));
     heatmapDays.push({
       date: localDayKey(d),

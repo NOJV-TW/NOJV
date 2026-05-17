@@ -258,13 +258,28 @@ After every message editing `apps/web/messages/*.json`, recompile Paraglide:
 
 ## Status log
 
-- [ ] Wave 0 — schema
-- [ ] Wave 1 — E (redis dead code)
-- [ ] Wave 2 — B (doc sync)
-- [ ] Wave 3 — A (late-penalty editable)
-- [ ] Wave 4 — D2 (IpViolationLog retention)
-- [ ] Wave 5 — D3 (dashboard timezone + range)
-- [ ] Wave 6 — D4 (exam session release UI)
-- [ ] Wave 7 — D5 (copy-course validation)
-- [ ] Wave 8 — D6 (assessment audit log)
-- [ ] Wave 9 — D7 (editorial moderation)
+All ten waves landed on `feat/feature-completion-batch-2026-05-18`
+on 2026-05-18, one commit per wave. Final verification: `pnpm -w
+typecheck` 10/10 · `pnpm lint` 8/8 · `pnpm test:unit` 82 files / 729
+tests · `pnpm format` clean. Integration/E2E not run (no DB in this
+environment).
+
+- [x] Wave 0 — schema (`AssessmentAuditLog`, `EditorialReport`)
+- [x] Wave 1 — E (redis dead code)
+- [x] Wave 2 — B (doc sync)
+- [x] Wave 3 — A (late-penalty editable)
+- [x] Wave 4 — D2 (IpViolationLog retention)
+- [x] Wave 5 — D3 (dashboard timezone + range)
+- [x] Wave 6 — D4 (exam session release UI)
+- [x] Wave 7 — D5 (copy-course validation)
+- [x] Wave 8 — D6 (assessment audit log)
+- [x] Wave 9 — D7 (editorial moderation)
+
+### Deferred / follow-ups
+
+- The migration `20260518000000_add_assessment_audit_and_editorial_report`
+  is on disk but not applied to any running DB (no DB in this env).
+- `UserDailyActivity` read path (`getStreakDays` / `getDailyActivity`)
+  is now unused by the dashboard — candidate for a dedicated cleanup.
+- Route-level integration tests for the new release/report flows need
+  a running DB.

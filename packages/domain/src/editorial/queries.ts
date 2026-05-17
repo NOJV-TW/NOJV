@@ -17,10 +17,7 @@ export async function hasUserAcProblem(userId: string, problemId: string): Promi
  * that overturns their AC — losing access to your own editorial would be
  * surprising and breaks the edit flow.
  */
-export async function canViewEditorials(
-  userId: string,
-  problemId: string,
-): Promise<boolean> {
+export async function canViewEditorials(userId: string, problemId: string): Promise<boolean> {
   const [ac, authored] = await Promise.all([
     hasUserAcProblem(userId, problemId),
     editorialRepo.existsForUserProblem(userId, problemId),

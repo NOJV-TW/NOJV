@@ -1,7 +1,12 @@
 import { editorialRepo, editorialReportRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 
 export type EditorialReportStatus = "open" | "resolved" | "dismissed";
 export type EditorialReportAction = "resolve" | "dismiss";

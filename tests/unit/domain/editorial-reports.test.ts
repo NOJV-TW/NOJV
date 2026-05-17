@@ -59,7 +59,12 @@ function actor(userId: string, platformRole: FakeActor["platformRole"] = "studen
 }
 
 function editorialRow(
-  overrides: Partial<{ id: string; userId: string; problemId: string; deletedAt: Date | null }> = {},
+  overrides: Partial<{
+    id: string;
+    userId: string;
+    problemId: string;
+    deletedAt: Date | null;
+  }> = {},
 ) {
   return {
     id: "ed_1",
@@ -88,33 +93,37 @@ beforeEach(() => {
 describe("reportEditorial", () => {
   it("rejects reporting your own editorial", async () => {
     editorialFindById.mockResolvedValue(editorialRow({ userId: "usr_author" }));
-    await expect(
-      reportEditorial(actor("usr_author"), "ed_1", "spam"),
-    ).rejects.toMatchObject({ name: "ValidationError", status: 400 });
+    await expect(reportEditorial(actor("usr_author"), "ed_1", "spam")).rejects.toMatchObject({
+      name: "ValidationError",
+      status: 400,
+    });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a missing editorial", async () => {
     editorialFindById.mockResolvedValue(null);
-    await expect(
-      reportEditorial(actor("usr_reporter"), "ed_1", "spam"),
-    ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
+    await expect(reportEditorial(actor("usr_reporter"), "ed_1", "spam")).rejects.toMatchObject({
+      name: "NotFoundError",
+      status: 404,
+    });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a soft-deleted editorial", async () => {
     editorialFindById.mockResolvedValue(editorialRow({ deletedAt: new Date() }));
-    await expect(
-      reportEditorial(actor("usr_reporter"), "ed_1", "spam"),
-    ).rejects.toMatchObject({ name: "NotFoundError", status: 404 });
+    await expect(reportEditorial(actor("usr_reporter"), "ed_1", "spam")).rejects.toMatchObject({
+      name: "NotFoundError",
+      status: 404,
+    });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
   it("rejects an empty / whitespace-only reason", async () => {
     editorialFindById.mockResolvedValue(editorialRow());
-    await expect(
-      reportEditorial(actor("usr_reporter"), "ed_1", "   "),
-    ).rejects.toMatchObject({ name: "ValidationError", status: 400 });
+    await expect(reportEditorial(actor("usr_reporter"), "ed_1", "   ")).rejects.toMatchObject({
+      name: "ValidationError",
+      status: 400,
+    });
     expect(reportCreate).not.toHaveBeenCalled();
   });
 
@@ -145,9 +154,10 @@ describe("reportEditorial", () => {
 
 describe("listEditorialReports", () => {
   it("is admin-only", async () => {
-    await expect(
-      listEditorialReports(actor("usr_student", "student")),
-    ).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+    await expect(listEditorialReports(actor("usr_student", "student"))).rejects.toMatchObject({
+      name: "ForbiddenError",
+      status: 403,
+    });
   });
 
   it("returns the rows for an admin", async () => {

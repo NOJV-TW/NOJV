@@ -68,8 +68,12 @@ vi.mock("@nojv/db", () => {
 
 import { assignmentDomain } from "@nojv/domain";
 
-const { updateAssignmentRecord, publishAssignment, deleteAssignmentDraft, revertAssignmentToDraft } =
-  assignmentDomain;
+const {
+  updateAssignmentRecord,
+  publishAssignment,
+  deleteAssignmentDraft,
+  revertAssignmentToDraft,
+} = assignmentDomain;
 
 const teacherActor = {
   userId: "usr_teacher",
