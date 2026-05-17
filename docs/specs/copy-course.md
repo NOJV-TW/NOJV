@@ -205,12 +205,6 @@ copyCourse` comment block).
 
 ## Open Questions / TODO
 
-- Copy currently renames with a hard-coded `(copy)` suffix. If someone
-  copies a copy they get `"Foo (copy) (copy)"`. A future nicer flow
-  would let the caller supply the new title.
-- The UI for copy is a single button; there is no preview of what WILL
-  be copied vs what will be reset. Low-risk, but may surprise a
-  teacher who expects the roster to carry over.
 - Problems themselves are shared by reference. If a TA later edits a
   shared problem, the edit affects BOTH the source course's and the
   copied course's published assessments. This is the current product

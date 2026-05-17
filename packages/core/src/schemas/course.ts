@@ -44,6 +44,13 @@ export const courseProblemAttachSchema = z.object({
   problemId: slugSchema,
 });
 
+// Title for a copied course — same bounds as a course title. The copy
+// dialog pre-fills a `"<title> (copy)"` suggestion but the teacher may
+// replace it freely.
+export const copyCourseSchema = z.object({
+  newTitle: z.string().trim().min(3).max(120),
+});
+
 export const manualCourseEnrollmentSchema = z.object({
   courseId: z.string().trim().min(1),
   displayName: z.string().trim().min(2).max(120),
@@ -204,6 +211,7 @@ export type AssessmentSettingsFormData = z.infer<typeof assessmentSettingsFormSc
 export type CourseAssessmentCreate = z.infer<typeof courseAssessmentCreateSchema>;
 export type CourseAssessmentUpdate = z.infer<typeof courseAssessmentUpdateSchema>;
 export type CourseAssignmentFormData = z.infer<typeof courseAssignmentFormSchema>;
+export type CopyCourse = z.infer<typeof copyCourseSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
 export type CourseUpdate = z.infer<typeof courseUpdateSchema>;
