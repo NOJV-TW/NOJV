@@ -325,7 +325,11 @@ export async function deleteContestDraft(
 }
 
 export async function freezeContestBoard(contestId: string): Promise<void> {
-  await scoreboard.freezeScoreboard(contestId);
+  // The frozen snapshot key gets the same `endsAt`-derived TTL as the
+  // live board so it does not squat memory after the contest ends.
+  const contest = await contestRepo.findById(contestId);
+  const ttl = contest ? scoreboard.scoreboardTtlForEndsAt(contest.endsAt) : undefined;
+  await scoreboard.freezeScoreboard(contestId, ttl);
   await contestRepo.update(contestId, { frozenBoard: true });
 }
 

@@ -187,6 +187,7 @@ export function buildSubmissionRequest(args: {
   runCases?: { input: string; expectedOutput?: string }[] | undefined;
   assessment?: SubmissionAssessmentContext | undefined;
   contestId?: string | undefined;
+  virtualContestId?: string | undefined;
 }): SubmissionRequest {
   const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
     language: args.language,
@@ -194,6 +195,7 @@ export function buildSubmissionRequest(args: {
     sampleOnly: args.sampleOnly,
     ...(args.assessment ? { assessment: args.assessment } : {}),
     ...(args.contestId ? { contestId: args.contestId } : {}),
+    ...(args.virtualContestId ? { virtualContestId: args.virtualContestId } : {}),
     ...(args.runCases ? { runCases: args.runCases } : {}),
   };
   if (args.isWorkspaceMode) {

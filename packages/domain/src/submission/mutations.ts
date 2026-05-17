@@ -19,6 +19,7 @@ import { toJsonValue } from "../shared/to-json-value";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
+import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
 import type { CompletedSubmission } from "./types";
 
@@ -43,15 +44,29 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    // Active-exam lockout: while a session is live, no foreign context (assignment
-    // or contest) can ride along. Bypass would skip exam cooldown, IP binding,
-    // and per-day limits. Admins are exempt for operational recovery.
+    // Active-exam lockout: while a session is live, no foreign context (assignment,
+    // contest, or virtual contest) can ride along. Bypass would skip exam cooldown,
+    // IP binding, and per-day limits. Admins are exempt for operational recovery.
     if (activeExamSession && actor.platformRole !== "admin") {
-      if (courseContext || payload.contestId) {
+      if (courseContext || payload.contestId || payload.virtualContestId) {
         throw new ForbiddenError(
           "You are in an active exam — submissions cannot carry an external assignment or contest context.",
         );
       }
+    }
+
+    // Virtual contest gate. A virtual submission is practice-like — it sets no
+    // contestId/examId/courseAssessmentId — but carries the `virtualContestId`
+    // tag so the personal re-run can aggregate its own score on read. The gate
+    // verifies the run is the actor's, the timer has not expired, and the
+    // problem belongs to the replayed contest.
+    if (payload.virtualContestId) {
+      if (courseContext || payload.contestId) {
+        throw new ForbiddenError(
+          "A virtual-contest submission cannot also carry a contest or assignment context.",
+        );
+      }
+      await assertCanSubmitToVirtualContest(payload.virtualContestId, actor.userId, problem.id);
     }
 
     if (courseContext) {
@@ -200,6 +215,9 @@ export async function createQueuedSubmissionRecord(
     return submissionRepo.withTx(tx).create({
       contestId: contestResult?.contest.id ?? null,
       contestParticipationId: contestParticipation?.id ?? null,
+      // Virtual submissions sit outside the contest/exam/assignment xor —
+      // practice-like, but tagged for the personal re-run scoreboard.
+      virtualContestId: payload.virtualContestId ?? null,
       courseAssessmentId: courseContext?.assignment.id ?? null,
       // Active exam session is the source of truth for exam tagging:
       // the lockout above guarantees no foreign assignment/contest

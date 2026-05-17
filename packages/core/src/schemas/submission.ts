@@ -40,10 +40,23 @@ export const runCaseSchema = z.object({
 
 export type SubmissionRunCase = z.infer<typeof runCaseSchema>;
 
+// VirtualContest ids are cuids (`@default(cuid())`), not slugs — accept the
+// same identifier shape as problem ids rather than the stricter slug rule.
+const virtualContestIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
 export const submissionDraftSchema = z
   .object({
     assessment: assessmentContextSchema.optional(),
     contestId: slugSchema.optional(),
+    // A virtual-contest submission is practice-like but carries this tag so the
+    // personal re-run can aggregate its own score. Mutually exclusive with the
+    // contest/assessment contexts (the submission path treats it as practice).
+    virtualContestId: virtualContestIdSchema.optional(),
     language: languageSchema,
     mode: submissionModeSchema.optional(),
     problemId: problemIdentifierSchema,

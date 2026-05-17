@@ -19,15 +19,13 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/components/primitives/ui/toast";
-  import type { UsersPageLabels } from "./labels";
 
   interface Props {
     users: UsersTableUser[];
     actorId: string | undefined;
-    labels: UsersPageLabels;
   }
 
-  let { users, actorId, labels }: Props = $props();
+  let { users, actorId }: Props = $props();
 
   let editingUserId = $state<string | null>(null);
   let draftRole = $state<PlatformRole>("student");
@@ -54,25 +52,25 @@
       <tr class="border-b border-border-subtle text-left">
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <User class="h-3.5 w-3.5 text-muted-foreground" />{labels.username}
+            <User class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersUsername()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <Mail class="h-3.5 w-3.5 text-muted-foreground" />{labels.email}
+            <Mail class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersEmail()}
           </span>
         </th>
-        <th class="px-5 py-3 font-medium">{labels.name}</th>
-        <th class="px-5 py-3 font-medium">{labels.role}</th>
-        <th class="px-5 py-3 font-medium">{labels.status}</th>
+        <th class="px-5 py-3 font-medium">{m.admin_usersName()}</th>
+        <th class="px-5 py-3 font-medium">{m.admin_usersRole()}</th>
+        <th class="px-5 py-3 font-medium">{m.admin_usersStatus()}</th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <CalendarClock class="h-3.5 w-3.5 text-muted-foreground" />{labels.created}
+            <CalendarClock class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersCreated()}
           </span>
         </th>
         <th class="px-5 py-3 font-medium">
           <span class="inline-flex items-center gap-1">
-            <UserCog class="h-3.5 w-3.5 text-muted-foreground" />{labels.actions}
+            <UserCog class="h-3.5 w-3.5 text-muted-foreground" />{m.admin_usersActions()}
           </span>
         </th>
       </tr>
@@ -186,9 +184,9 @@
           </td>
           <td class="px-5 py-3">
             {#if user.disabled}
-              <Badge variant="destructive" size="xs">{labels.disabled}</Badge>
+              <Badge variant="destructive" size="xs">{m.admin_usersDisabled()}</Badge>
             {:else}
-              <Badge variant="success" size="xs" dot>{labels.active}</Badge>
+              <Badge variant="success" size="xs" dot>{m.admin_usersActive()}</Badge>
             {/if}
           </td>
           <td class="px-5 py-3 text-caption text-muted-foreground">
@@ -246,7 +244,7 @@
                   ? "text-success hover:bg-success/10"
                   : "text-destructive hover:bg-destructive/10"}
               >
-                {user.disabled ? labels.enable : labels.disable}
+                {user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
               </Button>
             </form>
           </td>

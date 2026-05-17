@@ -153,7 +153,13 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
 
     // Scoreboard write: must reach Redis with (contestId, participationId, score).
     expect(updateScoreboardMock).toHaveBeenCalledTimes(1);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(contest.id, participation.id, 100, "ioi");
+    expect(updateScoreboardMock).toHaveBeenCalledWith(
+      contest.id,
+      participation.id,
+      100,
+      "ioi",
+      expect.any(Number),
+    );
   });
 
   it("WA submission keeps participation.score at 0 and writes 0 to the scoreboard", async () => {
@@ -190,7 +196,13 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       where: { id: participation.id },
     });
     expect(updated?.score).toBe(0);
-    expect(updateScoreboardMock).toHaveBeenCalledWith(contest.id, participation.id, 0, "ioi");
+    expect(updateScoreboardMock).toHaveBeenCalledWith(
+      contest.id,
+      participation.id,
+      0,
+      "ioi",
+      expect.any(Number),
+    );
   });
 
   it("two participants get distinct scoreboard rows after judging completes", async () => {
@@ -286,6 +298,7 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       participation.id,
       0,
       "ioi",
+      expect.any(Number),
     );
 
     // Rejudge: same row gets overwritten with AC, score 100.
@@ -303,6 +316,7 @@ describe("submit → judge → scoreboard end-to-end (real DB, mocked scoreboard
       participation.id,
       100,
       "ioi",
+      expect.any(Number),
     );
 
     // Final scoreboard sees the higher score.

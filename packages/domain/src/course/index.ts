@@ -1,4 +1,5 @@
 export * from "./across-courses";
+export * from "./analytics";
 export * from "./assignment-detail";
 export * from "./members";
 export * from "./mutations";

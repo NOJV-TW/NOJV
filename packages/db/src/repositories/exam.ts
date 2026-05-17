@@ -11,6 +11,26 @@ import {
 
 type TxClient = TransactionClient;
 
+/**
+ * Thrown by `examParticipationRepo.updateWithVersion` when the row's
+ * `version` column has moved on since the caller read it (Prisma surfaces
+ * this as P2025). The domain layer catches this and retries on a fresh read.
+ * Mirrors `ParticipationVersionConflict` for contests.
+ */
+export class ExamParticipationVersionConflict extends Error {
+  readonly participationId: string;
+  readonly expectedVersion: number;
+
+  constructor(participationId: string, expectedVersion: number) {
+    super(
+      `ExamParticipation ${participationId} version ${String(expectedVersion)} no longer current.`,
+    );
+    this.name = "ExamParticipationVersionConflict";
+    this.participationId = participationId;
+    this.expectedVersion = expectedVersion;
+  }
+}
+
 const examListInclude = {
   _count: { select: { participations: true, problems: true } },
   course: { select: courseMiniSelect },
@@ -373,6 +393,31 @@ export const examParticipationRepo = {
       data,
       where: { id },
     });
+  },
+
+  /**
+   * Optimistic-lock update: only writes when the current row's `version`
+   * still matches `expectedVersion`, and bumps it by one in the same
+   * statement. If another writer raced ahead, Prisma's `update` raises
+   * P2025 (record not found) — we translate that to
+   * `ExamParticipationVersionConflict` so callers can retry on a fresh read.
+   */
+  async updateWithVersion(
+    id: string,
+    expectedVersion: number,
+    data: Prisma.ExamParticipationUpdateInput,
+  ) {
+    try {
+      return await prisma.examParticipation.update({
+        data: { ...data, version: { increment: 1 } },
+        where: { id, version: expectedVersion },
+      });
+    } catch (err) {
+      if (err instanceof Error && (err as { code?: string }).code === "P2025") {
+        throw new ExamParticipationVersionConflict(id, expectedVersion);
+      }
+      throw err;
+    }
   },
 
   // Id-only lookup — used by score-override invalidation so we can call

@@ -65,10 +65,11 @@ freeze/unfreeze for the final reveal.
 
 ### Out of scope
 
-- **Proctoring.** Phase 3 of the CUID unification attempted to add IP
-  whitelist + IP binding + page lock to `Contest`, but commit `fa742c7`
-  explicitly reverted that — contests are public CP events. See
-  `docs/specs/proctoring.md`.
+- **Proctoring.** The `Contest` model has no proctoring fields
+  (`ipWhitelistEnabled`, `ipBindingEnabled`, page lock, etc.). Phase 3 of
+  the CUID unification briefly added them, but commit `fa742c7` removed
+  them again — contests are public CP events, so proctoring controls
+  live only on `Exam`. See `docs/specs/proctoring.md`.
 - Course membership gating — anyone with the invite code (or on a public
   contest) can participate.
 - Session management (`ActiveExamSession` lives on `Exam` only).

@@ -144,6 +144,7 @@ export const submissionRepo = {
     userId: string;
     statusIn: SubmissionStatus[];
     courseAssessmentId?: string;
+    virtualContestId?: string;
     take?: number;
   }) {
     return prisma.submission.findMany({
@@ -153,6 +154,7 @@ export const submissionRepo = {
         sampleOnly: false,
         status: { in: opts.statusIn },
         ...(opts.courseAssessmentId ? { courseAssessmentId: opts.courseAssessmentId } : {}),
+        ...(opts.virtualContestId ? { virtualContestId: opts.virtualContestId } : {}),
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -364,6 +366,26 @@ export const submissionRepo = {
     });
   },
 
+  /**
+   * Real (non-sample) submissions tagged to one virtual contest, in
+   * chronological order. Drives the compute-on-read virtual scoreboard:
+   * a virtual contest has a single participant so no participation join
+   * is needed — `userId` is carried directly on the row.
+   */
+  findForVirtualContestScoreboard(virtualContestId: string) {
+    return prisma.submission.findMany({
+      orderBy: { createdAt: "asc" },
+      select: {
+        ...scoringBaseSelect,
+        userId: true,
+      },
+      where: {
+        virtualContestId,
+        sampleOnly: false,
+      },
+    });
+  },
+
   findForContestChart(participationIds: string[]) {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
@@ -539,6 +561,39 @@ export const submissionRepo = {
         },
       },
     });
+  },
+
+  // Verdict distribution across a set of assessments — backs the class-analytics
+  // verdict pie. Counts every real submission (Run-mode dry-runs excluded).
+  groupStatusByAssessments(assessmentIds: string[]) {
+    if (assessmentIds.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["status"],
+      where: {
+        courseAssessmentId: { in: assessmentIds },
+        sampleOnly: false,
+      },
+      _count: { _all: true },
+    });
+  },
+
+  // Per-problem people-based stats scoped to a set of assessments: distinct
+  // attempters and distinct solvers. Drives the "hardest problems" panel —
+  // people-based so one student spamming submissions can't skew the AC rate.
+  async countUserStatsByProblemForAssessments(
+    assessmentIds: string[],
+  ): Promise<{ problemId: string; attempters: number; solvers: number }[]> {
+    if (assessmentIds.length === 0) return [];
+    return prisma.$queryRaw<{ problemId: string; attempters: number; solvers: number }[]>`
+      SELECT
+        "problemId",
+        COUNT(DISTINCT "userId")::int AS attempters,
+        COUNT(DISTINCT "userId") FILTER (WHERE status = 'accepted')::int AS solvers
+      FROM "Submission"
+      WHERE "courseAssessmentId" = ANY(${assessmentIds}::text[])
+        AND "sampleOnly" = false
+      GROUP BY "problemId"
+    `;
   },
 
   groupBestScores(opts: { assessmentId: string; studentIds: string[]; problemIds: string[] }) {

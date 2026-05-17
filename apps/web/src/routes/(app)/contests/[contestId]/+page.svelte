@@ -198,6 +198,14 @@
       <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
         {m.contestDetail_actionScoreboard()}
       </Button>
+      {#if isPast}
+        <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/upsolve`)}>
+          {m.contestDetail_actionUpsolve()}
+        </Button>
+        <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/virtual`)}>
+          {m.contestDetail_actionVirtual()}
+        </Button>
+      {/if}
       {#if primaryHref}
         <Button onclick={() => void goto(primaryHref)}>
           {#if isLive}

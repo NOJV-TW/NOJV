@@ -4,8 +4,31 @@ import { getRedis } from "./connection";
 import { keys } from "./keys";
 import { scoreboardUpdateLatency, type ScoreboardUpdateMode } from "./metrics";
 
-// TTL refreshed on every write so active contests stay alive; ended ones expire.
+// Fallback TTL when the caller does not pass one (e.g. a write that has
+// no `endsAt` context). Refreshed on every write so active boards stay
+// alive; ended ones expire.
 const SCOREBOARD_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
+
+// Floor so an `endsAt`-derived TTL for an already-ended contest still
+// leaves the board readable briefly after a late recompute lands.
+const MIN_SCOREBOARD_TTL_SECONDS = 60 * 60; // 1 hour
+
+/**
+ * Derive a Redis TTL from a contest/exam end time: the board lives until
+ * `endsAt` plus a grace window so post-mortem viewing works, then expires
+ * instead of squatting memory for the full fallback period. Active boards
+ * keep refreshing on every submission, so an in-progress contest never
+ * actually hits the floor.
+ */
+export function scoreboardTtlForEndsAt(
+  endsAt: Date,
+  graceSeconds = 7 * 24 * 60 * 60,
+  now: Date = new Date(),
+): number {
+  const secondsUntilGraceEnd =
+    Math.floor((endsAt.getTime() - now.getTime()) / 1000) + graceSeconds;
+  return Math.max(MIN_SCOREBOARD_TTL_SECONDS, secondsUntilGraceEnd);
+}
 
 async function execPipeline(pipeline: ReturnType<Redis["pipeline"]>): Promise<void> {
   const results = await pipeline.exec();
@@ -32,6 +55,7 @@ export async function updateScoreboard(
   participationId: string,
   score: number,
   mode: ScoreboardUpdateMode,
+  ttlSeconds: number = SCOREBOARD_TTL_SECONDS,
 ): Promise<void> {
   const key = keys.scoreboard(contestId);
   const startMs = performance.now();
@@ -40,7 +64,7 @@ export async function updateScoreboard(
       getRedis()
         .pipeline()
         .zadd(key, score.toString(), participationId)
-        .expire(key, SCOREBOARD_TTL_SECONDS),
+        .expire(key, ttlSeconds),
     );
   } finally {
     // try/finally so failure latency is still recorded — useful for the dashboard.
@@ -64,7 +88,10 @@ export async function getScoreboard(
 }
 
 /** Snapshots live → frozen. Live key keeps updating; `getScoreboard` hides it until unfreeze. */
-export async function freezeScoreboard(contestId: string): Promise<void> {
+export async function freezeScoreboard(
+  contestId: string,
+  ttlSeconds: number = SCOREBOARD_TTL_SECONDS,
+): Promise<void> {
   const redis = getRedis();
   const key = keys.scoreboard(contestId);
   const frozenKey = keys.scoreboardFrozen(contestId);
@@ -80,7 +107,7 @@ export async function freezeScoreboard(contestId: string): Promise<void> {
     redis
       .pipeline()
       .zadd(frozenKey, ...zaddArgs)
-      .expire(frozenKey, SCOREBOARD_TTL_SECONDS),
+      .expire(frozenKey, ttlSeconds),
   );
 }
 

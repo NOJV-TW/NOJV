@@ -5,9 +5,20 @@ import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, SHORT_ACTIVITY } from "./activity-options";
 
-// Judging can take a few minutes (compilation + testcases); keep a wider timeout.
+// Short judge activities are DB-bound and finish quickly; they do not
+// heartbeat, so they must NOT carry a `heartbeatTimeout`.
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
+  retry: { maximumAttempts: 3 },
+});
+
+// `executeSandbox` is the long-running step (compile + run every testcase in a
+// sandbox subprocess). It heartbeats on a 15s interval, so a `heartbeatTimeout`
+// lets Temporal detect a wedged sandbox well before the 5m `startToCloseTimeout`;
+// 60s tolerates a few missed beats from GC / slow ticks before failing the attempt.
+const judgeSandbox = proxyActivities<typeof judgeActivities>({
+  startToCloseTimeout: "5m",
+  heartbeatTimeout: "60s",
   retry: { maximumAttempts: 3 },
 });
 
@@ -42,7 +53,11 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   const judgeContext = await judge.fetchJudgeContext(input.submissionId);
 
   status = "running";
-  const result = await judge.executeSandbox(input.submissionId, input.draft, judgeContext);
+  const result = await judgeSandbox.executeSandbox(
+    input.submissionId,
+    input.draft,
+    judgeContext,
+  );
 
   // Inlined: workflow sandbox can't import @nojv/domain (would pull Prisma into
   // the workflow bundle). Mirrors `submissionDomain.deriveJudgeMode` — kept in

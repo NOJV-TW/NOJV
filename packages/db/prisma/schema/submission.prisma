@@ -36,10 +36,15 @@ enum SubmissionStatus {
 /// `courseAssessmentId` ? "assignment" : "practice".
 /// Domain helper `deriveSubmissionMode` lives in `@nojv/domain`.
 ///
-/// A submission carries at most one of `examId` / `contestId` — the
-/// xor is enforced by a CHECK constraint added in the
-/// 20260414050000_split_contest_into_exam_and_contest migration
-/// (Prisma cannot express multi-column CHECKs natively).
+/// A submission carries at most one of `courseAssessmentId` / `examId` /
+/// `contestId` — the xor is enforced by the `Submission_single_context_chk`
+/// CHECK constraint (Prisma cannot express multi-column CHECKs natively).
+///
+/// `virtualContestId` sits outside that mutual exclusion: a virtual-contest
+/// submission is practice-like (it does not count toward any real contest
+/// scoreboard) but carries the `virtualContestId` tag so the personal
+/// re-run can aggregate its own score. It is therefore valid for a row to
+/// have only `virtualContestId` set with all three context columns null.
 model Submission {
   id                     String            @id @default(cuid())
   userId                 String
@@ -47,6 +52,7 @@ model Submission {
   contestParticipationId String?
   examId                 String?
   contestId              String?
+  virtualContestId       String?
   courseId               String?
   courseAssessmentId     String?
   sampleOnly             Boolean           @default(false)
@@ -72,6 +78,7 @@ model Submission {
   contestParticipation ContestParticipation? @relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)
   exam                 Exam?                 @relation(fields: [examId], references: [id], onDelete: Cascade)
   contest              Contest?              @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  virtualContest       VirtualContest?       @relation(fields: [virtualContestId], references: [id], onDelete: Cascade)
   course               Course?               @relation(fields: [courseId], references: [id], onDelete: SetNull)
   courseAssessment     CourseAssessment?     @relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)
 
@@ -83,6 +90,7 @@ model Submission {
   @@index([contestParticipationId, problemId, createdAt])
   @@index([contestId, problemId, createdAt])
   @@index([examId, problemId, createdAt])
+  @@index([virtualContestId, problemId, createdAt])
 }
 
 /// Audit log for rejudge runs. Written in two passes by

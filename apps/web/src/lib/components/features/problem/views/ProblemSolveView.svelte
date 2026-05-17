@@ -52,6 +52,8 @@
     /** Whether the viewer may rejudge submissions in this context. */
     canRejudge?: boolean;
     contestId?: string | undefined;
+    /** Virtual-contest re-run id — tags submissions for the personal scoreboard. */
+    virtualContestId?: string | undefined;
     /** Assignment-only daily submission quota shown in the problem header. */
     dailyAttempts?: { used: number; max: number | null } | undefined;
     /** Siblings in the same contest/exam/assignment. Renders a float drawer. */
@@ -71,6 +73,7 @@
     backLink,
     canRejudge = false,
     contestId,
+    virtualContestId,
     dailyAttempts,
     siblingProblems,
     examContext: _examContext
@@ -126,6 +129,7 @@
           {backLink}
           {canRejudge}
           {contestId}
+          {virtualContestId}
           {dailyAttempts}
           initialSubmissions={submissions}
           {problem}
@@ -139,6 +143,7 @@
           {backLink}
           {canRejudge}
           {contestId}
+          {virtualContestId}
           {dailyAttempts}
           initialSubmissions={submissions}
           {problem}

@@ -33,6 +33,7 @@
         }
       | undefined;
     contestId?: string | undefined;
+    virtualContestId?: string | undefined;
     draftContext?: DraftContext | undefined;
     onSubmissionComplete?:
       | ((result: SubmissionResult, language: string, sourceCode: string) => void)
@@ -44,6 +45,7 @@
     allowedLanguages,
     assessment,
     contestId,
+    virtualContestId,
     draftContext,
     onSubmissionComplete,
     problem
@@ -149,6 +151,7 @@
     workspaceFiles: () => workspaceFilesForLanguage,
     assessment: () => assessment,
     contestId: () => contestId,
+    virtualContestId: () => virtualContestId,
     onSubmissionComplete: (result, lang, src) => onSubmissionComplete?.(result, lang, src)
   });
 

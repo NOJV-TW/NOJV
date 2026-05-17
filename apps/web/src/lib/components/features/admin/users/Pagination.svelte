@@ -1,16 +1,15 @@
 <script lang="ts">
   import { Button } from "$lib/components/primitives/ui/button";
-  import type { UsersPageLabels } from "./labels";
+  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     page: number;
     totalPages: number;
     search: string;
     roleFilter: string;
-    labels: UsersPageLabels;
   }
 
-  let { page, totalPages, search, roleFilter, labels }: Props = $props();
+  let { page, totalPages, search, roleFilter }: Props = $props();
 
   function hrefFor(target: number): string {
     const params = new URLSearchParams();
@@ -25,7 +24,7 @@
   <div class="flex items-center justify-center gap-2">
     {#if page > 1}
       <Button variant="outline" size="sm" href={hrefFor(page - 1)}>
-        {labels.previous}
+        {m.admin_usersPrevious()}
       </Button>
     {/if}
     <span class="px-3 py-2 text-body-sm text-muted-foreground tabular-nums">
@@ -33,7 +32,7 @@
     </span>
     {#if page < totalPages}
       <Button variant="outline" size="sm" href={hrefFor(page + 1)}>
-        {labels.next}
+        {m.admin_usersNext()}
       </Button>
     {/if}
   </div>
