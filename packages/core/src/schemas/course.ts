@@ -179,6 +179,7 @@ export const courseAssessmentUpdateSchema = z.object({
     )
     .max(32)
     .optional(),
+  adjustmentRules: adjustmentRulesSchema.optional(),
   summary: z.string().trim().max(2_000).optional(),
   title: z.string().trim().min(3).max(120).optional(),
 });
@@ -195,6 +196,7 @@ export const assessmentSettingsFormSchema = z.object({
   closesAt: z.string().trim().min(1),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+  latePenalty: adjustmentRuleSchema.nullable().default(null),
 });
 
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;

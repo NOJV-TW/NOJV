@@ -20,6 +20,9 @@
   import type { FormMessage } from "$lib/types/form-message";
   import AssignmentLifecycleSection from "./AssignmentLifecycleSection.svelte";
   import AssignmentBasicSection from "./AssignmentBasicSection.svelte";
+  import LatePenaltyRuleBuilder, {
+    type LatePenaltyRule,
+  } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
 
   interface Props {
     form: SuperValidated<AssessmentSettingsFormData, FormMessage>;
@@ -160,6 +163,17 @@
             <p class="mt-1 text-xs text-destructive">{$errors.maxAttemptsPerDay}</p>
           {/if}
         </div>
+
+        <fieldset disabled={!editableBasics} class="m-0 min-w-0 border-0 p-0">
+          <div class="text-sm font-medium">{m.assignmentCreate_latePenaltyLabel()}</div>
+          <p class="mt-1 mb-3 text-caption text-muted-foreground">
+            {m.assignmentCreate_latePenaltyDesc()}
+          </p>
+          <LatePenaltyRuleBuilder
+            value={$form.latePenalty as LatePenaltyRule}
+            onChange={(value) => ($form.latePenalty = value)}
+          />
+        </fieldset>
       </div>
     </section>
 

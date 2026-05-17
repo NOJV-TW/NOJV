@@ -1,8 +1,24 @@
 import { assessmentRepo, submissionRepo } from "@nojv/db";
-import type { Language } from "@nojv/core";
+import { adjustmentRulesSchema, type AdjustmentRule, type Language } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
+
+// The settings tab edits a single late-penalty rule. The stored
+// `adjustmentRules` JSON is an array; pull the one non-`time_bonus`
+// member back out for hydration.
+function extractLatePenalty(raw: unknown): AdjustmentRule | null {
+  const parsed = adjustmentRulesSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return (
+    parsed.data.find(
+      (r) =>
+        r.type === "flat_late_penalty" ||
+        r.type === "daily_late_penalty" ||
+        r.type === "final_day_zero",
+    ) ?? null
+  );
+}
 
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
@@ -50,6 +66,7 @@ export interface AssignmentDetail {
   closesAt: string;
   maxAttemptsPerDay: number | null;
   allowedLanguages: Language[];
+  latePenalty: AdjustmentRule | null;
   totalPoints: number;
   problemCount: number;
   problems: AssignmentDetailProblem[];
@@ -254,6 +271,7 @@ export async function getAssignmentDetail(
     closesAt: row.closesAt.toISOString(),
     maxAttemptsPerDay: row.maxAttemptsPerDay,
     allowedLanguages: row.allowedLanguages,
+    latePenalty: extractLatePenalty(row.adjustmentRules),
     totalPoints,
     // The true count stays visible to upcoming-viewers — the UI uses it
     // to render "N problems will unlock when the assignment opens" — but

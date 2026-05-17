@@ -170,6 +170,9 @@ export async function updateAssignmentRecord(
     if (payload.dueAt !== undefined) {
       updateData.dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
     }
+    if (payload.adjustmentRules !== undefined) {
+      updateData.adjustmentRules = payload.adjustmentRules as Prisma.InputJsonValue;
+    }
 
     if (Object.keys(updateData).length > 0) {
       await assessmentRepo.withTx(tx).update(assignment.id, updateData);

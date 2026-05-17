@@ -135,6 +135,28 @@ describe("updateAssignmentRecord", () => {
     expect(data.dueAt).toBeInstanceOf(Date);
   });
 
+  it("writes adjustmentRules (late penalty) when provided", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await updateAssignmentRecord(teacherActor, "asg_1", {
+      adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" }],
+    });
+
+    const [, data] = assessmentUpdate.mock.calls[0];
+    expect(data.adjustmentRules).toEqual([
+      { type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" },
+    ]);
+  });
+
+  it("clears adjustmentRules when an empty array is sent", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await updateAssignmentRecord(teacherActor, "asg_1", { adjustmentRules: [] });
+
+    const [, data] = assessmentUpdate.mock.calls[0];
+    expect(data.adjustmentRules).toEqual([]);
+  });
+
   it("allows dueAt to be nulled out", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
