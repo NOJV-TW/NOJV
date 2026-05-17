@@ -1,8 +1,8 @@
 {
   "about_contactBody": "Reach out if you have feedback, partnership ideas, or bug reports.",
   "about_contactTitle": "Get in touch",
-  "about_devARole": "Frontend architecture & judging UX",
-  "about_devBRole": "Backend services & judge pipeline",
+  "about_devARole": "Full-stack architecture & judge pipeline",
+  "about_devBRole": "Frontend architecture & judging UX",
   "about_devCRole": "Sandbox runtime & infrastructure",
   "about_emailUs": "Email us",
   "about_heroSubtitle": "An online judge platform built for programming courses, contests, and self-paced practice. Made with care by three engineers.",
