@@ -5,7 +5,16 @@ import type { TestcaseFiles, TestcaseResult } from "../types.js";
 import { cleanupTempDir } from "../utils.js";
 import { runProcess, classifySolutionVerdict, parseJudgeOutput } from "./run-process.js";
 
-const CHECKER_TIMEOUT_MS = 30_000;
+// The checker post-processes one testcase's output. 30s is a generous floor
+// for normal checkers; for problems with a large per-case `timeLimitMs` the
+// checker may also legitimately need longer, so the budget scales up with the
+// solution's time limit but never below the 30s floor. It never scales *down*
+// — shrinking the checker budget would risk killing a slow-but-correct checker.
+const CHECKER_TIMEOUT_FLOOR_MS = 30_000;
+
+function checkerTimeoutMs(solutionTimeoutMs: number): number {
+  return Math.max(CHECKER_TIMEOUT_FLOOR_MS, solutionTimeoutMs);
+}
 
 /**
  * The checker script is invoked with three file arguments:
@@ -36,7 +45,7 @@ export async function judgeChecker(
 
     const checkerResult = await runProcess(
       [...checkerCommand, inputFile, expectedFile, userOutputFile],
-      { timeoutMs: CHECKER_TIMEOUT_MS },
+      { timeoutMs: checkerTimeoutMs(timeoutMs) },
     );
 
     // Checker memory does not count against the student — only the solution's

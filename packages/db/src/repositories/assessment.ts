@@ -186,6 +186,27 @@ export const assessmentRepo = {
     });
   },
 
+  // Published assessments of a course with their attached problems (id + points).
+  // Backs the class-analytics dashboard — drafts are excluded so unpublished
+  // homework doesn't skew completion rates.
+  listPublishedWithProblemsByCourse(courseId: string) {
+    return prisma.courseAssessment.findMany({
+      where: { courseId, status: "published" },
+      orderBy: { opensAt: "asc" },
+      select: {
+        id: true,
+        title: true,
+        problems: {
+          orderBy: { ordinal: "asc" },
+          select: {
+            points: true,
+            problem: { select: problemMiniSelect },
+          },
+        },
+      },
+    });
+  },
+
   findDetailById(courseId: string, assessmentId: string) {
     return prisma.courseAssessment.findFirst({
       where: { id: assessmentId, courseId },

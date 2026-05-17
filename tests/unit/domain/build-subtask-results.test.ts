@@ -37,6 +37,17 @@ function mkSandbox(verdicts: SandboxVerdict[]): SandboxResult {
   };
 }
 
+// Like `mkSandbox` but with explicit checker partial-credit scores (0-100)
+// per case — exercises strategies that read `SandboxTestcaseResult.score`.
+function mkScoredSandbox(scores: number[]): SandboxResult {
+  return {
+    testcaseResults: scores.map((s, i) => ({
+      ...mkCase(i, s >= 100 ? "AC" : "WA"),
+      score: s,
+    })),
+  };
+}
+
 function mkSet(
   id: string,
   name: string,
@@ -115,20 +126,47 @@ describe("buildSubtaskResults", () => {
     });
   });
 
-  describe("MINIMUM (collapses to ALL_OR_NOTHING per code comment)", () => {
-    it("behaves like ALL_OR_NOTHING — partial pass scores 0", () => {
-      const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 60)];
-      const strategies: SubtaskStrategyMap = { s1: "MINIMUM" };
-      const result = buildSubtaskResults(mkSandbox(["AC", "WA"]), sets, strategies);
-      expect(result[0]!.rawScore).toBe(0);
-    });
-
-    it("awards full weight when all cases pass under MINIMUM", () => {
+  describe("MINIMUM (subtask = lowest per-case score × weight)", () => {
+    it("awards full weight when every case is AC (lowest case = 100)", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 60)];
       const strategies: SubtaskStrategyMap = { s1: "MINIMUM" };
       const result = buildSubtaskResults(mkSandbox(["AC", "AC"]), sets, strategies);
       expect(result[0]!.rawScore).toBe(60);
       expect(result[0]!.passed).toBe(true);
+    });
+
+    it("zeroes the subtask when one case scores 0 (worst case caps it)", () => {
+      const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 60)];
+      const strategies: SubtaskStrategyMap = { s1: "MINIMUM" };
+      // AC→100, WA→0 (no checker score) → min is 0.
+      const result = buildSubtaskResults(mkSandbox(["AC", "WA"]), sets, strategies);
+      expect(result[0]!.rawScore).toBe(0);
+      expect(result[0]!.passed).toBe(false);
+    });
+
+    it("reflects checker partial credit — lowest case 40 → weight × 0.4", () => {
+      const sets = [mkSet("s1", "Subtask 1", ["t1", "t2", "t3"], 100)];
+      const strategies: SubtaskStrategyMap = { s1: "MINIMUM" };
+      // Checker partial scores: 90, 40, 100 → min 40 → 100 × 40 / 100 = 40.
+      const result = buildSubtaskResults(mkScoredSandbox([90, 40, 100]), sets, strategies);
+      expect(result[0]!.rawScore).toBe(40);
+    });
+
+    it("differs from ALL_OR_NOTHING — partial checker credit earns a floor", () => {
+      const sets = [mkSet("s1", "Subtask 1", ["t1", "t2"], 80)];
+      // Both cases have non-zero checker partial scores: 70 and 55.
+      const sandbox = mkScoredSandbox([70, 55]);
+
+      const minResult = buildSubtaskResults(sandbox, sets, { s1: "MINIMUM" });
+      const allOrNothingResult = buildSubtaskResults(sandbox, sets, {
+        s1: "ALL_OR_NOTHING",
+      });
+
+      // MINIMUM: 80 × min(70,55) / 100 = 80 × 0.55 = 44.
+      expect(minResult[0]!.rawScore).toBe(44);
+      // ALL_OR_NOTHING ignores partial scores — no case is AC → 0.
+      expect(allOrNothingResult[0]!.rawScore).toBe(0);
+      expect(minResult[0]!.rawScore).not.toBe(allOrNothingResult[0]!.rawScore);
     });
   });
 

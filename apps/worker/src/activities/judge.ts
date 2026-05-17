@@ -7,9 +7,16 @@ import {
   type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/domain";
+import { heartbeat } from "@temporalio/activity";
 
 import type { RejudgeInput } from "@nojv/temporal";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
+
+// The sandbox runs as a single opaque subprocess (`SandboxExecutor.execute`),
+// so the activity can't see per-testcase progress. Emit a coarse liveness
+// heartbeat on a fixed interval while it runs — without this the only signal
+// of a stuck sandbox is the full 5m `startToCloseTimeout`.
+const JUDGE_HEARTBEAT_INTERVAL_MS = 15_000;
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
 
@@ -168,7 +175,20 @@ export async function executeSandbox(
     ...(advancedPayload ? { advanced: advancedPayload } : {}),
   };
 
-  const result = await executor.execute(request);
+  // Heartbeat while the sandbox subprocess runs so Temporal can tell a slow
+  // judge from a wedged one. `heartbeat()` is best-effort and non-blocking;
+  // it has no effect on judging behaviour or the produced verdict.
+  heartbeat("sandbox-started");
+  const heartbeatTimer = setInterval(() => {
+    heartbeat("sandbox-running");
+  }, JUDGE_HEARTBEAT_INTERVAL_MS);
+
+  let result: Awaited<ReturnType<SandboxExecutor["execute"]>>;
+  try {
+    result = await executor.execute(request);
+  } finally {
+    clearInterval(heartbeatTimer);
+  }
 
   if (useSamples) {
     const mapped = submissionDomain.mapResult(result, [], judgeContext);

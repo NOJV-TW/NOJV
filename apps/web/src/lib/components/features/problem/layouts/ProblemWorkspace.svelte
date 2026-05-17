@@ -17,6 +17,7 @@
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     contestId?: string | undefined;
+    virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
@@ -29,6 +30,7 @@
     backLink,
     canRejudge = false,
     contestId,
+    virtualContestId,
     dailyAttempts,
     initialSubmissions,
     problem,
@@ -131,6 +133,7 @@
     {allowedLanguages}
     {assessment}
     {contestId}
+    {virtualContestId}
     {draftContext}
     onSubmissionComplete={handleSubmissionComplete}
     {problem}

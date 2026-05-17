@@ -56,6 +56,7 @@ model User {
   submissions                    Submission[]
   contestParticipations          ContestParticipation[]
   examParticipations             ExamParticipation[]       @relation("ExamParticipationUser")
+  virtualContests                VirtualContest[]
   authoredProblems               Problem[]                 @relation("ProblemAuthor")
   ownedCourses                   Course[]                  @relation("CourseOwner")
   courseMemberships              CourseMembership[]        @relation("CourseMembershipUser")

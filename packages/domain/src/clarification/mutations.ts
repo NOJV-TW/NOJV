@@ -92,7 +92,7 @@ export async function answer(
     throw new ConflictError("Answer must be 1-1000 characters.");
   }
   const row = await clarificationRepo.findById(id);
-  if (!row) throw new NotFoundError("Clarification not found.");
+  if (!row || row.deletedAt) throw new NotFoundError("Clarification not found.");
   const context = fromContextDbFields(row);
   if (!(await canAnswerInContext(actor, context))) {
     throw new ForbiddenError("Not permitted to answer clarifications in this context.");
@@ -139,7 +139,7 @@ export async function dismiss(
   id: string,
 ): Promise<ProjectedClarification> {
   const row = await clarificationRepo.findById(id);
-  if (!row) throw new NotFoundError("Clarification not found.");
+  if (!row || row.deletedAt) throw new NotFoundError("Clarification not found.");
   const context = fromContextDbFields(row);
   if (!(await canAnswerInContext(actor, context))) {
     throw new ForbiddenError("Not permitted to dismiss clarifications in this context.");
@@ -150,6 +150,32 @@ export async function dismiss(
   const updated = await clarificationRepo.updateState(id, "dismissed");
   await publishClarificationEvent("dismissed", updated);
   return projectRow(updated, true);
+}
+
+/**
+ * Soft-delete a clarification thread. Permission: staff of the context
+ * (course teacher / TA, contest organizer, or platform admin) OR the
+ * original asker — so a participant can retract a mistakenly-posted
+ * question, and staff can clean up off-topic threads.
+ *
+ * Idempotency: a second call against an already-tombstoned id surfaces
+ * as `NotFoundError`, so HTTP DELETE callers see the standard 404 on
+ * the repeat attempt. The SSE `dismissed` event lets connected clients
+ * drop the thread from their board immediately.
+ */
+export async function deleteClarification(actor: ActorContext, id: string): Promise<void> {
+  const row = await clarificationRepo.findById(id);
+  if (!row || row.deletedAt) throw new NotFoundError("Clarification not found.");
+  const context = fromContextDbFields(row);
+
+  const isStaff = await canSeeAuthor(actor, context);
+  const isAsker = row.askedByUserId === actor.userId;
+  if (!isStaff && !isAsker) {
+    throw new ForbiddenError("Not permitted to delete this clarification.");
+  }
+
+  const deleted = await clarificationRepo.softDelete(id);
+  await publishClarificationEvent("deleted", deleted);
 }
 
 async function publishClarificationEvent(

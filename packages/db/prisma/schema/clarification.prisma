@@ -31,6 +31,10 @@ model Clarification {
   answeredAt       DateTime?
   createdAt        DateTime                 @default(now())
   updatedAt        DateTime                 @updatedAt
+  /// Soft-delete tombstone. All read paths must filter `deletedAt: null`.
+  /// Lets staff (or the original asker) retract a mistakenly-posted
+  /// thread without hard-deleting accountability history.
+  deletedAt        DateTime?
 
   askedBy    User     @relation("ClarificationAsker", fields: [askedByUserId], references: [id], onDelete: Cascade)
   answeredBy User?    @relation("ClarificationAnswerer", fields: [answeredByUserId], references: [id], onDelete: SetNull)

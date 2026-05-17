@@ -54,3 +54,11 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   });
   return json(updated);
 });
+
+export const DELETE: RequestHandler = writeApiHandler(async (event) => {
+  const actor = requireApiAuth(event);
+  const id = requireId(event);
+
+  await clarificationDomain.deleteClarification(actor, id);
+  return new Response(null, { status: 204 });
+});

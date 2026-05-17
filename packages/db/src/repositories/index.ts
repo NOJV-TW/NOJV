@@ -16,7 +16,12 @@ export {
 export { courseRepo, courseMembershipRepo } from "./course";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
-export { examRepo, examProblemRepo, examParticipationRepo } from "./exam";
+export {
+  examRepo,
+  examProblemRepo,
+  examParticipationRepo,
+  ExamParticipationVersionConflict,
+} from "./exam";
 export { examSessionRepo } from "./exam-session";
 export { ipViolationLogRepo, examParticipationIpRepo } from "./ip-violation";
 export { notificationRepo, NOTIFICATION_RETENTION_PER_USER } from "./notification";
@@ -55,3 +60,4 @@ export type {
 } from "./submission-rejudge-log";
 export { userRepo } from "./user";
 export { userDailyActivityRepo } from "./user-daily-activity";
+export { virtualContestRepo, VirtualContestVersionConflict } from "./virtual-contest";

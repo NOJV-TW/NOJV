@@ -18,6 +18,7 @@ export * as scoreOverrideDomain from "./score-override";
 export * as scoring from "./scoring";
 export * as submissionDomain from "./submission";
 export * as userDomain from "./user";
+export * as virtualContestDomain from "./virtual-contest";
 export { aggregateByTag } from "./user/queries";
 export type { TagAcCount } from "./user/queries";
 export { isReservedUsername } from "@nojv/core";

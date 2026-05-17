@@ -1,7 +1,9 @@
 <script lang="ts">
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
   import { m } from "$lib/paraglide/messages.js";
+  import { toasts } from "$lib/stores/toast";
   import type { ClarificationItem } from "$lib/stores/clarifications.svelte";
   import ClarificationStaffPanel from "./ClarificationStaffPanel.svelte";
   import type { ClarificationsStore } from "$lib/stores/clarifications.svelte";
@@ -14,6 +16,22 @@
   }
 
   let { item, canAnswer, store, problems }: Props = $props();
+
+  let deleting = $state(false);
+
+  async function handleDelete() {
+    if (deleting) return;
+    if (!confirm(m.clarification_deleteConfirm())) return;
+    deleting = true;
+    try {
+      await store.delete(item.id);
+      toasts.success(m.clarification_toastDeleted());
+    } catch (err) {
+      toasts.error(err instanceof Error ? err.message : m.clarification_toastError());
+    } finally {
+      deleting = false;
+    }
+  }
 
   const problemTitle = $derived(
     item.problemId ? (problems.find((p) => p.id === item.problemId)?.title ?? null) : null
@@ -79,6 +97,18 @@
       <Badge variant="muted" size="sm"
         >{m.clarification_problemChip({ title: problemTitle })}</Badge
       >
+    {/if}
+    {#if canAnswer}
+      <Button
+        variant="ghost"
+        size="sm"
+        type="button"
+        class="ml-auto text-destructive"
+        disabled={deleting}
+        onclick={handleDelete}
+      >
+        {m.clarification_deleteBtn()}
+      </Button>
     {/if}
   </header>
 

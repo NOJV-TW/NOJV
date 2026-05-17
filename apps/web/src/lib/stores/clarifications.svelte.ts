@@ -29,6 +29,7 @@ export interface ClarificationsStore {
   ask(questionText: string, problemId: string | null): Promise<void>;
   answer(id: string, answerText: string): Promise<void>;
   dismiss(id: string): Promise<void>;
+  delete(id: string): Promise<void>;
   canned(id: string, templateKey: "noComment" | "readProblem" | "yes" | "no"): Promise<void>;
   markTabVisited(): void;
 }
@@ -75,6 +76,11 @@ export function createClarificationsStore(
       return;
     }
     const incoming = event.payload as ClarificationItem;
+    // A soft-deleted thread leaves the board entirely for every viewer.
+    if (event.action === "deleted") {
+      items = items.filter((i) => i.id !== incoming.id);
+      return;
+    }
     const idx = items.findIndex((i) => i.id === incoming.id);
     if (idx >= 0) {
       items[idx] = incoming;
@@ -132,6 +138,14 @@ export function createClarificationsStore(
     if (!r.ok) throw new Error("Canned reply failed");
   }
 
+  async function remove(id: string): Promise<void> {
+    const r = await fetchWithCsrf(`/api/clarifications/${id}`, { method: "DELETE" });
+    if (!r.ok) throw new Error("Delete failed");
+    // SSE `deleted` push removes it for everyone; drop locally too in
+    // case this tab is not subscribed to the stream.
+    items = items.filter((i) => i.id !== id);
+  }
+
   function markTabVisited(): void {
     const now = new Date().toISOString();
     lastSeenAt = now;
@@ -156,6 +170,7 @@ export function createClarificationsStore(
     ask,
     answer,
     dismiss,
+    delete: remove,
     canned,
     markTabVisited,
   };

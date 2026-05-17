@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { ListChecks } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
+  import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
 
   interface ProblemSummary {
     id: string;
@@ -71,6 +73,12 @@
           </span>
         </div>
       {/each}
+    {:else if problems.length === 0}
+      <EmptyState
+        icon={ListChecks}
+        title={m.contestDetail_problemsEmptyTitle()}
+        description={m.contestDetail_problemsEmptyBody()}
+      />
     {:else}
       {#each problems as p (p.id)}
         {@const enterHref =
