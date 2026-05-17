@@ -1,4 +1,4 @@
-import { assessmentRepo, submissionRepo } from "@nojv/db";
+import { assessmentAuditLogRepo, assessmentRepo, submissionRepo } from "@nojv/db";
 import { adjustmentRulesSchema, type AdjustmentRule, type Language } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -55,6 +55,12 @@ export interface AssignmentDetailSubmissionLogEntry {
   createdAt: string;
 }
 
+export interface AssessmentAuditEntry {
+  action: "publish" | "revert_to_draft" | "delete_draft";
+  actorName: string | null;
+  createdAt: string;
+}
+
 export interface AssignmentDetail {
   id: string;
   courseId: string;
@@ -72,6 +78,8 @@ export interface AssignmentDetail {
   problems: AssignmentDetailProblem[];
   // Null for managers — teacher UI shows the per-problem matrix instead.
   myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null;
+  // Lifecycle audit trail — populated for managers only.
+  auditLog: AssessmentAuditEntry[];
 }
 
 export interface GetAssignmentDetailOptions {
@@ -260,6 +268,15 @@ export async function getAssignmentDetail(
     });
   }
 
+  const auditRows = options.isManager
+    ? await assessmentAuditLogRepo.listByAssessment(row.id)
+    : [];
+  const auditLog: AssessmentAuditEntry[] = auditRows.map((r) => ({
+    action: r.action,
+    actorName: r.actor?.name ?? null,
+    createdAt: r.createdAt.toISOString(),
+  }));
+
   return {
     id: row.id,
     courseId: row.courseId,
@@ -272,6 +289,7 @@ export async function getAssignmentDetail(
     maxAttemptsPerDay: row.maxAttemptsPerDay,
     allowedLanguages: row.allowedLanguages,
     latePenalty: extractLatePenalty(row.adjustmentRules),
+    auditLog,
     totalPoints,
     // The true count stays visible to upcoming-viewers — the UI uses it
     // to render "N problems will unlock when the assignment opens" — but

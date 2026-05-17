@@ -31,7 +31,7 @@
     class?: string;
   }
 
-  let { form: formProp, detail: _detail, liveStatus, class: className }: Props = $props();
+  let { form: formProp, detail, liveStatus, class: className }: Props = $props();
 
   const {
     form,
@@ -194,5 +194,6 @@
     {isUpcoming}
     submitting={$submitting}
     {enhance}
+    auditLog={detail.auditLog}
   />
 </section>

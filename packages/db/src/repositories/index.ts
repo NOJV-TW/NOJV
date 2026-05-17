@@ -1,6 +1,7 @@
 export { announcementRepo } from "./announcement";
 export { announcementTranslationRepo } from "./announcement-translation";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
+export { assessmentAuditLogRepo } from "./assessment-audit";
 export { clarificationRepo } from "./clarification";
 export type {
   ClarificationRow,

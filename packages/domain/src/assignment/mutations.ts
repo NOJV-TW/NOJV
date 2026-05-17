@@ -1,4 +1,5 @@
 import {
+  assessmentAuditLogRepo,
   assessmentProblemRepo,
   assessmentRepo,
   courseMembershipRepo,
@@ -240,6 +241,12 @@ export async function publishAssignment(
     }
 
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: actor.userId,
+      action: "publish",
+    });
   });
 }
 
@@ -260,6 +267,12 @@ export async function deleteAssignmentDraft(
       throw new ValidationError("Only draft assignments can be deleted.");
     }
 
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: actor.userId,
+      action: "delete_draft",
+    });
     await assessmentRepo.withTx(tx).delete(assignment.id);
   });
 }
@@ -281,6 +294,12 @@ export async function revertAssignmentToDraft(
     }
 
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: actor.userId,
+      action: "revert_to_draft",
+    });
   });
 }
 
