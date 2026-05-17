@@ -13,6 +13,7 @@
   import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { buildActivityModel } from "$lib/utils/activity";
   import type { BadgeVariant } from "$lib/components/primitives/ui/badge";
   import type { EChartsOption } from "echarts";
 
@@ -20,7 +21,9 @@
 
   const stats = $derived(data.stats);
   const analytics = $derived(data.analytics);
-  const dailyActivity = $derived(data.dailyActivity);
+  // Bucket raw submission timestamps into the viewer's local calendar day.
+  const activityModel = $derived(buildActivityModel(data.activity, new Date(), 365));
+  const dailyActivity = $derived(activityModel.heatmapDays);
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -325,8 +328,8 @@
 
   <!-- Section 2.5 — Streak + Weekly Trend -->
   <div class="grid gap-4 md:grid-cols-2">
-    <StreakCard streakDays={data.streakDays} />
-    <WeeklyTrendCard data={data.weeklyTrend} />
+    <StreakCard streakDays={activityModel.streakDays} />
+    <WeeklyTrendCard data={activityModel.weeklyTrend} />
   </div>
 
   <!-- Section 3 — Ability Profile -->

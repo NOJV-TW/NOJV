@@ -3,6 +3,7 @@ export * from "./mutations";
 export { updateUserStats, adjustUserStatsForRejudge } from "./stats";
 export { getStreakDays, getSuggestedProblems } from "./analytics";
 export type { SuggestedProblem } from "./analytics";
+export { getSubmissionActivity, type SubmissionActivityEvent } from "./activity";
 export {
   initiateSchoolVerification,
   processSchoolVerification,
