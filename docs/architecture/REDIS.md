@@ -1,6 +1,6 @@
 # Redis Architecture
 
-Redis 8 serves as the real-time data layer. It does not store durable state — PostgreSQL is the source of truth. Redis handles pub/sub, rate limiting, scoreboards, and metrics. (The submit-cooldown and cache modules ship as wired-up helpers but are not currently called — see notes below.)
+Redis 8 serves as the real-time data layer. It does not store durable state — PostgreSQL is the source of truth. Redis handles pub/sub, rate limiting, scoreboards, and metrics.
 
 ## Key Naming Convention
 
@@ -10,19 +10,9 @@ Keyed state uses the prefix `nojv:{domain}:{identifier}` (applies to keyed state
 | ------------------------------------ | --------------------- | ------ | ---------------------------------------------------- |
 | `nojv:scoreboard:{contestId}`        | Sorted Set            | 90 d   | Live contest scoreboard                              |
 | `nojv:scoreboard:{contestId}:frozen` | Sorted Set            | 90 d   | Frozen scoreboard snapshot                           |
-| `nojv:cooldown:{userId}:{problemId}` | String                | varies | Submit cooldown — module currently unused (see note) |
-| `nojv:cache:{key}`                   | String (JSON)         | varies | Cache-aside helper — currently unused (see note)     |
 | `rl:*` (no `nojv:` prefix)           | rate-limiter-flexible | varies | API / form / sign-in rate limiting                   |
 
 The scoreboard 90-day TTL is refreshed on every write (see `SCOREBOARD_TTL_SECONDS` in `packages/redis/src/scoreboard.ts:8`): active contests stay alive indefinitely, ended ones release memory after the grace window.
-
-### Cache module — available but unused
-
-`packages/redis/src/cache.ts` exports `cacheGet` / `cacheSet` / `cacheDel` with Zod-validated reads. The Temporal activity bundles re-export them for parity, but a repo-wide grep finds zero call sites in `packages/domain/` or `apps/`. No `nojv:cache:*` keys are ever written. Treat the module as a surface for future hot-path caching, not active production state.
-
-### Cooldown module — available but unused
-
-`packages/redis/src/cooldown.ts` (`setCooldown` / `checkCooldown`) is similarly dead code. The exam submit cooldown is enforced from the database — see `checkExamSubmitCooldown` in `packages/domain/src/exam/mutations.ts` (reads `submissionRepo.findMostRecent`). The Redis helper is retained for cross-instance enforcement should a future call path need it.
 
 ## Pub/Sub
 
@@ -73,18 +63,7 @@ Freeze is a snapshot copy, not a rename: the live key keeps accepting writes (so
 
 ## Submit Cooldown
 
-Cooldown enforcement currently lives in the database — see `checkExamSubmitCooldown` in `packages/domain/src/exam/mutations.ts`, which reads the user's most recent submission via `submissionRepo.findMostRecent`. The `packages/redis/src/cooldown.ts` helper (`SET nojv:cooldown:{userId}:{problemId} 1 EX {seconds} NX`) is wired and tested but currently has no production call sites.
-
-## Cache-Aside Pattern
-
-The `cacheGet` / `cacheSet` / `cacheDel` helpers in `packages/redis/src/cache.ts` implement a standard cache-aside flow with Zod-validated reads. They are not currently invoked from any domain command or query. Future hot-path callers should adopt the pattern:
-
-```
-Read:  cacheGet(key, schema) → hit? return : fetch DB → cacheSet(key, value, ttl) → return
-Write: mutate DB → cacheDel(key)
-```
-
-Cache must never become the source of truth; stale reads must remain acceptable for any keyed surface.
+Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in `packages/domain/src/exam/mutations.ts`, which reads the user's most recent submission via `submissionRepo.findMostRecent`.
 
 ## Rate Limiting
 
