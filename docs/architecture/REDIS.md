@@ -6,11 +6,11 @@ Redis 8 serves as the real-time data layer. It does not store durable state — 
 
 Keyed state uses the prefix `nojv:{domain}:{identifier}` (applies to keyed state, not pub/sub channels — see `packages/redis/src/keys.ts:1-3`).
 
-| Pattern                              | Type                  | TTL    | Purpose                                              |
-| ------------------------------------ | --------------------- | ------ | ---------------------------------------------------- |
-| `nojv:scoreboard:{contestId}`        | Sorted Set            | 90 d   | Live contest scoreboard                              |
-| `nojv:scoreboard:{contestId}:frozen` | Sorted Set            | 90 d   | Frozen scoreboard snapshot                           |
-| `rl:*` (no `nojv:` prefix)           | rate-limiter-flexible | varies | API / form / sign-in rate limiting                   |
+| Pattern                              | Type                  | TTL    | Purpose                            |
+| ------------------------------------ | --------------------- | ------ | ---------------------------------- |
+| `nojv:scoreboard:{contestId}`        | Sorted Set            | 90 d   | Live contest scoreboard            |
+| `nojv:scoreboard:{contestId}:frozen` | Sorted Set            | 90 d   | Frozen scoreboard snapshot         |
+| `rl:*` (no `nojv:` prefix)           | rate-limiter-flexible | varies | API / form / sign-in rate limiting |
 
 The scoreboard 90-day TTL is refreshed on every write (see `SCOREBOARD_TTL_SECONDS` in `packages/redis/src/scoreboard.ts:8`): active contests stay alive indefinitely, ended ones release memory after the grace window.
 

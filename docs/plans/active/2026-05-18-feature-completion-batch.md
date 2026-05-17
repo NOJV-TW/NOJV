@@ -26,11 +26,13 @@
 **Goal:** One migration adding the two tables D6 and D7 need.
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/course.prisma` — add `AssessmentAuditLog` + `enum AssessmentAuditAction`.
 - Modify: `packages/db/prisma/schema/submission.prisma` — add `EditorialReport` + `enum EditorialReportStatus`; add back-relation on `Editorial`.
 - Create: `packages/db/prisma/migrations/20260518000000_add_assessment_audit_and_editorial_report/migration.sql`
 
 **`AssessmentAuditLog`:**
+
 ```prisma
 enum AssessmentAuditAction {
   publish
@@ -52,9 +54,11 @@ model AssessmentAuditLog {
   @@index([courseId, createdAt])
 }
 ```
+
 `assessmentId` is intentionally not an FK — `delete_draft` removes the `CourseAssessment` row and the audit entry must outlive it.
 
 **`EditorialReport`:**
+
 ```prisma
 enum EditorialReportStatus {
   open
@@ -79,6 +83,7 @@ model EditorialReport {
   @@index([status, createdAt])
 }
 ```
+
 Add the matching back-relations on `Course`, `User`, `Editorial`.
 
 **Verify:** `pnpm db:generate` clean → `pnpm -w typecheck`.
@@ -88,6 +93,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 1 — E: delete Redis dead code
 
 **Files:**
+
 - Delete: `packages/redis/src/cache.ts`, `packages/redis/src/cooldown.ts`
 - Modify: `packages/redis/src/index.ts` — drop the two re-export lines.
 - Check + modify: `packages/temporal/src/activities/redis.ts` — drop any re-export of cache/cooldown.
@@ -103,6 +109,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 2 — B: doc sync
 
 **Files:**
+
 - Modify: `docs/product/PRODUCT_SENSE.md` — add three Shipped-Scope subsections:
   - **Class Analytics** — `/(app)/courses/[courseId]/analytics`, course-staff gated: per-assessment completion + avg score, hardest problems, at-risk students, verdict distribution.
   - **Virtual Contest** — replay an ended contest on a personal timer; private scoreboard with original final standings as ghost rows.
@@ -118,6 +125,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 3 — A: late-penalty editable in settings tab
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/course.ts`
   - `assessmentSettingsFormSchema`: add `latePenalty: adjustmentRuleSchema.nullable().default(null)`.
   - `courseAssessmentUpdateSchema`: add `adjustmentRules: adjustmentRulesSchema.optional()`.
@@ -137,6 +145,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 4 — D2: IpViolationLog retention cap
 
 **Files:**
+
 - Modify: `packages/db/src/repositories/ip-violation.ts` — add `IP_VIOLATION_RETENTION_PER_EXAM = 2000`; after the `withTx(tx).create(...)`, run a `ROW_NUMBER()` set-based DELETE partitioned by `examId`, mirroring `capRetentionForUsers` in `notification.ts`.
 - Test: `tests/unit/domain/ip-violation-retention.test.ts` (or extend an existing repo test) — verify rows beyond the cap are pruned.
 
@@ -153,6 +162,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 **Approach (client-side conversion, no schema change):** Compute the heatmap / streak / weekly-trend **client-side from raw submission timestamps** in the browser's local timezone. Stop reading the UTC-bucketed `UserDailyActivity` for the dashboard.
 
 **Files:**
+
 - Create: `packages/domain/src/user/activity.ts` — `getSubmissionActivity(userId, since: Date): Promise<{ createdAt: Date; isAc: boolean }[]>` — lightweight select of the user's submissions in the window.
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.server.ts` — drop `utcDayOffset` / UTC bucketing; load raw activity for the last 365 days; pass timestamps to the page.
 - Modify: `apps/web/src/lib/components/features/dashboard/ActivityHeatmap.svelte` — bucket timestamps by **local** day (`new Date(ts)` → local Y/M/D key); grid alignment via `getDay()` not `getUTCDay()`; render a 365-day window.
@@ -172,6 +182,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 **Problem:** `releaseSessionAsInstructor` exists in the domain but is wired to **no UI** — staff currently cannot release sessions at all.
 
 **Files:**
+
 - Modify: `packages/domain/src/exam/session.ts` — add `releaseAllSessionsAsInstructor(actor, { examId }): Promise<{ released: number }>` — same staff check as `releaseSessionAsInstructor`, loops `examSessionRepo.findAllActiveForExam`, ends each + records the `release` event in one transaction.
 - Modify: `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` — add form actions `releaseStudentSession` (wires existing `releaseSessionAsInstructor`) and `releaseAllSessions`; `load` (manager branch) returns the active-session list.
 - Create: `apps/web/src/lib/components/features/course/exam/ExamSessionsPanel.svelte` — staff-only panel: active-session list with per-row release + a "release all" button + count. Surface it under a tab/section on the exam page.
@@ -186,6 +197,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 7 — D5: copy-course title validation hardening
 
 **Files:**
+
 - Modify: `packages/core/src/schemas/course.ts` — add `copyCourseSchema = z.object({ newTitle: z.string().trim().min(3).max(120) })`.
 - Modify: `apps/web/src/routes/(app)/courses/[courseId]/settings/+page.server.ts` — `copyCourse` action validates the form with `copyCourseSchema` instead of the manual `typeof` check; return a field error on failure.
 - Modify: `docs/specs/copy-course.md` — drop the stale "hard-coded `(copy)` suffix" open question; the dialog already takes a custom title.
@@ -197,6 +209,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 8 — D6: assessment lifecycle audit log
 
 **Files:**
+
 - Create: `packages/db/src/repositories/assessment-audit.ts` — `create` (tx-capable), `listByAssessment(assessmentId, take)`.
 - Modify: `packages/db/src/repositories/index.ts` — export it.
 - Modify: `packages/domain/src/assignment/mutations.ts` — in `publishAssignment`, `revertAssignmentToDraft`, `deleteAssignmentDraft`, insert an audit row in the existing transaction (`actorUserId` = `actor.userId`); in `markAssignmentPublished` (Temporal) insert with `actorUserId: null`.
@@ -213,6 +226,7 @@ Add the matching back-relations on `Course`, `User`, `Editorial`.
 ## Wave 9 — D7: editorial moderation + rejudge grandfather
 
 **Files:**
+
 - Create: `packages/db/src/repositories/editorial-report.ts` — `create`, `listByStatus`, `updateStatus`.
 - Modify: `packages/db/src/repositories/index.ts` — export it.
 - Create: `packages/domain/src/editorial/reports.ts`
