@@ -277,14 +277,26 @@ reachable in this environment).
 - [x] Wave 10 — follow-up: removed the now-dead `UserDailyActivity`
       subsystem (table, repo, queries, Temporal activities, tests).
 
-### Deferred / follow-ups
+### Verification against a real DB (2026-05-18)
 
-- Two migrations are on disk but NOT applied to a running DB —
-  `20260518000000_add_assessment_audit_and_editorial_report` and
-  `20260518010000_drop_user_daily_activity`. This environment has no
-  reachable NOJV Postgres (port 5432 is held by an unrelated stack).
-  Apply with `pnpm db:migrate` once the NOJV DB is up.
-- Integration / E2E suites (`pnpm test:integration`, `pnpm test:e2e`)
-  were not run for the same reason — run them once the DB is up.
+Once the unrelated `tbite` stack was stopped and NOJV's own Postgres
+bound port 5432:
+
+- `pnpm db:migrate` applied both migrations — schema in sync.
+- `pnpm test:integration` → 25 files / 326 tests green.
+- `pnpm test:e2e` (with `NOJV_E2E_RUN_JUDGE=1`) → 117 passed, 33 failed.
+  All 33 failures traced to **pre-existing E2E suite rot**, not this
+  batch: stale admin URLs (`/admin/announcements` → the route is now
+  `/admin/content/announcements`), a stale method contract (a `PUT`
+  test against a `PATCH` endpoint → 405), loose `getByText` selectors
+  hitting strict-mode violations, and tests for features this batch
+  never touched (notifications, scoreboard, submission-validation,
+  …). The E2E suite is `local only, not in CI` and has drifted across
+  the audit/refactor rounds.
+
+### Follow-ups
+
+- The stale E2E suite needs a dedicated repair pass (URLs, selectors,
+  API-contract assumptions) — out of scope for this batch.
 - New route-level integration tests for the release / report flows are
-  not written yet — a follow-up once the suite can run.
+  not written yet.
