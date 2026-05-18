@@ -27,7 +27,7 @@ test.describe("Problem Lifecycle", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${problemId}/edit`);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByText("Draft")).toBeVisible();
+    await expect(page.getByText("Draft", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /delete|刪除/i })).toBeVisible();
     await context.close();
   });

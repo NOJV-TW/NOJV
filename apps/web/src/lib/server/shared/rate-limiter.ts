@@ -1,4 +1,5 @@
 import { dev } from "$app/environment";
+import { env } from "$env/dynamic/private";
 import { fail } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
@@ -13,8 +14,11 @@ import { getClientIp } from "./client-ip";
 // Local dev keeps the memory fallback so a single laptop without Redis
 // still works for development.
 
-// In dev/test, use generous limits to avoid E2E test flakiness
-const multiplier = dev ? 10 : 1;
+// In dev, use generous limits. Under E2E (`NOJV_E2E=1`, set by the
+// Playwright webServer) the suite's parallel workers burst far past even
+// the dev limit, so lift it high enough that rate limiting never trips a
+// functional test. Production (`NOJV_E2E` unset) keeps the real limits.
+const multiplier = env.NOJV_E2E === "1" ? 100_000 : dev ? 10 : 1;
 
 interface RateLimiterLike {
   consume: (key: string) => Promise<unknown>;

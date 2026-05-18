@@ -55,7 +55,7 @@ test.describe("Rejudge API", () => {
 test.describe("Score override API", () => {
   test("rejects unauthenticated GET", async ({ page }) => {
     const res = await page.request.get(
-      `/api/overrides?contextType=assignment&contextId=${HW1_ID}`,
+      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
     );
     expect(res.status()).toBe(401);
   });
@@ -64,7 +64,7 @@ test.describe("Score override API", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.get(
-      `/api/overrides?contextType=assignment&contextId=${HW1_ID}`,
+      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
     );
     expect(res.status()).toBe(403);
     await context.close();
@@ -74,7 +74,7 @@ test.describe("Score override API", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     const res = await page.request.get(
-      `/api/overrides?contextType=assignment&contextId=${HW1_ID}`,
+      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
     );
     expect(res.ok()).toBe(true);
     const body = await res.json();
@@ -86,7 +86,7 @@ test.describe("Score override API", () => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
     const res = await page.request.get(
-      `/api/overrides?contextType=assignment&contextId=${HW1_ID}`,
+      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
     );
     expect(res.ok()).toBe(true);
     await context.close();
@@ -96,7 +96,7 @@ test.describe("Score override API", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     const res = await page.request.post(`/api/overrides`, {
-      data: { contextType: "assignment", contextId: HW1_ID }, // missing required fields
+      data: { context: { type: "assignment", assignmentId: HW1_ID } }, // missing required fields
       headers: apiWriteHeaders,
     });
     expect(res.status()).toBe(400);
@@ -110,8 +110,7 @@ test.describe("Score override API", () => {
       data: {
         userId: "user_does-not-exist",
         problemId: PROBLEM_ID,
-        contextType: "assignment",
-        contextId: HW1_ID,
+        context: { type: "assignment", assignmentId: HW1_ID },
         overrideScore: -5,
         reason: "test reason",
       },

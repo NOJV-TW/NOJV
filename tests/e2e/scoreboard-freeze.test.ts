@@ -30,10 +30,11 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
       form: {},
       headers: apiWriteHeaders,
     });
-    // Form actions: anon callers get a 303 redirect to /signin (auth gate),
-    // or a 401/403 from requireAuth. Accept any 3xx/4xx, just no 2xx/5xx.
-    expect(res.status()).toBeGreaterThanOrEqual(300);
-    expect(res.status()).toBeLessThan(500);
+    // A SvelteKit form action invoked over raw HTTP always answers 200;
+    // the real outcome is the JSON envelope. An anon caller is bounced by
+    // the auth gate — never a success.
+    const body = await res.json();
+    expect(body.type).not.toBe("success");
   });
 
   test("unfreeze rejects students", async ({ browser }) => {
@@ -43,8 +44,8 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
       form: {},
       headers: apiWriteHeaders,
     });
-    expect(res.status()).toBeGreaterThanOrEqual(400);
-    expect(res.status()).toBeLessThan(500);
+    const body = await res.json();
+    expect(body.type).not.toBe("success");
     await context.close();
   });
 
@@ -58,8 +59,8 @@ test.describe("Scoreboard API + freeze/unfreeze", () => {
         headers: apiWriteHeaders,
       },
     );
-    expect(res.status()).toBeGreaterThanOrEqual(400);
-    expect(res.status()).toBeLessThan(500);
+    const body = await res.json();
+    expect(body.type).not.toBe("success");
     await context.close();
   });
 

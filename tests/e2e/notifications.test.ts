@@ -4,7 +4,7 @@ import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
 test.describe("Notifications API", () => {
   test("unauthenticated user cannot list recent notifications", async ({ page }) => {
-    const res = await page.request.get(`/api/notifications/recent`);
+    const res = await page.request.get(`/api/notifications`);
     expect(res.status()).toBe(401);
   });
 
@@ -16,7 +16,7 @@ test.describe("Notifications API", () => {
   test("authenticated student gets a well-shaped recent payload", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/notifications/recent`);
+    const res = await page.request.get(`/api/notifications`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(Array.isArray(body.items)).toBe(true);
@@ -28,7 +28,7 @@ test.describe("Notifications API", () => {
   test("limit query is clamped server-side", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(`/api/notifications/recent?limit=999999`);
+    const res = await page.request.get(`/api/notifications?limit=999999`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
     // Server clamps to <= 100; we just check the response remains a sane array.
@@ -52,7 +52,7 @@ test.describe("Notifications API", () => {
     const page = await context.newPage();
     const res = await page.request.patch(`/api/notifications`, {
       headers: apiWriteHeaders,
-      data: { action: "read-all" },
+      data: { action: "markAllRead" },
     });
     expect(res.ok()).toBe(true);
     const body = await res.json();
@@ -79,7 +79,7 @@ test.describe("Notifications API", () => {
   test("read-all rejects unauthenticated callers", async ({ page }) => {
     const res = await page.request.patch(`/api/notifications`, {
       headers: apiWriteHeaders,
-      data: { action: "read-all" },
+      data: { action: "markAllRead" },
     });
     expect(res.status()).toBe(401);
   });
@@ -88,7 +88,7 @@ test.describe("Notifications API", () => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     const res = await page.request.patch(`/api/notifications`, {
-      data: { action: "read-all" },
+      data: { action: "markAllRead" },
       // Intentionally omit `x-requested-with: fetch` to exercise the CSRF gate.
       headers: { origin: "http://localhost:5173" },
     });
