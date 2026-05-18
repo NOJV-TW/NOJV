@@ -21,8 +21,5 @@ export default defineConfig({
     url: "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
     cwd: "../..",
-    // Lift API rate limits so the parallel suite's request bursts don't
-    // trip the limiter (see `rate-limiter.ts`).
-    env: { NOJV_E2E: "1" },
   },
 });

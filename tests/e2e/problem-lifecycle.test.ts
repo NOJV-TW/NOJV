@@ -85,7 +85,9 @@ test.describe("Problem Lifecycle", () => {
   });
 
   test("published problem detail heading shows displayId prefix", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: studentAuth });
+    // The lifecycle problem keeps default `private` visibility, so view it
+    // as its author (the teacher) — a student cannot reach a private problem.
+    const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
     await page.goto(`/problems/${problemId}`);
     await expect(page.getByRole("main")).toBeVisible();
