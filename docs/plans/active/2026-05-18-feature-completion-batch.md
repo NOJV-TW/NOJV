@@ -258,11 +258,11 @@ After every message editing `apps/web/messages/*.json`, recompile Paraglide:
 
 ## Status log
 
-All ten waves landed on `feat/feature-completion-batch-2026-05-18`
-on 2026-05-18, one commit per wave. Final verification: `pnpm -w
-typecheck` 10/10 · `pnpm lint` 8/8 · `pnpm test:unit` 82 files / 729
-tests · `pnpm format` clean. Integration/E2E not run (no DB in this
-environment).
+All waves landed on `feat/feature-completion-batch-2026-05-18` on
+2026-05-18, one commit per wave. Final verification: `pnpm -w
+typecheck` 10/10 · `pnpm lint` 8/8 · `pnpm test:unit` 81 files / 713
+tests · `pnpm format` clean. Integration/E2E not run (no NOJV DB
+reachable in this environment).
 
 - [x] Wave 0 — schema (`AssessmentAuditLog`, `EditorialReport`)
 - [x] Wave 1 — E (redis dead code)
@@ -274,12 +274,17 @@ environment).
 - [x] Wave 7 — D5 (copy-course validation)
 - [x] Wave 8 — D6 (assessment audit log)
 - [x] Wave 9 — D7 (editorial moderation)
+- [x] Wave 10 — follow-up: removed the now-dead `UserDailyActivity`
+      subsystem (table, repo, queries, Temporal activities, tests).
 
 ### Deferred / follow-ups
 
-- The migration `20260518000000_add_assessment_audit_and_editorial_report`
-  is on disk but not applied to any running DB (no DB in this env).
-- `UserDailyActivity` read path (`getStreakDays` / `getDailyActivity`)
-  is now unused by the dashboard — candidate for a dedicated cleanup.
-- Route-level integration tests for the new release/report flows need
-  a running DB.
+- Two migrations are on disk but NOT applied to a running DB —
+  `20260518000000_add_assessment_audit_and_editorial_report` and
+  `20260518010000_drop_user_daily_activity`. This environment has no
+  reachable NOJV Postgres (port 5432 is held by an unrelated stack).
+  Apply with `pnpm db:migrate` once the NOJV DB is up.
+- Integration / E2E suites (`pnpm test:integration`, `pnpm test:e2e`)
+  were not run for the same reason — run them once the DB is up.
+- New route-level integration tests for the release / report flows are
+  not written yet — a follow-up once the suite can run.
