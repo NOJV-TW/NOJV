@@ -284,19 +284,33 @@ bound port 5432:
 
 - `pnpm db:migrate` applied both migrations — schema in sync.
 - `pnpm test:integration` → 25 files / 326 tests green.
-- `pnpm test:e2e` (with `NOJV_E2E_RUN_JUDGE=1`) → 117 passed, 33 failed.
-  All 33 failures traced to **pre-existing E2E suite rot**, not this
-  batch: stale admin URLs (`/admin/announcements` → the route is now
-  `/admin/content/announcements`), a stale method contract (a `PUT`
-  test against a `PATCH` endpoint → 405), loose `getByText` selectors
-  hitting strict-mode violations, and tests for features this batch
-  never touched (notifications, scoreboard, submission-validation,
-  …). The E2E suite is `local only, not in CI` and has drifted across
-  the audit/refactor rounds.
+- `pnpm test:e2e` (with `NOJV_E2E_RUN_JUDGE=1`): the first run was
+  117 passed / 33 failed — all 33 **pre-existing E2E suite rot** (the
+  suite is `local only, not in CI` and had drifted across the audit
+  rounds), none caused by this batch. Repaired in-place (see below);
+  final run **161 passed / 0 failed / 6 skipped**.
+
+### E2E suite repair (2026-05-18)
+
+The 33-failure sweep also surfaced a genuine pre-existing bug:
+
+- **Worker bundle** — `rejudge.ts` value-imported `JUDGE_TASK_QUEUE`
+  from the `@nojv/temporal` barrel, pulling `@temporalio/client` into
+  the workflow bundle → `Worker.create` rejected it and the worker
+  crashed on startup. Fixed: `executeChild` inherits the parent's
+  judge task queue, so the import is gone.
+
+Test-side repairs: rate-limiter dev multiplier lifted (turbo strict
+env mode blocked the cleaner env-flag route); stale admin URLs; the
+REST-refactored `{ type, assignmentId }` context shape for
+overrides/clarifications; `/api/notifications` (not `/recent`) +
+`markAllRead`; SvelteKit form-action envelope assertions for
+scoreboard/exams; `PATCH` (not `PUT`) for editorial update; tightened
+strict-mode selectors; account-edit hydration wait; scoreboard heading
+rename; `hw-demo-active` (open) for the clarification-ask test;
+deleted `contest-hidden-problems.test.ts` (tested removed tab UI).
 
 ### Follow-ups
 
-- The stale E2E suite needs a dedicated repair pass (URLs, selectors,
-  API-contract assumptions) — out of scope for this batch.
 - New route-level integration tests for the release / report flows are
   not written yet.
