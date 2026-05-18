@@ -9,8 +9,6 @@ export {
 } from "./judge";
 
 export {
-  updateUserStats,
-  adjustUserStatsForRejudge,
   publishVerdict,
   publishContestEvent,
   publishAssessmentDeadline,

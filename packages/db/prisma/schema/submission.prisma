@@ -1,11 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-// Submission + Editorial + per-day activity
+// Submission + Editorial
 //
-// Dashboard totals (totalAc / totalAttempts / lastSubmittedAt) are
-// computed on-demand from Submission via indexed aggregates.
-// UserDailyActivity is the only pre-aggregated table because streak
-// and heatmap queries over a 30-day window benefit from a dedicated
-// row-per-day shape.
+// Dashboard totals (totalAc / totalAttempts / lastSubmittedAt) and the
+// activity heatmap / streak are all computed on-demand from Submission
+// via indexed aggregates — there is no pre-aggregated activity table.
 // ═══════════════════════════════════════════════════════════════
 
 enum SupportedLanguage {
@@ -233,17 +231,4 @@ model EditorialReport {
 
   @@unique([editorialId, reportedByUserId])
   @@index([status, createdAt])
-}
-
-/// One row per user per calendar day (UTC). Powers streak counters,
-/// heatmaps, and range queries without touching the Submission table.
-model UserDailyActivity {
-  userId          String
-  date            DateTime @db.Date
-  submissionCount Int      @default(0)
-  acCount         Int      @default(0)
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([userId, date])
-  @@index([userId, date(sort: Desc)])
 }

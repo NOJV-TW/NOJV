@@ -70,7 +70,6 @@ model User {
   triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
   editorials                     Editorial[]
   ipViolationLogs                IpViolationLog[]
-  dailyActivity                  UserDailyActivity[]
   activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
   notifications                  Notification[]
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
