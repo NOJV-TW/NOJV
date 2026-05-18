@@ -54,18 +54,14 @@ test.describe("Rejudge API", () => {
 
 test.describe("Score override API", () => {
   test("rejects unauthenticated GET", async ({ page }) => {
-    const res = await page.request.get(
-      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
-    );
+    const res = await page.request.get(`/api/overrides?type=assignment&assignmentId=${HW1_ID}`);
     expect(res.status()).toBe(401);
   });
 
   test("rejects students on GET", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.request.get(
-      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
-    );
+    const res = await page.request.get(`/api/overrides?type=assignment&assignmentId=${HW1_ID}`);
     expect(res.status()).toBe(403);
     await context.close();
   });
@@ -73,9 +69,7 @@ test.describe("Score override API", () => {
   test("teacher can list overrides for a managed assignment", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.get(
-      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
-    );
+    const res = await page.request.get(`/api/overrides?type=assignment&assignmentId=${HW1_ID}`);
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(Array.isArray(body.items)).toBe(true);
@@ -85,9 +79,7 @@ test.describe("Score override API", () => {
   test("admin can list overrides", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    const res = await page.request.get(
-      `/api/overrides?type=assignment&assignmentId=${HW1_ID}`,
-    );
+    const res = await page.request.get(`/api/overrides?type=assignment&assignmentId=${HW1_ID}`);
     expect(res.ok()).toBe(true);
     await context.close();
   });

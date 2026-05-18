@@ -32,9 +32,7 @@ test.describe("Contests", () => {
     await page.goto("/contests/spring-qualifier-2026/scoreboard");
     await expect(page.getByRole("main")).toBeVisible();
     // The scoreboard hero heading is the "Live ranking" h1.
-    await expect(
-      page.getByRole("heading", { name: "Live ranking", level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Live ranking", level: 1 })).toBeVisible();
     await context.close();
   });
 });
