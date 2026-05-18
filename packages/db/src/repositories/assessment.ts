@@ -221,6 +221,7 @@ export const assessmentRepo = {
         closesAt: true,
         maxAttemptsPerDay: true,
         allowedLanguages: true,
+        adjustmentRules: true,
         problems: {
           orderBy: { ordinal: "asc" },
           select: {

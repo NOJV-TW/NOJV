@@ -1,6 +1,7 @@
 export { announcementRepo } from "./announcement";
 export { announcementTranslationRepo } from "./announcement-translation";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
+export { assessmentAuditLogRepo } from "./assessment-audit";
 export { clarificationRepo } from "./clarification";
 export type {
   ClarificationRow,
@@ -16,6 +17,7 @@ export {
 export { courseRepo, courseMembershipRepo } from "./course";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { editorialRepo } from "./editorial";
+export { editorialReportRepo } from "./editorial-report";
 export {
   examRepo,
   examProblemRepo,
@@ -59,5 +61,4 @@ export type {
   SubmissionRejudgeLogUpdateInput,
 } from "./submission-rejudge-log";
 export { userRepo } from "./user";
-export { userDailyActivityRepo } from "./user-daily-activity";
 export { virtualContestRepo, VirtualContestVersionConflict } from "./virtual-contest";

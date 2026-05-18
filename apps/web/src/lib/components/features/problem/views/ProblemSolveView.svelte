@@ -51,6 +51,12 @@
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     /** Whether the viewer may rejudge submissions in this context. */
     canRejudge?: boolean;
+    /**
+     * Server-computed editorial visibility — true when the viewer has AC
+     * OR has authored an editorial. Grandfathers authors past a rejudge
+     * that overturns AC, which the client-side `hasAc` derive cannot.
+     */
+    canViewEditorials?: boolean;
     contestId?: string | undefined;
     /** Virtual-contest re-run id — tags submissions for the personal scoreboard. */
     virtualContestId?: string | undefined;
@@ -72,6 +78,7 @@
     endedKind,
     backLink,
     canRejudge = false,
+    canViewEditorials = false,
     contestId,
     virtualContestId,
     dailyAttempts,
@@ -128,6 +135,7 @@
           {assessment}
           {backLink}
           {canRejudge}
+          {canViewEditorials}
           {contestId}
           {virtualContestId}
           {dailyAttempts}
@@ -142,6 +150,7 @@
           {assessment}
           {backLink}
           {canRejudge}
+          {canViewEditorials}
           {contestId}
           {virtualContestId}
           {dailyAttempts}

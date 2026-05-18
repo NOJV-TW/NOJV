@@ -56,6 +56,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     plagiarism,
     plagiarismFlags,
     ipViolations,
+    activeSessionCount,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -71,6 +72,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? plagiarismDomain.listFlagsForContext("exam", examId).catch(() => [])
       : Promise.resolve([]),
     isManager ? listExamIpViolations({ examId }).catch(() => []) : Promise.resolve([]),
+    isManager ? examDomain.session.countActiveSessions(examId) : Promise.resolve(0),
   ]);
 
   // Matrix reuses detail.problems instead of re-fetching the exam row.
@@ -126,6 +128,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     detail,
     matrix,
     isManager,
+    activeSessionCount,
     canSetOverride,
     courseId: examHeader.courseId,
     settingsForm,
@@ -186,6 +189,21 @@ export const actions = {
       await examDomain.session.endSession(actor, {
         examId: event.params.examId,
         reason: "submitted",
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return fail(err.status, { error: err.message });
+      }
+      throw err;
+    }
+    return { success: true };
+  }),
+
+  releaseAllSessions: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    try {
+      await examDomain.session.releaseAllSessionsAsInstructor(actor, {
+        examId: event.params.examId,
       });
     } catch (err) {
       if (err instanceof HttpError) {

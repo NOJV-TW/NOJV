@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Action } from "svelte/action";
+  import type { courseDomain } from "@nojv/domain";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import AlertTriangle from "@lucide/svelte/icons/alert-triangle";
@@ -12,11 +13,18 @@
     isUpcoming: boolean;
     submitting: boolean;
     enhance: Action<HTMLFormElement>;
+    auditLog: courseDomain.AssessmentAuditEntry[];
   }
 
-  let { isDraft, isUpcoming, submitting, enhance }: Props = $props();
+  let { isDraft, isUpcoming, submitting, enhance, auditLog }: Props = $props();
 
   let confirmingDelete = $state(false);
+
+  function actionLabel(action: courseDomain.AssessmentAuditEntry["action"]): string {
+    if (action === "publish") return m.assignmentDetail_lifecycleActionPublish();
+    if (action === "revert_to_draft") return m.assignmentDetail_lifecycleActionRevert();
+    return m.assignmentDetail_lifecycleActionDelete();
+  }
 </script>
 
 <section
@@ -45,6 +53,29 @@
       </form>
     {/if}
   </div>
+
+  {#if auditLog.length > 0}
+    <div class="mt-4 border-t border-border pt-4">
+      <h4 class="mb-2 text-caption font-medium text-muted-foreground">
+        {m.assignmentDetail_lifecycleHistoryHeading()}
+      </h4>
+      <ul class="space-y-1.5">
+        {#each auditLog as entry, i (i)}
+          <li class="flex items-baseline justify-between gap-3 text-caption">
+            <span>
+              {actionLabel(entry.action)}
+              {#if entry.actorName}
+                <span class="text-muted-foreground">· {entry.actorName}</span>
+              {/if}
+            </span>
+            <span class="font-mono tabular-nums text-muted-foreground">
+              {new Date(entry.createdAt).toLocaleString()}
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
 </section>
 
 <!-- Danger zone (delete, drafts only) -->

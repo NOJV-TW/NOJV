@@ -39,6 +39,18 @@ export const editorialRepo = {
   },
 
   /**
+   * Whether the user has at least one live editorial for the problem.
+   * Used by the rejudge-grandfather check so an author who lost current
+   * AC after a rejudge can still see editorials they have authored.
+   */
+  async existsForUserProblem(userId: string, problemId: string) {
+    const count = await prisma.editorial.count({
+      where: { userId, problemId, deletedAt: null },
+    });
+    return count > 0;
+  },
+
+  /**
    * Find by id, including soft-deleted rows. Domain layer is responsible
    * for translating `deletedAt != null` into NotFoundError so the
    * caller can not distinguish "never existed" from "soft-deleted" for

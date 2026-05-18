@@ -52,8 +52,11 @@ test.describe("Exams — list, detail, problem visibility", () => {
       form: {},
       headers: apiWriteHeaders,
     });
-    // Form actions redirect anon → /signin with 303, or return 401/403.
-    expect([303, 401, 403]).toContain(res.status());
+    // A SvelteKit form action invoked over raw HTTP always answers 200;
+    // the real outcome is the JSON envelope. An anon caller is bounced by
+    // the auth gate — never a success.
+    const body = await res.json();
+    expect(body.type).not.toBe("success");
   });
 
   test("starting a session for a nonexistent exam fails for a student", async ({ browser }) => {
@@ -63,10 +66,10 @@ test.describe("Exams — list, detail, problem visibility", () => {
       form: {},
       headers: apiWriteHeaders,
     });
-    // Either 404 (not found), 403 (not enrolled / not running), or 400
-    // (gate failure). The contract here is "no 5xx, no 2xx".
-    expect(res.status()).toBeGreaterThanOrEqual(400);
-    expect(res.status()).toBeLessThan(500);
+    // Form action — see above. Starting a session for a missing exam must
+    // not succeed.
+    const body = await res.json();
+    expect(body.type).not.toBe("success");
     await context.close();
   });
 

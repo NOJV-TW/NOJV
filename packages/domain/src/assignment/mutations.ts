@@ -1,4 +1,5 @@
 import {
+  assessmentAuditLogRepo,
   assessmentProblemRepo,
   assessmentRepo,
   courseMembershipRepo,
@@ -170,6 +171,9 @@ export async function updateAssignmentRecord(
     if (payload.dueAt !== undefined) {
       updateData.dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
     }
+    if (payload.adjustmentRules !== undefined) {
+      updateData.adjustmentRules = payload.adjustmentRules as Prisma.InputJsonValue;
+    }
 
     if (Object.keys(updateData).length > 0) {
       await assessmentRepo.withTx(tx).update(assignment.id, updateData);
@@ -237,6 +241,12 @@ export async function publishAssignment(
     }
 
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: actor.userId,
+      action: "publish",
+    });
   });
 }
 
@@ -257,6 +267,12 @@ export async function deleteAssignmentDraft(
       throw new ValidationError("Only draft assignments can be deleted.");
     }
 
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: actor.userId,
+      action: "delete_draft",
+    });
     await assessmentRepo.withTx(tx).delete(assignment.id);
   });
 }
@@ -278,6 +294,12 @@ export async function revertAssignmentToDraft(
     }
 
     await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: actor.userId,
+      action: "revert_to_draft",
+    });
   });
 }
 

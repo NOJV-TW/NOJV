@@ -9,15 +9,15 @@ import { apiHandler, writeApiHandler } from "$lib/server/shared/api-handler";
 import { editorialDomain, problemDomain } from "@nojv/domain";
 
 const { getProblemRowById } = problemDomain;
-const { hasUserAcProblem, listProblemEditorials, upsertEditorial } = editorialDomain;
+const { canViewEditorials, listProblemEditorials, upsertEditorial } = editorialDomain;
 
 const editorialSubmitSchema = z.object({
   content: z.string().min(10).max(50000),
   language: languageSchema,
 });
 
-// problemRepo.findById and hasUserAcProblem are independent — both accept
-// the same problemId, and hasUserAcProblem is a count query that safely
+// problemRepo.findById and canViewEditorials are independent — both accept
+// the same problemId, and canViewEditorials is a count query that safely
 // returns false for an unknown problem. Fire them in parallel; the
 // NotFoundError still takes precedence over the ForbiddenError.
 async function requireProblemWithAc(
@@ -25,13 +25,13 @@ async function requireProblemWithAc(
   problemId: string,
   acError = "Solve this problem first to view editorials.",
 ) {
-  const [problem, ac] = await Promise.all([
+  const [problem, canView] = await Promise.all([
     getProblemRowById(problemId),
-    hasUserAcProblem(userId, problemId),
+    canViewEditorials(userId, problemId),
   ]);
 
   if (!problem) throw new NotFoundError("Problem not found.");
-  if (!ac) throw new ForbiddenError(acError);
+  if (!canView) throw new ForbiddenError(acError);
 
   return problem;
 }

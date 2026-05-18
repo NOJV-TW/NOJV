@@ -16,6 +16,7 @@
   {endedKind}
   backLink={data.backLink}
   canRejudge={data.canRejudge}
+  canViewEditorials={data.canViewEditorials}
   contestId={data.contestId}
   problem={data.problem}
   submissions={data.submissions}

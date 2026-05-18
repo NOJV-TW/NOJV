@@ -23,6 +23,12 @@ enum CourseAssessmentStatus {
   published
 }
 
+enum AssessmentAuditAction {
+  publish
+  revert_to_draft
+  delete_draft
+}
+
 model Course {
   id           String             @id @default(cuid())
   title        String
@@ -40,11 +46,12 @@ model Course {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   owner       User               @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  memberships   CourseMembership[]
-  assessments   CourseAssessment[]
-  exams         Exam[]
-  submissions   Submission[]
-  announcements Announcement[]
+  memberships         CourseMembership[]
+  assessments         CourseAssessment[]
+  exams               Exam[]
+  submissions         Submission[]
+  announcements       Announcement[]
+  assessmentAuditLogs AssessmentAuditLog[]
 }
 
 model CourseMembership {
@@ -125,4 +132,24 @@ model CourseAssessmentProblem {
 
   @@unique([assessmentId, problemId])
   @@unique([assessmentId, ordinal])
+}
+
+/// Append-only audit trail for assessment lifecycle transitions.
+/// `assessmentId` is intentionally not an FK — `delete_draft` removes
+/// the CourseAssessment row and the audit entry must outlive it.
+/// `actorUserId` is null for system-initiated transitions (Temporal
+/// auto-publish).
+model AssessmentAuditLog {
+  id           String                @id @default(cuid())
+  assessmentId String
+  courseId     String
+  actorUserId  String?
+  action       AssessmentAuditAction
+  createdAt    DateTime              @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("AssessmentAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([assessmentId, createdAt])
+  @@index([courseId, createdAt])
 }

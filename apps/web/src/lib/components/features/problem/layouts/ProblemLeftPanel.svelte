@@ -18,6 +18,13 @@
      * on `/api/submissions/[id]/rejudge`; this is progressive disclosure only.
      */
     canRejudge?: boolean;
+    /**
+     * Server-computed editorial visibility — true when the viewer has AC
+     * OR has authored an editorial. The client `hasAc` derive only sees the
+     * current submission list, so an author whose AC was overturned by a
+     * rejudge needs this flag to keep editorial access.
+     */
+    canViewEditorials?: boolean;
     /** Assignment-only daily submission quota shown in the SpecialLabels strip.
      *  `max: null` means unlimited — the badge renders `{used} / ∞`. */
     dailyAttempts?: { used: number; max: number | null } | undefined;
@@ -42,6 +49,7 @@
   let {
     backLink,
     canRejudge = false,
+    canViewEditorials = false,
     dailyAttempts,
     submissions = $bindable([]),
     leftTab: initialLeftTab = "description",
@@ -77,7 +85,12 @@
     }
   });
 
-  let hasAc = $derived(submissions.some((s) => s.result.verdict === "accepted"));
+  // Editorial gate: a fresh AC in the live submission list OR the
+  // server-computed flag (which also covers authors grandfathered past a
+  // rejudge that overturned their AC).
+  let hasAc = $derived(
+    canViewEditorials || submissions.some((s) => s.result.verdict === "accepted")
+  );
 </script>
 
 <div class="flex h-9 items-center border-b border-border-subtle px-2">

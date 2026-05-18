@@ -1,96 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findRange, findDistinctAcByUser, findRecommendations } = vi.hoisted(() => ({
-  findRange: vi.fn(),
+const { findDistinctAcByUser, findRecommendations } = vi.hoisted(() => ({
   findDistinctAcByUser: vi.fn(),
   findRecommendations: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
-  userDailyActivityRepo: { findRange },
   submissionRepo: { findDistinctAcByUser },
   problemRepo: { findRecommendations },
 }));
 
 import { userDomain } from "@nojv/domain";
 
-const { getStreakDays, getSuggestedProblems } = userDomain;
+const { getSuggestedProblems } = userDomain;
 
 beforeEach(() => {
-  findRange.mockReset();
   findDistinctAcByUser.mockReset();
   findRecommendations.mockReset();
-});
-
-// Helper — build a UserDailyActivity row at a given UTC offset from `today`.
-function activityRow(today: Date, daysBack: number, acCount: number) {
-  const oneDayMs = 24 * 60 * 60 * 1000;
-  const date = new Date(today.getTime() - daysBack * oneDayMs);
-  return { date, acCount, submissionCount: acCount };
-}
-
-describe("getStreakDays", () => {
-  // Pin "now" so tests are deterministic regardless of when they run.
-  const NOW = new Date("2026-04-30T15:00:00Z");
-  const TODAY = new Date(Date.UTC(2026, 3, 30));
-
-  it("returns 0 when the user has no activity at all", async () => {
-    findRange.mockResolvedValue([]);
-    const streak = await getStreakDays("usr_1", NOW);
-    expect(streak).toBe(0);
-  });
-
-  it("returns N for N consecutive AC days ending today", async () => {
-    findRange.mockResolvedValue([
-      activityRow(TODAY, 0, 1),
-      activityRow(TODAY, 1, 2),
-      activityRow(TODAY, 2, 1),
-    ]);
-    const streak = await getStreakDays("usr_1", NOW);
-    expect(streak).toBe(3);
-  });
-
-  it("breaks the streak at the first day with acCount === 0", async () => {
-    findRange.mockResolvedValue([
-      activityRow(TODAY, 0, 1),
-      activityRow(TODAY, 1, 1),
-      // Day 2 missing entirely (treated as 0)
-      activityRow(TODAY, 3, 1),
-      activityRow(TODAY, 4, 1),
-    ]);
-    const streak = await getStreakDays("usr_1", NOW);
-    expect(streak).toBe(2);
-  });
-
-  it("grace day: today empty + yesterday has AC counts the streak from yesterday", async () => {
-    findRange.mockResolvedValue([
-      activityRow(TODAY, 1, 1),
-      activityRow(TODAY, 2, 1),
-      activityRow(TODAY, 3, 1),
-    ]);
-    const streak = await getStreakDays("usr_1", NOW);
-    expect(streak).toBe(3);
-  });
-
-  it("returns 0 when both today and yesterday are empty", async () => {
-    findRange.mockResolvedValue([
-      // older AC, but the chain is broken
-      activityRow(TODAY, 5, 1),
-      activityRow(TODAY, 6, 1),
-    ]);
-    const streak = await getStreakDays("usr_1", NOW);
-    expect(streak).toBe(0);
-  });
-
-  it("treats a row with acCount === 0 as a gap even when submissionCount > 0", async () => {
-    findRange.mockResolvedValue([
-      activityRow(TODAY, 0, 1),
-      { ...activityRow(TODAY, 1, 0), submissionCount: 5 },
-      activityRow(TODAY, 2, 1),
-    ]);
-    const streak = await getStreakDays("usr_1", NOW);
-    expect(streak).toBe(1);
-  });
 });
 
 describe("getSuggestedProblems", () => {

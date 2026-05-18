@@ -124,6 +124,12 @@ export const examSessionRepo = {
         });
       },
 
+      findAllActiveForExam(examId: string) {
+        return tx.activeExamSession.findMany({
+          where: { examId, endedAt: null },
+        });
+      },
+
       create(data: Prisma.ActiveExamSessionUncheckedCreateInput) {
         return tx.activeExamSession.create({ data });
       },

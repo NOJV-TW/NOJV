@@ -1,10 +1,4 @@
-import {
-  assignmentDomain,
-  contestDomain,
-  examDomain,
-  notificationDomain,
-  userDomain,
-} from "@nojv/domain";
+import { assignmentDomain, contestDomain, examDomain, notificationDomain } from "@nojv/domain";
 import { pubsub } from "@nojv/redis";
 
 // --- Contest ------------------------------------------------------------
@@ -73,29 +67,4 @@ export async function fanoutExamStartingSoon(examId: string): Promise<void> {
 
 export async function fanoutContestStartingSoon(contestId: string): Promise<void> {
   await notificationDomain.fanoutContestStartingSoon(contestId);
-}
-
-// --- User stats ---------------------------------------------------------
-
-export async function updateUserStats(submission: {
-  id: string;
-  language: string;
-  problemId: string;
-  sampleOnly: boolean;
-  status: string;
-  userId: string;
-}): Promise<void> {
-  await userDomain.updateUserStats(submission);
-}
-
-export async function adjustUserStatsForRejudge(
-  submission: {
-    createdAt: Date;
-    sampleOnly: boolean;
-    status: string;
-    userId: string;
-  },
-  oldStatus: string,
-): Promise<void> {
-  await userDomain.adjustUserStatsForRejudge(submission, oldStatus);
 }
