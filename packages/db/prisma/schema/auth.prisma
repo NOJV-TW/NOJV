@@ -70,7 +70,6 @@ model User {
   triggeredAssessmentPlagiarisms CourseAssessment[]        @relation("AssessmentPlagiarismTriggerer")
   editorials                     Editorial[]
   ipViolationLogs                IpViolationLog[]
-  dailyActivity                  UserDailyActivity[]
   activeExamSessions             ActiveExamSession[]       @relation("ActiveExamSessionUser")
   notifications                  Notification[]
   triggeredRejudgeLogs           SubmissionRejudgeLog[]
@@ -81,6 +80,9 @@ model User {
   clarificationsAsked            Clarification[]           @relation("ClarificationAsker")
   plagiarismPairFlags            PlagiarismPairFlag[]      @relation("PlagiarismPairFlagFlagger")
   clarificationsAnswered         Clarification[]           @relation("ClarificationAnswerer")
+  assessmentAuditLogs            AssessmentAuditLog[]      @relation("AssessmentAuditActor")
+  editorialReportsFiled          EditorialReport[]         @relation("EditorialReportReporter")
+  editorialReportsResolved       EditorialReport[]         @relation("EditorialReportResolver")
 }
 
 model Session {

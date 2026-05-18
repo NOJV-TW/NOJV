@@ -52,7 +52,7 @@
 <div
   class="flex gap-2 {className}"
   role="img"
-  aria-label={`30-day activity heatmap: ${totalAcLabel}`}
+  aria-label={`Activity heatmap: ${totalAcLabel}`}
 >
   <div class="flex flex-col justify-between py-0.5 text-micro text-muted-foreground">
     {#each weekdayLabels as label, i (i)}

@@ -115,11 +115,11 @@ test.describe("Editorials — auth + permissions", () => {
     await context.close();
   });
 
-  test("PUT on nonexistent editorial returns 404 for staff", async ({ browser }) => {
+  test("PATCH on nonexistent editorial returns 404 for staff", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
     const res = await page.request.fetch(`/api/editorials/nonexistent-editorial-xyz`, {
-      method: "PUT",
+      method: "PATCH",
       data: { content: "Some replacement editorial body content." },
       headers: apiWriteHeaders,
     });

@@ -96,6 +96,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         closesAt: toDateTimeLocal(detail.closesAt),
         allowedLanguages: detail.allowedLanguages,
         maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
+        latePenalty: detail.latePenalty,
       },
       zod4(assessmentSettingsFormSchema),
     );
@@ -172,6 +173,7 @@ export const actions = {
       opensAt: localToIso(form.data.opensAt),
       closesAt: localToIso(form.data.closesAt),
       dueAt: form.data.dueAt ? localToIso(form.data.dueAt) : null,
+      adjustmentRules: form.data.latePenalty ? [form.data.latePenalty] : [],
     };
 
     try {

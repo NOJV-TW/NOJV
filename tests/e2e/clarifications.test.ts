@@ -3,12 +3,16 @@ import { test, expect } from "@playwright/test";
 import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
 const HW1_ID = "hw1-process-trace";
+// Seeded assignment that is still open (closesAt in the future) and
+// carries `problem_warmup-sum` — needed to exercise the "ask" path,
+// which is rejected once an assignment has closed.
+const HW_ACTIVE_ID = "hw-demo-active";
 const PROBLEM_ID = "problem_warmup-sum";
 
 test.describe("Clarifications API", () => {
   test("unauthenticated GET is rejected", async ({ page }) => {
     const res = await page.request.get(
-      `/api/clarifications?contextType=assignment&contextId=${HW1_ID}`,
+      `/api/clarifications?type=assignment&assignmentId=${HW1_ID}`,
     );
     expect(res.status()).toBe(401);
   });
@@ -25,7 +29,7 @@ test.describe("Clarifications API", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.get(
-      `/api/clarifications?contextType=galaxy&contextId=${HW1_ID}`,
+      `/api/clarifications?type=galaxy&assignmentId=${HW1_ID}`,
     );
     expect(res.status()).toBe(400);
     await context.close();
@@ -35,7 +39,7 @@ test.describe("Clarifications API", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.get(
-      `/api/clarifications?contextType=assignment&contextId=${HW1_ID}`,
+      `/api/clarifications?type=assignment&assignmentId=${HW1_ID}`,
     );
     expect(res.ok()).toBe(true);
     const body = await res.json();
@@ -48,8 +52,7 @@ test.describe("Clarifications API", () => {
     const page = await context.newPage();
     const res = await page.request.post(`/api/clarifications`, {
       data: {
-        contextType: "assignment",
-        contextId: HW1_ID,
+        context: { type: "assignment", assignmentId: HW1_ID },
         problemId: PROBLEM_ID,
         questionText: "too short",
       },
@@ -65,8 +68,7 @@ test.describe("Clarifications API", () => {
     const stamp = Date.now();
     const res = await page.request.post(`/api/clarifications`, {
       data: {
-        contextType: "assignment",
-        contextId: HW1_ID,
+        context: { type: "assignment", assignmentId: HW_ACTIVE_ID },
         problemId: PROBLEM_ID,
         questionText: `E2E clarification asked at ${stamp} — please ignore.`,
       },

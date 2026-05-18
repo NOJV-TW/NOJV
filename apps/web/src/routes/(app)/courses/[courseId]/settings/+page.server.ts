@@ -1,4 +1,4 @@
-import { courseUpdateSchema } from "@nojv/core";
+import { copyCourseSchema, courseUpdateSchema } from "@nojv/core";
 import { courseDomain } from "@nojv/domain";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
@@ -77,14 +77,14 @@ export const actions = {
     const courseId = event.params.courseId;
 
     const formData = await event.request.formData();
-    const newTitle = formData.get("newTitle");
-    if (typeof newTitle !== "string") {
-      return fail(400, { error: "missing_title" });
+    const parsed = copyCourseSchema.safeParse({ newTitle: formData.get("newTitle") });
+    if (!parsed.success) {
+      return fail(400, { error: "invalid_title" });
     }
 
     let newCourseId: string;
     try {
-      const result = await copyCourse(actor, courseId, newTitle);
+      const result = await copyCourse(actor, courseId, parsed.data.newTitle);
       newCourseId = result.newCourseId;
     } catch (err) {
       const classified = classifyError(err);

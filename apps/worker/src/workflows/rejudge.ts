@@ -1,7 +1,6 @@
 import { proxyActivities, defineQuery, setHandler, executeChild } from "@temporalio/workflow";
 import type { SubmissionDraft } from "@nojv/core";
 import type { RejudgeInput, RejudgeProgress } from "@nojv/temporal";
-import { JUDGE_TASK_QUEUE } from "@nojv/temporal";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
 import { SHORT_ACTIVITY } from "./activity-options";
@@ -35,7 +34,9 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
       batch.map(async (sub) => {
         await executeChild(submissionJudgeWorkflow, {
           workflowId: `rejudge-${sub.submissionId}-${String(Date.now())}`,
-          taskQueue: JUDGE_TASK_QUEUE,
+          // Inherits this workflow's task queue (judge). Importing
+          // JUDGE_TASK_QUEUE from the @nojv/temporal barrel would pull
+          // @temporalio/client into the workflow bundle — forbidden.
           args: [{ submissionId: sub.submissionId, draft: sub.draft, forRejudge }],
         });
         completed++;

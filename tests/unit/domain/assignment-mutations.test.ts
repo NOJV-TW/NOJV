@@ -11,6 +11,7 @@ const {
   courseMembershipFindByComposite,
   problemFindMany,
   problemWorkspaceFindByProblemId,
+  assessmentAuditCreate,
 } = vi.hoisted(() => ({
   assessmentFindById: vi.fn(),
   assessmentUpdate: vi.fn(),
@@ -21,6 +22,7 @@ const {
   courseMembershipFindByComposite: vi.fn(),
   problemFindMany: vi.fn(),
   problemWorkspaceFindByProblemId: vi.fn(),
+  assessmentAuditCreate: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -48,6 +50,9 @@ vi.mock("@nojv/db", () => {
       findByAssessmentId: assessmentProblemFindByAssessmentId,
       withTx: () => assessmentProblemWithTx,
     },
+    assessmentAuditLogRepo: {
+      withTx: () => ({ create: assessmentAuditCreate }),
+    },
     courseMembershipRepo: {
       withTx: () => courseMembershipWithTx,
     },
@@ -63,7 +68,12 @@ vi.mock("@nojv/db", () => {
 
 import { assignmentDomain } from "@nojv/domain";
 
-const { updateAssignmentRecord, publishAssignment, deleteAssignmentDraft } = assignmentDomain;
+const {
+  updateAssignmentRecord,
+  publishAssignment,
+  deleteAssignmentDraft,
+  revertAssignmentToDraft,
+} = assignmentDomain;
 
 const teacherActor = {
   userId: "usr_teacher",
@@ -133,6 +143,28 @@ describe("updateAssignmentRecord", () => {
     expect(data.opensAt).toBeInstanceOf(Date);
     expect(data.closesAt).toBeInstanceOf(Date);
     expect(data.dueAt).toBeInstanceOf(Date);
+  });
+
+  it("writes adjustmentRules (late penalty) when provided", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await updateAssignmentRecord(teacherActor, "asg_1", {
+      adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" }],
+    });
+
+    const [, data] = assessmentUpdate.mock.calls[0];
+    expect(data.adjustmentRules).toEqual([
+      { type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" },
+    ]);
+  });
+
+  it("clears adjustmentRules when an empty array is sent", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await updateAssignmentRecord(teacherActor, "asg_1", { adjustmentRules: [] });
+
+    const [, data] = assessmentUpdate.mock.calls[0];
+    expect(data.adjustmentRules).toEqual([]);
   });
 
   it("allows dueAt to be nulled out", async () => {
@@ -249,12 +281,18 @@ describe("publishAssignment", () => {
     });
   });
 
-  it("promotes a valid draft to published", async () => {
+  it("promotes a valid draft to published and writes an audit row", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
     await publishAssignment(teacherActor, "asg_1");
 
     expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "published" });
+    expect(assessmentAuditCreate).toHaveBeenCalledWith({
+      assessmentId: "asg_1",
+      courseId: "crs_1",
+      actorUserId: "usr_teacher",
+      action: "publish",
+    });
   });
 
   it("blocks non-draft assessments", async () => {
@@ -323,12 +361,18 @@ describe("deleteAssignmentDraft", () => {
     });
   });
 
-  it("deletes a draft", async () => {
+  it("deletes a draft and writes an audit row", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
     await deleteAssignmentDraft(teacherActor, "asg_1");
 
     expect(assessmentDelete).toHaveBeenCalledWith("asg_1");
+    expect(assessmentAuditCreate).toHaveBeenCalledWith({
+      assessmentId: "asg_1",
+      courseId: "crs_1",
+      actorUserId: "usr_teacher",
+      action: "delete_draft",
+    });
   });
 
   it("refuses to delete a published assessment", async () => {
@@ -342,5 +386,30 @@ describe("deleteAssignmentDraft", () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ status: "archived" }));
 
     await expect(deleteAssignmentDraft(teacherActor, "asg_1")).rejects.toThrow(/only draft/i);
+  });
+});
+
+describe("revertAssignmentToDraft", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    courseMembershipFindByComposite.mockResolvedValue({
+      role: "teacher",
+      status: "active",
+    });
+  });
+
+  it("flips an upcoming published assignment to draft and writes an audit row", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment({ status: "published" }));
+
+    await revertAssignmentToDraft(teacherActor, "asg_1");
+
+    expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "draft" });
+    expect(assessmentAuditCreate).toHaveBeenCalledWith({
+      assessmentId: "asg_1",
+      courseId: "crs_1",
+      actorUserId: "usr_teacher",
+      action: "revert_to_draft",
+    });
   });
 });

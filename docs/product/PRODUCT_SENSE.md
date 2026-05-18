@@ -40,6 +40,11 @@
 - Per-contest submit cooldown (Redis-backed)
 - Invite code join flow
 
+### Post-Contest
+
+- Upsolve — after a contest ends, a read-only index of every contest problem with the viewer's solve status (solved / attempted / untouched), linking to the ordinary problem page for practice submits
+- Virtual contests — replay an ended contest on a personal timer equal to the original duration; submissions are tagged with the virtual run and scored privately, with the original final standings shown as static "ghost" reference rows
+
 ### Courses
 
 - Course creation and management
@@ -53,6 +58,14 @@
 - Practice-after-close: students retain problem access after assessment/contest/exam ends, submissions no longer attributed to the original context
 - Student progress matrix
 - Course-scoped problem management
+
+### Class Analytics
+
+- Course-staff analytics dashboard, aggregating existing submission and assessment data (no schema of its own)
+- Per-assessment completion rate and average score
+- Hardest problems — lowest AC rate, top 5
+- At-risk students — no submissions or all-zero scores
+- Course-wide verdict distribution
 
 ### Exams
 

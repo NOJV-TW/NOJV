@@ -13,8 +13,10 @@ import { getClientIp } from "./client-ip";
 // Local dev keeps the memory fallback so a single laptop without Redis
 // still works for development.
 
-// In dev/test, use generous limits to avoid E2E test flakiness
-const multiplier = dev ? 10 : 1;
+// Dev gets effectively-unlimited rate limits: the parallel E2E suite
+// bursts far past production thresholds from a single IP, and a human
+// developer never will. Production (`dev` false) keeps the real limits.
+const multiplier = dev ? 1000 : 1;
 
 interface RateLimiterLike {
   consume: (key: string) => Promise<unknown>;

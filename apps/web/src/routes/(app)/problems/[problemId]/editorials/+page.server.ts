@@ -6,7 +6,7 @@ import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { getProblemRowById } = problemDomain;
-const { hasUserAcProblem, listEditorialsPage } = editorialDomain;
+const { canViewEditorials, listEditorialsPage } = editorialDomain;
 
 const PAGE_SIZE = 20;
 
@@ -18,18 +18,18 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const requestedPage = pageParam ? Number.parseInt(pageParam, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  // Match the AC gate used by the API: problem lookup and AC check run in
-  // parallel; NotFoundError on the problem takes precedence over the
+  // Match the AC gate used by the API: problem lookup and visibility check
+  // run in parallel; NotFoundError on the problem takes precedence over the
   // 403 ForbiddenError on the AC gate.
-  const [problem, ac] = await Promise.all([
+  const [problem, canView] = await Promise.all([
     getProblemRowById(problemId),
-    hasUserAcProblem(actor.userId, problemId),
+    canViewEditorials(actor.userId, problemId),
   ]);
 
   if (!problem) {
     error(404, "Problem not found.");
   }
-  if (!ac && actor.platformRole !== "admin") {
+  if (!canView && actor.platformRole !== "admin") {
     error(403, "Solve this problem first to view editorials.");
   }
 

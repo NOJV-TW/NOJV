@@ -52,7 +52,9 @@ test.describe("Assignments — list + detail", () => {
     const page = await context.newPage();
     await page.goto(`/assignments/${HW1_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByText("Homework 1: Process Trace")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Homework 1: Process Trace" }),
+    ).toBeVisible();
     await context.close();
   });
 
@@ -61,22 +63,24 @@ test.describe("Assignments — list + detail", () => {
     const page = await context.newPage();
     await page.goto(`/assignments/${HW3_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByText("Homework 3: Scheduler (draft)")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Homework 3: Scheduler (draft)" }),
+    ).toBeVisible();
     await context.close();
   });
 
-  test("student visiting a problem under a closed assignment sees a clear non-page", async ({
+  test("student visiting a problem under a closed assignment lands on bare practice", async ({
     browser,
   }) => {
-    // Seeded assignments hw1/hw2 both close before the test fixture's
-    // current date, so the problem inside is no longer accessible to a
-    // student. The route must surface a recognizable error state, not
-    // crash and not render the editor as if it were available.
+    // Practice-after-close: once an assignment is past its close time the
+    // in-assignment problem URL redirects to the ordinary practice page,
+    // where the problem stays solvable but is no longer attributed to the
+    // assignment context.
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     await page.goto(`/assignments/${HW2_ID}/problems/problem_add-two-numbers`);
+    await expect(page).toHaveURL(/\/problems\/problem_add-two-numbers/);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^(submit|繳交)$/i })).not.toBeVisible();
     await context.close();
   });
 

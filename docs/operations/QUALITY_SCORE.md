@@ -18,6 +18,13 @@ Track documentation quality and implementation legibility as an honest ledger.
 
 ## Doc Drift Status
 
+- 2026-05-18 feature-completion batch: synced docs with PR #27's shipped
+  features — `PRODUCT_SENSE.md` gained Upsolve / Virtual Contests /
+  Class Analytics under Shipped Scope; `FRONTEND.md` route map gained
+  `/contests/[contestId]/{upsolve,virtual}` and
+  `/courses/[courseId]/analytics`; the 2026-05-16 plan moved to
+  `docs/plans/completed/`.
+
 - 2026-05-06 Grafana observability wired: 5 dashboards live at https://takalawang.grafana.net covering judge latency, API latency, scoreboard updates, exam proctoring, and request-time breakdown. OTel SDK boots via top-of-file side-effect import in apps/web/src/hooks.server.ts and apps/worker/src/index.ts; metrics push to Grafana Cloud Hosted Prometheus via OTLP (region prod-ap-northeast-0, free tier). 6 manual SLO metrics instrumented: judge_latency_seconds (mode/verdict), api_request_duration_seconds (route/method/status_class), scoreboard_update_latency_seconds (mode), sse_connection_duration_seconds (close_reason), sse_connection_dropped_total, exam_heartbeat_miss_total (gap_bucket). Auto-instrumentation hooks pg/ioredis/undici/http; fs+dns disabled for noise control; traces disabled (metrics-only). Worker SIGTERM awaits shutdownOtel() to flush last interval. Provisioning via pnpm grafana:provision (overwrite:true, idempotent). Cardinality budget ≈ 4k series, well under 10k free-tier cap. RELIABILITY.md SLO table now links each row to its dashboard. New runbook docs/runbooks/observability-setup.md covers token rotation, adding metrics, dashboard updates. Verification: pnpm -w typecheck 17/17 green, pnpm exec vitest run tests/unit + provision tests all pass, 5 dashboards verified via API read-back.
 
 - 2026-04-30 functional-gaps sweep: 5 parallel agent worktrees merged into main, plus inline doc updates.

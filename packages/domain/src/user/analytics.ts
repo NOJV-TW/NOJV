@@ -1,65 +1,10 @@
-import { problemRepo, submissionRepo, userDailyActivityRepo } from "@nojv/db";
+import { problemRepo, submissionRepo } from "@nojv/db";
 
 export interface SuggestedProblem {
   id: string;
   title: string;
   difficulty: "easy" | "medium" | "hard";
   tags: string[];
-}
-
-/**
- * Truncate `now` to the start of its UTC day. We index `UserDailyActivity`
- * by UTC midnight so the streak query has to align to the same boundary.
- */
-function utcDayStart(now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
-/**
- * Count consecutive days ending today (or yesterday if today has no activity
- * yet) where the user had at least one accepted submission. If yesterday is
- * also empty the streak is broken and we return 0 — this matches LeetCode's
- * "today is a grace day" semantics so a user who hasn't solved anything
- * before noon doesn't see their streak vanish.
- */
-export async function getStreakDays(userId: string, now: Date = new Date()): Promise<number> {
-  const today = utcDayStart(now);
-  const oneDayMs = 24 * 60 * 60 * 1000;
-  // Look back at most 365 days — keeps the query bounded and matches the
-  // longest streak any user could realistically maintain.
-  const lookback = new Date(today.getTime() - 365 * oneDayMs);
-
-  const rows = await userDailyActivityRepo.findRange(userId, lookback, today);
-  if (rows.length === 0) return 0;
-
-  const acByIso = new Map<string, number>();
-  for (const row of rows) {
-    acByIso.set(row.date.toISOString().slice(0, 10), row.acCount);
-  }
-
-  const todayIso = today.toISOString().slice(0, 10);
-  const yesterday = new Date(today.getTime() - oneDayMs);
-  const yesterdayIso = yesterday.toISOString().slice(0, 10);
-
-  // Pick the streak's anchor day. If today has any AC, count today.
-  // Otherwise grace-day rule: count from yesterday if it has AC, else 0.
-  let cursor: Date;
-  if ((acByIso.get(todayIso) ?? 0) > 0) {
-    cursor = today;
-  } else if ((acByIso.get(yesterdayIso) ?? 0) > 0) {
-    cursor = yesterday;
-  } else {
-    return 0;
-  }
-
-  let streak = 0;
-  for (;;) {
-    const iso = cursor.toISOString().slice(0, 10);
-    if ((acByIso.get(iso) ?? 0) === 0) break;
-    streak += 1;
-    cursor = new Date(cursor.getTime() - oneDayMs);
-  }
-  return streak;
 }
 
 /**

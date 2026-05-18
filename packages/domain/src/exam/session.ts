@@ -333,6 +333,53 @@ export async function releaseSessionAsInstructor(
   });
 }
 
+// Active-session count for an exam — drives the proctoring tab badge.
+export async function countActiveSessions(examId: string): Promise<number> {
+  const active = await examSessionRepo.findAllActiveForExam(examId);
+  return active.length;
+}
+
+// Bulk counterpart of `releaseSessionAsInstructor`: ends every active
+// session for the exam in one transaction. Used when staff need to clear
+// a whole room at once (e.g. exam over-run, class-wide incident).
+export async function releaseAllSessionsAsInstructor(
+  actor: ActorContext,
+  { examId }: { examId: string },
+): Promise<{ released: number }> {
+  return runTransaction(async (tx) => {
+    const exam = await examRepo.withTx(tx).findById(examId);
+    if (!exam) {
+      throw new NotFoundError(`Exam not found: ${examId}`);
+    }
+
+    const callerMembership = await courseMembershipRepo
+      .withTx(tx)
+      .findByComposite(exam.courseId, actor.userId);
+    const isStaff =
+      callerMembership?.status === "active" &&
+      (callerMembership.role === "teacher" || callerMembership.role === "ta");
+    if (!isStaff) {
+      throw new ForbiddenError("Only course staff can release exam sessions.");
+    }
+
+    const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
+    const now = new Date();
+    for (const session of active) {
+      await examSessionRepo.withTx(tx).update(session.id, {
+        endedAt: now,
+        releaseReason: "released_by_instructor",
+      });
+      await examSessionRepo.withTx(tx).recordEvent({
+        sessionId: session.id,
+        eventType: "release",
+        metadata: { reason: "released_by_instructor", endedByUserId: actor.userId },
+      });
+    }
+
+    return { released: active.length };
+  });
+}
+
 // Always bumps `lastHeartbeatAt`; throttles the audit-event insert to avoid flooding `ExamSessionEvent`.
 // `previousHeartbeatAt` is the pre-update timestamp — callers (e.g. observability)
 // use it to detect cadence misses regardless of whether the audit event was throttled.

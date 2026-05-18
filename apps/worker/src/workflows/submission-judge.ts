@@ -22,7 +22,6 @@ const judgeSandbox = proxyActivities<typeof judgeActivities>({
   retry: { maximumAttempts: 3 },
 });
 
-const stats = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
 const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 
@@ -39,14 +38,12 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   // the judge proceed normally — it will fail cleanly if the row is
   // truly gone.
   let rejudgeLogId: string | null = null;
-  let rejudgeOldStatus: string | null = null;
   if (input.forRejudge) {
     const snap = await judge.snapshotSubmissionForRejudge(
       input.submissionId,
       input.forRejudge.triggeredByUserId,
     );
     rejudgeLogId = snap?.logId ?? null;
-    rejudgeOldStatus = snap?.oldStatus ?? null;
   }
 
   status = "compiling";
@@ -73,12 +70,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   }
 
   status = "completed";
-  await Promise.all([
-    rejudgeOldStatus !== null
-      ? stats.adjustUserStatsForRejudge(submission, rejudgeOldStatus)
-      : stats.updateUserStats(submission),
-    notification.publishVerdict(submission),
-  ]);
+  await notification.publishVerdict(submission);
 
   if (rejudgeLogId) {
     await judge.finalizeRejudgeLog(

@@ -27,7 +27,7 @@ test.describe("Admin panel — gating + pages", () => {
   test("student cannot reach the admin announcements page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
-    const res = await page.goto("/admin/announcements");
+    const res = await page.goto("/admin/content/announcements");
     const status = res?.status() ?? 0;
     if (status < 400) {
       await expect(page.getByText(/Admin access required/i)).toBeVisible();
@@ -40,7 +40,7 @@ test.describe("Admin panel — gating + pages", () => {
   test("admin can open the announcements management page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto("/admin/announcements");
+    await page.goto("/admin/content/announcements");
     await expect(page.getByRole("main")).toBeVisible();
     await context.close();
   });
@@ -48,7 +48,7 @@ test.describe("Admin panel — gating + pages", () => {
   test("admin can open the users management page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto("/admin/users");
+    await page.goto("/admin/system/users");
     await expect(page.getByRole("main")).toBeVisible();
     // The seeded teacher / student rows must show up in the table.
     await expect(page.getByText("teacher@nojv.local").first()).toBeVisible({
@@ -60,7 +60,7 @@ test.describe("Admin panel — gating + pages", () => {
   test("admin users page accepts a role filter via querystring", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto("/admin/users?role=teacher");
+    await page.goto("/admin/system/users?role=teacher");
     await expect(page.getByRole("main")).toBeVisible();
     expect(page.url()).toContain("role=teacher");
     await context.close();
@@ -69,7 +69,7 @@ test.describe("Admin panel — gating + pages", () => {
   test("admin users page accepts a search query", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto("/admin/users?search=admin");
+    await page.goto("/admin/system/users?search=admin");
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByText("admin@nojv.local").first()).toBeVisible({
       timeout: 10_000,

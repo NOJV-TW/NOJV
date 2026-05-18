@@ -8,43 +8,47 @@ SvelteKit application with server-side rendering, client hydration, and file-bas
 
 Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/signin` if no session.
 
-| Route                                              | Purpose                                                                                                                                 |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `/dashboard`                                       | User stats, activity heatmap, streak / weekly-trend / suggested problems cards, language + difficulty distribution                      |
-| `/problems`                                        | Problem listing with filters (difficulty, tags, status)                                                                                 |
-| `/problems/[problemId]`                            | Problem workspace: Monaco editor, testcases, submit/run                                                                                 |
-| `/problems/[problemId]/edit`                       | Problem editor (admin/teacher)                                                                                                          |
-| `/problems/[problemId]/edit-advanced`              | Advanced-mode editor — TA-supplied judge image + workspace files                                                                        |
-| `/problems/[problemId]/editorials`                 | Editorial list for a problem (AC-gated visibility)                                                                                      |
-| `/submissions`                                     | User submission history                                                                                                                 |
-| `/submissions/[submissionId]`                      | Submission detail — verdict, subtask results, source                                                                                    |
-| `/editorials/[id]/edit`                            | Editorial edit form (author or staff)                                                                                                   |
-| `/contests`                                        | Contest listing, invite code join                                                                                                       |
-| `/contests/new`                                    | Contest creation (any authenticated user)                                                                                               |
-| `/contests/[contestId]`                            | Contest detail. Manager view exposes sub-tabs: Overview / Submissions / Plagiarism / Clarifications / Settings                          |
-| `/contests/[contestId]/problems/[problemId]`       | Contest problem workspace (post-end redirects to `/problems/[problemId]`)                                                               |
-| `/contests/[contestId]/scoreboard`                 | Scoreboard (ICPC/IOI). Polls every 30 s; reads frozen snapshot when the contest is in its freeze window                                 |
-| `/courses`                                         | Course listing (Enrolled / Managing tabs)                                                                                               |
-| `/courses/new`                                     | Course creation (admin/teacher)                                                                                                         |
-| `/courses/[courseId]`                              | Course home — overview, announcements, assignments/exams summary                                                                        |
-| `/courses/[courseId]/settings`                     | Course settings + Copy course + archive (teacher/admin)                                                                                 |
-| `/courses/[courseId]/members`                      | Member management (teacher/admin)                                                                                                       |
-| `/courses/[courseId]/assignments`                  | Course-scoped assignment list                                                                                                           |
-| `/courses/[courseId]/assignments/new`              | Create assignment (teacher/admin)                                                                                                       |
-| `/courses/[courseId]/exams`                        | Course-scoped exam list                                                                                                                 |
-| `/courses/[courseId]/exams/new`                    | Create exam (teacher/admin)                                                                                                             |
-| `/courses/[courseId]/manage/plagiarism/[slug]`     | Plagiarism dashboard for one assessment (manager only)                                                                                  |
-| `/assignments`                                     | Cross-course assignment list (All / Open / Upcoming / Closed tabs)                                                                      |
-| `/assignments/[assignmentId]`                      | Assignment detail. Manager view exposes sub-tabs: Problems / Submissions / Results / Plagiarism / Settings / Clarifications             |
-| `/assignments/[assignmentId]/problems/[problemId]` | Assignment problem workspace (post-close redirects to bare practice)                                                                    |
-| `/exams`                                           | Cross-course exam list (All / Running / Upcoming / Ended tabs)                                                                          |
-| `/exams/[examId]`                                  | Exam detail — start screen (student) or sub-tabs Problems / Submissions / Results / Plagiarism / Proctoring / Settings / Clarifications |
-| `/exams/[examId]/problems/[problemId]`             | In-exam problem workspace (gated by active exam session)                                                                                |
-| `/plagiarism/pairs/[pairId]`                       | Pair-level Monaco diff for a flagged submission pair (assessment / exam / contest contexts; encoded composite id)                       |
-| `/admin`                                           | Admin dashboard (platform admin only)                                                                                                   |
-| `/admin/announcements`                             | Manage announcements                                                                                                                    |
-| `/admin/users`                                     | User management (role assignment, disable)                                                                                              |
-| `/account`                                         | User account settings (display name, locale, avatar)                                                                                    |
+| Route                                                | Purpose                                                                                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`                                         | User stats, activity heatmap, streak / weekly-trend / suggested problems cards, language + difficulty distribution                      |
+| `/problems`                                          | Problem listing with filters (difficulty, tags, status)                                                                                 |
+| `/problems/[problemId]`                              | Problem workspace: Monaco editor, testcases, submit/run                                                                                 |
+| `/problems/[problemId]/edit`                         | Problem editor (admin/teacher)                                                                                                          |
+| `/problems/[problemId]/edit-advanced`                | Advanced-mode editor — TA-supplied judge image + workspace files                                                                        |
+| `/problems/[problemId]/editorials`                   | Editorial list for a problem (AC-gated visibility)                                                                                      |
+| `/submissions`                                       | User submission history                                                                                                                 |
+| `/submissions/[submissionId]`                        | Submission detail — verdict, subtask results, source                                                                                    |
+| `/editorials/[id]/edit`                              | Editorial edit form (author or staff)                                                                                                   |
+| `/contests`                                          | Contest listing, invite code join                                                                                                       |
+| `/contests/new`                                      | Contest creation (any authenticated user)                                                                                               |
+| `/contests/[contestId]`                              | Contest detail. Manager view exposes sub-tabs: Overview / Submissions / Plagiarism / Clarifications / Settings                          |
+| `/contests/[contestId]/problems/[problemId]`         | Contest problem workspace (post-end redirects to `/problems/[problemId]`)                                                               |
+| `/contests/[contestId]/scoreboard`                   | Scoreboard (ICPC/IOI). Polls every 30 s; reads frozen snapshot when the contest is in its freeze window                                 |
+| `/contests/[contestId]/upsolve`                      | Post-contest upsolve index — per-problem solve status, links to practice (visible after the contest ends)                               |
+| `/contests/[contestId]/virtual`                      | Start / run a virtual contest — personal time-shifted replay of an ended contest                                                        |
+| `/contests/[contestId]/virtual/problems/[problemId]` | In-virtual-contest problem workspace                                                                                                    |
+| `/courses`                                           | Course listing (Enrolled / Managing tabs)                                                                                               |
+| `/courses/new`                                       | Course creation (admin/teacher)                                                                                                         |
+| `/courses/[courseId]`                                | Course home — overview, announcements, assignments/exams summary                                                                        |
+| `/courses/[courseId]/settings`                       | Course settings + Copy course + archive (teacher/admin)                                                                                 |
+| `/courses/[courseId]/members`                        | Member management (teacher/admin)                                                                                                       |
+| `/courses/[courseId]/analytics`                      | Class analytics dashboard — completion, hardest problems, at-risk students, verdict distribution (course staff)                         |
+| `/courses/[courseId]/assignments`                    | Course-scoped assignment list                                                                                                           |
+| `/courses/[courseId]/assignments/new`                | Create assignment (teacher/admin)                                                                                                       |
+| `/courses/[courseId]/exams`                          | Course-scoped exam list                                                                                                                 |
+| `/courses/[courseId]/exams/new`                      | Create exam (teacher/admin)                                                                                                             |
+| `/courses/[courseId]/manage/plagiarism/[slug]`       | Plagiarism dashboard for one assessment (manager only)                                                                                  |
+| `/assignments`                                       | Cross-course assignment list (All / Open / Upcoming / Closed tabs)                                                                      |
+| `/assignments/[assignmentId]`                        | Assignment detail. Manager view exposes sub-tabs: Problems / Submissions / Results / Plagiarism / Settings / Clarifications             |
+| `/assignments/[assignmentId]/problems/[problemId]`   | Assignment problem workspace (post-close redirects to bare practice)                                                                    |
+| `/exams`                                             | Cross-course exam list (All / Running / Upcoming / Ended tabs)                                                                          |
+| `/exams/[examId]`                                    | Exam detail — start screen (student) or sub-tabs Problems / Submissions / Results / Plagiarism / Proctoring / Settings / Clarifications |
+| `/exams/[examId]/problems/[problemId]`               | In-exam problem workspace (gated by active exam session)                                                                                |
+| `/plagiarism/pairs/[pairId]`                         | Pair-level Monaco diff for a flagged submission pair (assessment / exam / contest contexts; encoded composite id)                       |
+| `/admin`                                             | Admin dashboard (platform admin only)                                                                                                   |
+| `/admin/announcements`                               | Manage announcements                                                                                                                    |
+| `/admin/users`                                       | User management (role assignment, disable)                                                                                              |
+| `/account`                                           | User account settings (display name, locale, avatar)                                                                                    |
 
 ### (auth) — Public Auth Routes
 

@@ -1,11 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
-// Submission + Editorial + per-day activity
+// Submission + Editorial
 //
-// Dashboard totals (totalAc / totalAttempts / lastSubmittedAt) are
-// computed on-demand from Submission via indexed aggregates.
-// UserDailyActivity is the only pre-aggregated table because streak
-// and heatmap queries over a 30-day window benefit from a dedicated
-// row-per-day shape.
+// Dashboard totals (totalAc / totalAttempts / lastSubmittedAt) and the
+// activity heatmap / streak are all computed on-demand from Submission
+// via indexed aggregates — there is no pre-aggregated activity table.
 // ═══════════════════════════════════════════════════════════════
 
 enum SupportedLanguage {
@@ -183,6 +181,12 @@ model ScoreOverrideAuditLog {
   @@index([userId, problemId, createdAt(sort: Desc)])
 }
 
+enum EditorialReportStatus {
+  open
+  resolved
+  dismissed
+}
+
 model Editorial {
   id        String            @id @default(cuid())
   userId    String
@@ -200,6 +204,7 @@ model Editorial {
   deletedAt DateTime?
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  reports   EditorialReport[]
 
   /// A user can post multiple editorials for the same problem as
   /// long as they're in different languages.
@@ -207,15 +212,23 @@ model Editorial {
   @@index([problemId, createdAt])
 }
 
-/// One row per user per calendar day (UTC). Powers streak counters,
-/// heatmaps, and range queries without touching the Submission table.
-model UserDailyActivity {
-  userId          String
-  date            DateTime @db.Date
-  submissionCount Int      @default(0)
-  acCount         Int      @default(0)
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+/// User-filed report against an editorial (spam, off-topic, etc.).
+/// Surfaces in the admin moderation queue. One report per
+/// (editorial, reporter); `resolve` soft-deletes the editorial.
+model EditorialReport {
+  id               String                @id @default(cuid())
+  editorialId      String
+  reportedByUserId String
+  reason           String                @db.Text
+  status           EditorialReportStatus @default(open)
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime              @default(now())
 
-  @@id([userId, date])
-  @@index([userId, date(sort: Desc)])
+  editorial  Editorial @relation(fields: [editorialId], references: [id], onDelete: Cascade)
+  reportedBy User      @relation("EditorialReportReporter", fields: [reportedByUserId], references: [id], onDelete: Cascade)
+  resolvedBy User?     @relation("EditorialReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([editorialId, reportedByUserId])
+  @@index([status, createdAt])
 }
