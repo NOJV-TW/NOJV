@@ -123,6 +123,12 @@
     detail.problems.map((p) => ({ id: p.id, title: p.title }))
   );
 
+  // Grading feedback keyed by problem — empty until the exam ends (the
+  // loader's domain call is close-gated). Students only.
+  const feedbackByProblem = $derived(
+    new Map((data.feedback ?? []).map((f) => [f.problemId, f.comment]))
+  );
+
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(data.canSetOverride ?? false);
   const overrideStudents = $derived(
@@ -291,6 +297,7 @@
         <div class="divide-y" style="border-color: var(--border-subtle);">
           {#each detail.problems as p (p.id)}
             {@const verdict = p.viewerState ?? "empty"}
+            {@const feedbackComment = feedbackByProblem.get(p.id)}
             <a
               href={`/problems/${p.id}`}
               class={cn(
@@ -345,6 +352,20 @@
                 <ChevronRight class="size-3.5" />
               </span>
             </a>
+            {#if feedbackComment}
+              <div class="px-6 pb-3.5 pt-1">
+                <div class="rounded-md border border-info/30 bg-info/5 px-3 py-2">
+                  <div
+                    class="font-mono text-micro uppercase tracking-wider text-info"
+                  >
+                    {m.feedback_student_label()}
+                  </div>
+                  <p class="mt-1 whitespace-pre-wrap break-words text-body-sm text-foreground">
+                    {feedbackComment}
+                  </p>
+                </div>
+              </div>
+            {/if}
           {/each}
         </div>
       </GlassPanel>

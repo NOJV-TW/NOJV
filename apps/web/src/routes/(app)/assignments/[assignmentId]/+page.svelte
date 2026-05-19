@@ -40,6 +40,12 @@
   );
   const clarificationEnabled = $derived(data.clarification.canView);
 
+  // Grading feedback keyed by problem — empty until the assignment closes
+  // (the loader's domain call is close-gated). Students only.
+  const feedbackByProblem = $derived(
+    new Map((data.mode === "student" ? data.feedback : []).map((f) => [f.problemId, f.comment]))
+  );
+
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false
@@ -323,6 +329,7 @@
             {@const isSolved = state === "ac"}
             {@const tries = problem.myStatus?.attempts ?? 0}
             {@const score = problem.myStatus?.bestScore ?? 0}
+            {@const feedbackComment = feedbackByProblem.get(problem.problemId)}
             {#snippet rowBody()}
               <div class="font-mono text-body font-semibold text-muted-foreground">
                 {problem.letter}
@@ -389,6 +396,22 @@
               >
                 {@render rowBody()}
               </a>
+            {/if}
+            {#if feedbackComment}
+              <div class="px-6 pb-3.5 pt-1">
+                <div
+                  class="rounded-md border border-info/30 bg-info/5 px-3 py-2"
+                >
+                  <div
+                    class="text-micro font-mono uppercase tracking-wider text-info"
+                  >
+                    {m.feedback_student_label()}
+                  </div>
+                  <p class="mt-1 whitespace-pre-wrap break-words text-body-sm text-foreground">
+                    {feedbackComment}
+                  </p>
+                </div>
+              </div>
             {/if}
           {/each}
         </div>

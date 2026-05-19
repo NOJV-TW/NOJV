@@ -1455,6 +1455,7 @@
   "feedback_staff_toastDeleted": "Feedback deleted",
   "feedback_staff_toastError": "Action failed",
   "feedback_staff_toastUpdated": "Feedback updated",
+  "feedback_student_label": "Teacher feedback",
   "footer_about": "About",
   "footer_contact": "Contact",
   "footer_copyright": "© {year} NOJV",

@@ -1455,6 +1455,7 @@
   "feedback_staff_toastDeleted": "已刪除評語",
   "feedback_staff_toastError": "動作失敗",
   "feedback_staff_toastUpdated": "已更新評語",
+  "feedback_student_label": "老師評語",
   "footer_about": "關於",
   "footer_contact": "聯絡",
   "footer_copyright": "© {year} NOJV",
