@@ -41,7 +41,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
-import { ForbiddenError, ValidationError, NotFoundError } from "@nojv/domain";
+import { ConflictError, ForbiddenError, ValidationError, NotFoundError } from "@nojv/domain";
 import { scoreOverrideDomain } from "@nojv/domain";
 
 const { createOverride, updateOverride, deleteOverride, canSetScoreOverride } =
@@ -69,6 +69,10 @@ const baseInput = {
   overrideScore: 80,
   reason: "Manual adjustment after grading dispute.",
 };
+
+/** Score overrides are a post-close action: gate fixtures need a closed context. */
+const CLOSED_AT = new Date("2020-01-01T00:00:00Z");
+const OPEN_AT = new Date("2999-01-01T00:00:00Z");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -161,7 +165,11 @@ describe("canSetScoreOverride", () => {
 
 describe("createOverride", () => {
   beforeEach(() => {
-    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     overrideCreate.mockResolvedValue({ id: "ov_1" });
     auditCreate.mockResolvedValue({});
@@ -221,6 +229,28 @@ describe("createOverride", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(overrideCreate).not.toHaveBeenCalled();
   });
+
+  it("blocks staff while the context is still open", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: OPEN_AT,
+    });
+    await expect(createOverride(actor({ userId: "usr_t" }), baseInput)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(overrideCreate).not.toHaveBeenCalled();
+  });
+
+  it("allows an admin to override even while the context is open", async () => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: OPEN_AT,
+    });
+    await createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), baseInput);
+    expect(overrideCreate).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("updateOverride", () => {
@@ -234,7 +264,11 @@ describe("updateOverride", () => {
       overrideScore: 80,
       reason: "Old reason",
     });
-    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     overrideUpdate.mockResolvedValue({
       id: "ov_1",
@@ -288,7 +322,11 @@ describe("deleteOverride", () => {
       overrideScore: 80,
       reason: "Old reason",
     });
-    assessmentFindByIdWithCourseId.mockResolvedValue({ id: "ca_hw1", courseId: "crs_1" });
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     overrideDelete.mockResolvedValue(undefined);
     auditCreate.mockResolvedValue({});

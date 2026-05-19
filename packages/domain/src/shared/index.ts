@@ -1,4 +1,5 @@
 export * from "./actor-context";
+export * from "./context-window";
 export * from "./errors";
 export * from "./ip";
 export * from "./list-aggregations";
