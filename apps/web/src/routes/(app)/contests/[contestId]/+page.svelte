@@ -14,6 +14,7 @@
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import TypeIcon from "$lib/components/features/coursework/TypeIcon.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
   import ContestResultsTab from "$lib/components/features/contest/ContestResultsTab.svelte";
   import ContestSettingsTab, {
@@ -35,7 +36,8 @@
     | "results"
     | "plagiarism"
     | "settings"
-    | "clarifications";
+    | "clarifications"
+    | "audit";
   let activeSubTab = $state<SubTabKey>("problems");
 
   const subTabs: { key: SubTabKey; label: string }[] = $derived([
@@ -46,7 +48,8 @@
     { key: "settings", label: m.contestDetail_subTabSettings() },
     ...(data.clarification.canView
       ? [{ key: "clarifications" as const, label: m.contestDetail_subTabClarifications() }]
-      : [])
+      : []),
+    { key: "audit", label: m.contestDetail_subTabAudit() }
   ]);
 
   let showOverrideDrawer = $state(false);
@@ -313,6 +316,10 @@
           canAnswer={data.clarification.canAnswer}
           problems={(contest.problems ?? []).map((p) => ({ id: p.id, title: p.title }))}
         />
+      </GlassPanel>
+    {:else if activeSubTab === "audit"}
+      <GlassPanel class="p-5">
+        <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
       </GlassPanel>
     {/if}
   {:else}

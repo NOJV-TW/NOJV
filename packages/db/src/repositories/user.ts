@@ -52,6 +52,15 @@ export const userRepo = {
     return prisma.user.findUnique({ where: { username } });
   },
 
+  // Batch display-name lookup for a set of user ids. Used to hydrate
+  // actor names on audit timelines without an N+1 fetch loop.
+  findManyByIds(ids: readonly string[]) {
+    return prisma.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, name: true },
+    });
+  },
+
   listPaginated(opts: { where: Prisma.UserWhereInput; skip: number; take: number }) {
     return prisma.user.findMany({
       where: opts.where,

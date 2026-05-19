@@ -17,6 +17,7 @@
   import ExamResultsTab from "$lib/components/features/course/exam/ExamResultsTab.svelte";
   import ExamStartModal from "$lib/components/features/course/exam/ExamStartModal.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import { fmtDate } from "$lib/utils/datetime.js";
@@ -116,7 +117,8 @@
     | "plagiarism"
     | "proctoring"
     | "settings"
-    | "clarifications";
+    | "clarifications"
+    | "audit";
   let activeSubTabKey = $state<SubTab>("problems");
 
   const clarificationProblems = $derived(
@@ -663,6 +665,18 @@
           {m.clarification_tab_title()}
         </button>
       {/if}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeSubTabKey === "audit"}
+        onclick={() => (activeSubTabKey = "audit")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
+        'audit'
+          ? 'bg-[color:var(--color-primary)]/14 text-primary'
+          : 'text-muted-foreground hover:text-foreground'}"
+      >
+        {m.examDetail_subTabAudit()}
+      </button>
     </div>
 
     {#if activeSubTabKey === "submissions" && data.matrix}
@@ -711,6 +725,10 @@
           canAnswer={data.clarification.canAnswer}
           problems={clarificationProblems}
         />
+      </GlassPanel>
+    {:else if activeSubTabKey === "audit"}
+      <GlassPanel class="p-5">
+        <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
       </GlassPanel>
     {:else}
       <ExamProblemsTab

@@ -9,6 +9,7 @@ import {
   type ExamUpdate,
 } from "@nojv/core";
 import {
+  auditDomain,
   clarificationDomain,
   examDomain,
   feedbackDomain,
@@ -16,6 +17,7 @@ import {
   listExamIpViolations,
   plagiarismDomain,
   scoreOverrideDomain,
+  userDomain,
 } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
@@ -59,6 +61,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     ipViolations,
     activeSessionCount,
     feedback,
+    auditEvents,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -80,7 +83,17 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? Promise.resolve([])
       : feedbackDomain.getFeedbackForStudent(actor.userId, { type: "exam", examId }),
+    // Staff-only audit timeline; students get an empty list (the tab is hidden).
+    isManager
+      ? auditDomain.listAuditTimelineForContext({ type: "exam", examId })
+      : Promise.resolve([] as auditDomain.AuditEvent[]),
   ]);
+
+  const auditActorNames = isManager
+    ? await userDomain.listUserDisplayNames([
+        ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
+      ])
+    : {};
 
   // Matrix reuses detail.problems instead of re-fetching the exam row.
   const matrix =
@@ -172,6 +185,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       createdAt: v.createdAt.toISOString(),
     })),
     feedback: feedback.map((f) => ({ problemId: f.problemId, comment: f.comment })),
+    auditEvents,
+    auditActorNames,
   };
 });
 

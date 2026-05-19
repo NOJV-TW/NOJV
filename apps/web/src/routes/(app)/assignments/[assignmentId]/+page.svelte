@@ -8,6 +8,7 @@
   import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
+  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
@@ -32,7 +33,8 @@
     | "results"
     | "plagiarism"
     | "settings"
-    | "clarifications";
+    | "clarifications"
+    | "audit";
   let activeSubTab = $state<SubTabKey>("submissions");
 
   const clarificationProblems = $derived(
@@ -82,7 +84,8 @@
     { key: "settings", label: m.assignmentDetail_tabSettings() },
     ...(clarificationEnabled
       ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
-      : [])
+      : []),
+    { key: "audit", label: m.assignmentDetail_tabAudit() }
   ]);
 
   function difficultyLabel(d: "easy" | "medium" | "hard"): "Easy" | "Medium" | "Hard" {
@@ -576,6 +579,8 @@
             canAnswer={data.clarification.canAnswer}
             problems={clarificationProblems}
           />
+        {:else if activeSubTab === "audit" && data.mode === "teacher"}
+          <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
         {/if}
       </div>
     </GlassPanel>
