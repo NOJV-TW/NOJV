@@ -39,9 +39,11 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const context = parseContextQuery(event.url);
 
-  // Listing surfaces staff-authored comments, so gate on the same
-  // permission required to write feedback — students must never reach this.
-  await feedbackDomain.assertCanWriteFeedback(actor, context);
+  // Listing surfaces staff-authored comments, so gate on staff role —
+  // students must never reach this. Use the role-only assert, NOT the
+  // write-path assert: staff may list feedback while the context is still
+  // open (the post-close gate is a write-time restriction only).
+  await feedbackDomain.assertCanViewFeedback(actor, context);
 
   const items = await feedbackDomain.listFeedbackForContext(context);
   return json({ items });

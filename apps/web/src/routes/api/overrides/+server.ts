@@ -44,9 +44,11 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const context = parseContextQuery(event.url);
 
-  // Listing surfaces the staff-only `reason` field, so gate on the same
-  // permission required to set overrides — students must never reach this.
-  await scoreOverrideDomain.assertCanSetScoreOverride(actor, context);
+  // Listing surfaces the staff-only `reason` field, so gate on staff role —
+  // students must never reach this. Use the role-only assert, NOT the
+  // write-path assert: staff may list overrides while the context is still
+  // open (the post-close gate is a write-time restriction only).
+  await scoreOverrideDomain.assertCanViewScoreOverrides(actor, context);
 
   const items = await scoreOverrideDomain.listByContext(context);
   return json({ items });

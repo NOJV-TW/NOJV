@@ -43,16 +43,28 @@ export async function canWriteFeedback(
   }
 }
 
-export async function assertCanWriteFeedback(
+/**
+ * Role-only assert: throws `ForbiddenError` unless `actor` is course staff
+ * (or a platform admin) for `context`. Does NOT apply the post-close gate —
+ * use this to authorize *reads* (listing feedback), which staff may do while
+ * a context is still open. Writes must use `assertCanWriteFeedback`.
+ */
+export async function assertCanViewFeedback(
   actor: ActorContext,
   context: FeedbackContext,
 ): Promise<void> {
   if (!(await canWriteFeedback(actor, context))) {
-    throw new ForbiddenError("Not permitted to write feedback for this context.");
+    throw new ForbiddenError("Not permitted to view feedback for this context.");
   }
+}
+
+export async function assertCanWriteFeedback(
+  actor: ActorContext,
+  context: FeedbackContext,
+): Promise<void> {
+  await assertCanViewFeedback(actor, context);
   // Feedback is a post-close grading action: course staff may only write
-  // it once the context has ended. Platform admins bypass the gate (they
-  // also bypass the role check above, so they never reach this line).
+  // it once the context has ended. Platform admins bypass the gate.
   if (actor.platformRole !== "admin") {
     await assertContextClosed(context);
   }

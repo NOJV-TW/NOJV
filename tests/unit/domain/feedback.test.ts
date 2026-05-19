@@ -38,8 +38,14 @@ vi.mock("@nojv/db", () => ({
 import { ConflictError, ForbiddenError, NotFoundError } from "@nojv/domain";
 import { feedbackDomain } from "@nojv/domain";
 
-const { upsertFeedback, deleteFeedback, listFeedbackForContext, getFeedbackForStudent } =
-  feedbackDomain;
+const {
+  upsertFeedback,
+  deleteFeedback,
+  listFeedbackForContext,
+  getFeedbackForStudent,
+  assertCanViewFeedback,
+  assertCanWriteFeedback,
+} = feedbackDomain;
 
 function actor(
   overrides: Partial<{
@@ -215,5 +221,39 @@ describe("getFeedbackForStudent", () => {
     expect(feedbackFindForStudentInContext).toHaveBeenCalledWith("usr_student", {
       courseAssessmentId: "ca_hw1",
     });
+  });
+});
+
+describe("read vs write authorization split", () => {
+  beforeEach(() => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      // OPEN context — closesAt in the far future.
+      closesAt: OPEN_AT,
+    });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+  });
+
+  it("assertCanViewFeedback does not gate on close — staff GET on an OPEN context succeeds", async () => {
+    await expect(
+      assertCanViewFeedback(actor({ userId: "usr_t" }), assignmentContext),
+    ).resolves.toBeUndefined();
+  });
+
+  it("assertCanWriteFeedback still rejects staff on the same OPEN context with ConflictError", async () => {
+    await expect(
+      assertCanWriteFeedback(actor({ userId: "usr_t" }), assignmentContext),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("assertCanViewFeedback still rejects non-staff with ForbiddenError", async () => {
+    courseMembershipFindByComposite.mockResolvedValue({ role: "student", status: "active" });
+    await expect(
+      assertCanViewFeedback(
+        actor({ userId: "usr_s", platformRole: "student" }),
+        assignmentContext,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

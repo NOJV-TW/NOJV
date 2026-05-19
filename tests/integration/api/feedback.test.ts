@@ -237,5 +237,35 @@ describe("feedback API domain layer (real DB)", () => {
         ),
       ).rejects.toThrow(/not permitted/i);
     });
+
+    it("authorizes a staff GET on an OPEN context — assertCanViewFeedback does not gate on close", async () => {
+      const course = await createTestCourse();
+      const teacher = await makeCourseTeacher(course.id);
+
+      // closesAt in the future → context is OPEN.
+      const assignment = await testPrisma.courseAssessment.create({
+        data: {
+          courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "Open HW (read auth)",
+          summary: "still open",
+          status: "published",
+          opensAt: new Date(Date.now() - 3600_000),
+          closesAt: new Date(Date.now() + 3600_000),
+        },
+      });
+      const context = { type: "assignment" as const, assignmentId: assignment.id };
+
+      // The GET path: role-only assert must succeed while the context is open.
+      await expect(
+        feedbackDomain.assertCanViewFeedback(actorOf(teacher), context),
+      ).resolves.toBeUndefined();
+
+      // The write path still rejects the same open context with ConflictError
+      // (→ HTTP 409). Asserting both pins the read/write split.
+      await expect(
+        feedbackDomain.assertCanWriteFeedback(actorOf(teacher), context),
+      ).rejects.toThrow(/still open/i);
+    });
   });
 });
