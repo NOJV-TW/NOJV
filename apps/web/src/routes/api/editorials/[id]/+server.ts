@@ -1,6 +1,5 @@
-import { z } from "zod";
 import { json } from "@sveltejs/kit";
-import { languageSchema, type Language } from "@nojv/core";
+import { editorialUpdateSchema, type Language } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
@@ -9,18 +8,6 @@ import { writeApiHandler } from "$lib/server/shared/api-handler";
 import { editorialDomain } from "@nojv/domain";
 
 const { updateEditorial, softDeleteEditorial } = editorialDomain;
-
-// Mirrors the inline `editorialSubmitSchema` content bounds at the POST
-// route so update + create stay in sync; both fields optional so the
-// caller can send a partial payload.
-const editorialUpdateSchema = z
-  .object({
-    content: z.string().min(10).max(50000).optional(),
-    language: languageSchema.optional(),
-  })
-  .refine((value) => value.content !== undefined || value.language !== undefined, {
-    message: "At least one field (content or language) is required.",
-  });
 
 function requireId(event: { params: { id?: string } }): string {
   const id = event.params.id;

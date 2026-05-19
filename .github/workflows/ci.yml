@@ -78,3 +78,22 @@ jobs:
 
       - name: Run integration tests
         run: pnpm test:integration
+
+  security-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      # Hard gate: any high or critical advisory fails the build.
+      # Moderate/low are reported by `pnpm audit` locally but not gated.
+      # Suppress a genuinely-unfixable advisory via
+      # `pnpm.auditConfig.ignoreGhsas` in the root package.json.
+      - name: Audit dependencies (high + critical)
+        run: pnpm audit --audit-level high

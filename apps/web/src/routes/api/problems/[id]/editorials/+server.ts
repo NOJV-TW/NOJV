@@ -1,6 +1,5 @@
-import { z } from "zod";
 import { json } from "@sveltejs/kit";
-import { languageSchema } from "@nojv/core";
+import { editorialSubmitSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
@@ -10,11 +9,6 @@ import { editorialDomain, problemDomain } from "@nojv/domain";
 
 const { getProblemRowById } = problemDomain;
 const { canViewEditorials, listProblemEditorials, upsertEditorial } = editorialDomain;
-
-const editorialSubmitSchema = z.object({
-  content: z.string().min(10).max(50000),
-  language: languageSchema,
-});
 
 // problemRepo.findById and canViewEditorials are independent — both accept
 // the same problemId, and canViewEditorials is a count query that safely

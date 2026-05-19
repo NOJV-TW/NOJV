@@ -1,18 +1,24 @@
 # Feature: Student Dashboard
 
 Acceptance spec for `/dashboard` — a user-scoped overview of a student's
-own activity and ability. Shows a 30-day activity heatmap, difficulty /
-verdict / tag analytics, recent submissions, a current-streak callout
-(`StreakCard.svelte`), a 7-day trend chart (`WeeklyTrendCard.svelte`),
-and a "Suggested problems" rail (`SuggestedProblemsCard.svelte`), all
-wired into `apps/web/src/routes/(app)/dashboard/+page.svelte`. Strictly
+own activity and ability. Shows a one-year activity heatmap, difficulty /
+verdict / language / tag analytics, recent submissions, a current-streak
+callout (`StreakCard.svelte`), a 7-day trend chart
+(`WeeklyTrendCard.svelte`), and a "Suggested problems" rail
+(`SuggestedProblemsCard.svelte`), all wired into
+`apps/web/src/routes/(app)/dashboard/+page.svelte`. Strictly
 read-your-own: no teacher or admin "view another user" lens exists on
 this surface.
 
+The heatmap, streak, and weekly trend are derived **client-side** from
+raw submission timestamps so the calendar day matches the viewer's local
+timezone — the server cannot bucket by day without knowing the browser
+timezone. There is no pre-aggregated daily-activity table.
+
 ## User Stories
 
-- As a **student**, I want to see how many days I've practiced in the
-  last 30 and which days were active, so that I can keep a streak.
+- As a **student**, I want to see which days I practiced over the past
+  year, so that I can keep a streak.
 - As a **student**, I want AC count + attempt count + AC rate at the
   top of the page, so that I have a quick pulse on my progress.
 - As a **student**, I want to see which tags I'm strong in (top 8 by AC
@@ -22,7 +28,7 @@ this surface.
 - As a **student**, I want a verdict distribution (AC / WA / TLE / MLE /
   RE / CE / queued) with AC% in the center, so that I can see where my
   non-AC attempts are going.
-- As a **student**, I want the 10 most recent submissions listed with
+- As a **student**, I want the most recent submissions listed with
   problem + verdict + timestamp, so that I can jump back into
   in-progress problems.
 - As a **student**, I want a current-streak callout and a 7-day trend
@@ -39,39 +45,42 @@ this surface.
   strictly actor-scoped.
 - `getDashboardView(userId)` fan-out: stats + recent submissions +
   `analytics` (byDifficulty / byLanguage / byVerdict / byTag).
-- `userDailyActivityRepo.findRange(userId, from, to)` — 30-day window
-  with UTC-midnight boundaries.
-- `UserDailyActivity` table: composite PK `(userId, date)`,
-  `submissionCount` + `acCount` counters, UTC-midnight date bucket.
-- Daily-activity writes: Temporal submission-judge activity
-  `stats.updateUserStats(submission)` fires after every judged
-  submission (both AC and non-AC).
+- `getSubmissionActivity(userId, since)` — raw submission timestamps
+  (`sampleOnly: false`) for the trailing ~366 days, returned as
+  `{ createdAt, isAc }[]`. No server-side day aggregation.
+- `getSuggestedProblems(userId)` — recommended-problem rail.
+- Client-side `buildActivityModel(events, now, 365)`
+  (`apps/web/src/lib/utils/activity.ts`) — buckets raw events into the
+  viewer's LOCAL calendar day, producing `heatmapDays` (365 days),
+  `weeklyTrend` (last 7 days), and `streakDays`.
 - Top-N aggregation: `aggregateByTag` returns the top 8 by AC count,
   sorted descending, with stable ordering on ties.
-- Charts: `ActivityHeatmap` (30-day cells), EChart donuts for
-  difficulty and verdict, horizontal bar for tag proficiency.
+- Charts: `ActivityHeatmap` (365-day cells), EChart donuts for
+  difficulty / verdict / language, horizontal bar for tag proficiency.
 - Empty state per chart
   (`hasHeatmapData` / `hasDifficultyData` / `hasVerdictData` /
-  `hasTagData`) — replaces the chart with an `EmptyState` component.
-- Current-streak card (`StreakCard.svelte`) — current consecutive-day
-  count derived from `dailyActivity`.
+  `hasTagData` / `hasLanguageData`) — replaces the chart with an
+  `EmptyState` component.
+- Current-streak card (`StreakCard.svelte`) — `streakDays` from
+  `buildActivityModel`.
 - 7-day trend card (`WeeklyTrendCard.svelte`) — submissions + AC per
-  day for the last 7 days.
+  local day for the last 7 days.
 - Suggested problems rail (`SuggestedProblemsCard.svelte`) — fed by the
   server load alongside the rest of the dashboard data.
-- 15 paraglide keys under `dashboard_*` (en + zh-TW).
+- paraglide keys under `dashboard_*` (en + zh-TW).
 
 ### Out of scope
 
 - **Teacher / admin view of another user's dashboard**: no such route.
   Teachers use the course progress matrix (separate feature).
-- **Date range picker**: the 30-day window is fixed; no UI to shift it
-  or widen it.
+- **Date range picker**: the 365-day window is fixed; no UI to shift or
+  widen it.
 - **Achievements, levels, or badges**: not modeled.
 - **Cross-course assignment list**: lives on `/assignments` (covered by
   `assignments.md`).
 - **Team or org scoreboard contribution**: per-user only.
-- **Timezone selection**: buckets are UTC-aligned and non-configurable.
+- **Per-user timezone setting**: buckets follow the browser's local day;
+  there is no explicit timezone picker.
 
 ## Acceptance Criteria
 
@@ -82,31 +91,57 @@ this surface.
   THEN SvelteKit redirects to the sign-in flow via `requireAuth(event)`.
 - GIVEN an authenticated request,
   WHEN the load runs,
-  THEN `getDashboardView(actor.userId)` and
-  `userDailyActivityRepo.findRange(userId, from, to)` resolve in
-  parallel; the response carries `stats`, `recentSubmissions`,
-  `analytics`, `dailyActivity`, `username`.
+  THEN `getDashboardView(actor.userId)`,
+  `getSubmissionActivity(actor.userId, since)`, and
+  `getSuggestedProblems(actor.userId)` resolve in parallel; the response
+  carries `stats`, `recentSubmissions`, `analytics`, `activity` (an
+  `{ at, ac }[]` array of ISO timestamps), `suggestedProblems`, and
+  `username`.
 - GIVEN an actor with zero submissions,
   WHEN the load runs,
   THEN `stats.totalAc === 0`, `stats.totalAttempts === 0`,
-  `recentSubmissions === []`, and every `analytics.*` array is empty.
+  `recentSubmissions === []`, `activity === []`, and every
+  `analytics.*` array is empty.
 
 ### Activity heatmap
 
-- GIVEN the actor submitted on 5 of the last 30 days,
-  WHEN `findRange(userId, fromUtcMidnight, toUtcMidnight)` runs with a
-  30-day window,
-  THEN the DB returns 5 rows; the page fills the remaining 25 days with
-  zero-count placeholders for rendering.
-- GIVEN the current UTC date is D,
+- GIVEN the actor submitted on 5 of the last 365 local days,
+  WHEN `buildActivityModel(activity, now, 365)` runs,
+  THEN `heatmapDays` has exactly 365 entries — 5 with
+  `submissionCount > 0` and the other 360 zero-filled for rendering.
+- GIVEN the current local date is D,
   WHEN the heatmap window is computed,
-  THEN `from = D - 29 days` and `to = D`, both at UTC midnight,
-  inclusive on both ends.
-- GIVEN a submission at `23:59:59Z` on D and another at `00:00:01Z` on
-  D+1,
-  WHEN `updateUserStats` runs for each,
-  THEN two distinct `UserDailyActivity` rows are upserted (one for D,
-  one for D+1). Submissions near UTC midnight never merge.
+  THEN `heatmapDays` spans `D − 364` through `D` inclusive, each entry
+  keyed by its local `YYYY-MM-DD`.
+- GIVEN a submission at `23:30` local time on D and another at `00:30`
+  local time on D+1,
+  WHEN the events are bucketed,
+  THEN they fall into two distinct local-day buckets.
+- GIVEN the viewer's browser is in a non-UTC timezone,
+  WHEN the heatmap renders,
+  THEN buckets follow the browser's local calendar day — not UTC — so
+  the squares match what the user perceives as "today".
+
+### Streak
+
+- GIVEN the actor has ≥1 AC on each of the last 4 consecutive local days
+  including today,
+  WHEN `computeStreak` runs,
+  THEN `streakDays === 4`.
+- GIVEN no AC today but ≥1 AC yesterday and the two days before,
+  WHEN `computeStreak` runs,
+  THEN `streakDays === 3` — today is a grace day so the streak does not
+  vanish before the user has solved anything that day.
+- GIVEN no AC today and no AC yesterday,
+  WHEN `computeStreak` runs,
+  THEN `streakDays === 0`.
+
+### Weekly trend
+
+- GIVEN the heatmap model is built,
+  WHEN the weekly-trend card renders,
+  THEN it shows the last 7 entries of `heatmapDays` (`weeklyTrend`),
+  each with `submissionCount` and `acCount` for that local day.
 
 ### Stats and AC rate
 
@@ -116,7 +151,10 @@ this surface.
   THEN `totalAc = 12`, `totalAttempts = 30`, `acRate ≈ 40%`.
 - GIVEN zero attempts,
   WHEN the AC rate is computed,
-  THEN the display is a dash / fallback — never `NaN%`.
+  THEN the display falls back to `0%` — never `NaN%`.
+- GIVEN the heatmap model,
+  WHEN the "practice days" stat is computed,
+  THEN it counts `heatmapDays` entries with `submissionCount > 0`.
 
 ### Tag proficiency
 
@@ -173,84 +211,71 @@ this surface.
 
 - **Brand-new user, zero submissions**: all charts render empty states;
   no errors.
-- **Submission rejudged (AC↔non-AC)**: the rejudge path calls
-  `adjustUserStatsForRejudge(submission, oldStatus)` instead of
-  `updateUserStats`, which delta-adjusts `acCount` on the submission's
-  ORIGINAL `createdAt` day (not today) and does NOT increment
-  `submissionCount`. Decrement is clamped at 0. The heatmap stays
-  accurate across verdict flips.
-- **Timezone != UTC**: heatmap cells are UTC-aligned. Users outside UTC
-  may see "today" as yesterday depending on local time. No override.
-- **User deleted**: `UserDailyActivity.user` has `onDelete: Cascade` —
-  daily rows drop with the user.
+- **Submission rejudged (AC↔non-AC)**: `getSubmissionActivity` reads the
+  submission's CURRENT `status`, so a rejudge that flips the verdict is
+  reflected on the next dashboard load automatically — there is no
+  pre-aggregated counter to delta-adjust.
+- **Timezone other than UTC**: the heatmap, streak, and weekly trend
+  follow the browser's local calendar day. A user whose device clock
+  changes timezone sees buckets shift with it.
+- **Submissions older than the window**: the server query uses a
+  generous ~366-day lower bound; `buildActivityModel` keeps only the
+  trailing 365 local days, so anything older is silently dropped.
 - **Zero tags on AC problems**: `aggregateByTag` returns `[]`; the bar
   chart renders its empty state.
-- **Sample-only submissions**: `stats.totalAttempts` and
+- **Sample-only submissions**: excluded from `getSubmissionActivity`
+  (`sampleOnly: false` filter), and `stats.totalAttempts` /
   `analytics.byVerdict` already exclude sample-only testcase runs.
 
 ## Implementation References
 
 ### Domain
 
-- `packages/domain/src/user/queries.ts` — `getDashboardView`.
-- `packages/domain/src/user/analytics-helpers.ts` — `aggregateByTag`
-  (top-8 cut, stable sort).
-- `packages/domain/src/user/stats.ts` — `updateUserStats` (new
-  submissions) and `adjustUserStatsForRejudge` (rejudge verdict flip),
-  both called from Temporal activities.
+- `packages/domain/src/user/queries.ts` — `getDashboardView`,
+  `aggregateByTag` (top-8 cut, stable sort).
+- `packages/domain/src/user/activity.ts` — `getSubmissionActivity` (raw
+  submission timestamps for the activity surfaces).
+- `packages/domain/src/user/analytics.ts` — `getSuggestedProblems`.
 
 ### Schema
 
-- `packages/db/prisma/schema/submission.prisma` — `UserDailyActivity`
-  (composite PK `(userId, date)`, `submissionCount`, `acCount`).
-- `packages/db/src/repositories/user-daily-activity.ts` — `findRange`,
-  `increment`, `adjustAcCount` (delta-only, decrement clamped at 0).
+- No dedicated table. The activity surfaces read `Submission` rows
+  directly (`packages/db/prisma/schema/submission.prisma`). The former
+  `UserDailyActivity` pre-aggregation table — and its repository and
+  Temporal write activities — were removed 2026-05-18 when the dashboard
+  moved to client-side local-day bucketing.
 
-### Temporal
+### Client
 
-- `packages/temporal/src/workflows/submission-judge.ts` — calls
-  `stats.updateUserStats` on normal submissions or
-  `stats.adjustUserStatsForRejudge(submission, snap.oldStatus)` on the
-  rejudge branch.
-- `packages/temporal/src/activities/stats.ts` — thin re-exports of both
-  domain functions.
+- `apps/web/src/lib/utils/activity.ts` — `buildActivityModel`
+  (local-day bucketing, `computeStreak`, weekly-trend slice).
 
-### Routes / API
+### Routes / Components
 
 - `apps/web/src/routes/(app)/dashboard/+page.server.ts` — server load.
 - `apps/web/src/routes/(app)/dashboard/+page.svelte` — chart
   composition + empty states.
-- `apps/web/src/lib/components/dashboard/StreakCard.svelte` — current
-  consecutive-day streak callout.
-- `apps/web/src/lib/components/dashboard/WeeklyTrendCard.svelte` —
-  7-day submissions/AC trend.
-- `apps/web/src/lib/components/dashboard/SuggestedProblemsCard.svelte`
+- `apps/web/src/lib/components/features/dashboard/StreakCard.svelte` —
+  current consecutive-day streak callout.
+- `apps/web/src/lib/components/features/dashboard/WeeklyTrendCard.svelte`
+  — 7-day submissions/AC trend.
+- `apps/web/src/lib/components/features/dashboard/SuggestedProblemsCard.svelte`
   — recommended-problem rail.
-- `apps/web/src/lib/components/charts/ActivityHeatmap.svelte` — heatmap.
-- `apps/web/src/lib/components/charts/EChart.svelte` — shared ECharts
-  wrapper used by the donuts and bar chart.
+- `apps/web/src/lib/components/features/dashboard/ActivityHeatmap.svelte`
+  — heatmap.
+- `apps/web/src/lib/components/primitives/charts/EChart.svelte` — shared
+  ECharts wrapper used by the donuts and bar chart.
 
 ### Tests
 
+- `tests/unit/web/activity-model.test.ts` — covers `buildActivityModel`
+  local-day bucketing, the streak grace-day rule, and the weekly-trend
+  slice.
 - `tests/unit/domain/dashboard-view.test.ts` — covers
   `getDashboardView` zero-submission baseline, totalAc / totalAttempts
   derivation, fixed easy→medium→hard ordering, language / verdict
   group-row flattening, and byTag top-8 cut.
 - `tests/unit/domain/user-analytics-helpers.test.ts` — covers
   `aggregateByTag` including the stable-sort-on-ties invariant.
-- `tests/integration/domain/user-daily-activity.test.ts` — covers
-  `updateUserStats` across UTC midnight (two distinct rows), same-day
-  increment coalescing, and the `sampleOnly` no-op.
 - **Still missing**: an E2E test for empty-state rendering on a
-  brand-new user. The platform-wide
-  `tests/unit/web/db-read-model.test.ts` tests a different
-  `getDashboardStats()` — unrelated to this surface.
-
-## Open Questions / TODO
-
-- **Timezone handling**: a per-user timezone setting (or client-side
-  UTC→local conversion) would make the heatmap more meaningful for
-  non-UTC users.
-- **Date range**: users cannot see history beyond 30 days. A "view all
-  time" or "month picker" would require extending
-  `userDailyActivityRepo.findRange` usage and new UI.
+  brand-new user.

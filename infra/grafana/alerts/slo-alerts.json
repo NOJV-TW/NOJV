@@ -1,0 +1,62 @@
+[
+  {
+    "uid": "nojv-slo-judge-latency-simple",
+    "title": "Judge latency p95 over SLO (simple problems)",
+    "slo": "Judge latency (simple, <=20 testcases) - p95 < 15s",
+    "expr": "histogram_quantile(0.95, sum by (le) (rate(judge_latency_seconds_bucket{mode=\"simple\"}[15m])))",
+    "threshold": 15,
+    "for": "10m",
+    "severity": "warning",
+    "summary": "Simple-problem judge p95 latency has exceeded the 15s SLO for 10m."
+  },
+  {
+    "uid": "nojv-slo-judge-latency-advanced",
+    "title": "Judge latency p95 over SLO (advanced problems)",
+    "slo": "Judge latency (advanced) - p95 < 60s",
+    "expr": "histogram_quantile(0.95, sum by (le) (rate(judge_latency_seconds_bucket{mode=\"advanced\"}[15m])))",
+    "threshold": 60,
+    "for": "10m",
+    "severity": "warning",
+    "summary": "Advanced-mode judge p95 latency has exceeded the 60s SLO for 10m."
+  },
+  {
+    "uid": "nojv-slo-api-latency",
+    "title": "API latency p99 over SLO",
+    "slo": "API latency (all /api/* GET) - p99 < 500ms",
+    "expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket[15m])))",
+    "threshold": 0.5,
+    "for": "10m",
+    "severity": "warning",
+    "summary": "API p99 latency has exceeded the 500ms SLO for 10m."
+  },
+  {
+    "uid": "nojv-slo-scoreboard-latency",
+    "title": "Scoreboard update latency p95 over SLO",
+    "slo": "Scoreboard update latency - p95 < 3s",
+    "expr": "histogram_quantile(0.95, sum by (le) (rate(scoreboard_update_latency_seconds_bucket[15m])))",
+    "threshold": 3,
+    "for": "10m",
+    "severity": "warning",
+    "summary": "Scoreboard update p95 latency has exceeded the 3s SLO for 10m."
+  },
+  {
+    "uid": "nojv-slo-sse-stability",
+    "title": "SSE connection drop rate over SLO",
+    "slo": "SSE connection stability - 99.5% (drop rate < 0.5%)",
+    "expr": "sum(rate(sse_connection_dropped_total[1h])) / sum(rate(sse_connection_duration_seconds_count[1h]))",
+    "threshold": 0.005,
+    "for": "15m",
+    "severity": "warning",
+    "summary": "Server-side SSE connection drop rate has exceeded the 0.5% SLO."
+  },
+  {
+    "uid": "nojv-slo-heartbeat-miss",
+    "title": "Exam heartbeat miss volume elevated",
+    "slo": "Exam session heartbeat miss rate - < 1%",
+    "expr": "sum(rate(exam_heartbeat_miss_total[5m]))",
+    "threshold": 0.05,
+    "for": "10m",
+    "severity": "warning",
+    "summary": "Exam heartbeat misses are elevated (volume proxy - no total-heartbeat denominator metric exists yet to compute the exact rate)."
+  }
+]

@@ -196,6 +196,12 @@ now`) and the viewer is not privileged, THEN `getScoreboard` returns
 - WHEN they POST to `/api/submissions` without contest context, THEN
   the submission is accepted as practice (no scoreboard write, no
   participation update).
+- GIVEN an ended contest the user NEVER submitted to (no
+  `ContestParticipation` row — e.g. a public contest they only
+  browsed), WHEN they visit `/problems/[id]`, THEN the historical-
+  participant clause does NOT fire; access falls back to the ordinary
+  problem-visibility rules. Practice-after-close is a participant
+  perk, not a public post-contest unlock.
 
 ## Edge Cases & Failure Modes
 
@@ -282,10 +288,3 @@ by design. Verified safe in`contest-permissions.test.ts`.
 - `tests/unit/domain/scoring/` — ICPC/IOI scoreboard builder + chart
   series.
 - `tests/unit/domain/proctoring-gate.test.ts` — contest gate (no IP).
-
-## Open Questions / TODO
-
-- **Practice-after-close + public contests.** The historical-participant
-  gate requires a `ContestParticipation` row. A public contest that the
-  user never submitted to won't grant practice access. This is
-  intentional but should be documented for participants.

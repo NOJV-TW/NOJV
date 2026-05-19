@@ -528,3 +528,84 @@ describe("examDomain.session — heartbeat throttle", () => {
     );
   });
 });
+
+describe("examDomain.session — releaseAll (instructor)", () => {
+  it("ends every active session for the exam and reports the count", async () => {
+    const teacher = await buildActor({ platformRole: "teacher" });
+    const { course } = await createCourseWithMember(teacher.userId, "teacher");
+    const exam = await createTestExam({
+      courseId: course.id,
+      status: "published",
+      ...inWindow(),
+    });
+
+    const sessionIds: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const student = await buildActor();
+      await testPrisma.courseMembership.create({
+        data: {
+          courseId: course.id,
+          userId: student.userId,
+          role: "student",
+          status: "active",
+          joinedAt: new Date(),
+        },
+      });
+      const { session: started } = await session.startSessionWithGate(student, {
+        examId: exam.id,
+      });
+      sessionIds.push(started.id);
+    }
+
+    const result = await session.releaseAllSessionsAsInstructor(teacher, { examId: exam.id });
+    expect(result.released).toBe(3);
+
+    const rows = await testPrisma.activeExamSession.findMany({
+      where: { id: { in: sessionIds } },
+    });
+    expect(rows).toHaveLength(3);
+    expect(
+      rows.every((r) => r.endedAt !== null && r.releaseReason === "released_by_instructor"),
+    ).toBe(true);
+
+    const releaseEvents = await testPrisma.examSessionEvent.findMany({
+      where: { sessionId: { in: sessionIds }, eventType: "release" },
+    });
+    expect(releaseEvents).toHaveLength(3);
+  });
+
+  it("returns released: 0 when the exam has no active sessions", async () => {
+    const teacher = await buildActor({ platformRole: "teacher" });
+    const { course } = await createCourseWithMember(teacher.userId, "teacher");
+    const exam = await createTestExam({
+      courseId: course.id,
+      status: "published",
+      ...inWindow(),
+    });
+
+    const result = await session.releaseAllSessionsAsInstructor(teacher, { examId: exam.id });
+    expect(result.released).toBe(0);
+  });
+
+  it("throws ForbiddenError when a plain student calls it", async () => {
+    const student = await buildActor();
+    const { course } = await createCourseWithMember(student.userId, "student");
+    const exam = await createTestExam({
+      courseId: course.id,
+      status: "published",
+      ...inWindow(),
+    });
+
+    await expect(
+      session.releaseAllSessionsAsInstructor(student, { examId: exam.id }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("throws NotFoundError for a missing exam", async () => {
+    const teacher = await buildActor({ platformRole: "teacher" });
+
+    await expect(
+      session.releaseAllSessionsAsInstructor(teacher, { examId: "exam_does_not_exist" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
