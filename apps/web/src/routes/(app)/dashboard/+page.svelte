@@ -11,6 +11,7 @@
   import StreakCard from "$lib/components/features/dashboard/StreakCard.svelte";
   import WeeklyTrendCard from "$lib/components/features/dashboard/WeeklyTrendCard.svelte";
   import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
+  import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { buildActivityModel } from "$lib/utils/activity";
@@ -21,6 +22,10 @@
 
   const stats = $derived(data.stats);
   const analytics = $derived(data.analytics);
+  // Empty-account signal: a brand-new user has never submitted anything.
+  // totalAttempts counts every submission (incl. failed/queued/etc.), so
+  // === 0 is the cleanest "no activity at all" check.
+  const hasActivity = $derived(stats.totalAttempts > 0);
   // Bucket raw submission timestamps into the viewer's local calendar day.
   const activityModel = $derived(buildActivityModel(data.activity, new Date(), 365));
   const dailyActivity = $derived(activityModel.heatmapDays);
@@ -264,6 +269,9 @@
     description={m.dashboard_subtitle()}
   />
 
+  {#if !hasActivity}
+    <WelcomeGuide username={data.username} />
+  {:else}
   <div class="space-y-6">
     <!-- Section 1 — Stat strip (kept here so Phase 5 can revisit; only the
          eyebrow/title above moved into <PageHeader>). -->
@@ -441,4 +449,5 @@
   <!-- Section 5 — Suggested problems -->
   <SuggestedProblemsCard problems={data.suggestedProblems} />
   </div>
+  {/if}
 </PageContainer>
