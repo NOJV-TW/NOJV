@@ -10,6 +10,7 @@ export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
 export * as editorialDomain from "./editorial";
 export * as examDomain from "./exam";
+export * as feedbackDomain from "./feedback";
 export * as notificationDomain from "./notification";
 export * as plagiarismDomain from "./plagiarism";
 export * as proctoringDomain from "./proctoring";

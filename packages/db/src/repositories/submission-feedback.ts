@@ -79,6 +79,10 @@ export const submissionFeedbackRepo = {
     });
   },
 
+  findById(id: string) {
+    return prisma.submissionFeedback.findUnique({ where: { id } });
+  },
+
   deleteById(tx: TxClient, id: string) {
     return tx.submissionFeedback.delete({ where: { id } });
   },
