@@ -164,6 +164,17 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
   `metadata = { reason, endedByUserId: actor.userId }`.
 - GIVEN a non-staff actor, THEN
   `ForbiddenError("Only course staff can release exam sessions.")`.
+- GIVEN a course staff actor, WHEN `releaseAllSessionsAsInstructor({
+examId })` is called, THEN every currently-active session for the exam
+  is ended in one transaction — each gets `endedAt`, `releaseReason =
+'released_by_instructor'`, and a `release` event carrying
+  `metadata.endedByUserId` — and the call returns `{ released: <count> }`.
+- GIVEN an exam with zero active sessions, WHEN bulk release runs,
+  THEN `{ released: 0 }` — a no-op, not an error.
+- GIVEN an unknown `examId`, WHEN single or bulk release runs,
+  THEN `NotFoundError`.
+- `countActiveSessions(examId)` returns the active-session count behind
+  the proctoring-tab badge and the "release all" affordance.
 
 ### IP gating
 
@@ -244,7 +255,8 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - `packages/domain/src/exam/session.ts` — `startSession`,
   `startSessionWithGate`, `heartbeat`, `heartbeatWithThrottle`,
   `endSession`, `recordEvent`, `autoCloseForExam`,
-  `releaseSessionAsInstructor`, `getActiveSessionContext`,
+  `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`,
+  `countActiveSessions`, `getActiveSessionContext`,
   `requireActiveSessionForUserExam`, `START_GRACE_MS`,
   `HEARTBEAT_EVENT_THROTTLE_MS`.
 - `packages/domain/src/exam/submissions-matrix.ts` —
@@ -287,7 +299,8 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - `apps/web/src/lib/server/page-lock.ts` — re-export of domain helper.
 - `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` —
   `startExam`, `updateSettings`, `publishExam`, `deleteExam`,
-  `updateProblems` actions. Also loads `listExamIpViolations` for the
+  `updateProblems`, `releaseStudentSession`, `releaseAllSessions`
+  actions. Also loads `listExamIpViolations` for the
   Proctoring sub-tab when the viewer is a manager. Exams have no
   scoreboard freeze/unfreeze surface: by product design, students do not
   see other students' submissions during the exam, so freezing is moot —
@@ -308,10 +321,6 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 - `tests/unit/domain/exam-submissions-matrix.test.ts` — matrix cells.
 - `tests/unit/domain/proctoring-gate.test.ts` — exam gate + IP checks.
 - `tests/unit/domain/ip-utils.test.ts` — CIDR matching + fail-closed.
+- `tests/integration/api/exam-session.test.ts` — session start / end /
+  heartbeat / single + bulk instructor release against a real DB.
 - `tests/e2e/advanced-mode-lifecycle.test.ts` — (skipped) WIP E2E.
-
-## Open Questions / TODO
-
-- No UI for bulk-releasing all active sessions (staff can only release
-  one student at a time). Low priority until we hit a class-wide
-  outage scenario.

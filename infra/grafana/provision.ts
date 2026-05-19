@@ -46,6 +46,289 @@ export async function uploadDashboard(
   return { uid: data.uid, url: data.url };
 }
 
+// ─── SLO alert rules ───────────────────────────────────────────────────
+
+// In-repo alert definition (see infra/grafana/alerts/slo-alerts.json). The
+// stack-specific folder + datasource UIDs are injected at provision time
+// so the JSON files stay portable across Grafana stacks.
+export type AlertRuleDef = {
+  uid: string;
+  title: string;
+  slo: string;
+  expr: string;
+  threshold: number;
+  for: string;
+  severity: string;
+  summary: string;
+};
+
+export type AlertRuleContext = {
+  folderUID: string;
+  datasourceUid: string;
+};
+
+// Expand a compact AlertRuleDef into a Grafana provisioned-alert-rule
+// payload. The three-query A→B→C shape (PromQL → reduce(last) → threshold)
+// is the canonical form the Grafana alert editor itself generates.
+export function buildAlertRule(def: AlertRuleDef, ctx: AlertRuleContext) {
+  const relativeTimeRange = { from: 3600, to: 0 };
+  return {
+    uid: def.uid,
+    title: def.title,
+    condition: "C",
+    folderUID: ctx.folderUID,
+    ruleGroup: "NOJV SLO",
+    orgID: 1,
+    for: def.for,
+    // No traffic → NaN → "OK" rather than a spurious page for an idle stack.
+    noDataState: "OK",
+    execErrState: "Error",
+    labels: { severity: def.severity, team: "nojv" },
+    annotations: { summary: def.summary, slo: def.slo },
+    data: [
+      {
+        refId: "A",
+        relativeTimeRange,
+        datasourceUid: ctx.datasourceUid,
+        model: {
+          refId: "A",
+          expr: def.expr,
+          instant: true,
+          intervalMs: 1000,
+          maxDataPoints: 43200,
+        },
+      },
+      {
+        refId: "B",
+        relativeTimeRange,
+        datasourceUid: "__expr__",
+        model: { refId: "B", type: "reduce", reducer: "last", expression: "A" },
+      },
+      {
+        refId: "C",
+        relativeTimeRange,
+        datasourceUid: "__expr__",
+        model: {
+          refId: "C",
+          type: "threshold",
+          expression: "B",
+          conditions: [{ evaluator: { type: "gt", params: [def.threshold] } }],
+        },
+      },
+    ],
+  };
+}
+
+export type AlertRulePayload = ReturnType<typeof buildAlertRule>;
+
+// PUT upserts an alert rule by UID; on a 404 (rule does not exist yet) fall
+// back to POST. `X-Disable-Provenance` keeps the rule editable in the UI
+// and re-provisionable on the next run.
+export async function uploadAlertRule(
+  config: GrafanaConfig,
+  rule: AlertRulePayload,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const headers = {
+    Authorization: `Bearer ${config.saToken}`,
+    "Content-Type": "application/json",
+    "X-Disable-Provenance": "true",
+  };
+  const base = `${config.stackUrl}/api/v1/provisioning/alert-rules`;
+
+  let response = await fetchImpl(`${base}/${rule.uid}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(rule),
+  });
+  if (response.status === 404) {
+    response = await fetchImpl(base, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(rule),
+    });
+  }
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Grafana alert API ${response.status}: ${body.slice(0, 200)}`);
+  }
+  return rule.uid;
+}
+
+async function provisionDashboards(config: GrafanaConfig, baseDir: string): Promise<number> {
+  const dashboardDir = join(baseDir, "dashboards");
+  const files = (await readdir(dashboardDir)).filter((f) => f.endsWith(".json"));
+
+  if (files.length === 0) {
+    console.error(`No dashboard JSON files found in ${dashboardDir}`);
+    return 1;
+  }
+
+  let failed = 0;
+  for (const file of files) {
+    const path = join(dashboardDir, file);
+    try {
+      const json = JSON.parse(await readFile(path, "utf8")) as DashboardModel;
+      const result = await uploadDashboard(config, json);
+      console.log(`[ok] ${file} -> uid=${result.uid} url=${config.stackUrl}${result.url}`);
+    } catch (err) {
+      failed++;
+      console.error(`[fail] ${file}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return failed;
+}
+
+async function provisionAlerts(config: GrafanaConfig, baseDir: string): Promise<number> {
+  const folderUID = process.env.GRAFANA_ALERT_FOLDER_UID;
+  const datasourceUid = process.env.GRAFANA_PROM_DATASOURCE_UID;
+  if (!folderUID || !datasourceUid) {
+    console.log(
+      "[skip] alert rules — set GRAFANA_ALERT_FOLDER_UID + GRAFANA_PROM_DATASOURCE_UID to provision them",
+    );
+    return 0;
+  }
+
+  const alertsPath = join(baseDir, "alerts", "slo-alerts.json");
+  let defs: AlertRuleDef[];
+  try {
+    defs = JSON.parse(await readFile(alertsPath, "utf8")) as AlertRuleDef[];
+  } catch (err) {
+    console.error(
+      `[fail] alert defs ${alertsPath}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return 1;
+  }
+
+  let failed = 0;
+  for (const def of defs) {
+    try {
+      const uid = await uploadAlertRule(
+        config,
+        buildAlertRule(def, { folderUID, datasourceUid }),
+      );
+      console.log(`[ok] alert ${uid}`);
+    } catch (err) {
+      failed++;
+      console.error(
+        `[fail] alert ${def.uid}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return failed;
+}
+
+// ─── Contact point + notification policy ───────────────────────────────
+
+const NOJV_CONTACT_POINT_NAME = "NOJV SLO Alerts";
+const NOJV_CONTACT_POINT_UID = "nojv-slo-contact";
+
+// Email contact point — the destination address is the only stack-specific
+// bit, injected from GRAFANA_ALERT_EMAIL at provision time.
+export function buildContactPoint(email: string) {
+  return {
+    uid: NOJV_CONTACT_POINT_UID,
+    name: NOJV_CONTACT_POINT_NAME,
+    type: "email",
+    settings: { addresses: email },
+    disableResolveMessage: false,
+  };
+}
+
+// Root notification policy. `receiver` is the catch-all; the `team=nojv`
+// child route is where the SLO alert rules (labelled `team: nojv`) land.
+// NOTE: Grafana's policy tree is a singleton — provisioning it REPLACES
+// the stack's root policy. Intended for a NOJV-dedicated stack.
+export function buildNotificationPolicy() {
+  return {
+    receiver: NOJV_CONTACT_POINT_NAME,
+    group_by: ["grafana_folder", "alertname"],
+    routes: [
+      {
+        receiver: NOJV_CONTACT_POINT_NAME,
+        object_matchers: [["team", "=", "nojv"]],
+        group_by: ["alertname"],
+      },
+    ],
+  };
+}
+
+export type ContactPoint = ReturnType<typeof buildContactPoint>;
+export type NotificationPolicy = ReturnType<typeof buildNotificationPolicy>;
+
+const provisioningHeaders = (saToken: string) => ({
+  Authorization: `Bearer ${saToken}`,
+  "Content-Type": "application/json",
+  "X-Disable-Provenance": "true",
+});
+
+// PUT upserts the contact point by UID; POST on a 404 first-create.
+export async function uploadContactPoint(
+  config: GrafanaConfig,
+  contactPoint: ContactPoint,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const headers = provisioningHeaders(config.saToken);
+  const base = `${config.stackUrl}/api/v1/provisioning/contact-points`;
+
+  let response = await fetchImpl(`${base}/${contactPoint.uid}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(contactPoint),
+  });
+  if (response.status === 404) {
+    response = await fetchImpl(base, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(contactPoint),
+    });
+  }
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Grafana contact-point API ${response.status}: ${body.slice(0, 200)}`);
+  }
+  return contactPoint.uid;
+}
+
+// The notification policy tree is a singleton — always a plain PUT.
+export async function uploadNotificationPolicy(
+  config: GrafanaConfig,
+  policy: NotificationPolicy,
+  fetchImpl: typeof fetch = fetch,
+): Promise<void> {
+  const response = await fetchImpl(`${config.stackUrl}/api/v1/provisioning/policies`, {
+    method: "PUT",
+    headers: provisioningHeaders(config.saToken),
+    body: JSON.stringify(policy),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Grafana policy API ${response.status}: ${body.slice(0, 200)}`);
+  }
+}
+
+async function provisionContactPoint(config: GrafanaConfig): Promise<number> {
+  const email = process.env.GRAFANA_ALERT_EMAIL;
+  if (!email) {
+    console.log("[skip] contact point — set GRAFANA_ALERT_EMAIL to provision it");
+    return 0;
+  }
+
+  try {
+    const uid = await uploadContactPoint(config, buildContactPoint(email));
+    console.log(`[ok] contact point ${uid}`);
+    await uploadNotificationPolicy(config, buildNotificationPolicy());
+    console.log("[ok] notification policy");
+    return 0;
+  } catch (err) {
+    console.error(
+      `[fail] contact point / policy: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return 1;
+  }
+}
+
 async function main(): Promise<void> {
   const stackUrl = process.env.GRAFANA_STACK_URL;
   const saToken = process.env.GRAFANA_SA_TOKEN;
@@ -55,31 +338,16 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const dashboardDir = join(import.meta.dirname ?? __dirname, "dashboards");
-  const files = (await readdir(dashboardDir)).filter((f) => f.endsWith(".json"));
-
-  if (files.length === 0) {
-    console.error(`No dashboard JSON files found in ${dashboardDir}`);
-    process.exit(1);
-  }
-
+  const baseDir = import.meta.dirname ?? __dirname;
   const config: GrafanaConfig = { stackUrl, saToken };
-  let failed = 0;
 
-  for (const file of files) {
-    const path = join(dashboardDir, file);
-    try {
-      const json = JSON.parse(await readFile(path, "utf8")) as DashboardModel;
-      const result = await uploadDashboard(config, json);
-      console.log(`[ok] ${file} -> uid=${result.uid} url=${stackUrl}${result.url}`);
-    } catch (err) {
-      failed++;
-      console.error(`[fail] ${file}: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
+  const dashboardFailures = await provisionDashboards(config, baseDir);
+  const alertFailures = await provisionAlerts(config, baseDir);
+  const contactFailures = await provisionContactPoint(config);
 
+  const failed = dashboardFailures + alertFailures + contactFailures;
   if (failed > 0) {
-    console.error(`${failed}/${files.length} dashboards failed`);
+    console.error(`${failed} provisioning task(s) failed`);
     process.exit(1);
   }
 }

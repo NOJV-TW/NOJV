@@ -73,6 +73,7 @@ const {
   publishAssignment,
   deleteAssignmentDraft,
   revertAssignmentToDraft,
+  markAssignmentPublished,
 } = assignmentDomain;
 
 const teacherActor = {
@@ -410,6 +411,27 @@ describe("revertAssignmentToDraft", () => {
       courseId: "crs_1",
       actorUserId: "usr_teacher",
       action: "revert_to_draft",
+    });
+  });
+});
+
+describe("markAssignmentPublished (Temporal auto-publish)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+  });
+
+  it("publishes and writes a system audit row with actorUserId: null", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await markAssignmentPublished("asg_1");
+
+    expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "published" });
+    expect(assessmentAuditCreate).toHaveBeenCalledWith({
+      assessmentId: "asg_1",
+      courseId: "crs_1",
+      actorUserId: null,
+      action: "publish",
     });
   });
 });
