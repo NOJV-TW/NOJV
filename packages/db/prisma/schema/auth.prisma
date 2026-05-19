@@ -83,6 +83,8 @@ model User {
   assessmentAuditLogs            AssessmentAuditLog[]      @relation("AssessmentAuditActor")
   editorialReportsFiled          EditorialReport[]         @relation("EditorialReportReporter")
   editorialReportsResolved       EditorialReport[]         @relation("EditorialReportResolver")
+  submissionFeedbackReceived     SubmissionFeedback[]      @relation("SubmissionFeedbackStudent")
+  submissionFeedbackAuthored     SubmissionFeedback[]      @relation("SubmissionFeedbackAuthor")
 }
 
 model Session {
