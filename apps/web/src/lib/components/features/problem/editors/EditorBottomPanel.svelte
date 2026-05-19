@@ -2,6 +2,7 @@
   import type { SubmissionResult } from "@nojv/core";
   import { Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
 
   interface RunCase {
@@ -62,7 +63,7 @@
   }: Props = $props();
 
   function formatSavedTime(ms: number): string {
-    return new Date(ms).toLocaleTimeString(undefined, {
+    return formatTime(ms, {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false

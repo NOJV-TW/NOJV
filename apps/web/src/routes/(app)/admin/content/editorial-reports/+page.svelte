@@ -5,6 +5,7 @@
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDate } from "$lib/utils/datetime";
   import { Flag } from "@lucide/svelte";
 
   let { data } = $props();
@@ -58,7 +59,7 @@
               <td class="px-3 py-3">{report.reporterName}</td>
               <td class="max-w-xs px-3 py-3 whitespace-pre-wrap">{report.reason}</td>
               <td class="px-3 py-3 tabular-nums text-muted-foreground">
-                {new Date(report.createdAt).toLocaleDateString()}
+                {formatDate(report.createdAt)}
               </td>
               <td class="px-3 py-3">
                 <div class="flex items-center justify-end gap-2">

@@ -10,6 +10,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
   import { assignmentPath } from "$lib/utils/coursework-path";
+  import { formatDate } from "$lib/utils/datetime";
 
   let { data } = $props();
 
@@ -87,7 +88,7 @@
                   class="shrink-0 text-caption text-muted-foreground tabular-nums"
                   datetime={announcement.createdAt}
                 >
-                  {new Date(announcement.createdAt).toLocaleDateString()}
+                  {formatDate(announcement.createdAt)}
                 </time>
               </div>
             </div>
@@ -155,8 +156,8 @@
                       {assignment.title}
                     </h3>
                     <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums">
-                      <span>{m.assessment_opens()}: {new Date(assignment.opensAt).toLocaleDateString()}</span>
-                      <span>{m.home_due()}: {new Date(assignment.dueAt).toLocaleDateString()}</span>
+                      <span>{m.assessment_opens()}: {formatDate(assignment.opensAt)}</span>
+                      <span>{m.home_due()}: {formatDate(assignment.dueAt)}</span>
                     </div>
                   </div>
                   <div class="flex shrink-0 flex-col items-end gap-1.5">

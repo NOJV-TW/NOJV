@@ -17,6 +17,7 @@
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
+  import { formatDateTime } from "$lib/utils/datetime";
 
   interface Props {
     violations: IpViolationRow[];
@@ -25,11 +26,6 @@
   }
 
   let { violations, activeSessionCount, class: className }: Props = $props();
-
-  function formatDate(iso: string): string {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  }
 </script>
 
 <Card class={className}>
@@ -87,7 +83,7 @@
           {#each violations as v (v.id)}
             <tr class="border-b border-border/40 last:border-b-0">
               <td class="py-2 pr-3 font-mono text-caption tabular-nums">
-                {formatDate(v.createdAt)}
+                {formatDateTime(v.createdAt)}
               </td>
               <td class="py-2 pr-3">
                 <div class="flex flex-col leading-tight">

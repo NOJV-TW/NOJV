@@ -6,6 +6,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { formatDate } from "$lib/utils/datetime";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
   let { data } = $props();
@@ -92,7 +93,7 @@
                 {editorial.language}
               </span>
               <span class="tabular-nums">
-                {new Date(editorial.createdAt).toLocaleDateString()}
+                {formatDate(editorial.createdAt)}
               </span>
             </div>
             {#if canManage(editorial.authorId)}

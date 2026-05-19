@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Check, Copy, Download, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
@@ -15,7 +16,7 @@
     verdict === "queued" || verdict === "compiling" || verdict === "running",
   );
 
-  const submittedAt = $derived(new Date(submission.createdAt).toLocaleString());
+  const submittedAt = $derived(formatDateTime(submission.createdAt));
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
   const memoryKb = $derived(submission.memoryKb ?? result?.memoryKb ?? null);
 

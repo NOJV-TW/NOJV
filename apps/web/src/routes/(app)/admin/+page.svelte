@@ -18,6 +18,7 @@
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDateTime } from "$lib/utils/datetime";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import type { PageData } from "./$types";
 
@@ -221,7 +222,7 @@
             <tbody>
               {#each data.recentErrors as row (row.id)}
                 <tr class="border-b border-border-subtle last:border-b-0">
-                  <td class="px-3 py-2 text-caption text-muted-foreground">{new Date(row.createdAt).toLocaleString()}</td>
+                  <td class="px-3 py-2 text-caption text-muted-foreground">{formatDateTime(row.createdAt)}</td>
                   <td class="px-3 py-2">
                     <a class="hover:underline" href="/problems/{row.problem.id}">{formatProblemDisplayName(row.problem)}</a>
                   </td>

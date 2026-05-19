@@ -4,6 +4,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDateTime } from "$lib/utils/datetime";
   import type { BadgeVariant } from "$lib/components/primitives/ui/badge";
 
   type AuditEvent = auditDomain.AuditEvent;
@@ -18,10 +19,6 @@
   function actorLabel(actorUserId: string | null): string {
     if (actorUserId === null) return m.audit_unknownActor();
     return actorNames[actorUserId] ?? m.audit_unknownActor();
-  }
-
-  function formatTime(at: Date | string): string {
-    return new Date(at).toLocaleString();
   }
 
   function kindLabel(kind: AuditEvent["kind"]): string {
@@ -95,7 +92,7 @@
           </Badge>
           <span class="text-body-sm font-medium">{actorLabel(event.actorUserId)}</span>
           <span class="text-caption text-muted-foreground tabular-nums">
-            {formatTime(event.at)}
+            {formatDateTime(event.at)}
           </span>
         </div>
         <p class="mt-1 text-body-sm text-muted-foreground">

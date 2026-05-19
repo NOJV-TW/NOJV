@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ProblemSubmissionEntry } from "$lib/types";
+  import { formatTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
@@ -141,7 +142,7 @@
       <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
         <span>{entry.language}</span>
         <span class="tabular-nums">{String(entry.result.score)}/100</span>
-        <span class="tabular-nums">{new Date(entry.submittedAt).toLocaleTimeString()}</span>
+        <span class="tabular-nums">{formatTime(entry.submittedAt)}</span>
       </div>
 
       {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
@@ -196,7 +197,7 @@
               {label}
             </span>
             <span class="text-caption text-muted-foreground tabular-nums">
-              {new Date(entry.submittedAt).toLocaleTimeString()}
+              {formatTime(entry.submittedAt)}
             </span>
           </div>
           <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">

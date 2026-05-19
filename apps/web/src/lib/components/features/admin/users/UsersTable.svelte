@@ -19,6 +19,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/components/primitives/ui/toast";
+  import { formatDate } from "$lib/utils/datetime";
 
   interface Props {
     users: UsersTableUser[];
@@ -190,7 +191,7 @@
             {/if}
           </td>
           <td class="px-5 py-3 text-caption text-muted-foreground">
-            {new Date(user.createdAt).toLocaleDateString()}
+            {formatDate(user.createdAt)}
           </td>
           <td class="px-5 py-3">
             <form
