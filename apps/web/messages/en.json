@@ -1047,6 +1047,8 @@
   "dashboard_eyebrow": "Overview",
   "dashboard_languageDist": "Language Usage",
   "dashboard_last30Days": "Last 30 days",
+  "dashboard_loadError": "Couldn't load this section",
+  "dashboard_loadErrorDescription": "Try refreshing — the rest of your dashboard is fine.",
   "dashboard_noActivity": "No submissions yet",
   "dashboard_noTagData": "No AC records yet",
   "dashboard_practiceDays": "Practice Days",

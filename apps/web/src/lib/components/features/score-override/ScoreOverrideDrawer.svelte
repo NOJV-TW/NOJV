@@ -12,6 +12,7 @@
   } from "./ScoreOverrideList.svelte";
   import FeedbackForm, { type FeedbackRow } from "./FeedbackForm.svelte";
   import FeedbackList, { type FeedbackListRow } from "./FeedbackList.svelte";
+  import { SkeletonTable } from "$lib/components/primitives/ui/skeleton";
 
   interface Props {
     open: boolean;
@@ -113,8 +114,8 @@
           {m.override_staff_buttonLabel()}
         </h3>
         {#if loading}
-          <div class="text-caption text-muted-foreground">
-            {m.override_staff_emptyList()}
+          <div aria-busy="true" aria-live="polite" class="overflow-hidden rounded-md border border-border">
+            <SkeletonTable rows={3} columns={6} class="px-3" />
           </div>
         {:else}
           <ScoreOverrideList
@@ -169,8 +170,8 @@
             {m.feedback_staff_sectionTitle()}
           </h3>
           {#if feedbackLoading}
-            <div class="text-caption text-muted-foreground">
-              {m.feedback_staff_emptyList()}
+            <div aria-busy="true" aria-live="polite" class="overflow-hidden rounded-md border border-border">
+              <SkeletonTable rows={3} columns={5} class="px-3" />
             </div>
           {:else}
             <FeedbackList

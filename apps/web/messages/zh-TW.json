@@ -1047,6 +1047,8 @@
   "dashboard_eyebrow": "總覽",
   "dashboard_languageDist": "語言使用分布",
   "dashboard_last30Days": "近 30 天",
+  "dashboard_loadError": "這個區塊讀取失敗",
+  "dashboard_loadErrorDescription": "重新整理試試 — 儀表板的其他部分不受影響。",
   "dashboard_noActivity": "尚無提交記錄",
   "dashboard_noTagData": "尚無 AC 紀錄",
   "dashboard_practiceDays": "練習天數",

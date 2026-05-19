@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import Skeleton from "./Skeleton.svelte";
+	import Skeleton from "./skeleton.svelte";
 	import SkeletonText from "./SkeletonText.svelte";
 
 	let {

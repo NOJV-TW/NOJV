@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-	import Skeleton from "./Skeleton.svelte";
+	import Skeleton from "./skeleton.svelte";
 
 	let { class: className }: SkeletonStatProps = $props();
 </script>

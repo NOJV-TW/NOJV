@@ -1,6 +1,6 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
-  import { Code2, LineChart, PieChart } from "@lucide/svelte";
+  import { AlertTriangle, Code2, LineChart, PieChart } from "@lucide/svelte";
   import EChart from "$lib/components/primitives/charts/EChart.svelte";
   import ActivityHeatmap from "$lib/components/features/dashboard/ActivityHeatmap.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -12,6 +12,7 @@
   import WeeklyTrendCard from "$lib/components/features/dashboard/WeeklyTrendCard.svelte";
   import SuggestedProblemsCard from "$lib/components/features/dashboard/SuggestedProblemsCard.svelte";
   import WelcomeGuide from "$lib/components/features/dashboard/WelcomeGuide.svelte";
+  import { Skeleton } from "$lib/components/primitives/ui/skeleton";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { buildActivityModel } from "$lib/utils/activity";
@@ -26,9 +27,6 @@
   // totalAttempts counts every submission (incl. failed/queued/etc.), so
   // === 0 is the cleanest "no activity at all" check.
   const hasActivity = $derived(stats.totalAttempts > 0);
-  // Bucket raw submission timestamps into the viewer's local calendar day.
-  const activityModel = $derived(buildActivityModel(data.activity, new Date(), 365));
-  const dailyActivity = $derived(activityModel.heatmapDays);
 
   const acRate = $derived(
     stats.totalAttempts > 0
@@ -36,11 +34,6 @@
       : "0%"
   );
 
-  const practiceDays = $derived(
-    dailyActivity.filter((d) => d.submissionCount > 0).length
-  );
-
-  const hasHeatmapData = $derived(dailyActivity.some((d) => d.acCount > 0));
   const hasDifficultyData = $derived(
     analytics.byDifficulty.some((d) => d.acCount > 0)
   );
@@ -309,36 +302,88 @@
             <span class="text-caption text-muted-foreground">
               {m.dashboard_practiceDays()}
             </span>
-            <span class="text-headline font-semibold tabular-nums">
-              {practiceDays}
-            </span>
+            {#await data.streamed.activity}
+              <div aria-busy="true" aria-live="polite">
+                <Skeleton class="h-8 w-12" />
+              </div>
+            {:then activity}
+              <span class="text-headline font-semibold tabular-nums">
+                {buildActivityModel(activity, new Date(), 365).heatmapDays.filter(
+                  (d) => d.submissionCount > 0,
+                ).length}
+              </span>
+            {:catch}
+              <span class="text-headline font-semibold tabular-nums text-muted-foreground">
+                —
+              </span>
+            {/await}
           </div>
         </div>
       </div>
     </Card>
 
-  <!-- Section 2 — Activity Heatmap -->
-  <Card variant="surface" size="lg">
-    <h2 class="mb-4 text-title-sm font-semibold">
-      {m.dashboard_activityChart()}
-    </h2>
-    {#if hasHeatmapData}
-      <ActivityHeatmap data={dailyActivity} />
-    {:else}
+  <!-- Sections 2 + 2.5 — heatmap + streak + weekly trend (all derived from
+       the deferred 365-day activity feed). The whole model is rebuilt twice
+       (here and in the practice-days cell) — the cost is ~365 iterations,
+       well under a ms; sharing across separate {#await} blocks would mean
+       a single outer await wrapping the stat strip too. -->
+  {#await data.streamed.activity}
+    <div aria-busy="true" aria-live="polite" class="contents">
+      <!-- Heights match the resolved cards (~150-170px heatmap, ~140px
+           streak, ~210px weekly-trend) to minimise CLS on resolve. -->
+      <Card variant="surface" size="lg">
+        <h2 class="mb-4 text-title-sm font-semibold">
+          {m.dashboard_activityChart()}
+        </h2>
+        <Skeleton class="h-48 w-full" />
+      </Card>
+      <div class="grid gap-4 md:grid-cols-2">
+        <Card variant="surface" size="lg">
+          <Skeleton class="mb-4 h-5 w-24" />
+          <Skeleton class="h-20 w-full" />
+        </Card>
+        <Card variant="surface" size="lg">
+          <Skeleton class="mb-4 h-5 w-32" />
+          <Skeleton class="h-40 w-full" />
+        </Card>
+      </div>
+    </div>
+  {:then activity}
+    {@const activityModel = buildActivityModel(activity, new Date(), 365)}
+    {@const dailyActivity = activityModel.heatmapDays}
+    {@const hasHeatmapData = dailyActivity.some((d) => d.acCount > 0)}
+    <Card variant="surface" size="lg">
+      <h2 class="mb-4 text-title-sm font-semibold">
+        {m.dashboard_activityChart()}
+      </h2>
+      {#if hasHeatmapData}
+        <ActivityHeatmap data={dailyActivity} />
+      {:else}
+        <EmptyState
+          variant="minimal"
+          icon={LineChart}
+          title={m.dashboard_noActivity()}
+          description={m.dashboard_startPracticing()}
+        />
+      {/if}
+    </Card>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <StreakCard streakDays={activityModel.streakDays} />
+      <WeeklyTrendCard data={activityModel.weeklyTrend} />
+    </div>
+  {:catch}
+    <!-- Transient DB failure on the activity feed: keep the dashboard
+         readable instead of bubbling to the SvelteKit error boundary. -->
+    <Card variant="surface" size="lg">
       <EmptyState
         variant="minimal"
-        icon={LineChart}
-        title={m.dashboard_noActivity()}
-        description={m.dashboard_startPracticing()}
+        icon={AlertTriangle}
+        title={m.dashboard_loadError()}
+        description={m.dashboard_loadErrorDescription()}
       />
-    {/if}
-  </Card>
-
-  <!-- Section 2.5 — Streak + Weekly Trend -->
-  <div class="grid gap-4 md:grid-cols-2">
-    <StreakCard streakDays={activityModel.streakDays} />
-    <WeeklyTrendCard data={activityModel.weeklyTrend} />
-  </div>
+    </Card>
+  {/await}
 
   <!-- Section 3 — Ability Profile -->
   <div class="grid gap-4">
@@ -446,8 +491,34 @@
     {/if}
   </Card>
 
-  <!-- Section 5 — Suggested problems -->
-  <SuggestedProblemsCard problems={data.suggestedProblems} />
+  <!-- Section 5 — Suggested problems (deferred — depends on the same
+       distinct-AC scan as the activity feed). Fallback height (~200px)
+       matches a 5-row list to minimise CLS on resolve. -->
+  {#await data.streamed.suggestedProblems}
+    <div aria-busy="true" aria-live="polite">
+      <Card variant="surface" size="lg">
+        <Skeleton class="mb-4 h-6 w-40" />
+        <div class="flex flex-col gap-4">
+          <Skeleton class="h-6 w-full" />
+          <Skeleton class="h-6 w-11/12" />
+          <Skeleton class="h-6 w-10/12" />
+          <Skeleton class="h-6 w-9/12" />
+          <Skeleton class="h-6 w-8/12" />
+        </div>
+      </Card>
+    </div>
+  {:then suggestedProblems}
+    <SuggestedProblemsCard problems={suggestedProblems} />
+  {:catch}
+    <Card variant="surface" size="lg">
+      <EmptyState
+        variant="minimal"
+        icon={AlertTriangle}
+        title={m.dashboard_loadError()}
+        description={m.dashboard_loadErrorDescription()}
+      />
+    </Card>
+  {/await}
   </div>
   {/if}
 </PageContainer>
