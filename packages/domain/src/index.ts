@@ -5,6 +5,7 @@ export { listExamIpViolations } from "./exam/queries";
 export * as adminDomain from "./admin";
 export * as announcementDomain from "./announcement";
 export * as assignmentDomain from "./assignment";
+export * as auditDomain from "./audit";
 export * as clarificationDomain from "./clarification";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
