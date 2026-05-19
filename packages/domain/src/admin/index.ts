@@ -7,8 +7,10 @@ import {
   submissionRepo,
   userRepo,
 } from "@nojv/db";
-import { getRedis } from "@nojv/redis";
+import { getRedis, keys } from "@nojv/redis";
 import { getTemporalClient } from "@nojv/temporal";
+
+const ADMIN_DASHBOARD_CACHE_TTL_SECONDS = 300;
 
 function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -28,7 +30,35 @@ function subDays(date: Date, days: number): Date {
   return next;
 }
 
-export async function getAdminDashboard() {
+export async function getAdminDashboard(): Promise<AdminDashboard> {
+  // Best-effort Redis read-through cache. Twelve aggregation queries on every
+  // admin refresh — a 5-minute window is fine for a dashboard. On any Redis
+  // hiccup we fall through to the live computation (same pattern as
+  // `invalidateScoreboardForOverride` in score-override/mutations.ts).
+  const cacheKey = keys.adminDashboard();
+  const redis = getRedis();
+
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return reviveAdminDashboard(JSON.parse(cached) as AdminDashboardSerialized);
+    }
+  } catch {
+    // fall through to live computation
+  }
+
+  const result = await computeAdminDashboard();
+
+  try {
+    await redis.set(cacheKey, JSON.stringify(result), "EX", ADMIN_DASHBOARD_CACHE_TTL_SECONDS);
+  } catch {
+    // best-effort; caller still gets the live result
+  }
+
+  return result;
+}
+
+async function computeAdminDashboard() {
   const now = new Date();
   const today = startOfDay(now);
   const from14d = subDays(today, 13);
@@ -139,6 +169,28 @@ export async function getAdminDashboard() {
     topFailingProblems,
     recentErrors,
     dbOk,
+  };
+}
+
+// Return-shape mirror so the cached path can be typed without restating Prisma
+// inferred types. The only `Date` field in the payload is
+// `recentErrors[].createdAt`; JSON-stringify converts it to an ISO string, and
+// `reviveAdminDashboard` rebuilds the `Date` so callers see an identical shape
+// whether the response was cache-served or freshly computed.
+type AdminDashboard = Awaited<ReturnType<typeof computeAdminDashboard>>;
+type AdminDashboardSerialized = Omit<AdminDashboard, "recentErrors"> & {
+  recentErrors: (Omit<AdminDashboard["recentErrors"][number], "createdAt"> & {
+    createdAt: string;
+  })[];
+};
+
+function reviveAdminDashboard(payload: AdminDashboardSerialized): AdminDashboard {
+  return {
+    ...payload,
+    recentErrors: payload.recentErrors.map((row) => ({
+      ...row,
+      createdAt: new Date(row.createdAt),
+    })),
   };
 }
 
