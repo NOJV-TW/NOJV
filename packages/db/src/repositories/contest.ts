@@ -64,14 +64,6 @@ export const contestRepo = {
     });
   },
 
-  listParticipable() {
-    return prisma.contest.findMany({
-      include: contestListInclude,
-      orderBy: { startsAt: "desc" },
-      where: { visibility: "published" },
-    });
-  },
-
   findDetailById(id: string) {
     return prisma.contest.findUnique({
       include: {
