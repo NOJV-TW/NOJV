@@ -44,6 +44,9 @@
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false
   );
+  // Grading (overrides + feedback) is a post-close activity — the drawer
+  // entry only appears once the assignment has closed.
+  const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
       ? data.matrix.rows.map((r) => ({
@@ -193,14 +196,20 @@
         {/if}
         {#if data.mode === "teacher" && canSetOverride}
           <div class="mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onclick={() => (showOverrideDrawer = true)}
-            >
-              {m.override_staff_buttonLabel()}
-            </Button>
+            {#if assignmentClosed}
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onclick={() => (showOverrideDrawer = true)}
+              >
+                {m.grading_openButton()}
+              </Button>
+            {:else}
+              <p class="text-caption text-muted-foreground">
+                {m.grading_availableAfterClose()}
+              </p>
+            {/if}
           </div>
         {/if}
       </div>

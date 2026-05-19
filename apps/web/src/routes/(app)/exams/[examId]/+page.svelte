@@ -534,13 +534,19 @@
         {m.examDetail_managerSubmissionMatrixLink()}
       </button>
       {#if canSetOverride}
-        <button
-          type="button"
-          onclick={() => (showOverrideDrawer = true)}
-          class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-        >
-          {m.override_staff_buttonLabel()}
-        </button>
+        {#if past}
+          <button
+            type="button"
+            onclick={() => (showOverrideDrawer = true)}
+            class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+          >
+            {m.grading_openButton()}
+          </button>
+        {:else}
+          <span class="inline-flex items-center px-1 py-2 text-caption text-muted-foreground">
+            {m.grading_availableAfterClose()}
+          </span>
+        {/if}
       {/if}
     </div>
 

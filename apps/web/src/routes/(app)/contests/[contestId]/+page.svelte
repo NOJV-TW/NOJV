@@ -191,9 +191,15 @@
 
     <div class="ml-auto flex flex-wrap gap-3">
       {#if canSetOverride}
-        <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
-          {m.contestDetail_actionScoreOverride()}
-        </Button>
+        {#if isPast}
+          <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
+            {m.grading_openButton()}
+          </Button>
+        {:else}
+          <span class="inline-flex items-center text-caption text-muted-foreground">
+            {m.grading_availableAfterClose()}
+          </span>
+        {/if}
       {/if}
       <Button variant="outline" onclick={() => void goto(`/contests/${contest.id}/scoreboard`)}>
         {m.contestDetail_actionScoreboard()}
