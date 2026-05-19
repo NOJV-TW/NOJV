@@ -2,6 +2,11 @@
 
 PostgreSQL 18 with Prisma 7. Schema split across `packages/db/prisma/schema/*.prisma` (auth, clarification, config, contest, course, notification, ops, plagiarism, problem, submission).
 
+> **Field-level reference:** [`DATABASE.generated.md`](./DATABASE.generated.md)
+> is an auto-generated, exhaustive table of every model, field, and enum.
+> Regenerate it with `pnpm db:docs` after any schema change. This doc keeps
+> the curated prose and diagrams.
+
 ## Domain Model Overview
 
 ```
@@ -11,7 +16,6 @@ User ──┬── Session
        ├── ContestParticipation ──→ Contest
        ├── ExamParticipation ──→ Exam
        ├── CourseMembership ──→ Course
-       ├── UserDailyActivity
        ├── Editorial
        └── IpViolationLog
 

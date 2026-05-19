@@ -36,6 +36,10 @@ answer." Content is markdown, rendered through the shared
 - DELETE `/api/editorials/[id]` — author or admin only; soft-delete
   (`deletedAt = now()`). Soft-deleted rows are filtered out of every
   list / fetch path.
+- POST `/api/editorials/[id]/reports` — file a report against an
+  editorial (any authenticated user; one per `(editorial, reporter)`).
+- Admin moderation queue at `/(app)/admin/content/editorial-reports` —
+  list open reports, resolve (soft-deletes the editorial) or dismiss.
 - `/(app)/problems/[problemId]/editorials` — paginated list page,
   AC-gated.
 - `/(app)/editorials/[id]/edit` — edit page; 404 for non-author
@@ -57,7 +61,6 @@ answer." Content is markdown, rendered through the shared
 - Likes / votes / bookmarks.
 - Comments or threaded discussion on editorials.
 - Teacher-curated "official" editorials — everything is community.
-- Flag / report workflow for inappropriate content.
 - Per-editorial revision history.
 - Search / filter by tag within editorials.
 - Per-language ordering (e.g. "promote C++ to the top for this
@@ -150,17 +153,44 @@ answer." Content is markdown, rendered through the shared
   THEN the form clears and the editorial list reloads (picking up the
   author's new or revised entry).
 
+### Moderation & reporting
+
+- GIVEN any authenticated user and an editorial they did not write,
+  WHEN they POST `/api/editorials/[id]/reports` with a non-empty
+  `reason` (≤1000 chars), THEN an `EditorialReport` row is created with
+  `status: 'open'` and the trimmed reason; the route returns `201`.
+- GIVEN a user reporting their OWN editorial,
+  WHEN `reportEditorial` runs, THEN `ValidationError` — you cannot
+  report yourself.
+- GIVEN a user who already reported editorial E,
+  WHEN they report E again, THEN the
+  `@@unique([editorialId, reportedByUserId])` constraint surfaces as
+  `ConflictError`.
+- GIVEN a missing or soft-deleted editorial,
+  WHEN a report is filed, THEN `NotFoundError`.
+- GIVEN a non-admin actor, WHEN `listEditorialReports` is called,
+  THEN `ForbiddenError("Admin access required.")`. An admin gets the
+  open reports newest-first, each joined to its editorial + reporter.
+- GIVEN an admin resolving a report with `action: 'resolve'`,
+  THEN the offending editorial is soft-deleted and the report moves to
+  `status: 'resolved'` (`resolvedByUserId` + `resolvedAt` stamped).
+- GIVEN an admin resolving with `action: 'dismiss'`,
+  THEN the editorial is left intact and the report moves to
+  `status: 'dismissed'`.
+
 ## Edge Cases & Failure Modes
 
 - **Problem deleted while editorials exist**: `Editorial.problem` has
   `onDelete: Cascade` — rows are wiped with the problem.
 - **User deleted**: `Editorial.user` has `onDelete: Cascade` — rows are
   wiped with the user.
-- **AC earned, then the AC submission is rejudged to WA**: the viewer
-  retains visibility within the current session since `hasUserAcProblem`
-  is a point-in-time `exists()` check at request time. Next fetch
-  re-evaluates — if all of U's AC submissions on P are overturned, the
-  editorial list becomes inaccessible again.
+- **AC earned, then the AC submission is rejudged to WA**: editorial
+  access is gated by `canViewEditorials` — true when the viewer has an
+  accepted submission OR has authored a (non-deleted) editorial for the
+  problem. A viewer whose AC submissions are all overturned by a rejudge
+  KEEPS access if they have already published an editorial there (the
+  rejudge "grandfather" clause); a viewer who only ever read editorials
+  loses access on the next fetch.
 - **`SupportedLanguage` enum evolution**: adding a new language is
   additive — no migration impact. Removing a language (deprecating an
   old one) would orphan existing editorial rows in that language; a
@@ -174,27 +204,40 @@ answer." Content is markdown, rendered through the shared
 
 ### Domain
 
-- `packages/domain/src/problem/editorial-queries.ts` —
-  `hasUserAcProblem`, `upsertEditorial`, `listEditorialsPage`,
-  `getEditorialById`, `updateEditorial`, `softDeleteEditorial`.
+- `packages/domain/src/editorial/queries.ts` — `hasUserAcProblem`,
+  `canViewEditorials` (AC OR authored-editorial gate),
+  `listProblemEditorials`, `listEditorialsPage`, `getEditorialById`.
+- `packages/domain/src/editorial/mutations.ts` — `upsertEditorial`,
+  `updateEditorial`, `softDeleteEditorial`.
+- `packages/domain/src/editorial/reports.ts` — `reportEditorial`,
+  `listEditorialReports`, `resolveEditorialReport`.
 - `packages/db/src/repositories/editorial.ts` — `listByProblemId`,
   `listByProblemIdPaged`, `countByProblemId`, `findById`, `upsert`,
   `update`, `softDelete`. All read paths filter `deletedAt: null`.
+- `packages/db/src/repositories/editorial-report.ts` —
+  `editorialReportRepo` (`create`, `findById`, `listByStatus`,
+  `updateStatus`).
 
 ### Schema
 
 - `packages/db/prisma/schema/submission.prisma` — `Editorial` model with
   `@@unique([userId, problemId, language])`,
   `@@index([problemId, createdAt])`, and nullable `deletedAt` for
-  soft-delete (migration `20260430000000_editorial_soft_delete`).
+  soft-delete (migration `20260430000000_editorial_soft_delete`). Also
+  `EditorialReport` (`@@unique([editorialId, reportedByUserId])`, enum
+  `EditorialReportStatus`).
 
 ### Routes / API
 
 - `apps/web/src/routes/api/problems/[id]/editorials/+server.ts` — GET
-  (list) + POST (upsert); local `requireProblemWithAc()` gate and
-  inline `editorialSubmitSchema`.
+  (list) + POST (upsert); local `requireProblemWithAc()` gate;
+  `editorialSubmitSchema` imported from `@nojv/core`.
 - `apps/web/src/routes/api/editorials/[id]/+server.ts` — PATCH (update)
   - DELETE (soft-delete); author + admin gated via domain helpers.
+- `apps/web/src/routes/api/editorials/[id]/reports/+server.ts` — POST a
+  report (`editorialReportSchema`, returns `201`).
+- `apps/web/src/routes/(app)/admin/content/editorial-reports/` — admin
+  moderation queue page (list / resolve / dismiss).
 - `apps/web/src/routes/(app)/problems/[problemId]/editorials/` —
   paginated list page (AC-gated).
 - `apps/web/src/routes/(app)/editorials/[id]/edit/` — single-editorial
@@ -208,9 +251,9 @@ answer." Content is markdown, rendered through the shared
 
 ### Core schemas
 
-- `editorialSubmitSchema` is defined inline at the route level (not in
-  `@nojv/core`). Constraints: `content: z.string().min(10).max(50000)`,
-  `language: languageSchema`.
+- `packages/core/src/schemas/editorial.ts` — `editorialSubmitSchema`
+  (create) and `editorialUpdateSchema` (partial PATCH), sharing the
+  `content` 10–50000-char bound and the `language` enum.
 
 ### Tests
 
@@ -223,18 +266,13 @@ answer." Content is markdown, rendered through the shared
   `getEditorialById` (missing / soft-deleted = null), `updateEditorial`
   (author-only / admin-can-edit-others / NotFoundError on tombstone),
   `softDeleteEditorial` (idempotent double-delete = NotFoundError).
+- `tests/unit/domain/editorial-reports.test.ts` — covers
+  `reportEditorial` (self-report / dup / soft-deleted rejections),
+  `listEditorialReports` (admin-only), `resolveEditorialReport`
+  (resolve soft-deletes, dismiss does not), and `canViewEditorials`.
+- `tests/integration/domain/editorial-reports.test.ts` — the same
+  moderation flow against a real DB, exercising the unique-constraint
+  `ConflictError` and the resolve-time soft-delete.
 - **Still missing**: route-level AC gate tests (403 for GET and POST
   without AC) and an integration test that round-trips an XSS payload
   through `MarkdownRenderer` to confirm DOMPurify strips it.
-
-## Open Questions / TODO
-
-- No moderation surface beyond admin soft-delete. If bad-actor
-  editorials (spam, vent posts) become a real problem, admin can
-  hard-delete via DB; in-product moderation queue still missing.
-- `editorialSubmitSchema` lives at the route level; promoting it to
-  `@nojv/core` would be consistent with other schemas once the domain
-  module grows.
-- Visibility loss after mass rejudge: if a problem's test cases change
-  and the viewer's AC is overturned, their editorial list access
-  silently disappears. No mitigation today.

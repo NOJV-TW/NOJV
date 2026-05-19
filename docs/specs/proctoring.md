@@ -260,6 +260,3 @@ notify` while students are taking the exam, ongoing blocked requests
   entries one per line into a textarea (`ipLockFormFields
 .ipWhitelistText`). A CSV import / lab-network import flow is a
   common ask but out of scope here.
-- **IpViolationLog retention.** No current pruning policy; rows
-  accumulate forever. Not critical at current scale; revisit when
-  row count crosses 10M.

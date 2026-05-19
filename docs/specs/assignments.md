@@ -79,7 +79,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 - GIVEN an assignment in `draft` with ≥1 attached problem, ≥1 allowed
   language, `closesAt > now`, and `opensAt < dueAt <= closesAt`,
-  WHEN a teacher calls `publishAssessment`,
+  WHEN a teacher calls `publishAssignment`,
   THEN the row's `status` flips to `published` and no dispatch or job
   fires (assignments have no auto-close workflow).
 - GIVEN an assignment in `draft` with 0 attached problems,
@@ -98,7 +98,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 ### Lifecycle — revert-to-draft
 
 - GIVEN a `published` assignment whose `opensAt > now`,
-  WHEN `revertAssessmentToDraft` is called,
+  WHEN `revertAssignmentToDraft` is called,
   THEN status returns to `draft`.
 - GIVEN a `published` assignment whose `opensAt <= now` (already open),
   WHEN revert is attempted,
@@ -106,15 +106,33 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Lifecycle — delete-draft
 
-- GIVEN a `draft` assignment, WHEN `deleteAssessmentDraft` is called,
+- GIVEN a `draft` assignment, WHEN `deleteAssignmentDraft` is called,
   THEN the row is hard-deleted (cascade drops
   `CourseAssessmentProblem` rows).
 - GIVEN a non-`draft` assignment, WHEN delete is attempted,
   THEN `ValidationError("Only draft assignments can be deleted.")`.
 
+### Lifecycle audit log
+
+- GIVEN any user-driven lifecycle transition (`publish`,
+  `revert_to_draft`, `delete_draft`), WHEN the mutation transaction
+  commits, THEN an append-only `AssessmentAuditLog` row is written in the
+  same transaction: `{ assessmentId, courseId, actorUserId, action }`.
+- GIVEN the Temporal lifecycle workflow auto-publishes an assignment at
+  its scheduled `opensAt`, WHEN `markAssignmentPublished` runs, THEN it
+  writes an audit row with `action: 'publish'` and `actorUserId: null`
+  (null = system transition, no human actor).
+- GIVEN a `delete_draft`, THEN the audit row is written BEFORE the
+  `CourseAssessment` row is removed; `assessmentId` is stored as a plain
+  string (not an FK) so the entry survives the deletion.
+- WHEN the assignment settings tab loads, THEN
+  `assessmentAuditLogRepo.listByAssessment(assessmentId, take)` returns
+  the most recent entries (newest first) with the actor's display name
+  for the lifecycle history list.
+
 ### Update — status-aware field locks
 
-- GIVEN an `open` assignment, WHEN `updateAssessmentRecord` receives a
+- GIVEN an `open` assignment, WHEN `updateAssignmentRecord` receives a
   `closesAt` earlier than the current `closesAt`,
   THEN `ValidationError("closesAt can only be extended, not moved earlier.")`.
 - GIVEN an `open` assignment, WHEN the payload changes `opensAt`,
@@ -123,7 +141,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   the current `dueAt`,
   THEN `ValidationError("dueAt can only be extended, not moved earlier.")`.
 - GIVEN a `closed` assignment (`closesAt < now`), WHEN
-  `updateAssessmentRecord` is called, THEN the mutation is rejected — a
+  `updateAssignmentRecord` is called, THEN the mutation is rejected — a
   closed assignment is read-only forever.
 
 ### Permissions
@@ -136,7 +154,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Problem attachment
 
-- WHEN `updateAssessmentRecord` includes `problemIds`, THEN all existing
+- WHEN `updateAssignmentRecord` includes `problemIds`, THEN all existing
   `CourseAssessmentProblem` rows are deleted, then re-created preserving the
   submitted order as `ordinal = index + 1` with per-row `points` (default 100).
 - GIVEN `allowedLanguages` is non-empty and any attached problem is
@@ -200,10 +218,13 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Domain
 
-- `packages/domain/src/assessment/mutations.ts` —
-  `updateAssessmentRecord`, `publishAssessment`, `deleteAssessmentDraft`,
-  `revertAssessmentToDraft`, `assertFieldsAllowedForStatus` (status-aware
-  lock), `deriveLiveStatus`.
+- `packages/domain/src/assignment/mutations.ts` —
+  `updateAssignmentRecord`, `publishAssignment`, `deleteAssignmentDraft`,
+  `revertAssignmentToDraft`, `markAssignmentPublished` (Temporal
+  auto-publish; writes a system audit row), `assertFieldsAllowedForStatus`
+  (status-aware lock), `deriveLiveStatus`.
+- `packages/db/src/repositories/assessment-audit.ts` —
+  `assessmentAuditLogRepo` (`withTx().create`, `listByAssessment`).
 - `packages/domain/src/course/mutations.ts` —
   `createCourseAssessmentRecord` (initial insert; generates slug-style id).
 - `packages/domain/src/course/overview.ts` —
@@ -222,7 +243,8 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   `courseAssessmentUpdateSchema`, `courseAssignmentFormSchema`,
   `assessmentSettingsFormSchema`.
 - `packages/db/prisma/schema/course.prisma` — `CourseAssessment`,
-  `CourseAssessmentProblem`.
+  `CourseAssessmentProblem`, `AssessmentAuditLog`, enum
+  `AssessmentAuditAction`.
 
 ### Routes / API
 
@@ -235,8 +257,9 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Tests
 
-- `tests/unit/domain/assessment-mutations.test.ts` — publish / delete /
-  revert-to-draft / status-aware field locks.
+- `tests/unit/domain/assignment-mutations.test.ts` — publish / delete /
+  revert-to-draft / status-aware field locks + audit-row writes,
+  including the `markAssignmentPublished` system path.
 - `tests/unit/domain/list-aggregations.test.ts` — class stats + my status
   aggregations.
 - `tests/unit/domain/problem-access.test.ts` — practice-after-close gate.
@@ -246,7 +269,3 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Teachers currently cannot see practice (post-close, context-less)
   submissions from their students in any matrix view — this is
   intentional per the design doc, but may become a feature request.
-- No explicit audit log for lifecycle transitions (publish / delete-draft
-  / revert-to-draft). If governance requires "who published this?"
-  visibility, wire through an `AssessmentEvent` or reuse the announcement
-  audit pattern.

@@ -65,8 +65,9 @@ under **Cloud Portal → Access policies**.
 
 ### Populate `.env`
 
-Append the five Grafana keys to your existing root-level `.env` (see
-`.env.example` for the full set):
+Append the Grafana keys to your existing root-level `.env` (see
+`.env.example` for the full set, including the optional alert-rule
+provisioning vars):
 
 ```env
 # OTLP push (consumed by apps/web + apps/worker on boot)
@@ -231,6 +232,48 @@ To verify a dashboard exists at the expected UID:
 curl -s -H "Authorization: Bearer $GRAFANA_SA_TOKEN" \
   "$GRAFANA_STACK_URL/api/dashboards/uid/nojv-judge-latency" | jq .dashboard.title
 ```
+
+## Provisioning SLO alert rules
+
+Alert-rule definitions live at `infra/grafana/alerts/slo-alerts.json` —
+one compact entry per SLO (PromQL expression, threshold, `for` duration,
+severity, summary). `pnpm grafana:provision` expands each into a Grafana
+provisioned-alert-rule payload and upserts it by UID (PUT, falling back to
+POST for a rule that does not exist yet).
+
+Alert provisioning is **opt-in**: the script only touches alert rules when
+both of these are set in `.env`:
+
+```env
+GRAFANA_ALERT_FOLDER_UID=<uid of the Grafana folder the rules live in>
+GRAFANA_PROM_DATASOURCE_UID=<uid of the Hosted Prometheus datasource>
+```
+
+Find the datasource UID under **Connections → Data sources** in the
+Grafana UI (or `GET /api/datasources`); create a folder for the rules and
+read its UID from the folder URL. When either var is unset the script
+prints `[skip] alert rules` and provisions dashboards only.
+
+Six rules are provisioned — judge latency (simple + advanced), API p99,
+scoreboard p95, SSE drop rate, and exam heartbeat-miss volume. Thresholds
+mirror the SLO table in `RELIABILITY.md`.
+
+**Contact point + notification policy.** Set `GRAFANA_ALERT_EMAIL` in
+`.env` and `pnpm grafana:provision` also provisions an email contact
+point (`NOJV SLO Alerts`) plus a notification policy routing the
+`team=nojv` SLO alerts to it. When `GRAFANA_ALERT_EMAIL` is unset the
+script prints `[skip] contact point` and leaves alert delivery unwired.
+
+⚠️ Grafana's notification-policy tree is a singleton — provisioning it
+**replaces the stack's root policy**. This is intended for a
+NOJV-dedicated Grafana stack. On a shared stack, leave
+`GRAFANA_ALERT_EMAIL` unset and add the contact point as a child route
+in the Grafana UI instead. Non-email channels (Slack, PagerDuty) are
+likewise configured in the UI under **Alerting → Contact points**.
+
+**Known gap.** The heartbeat-miss rule alerts on miss _volume_, not the
+true miss _rate_ — there is no exported "heartbeat received" counter to
+divide by. Add one before tightening this rule to the `< 1%` SLO.
 
 ## Token rotation
 

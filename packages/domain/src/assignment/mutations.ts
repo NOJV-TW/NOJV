@@ -310,5 +310,15 @@ export async function revertAssignmentToDraft(
  * `publishAssignment` (draft → published, with validation).
  */
 export async function markAssignmentPublished(assignmentId: string): Promise<void> {
-  await assessmentRepo.update(assignmentId, { status: "published" });
+  await runTransaction(async (tx) => {
+    const assignment = await requireAssignment(tx, assignmentId);
+    await assessmentRepo.withTx(tx).update(assignmentId, { status: "published" });
+    // actorUserId: null — the scheduled workflow is the actor, not a human.
+    await assessmentAuditLogRepo.withTx(tx).create({
+      assessmentId: assignment.id,
+      courseId: assignment.courseId,
+      actorUserId: null,
+      action: "publish",
+    });
+  });
 }

@@ -1,0 +1,1005 @@
+# Database Schema Reference (generated)
+
+<!-- GENERATED FILE — do not edit. Run `pnpm db:docs` to regenerate. -->
+
+> Auto-generated from `packages/db/prisma/schema/*.prisma` by
+> `scripts/generate-schema-docs.mjs`. The curated prose overview lives
+> in [DATABASE.md](./DATABASE.md); this file is the exhaustive
+> field-level reference.
+
+_36 models and 37 enums across 9 schema files._
+
+## `auth.prisma`
+
+### Enums
+
+#### `PlatformRole`
+
+`admin` · `teacher` · `student`
+
+#### `UserStatus`
+
+Tri-state user lifecycle flag. `disabled: Boolean` is retained as an admin-visible soft-lock and stays the source of truth for sign-in checks via better-auth. `status` adds the third `pending_first_login` state used by the placeholder-user mechanism (spec §5.3): teachers bulk-paste course-member handles, unknown handles become `User` rows in `pending_first_login` so the student can auto-merge into that row on first OAuth login.
+
+`active` · `disabled` · `pending_first_login`
+
+### Models
+
+#### `Account`
+
+| Field                   | Type        | Attributes                                                         |
+| ----------------------- | ----------- | ------------------------------------------------------------------ |
+| `id`                    | `String`    | `@id`                                                              |
+| `accountId`             | `String`    | —                                                                  |
+| `providerId`            | `String`    | —                                                                  |
+| `userId`                | `String`    | —                                                                  |
+| `accessToken`           | `String?`   | —                                                                  |
+| `refreshToken`          | `String?`   | —                                                                  |
+| `idToken`               | `String?`   | —                                                                  |
+| `accessTokenExpiresAt`  | `DateTime?` | —                                                                  |
+| `refreshTokenExpiresAt` | `DateTime?` | —                                                                  |
+| `scope`                 | `String?`   | —                                                                  |
+| `password`              | `String?`   | —                                                                  |
+| `createdAt`             | `DateTime`  | `@default(now())`                                                  |
+| `updatedAt`             | `DateTime`  | `@updatedAt`                                                       |
+| `user`                  | `User`      | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+#### `SchoolVerificationToken`
+
+Dedicated store for school-email verification tokens. Decoupled from better-auth's Verification table so neither side interferes with the other's cleanup sweeps.
+
+| Field       | Type       | Attributes                                                         |
+| ----------- | ---------- | ------------------------------------------------------------------ |
+| `token`     | `String`   | `@id`                                                              |
+| `userId`    | `String`   | —                                                                  |
+| `username`  | `String`   | —                                                                  |
+| `expiresAt` | `DateTime` | —                                                                  |
+| `createdAt` | `DateTime` | `@default(now())`                                                  |
+| `user`      | `User`     | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
+
+#### `Session`
+
+| Field       | Type       | Attributes                                                         |
+| ----------- | ---------- | ------------------------------------------------------------------ |
+| `id`        | `String`   | `@id`                                                              |
+| `expiresAt` | `DateTime` | —                                                                  |
+| `token`     | `String`   | `@unique`                                                          |
+| `createdAt` | `DateTime` | `@default(now())`                                                  |
+| `updatedAt` | `DateTime` | `@updatedAt`                                                       |
+| `ipAddress` | `String?`  | —                                                                  |
+| `userAgent` | `String?`  | —                                                                  |
+| `userId`    | `String`   | —                                                                  |
+| `user`      | `User`     | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+#### `User`
+
+| Field                            | Type                        | Attributes                                   |
+| -------------------------------- | --------------------------- | -------------------------------------------- |
+| `id`                             | `String`                    | `@id @default(cuid())`                       |
+| `email`                          | `String`                    | `@unique`                                    |
+| `username`                       | `String?`                   | `@unique`                                    |
+| `displayUsername`                | `String?`                   | —                                            |
+| `name`                           | `String`                    | —                                            |
+| `emailVerified`                  | `Boolean`                   | `@default(false)`                            |
+| `image`                          | `String?`                   | —                                            |
+| `platformRole`                   | `PlatformRole`              | `@default(student)`                          |
+| `disabled`                       | `Boolean`                   | `@default(false)`                            |
+| `status`                         | `UserStatus`                | `@default(active)`                           |
+| `createdAt`                      | `DateTime`                  | `@default(now())`                            |
+| `updatedAt`                      | `DateTime`                  | `@updatedAt`                                 |
+| `sessions`                       | `Session[]`                 | —                                            |
+| `accounts`                       | `Account[]`                 | —                                            |
+| `schoolVerifications`            | `SchoolVerificationToken[]` | —                                            |
+| `submissions`                    | `Submission[]`              | —                                            |
+| `contestParticipations`          | `ContestParticipation[]`    | —                                            |
+| `examParticipations`             | `ExamParticipation[]`       | `@relation("ExamParticipationUser")`         |
+| `virtualContests`                | `VirtualContest[]`          | —                                            |
+| `authoredProblems`               | `Problem[]`                 | `@relation("ProblemAuthor")`                 |
+| `ownedCourses`                   | `Course[]`                  | `@relation("CourseOwner")`                   |
+| `courseMemberships`              | `CourseMembership[]`        | `@relation("CourseMembershipUser")`          |
+| `createdMemberships`             | `CourseMembership[]`        | `@relation("CourseMembershipCreator")`       |
+| `createdCourseAssessments`       | `CourseAssessment[]`        | `@relation("CourseAssessmentCreator")`       |
+| `createdContests`                | `Contest[]`                 | `@relation("ContestCreator")`                |
+| `createdExams`                   | `Exam[]`                    | `@relation("ExamCreator")`                   |
+| `createdAnnouncements`           | `Announcement[]`            | `@relation("AnnouncementCreator")`           |
+| `triggeredExamPlagiarisms`       | `Exam[]`                    | `@relation("ExamPlagiarismTriggerer")`       |
+| `triggeredContestPlagiarisms`    | `Contest[]`                 | `@relation("ContestPlagiarismTriggerer")`    |
+| `triggeredAssessmentPlagiarisms` | `CourseAssessment[]`        | `@relation("AssessmentPlagiarismTriggerer")` |
+| `editorials`                     | `Editorial[]`               | —                                            |
+| `ipViolationLogs`                | `IpViolationLog[]`          | —                                            |
+| `activeExamSessions`             | `ActiveExamSession[]`       | `@relation("ActiveExamSessionUser")`         |
+| `notifications`                  | `Notification[]`            | —                                            |
+| `triggeredRejudgeLogs`           | `SubmissionRejudgeLog[]`    | —                                            |
+| `asOverrideStudent`              | `ScoreOverride[]`           | `@relation("ScoreOverrideUser")`             |
+| `createdScoreOverrides`          | `ScoreOverride[]`           | `@relation("ScoreOverrideCreator")`          |
+| `editedScoreOverrides`           | `ScoreOverride[]`           | `@relation("ScoreOverrideEditor")`           |
+| `scoreOverrideAuditChanges`      | `ScoreOverrideAuditLog[]`   | `@relation("ScoreOverrideAuditChanger")`     |
+| `clarificationsAsked`            | `Clarification[]`           | `@relation("ClarificationAsker")`            |
+| `plagiarismPairFlags`            | `PlagiarismPairFlag[]`      | `@relation("PlagiarismPairFlagFlagger")`     |
+| `clarificationsAnswered`         | `Clarification[]`           | `@relation("ClarificationAnswerer")`         |
+| `assessmentAuditLogs`            | `AssessmentAuditLog[]`      | `@relation("AssessmentAuditActor")`          |
+| `editorialReportsFiled`          | `EditorialReport[]`         | `@relation("EditorialReportReporter")`       |
+| `editorialReportsResolved`       | `EditorialReport[]`         | `@relation("EditorialReportResolver")`       |
+
+#### `Verification`
+
+| Field        | Type        | Attributes        |
+| ------------ | ----------- | ----------------- |
+| `id`         | `String`    | `@id`             |
+| `identifier` | `String`    | —                 |
+| `value`      | `String`    | —                 |
+| `expiresAt`  | `DateTime`  | —                 |
+| `createdAt`  | `DateTime?` | `@default(now())` |
+| `updatedAt`  | `DateTime?` | `@updatedAt`      |
+
+## `clarification.prisma`
+
+### Enums
+
+#### `ClarificationContextType`
+
+`contest` · `exam` · `assignment`
+
+#### `ClarificationState`
+
+`pending` · `answered` · `dismissed`
+
+### Models
+
+#### `Clarification`
+
+| Field              | Type                       | Attributes                                                                                            |
+| ------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `id`               | `String`                   | `@id @default(cuid())`                                                                                |
+| `contextType`      | `ClarificationContextType` | —                                                                                                     |
+| `contextId`        | `String`                   | —                                                                                                     |
+| `problemId`        | `String?`                  | —                                                                                                     |
+| `askedByUserId`    | `String`                   | —                                                                                                     |
+| `questionText`     | `String`                   | `@db.Text`                                                                                            |
+| `answerText`       | `String?`                  | `@db.Text`                                                                                            |
+| `state`            | `ClarificationState`       | `@default(pending)`                                                                                   |
+| `answeredByUserId` | `String?`                  | —                                                                                                     |
+| `answeredAt`       | `DateTime?`                | —                                                                                                     |
+| `createdAt`        | `DateTime`                 | `@default(now())`                                                                                     |
+| `updatedAt`        | `DateTime`                 | `@updatedAt`                                                                                          |
+| `deletedAt`        | `DateTime?`                | —                                                                                                     |
+| `askedBy`          | `User`                     | `@relation("ClarificationAsker", fields: [askedByUserId], references: [id], onDelete: Cascade)`       |
+| `answeredBy`       | `User?`                    | `@relation("ClarificationAnswerer", fields: [answeredByUserId], references: [id], onDelete: SetNull)` |
+| `problem`          | `Problem?`                 | `@relation("ProblemClarifications", fields: [problemId], references: [id], onDelete: SetNull)`        |
+
+Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([contextType, contextId, state])`, `@@index([askedByUserId, createdAt(sort: Desc)])`
+
+## `contest.prisma`
+
+### Enums
+
+#### `ContestParticipationStatus`
+
+`registered` · `active` · `submitted` · `disqualified`
+
+#### `ContestScoringMode`
+
+`problem_count` · `point_sum`
+
+#### `ContestVisibility`
+
+`draft` · `published`
+
+#### `ExamParticipationStatus`
+
+`registered` · `active` · `submitted` · `disqualified`
+
+#### `ExamScoringMode`
+
+`problem_count` · `point_sum`
+
+#### `ExamSessionEventType`
+
+Append-only audit log event types for ActiveExamSession.
+
+`enter` · `leave` · `visibility_lost` · `release` · `auto_close` · `heartbeat`
+
+#### `ExamSessionReleaseReason`
+
+Why a student's exam session ended — drives the Phase 4 lock.
+
+`submitted` · `time_up` · `released_by_instructor`
+
+#### `ExamStatus`
+
+Exam lifecycle — mirrors ContestVisibility but named for the course-embedded flow so the two stay decoupled if either side grows extra states.
+
+`draft` · `published`
+
+#### `IpViolationMode`
+
+`block` · `notify`
+
+#### `IpViolationType`
+
+`whitelist` · `binding`
+
+#### `ScoreboardMode`
+
+Shared by Contest and Exam.
+
+`hidden` · `live` · `frozen`
+
+#### `VirtualContestStatus`
+
+`active` · `finished`
+
+### Models
+
+#### `ActiveExamSession`
+
+One row per student per active exam. Drives the Phase 4 exam lock in hooks.server.ts: while `endedAt IS NULL` the student is routed back to the exam landing page on every navigation. IP binding is enforced via `ExamParticipation.ipPin` — the session row does not carry a pin of its own.
+
+| Field             | Type                        | Attributes                                                                                  |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
+| `id`              | `String`                    | `@id @default(cuid())`                                                                      |
+| `userId`          | `String`                    | —                                                                                           |
+| `examId`          | `String`                    | —                                                                                           |
+| `startedAt`       | `DateTime`                  | `@default(now())`                                                                           |
+| `endedAt`         | `DateTime?`                 | —                                                                                           |
+| `releaseReason`   | `ExamSessionReleaseReason?` | —                                                                                           |
+| `lastHeartbeatAt` | `DateTime`                  | `@default(now())`                                                                           |
+| `createdAt`       | `DateTime`                  | `@default(now())`                                                                           |
+| `updatedAt`       | `DateTime`                  | `@updatedAt`                                                                                |
+| `user`            | `User`                      | `@relation("ActiveExamSessionUser", fields: [userId], references: [id], onDelete: Cascade)` |
+| `exam`            | `Exam`                      | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                          |
+| `events`          | `ExamSessionEvent[]`        | —                                                                                           |
+
+Indexes & constraints: `@@unique([userId, examId])`, `@@index([examId, endedAt])`, `@@index([userId, endedAt])`
+
+#### `Contest`
+
+Standalone contest — public / invite-only competition with no course binding. Contests do NOT have proctoring (page lock, IP whitelist, IP binding). Those controls live on `Exam` only — contest = public CP event, exam = proctored classroom assessment.
+
+| Field                     | Type                      | Attributes                                                                                                        |
+| ------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `String`                  | `@id @default(cuid())`                                                                                            |
+| `title`                   | `String`                  | —                                                                                                                 |
+| `summary`                 | `String`                  | `@db.Text`                                                                                                        |
+| `startsAt`                | `DateTime`                | —                                                                                                                 |
+| `endsAt`                  | `DateTime`                | —                                                                                                                 |
+| `visibility`              | `ContestVisibility`       | `@default(draft)`                                                                                                 |
+| `scoringMode`             | `ContestScoringMode`      | `@default(problem_count)`                                                                                         |
+| `scoreboardMode`          | `ScoreboardMode`          | `@default(live)`                                                                                                  |
+| `frozenBoard`             | `Boolean`                 | `@default(true)`                                                                                                  |
+| `frozenAt`                | `DateTime?`               | —                                                                                                                 |
+| `submitCooldownSec`       | `Int`                     | `@default(0)`                                                                                                     |
+| `allowedLanguages`        | `SupportedLanguage[]`     | `@default([])`                                                                                                    |
+| `inviteCode`              | `String?`                 | `@unique`                                                                                                         |
+| `createdByUserId`         | `String?`                 | —                                                                                                                 |
+| `createdAt`               | `DateTime`                | `@default(now())`                                                                                                 |
+| `updatedAt`               | `DateTime`                | `@updatedAt`                                                                                                      |
+| `plagiarismStatus`        | `PlagiarismReportStatus?` | —                                                                                                                 |
+| `plagiarismResults`       | `Json?`                   | —                                                                                                                 |
+| `plagiarismReportUrl`     | `String?`                 | —                                                                                                                 |
+| `plagiarismTriggeredAt`   | `DateTime?`               | —                                                                                                                 |
+| `plagiarismCompletedAt`   | `DateTime?`               | —                                                                                                                 |
+| `plagiarismTriggeredById` | `String?`                 | —                                                                                                                 |
+| `createdBy`               | `User?`                   | `@relation("ContestCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)`                     |
+| `plagiarismTriggeredBy`   | `User?`                   | `@relation("ContestPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
+| `problems`                | `ContestProblem[]`        | —                                                                                                                 |
+| `participations`          | `ContestParticipation[]`  | —                                                                                                                 |
+| `submissions`             | `Submission[]`            | —                                                                                                                 |
+| `virtualContests`         | `VirtualContest[]`        | —                                                                                                                 |
+
+#### `ContestParticipation`
+
+| Field            | Type                         | Attributes                                                            |
+| ---------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `id`             | `String`                     | `@id @default(cuid())`                                                |
+| `contestId`      | `String`                     | —                                                                     |
+| `userId`         | `String`                     | —                                                                     |
+| `status`         | `ContestParticipationStatus` | `@default(registered)`                                                |
+| `startedAt`      | `DateTime?`                  | —                                                                     |
+| `submittedAt`    | `DateTime?`                  | —                                                                     |
+| `score`          | `Int`                        | `@default(0)`                                                         |
+| `penaltySeconds` | `Int`                        | `@default(0)`                                                         |
+| `subtaskScores`  | `Json?`                      | —                                                                     |
+| `version`        | `Int`                        | `@default(0)`                                                         |
+| `createdAt`      | `DateTime`                   | `@default(now())`                                                     |
+| `updatedAt`      | `DateTime`                   | `@updatedAt`                                                          |
+| `contest`        | `Contest`                    | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
+| `user`           | `User`                       | `@relation(fields: [userId], references: [id], onDelete: Cascade)`    |
+| `submissions`    | `Submission[]`               | —                                                                     |
+
+Indexes & constraints: `@@unique([contestId, userId])`
+
+#### `ContestProblem`
+
+| Field       | Type       | Attributes                                                            |
+| ----------- | ---------- | --------------------------------------------------------------------- |
+| `id`        | `String`   | `@id @default(cuid())`                                                |
+| `contestId` | `String`   | —                                                                     |
+| `problemId` | `String`   | —                                                                     |
+| `ordinal`   | `Int`      | —                                                                     |
+| `points`    | `Int`      | `@default(100)`                                                       |
+| `createdAt` | `DateTime` | `@default(now())`                                                     |
+| `contest`   | `Contest`  | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
+| `problem`   | `Problem`  | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId, ordinal])`
+
+#### `Exam`
+
+Course-embedded exam. Always tied to a course (`courseId` NOT NULL) and carries all the proctoring controls (page lock, IP whitelist, IP binding). Participation is implicit via course membership — Phase 4's ActiveExamSession will gate entry; for now an ExamParticipation row is created on first submit, mirroring the contest flow.
+
+| Field                     | Type                      | Attributes                                                                                                     |
+| ------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `String`                  | `@id @default(cuid())`                                                                                         |
+| `courseId`                | `String`                  | —                                                                                                              |
+| `title`                   | `String`                  | —                                                                                                              |
+| `summary`                 | `String`                  | `@db.Text`                                                                                                     |
+| `startsAt`                | `DateTime`                | —                                                                                                              |
+| `endsAt`                  | `DateTime`                | —                                                                                                              |
+| `status`                  | `ExamStatus`              | `@default(draft)`                                                                                              |
+| `scoringMode`             | `ExamScoringMode`         | `@default(point_sum)`                                                                                          |
+| `scoreboardMode`          | `ScoreboardMode`          | `@default(hidden)`                                                                                             |
+| `submitCooldownSec`       | `Int`                     | `@default(0)`                                                                                                  |
+| `allowedLanguages`        | `SupportedLanguage[]`     | `@default([])`                                                                                                 |
+| `pageLockEnabled`         | `Boolean`                 | `@default(false)`                                                                                              |
+| `ipWhitelistEnabled`      | `Boolean`                 | `@default(false)`                                                                                              |
+| `ipBindingEnabled`        | `Boolean`                 | `@default(false)`                                                                                              |
+| `ipWhitelist`             | `String[]`                | `@default([])`                                                                                                 |
+| `ipViolationMode`         | `IpViolationMode`         | `@default(block)`                                                                                              |
+| `plagiarismStatus`        | `PlagiarismReportStatus?` | —                                                                                                              |
+| `plagiarismResults`       | `Json?`                   | —                                                                                                              |
+| `plagiarismReportUrl`     | `String?`                 | —                                                                                                              |
+| `plagiarismTriggeredAt`   | `DateTime?`               | —                                                                                                              |
+| `plagiarismCompletedAt`   | `DateTime?`               | —                                                                                                              |
+| `plagiarismTriggeredById` | `String?`                 | —                                                                                                              |
+| `createdByUserId`         | `String?`                 | —                                                                                                              |
+| `createdAt`               | `DateTime`                | `@default(now())`                                                                                              |
+| `updatedAt`               | `DateTime`                | `@updatedAt`                                                                                                   |
+| `course`                  | `Course`                  | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                                           |
+| `createdBy`               | `User?`                   | `@relation("ExamCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)`                     |
+| `plagiarismTriggeredBy`   | `User?`                   | `@relation("ExamPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
+| `problems`                | `ExamProblem[]`           | —                                                                                                              |
+| `participations`          | `ExamParticipation[]`     | —                                                                                                              |
+| `submissions`             | `Submission[]`            | —                                                                                                              |
+| `ipViolationLogs`         | `IpViolationLog[]`        | —                                                                                                              |
+| `activeSessions`          | `ActiveExamSession[]`     | —                                                                                                              |
+
+Indexes & constraints: `@@index([courseId, status])`
+
+#### `ExamParticipation`
+
+| Field            | Type                      | Attributes                                                                                  |
+| ---------------- | ------------------------- | ------------------------------------------------------------------------------------------- |
+| `id`             | `String`                  | `@id @default(cuid())`                                                                      |
+| `examId`         | `String`                  | —                                                                                           |
+| `userId`         | `String`                  | —                                                                                           |
+| `status`         | `ExamParticipationStatus` | `@default(registered)`                                                                      |
+| `registeredAt`   | `DateTime`                | `@default(now())`                                                                           |
+| `startedAt`      | `DateTime?`               | —                                                                                           |
+| `submittedAt`    | `DateTime?`               | —                                                                                           |
+| `disqualifiedAt` | `DateTime?`               | —                                                                                           |
+| `score`          | `Int`                     | `@default(0)`                                                                               |
+| `penaltySeconds` | `Int`                     | `@default(0)`                                                                               |
+| `subtaskScores`  | `Json?`                   | —                                                                                           |
+| `ipPin`          | `String?`                 | —                                                                                           |
+| `version`        | `Int`                     | `@default(0)`                                                                               |
+| `createdAt`      | `DateTime`                | `@default(now())`                                                                           |
+| `updatedAt`      | `DateTime`                | `@updatedAt`                                                                                |
+| `exam`           | `Exam`                    | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                          |
+| `user`           | `User`                    | `@relation("ExamParticipationUser", fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([examId, userId])`, `@@index([userId, status])`
+
+#### `ExamProblem`
+
+| Field       | Type       | Attributes                                                             |
+| ----------- | ---------- | ---------------------------------------------------------------------- |
+| `id`        | `String`   | `@id @default(cuid())`                                                 |
+| `examId`    | `String`   | —                                                                      |
+| `problemId` | `String`   | —                                                                      |
+| `ordinal`   | `Int`      | —                                                                      |
+| `points`    | `Int`      | `@default(100)`                                                        |
+| `createdAt` | `DateTime` | `@default(now())`                                                      |
+| `exam`      | `Exam`     | `@relation(fields: [examId], references: [id], onDelete: Cascade)`     |
+| `problem`   | `Problem`  | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
+
+Indexes & constraints: `@@unique([examId, problemId])`, `@@unique([examId, ordinal])`
+
+#### `ExamSessionEvent`
+
+Append-only audit log for exam session lifecycle events. One row per {enter, leave, visibility_lost, release, auto_close, heartbeat} observation against an ActiveExamSession. `metadata` is a free-form Json blob — callers in Phase 4 / Phase 6 decide the shape.
+
+| Field        | Type                   | Attributes                                                            |
+| ------------ | ---------------------- | --------------------------------------------------------------------- |
+| `id`         | `String`               | `@id @default(cuid())`                                                |
+| `sessionId`  | `String`               | —                                                                     |
+| `eventType`  | `ExamSessionEventType` | —                                                                     |
+| `occurredAt` | `DateTime`             | `@default(now())`                                                     |
+| `metadata`   | `Json?`                | —                                                                     |
+| `session`    | `ActiveExamSession`    | `@relation(fields: [sessionId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([sessionId, occurredAt])`
+
+#### `IpViolationLog`
+
+Audit log for IP whitelist / IP binding violations. Exams and standalone contests both log through this table; the application layer (shared proctoring helper) enforces the invariant that exactly one of `examId` / `contestId` is non-null per row. Homework assessments still do not have IP lock. Audit log for IP whitelist / IP binding violations. Only exams carry proctoring, so every row must be tied to an exam — contests are public and do not log IP events.
+
+| Field           | Type              | Attributes                                                         |
+| --------------- | ----------------- | ------------------------------------------------------------------ |
+| `id`            | `String`          | `@id @default(cuid())`                                             |
+| `userId`        | `String`          | —                                                                  |
+| `examId`        | `String`          | —                                                                  |
+| `expectedIp`    | `String?`         | —                                                                  |
+| `actualIp`      | `String`          | —                                                                  |
+| `violationType` | `IpViolationType` | —                                                                  |
+| `createdAt`     | `DateTime`        | `@default(now())`                                                  |
+| `user`          | `User`            | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `exam`          | `Exam`            | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, createdAt])`
+
+#### `VirtualContest`
+
+One user's time-shifted personal re-run of a past contest. Lets a user replay an already-ended contest on their own clock — the original contest is untouched; scores/penalty here are private to the virtual run. At most one per (contest, user).
+
+| Field            | Type                   | Attributes                                                            |
+| ---------------- | ---------------------- | --------------------------------------------------------------------- |
+| `id`             | `String`               | `@id @default(cuid())`                                                |
+| `contestId`      | `String`               | —                                                                     |
+| `userId`         | `String`               | —                                                                     |
+| `startedAt`      | `DateTime`             | `@default(now())`                                                     |
+| `endsAt`         | `DateTime`             | —                                                                     |
+| `status`         | `VirtualContestStatus` | `@default(active)`                                                    |
+| `score`          | `Int`                  | `@default(0)`                                                         |
+| `penaltySeconds` | `Int`                  | `@default(0)`                                                         |
+| `subtaskScores`  | `Json?`                | —                                                                     |
+| `version`        | `Int`                  | `@default(0)`                                                         |
+| `createdAt`      | `DateTime`             | `@default(now())`                                                     |
+| `updatedAt`      | `DateTime`             | `@updatedAt`                                                          |
+| `contest`        | `Contest`              | `@relation(fields: [contestId], references: [id], onDelete: Cascade)` |
+| `user`           | `User`                 | `@relation(fields: [userId], references: [id], onDelete: Cascade)`    |
+| `submissions`    | `Submission[]`         | —                                                                     |
+
+Indexes & constraints: `@@unique([contestId, userId])`, `@@index([userId, createdAt])`
+
+## `course.prisma`
+
+### Enums
+
+#### `AssessmentAuditAction`
+
+`publish` · `revert_to_draft` · `delete_draft`
+
+#### `CourseAssessmentStatus`
+
+`draft` · `published`
+
+#### `CourseMembershipStatus`
+
+`active` · `removed`
+
+#### `CourseRole`
+
+`teacher` · `ta` · `student`
+
+### Models
+
+#### `AssessmentAuditLog`
+
+Append-only audit trail for assessment lifecycle transitions. `assessmentId` is intentionally not an FK — `delete_draft` removes the CourseAssessment row and the audit entry must outlive it. `actorUserId` is null for system-initiated transitions (Temporal auto-publish).
+
+| Field          | Type                    | Attributes                                                                                      |
+| -------------- | ----------------------- | ----------------------------------------------------------------------------------------------- |
+| `id`           | `String`                | `@id @default(cuid())`                                                                          |
+| `assessmentId` | `String`                | —                                                                                               |
+| `courseId`     | `String`                | —                                                                                               |
+| `actorUserId`  | `String?`               | —                                                                                               |
+| `action`       | `AssessmentAuditAction` | —                                                                                               |
+| `createdAt`    | `DateTime`              | `@default(now())`                                                                               |
+| `course`       | `Course`                | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                            |
+| `actor`        | `User?`                 | `@relation("AssessmentAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId, createdAt])`
+
+#### `Course`
+
+| Field                 | Type                   | Attributes                                                                          |
+| --------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
+| `id`                  | `String`               | `@id @default(cuid())`                                                              |
+| `title`               | `String`               | —                                                                                   |
+| `description`         | `String`               | `@db.Text`                                                                          |
+| `ownerId`             | `String`               | —                                                                                   |
+| `academicYear`        | `Int?`                 | —                                                                                   |
+| `semester`            | `Int?`                 | —                                                                                   |
+| `archived`            | `Boolean`              | `@default(false)`                                                                   |
+| `createdAt`           | `DateTime`             | `@default(now())`                                                                   |
+| `updatedAt`           | `DateTime`             | `@updatedAt`                                                                        |
+| `owner`               | `User`                 | `@relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)` |
+| `memberships`         | `CourseMembership[]`   | —                                                                                   |
+| `assessments`         | `CourseAssessment[]`   | —                                                                                   |
+| `exams`               | `Exam[]`               | —                                                                                   |
+| `submissions`         | `Submission[]`         | —                                                                                   |
+| `announcements`       | `Announcement[]`       | —                                                                                   |
+| `assessmentAuditLogs` | `AssessmentAuditLog[]` | —                                                                                   |
+
+#### `CourseAssessment`
+
+| Field                     | Type                        | Attributes                                                                                                           |
+| ------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `String`                    | `@id @default(cuid())`                                                                                               |
+| `courseId`                | `String`                    | —                                                                                                                    |
+| `title`                   | `String`                    | —                                                                                                                    |
+| `summary`                 | `String`                    | `@db.Text`                                                                                                           |
+| `status`                  | `CourseAssessmentStatus`    | `@default(draft)`                                                                                                    |
+| `opensAt`                 | `DateTime`                  | —                                                                                                                    |
+| `dueAt`                   | `DateTime?`                 | —                                                                                                                    |
+| `closesAt`                | `DateTime`                  | —                                                                                                                    |
+| `maxAttemptsPerDay`       | `Int?`                      | —                                                                                                                    |
+| `allowedLanguages`        | `SupportedLanguage[]`       | `@default([])`                                                                                                       |
+| `adjustmentRules`         | `Json?`                     | —                                                                                                                    |
+| `createdByUserId`         | `String`                    | —                                                                                                                    |
+| `createdAt`               | `DateTime`                  | `@default(now())`                                                                                                    |
+| `updatedAt`               | `DateTime`                  | `@updatedAt`                                                                                                         |
+| `plagiarismStatus`        | `PlagiarismReportStatus?`   | —                                                                                                                    |
+| `plagiarismResults`       | `Json?`                     | —                                                                                                                    |
+| `plagiarismReportUrl`     | `String?`                   | —                                                                                                                    |
+| `plagiarismTriggeredAt`   | `DateTime?`                 | —                                                                                                                    |
+| `plagiarismCompletedAt`   | `DateTime?`                 | —                                                                                                                    |
+| `plagiarismTriggeredById` | `String?`                   | —                                                                                                                    |
+| `course`                  | `Course`                    | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                                                 |
+| `createdBy`               | `User`                      | `@relation("CourseAssessmentCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)`              |
+| `plagiarismTriggeredBy`   | `User?`                     | `@relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)` |
+| `problems`                | `CourseAssessmentProblem[]` | —                                                                                                                    |
+| `submissions`             | `Submission[]`              | —                                                                                                                    |
+
+Indexes & constraints: `@@index([courseId, status])`
+
+#### `CourseAssessmentProblem`
+
+| Field          | Type               | Attributes                                                               |
+| -------------- | ------------------ | ------------------------------------------------------------------------ |
+| `id`           | `String`           | `@id @default(cuid())`                                                   |
+| `assessmentId` | `String`           | —                                                                        |
+| `problemId`    | `String`           | —                                                                        |
+| `ordinal`      | `Int`              | —                                                                        |
+| `points`       | `Int`              | `@default(100)`                                                          |
+| `createdAt`    | `DateTime`         | `@default(now())`                                                        |
+| `assessment`   | `CourseAssessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
+| `problem`      | `Problem`          | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`    |
+
+Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessmentId, ordinal])`
+
+#### `CourseMembership`
+
+| Field           | Type                     | Attributes                                                                                           |
+| --------------- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `id`            | `String`                 | `@id @default(cuid())`                                                                               |
+| `courseId`      | `String`                 | —                                                                                                    |
+| `userId`        | `String`                 | —                                                                                                    |
+| `role`          | `CourseRole`             | —                                                                                                    |
+| `status`        | `CourseMembershipStatus` | `@default(active)`                                                                                   |
+| `addedByUserId` | `String?`                | —                                                                                                    |
+| `joinedAt`      | `DateTime`               | `@default(now())`                                                                                    |
+| `removedAt`     | `DateTime?`              | —                                                                                                    |
+| `createdAt`     | `DateTime`               | `@default(now())`                                                                                    |
+| `updatedAt`     | `DateTime`               | `@updatedAt`                                                                                         |
+| `course`        | `Course`                 | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                                 |
+| `user`          | `User`                   | `@relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Cascade)`           |
+| `addedBy`       | `User?`                  | `@relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@unique([courseId, userId])`, `@@index([courseId, role, status])`, `@@index([userId, status])`
+
+## `notification.prisma`
+
+### Enums
+
+#### `NotificationType`
+
+`assignment_due_soon` · `exam_starting_soon` · `contest_starting_soon` · `course_enrolled` · `announcement_published` · `role_changed` · `clarification_answered`
+
+### Models
+
+#### `Notification`
+
+| Field       | Type               | Attributes                                                         |
+| ----------- | ------------------ | ------------------------------------------------------------------ |
+| `id`        | `String`           | `@id @default(cuid())`                                             |
+| `userId`    | `String`           | —                                                                  |
+| `type`      | `NotificationType` | —                                                                  |
+| `params`    | `Json`             | —                                                                  |
+| `linkUrl`   | `String?`          | —                                                                  |
+| `readAt`    | `DateTime?`        | —                                                                  |
+| `createdAt` | `DateTime`         | `@default(now())`                                                  |
+| `user`      | `User`             | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([userId, createdAt(sort: Desc)])`, `@@index([userId, readAt, createdAt(sort: Desc)])`
+
+## `ops.prisma`
+
+### Enums
+
+#### `AnnouncementAudience`
+
+`all` · `students` · `teachers`
+
+#### `AnnouncementStatus`
+
+`draft` · `published` · `archived`
+
+#### `PlagiarismReportStatus`
+
+`pending` · `running` · `completed` · `failed`
+
+### Models
+
+#### `Announcement`
+
+| Field             | Type                        | Attributes                                                                                         |
+| ----------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `id`              | `String`                    | `@id @default(cuid())`                                                                             |
+| `pinned`          | `Boolean`                   | `@default(false)`                                                                                  |
+| `status`          | `AnnouncementStatus`        | `@default(draft)`                                                                                  |
+| `audience`        | `AnnouncementAudience`      | `@default(all)`                                                                                    |
+| `publishedAt`     | `DateTime?`                 | —                                                                                                  |
+| `expiresAt`       | `DateTime?`                 | —                                                                                                  |
+| `createdByUserId` | `String?`                   | —                                                                                                  |
+| `courseId`        | `String?`                   | —                                                                                                  |
+| `createdAt`       | `DateTime`                  | `@default(now())`                                                                                  |
+| `updatedAt`       | `DateTime`                  | `@updatedAt`                                                                                       |
+| `createdBy`       | `User?`                     | `@relation("AnnouncementCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
+| `course`          | `Course?`                   | `@relation(fields: [courseId], references: [id], onDelete: Cascade)`                               |
+| `translations`    | `AnnouncementTranslation[]` | —                                                                                                  |
+
+Indexes & constraints: `@@index([status, pinned, publishedAt])`, `@@index([courseId, status, pinned, publishedAt])`
+
+#### `AnnouncementTranslation`
+
+| Field            | Type           | Attributes                                                                 |
+| ---------------- | -------------- | -------------------------------------------------------------------------- |
+| `id`             | `String`       | `@id @default(cuid())`                                                     |
+| `announcementId` | `String`       | —                                                                          |
+| `locale`         | `String`       | —                                                                          |
+| `title`          | `String`       | —                                                                          |
+| `content`        | `String`       | `@db.Text`                                                                 |
+| `announcement`   | `Announcement` | `@relation(fields: [announcementId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([announcementId, locale])`
+
+## `plagiarism.prisma`
+
+### Enums
+
+#### `PlagiarismContext`
+
+`assessment` · `exam` · `contest`
+
+### Models
+
+#### `PlagiarismPairFlag`
+
+| Field         | Type                | Attributes                                                                                         |
+| ------------- | ------------------- | -------------------------------------------------------------------------------------------------- |
+| `id`          | `String`            | `@id @default(cuid())`                                                                             |
+| `contextType` | `PlagiarismContext` | —                                                                                                  |
+| `contextId`   | `String`            | —                                                                                                  |
+| `pairKey`     | `String`            | —                                                                                                  |
+| `flaggedBy`   | `String`            | —                                                                                                  |
+| `flaggedAt`   | `DateTime`          | `@default(now())`                                                                                  |
+| `note`        | `String?`           | —                                                                                                  |
+| `flagger`     | `User`              | `@relation("PlagiarismPairFlagFlagger", fields: [flaggedBy], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([contextType, contextId, pairKey])`, `@@index([contextType, contextId])`
+
+## `problem.prisma`
+
+### Enums
+
+#### `ProblemDifficulty`
+
+`easy` · `medium` · `hard`
+
+#### `ProblemImageSource`
+
+`registry` · `tarball`
+
+#### `ProblemStatus`
+
+`draft` · `published`
+
+#### `ProblemType`
+
+Single source of truth for "what kind of problem is this". Replaces the old (submissionType × mode) matrix.
+
+`full_source` · `multi_file` · `special_env`
+
+#### `ProblemVisibility`
+
+`public` · `private`
+
+#### `SubtaskScoringStrategy`
+
+`ALL_OR_NOTHING` · `PROPORTIONAL` · `MINIMUM`
+
+#### `WorkspaceFileVisibility`
+
+`editable` · `readonly` · `hidden`
+
+### Models
+
+#### `Problem`
+
+| Field                   | Type                        | Attributes                                                                            |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
+| `id`                    | `String`                    | `@id @default(cuid())`                                                                |
+| `displayId`             | `Int`                       | `@unique @default(autoincrement())`                                                   |
+| `title`                 | `String`                    | —                                                                                     |
+| `authorId`              | `String?`                   | —                                                                                     |
+| `visibility`            | `ProblemVisibility`         | `@default(public)`                                                                    |
+| `status`                | `ProblemStatus`             | `@default(draft)`                                                                     |
+| `difficulty`            | `ProblemDifficulty`         | `@default(medium)`                                                                    |
+| `tags`                  | `String[]`                  | `@default([])`                                                                        |
+| `type`                  | `ProblemType`               | `@default(full_source)`                                                               |
+| `timeLimitMs`           | `Int`                       | —                                                                                     |
+| `memoryLimitMb`         | `Int`                       | —                                                                                     |
+| `judgeConfig`           | `Json?`                     | —                                                                                     |
+| `samples`               | `Json?`                     | —                                                                                     |
+| `advancedImageRef`      | `String?`                   | —                                                                                     |
+| `advancedImageSource`   | `ProblemImageSource?`       | —                                                                                     |
+| `advancedRequiredPaths` | `String[]`                  | `@default([])`                                                                        |
+| `createdAt`             | `DateTime`                  | `@default(now())`                                                                     |
+| `updatedAt`             | `DateTime`                  | `@updatedAt`                                                                          |
+| `author`                | `User?`                     | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
+| `statements`            | `ProblemStatementI18n[]`    | —                                                                                     |
+| `testcaseSets`          | `TestcaseSet[]`             | —                                                                                     |
+| `workspaceFiles`        | `ProblemWorkspaceFile[]`    | —                                                                                     |
+| `submissions`           | `Submission[]`              | —                                                                                     |
+| `contestLinks`          | `ContestProblem[]`          | —                                                                                     |
+| `examLinks`             | `ExamProblem[]`             | —                                                                                     |
+| `assessmentLinks`       | `CourseAssessmentProblem[]` | —                                                                                     |
+| `editorials`            | `Editorial[]`               | —                                                                                     |
+| `scoreOverrides`        | `ScoreOverride[]`           | `@relation("ScoreOverrideProblem")`                                                   |
+| `clarifications`        | `Clarification[]`           | `@relation("ProblemClarifications")`                                                  |
+
+Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
+
+#### `ProblemStatementI18n`
+
+| Field          | Type       | Attributes                                                            |
+| -------------- | ---------- | --------------------------------------------------------------------- |
+| `id`           | `String`   | `@id @default(cuid())`                                                |
+| `problemId`    | `String`   | —                                                                     |
+| `locale`       | `String`   | —                                                                     |
+| `title`        | `String`   | —                                                                     |
+| `bodyMarkdown` | `String`   | `@db.Text`                                                            |
+| `inputFormat`  | `String`   | `@default("") @db.Text`                                               |
+| `outputFormat` | `String`   | `@default("") @db.Text`                                               |
+| `createdAt`    | `DateTime` | `@default(now())`                                                     |
+| `updatedAt`    | `DateTime` | `@updatedAt`                                                          |
+| `problem`      | `Problem`  | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([problemId, locale])`
+
+#### `ProblemWorkspaceFile`
+
+| Field         | Type                      | Attributes                                                            |
+| ------------- | ------------------------- | --------------------------------------------------------------------- |
+| `id`          | `String`                  | `@id @default(cuid())`                                                |
+| `problemId`   | `String`                  | —                                                                     |
+| `language`    | `SupportedLanguage`       | —                                                                     |
+| `path`        | `String`                  | —                                                                     |
+| `contentKey`  | `String`                  | —                                                                     |
+| `visibility`  | `WorkspaceFileVisibility` | —                                                                     |
+| `description` | `String`                  | `@default("") @db.Text`                                               |
+| `orderIndex`  | `Int`                     | `@default(0)`                                                         |
+| `createdAt`   | `DateTime`                | `@default(now())`                                                     |
+| `updatedAt`   | `DateTime`                | `@updatedAt`                                                          |
+| `problem`     | `Problem`                 | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([problemId, language, path])`, `@@index([problemId, language])`
+
+#### `Testcase`
+
+| Field           | Type          | Attributes                                                                |
+| --------------- | ------------- | ------------------------------------------------------------------------- |
+| `id`            | `String`      | `@id @default(cuid())`                                                    |
+| `testcaseSetId` | `String`      | —                                                                         |
+| `ordinal`       | `Int`         | —                                                                         |
+| `inputKey`      | `String`      | —                                                                         |
+| `outputKey`     | `String?`     | —                                                                         |
+| `inputFileKeys` | `Json?`       | —                                                                         |
+| `createdAt`     | `DateTime`    | `@default(now())`                                                         |
+| `updatedAt`     | `DateTime`    | `@updatedAt`                                                              |
+| `testcaseSet`   | `TestcaseSet` | `@relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@unique([testcaseSetId, ordinal])`
+
+#### `TestcaseSet`
+
+| Field             | Type                     | Attributes                                                            |
+| ----------------- | ------------------------ | --------------------------------------------------------------------- |
+| `id`              | `String`                 | `@id @default(cuid())`                                                |
+| `problemId`       | `String`                 | —                                                                     |
+| `name`            | `String`                 | —                                                                     |
+| `description`     | `String`                 | `@default("") @db.Text`                                               |
+| `weight`          | `Int`                    | `@default(1)`                                                         |
+| `ordinal`         | `Int`                    | `@default(0)`                                                         |
+| `scoringStrategy` | `SubtaskScoringStrategy` | `@default(ALL_OR_NOTHING)`                                            |
+| `createdAt`       | `DateTime`               | `@default(now())`                                                     |
+| `updatedAt`       | `DateTime`               | `@updatedAt`                                                          |
+| `problem`         | `Problem`                | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `testcases`       | `Testcase[]`             | —                                                                     |
+
+Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordinal])`
+
+## `submission.prisma`
+
+### Enums
+
+#### `EditorialReportStatus`
+
+`open` · `resolved` · `dismissed`
+
+#### `OverrideContextType`
+
+`assignment` · `exam` · `contest`
+
+#### `ScoreOverrideAction`
+
+`create` · `update` · `delete`
+
+#### `SubmissionStatus`
+
+`queued` · `compiling` · `running` · `accepted` · `wrong_answer` · `time_limit_exceeded` · `memory_limit_exceeded` · `runtime_error` · `compile_error`
+
+#### `SupportedLanguage`
+
+`c` · `cpp` · `go` · `java` · `javascript` · `python` · `rust` · `typescript`
+
+### Models
+
+#### `Editorial`
+
+| Field       | Type                | Attributes                                                            |
+| ----------- | ------------------- | --------------------------------------------------------------------- |
+| `id`        | `String`            | `@id @default(cuid())`                                                |
+| `userId`    | `String`            | —                                                                     |
+| `problemId` | `String`            | —                                                                     |
+| `content`   | `String`            | `@db.Text`                                                            |
+| `language`  | `SupportedLanguage` | —                                                                     |
+| `createdAt` | `DateTime`          | `@default(now())`                                                     |
+| `updatedAt` | `DateTime`          | `@updatedAt`                                                          |
+| `deletedAt` | `DateTime?`         | —                                                                     |
+| `user`      | `User`              | `@relation(fields: [userId], references: [id], onDelete: Cascade)`    |
+| `problem`   | `Problem`           | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `reports`   | `EditorialReport[]` | —                                                                     |
+
+Indexes & constraints: `@@unique([userId, problemId, language])`, `@@index([problemId, createdAt])`
+
+#### `EditorialReport`
+
+User-filed report against an editorial (spam, off-topic, etc.). Surfaces in the admin moderation queue. One report per (editorial, reporter); `resolve` soft-deletes the editorial.
+
+| Field              | Type                    | Attributes                                                                                              |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `id`               | `String`                | `@id @default(cuid())`                                                                                  |
+| `editorialId`      | `String`                | —                                                                                                       |
+| `reportedByUserId` | `String`                | —                                                                                                       |
+| `reason`           | `String`                | `@db.Text`                                                                                              |
+| `status`           | `EditorialReportStatus` | `@default(open)`                                                                                        |
+| `resolvedByUserId` | `String?`               | —                                                                                                       |
+| `resolvedAt`       | `DateTime?`             | —                                                                                                       |
+| `createdAt`        | `DateTime`              | `@default(now())`                                                                                       |
+| `editorial`        | `Editorial`             | `@relation(fields: [editorialId], references: [id], onDelete: Cascade)`                                 |
+| `reportedBy`       | `User`                  | `@relation("EditorialReportReporter", fields: [reportedByUserId], references: [id], onDelete: Cascade)` |
+| `resolvedBy`       | `User?`                 | `@relation("EditorialReportResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@unique([editorialId, reportedByUserId])`, `@@index([status, createdAt])`
+
+#### `ScoreOverride`
+
+Staff-only per-(user, problem, context) manual score override. `getFinalScore` short-circuits the best-submission aggregate when a matching row is present. Practice context is not a valid target — `OverrideContextType` makes that unrepresentable at the type level.
+
+| Field             | Type                      | Attributes                                                                                          |
+| ----------------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `id`              | `String`                  | `@id @default(cuid())`                                                                              |
+| `userId`          | `String`                  | —                                                                                                   |
+| `problemId`       | `String`                  | —                                                                                                   |
+| `contextType`     | `OverrideContextType`     | —                                                                                                   |
+| `contextId`       | `String`                  | —                                                                                                   |
+| `overrideScore`   | `Int`                     | —                                                                                                   |
+| `reason`          | `String`                  | `@db.Text`                                                                                          |
+| `createdByUserId` | `String?`                 | —                                                                                                   |
+| `updatedByUserId` | `String?`                 | —                                                                                                   |
+| `createdAt`       | `DateTime`                | `@default(now())`                                                                                   |
+| `updatedAt`       | `DateTime`                | `@updatedAt`                                                                                        |
+| `user`            | `User`                    | `@relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)`             |
+| `problem`         | `Problem`                 | `@relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)`       |
+| `createdBy`       | `User?`                   | `@relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
+| `updatedBy`       | `User?`                   | `@relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)`  |
+| `auditLogs`       | `ScoreOverrideAuditLog[]` | —                                                                                                   |
+
+Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
+
+#### `ScoreOverrideAuditLog`
+
+Append-only audit trail for every score-override create/update/delete. `overrideId` is nullable so audit rows survive the cascade when the override is deleted (delete action sets it to null up-front).
+
+| Field             | Type                  | Attributes                                                                                               |
+| ----------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `id`              | `String`              | `@id @default(cuid())`                                                                                   |
+| `overrideId`      | `String?`             | —                                                                                                        |
+| `userId`          | `String`              | —                                                                                                        |
+| `problemId`       | `String`              | —                                                                                                        |
+| `contextType`     | `OverrideContextType` | —                                                                                                        |
+| `contextId`       | `String`              | —                                                                                                        |
+| `action`          | `ScoreOverrideAction` | —                                                                                                        |
+| `oldScore`        | `Int?`                | —                                                                                                        |
+| `newScore`        | `Int?`                | —                                                                                                        |
+| `oldReason`       | `String?`             | —                                                                                                        |
+| `newReason`       | `String?`             | —                                                                                                        |
+| `changedByUserId` | `String?`             | —                                                                                                        |
+| `createdAt`       | `DateTime`            | `@default(now())`                                                                                        |
+| `override`        | `ScoreOverride?`      | `@relation(fields: [overrideId], references: [id], onDelete: SetNull)`                                   |
+| `changedBy`       | `User?`               | `@relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([userId, problemId, createdAt(sort: Desc)])`
+
+#### `Submission`
+
+Submission "mode" is derived on-demand from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `courseAssessmentId` ? "assignment" : "practice". Domain helper `deriveSubmissionMode` lives in `@nojv/domain`. A submission carries at most one of `courseAssessmentId` / `examId` / `contestId` — the xor is enforced by the `Submission_single_context_chk` CHECK constraint (Prisma cannot express multi-column CHECKs natively). `virtualContestId` sits outside that mutual exclusion: a virtual-contest submission is practice-like (it does not count toward any real contest scoreboard) but carries the `virtualContestId` tag so the personal re-run can aggregate its own score. It is therefore valid for a row to have only `virtualContestId` set with all three context columns null.
+
+| Field                    | Type                     | Attributes                                                                         |
+| ------------------------ | ------------------------ | ---------------------------------------------------------------------------------- |
+| `id`                     | `String`                 | `@id @default(cuid())`                                                             |
+| `userId`                 | `String`                 | —                                                                                  |
+| `problemId`              | `String`                 | —                                                                                  |
+| `contestParticipationId` | `String?`                | —                                                                                  |
+| `examId`                 | `String?`                | —                                                                                  |
+| `contestId`              | `String?`                | —                                                                                  |
+| `virtualContestId`       | `String?`                | —                                                                                  |
+| `courseId`               | `String?`                | —                                                                                  |
+| `courseAssessmentId`     | `String?`                | —                                                                                  |
+| `sampleOnly`             | `Boolean`                | `@default(false)`                                                                  |
+| `language`               | `SupportedLanguage`      | —                                                                                  |
+| `sourceCode`             | `String`                 | `@db.Text`                                                                         |
+| `status`                 | `SubmissionStatus`       | `@default(queued)`                                                                 |
+| `score`                  | `Int`                    | `@default(0)`                                                                      |
+| `runtimeMs`              | `Int?`                   | —                                                                                  |
+| `memoryKb`               | `Int?`                   | —                                                                                  |
+| `verdictDetail`          | `Json?`                  | —                                                                                  |
+| `createdAt`              | `DateTime`               | `@default(now())`                                                                  |
+| `updatedAt`              | `DateTime`               | `@updatedAt`                                                                       |
+| `user`                   | `User`                   | `@relation(fields: [userId], references: [id], onDelete: Cascade)`                 |
+| `problem`                | `Problem`                | `@relation(fields: [problemId], references: [id], onDelete: Cascade)`              |
+| `contestParticipation`   | `ContestParticipation?`  | `@relation(fields: [contestParticipationId], references: [id], onDelete: SetNull)` |
+| `exam`                   | `Exam?`                  | `@relation(fields: [examId], references: [id], onDelete: Cascade)`                 |
+| `contest`                | `Contest?`               | `@relation(fields: [contestId], references: [id], onDelete: Cascade)`              |
+| `virtualContest`         | `VirtualContest?`        | `@relation(fields: [virtualContestId], references: [id], onDelete: Cascade)`       |
+| `course`                 | `Course?`                | `@relation(fields: [courseId], references: [id], onDelete: SetNull)`               |
+| `courseAssessment`       | `CourseAssessment?`      | `@relation(fields: [courseAssessmentId], references: [id], onDelete: SetNull)`     |
+| `rejudgeLogs`            | `SubmissionRejudgeLog[]` | —                                                                                  |
+
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, courseAssessmentId, createdAt])`, `@@index([contestParticipationId, problemId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([virtualContestId, problemId, createdAt])`
+
+#### `SubmissionRejudgeLog`
+
+Audit log for rejudge runs. Written in two passes by submissionJudgeWorkflow when invoked with `forRejudge`: a snapshot before `executeSandbox` captures the pre-rejudge state (old* fields), and a follow-up update after `completeSubmission` fills in the new* fields. new\* are nullable so the snapshot row is valid on its own if the second pass never runs (replay-safety).
+
+| Field              | Type         | Attributes                                                                   |
+| ------------------ | ------------ | ---------------------------------------------------------------------------- |
+| `id`               | `String`     | `@id @default(cuid())`                                                       |
+| `submissionId`     | `String`     | —                                                                            |
+| `rejudgedByUserId` | `String?`    | —                                                                            |
+| `oldVerdict`       | `String`     | —                                                                            |
+| `oldScore`         | `Int`        | —                                                                            |
+| `oldResultJson`    | `Json?`      | —                                                                            |
+| `newVerdict`       | `String?`    | —                                                                            |
+| `newScore`         | `Int?`       | —                                                                            |
+| `newResultJson`    | `Json?`      | —                                                                            |
+| `createdAt`        | `DateTime`   | `@default(now())`                                                            |
+| `submission`       | `Submission` | `@relation(fields: [submissionId], references: [id], onDelete: Cascade)`     |
+| `rejudgedBy`       | `User?`      | `@relation(fields: [rejudgedByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([submissionId, createdAt(sort: Desc)])`, `@@index([rejudgedByUserId, createdAt(sort: Desc)])`

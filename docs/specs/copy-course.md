@@ -5,6 +5,12 @@ of a course's structural scaffolding into a brand-new course. Covers the
 Settings-tab action that lets a teacher fork a prior semester's course
 into a fresh one without dragging history along.
 
+> **Shared-problem contract.** Copied assessments and exams reference the
+> _same_ `Problem` rows as the source (matched by `problemId`) — problems
+> are platform-level, not course-level. Editing a problem later changes
+> it for every course that attached it, source and copy alike. This is
+> intentional and permanent; there is no per-course problem fork.
+
 ## User Stories
 
 - As a **teacher** or **TA**, I want to duplicate my previous semester's
@@ -202,11 +208,3 @@ copyCourse` comment block).
 - `tests/unit/domain/course-copy.test.ts` — 10+ scenarios covering
   permission gating, field carry, status reset, membership shape,
   problem-attachment order / points preservation, empty-source case.
-
-## Open Questions / TODO
-
-- Problems themselves are shared by reference. If a TA later edits a
-  shared problem, the edit affects BOTH the source course's and the
-  copied course's published assessments. This is the current product
-  contract — problems are platform-level, not course-level — but it's
-  worth surfacing to teachers via docs or UI copy.

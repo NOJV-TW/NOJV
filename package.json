@@ -25,6 +25,7 @@
     "format:write": "prettier --write .",
     "ci:verify": "pnpm format && pnpm lint:domain-queries && pnpm db:generate && turbo run build typecheck lint && pnpm test:unit",
     "db:deploy": "pnpm --filter @nojv/db db:deploy",
+    "db:docs": "node scripts/generate-schema-docs.mjs",
     "db:generate": "pnpm --filter @nojv/db db:generate",
     "db:migrate": "pnpm --filter @nojv/db db:migrate",
     "db:push": "pnpm --filter @nojv/db db:push",
@@ -37,7 +38,14 @@
       "@grpc/grpc-js": "~1.12.4",
       "vite": "^8.0.7",
       "solid-js": "^1.9.4",
-      "drizzle-orm": "^0.45.2"
+      "drizzle-orm": "^0.45.2",
+      "@opentelemetry/exporter-prometheus": "^0.217.0",
+      "devalue": "^5.8.1",
+      "fast-uri": "^3.1.1",
+      "fast-xml-builder": "^1.1.7",
+      "kysely": "^0.28.17",
+      "next": "^16.2.3",
+      "protobufjs": "^7.5.5"
     },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
