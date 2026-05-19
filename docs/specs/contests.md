@@ -62,6 +62,14 @@ freeze/unfreeze for the final reveal.
   participant clause.
 - Per-contest `allowedLanguages` with workspace-file invariant (every
   attached problem must ship editable `main.<ext>` for every language).
+- Post-close score-override drawer on the submissions matrix —
+  writes gated post-close (`endsAt < now`), admin bypass. Contests
+  do NOT support per-cell student feedback; the grading drawer omits
+  the feedback section in contest context (an explicit non-goal:
+  contests are public CP events, not classroom homework).
+- Audit sub-tab — staff-only merged feed of score override + rejudge
+  events (`listAuditTimelineForContext({ type: "contest", id })`).
+  Contests have no lifecycle audit log.
 
 ### Out of scope
 
@@ -186,6 +194,31 @@ now`) and the viewer is not privileged, THEN `getScoreboard` returns
 - Platform admins are implicit managers (`canManageContest` checks
   `platformRole === 'admin'` OR `createdByUserId === userId`).
 
+### Grading — post-close drawer
+
+- GIVEN a contest with `endsAt > now`, WHEN a manager opens the
+  submissions matrix, THEN the grading drawer entry button is hidden
+  and a "grading available after close" note is shown in its place.
+- GIVEN a contest with `endsAt < now`, WHEN a manager opens a matrix
+  cell, THEN the grading drawer shows ONLY the score-override
+  section (the feedback section is omitted for contest contexts).
+- GIVEN a non-admin manager actor with `now < endsAt`, WHEN
+  `createOverride` / `updateOverride` / `deleteOverride` is called
+  against the contest, THEN `ConflictError("Grading is only
+available after the contest has ended.")` (post-close gate via
+  `assertContextClosed`). `platformRole === "admin"` bypasses.
+
+### Audit timeline
+
+- GIVEN a staff viewer (contest creator or platform admin), WHEN
+  they open the Audit sub-tab on the contest manage page, THEN
+  `listAuditTimelineForContext({ type: "contest", id })` returns a
+  reverse-chronological merge of `ScoreOverrideAuditLog` (override
+  changes) + `SubmissionRejudgeLog` (rejudges scoped to the
+  contest's submissions). No lifecycle audit-log source exists for
+  contests.
+- The view is read-only.
+
 ### Practice-after-close
 
 - GIVEN an ended contest (`endsAt < now`, `visibility = 'published'`)
@@ -251,6 +284,14 @@ by design. Verified safe in`contest-permissions.test.ts`.
   `computeProblemCountPenalty`.
 - `packages/domain/src/proctoring/gate.ts` — `checkContestGate`
   (existence + visibility + time window; no IP).
+- `packages/domain/src/score-override/permissions.ts` —
+  `assertCanSetScoreOverride` (role + post-close gate),
+  `assertCanViewScoreOverrides` (role-only).
+- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+  `assertContextClosed` (shared post-close gate across assignment +
+  exam + contest).
+- `packages/domain/src/audit/queries.ts` —
+  `listAuditTimelineForContext`.
 
 ### Schema
 

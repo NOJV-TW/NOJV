@@ -18,6 +18,7 @@ independent, surgical changes.
 **Design doc:** `docs/plans/active/2026-05-20-grading-feedback-audit-batch-design.md`
 
 **General rules:**
+
 - TDD: failing test first, minimal implementation, green, commit.
 - After editing `apps/web/messages/*.json`, run
   `pnpm --filter @nojv/web paraglide:compile`.
@@ -33,6 +34,7 @@ independent, surgical changes.
 ### Task 1.1: `SubmissionFeedback` schema + migration
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/submission.prisma`
 - Modify: `packages/db/prisma/schema/auth.prisma` (User relations)
 - Modify: `packages/db/prisma/schema/problem.prisma` (Problem relation)
@@ -62,10 +64,14 @@ model SubmissionFeedback {
 
   @@unique([courseAssessmentId, problemId, studentUserId])
   @@unique([examId, problemId, studentUserId])
-  @@index([courseAssessmentId])
-  @@index([examId])
 }
 ```
+
+These two `@@unique` indexes are sufficient _only because_ the
+`SubmissionFeedback_single_context_chk` CHECK guarantees exactly one
+context column is non-null — add a one-line comment saying so. No
+standalone `@@index` on the context columns: each is already the
+left-most prefix of its `@@unique` index.
 
 **Step 2:** Add the inverse relation fields on `User` (two — student
 and author), `Problem`, `CourseAssessment`, `Exam`. Match the relation
@@ -97,10 +103,12 @@ ALTER TABLE "SubmissionFeedback"
 ### Task 1.2: `submissionFeedbackRepo`
 
 **Files:**
+
 - Create: `packages/db/src/repositories/submission-feedback.ts`
 - Modify: `packages/db/src/repositories/index.ts` (export it)
 
 Mirror `score-override.ts`. Methods:
+
 - `upsert(tx, data)` — upsert on whichever unique triple is active.
   Because the unique key differs by context, branch on
   `courseAssessmentId` vs `examId` and use Prisma's compound `where`.
@@ -119,6 +127,7 @@ which has no repo test) — covered by domain tests in Task 1.3.
 ### Task 1.3: `@nojv/core` feedback schemas
 
 **Files:**
+
 - Create: `packages/core/src/schemas/feedback.ts`
 - Modify: `packages/core/src/index.ts` (or schema barrel — check how
   `editorial.ts` is exported, mirror it)
@@ -142,6 +151,7 @@ export type FeedbackUpsertInput = z.infer<typeof feedbackUpsertSchema>;
 ### Task 1.4: `feedback` domain module
 
 **Files:**
+
 - Create: `packages/domain/src/feedback/types.ts`
 - Create: `packages/domain/src/feedback/permissions.ts`
 - Create: `packages/domain/src/feedback/mutations.ts`
@@ -168,8 +178,9 @@ assignment + exam branches (course teacher/TA via `Course`, or platform
 admin). Reuse the `isCourseTeacherOrTa` helper pattern.
 
 **Step 3 — write failing tests** in `tests/unit/domain/feedback.test.ts`:
+
 - `upsertFeedback` creates then updates the same `(student, problem,
-  context)` triple (one row, not two).
+context)` triple (one row, not two).
 - `upsertFeedback` rejects a non-staff actor with `ForbiddenError`.
 - `getFeedbackForStudent` returns nothing while the context is open,
   rows once closed.
@@ -195,6 +206,7 @@ Expected: PASS.
 ### Task 1.5: Score-override post-close time gate
 
 **Files:**
+
 - Create: `packages/domain/src/shared/context-window.ts`
 - Modify: `packages/domain/src/score-override/permissions.ts`
 - Modify: `packages/domain/src/score-override/mutations.ts` (if the
@@ -203,6 +215,7 @@ Expected: PASS.
 - Test: existing `tests/unit/domain/score-override*.test.ts` (fixtures)
 
 **Step 1 — write failing test** for `context-window.ts`:
+
 - `isContextClosed` true when `now > closesAt` (assignment) /
   `endsAt` (exam, contest), false otherwise.
 - `assertContextClosed` throws `ConflictError` on an open context.
@@ -244,12 +257,14 @@ a closed context (`closesAt`/`endsAt` in the past), or add an explicit
 ### Task 1.6: `/api/feedback` route
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/feedback/+server.ts`
 - Create: `apps/web/src/routes/api/feedback/[id]/+server.ts`
 - Test: `tests/integration/` (mirror the `/api/overrides` integration
   test if one exists; else add `tests/integration/api/feedback.test.ts`)
 
 Mirror `apps/web/src/routes/api/overrides/+server.ts`:
+
 - `GET` (`apiHandler`) — query `?type=assignment&assignmentId=…` or
   `?type=exam&examId=…`; returns `{ items }`.
 - `PUT` (`writeApiHandler`) — body `{ context, ...feedbackUpsertSchema }`;
@@ -267,6 +282,7 @@ returns 200 and the row is readable via GET.
 ### Task 1.7: Grading drawer UI
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/features/score-override/FeedbackList.svelte`
 - Create: `apps/web/src/lib/components/features/score-override/FeedbackForm.svelte`
 - Modify: `apps/web/src/lib/components/features/score-override/ScoreOverrideDrawer.svelte`
@@ -301,6 +317,7 @@ button, drawer shows both sections; open context hides it.
 ### Task 1.8: Student-facing feedback display
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.ts`
 - Modify: `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts`
 - Modify: submission detail loader
@@ -327,6 +344,7 @@ context closes.
 ### Task 2.1: `listAuditTimelineForContext` domain query
 
 **Files:**
+
 - Create: `packages/domain/src/audit/queries.ts`
 - Create: `packages/domain/src/audit/index.ts`
 - Modify: `packages/domain/src/index.ts`
@@ -350,6 +368,7 @@ type AuditEvent = {
 ```
 
 Fetch per context:
+
 - assignment: `assessmentAuditLogRepo.listForAssessment` +
   `scoreOverrideAuditLogRepo.listForContext("assignment", id)` +
   rejudge logs for the assignment's submissions.
@@ -369,6 +388,7 @@ Expected: PASS.
 ### Task 2.2: `AuditTimeline.svelte`
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/features/audit/AuditTimeline.svelte`
 - Modify: `apps/web/messages/en.json`, `zh-TW.json`
 
@@ -385,6 +405,7 @@ Add `m.audit_*` keys. Run `paraglide:compile`.
 ### Task 2.3: Audit tab + manage-page component split (C2)
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.svelte`
 - Modify: `apps/web/src/routes/(app)/exams/[examId]/+page.svelte`
 - Modify: `apps/web/src/routes/(app)/contests/[contestId]/+page.svelte`
@@ -419,6 +440,7 @@ audit tab shows merged events for each context type.
 ### Task 3.1: Search fallback (C1)
 
 **Files:**
+
 - Modify: `packages/domain/src/problem/queries.ts` (~line 247-258)
 - Test: `tests/unit/domain/` (problem-queries test if present)
 
@@ -438,6 +460,7 @@ test harness exists, skip the test and rely on `check` + manual.
 ### Task 3.2: Admin dashboard Redis cache (C3)
 
 **Files:**
+
 - Modify: `packages/redis/src/keys.ts` (add `adminDashboard` key)
 - Modify: `packages/domain/src/admin/index.ts`
 
@@ -463,6 +486,7 @@ quick dashboard loads, second is cache-served.
 ### Task 3.3: Merge duplicate contest repo methods (C4)
 
 **Files:**
+
 - Modify: `packages/db/src/repositories/contest.ts` (~line 50-73)
 - Modify: `packages/domain/src/contest/queries.ts` (callers)
 
@@ -487,6 +511,7 @@ errors.
 ### Task 4.1: Shared `formatDateTime` helper (D3)
 
 **Files:**
+
 - Create: `apps/web/src/lib/utils/datetime.ts`
 - Test: `tests/unit/` (if web utils are unit-tested; else skip)
 
@@ -506,6 +531,7 @@ This is a wide but mechanical change — do it in one commit, verify with
 ### Task 4.2: i18n holes (D2)
 
 **Files:**
+
 - Modify: `apps/web/messages/en.json`, `zh-TW.json`
 - Modify: `JudgeTab.svelte`, `EditorBottomPanel.svelte`,
   admin users `FilterBar.svelte` / `UsersTable.svelte`,
@@ -524,6 +550,7 @@ Paraglide key. Programming-language labels: a single
 ### Task 4.3: Empty-account dashboard (D1)
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/features/dashboard/WelcomeGuide.svelte`
 - Modify: `apps/web/src/routes/(app)/dashboard/+page.svelte`
 
@@ -540,6 +567,7 @@ five chart blocks.
 ### Task 4.4: Skeleton primitive + deferred dashboard (D4)
 
 **Files:**
+
 - Create: `apps/web/src/lib/components/primitives/ui/skeleton/skeleton.svelte`
   (+ `index.ts`)
 - Modify: `apps/web/src/lib/components/features/score-override/ScoreOverrideDrawer.svelte`
@@ -568,6 +596,7 @@ chart blocks inside `{#await}` with `<Skeleton>` fallbacks. Keep
 ### Task 5.1: Full verification
 
 Run and confirm green:
+
 - `pnpm -w typecheck`
 - `pnpm lint`
 - `pnpm -w format`
@@ -579,6 +608,7 @@ Fix anything red before proceeding.
 ### Task 5.2: Doc sync
 
 **Files:**
+
 - `docs/product/PRODUCT_SENSE.md` — add grading feedback + audit
   viewer under Shipped Scope; note the override post-close gate.
 - `docs/architecture/FRONTEND.md` — `/api/feedback` route, audit tab,
@@ -587,7 +617,7 @@ Fix anything red before proceeding.
   override-gate behaviour; resolve the relevant open questions.
 - `docs/operations/QUALITY_SCORE.md` — ledger entry for this batch.
 - `git mv docs/plans/active/2026-05-20-grading-feedback-audit-batch*.md
-  docs/plans/completed/`.
+docs/plans/completed/`.
 
 **Commit** — `docs: sync for grading feedback + audit batch`.
 

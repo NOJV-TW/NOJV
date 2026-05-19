@@ -194,8 +194,8 @@ dialog there is over-design.
 3. Part 3 C1 / C3 / C4 — independent, small.
 4. Part 4 D1–D4 — independent, frontend-only.
 5. Doc sync: `PRODUCT_SENSE.md` (Shipped Scope), `FRONTEND.md` (routes
-   + components), the relevant `docs/specs/*.md`, `QUALITY_SCORE.md`
-   ledger entry. Move this design doc to `docs/plans/completed/`.
+   - components), the relevant `docs/specs/*.md`, `QUALITY_SCORE.md`
+     ledger entry. Move this design doc to `docs/plans/completed/`.
 
 ## Testing
 
