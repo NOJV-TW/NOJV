@@ -152,8 +152,8 @@
                 .value as JudgeScriptLanguage;
             }}
           >
-            <option value="python">Python</option>
-            <option value="cpp">C++</option>
+            <option value="python">{m.common_language_python()}</option>
+            <option value="cpp">{m.common_language_cpp()}</option>
           </select>
         </label>
 
@@ -187,8 +187,8 @@
                 .value as JudgeScriptLanguage;
             }}
           >
-            <option value="python">Python</option>
-            <option value="cpp">C++</option>
+            <option value="python">{m.common_language_python()}</option>
+            <option value="cpp">{m.common_language_cpp()}</option>
           </select>
         </label>
 
