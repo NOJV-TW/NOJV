@@ -18,6 +18,51 @@ Track documentation quality and implementation legibility as an honest ledger.
 
 ## Doc Drift Status
 
+- 2026-05-20 grading feedback + audit batch (branch
+  `feat/grading-feedback-audit-batch`): eleven functional, optimization,
+  and UX tasks across four parts landed in 21 commits. Part 1 added
+  `SubmissionFeedback` (`packages/db/prisma/schema/submission.prisma`;
+  migration `20260519000000_add_submission_feedback`; CHECK enforces
+  exactly one of `courseAssessmentId` / `examId` non-null), the
+  `feedback` domain module (`upsertFeedback`, `deleteFeedback`,
+  `listFeedbackForContext`, `getFeedbackForStudent`),
+  `feedbackUpsertSchema` in `@nojv/core`, a `/api/feedback` route
+  (GET + PUT + DELETE), and extended the existing `ScoreOverrideDrawer`
+  with `FeedbackList` / `FeedbackForm`. Behavior change:
+  `assertCanSetScoreOverride` now applies a shared
+  `assertContextClosed` post-close gate covering assignment, exam, and
+  contest (`packages/domain/src/shared/context-window.ts`);
+  `platformRole === "admin"` bypasses. The drawer entry button is
+  hidden until the context closes. Part 2 added an Audit tab on
+  assignment / exam / contest manage pages via
+  `auditDomain.listAuditTimelineForContext` and a new
+  `AuditTimeline.svelte` — merged reverse-chronological feed of
+  lifecycle (assignment only), score-override, and rejudge events.
+  Part 3 optimizations: problem-search `likeSearch` is now a real
+  fallback (only runs when FTS returns zero rows, not unconditionally
+  in parallel); `getAdminDashboard` is now Redis-cached (5 min TTL,
+  fail-open); the byte-identical `contestRepo.listParticipable` was
+  removed in favor of `listPublished`; the C2 manage-page component
+  split was a no-op (the three pages were already split — survey
+  premise was wrong). Part 4 UX: empty-account dashboard renders
+  `WelcomeGuide` instead of five empty charts; ten remaining
+  hard-coded strings (language labels, "Case N", admin role names,
+  scoreboard pending / try / PENDING / WA, dialog Close) moved to
+  Paraglide; new locale-bound `formatDateTime` / `formatDate` /
+  `formatTime` helpers (`apps/web/src/lib/utils/datetime.ts`) with
+  ~20 bare `toLocale*` callers swept; `Skeleton` primitives consumed
+  by the grading drawer on open and by the dashboard's
+  `{#await data.streamed.*}` deferred panels (`getSubmissionActivity`
+  / `getSuggestedProblems`). One mid-batch fix to call out: the
+  initial `/api/feedback` and `/api/overrides` routes wrongly applied
+  the post-close write-gate to GET handlers, leaving staff unable to
+  read the lists before the deadline — split into role-only
+  `assertCanViewFeedback` / `assertCanViewScoreOverrides` for GET and
+  the stricter `assertCanWriteFeedback` / `assertCanSetScoreOverride`
+  for writes. Verification: `pnpm -w typecheck` 17/17, `pnpm lint`
+  18/18, `pnpm -w format` clean, `pnpm test:unit` 763/763,
+  `pnpm test:integration` 346/346.
+
 - 2026-05-19 quality-ledger follow-ups (branch
   `chore/quality-followups-2026-05-19`): the per-feature specs under
   `docs/specs/` were never synced when PR #28 shipped D2–D7, so their

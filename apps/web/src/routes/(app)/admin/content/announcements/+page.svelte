@@ -10,6 +10,7 @@
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
   import { Input } from "$lib/components/primitives/ui/input";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDate } from "$lib/utils/datetime";
   import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 
   let { data } = $props();
@@ -324,7 +325,7 @@
                       class="text-caption text-muted-foreground tabular-nums"
                       datetime={ann.createdAt}
                     >
-                      {new Date(ann.createdAt).toLocaleDateString()}
+                      {formatDate(ann.createdAt)}
                     </time>
                     <div
                       class="flex items-center gap-1"

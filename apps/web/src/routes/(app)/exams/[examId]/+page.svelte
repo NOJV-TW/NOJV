@@ -17,6 +17,7 @@
   import ExamResultsTab from "$lib/components/features/course/exam/ExamResultsTab.svelte";
   import ExamStartModal from "$lib/components/features/course/exam/ExamStartModal.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
+  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import { fmtDate } from "$lib/utils/datetime.js";
@@ -116,11 +117,18 @@
     | "plagiarism"
     | "proctoring"
     | "settings"
-    | "clarifications";
+    | "clarifications"
+    | "audit";
   let activeSubTabKey = $state<SubTab>("problems");
 
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.id, title: p.title }))
+  );
+
+  // Grading feedback keyed by problem — empty until the exam ends (the
+  // loader's domain call is close-gated). Students only.
+  const feedbackByProblem = $derived(
+    new Map((data.feedback ?? []).map((f) => [f.problemId, f.comment]))
   );
 
   let showOverrideDrawer = $state(false);
@@ -291,6 +299,7 @@
         <div class="divide-y" style="border-color: var(--border-subtle);">
           {#each detail.problems as p (p.id)}
             {@const verdict = p.viewerState ?? "empty"}
+            {@const feedbackComment = feedbackByProblem.get(p.id)}
             <a
               href={`/problems/${p.id}`}
               class={cn(
@@ -345,6 +354,20 @@
                 <ChevronRight class="size-3.5" />
               </span>
             </a>
+            {#if feedbackComment}
+              <div class="px-6 pb-3.5 pt-1">
+                <div class="rounded-md border border-info/30 bg-info/5 px-3 py-2">
+                  <div
+                    class="font-mono text-micro uppercase tracking-wider text-info"
+                  >
+                    {m.feedback_student_label()}
+                  </div>
+                  <p class="mt-1 whitespace-pre-wrap break-words text-body-sm text-foreground">
+                    {feedbackComment}
+                  </p>
+                </div>
+              </div>
+            {/if}
           {/each}
         </div>
       </GlassPanel>
@@ -534,13 +557,19 @@
         {m.examDetail_managerSubmissionMatrixLink()}
       </button>
       {#if canSetOverride}
-        <button
-          type="button"
-          onclick={() => (showOverrideDrawer = true)}
-          class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-        >
-          {m.override_staff_buttonLabel()}
-        </button>
+        {#if past}
+          <button
+            type="button"
+            onclick={() => (showOverrideDrawer = true)}
+            class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
+          >
+            {m.grading_openButton()}
+          </button>
+        {:else}
+          <span class="inline-flex items-center px-1 py-2 text-caption text-muted-foreground">
+            {m.grading_availableAfterClose()}
+          </span>
+        {/if}
       {/if}
     </div>
 
@@ -636,6 +665,18 @@
           {m.clarification_tab_title()}
         </button>
       {/if}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeSubTabKey === "audit"}
+        onclick={() => (activeSubTabKey = "audit")}
+        class="rounded-md px-3.5 py-1.5 text-body-sm font-medium transition-colors {activeSubTabKey ===
+        'audit'
+          ? 'bg-[color:var(--color-primary)]/14 text-primary'
+          : 'text-muted-foreground hover:text-foreground'}"
+      >
+        {m.examDetail_subTabAudit()}
+      </button>
     </div>
 
     {#if activeSubTabKey === "submissions" && data.matrix}
@@ -684,6 +725,10 @@
           canAnswer={data.clarification.canAnswer}
           problems={clarificationProblems}
         />
+      </GlassPanel>
+    {:else if activeSubTabKey === "audit"}
+      <GlassPanel class="p-5">
+        <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
       </GlassPanel>
     {:else}
       <ExamProblemsTab

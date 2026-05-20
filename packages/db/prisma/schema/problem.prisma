@@ -96,6 +96,7 @@ model Problem {
   editorials      Editorial[]
   scoreOverrides  ScoreOverride[]           @relation("ScoreOverrideProblem")
   clarifications  Clarification[]           @relation("ProblemClarifications")
+  submissionFeedback SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")
 
   @@index([status, visibility, createdAt])
   @@index([authorId])

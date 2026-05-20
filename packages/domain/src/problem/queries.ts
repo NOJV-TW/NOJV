@@ -243,18 +243,16 @@ export async function listProblemCards(
 
   const where: Prisma.ProblemWhereInput = { visibility: "public", status: "published" };
 
-  // Full-text search: find matching problem IDs via GIN index + LIKE fallback
+  // Full-text search via GIN index; fall back to LIKE only when FTS has zero
+  // hits (e.g. partial-word queries the tsvector tokenizer drops).
   if (params.q && params.q.trim().length > 0) {
     const q = params.q.trim();
-    const [matchingRows, likeRows] = await Promise.all([
-      problemStatementRepo.fullTextSearch(q),
-      problemStatementRepo.likeSearch(q),
-    ]);
-    const allIds = new Set([
-      ...matchingRows.map((r) => r.problemId),
-      ...likeRows.map((r) => r.problemId),
-    ]);
-    where.id = { in: [...allIds] };
+    const matchingRows = await problemStatementRepo.fullTextSearch(q);
+    const matchedIds =
+      matchingRows.length > 0
+        ? matchingRows.map((r) => r.problemId)
+        : (await problemStatementRepo.likeSearch(q)).map((r) => r.problemId);
+    where.id = { in: [...new Set(matchedIds)] };
   }
 
   // Difficulty filter — now a dedicated column.

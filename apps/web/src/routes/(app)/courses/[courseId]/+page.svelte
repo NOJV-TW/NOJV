@@ -17,7 +17,7 @@
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import CourseAnnouncementDialog from "$lib/components/features/course/CourseAnnouncementDialog.svelte";
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
-  import { formatTimeRangeCompact } from "$lib/utils/datetime";
+  import { formatDate, formatTimeRangeCompact } from "$lib/utils/datetime";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -162,7 +162,7 @@
                   class="text-caption text-muted-foreground tabular-nums"
                   datetime={announcement.createdAt}
                 >
-                  {new Date(announcement.createdAt).toLocaleDateString()}
+                  {formatDate(announcement.createdAt)}
                 </time>
                 {#if isManager}
                   <div

@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-	import Skeleton from "./Skeleton.svelte";
+	import Skeleton from "./skeleton.svelte";
 
 	let { rows = 5, class: className }: SkeletonListProps = $props();
 

@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import Skeleton from "./Skeleton.svelte";
+	import Skeleton from "./skeleton.svelte";
 
 	let { rows = 5, columns = 4, class: className }: SkeletonTableProps = $props();
 

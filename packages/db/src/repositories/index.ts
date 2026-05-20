@@ -55,6 +55,11 @@ export {
   type ScoreOverrideAuditCreateData,
 } from "./score-override";
 export { submissionRepo } from "./submission";
+export {
+  submissionFeedbackRepo,
+  type SubmissionFeedbackContext,
+  type SubmissionFeedbackUpsertData,
+} from "./submission-feedback";
 export { submissionRejudgeLogRepo } from "./submission-rejudge-log";
 export type {
   SubmissionRejudgeLogCreateInput,

@@ -211,6 +211,7 @@ model Exam {
   submissions           Submission[]
   ipViolationLogs       IpViolationLog[]
   activeSessions        ActiveExamSession[]
+  submissionFeedback    SubmissionFeedback[]
 
   @@index([courseId, status])
 }

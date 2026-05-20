@@ -116,6 +116,7 @@ model CourseAssessment {
   plagiarismTriggeredBy  User?                     @relation("AssessmentPlagiarismTriggerer", fields: [plagiarismTriggeredById], references: [id], onDelete: SetNull)
   problems               CourseAssessmentProblem[]
   submissions            Submission[]
+  submissionFeedback     SubmissionFeedback[]
 
   @@index([courseId, status])
 }

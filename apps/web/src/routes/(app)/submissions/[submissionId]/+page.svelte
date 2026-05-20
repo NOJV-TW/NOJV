@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Check, Copy, Download, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
 
@@ -15,7 +16,7 @@
     verdict === "queued" || verdict === "compiling" || verdict === "running",
   );
 
-  const submittedAt = $derived(new Date(submission.createdAt).toLocaleString());
+  const submittedAt = $derived(formatDateTime(submission.createdAt));
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
   const memoryKb = $derived(submission.memoryKb ?? result?.memoryKb ?? null);
 
@@ -241,6 +242,20 @@
           </h2>
           <pre
             class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted/30 px-3 py-2 font-mono text-body-sm text-foreground">{result.feedback}</pre>
+        </div>
+      {/if}
+
+      <!-- Teacher grading feedback — assignment/exam only, post-close. -->
+      {#if data.feedback}
+        <div class="flex flex-col gap-1.5">
+          <h2 class="text-caption uppercase tracking-wide text-info">
+            {m.feedback_student_label()}
+          </h2>
+          <p
+            class="whitespace-pre-wrap break-words rounded-md border border-info/30 bg-info/5 px-3 py-2 text-body-sm text-foreground"
+          >
+            {data.feedback}
+          </p>
         </div>
       {/if}
 

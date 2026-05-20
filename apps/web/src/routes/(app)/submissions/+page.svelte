@@ -3,6 +3,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictColor } from "$lib/utils/verdict-style";
 
   let { data } = $props();
@@ -41,7 +42,7 @@
               {sub.problemTitle}
             </span>
             <span class="shrink-0 text-caption text-muted-foreground tabular-nums">
-              {new Date(sub.createdAt).toLocaleString()}
+              {formatDateTime(sub.createdAt)}
             </span>
           </div>
           <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">

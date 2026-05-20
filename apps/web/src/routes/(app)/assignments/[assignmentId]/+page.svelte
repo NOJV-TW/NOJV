@@ -8,6 +8,7 @@
   import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
+  import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
@@ -32,7 +33,8 @@
     | "results"
     | "plagiarism"
     | "settings"
-    | "clarifications";
+    | "clarifications"
+    | "audit";
   let activeSubTab = $state<SubTabKey>("submissions");
 
   const clarificationProblems = $derived(
@@ -40,10 +42,19 @@
   );
   const clarificationEnabled = $derived(data.clarification.canView);
 
+  // Grading feedback keyed by problem — empty until the assignment closes
+  // (the loader's domain call is close-gated). Students only.
+  const feedbackByProblem = $derived(
+    new Map((data.mode === "student" ? data.feedback : []).map((f) => [f.problemId, f.comment]))
+  );
+
   let showOverrideDrawer = $state(false);
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false
   );
+  // Grading (overrides + feedback) is a post-close activity — the drawer
+  // entry only appears once the assignment has closed.
+  const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
       ? data.matrix.rows.map((r) => ({
@@ -73,7 +84,8 @@
     { key: "settings", label: m.assignmentDetail_tabSettings() },
     ...(clarificationEnabled
       ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
-      : [])
+      : []),
+    { key: "audit", label: m.assignmentDetail_tabAudit() }
   ]);
 
   function difficultyLabel(d: "easy" | "medium" | "hard"): "Easy" | "Medium" | "Hard" {
@@ -193,14 +205,20 @@
         {/if}
         {#if data.mode === "teacher" && canSetOverride}
           <div class="mt-6">
-            <Button
-              variant="outline"
-              size="sm"
-              type="button"
-              onclick={() => (showOverrideDrawer = true)}
-            >
-              {m.override_staff_buttonLabel()}
-            </Button>
+            {#if assignmentClosed}
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onclick={() => (showOverrideDrawer = true)}
+              >
+                {m.grading_openButton()}
+              </Button>
+            {:else}
+              <p class="text-caption text-muted-foreground">
+                {m.grading_availableAfterClose()}
+              </p>
+            {/if}
           </div>
         {/if}
       </div>
@@ -314,6 +332,7 @@
             {@const isSolved = state === "ac"}
             {@const tries = problem.myStatus?.attempts ?? 0}
             {@const score = problem.myStatus?.bestScore ?? 0}
+            {@const feedbackComment = feedbackByProblem.get(problem.problemId)}
             {#snippet rowBody()}
               <div class="font-mono text-body font-semibold text-muted-foreground">
                 {problem.letter}
@@ -380,6 +399,22 @@
               >
                 {@render rowBody()}
               </a>
+            {/if}
+            {#if feedbackComment}
+              <div class="px-6 pb-3.5 pt-1">
+                <div
+                  class="rounded-md border border-info/30 bg-info/5 px-3 py-2"
+                >
+                  <div
+                    class="text-micro font-mono uppercase tracking-wider text-info"
+                  >
+                    {m.feedback_student_label()}
+                  </div>
+                  <p class="mt-1 whitespace-pre-wrap break-words text-body-sm text-foreground">
+                    {feedbackComment}
+                  </p>
+                </div>
+              </div>
             {/if}
           {/each}
         </div>
@@ -544,6 +579,8 @@
             canAnswer={data.clarification.canAnswer}
             problems={clarificationProblems}
           />
+        {:else if activeSubTab === "audit" && data.mode === "teacher"}
+          <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
         {/if}
       </div>
     </GlassPanel>

@@ -19,6 +19,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/components/primitives/ui/toast";
+  import { formatDate } from "$lib/utils/datetime";
 
   interface Props {
     users: UsersTableUser[];
@@ -43,6 +44,12 @@
     if (role === "admin") return "warning";
     if (role === "teacher") return "info";
     return "success";
+  }
+
+  function roleLabel(role: PlatformRole): string {
+    if (role === "admin") return m.common_roleAdmin();
+    if (role === "teacher") return m.common_roleTeacher();
+    return m.common_roleStudent();
   }
 </script>
 
@@ -137,9 +144,9 @@
                   class="rounded-sm border border-input bg-background px-2 py-1 text-caption"
                   bind:value={draftRole}
                 >
-                  <option value="admin">admin</option>
-                  <option value="teacher">teacher</option>
-                  <option value="student">student</option>
+                  <option value="admin">{m.common_roleAdmin()}</option>
+                  <option value="teacher">{m.common_roleTeacher()}</option>
+                  <option value="student">{m.common_roleStudent()}</option>
                 </select>
                 {#if draftRole !== user.platformRole}
                   <p class="text-caption text-muted-foreground">
@@ -177,7 +184,7 @@
                 onclick={() => beginEditRole({ id: user.id, platformRole: user.platformRole })}
               >
                 <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
-                  {user.platformRole}
+                  {roleLabel(user.platformRole)}
                 </Badge>
               </button>
             {/if}
@@ -190,7 +197,7 @@
             {/if}
           </td>
           <td class="px-5 py-3 text-caption text-muted-foreground">
-            {new Date(user.createdAt).toLocaleDateString()}
+            {formatDate(user.createdAt)}
           </td>
           <td class="px-5 py-3">
             <form

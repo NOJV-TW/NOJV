@@ -9,12 +9,15 @@ import {
   type ExamUpdate,
 } from "@nojv/core";
 import {
+  auditDomain,
   clarificationDomain,
   examDomain,
+  feedbackDomain,
   HttpError,
   listExamIpViolations,
   plagiarismDomain,
   scoreOverrideDomain,
+  userDomain,
 } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
@@ -57,6 +60,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     plagiarismFlags,
     ipViolations,
     activeSessionCount,
+    feedback,
+    auditEvents,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -73,7 +78,22 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       : Promise.resolve([]),
     isManager ? listExamIpViolations({ examId }).catch(() => []) : Promise.resolve([]),
     isManager ? examDomain.session.countActiveSessions(examId) : Promise.resolve(0),
+    // Student-facing grading feedback — close-gated inside the domain, so
+    // it yields [] until the exam ends. Managers don't render it here.
+    isManager
+      ? Promise.resolve([])
+      : feedbackDomain.getFeedbackForStudent(actor.userId, { type: "exam", examId }),
+    // Staff-only audit timeline; students get an empty list (the tab is hidden).
+    isManager
+      ? auditDomain.listAuditTimelineForContext({ type: "exam", examId })
+      : Promise.resolve([] as auditDomain.AuditEvent[]),
   ]);
+
+  const auditActorNames = isManager
+    ? await userDomain.listUserDisplayNames([
+        ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
+      ])
+    : {};
 
   // Matrix reuses detail.problems instead of re-fetching the exam row.
   const matrix =
@@ -164,6 +184,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       actualIp: v.actualIp,
       createdAt: v.createdAt.toISOString(),
     })),
+    feedback: feedback.map((f) => ({ problemId: f.problemId, comment: f.comment })),
+    auditEvents,
+    auditActorNames,
   };
 });
 

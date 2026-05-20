@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import Skeleton from "./Skeleton.svelte";
+	import Skeleton from "./skeleton.svelte";
 
 	let { lines = 3, lastLineWidth = "60%", class: className }: SkeletonTextProps = $props();
 

@@ -62,6 +62,13 @@ itself is staff-only once `endsAt < now`).
 - Submissions matrix (`getExamSubmissionsMatrix`) — manager-only view.
 - Proctoring sub-tab — manager-only `IpViolationLog` viewer wired into
   the exam detail page via `ExamProctoringTab.svelte`.
+- Post-close grading drawer on the submissions matrix — score
+  overrides + per-cell student-visible feedback comments
+  (`SubmissionFeedback`). Writes gated post-close (`endsAt < now`),
+  admin bypass.
+- Audit sub-tab — staff-only merged feed of score override + rejudge
+  events (`listAuditTimelineForContext({ type: "exam", id })`).
+  Exams have no lifecycle audit log.
 - Post-close student review block: ended exams (`endsAt < now`) hide the
   detail page from students (`getExamDetailPage` returns null for
   non-managers). Practice-after-close still allows accessing the
@@ -212,6 +219,39 @@ examId })` is called, THEN every currently-active session for the exam
 - Only non-sample submissions (`sampleOnly: false`) count toward the
   matrix.
 
+### Grading — post-close drawer
+
+- GIVEN an exam with `endsAt > now`, WHEN a manager opens the
+  submissions matrix, THEN the grading drawer entry button is hidden
+  and a "grading available after close" note is shown. The drawer
+  cannot be opened.
+- GIVEN an exam with `endsAt < now`, WHEN a manager opens a matrix
+  cell, THEN the grading drawer shows two sections (score override
+  and student-visible feedback comment) keyed on
+  `(studentUserId, problemId, examId)`.
+- GIVEN a non-admin manager actor with `now < endsAt`, WHEN
+  `createOverride` / `updateOverride` / `deleteOverride` or
+  `upsertFeedback` / `deleteFeedback` is called against the exam,
+  THEN `ConflictError("Grading is only available after the exam has
+ended.")` (post-close gate via `assertContextClosed`).
+  `platformRole === "admin"` bypasses the gate.
+- WHEN `getFeedbackForStudent` is called by a student while the exam
+  is still running, THEN it returns nothing; once `endsAt < now`, the
+  per-problem comment is surfaced on the submission detail page (the
+  exam detail page itself is staff-only post-close, so the
+  assignment-style detail surface is not available).
+
+### Audit timeline
+
+- GIVEN a staff viewer (course teacher/TA or platform admin), WHEN
+  they open the Audit sub-tab on the exam manage page, THEN
+  `listAuditTimelineForContext({ type: "exam", id })` returns a
+  reverse-chronological merge of `ScoreOverrideAuditLog` (override
+  changes) + `SubmissionRejudgeLog` (rejudges scoped to the exam's
+  submissions). No lifecycle audit-log source exists for exams.
+- The view is read-only — no new audit rows are written when the tab
+  is loaded.
+
 ### Practice-after-close
 
 - GIVEN an ended exam (`endsAt < now`, `status = 'published'`) that the
@@ -270,6 +310,18 @@ examId })` is called, THEN every currently-active session for the exam
 - `packages/domain/src/proctoring/gate.ts` — `checkProctoringGate` /
   `checkExamGate`.
 - `packages/domain/src/proctoring/violation-logger.ts` — `logViolationInTx`.
+- `packages/domain/src/feedback/` — `upsertFeedback`,
+  `deleteFeedback`, `listFeedbackForContext`,
+  `getFeedbackForStudent`, `assertCanWriteFeedback` (role + post-close
+  gate), `assertCanViewFeedback` (role-only).
+- `packages/domain/src/score-override/permissions.ts` —
+  `assertCanSetScoreOverride` (role + post-close gate),
+  `assertCanViewScoreOverrides` (role-only).
+- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+  `assertContextClosed` (shared post-close gate across assignment +
+  exam + contest).
+- `packages/domain/src/audit/queries.ts` —
+  `listAuditTimelineForContext`.
 
 ### Schema
 
@@ -281,6 +333,9 @@ examId })` is called, THEN every currently-active session for the exam
   `ExamParticipation`, `ActiveExamSession`, `ExamSessionEvent`,
   `IpViolationLog`, enums `ExamStatus`, `ExamSessionReleaseReason`,
   `ExamSessionEventType`, `IpViolationMode`, `IpViolationType`.
+- `packages/db/prisma/schema/submission.prisma` —
+  `SubmissionFeedback` (assignment + exam contexts).
+- `packages/core/src/schemas/feedback.ts` — `feedbackUpsertSchema`.
 
 ### Temporal
 

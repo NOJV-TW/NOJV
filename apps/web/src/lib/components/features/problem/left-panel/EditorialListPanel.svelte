@@ -2,6 +2,7 @@
   import { supportedLanguages, type Language } from "@nojv/core";
   import { page } from "$app/state";
   import type { ProblemEditorialEntry } from "$lib/types";
+  import { formatDate } from "$lib/utils/datetime";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
   import { toasts } from "$lib/stores/toast";
@@ -189,7 +190,7 @@
               <span class="rounded-full bg-muted px-2 py-0.5 font-medium">
                 {editorial.language}
               </span>
-              <span class="tabular-nums">{new Date(editorial.createdAt).toLocaleDateString()}</span>
+              <span class="tabular-nums">{formatDate(editorial.createdAt)}</span>
               {#if !isOwn}
                 <button
                   class="ml-auto text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive"
