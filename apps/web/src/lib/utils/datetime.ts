@@ -1,7 +1,67 @@
 import { m } from "$lib/paraglide/messages.js";
+import { getLocale } from "$lib/paraglide/runtime.js";
 
 function pad2(n: number): string {
   return n < 10 ? `0${String(n)}` : String(n);
+}
+
+function toDate(value: Date | string | number): Date | null {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+const DATE_TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short",
+};
+
+const DATE_DEFAULTS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+};
+
+const TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
+  hour: "numeric",
+  minute: "2-digit",
+};
+
+/**
+ * Format an absolute date+time in the active Paraglide locale, with a
+ * timezone short name (e.g. `5/20/2026, 6:30 PM GMT+8`). Override fields via
+ * `opts`; supplied keys win over the defaults.
+ */
+export function formatDateTime(
+  value: Date | string | number,
+  opts?: Intl.DateTimeFormatOptions,
+): string {
+  const d = toDate(value);
+  if (!d) return "";
+  return new Intl.DateTimeFormat(getLocale(), { ...DATE_TIME_DEFAULTS, ...opts }).format(d);
+}
+
+/** Date-only variant. No timezone marker by default. */
+export function formatDate(
+  value: Date | string | number,
+  opts?: Intl.DateTimeFormatOptions,
+): string {
+  const d = toDate(value);
+  if (!d) return "";
+  return new Intl.DateTimeFormat(getLocale(), { ...DATE_DEFAULTS, ...opts }).format(d);
+}
+
+/** Time-only variant. No timezone marker by default. */
+export function formatTime(
+  value: Date | string | number,
+  opts?: Intl.DateTimeFormatOptions,
+): string {
+  const d = toDate(value);
+  if (!d) return "";
+  return new Intl.DateTimeFormat(getLocale(), { ...TIME_DEFAULTS, ...opts }).format(d);
 }
 
 function formatPart(date: Date): string {

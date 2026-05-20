@@ -7,6 +7,7 @@
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDateTime } from "$lib/utils/datetime";
 
   interface Props {
     isDraft: boolean;
@@ -69,7 +70,7 @@
               {/if}
             </span>
             <span class="font-mono tabular-nums text-muted-foreground">
-              {new Date(entry.createdAt).toLocaleString()}
+              {formatDateTime(entry.createdAt)}
             </span>
           </li>
         {/each}

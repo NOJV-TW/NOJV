@@ -2,6 +2,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
+  import { formatDate } from "$lib/utils/datetime";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import type { ClarificationItem } from "$lib/stores/clarifications.svelte";
@@ -55,7 +56,7 @@
     if (hr < 24) return `${hr}h ago`;
     const day = Math.floor(hr / 24);
     if (day < 7) return `${day}d ago`;
-    return new Date(iso).toLocaleDateString();
+    return formatDate(iso);
   }
 
   const stateVariant = $derived<"info" | "success" | "muted">(

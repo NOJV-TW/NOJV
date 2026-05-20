@@ -1,6 +1,7 @@
 import { assessmentRepo, contestRepo, courseMembershipRepo, examRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
+import { assertContextClosed } from "../shared/context-window";
 import { ForbiddenError } from "../shared/errors";
 import type { ScoreOverrideContext } from "./types";
 
@@ -49,11 +50,31 @@ export async function canSetScoreOverride(
   }
 }
 
-export async function assertCanSetScoreOverride(
+/**
+ * Role-only assert: throws `ForbiddenError` unless `actor` is course staff /
+ * contest organizer (or a platform admin) for `context`. Does NOT apply the
+ * post-close gate — use this to authorize *reads* (listing overrides), which
+ * staff may do while a context is still open. Writes must use
+ * `assertCanSetScoreOverride`.
+ */
+export async function assertCanViewScoreOverrides(
   actor: ActorContext,
   context: ScoreOverrideContext,
 ): Promise<void> {
   if (!(await canSetScoreOverride(actor, context))) {
-    throw new ForbiddenError("Not permitted to set score overrides for this context.");
+    throw new ForbiddenError("Not permitted to view score overrides for this context.");
+  }
+}
+
+export async function assertCanSetScoreOverride(
+  actor: ActorContext,
+  context: ScoreOverrideContext,
+): Promise<void> {
+  await assertCanViewScoreOverrides(actor, context);
+  // Score overrides are a post-close grading action: course staff may
+  // only adjust scores once the context has ended. Platform admins
+  // bypass the gate for emergency fixes.
+  if (actor.platformRole !== "admin") {
+    await assertContextClosed(context);
   }
 }

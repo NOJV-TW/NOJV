@@ -59,6 +59,13 @@
 - Student progress matrix
 - Course-scoped problem management
 
+### Grading (post-close)
+
+- Grading drawer on the manager submissions matrix — opens once the context has closed (`closesAt`/`endsAt < now`); before that the entry button is hidden and a "grading available after close" note is shown in its place
+- Score overrides (existing) are now gated to post-close on assignment + exam + contest; `platformRole === "admin"` bypasses the gate for emergency fixes
+- Per-cell student-visible feedback comments on assignment + exam (no contest feedback); students see the comment on the assignment / exam detail page and on the submission detail page once the context has closed
+- Audit timeline tab on assignment / exam / contest manage pages — merged reverse-chronological view of lifecycle transitions, score-override changes, and rejudges (staff-only)
+
 ### Class Analytics
 
 - Course-staff analytics dashboard, aggregating existing submission and assessment data (no schema of its own)

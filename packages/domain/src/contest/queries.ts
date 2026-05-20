@@ -123,13 +123,13 @@ export async function listContestsForUser(
   userId: string | null,
 ): Promise<ContestListForUserResult> {
   if (userId === null) {
-    const rows = await contestRepo.listParticipable();
+    const rows = await contestRepo.listPublished();
     return { managed: [], participable: rows.map(mapContestListItem) };
   }
 
   const [managedRows, participableRows] = await Promise.all([
     contestRepo.listManagedForUser(userId),
-    contestRepo.listParticipable(),
+    contestRepo.listPublished(),
   ]);
 
   const managedIds = new Set(managedRows.map((c) => c.id));

@@ -9,10 +9,12 @@ import {
   type ContestUpdate,
 } from "@nojv/core";
 import {
+  auditDomain,
   clarificationDomain,
   contestDomain,
   plagiarismDomain,
   scoreOverrideDomain,
+  userDomain,
 } from "@nojv/domain";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
@@ -78,10 +80,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   let plagiarism: Awaited<ReturnType<typeof plagiarismDomain.findPlagiarismReport>> = null;
   let plagiarismFlags: Awaited<ReturnType<typeof plagiarismDomain.listFlagsForContext>> = [];
 
+  let auditEvents: auditDomain.AuditEvent[] = [];
+  let auditActorNames: Record<string, string> = {};
+
   if (contest.isManager) {
     const actor = getActorContext(event);
     if (actor && hasActorUsername(actor)) {
-      const [allowed, participants, plagReport, plagFlags] = await Promise.all([
+      const [allowed, participants, plagReport, plagFlags, audit] = await Promise.all([
         scoreOverrideDomain.canSetScoreOverride(actor, {
           type: "contest",
           contestId: contest.id,
@@ -91,6 +96,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
           .findPlagiarismReport({ type: "contest", id: contest.id })
           .catch(() => null),
         plagiarismDomain.listFlagsForContext("contest", contest.id).catch(() => []),
+        auditDomain.listAuditTimelineForContext({ type: "contest", contestId: contest.id }),
+      ]);
+      auditEvents = audit;
+      auditActorNames = await userDomain.listUserDisplayNames([
+        ...new Set(audit.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
       ]);
       matrix = await buildContestSubmissionsMatrix({
         contestId: contest.id,
@@ -183,6 +193,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canAnswer: canAnswerClar,
       canView: canViewClar,
     },
+    auditEvents,
+    auditActorNames,
   };
 });
 

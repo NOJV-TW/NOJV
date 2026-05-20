@@ -3,6 +3,7 @@
   import { getLocale } from "$lib/paraglide/runtime.js";
   import { notifications, type NotificationItem } from "$lib/stores/notifications.svelte";
   import { cn } from "$lib/utils/css.js";
+  import { formatDate } from "$lib/utils/datetime";
 
   let { item }: { item: NotificationItem } = $props();
 
@@ -44,7 +45,7 @@
     if (hr < 24) return `${hr}h ago`;
     const day = Math.floor(hr / 24);
     if (day < 7) return `${day}d ago`;
-    return new Date(iso).toLocaleDateString();
+    return formatDate(iso);
   }
 
   function handleClick() {

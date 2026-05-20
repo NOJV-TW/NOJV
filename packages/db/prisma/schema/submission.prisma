@@ -181,6 +181,39 @@ model ScoreOverrideAuditLog {
   @@index([userId, problemId, createdAt(sort: Desc)])
 }
 
+/// Teacher-authored, student-visible grading comment per
+/// (student, problem, assessment-or-exam). Sibling of ScoreOverride;
+/// `comment` is feedback prose with no effect on the computed score.
+/// Exactly one of `courseAssessmentId` / `examId` is non-null —
+/// enforced by the `SubmissionFeedback_single_context_chk` CHECK
+/// constraint (Prisma cannot express multi-column CHECKs natively).
+/// Contest context is intentionally excluded.
+model SubmissionFeedback {
+  id                 String   @id @default(cuid())
+  studentUserId      String
+  problemId          String
+  courseAssessmentId String?
+  examId             String?
+  comment            String   @db.Text
+  authorUserId       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  student    User              @relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  problem    Problem           @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
+  assessment CourseAssessment? @relation(fields: [courseAssessmentId], references: [id], onDelete: Cascade)
+  exam       Exam?             @relation(fields: [examId], references: [id], onDelete: Cascade)
+  author     User?             @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  /// One feedback row per (context, problem, student). Two separate
+  /// composites — rather than one over both context columns — are
+  /// correct only because the CHECK guarantees exactly one context is
+  /// non-null; the unused column is always NULL so its composite never
+  /// collides. Do not collapse these into a single unique index.
+  @@unique([courseAssessmentId, problemId, studentUserId])
+  @@unique([examId, problemId, studentUserId])
+}
+
 enum EditorialReportStatus {
   open
   resolved

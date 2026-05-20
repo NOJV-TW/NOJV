@@ -1,4 +1,4 @@
-import Skeleton, { type SkeletonProps, type SkeletonVariant } from "./Skeleton.svelte";
+import Skeleton, { type SkeletonProps, type SkeletonVariant } from "./skeleton.svelte";
 import SkeletonText, { type SkeletonTextProps } from "./SkeletonText.svelte";
 import SkeletonCard, { type SkeletonCardProps } from "./SkeletonCard.svelte";
 import SkeletonList, { type SkeletonListProps } from "./SkeletonList.svelte";

@@ -45,4 +45,12 @@ export const submissionRejudgeLogRepo = {
       orderBy: { createdAt: "desc" },
     });
   },
+
+  listForSubmissionIds(submissionIds: string[]) {
+    if (submissionIds.length === 0) return Promise.resolve([]);
+    return prisma.submissionRejudgeLog.findMany({
+      where: { submissionId: { in: submissionIds } },
+      orderBy: { createdAt: "desc" },
+    });
+  },
 };

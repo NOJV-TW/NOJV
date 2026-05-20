@@ -424,6 +424,26 @@ export const submissionRepo = {
     });
   },
 
+  // Submission IDs for one gradable context — backs the audit timeline's
+  // rejudge-log lookup. Selects only `id` to keep the row scan cheap.
+  // Intentionally unbounded (no `take`): the audit timeline has no
+  // pagination, so every submission's rejudge history must be reachable.
+  async listIdsForContext(
+    context:
+      | { type: "assignment"; assignmentId: string }
+      | { type: "exam"; examId: string }
+      | { type: "contest"; contestId: string },
+  ): Promise<string[]> {
+    const where: Prisma.SubmissionWhereInput =
+      context.type === "assignment"
+        ? { courseAssessmentId: context.assignmentId }
+        : context.type === "exam"
+          ? { examId: context.examId }
+          : { contestId: context.contestId };
+    const rows = await prisma.submission.findMany({ where, select: { id: true } });
+    return rows.map((r) => r.id);
+  },
+
   // Used by the batch-rejudge authz check: is there any submission for this
   // problem that's attached to a contest / assessment / exam context? If so,
   // an unscoped batch would include work that the problem author alone can't

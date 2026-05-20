@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
+
   interface Props {
     /** First AC time in seconds since contest start. `null` when not solved. */
     firstAcTime: number | null;
@@ -45,7 +47,7 @@
     style="background: color-mix(in oklab, var(--info) 14%, transparent);"
   >
     <span class="font-mono text-caption font-semibold" style="color: var(--info);">?</span>
-    <span class="font-mono text-micro" style="color: var(--info);">pending</span>
+    <span class="font-mono text-micro" style="color: var(--info);">{m.scoreboard_pending()}</span>
   </div>
 {:else if attempts > 0}
   <div
@@ -55,7 +57,7 @@
     <span class="font-mono text-caption font-semibold" style="color: oklch(0.5 0.18 27);">
       −{attempts}
     </span>
-    <span class="font-mono text-micro" style="color: oklch(0.55 0.18 27);">try</span>
+    <span class="font-mono text-micro" style="color: oklch(0.55 0.18 27);">{m.scoreboard_try()}</span>
   </div>
 {:else}
   <span class="text-muted-foreground font-mono opacity-40">·</span>

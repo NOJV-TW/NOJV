@@ -19,11 +19,14 @@ const updateProblemsPayloadSchema = z.object({
 });
 import {
   assignmentDomain,
+  auditDomain,
   clarificationDomain,
   courseDomain,
+  feedbackDomain,
   plagiarismDomain,
   problemDomain,
   scoreOverrideDomain,
+  userDomain,
 } from "@nojv/domain";
 
 import { requireAuth } from "$lib/server/auth";
@@ -69,6 +72,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canAskClar,
       canAnswerClar,
       canViewClar,
+      auditEvents,
     ] = await Promise.all([
       getAssignmentDetail(courseId, assignmentId, {
         viewerUserId: actor.userId,
@@ -85,6 +89,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
       clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
       clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
+      auditDomain.listAuditTimelineForContext({ type: "assignment", assignmentId }),
+    ]);
+
+    const auditActorNames = await userDomain.listUserDisplayNames([
+      ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
     ]);
 
     const settingsForm = await superValidate<AssessmentSettingsFormData>(
@@ -134,10 +143,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         flaggedAt: f.flaggedAt.toISOString(),
         note: f.note,
       })),
+      auditEvents,
+      auditActorNames,
     };
   }
 
-  const [detail, canAskClar, canAnswerClar, canViewClar] = await Promise.all([
+  const [detail, canAskClar, canAnswerClar, canViewClar, feedback] = await Promise.all([
     getAssignmentDetail(courseId, assignmentId, {
       viewerUserId: actor.userId,
       isManager: false,
@@ -145,6 +156,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
     clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
     clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
+    // Close-gated inside the domain — yields [] while the assignment is open.
+    feedbackDomain.getFeedbackForStudent(actor.userId, {
+      type: "assignment",
+      assignmentId,
+    }),
   ]);
   return {
     mode: "student" as const,
@@ -154,6 +170,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canAnswer: canAnswerClar,
       canView: canViewClar,
     },
+    feedback: feedback.map((f) => ({ problemId: f.problemId, comment: f.comment })),
   };
 });
 

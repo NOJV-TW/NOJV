@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatDateTime } from "$lib/utils/datetime";
   import type { OverrideRow, ProblemOption, StudentOption } from "./ScoreOverrideForm.svelte";
 
   export interface OverrideListRow extends OverrideRow {
@@ -40,14 +41,6 @@
   function truncate(s: string, n: number): string {
     if (s.length <= n) return s;
     return `${s.slice(0, n)}…`;
-  }
-
-  function formatTime(iso: string): string {
-    try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
-    }
   }
 
   async function confirmDelete() {
@@ -111,7 +104,7 @@
               {truncate(row.reason, 40)}
             </td>
             <td class="px-3 py-2 text-muted-foreground tabular-nums">
-              {formatTime(row.updatedAt)}
+              {formatDateTime(row.updatedAt)}
             </td>
             <td class="px-3 py-2 text-right">
               <div class="inline-flex items-center gap-2">

@@ -42,9 +42,9 @@
         onchange={onApply}
       >
         <option value="">{m.admin_usersAllRoles()}</option>
-        <option value="admin">Admin</option>
-        <option value="teacher">Teacher</option>
-        <option value="student">Student</option>
+        <option value="admin">{m.common_roleAdmin()}</option>
+        <option value="teacher">{m.common_roleTeacher()}</option>
+        <option value="student">{m.common_roleStudent()}</option>
       </select>
     </div>
     <Button variant="default" type="button" onclick={onApply}>

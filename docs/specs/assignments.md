@@ -61,6 +61,13 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   historical-participant gate.
 - Problem attachment re-bind (wipe-and-recreate the
   `CourseAssessmentProblem` rows) with per-problem `points` override.
+- Post-close grading drawer on the submissions matrix — score
+  overrides + per-cell student-visible feedback comments
+  (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
+  admin bypass.
+- Audit sub-tab — staff-only merged feed of lifecycle, score
+  override, and rejudge events
+  (`listAuditTimelineForContext({ type: "assignment", id })`).
 
 ### Out of scope
 
@@ -177,6 +184,39 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   `listAssignmentsAcrossCoursesForUser` runs,
   THEN `hasNoCourses === true` and `rows` / `counts` are zeroed.
 
+### Grading — post-close drawer
+
+- GIVEN an `open` assignment (`closesAt > now`), WHEN a manager opens
+  the submissions matrix, THEN the "Open grading" entry button is
+  hidden and a "grading available after close" note is shown in its
+  place. The drawer cannot be opened.
+- GIVEN a `closed` assignment, WHEN a manager opens a matrix cell,
+  THEN the grading drawer shows two sections — score override
+  (staff-only `reason`) + student-visible feedback comment — keyed
+  on `(studentUserId, problemId, courseAssessmentId)`.
+- GIVEN a non-admin manager actor with `now < closesAt`, WHEN
+  `createOverride` / `updateOverride` / `deleteOverride` or
+  `upsertFeedback` / `deleteFeedback` is called against the
+  assignment, THEN `ConflictError("Grading is only available after
+the assignment has closed.")` (post-close gate; see
+  `assertContextClosed`). `platformRole === "admin"` bypasses the
+  gate.
+- WHEN `getFeedbackForStudent` is called by a student while the
+  assignment is still open, THEN it returns nothing; once
+  `closesAt < now`, the per-problem comment is surfaced on the
+  assignment detail page and on the submission detail page.
+
+### Audit timeline
+
+- GIVEN a staff viewer (course teacher/TA or platform admin), WHEN
+  they open the Audit sub-tab on the assignment manage page, THEN
+  `listAuditTimelineForContext({ type: "assignment", id })` returns a
+  reverse-chronological merge of `AssessmentAuditLog` (lifecycle) +
+  `ScoreOverrideAuditLog` (override changes) + `SubmissionRejudgeLog`
+  (rejudges scoped to the assignment's submissions).
+- The view is read-only — no new audit rows are written when the tab
+  is loaded.
+
 ### Practice-after-close (submission gate)
 
 - GIVEN an ended assignment (`closesAt < now`, `status = 'published'`) that
@@ -236,6 +276,18 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   `aggregateAssessmentClassStats`, `aggregateAssessmentMyStatus`.
 - `packages/domain/src/problem/helpers.ts` — `assertProblemViewAccess`
   (practice-after-close historical-participant gate).
+- `packages/domain/src/feedback/` — `upsertFeedback`,
+  `deleteFeedback`, `listFeedbackForContext`,
+  `getFeedbackForStudent`, `assertCanWriteFeedback` (role + post-close
+  gate), `assertCanViewFeedback` (role-only).
+- `packages/domain/src/score-override/permissions.ts` —
+  `assertCanSetScoreOverride` (role + post-close gate),
+  `assertCanViewScoreOverrides` (role-only).
+- `packages/domain/src/shared/context-window.ts` — `isContextClosed`,
+  `assertContextClosed` (shared post-close gate across assignment +
+  exam + contest).
+- `packages/domain/src/audit/queries.ts` —
+  `listAuditTimelineForContext`.
 
 ### Schema
 
@@ -245,6 +297,10 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - `packages/db/prisma/schema/course.prisma` — `CourseAssessment`,
   `CourseAssessmentProblem`, `AssessmentAuditLog`, enum
   `AssessmentAuditAction`.
+- `packages/db/prisma/schema/submission.prisma` —
+  `SubmissionFeedback` (assignment + exam contexts; CHECK enforces
+  exactly one context column is non-null).
+- `packages/core/src/schemas/feedback.ts` — `feedbackUpsertSchema`.
 
 ### Routes / API
 
@@ -269,3 +325,8 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Teachers currently cannot see practice (post-close, context-less)
   submissions from their students in any matrix view — this is
   intentional per the design doc, but may become a feature request.
+- No edit history is retained on `SubmissionFeedback`: an upsert
+  overwrites the previous comment in place. The audit timeline
+  surfaces score-override edits via `ScoreOverrideAuditLog`, but
+  feedback edits are not logged. Revisit if a "who said what when"
+  trail becomes a requirement.
