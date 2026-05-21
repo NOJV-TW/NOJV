@@ -102,7 +102,7 @@ export async function publishNotificationBatchSignal(
       linkUrl: detail.linkUrl,
       // id + createdAt intentionally omitted — the client refetches on
       // any payload missing an id.
-    } as NotificationSSEEvent);
+    });
   } catch {
     /* see module header */
   }
