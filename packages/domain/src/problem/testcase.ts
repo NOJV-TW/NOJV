@@ -98,7 +98,7 @@ export async function createProblemTestcaseSetRecord(
       };
       if (entry.blobKeys.outputKey !== null) row.outputKey = entry.blobKeys.outputKey;
       if (entry.blobKeys.inputFileKeys !== null) {
-        row.inputFileKeys = entry.blobKeys.inputFileKeys as Prisma.InputJsonValue;
+        row.inputFileKeys = entry.blobKeys.inputFileKeys;
       }
       return row;
     });

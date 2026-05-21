@@ -235,7 +235,7 @@ export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
           return { ...tc, input, output } as HydratedTestcase<T["testcases"][number]>;
         }),
       );
-      return { ...set, testcases } as HydratedTestcaseSetOf<T>;
+      return { ...set, testcases };
     }),
   );
 }
@@ -255,7 +255,7 @@ export async function hydrateWorkspaceFiles<T extends WorkspaceFileRowLike>(
   return Promise.all(
     files.map(async (f) => {
       const content = await getText(client, f.contentKey);
-      return { ...f, content } as HydratedWorkspaceFileOf<T>;
+      return { ...f, content };
     }),
   );
 }

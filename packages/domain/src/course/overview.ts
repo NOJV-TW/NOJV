@@ -325,7 +325,7 @@ export async function listExamOverviewForCourse(
       endsAt: row.endsAt.toISOString(),
       durationMinutes,
       problemCount: row._count.problems,
-      scoringMode: row.scoringMode as "point_sum" | "problem_count",
+      scoringMode: row.scoringMode,
       registeredCount: options.isManager ? row._count.participations : null,
       totalStudents: null,
       myStatus: null,

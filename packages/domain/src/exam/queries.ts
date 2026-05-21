@@ -220,7 +220,7 @@ function mapExamRow(
     startsAt: status === "draft" ? null : raw.startsAt.toISOString(),
     endsAt: status === "draft" ? null : raw.endsAt.toISOString(),
     durationMinutes: status === "draft" ? null : durationMinutes,
-    scoringMode: raw.scoringMode as "problem_count" | "point_sum",
+    scoringMode: raw.scoringMode,
     problemCount: raw._count.problems,
     proctoring: {
       pageLock: raw.pageLockEnabled,
