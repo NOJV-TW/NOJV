@@ -172,7 +172,7 @@ export async function updateAssignmentRecord(
       updateData.dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
     }
     if (payload.adjustmentRules !== undefined) {
-      updateData.adjustmentRules = payload.adjustmentRules as Prisma.InputJsonValue;
+      updateData.adjustmentRules = payload.adjustmentRules;
     }
 
     if (Object.keys(updateData).length > 0) {

@@ -224,13 +224,13 @@ export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth>
       runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
       timeoutMs,
     )
-      .then(() => "ok" as string)
+      .then(() => "ok")
       .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`),
     withTimeout(getRedis().ping(), timeoutMs)
-      .then(() => "ok" as string)
+      .then(() => "ok")
       .catch((err: unknown) => `error: ${err instanceof Error ? err.message : String(err)}`),
     withTimeout(probeTemporal(), TEMPORAL_TIMEOUT_MS)
-      .then(() => "ok" as string)
+      .then(() => "ok")
       .catch((err: unknown) => `down: ${err instanceof Error ? err.message : String(err)}`),
   ]);
 
