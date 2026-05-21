@@ -73,7 +73,6 @@ class NotificationsStore {
     const original = this.items[idx];
     if (!original || original.readAt) return;
 
-    // Optimistic update
     this.items[idx] = { ...original, readAt: new Date().toISOString() };
     this.unreadCount = Math.max(0, this.unreadCount - 1);
 
@@ -82,7 +81,6 @@ class NotificationsStore {
       body: JSON.stringify({ read: true }),
     });
     if (!res.ok) {
-      // Rollback on server failure
       this.items[idx] = original;
       this.unreadCount += 1;
     }
@@ -93,7 +91,6 @@ class NotificationsStore {
     const originalItems = this.items;
     const now = new Date().toISOString();
 
-    // Optimistic: flip every unread row to readAt=now
     this.items = this.items.map((i) => (i.readAt ? i : { ...i, readAt: now }));
     this.unreadCount = 0;
 
