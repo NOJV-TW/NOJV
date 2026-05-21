@@ -11,7 +11,7 @@ const TIMESTAMP = Date.now();
 const PROBLEM_TITLE = `Parallelogram Library E2E ${TIMESTAMP}`;
 
 // -----------------------------------------------------------------------------
-// Problem content — adapted from docs/CP-problem mid.3 "Parallelogram"
+// Problem content — adapted from docs/example-problem/mid.pdf (mid.3 "Parallelogram")
 // -----------------------------------------------------------------------------
 
 const PROBLEM_STATEMENT = `Develop a Parallelogram library in **C**. Given three points $P_1$, $P_2$, $P_3$, where $P_2$ and $P_3$ are both connected to $P_1$ but $P_2$ and $P_3$ are NOT connected to each other, the parallelogram is formed by these three vertices plus the implicit fourth vertex $P_4 = P_2 + P_3 - P_1$.
