@@ -118,7 +118,6 @@ infra/
   k8s/sandbox/      Kubernetes namespace, network policy, resource quota
 
 tests/              Vitest + Playwright test suites
-materials/          Course materials, exam PDFs (not docs)
 docs/
   architecture/     System, frontend, database, redis, judge pipeline, design rules
   operations/       Deployment, reliability, security, threat model, quality ledger
@@ -127,6 +126,7 @@ docs/
   playbooks/        Live demo / showcase walkthroughs
   specs/            Per-feature acceptance specs
   plans/            Active + completed design plans
+  example-problem/  Sample course problem PDFs + extracted text (referenced by e2e tests)
 ```
 
 ## Rules
