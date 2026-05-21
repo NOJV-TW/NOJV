@@ -100,7 +100,7 @@ export const plagiarismRepo = {
   upsertForExam(examId: string, input: PlagiarismUpsertInput) {
     return prisma.exam.update({
       where: { id: examId },
-      data: buildPlagiarismUpdate(input) as Prisma.ExamUncheckedUpdateInput,
+      data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,
     });
   },
@@ -108,7 +108,7 @@ export const plagiarismRepo = {
   upsertForAssessment(courseAssessmentId: string, input: PlagiarismUpsertInput) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
-      data: buildPlagiarismUpdate(input) as Prisma.CourseAssessmentUncheckedUpdateInput,
+      data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,
     });
   },
@@ -116,7 +116,7 @@ export const plagiarismRepo = {
   upsertForContest(contestId: string, input: PlagiarismUpsertInput) {
     return prisma.contest.update({
       where: { id: contestId },
-      data: buildPlagiarismUpdate(input) as Prisma.ContestUncheckedUpdateInput,
+      data: buildPlagiarismUpdate(input),
       select: plagiarismSelect,
     });
   },
@@ -124,21 +124,21 @@ export const plagiarismRepo = {
   clearForContest(contestId: string) {
     return prisma.contest.update({
       where: { id: contestId },
-      data: buildPlagiarismUpdate(clearInput) as Prisma.ContestUncheckedUpdateInput,
+      data: buildPlagiarismUpdate(clearInput),
     });
   },
 
   clearForExam(examId: string) {
     return prisma.exam.update({
       where: { id: examId },
-      data: buildPlagiarismUpdate(clearInput) as Prisma.ExamUncheckedUpdateInput,
+      data: buildPlagiarismUpdate(clearInput),
     });
   },
 
   clearForAssessment(courseAssessmentId: string) {
     return prisma.courseAssessment.update({
       where: { id: courseAssessmentId },
-      data: buildPlagiarismUpdate(clearInput) as Prisma.CourseAssessmentUncheckedUpdateInput,
+      data: buildPlagiarismUpdate(clearInput),
     });
   },
 };
