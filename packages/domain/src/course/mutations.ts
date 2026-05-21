@@ -176,9 +176,7 @@ export async function createCourseAssignmentRecord(
       ...(payload.maxAttemptsPerDay != null
         ? { maxAttemptsPerDay: payload.maxAttemptsPerDay }
         : {}),
-      ...(adjustmentRules.length > 0
-        ? { adjustmentRules: adjustmentRules }
-        : {}),
+      ...(adjustmentRules.length > 0 ? { adjustmentRules: adjustmentRules } : {}),
     });
 
     const problemIds = payload.problemIds;
@@ -328,9 +326,7 @@ export async function copyCourse(
         summary: a.summary,
         title: a.title,
         ...(a.maxAttemptsPerDay != null ? { maxAttemptsPerDay: a.maxAttemptsPerDay } : {}),
-        ...(a.adjustmentRules != null
-          ? { adjustmentRules: a.adjustmentRules }
-          : {}),
+        ...(a.adjustmentRules != null ? { adjustmentRules: a.adjustmentRules } : {}),
       });
 
       for (const p of a.problems) {
