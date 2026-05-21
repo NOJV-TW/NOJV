@@ -7,7 +7,6 @@ import {
   examRepo,
   problemRepo,
   runTransaction,
-  type Prisma,
   type TransactionClient,
 } from "@nojv/db";
 import type {
@@ -178,7 +177,7 @@ export async function createCourseAssignmentRecord(
         ? { maxAttemptsPerDay: payload.maxAttemptsPerDay }
         : {}),
       ...(adjustmentRules.length > 0
-        ? { adjustmentRules: adjustmentRules as Prisma.InputJsonValue }
+        ? { adjustmentRules: adjustmentRules }
         : {}),
     });
 
@@ -330,7 +329,7 @@ export async function copyCourse(
         title: a.title,
         ...(a.maxAttemptsPerDay != null ? { maxAttemptsPerDay: a.maxAttemptsPerDay } : {}),
         ...(a.adjustmentRules != null
-          ? { adjustmentRules: a.adjustmentRules as Prisma.InputJsonValue }
+          ? { adjustmentRules: a.adjustmentRules }
           : {}),
       });
 
