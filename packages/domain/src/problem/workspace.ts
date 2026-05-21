@@ -172,7 +172,7 @@ export async function updateProblemWorkspace(
       updateData.judgeConfig = {
         ...currentConfig,
         runtime: payload.runtime,
-      } as Prisma.InputJsonValue;
+      };
       updateData.memoryLimitMb = payload.runtime.memoryLimitMb;
       updateData.timeLimitMs = payload.runtime.timeLimitMs;
     }

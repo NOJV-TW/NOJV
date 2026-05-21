@@ -28,7 +28,7 @@ catalog:
   rate-limiter-flexible: ^11.1.0
 
   # Build / test tooling shared across packages.
-  tsdown: ^0.21.10
+  tsdown: ^0.22.0
   typescript: ^6.0.3
   vitest: ^4.1.7
   zod: ^4.4.3
