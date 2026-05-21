@@ -33,3 +33,16 @@ model PlagiarismPairFlag {
   @@unique([contextType, contextId, pairKey])
   @@index([contextType, contextId])
 }
+
+model PlagiarismTriggerLog {
+  id                String            @id @default(cuid())
+  contextType       PlagiarismContext
+  contextId         String
+  triggeredByUserId String?
+  priorPairCount    Int
+  triggeredAt       DateTime          @default(now())
+
+  triggeredBy User? @relation("PlagiarismTriggerLogTriggerer", fields: [triggeredByUserId], references: [id], onDelete: SetNull)
+
+  @@index([contextType, contextId, triggeredAt(sort: Desc)])
+}

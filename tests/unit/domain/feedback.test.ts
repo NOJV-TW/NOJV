@@ -9,6 +9,8 @@ const {
   feedbackFindForStudentInContext,
   feedbackFindById,
   feedbackDeleteById,
+  feedbackFindExistingForUpsert,
+  feedbackAuditCreate,
 } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
@@ -18,6 +20,8 @@ const {
   feedbackFindForStudentInContext: vi.fn(),
   feedbackFindById: vi.fn(),
   feedbackDeleteById: vi.fn(),
+  feedbackFindExistingForUpsert: vi.fn(),
+  feedbackAuditCreate: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -31,6 +35,10 @@ vi.mock("@nojv/db", () => ({
     findForStudentInContext: feedbackFindForStudentInContext,
     findById: feedbackFindById,
     deleteById: feedbackDeleteById,
+    findExistingForUpsert: feedbackFindExistingForUpsert,
+  },
+  submissionFeedbackAuditLogRepo: {
+    create: feedbackAuditCreate,
   },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));

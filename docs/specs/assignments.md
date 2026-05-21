@@ -325,8 +325,3 @@ the assignment has closed.")` (post-close gate; see
 - Teachers currently cannot see practice (post-close, context-less)
   submissions from their students in any matrix view — this is
   intentional per the design doc, but may become a feature request.
-- No edit history is retained on `SubmissionFeedback`: an upsert
-  overwrites the previous comment in place. The audit timeline
-  surfaces score-override edits via `ScoreOverrideAuditLog`, but
-  feedback edits are not logged. Revisit if a "who said what when"
-  trail becomes a requirement.

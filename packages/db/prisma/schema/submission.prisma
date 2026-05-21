@@ -205,6 +205,8 @@ model SubmissionFeedback {
   exam       Exam?             @relation(fields: [examId], references: [id], onDelete: Cascade)
   author     User?             @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
+  auditLogs SubmissionFeedbackAuditLog[]
+
   /// One feedback row per (context, problem, student). Two separate
   /// composites — rather than one over both context columns — are
   /// correct only because the CHECK guarantees exactly one context is
@@ -212,6 +214,33 @@ model SubmissionFeedback {
   /// collides. Do not collapse these into a single unique index.
   @@unique([courseAssessmentId, problemId, studentUserId])
   @@unique([examId, problemId, studentUserId])
+}
+
+enum SubmissionFeedbackAction {
+  create
+  update
+  delete
+}
+
+model SubmissionFeedbackAuditLog {
+  id                 String                   @id @default(cuid())
+  feedbackId         String?
+  studentUserId      String
+  problemId          String
+  courseAssessmentId String?
+  examId             String?
+  action             SubmissionFeedbackAction
+  oldComment         String?                  @db.Text
+  newComment         String?                  @db.Text
+  changedByUserId    String?
+  createdAt          DateTime                 @default(now())
+
+  feedback  SubmissionFeedback? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
+  changedBy User?               @relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([courseAssessmentId, problemId, createdAt(sort: Desc)])
+  @@index([examId, problemId, createdAt(sort: Desc)])
+  @@index([studentUserId, problemId, createdAt(sort: Desc)])
 }
 
 enum EditorialReportStatus {

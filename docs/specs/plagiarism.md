@@ -322,14 +322,17 @@ for staff.
   each context type; organizer / non-organizer for contest; missing
   exam → forbidden; repeated upsert dedup; unflag NotFound / admin /
   non-staff / teacher branches; list delegation.
-- **Still missing**: route-level tests (permission gate for trigger /
-  view / source fetch).
+- `tests/unit/domain/plagiarism-trigger-log.test.ts` — `priorPairCount`
+  computed from prior summary; contextType mapping
+  (courseAssessment / contest / exam); ordering (log written before
+  overwrite); audit row persists even if `writePlagiarismFields` fails.
+- `tests/integration/api/plagiarism.test.ts` — route-level permission
+  gate for trigger / view / source fetch / flag / unflag against real
+  DB (22 cases across student / other-course teacher / same-course TA /
+  admin / contest organizer / non-organizer).
 
 ## Open Questions / TODO
 
-- Re-triggering silently discards prior pair data with no audit trail.
-  If "did someone wipe evidence?" becomes a governance question, a
-  `PlagiarismTriggerLog` table is needed.
 - Dolos is self-hosted and in-process, so there is no external
   dependency to fall back from. If a tree-sitter grammar regresses on
   a future upgrade, JPlag remains a plausible secondary backend.
