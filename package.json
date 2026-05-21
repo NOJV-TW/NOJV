@@ -45,7 +45,12 @@
       "fast-xml-builder": "^1.1.7",
       "kysely": "^0.28.17",
       "next": "^16.2.3",
-      "protobufjs": "^7.5.5"
+      "protobufjs": "^7.5.5",
+      "dompurify": "^3.4.5",
+      "cookie": "^1.0.2",
+      "fast-xml-parser": "^5.7.0",
+      "@hono/node-server": "^1.19.13",
+      "uuid": "^13.0.2"
     },
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
