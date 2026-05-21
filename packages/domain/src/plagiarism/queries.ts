@@ -3,8 +3,11 @@ import {
   contestRepo,
   examRepo,
   plagiarismRepo,
+  plagiarismTriggerLogRepo,
   assessmentProblemRepo,
   submissionRepo,
+  runTransaction,
+  type PlagiarismContext,
   type PlagiarismReportSummary,
 } from "@nojv/db";
 
@@ -105,10 +108,35 @@ export async function getPlagiarismTarget(
   };
 }
 
+function targetToContextType(target: PlagiarismTarget): PlagiarismContext {
+  if (target.type === "courseAssessment") return "assessment";
+  if (target.type === "contest") return "contest";
+  return "exam";
+}
+
+function countPriorPairs(summary: PlagiarismReportSummary | null): number {
+  const results = summary?.results;
+  if (!results || typeof results !== "object" || Array.isArray(results)) return 0;
+  const pairs = (results as { pairs?: unknown }).pairs;
+  return Array.isArray(pairs) ? pairs.length : 0;
+}
+
 export async function createPlagiarismReport(
   target: PlagiarismTarget,
   triggeredById: string,
 ): Promise<PlagiarismReportSummary> {
+  const priorSummary = await findPlagiarismReport(target);
+  const priorPairCount = countPriorPairs(priorSummary);
+
+  await runTransaction(async (tx) => {
+    await plagiarismTriggerLogRepo.create(tx, {
+      contextType: targetToContextType(target),
+      contextId: target.id,
+      triggeredByUserId: triggeredById,
+      priorPairCount,
+    });
+  });
+
   await writePlagiarismFields(target, {
     status: "pending",
     triggeredById,

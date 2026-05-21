@@ -1,4 +1,8 @@
-import { runTransaction, submissionFeedbackRepo } from "@nojv/db";
+import {
+  runTransaction,
+  submissionFeedbackAuditLogRepo,
+  submissionFeedbackRepo,
+} from "@nojv/db";
 import type { FeedbackUpsertInput } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -21,15 +25,32 @@ export async function upsertFeedback(
   await assertCanWriteFeedback(actor, context);
 
   const db = toContextDbFields(context);
-  return runTransaction((tx) =>
-    submissionFeedbackRepo.upsert(tx, {
-      ...db,
+  const data = {
+    ...db,
+    studentUserId: input.studentUserId,
+    problemId: input.problemId,
+    comment: input.comment,
+    authorUserId: actor.userId,
+  };
+
+  return runTransaction(async (tx) => {
+    const existing = await submissionFeedbackRepo.findExistingForUpsert(tx, data);
+    const row = await submissionFeedbackRepo.upsert(tx, data);
+
+    await submissionFeedbackAuditLogRepo.create(tx, {
+      feedbackId: row.id,
       studentUserId: input.studentUserId,
       problemId: input.problemId,
-      comment: input.comment,
-      authorUserId: actor.userId,
-    }),
-  );
+      courseAssessmentId: db.courseAssessmentId ?? null,
+      examId: db.examId ?? null,
+      action: existing ? "update" : "create",
+      oldComment: existing?.comment ?? null,
+      newComment: input.comment,
+      changedByUserId: actor.userId,
+    });
+
+    return row;
+  });
 }
 
 /**
@@ -44,5 +65,19 @@ export async function deleteFeedback(actor: ActorContext, id: string) {
   }
   await assertCanWriteFeedback(actor, fromContextDbFields(existing));
 
-  await runTransaction((tx) => submissionFeedbackRepo.deleteById(tx, id));
+  await runTransaction(async (tx) => {
+    // Write audit before delete so the FK still resolves to the live row.
+    await submissionFeedbackAuditLogRepo.create(tx, {
+      feedbackId: existing.id,
+      studentUserId: existing.studentUserId,
+      problemId: existing.problemId,
+      courseAssessmentId: existing.courseAssessmentId,
+      examId: existing.examId,
+      action: "delete",
+      oldComment: existing.comment,
+      newComment: null,
+      changedByUserId: actor.userId,
+    });
+    await submissionFeedbackRepo.deleteById(tx, id);
+  });
 }

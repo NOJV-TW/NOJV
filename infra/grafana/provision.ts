@@ -1,17 +1,19 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import {
+  AlertRuleDefsSchema,
+  DashboardSchema,
+  OptionalEnvSchema,
+  RequiredEnvSchema,
+  type AlertRuleDef,
+  type DashboardModel,
+} from "./schemas.ts";
+
+export type { AlertRuleDef, DashboardModel };
 
 export type GrafanaConfig = {
   stackUrl: string;
   saToken: string;
-};
-
-export type DashboardModel = {
-  uid: string;
-  title: string;
-  schemaVersion: number;
-  panels: unknown[];
-  [key: string]: unknown;
 };
 
 export type UploadResult = {
@@ -51,16 +53,7 @@ export async function uploadDashboard(
 // In-repo alert definition (see infra/grafana/alerts/slo-alerts.json). The
 // stack-specific folder + datasource UIDs are injected at provision time
 // so the JSON files stay portable across Grafana stacks.
-export type AlertRuleDef = {
-  uid: string;
-  title: string;
-  slo: string;
-  expr: string;
-  threshold: number;
-  for: string;
-  severity: string;
-  summary: string;
-};
+// AlertRuleDef shape lives in ./schemas.ts (re-exported above).
 
 export type AlertRuleContext = {
   folderUID: string;
@@ -169,7 +162,7 @@ async function provisionDashboards(config: GrafanaConfig, baseDir: string): Prom
   for (const file of files) {
     const path = join(dashboardDir, file);
     try {
-      const json = JSON.parse(await readFile(path, "utf8")) as DashboardModel;
+      const json = DashboardSchema.parse(JSON.parse(await readFile(path, "utf8")));
       const result = await uploadDashboard(config, json);
       console.log(`[ok] ${file} -> uid=${result.uid} url=${config.stackUrl}${result.url}`);
     } catch (err) {
@@ -191,9 +184,9 @@ async function provisionAlerts(config: GrafanaConfig, baseDir: string): Promise<
   }
 
   const alertsPath = join(baseDir, "alerts", "slo-alerts.json");
-  let defs: AlertRuleDef[];
+  let defs: ReturnType<typeof AlertRuleDefsSchema.parse>;
   try {
-    defs = JSON.parse(await readFile(alertsPath, "utf8")) as AlertRuleDef[];
+    defs = AlertRuleDefsSchema.parse(JSON.parse(await readFile(alertsPath, "utf8")));
   } catch (err) {
     console.error(
       `[fail] alert defs ${alertsPath}: ${err instanceof Error ? err.message : String(err)}`,
@@ -330,16 +323,30 @@ async function provisionContactPoint(config: GrafanaConfig): Promise<number> {
 }
 
 async function main(): Promise<void> {
-  const stackUrl = process.env.GRAFANA_STACK_URL;
-  const saToken = process.env.GRAFANA_SA_TOKEN;
-  if (!stackUrl || !saToken) {
-    console.error("Missing GRAFANA_STACK_URL or GRAFANA_SA_TOKEN env vars");
+  const required = RequiredEnvSchema.safeParse(process.env);
+  if (!required.success) {
+    console.error("Missing or invalid required env vars:");
+    for (const issue of required.error.issues) {
+      console.error(`  ${issue.path.join(".")}: ${issue.message}`);
+    }
     console.error("Set them in .env (see .env.example for the full list)");
     process.exit(1);
   }
 
+  const optional = OptionalEnvSchema.safeParse(process.env);
+  if (!optional.success) {
+    console.error("Invalid optional env vars:");
+    for (const issue of optional.error.issues) {
+      console.error(`  ${issue.path.join(".")}: ${issue.message}`);
+    }
+    process.exit(1);
+  }
+
   const baseDir = import.meta.dirname ?? __dirname;
-  const config: GrafanaConfig = { stackUrl, saToken };
+  const config: GrafanaConfig = {
+    stackUrl: required.data.GRAFANA_STACK_URL,
+    saToken: required.data.GRAFANA_SA_TOKEN,
+  };
 
   const dashboardFailures = await provisionDashboards(config, baseDir);
   const alertFailures = await provisionAlerts(config, baseDir);

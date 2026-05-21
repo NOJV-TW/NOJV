@@ -1,3 +1,7 @@
+import { readFile, readdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, it, expect, vi } from "vitest";
 import {
   buildAlertRule,
@@ -9,6 +13,13 @@ import {
   uploadNotificationPolicy,
   type AlertRuleDef,
 } from "../../infra/grafana/provision";
+import {
+  AlertRuleDefSchema,
+  AlertRuleDefsSchema,
+  DashboardSchema,
+  OptionalEnvSchema,
+  RequiredEnvSchema,
+} from "../../infra/grafana/schemas";
 
 describe("uploadDashboard", () => {
   it("POSTs to /api/dashboards/db with overwrite:true and Bearer SA token", async () => {
@@ -200,6 +211,145 @@ describe("uploadContactPoint", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect((fetchMock.mock.calls[1]?.[1] as RequestInit).method).toBe("POST");
+  });
+});
+
+describe("DashboardSchema", () => {
+  it("accepts a minimal valid dashboard and preserves unknown fields", () => {
+    const parsed = DashboardSchema.parse({
+      uid: "x",
+      title: "T",
+      schemaVersion: 39,
+      panels: [],
+      tags: ["nojv"],
+      description: "desc",
+    });
+    expect(parsed.uid).toBe("x");
+    expect((parsed as { tags?: string[] }).tags).toEqual(["nojv"]);
+  });
+
+  it("rejects a dashboard missing a required core field", () => {
+    const result = DashboardSchema.safeParse({ uid: "x", title: "T", panels: [] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path.join("."));
+      expect(paths).toContain("schemaVersion");
+    }
+  });
+
+  it("rejects a dashboard with empty uid", () => {
+    const result = DashboardSchema.safeParse({
+      uid: "",
+      title: "T",
+      schemaVersion: 39,
+      panels: [],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("AlertRuleDefSchema / AlertRuleDefsSchema", () => {
+  const validDef: AlertRuleDef = {
+    uid: "u",
+    title: "t",
+    slo: "s",
+    expr: "e",
+    threshold: 1,
+    for: "10m",
+    severity: "warning",
+    summary: "summary",
+  };
+
+  it("accepts a valid def", () => {
+    expect(AlertRuleDefSchema.parse(validDef)).toEqual(validDef);
+  });
+
+  it("rejects a def with a non-numeric threshold", () => {
+    const result = AlertRuleDefSchema.safeParse({ ...validDef, threshold: "1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts an array of valid defs", () => {
+    expect(AlertRuleDefsSchema.parse([validDef, validDef])).toHaveLength(2);
+  });
+
+  it("rejects an array containing a bad entry and points at the index", () => {
+    const result = AlertRuleDefsSchema.safeParse([validDef, { ...validDef, expr: "" }]);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const paths = result.error.issues.map((i) => i.path.join("."));
+      expect(paths).toContain("1.expr");
+    }
+  });
+});
+
+describe("RequiredEnvSchema / OptionalEnvSchema", () => {
+  it("RequiredEnvSchema accepts a real-looking env", () => {
+    const parsed = RequiredEnvSchema.parse({
+      GRAFANA_STACK_URL: "https://takalawang.grafana.net",
+      GRAFANA_SA_TOKEN: "glsa_test",
+    });
+    expect(parsed.GRAFANA_STACK_URL).toMatch(/grafana\.net$/);
+  });
+
+  it("RequiredEnvSchema rejects a non-URL stack URL", () => {
+    const result = RequiredEnvSchema.safeParse({
+      GRAFANA_STACK_URL: "not-a-url",
+      GRAFANA_SA_TOKEN: "glsa_t",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("RequiredEnvSchema rejects an empty SA token", () => {
+    const result = RequiredEnvSchema.safeParse({
+      GRAFANA_STACK_URL: "https://x.grafana.net",
+      GRAFANA_SA_TOKEN: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("OptionalEnvSchema accepts an env with no optional fields set", () => {
+    expect(OptionalEnvSchema.parse({}).GRAFANA_ALERT_EMAIL).toBeUndefined();
+  });
+
+  it("OptionalEnvSchema rejects a malformed alert email", () => {
+    const result = OptionalEnvSchema.safeParse({ GRAFANA_ALERT_EMAIL: "not-an-email" });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("real fixtures pass the schemas", () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const grafanaDir = join(here, "..", "..", "infra", "grafana");
+
+  it("every dashboards/*.json parses as DashboardSchema", async () => {
+    const dashboardDir = join(grafanaDir, "dashboards");
+    const files = (await readdir(dashboardDir)).filter((f) => f.endsWith(".json"));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const raw = JSON.parse(await readFile(join(dashboardDir, file), "utf8"));
+      const result = DashboardSchema.safeParse(raw);
+      if (!result.success) {
+        const summary = result.error.issues
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join("; ");
+        throw new Error(`${file} failed DashboardSchema — ${summary}`);
+      }
+    }
+  });
+
+  it("alerts/slo-alerts.json parses as AlertRuleDefsSchema", async () => {
+    const raw = JSON.parse(
+      await readFile(join(grafanaDir, "alerts", "slo-alerts.json"), "utf8"),
+    );
+    const result = AlertRuleDefsSchema.safeParse(raw);
+    if (!result.success) {
+      const summary = result.error.issues
+        .map((i) => `${i.path.join(".")}: ${i.message}`)
+        .join("; ");
+      throw new Error(`slo-alerts.json failed AlertRuleDefsSchema — ${summary}`);
+    }
+    expect(result.data.length).toBeGreaterThan(0);
   });
 });
 
