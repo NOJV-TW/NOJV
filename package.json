@@ -34,16 +34,7 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "pnpm": {
-    "overrides": {
-      "@grpc/grpc-js": "~1.14.4",
-      "vite": "^8.0.14",
-      "@opentelemetry/exporter-prometheus": "^0.217.0",
-      "devalue": "^5.8.1",
-      "fast-uri": "^3.1.1",
-      "fast-xml-builder": "^1.1.7",
-      "kysely": "^0.28.17",
-      "protobufjs": "^7.5.5"
-    },
+    "overrides": {},
     "onlyBuiltDependencies": [
       "@dodona/dolos-parsers",
       "@prisma/engines",
