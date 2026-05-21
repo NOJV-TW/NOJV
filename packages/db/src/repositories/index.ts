@@ -39,6 +39,10 @@ export {
   type PlagiarismPairFlagRow,
 } from "./plagiarism-pair-flag";
 export {
+  plagiarismTriggerLogRepo,
+  type PlagiarismTriggerLogCreateData,
+} from "./plagiarism-trigger-log";
+export {
   problemRepo,
   problemStatementRepo,
   problemWorkspaceFileRepo,
@@ -57,8 +61,10 @@ export {
 export { submissionRepo } from "./submission";
 export {
   submissionFeedbackRepo,
+  submissionFeedbackAuditLogRepo,
   type SubmissionFeedbackContext,
   type SubmissionFeedbackUpsertData,
+  type SubmissionFeedbackAuditCreateData,
 } from "./submission-feedback";
 export { submissionRejudgeLogRepo } from "./submission-rejudge-log";
 export type {

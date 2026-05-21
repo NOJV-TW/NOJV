@@ -10,6 +10,8 @@ const {
   findByAssessmentId,
   findByExamId,
   findByContestId,
+  triggerLogCreate,
+  runTransactionMock,
 } = vi.hoisted(() => ({
   examFindByIdWithCourse: vi.fn(),
   assessmentFindByIdWithCourseId: vi.fn(),
@@ -20,6 +22,8 @@ const {
   findByAssessmentId: vi.fn(),
   findByExamId: vi.fn(),
   findByContestId: vi.fn(),
+  triggerLogCreate: vi.fn(),
+  runTransactionMock: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({})),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -34,6 +38,8 @@ vi.mock("@nojv/db", () => ({
     findByExamId,
     findByContestId,
   },
+  plagiarismTriggerLogRepo: { create: triggerLogCreate },
+  runTransaction: runTransactionMock,
   assessmentProblemRepo: {},
   submissionRepo: {},
 }));
@@ -52,6 +58,11 @@ beforeEach(() => {
   findByAssessmentId.mockReset();
   findByExamId.mockReset();
   findByContestId.mockReset();
+  triggerLogCreate.mockReset();
+  runTransactionMock.mockReset();
+  runTransactionMock.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn({}),
+  );
 });
 
 describe("getPlagiarismTarget", () => {

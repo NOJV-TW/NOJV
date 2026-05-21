@@ -1,5 +1,5 @@
 import { prisma } from "../client";
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma, SubmissionFeedbackAction } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
@@ -16,6 +16,18 @@ export type SubmissionFeedbackUpsertData = SubmissionFeedbackContext & {
   comment: string;
   authorUserId: string | null;
 };
+
+export interface SubmissionFeedbackAuditCreateData {
+  feedbackId: string | null;
+  studentUserId: string;
+  problemId: string;
+  courseAssessmentId: string | null;
+  examId: string | null;
+  action: SubmissionFeedbackAction;
+  oldComment: string | null;
+  newComment: string | null;
+  changedByUserId: string | null;
+}
 
 const feedbackInclude = {
   student: { select: { id: true, username: true, name: true } },
@@ -85,5 +97,42 @@ export const submissionFeedbackRepo = {
 
   deleteById(tx: TxClient, id: string) {
     return tx.submissionFeedback.delete({ where: { id } });
+  },
+
+  findExistingForUpsert(tx: TxClient, data: SubmissionFeedbackUpsertData) {
+    const where: Prisma.SubmissionFeedbackWhereUniqueInput =
+      data.courseAssessmentId !== undefined
+        ? {
+            courseAssessmentId_problemId_studentUserId: {
+              courseAssessmentId: data.courseAssessmentId,
+              problemId: data.problemId,
+              studentUserId: data.studentUserId,
+            },
+          }
+        : {
+            examId_problemId_studentUserId: {
+              examId: data.examId,
+              problemId: data.problemId,
+              studentUserId: data.studentUserId,
+            },
+          };
+    return tx.submissionFeedback.findUnique({ where });
+  },
+};
+
+export const submissionFeedbackAuditLogRepo = {
+  create(tx: TxClient, data: SubmissionFeedbackAuditCreateData) {
+    return tx.submissionFeedbackAuditLog.create({ data });
+  },
+
+  listForFeedback(feedbackId: string, limit = 100) {
+    return prisma.submissionFeedbackAuditLog.findMany({
+      where: { feedbackId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: {
+        changedBy: { select: { id: true, username: true, name: true } },
+      },
+    });
   },
 };
