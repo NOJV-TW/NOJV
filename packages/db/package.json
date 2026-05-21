@@ -32,7 +32,6 @@
     "@prisma/adapter-pg": "catalog:",
     "@prisma/client": "catalog:",
     "bcryptjs": "catalog:",
-    "pg": "^8.21.0",
     "zod": "catalog:"
   },
   "devDependencies": {
