@@ -75,7 +75,7 @@
     "prettier": "^3.8.1",
     "rate-limiter-flexible": "catalog:",
     "tsx": "^4.21.0",
-    "turbo": "^2.9.5",
+    "turbo": "^2.9.14",
     "typescript": "catalog:",
     "typescript-eslint": "^8.58.1",
     "vitest": "catalog:",
