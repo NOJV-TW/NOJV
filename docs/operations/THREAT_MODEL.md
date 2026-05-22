@@ -71,27 +71,27 @@ Student Code ------|---> Sandbox Container     Redis
 
 **Authenticated API routes:**
 
-| Route                                 | Methods   | Auth                                                               |
-| ------------------------------------- | --------- | ------------------------------------------------------------------ |
-| `/api/submissions`                    | POST      | `requireApiAuth` + rate limiter                                    |
-| `/api/submissions/[id]`               | GET       | `requireApiAuth` + ownership check                                 |
-| `/api/submissions/[id]/source`        | GET       | `requireApiAuth` + ownership or admin                              |
-| `/api/submissions/[id]/stream`        | GET       | `getActorContext` + ownership or admin                             |
-| `/api/events/stream`                  | GET       | `getActorContext` + `hasActorUsername`                             |
-| `/api/contests/[slug]/scoreboard`     | GET       | Optional auth (privileged view for admin/teacher)                  |
-| `/contests/[id]/scoreboard?/unfreeze` | POST      | Form action: `requireAuth` + `requirePlatformRole(admin, teacher)` |
-| `/api/plagiarism/[assignmentId]`      | GET, POST | `requireApiAuth` + `canManageCourse(role)`                         |
-| `/api/plagiarism-flags`               | POST      | `requireApiAuth` + `canManageCourse(role)`                         |
-| `/api/plagiarism-flags/[id]`          | DELETE    | `requireApiAuth` + `canManageCourse(role)`                         |
-| `/api/problems/[id]/editorials`       | GET, POST | `requireApiAuth` + AC-gated for students                           |
-| `/api/problems/[id]/images`           | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                  |
-| `/api/problems`                       | POST      | `requireApiAuth` + `requirePlatformRole(admin, teacher)`           |
-| `/api/exams/[examId]/ip-violations`   | GET       | `requireApiAuth` + admin/teacher                                   |
-| `/api/healthz`                        | GET       | Public, no auth                                                    |
+| Route                                 | Methods   | Auth                                                                                     |
+| ------------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
+| `/api/submissions`                    | POST      | `requireApiAuth` + rate limiter                                                          |
+| `/api/submissions/[id]`               | GET       | `requireApiAuth` + ownership check                                                       |
+| `/api/submissions/[id]/source`        | GET       | `requireApiAuth` + ownership or admin                                                    |
+| `/api/submissions/[id]/stream`        | GET       | `getActorContext` + ownership or admin                                                   |
+| `/api/events/stream`                  | GET       | `getActorContext` + `hasActorUsername`                                                   |
+| `/api/contests/[slug]/scoreboard`     | GET       | Optional auth (privileged view for admin/teacher)                                        |
+| `/contests/[id]/scoreboard?/unfreeze` | POST      | Form action: `requireAuth` + contest organizer or admin (`canViewLiveContestScoreboard`) |
+| `/api/plagiarism/[assignmentId]`      | GET, POST | `requireApiAuth` + `canManageCourse(role)`                                               |
+| `/api/plagiarism-flags`               | POST      | `requireApiAuth` + `canManageCourse(role)`                                               |
+| `/api/plagiarism-flags/[id]`          | DELETE    | `requireApiAuth` + `canManageCourse(role)`                                               |
+| `/api/problems/[id]/editorials`       | GET, POST | `requireApiAuth` + AC-gated for students                                                 |
+| `/api/problems/[id]/images`           | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
+| `/api/problems`                       | POST      | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
+| `/api/exams/[examId]/ip-violations`   | GET       | `requireApiAuth` + exam course staff or admin (`listExamIpViolationsForActor`)           |
+| `/api/healthz`                        | GET       | Public, no auth                                                                          |
 
 **Authenticated page routes (layout-gated):**
 
-All routes under `(app)/` require authentication via `requireAuth(event)` in `+layout.server.ts`. Admin routes (`/admin/*`) additionally require `requirePlatformRole(actor, "admin")`. Course management routes (`/courses/[slug]/manage/*`) require `canManageCourse(role)`.
+All routes under `(app)/` require authentication via `requireAuth(event)` in `+layout.server.ts`. Admin routes (`/admin/*`) additionally require `requirePlatformRole(actor, "admin")`. Course management routes (`/courses/[courseId]/{members,settings,analytics,assignments,exams}`) require `canManageCourse(role)`.
 
 ### Attacker-Controlled Inputs
 
@@ -173,7 +173,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Mitigations:**
 
-- Container hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `tmpfs /tmp` only
+- Container hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, bounded `tmpfs` on `/tmp` (64m) and `/workspace` (128m) — no host-writable persistence path
 - Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/services/k8s-executor.ts`); Docker images run as a non-root UID
 - Network isolation: `--network none` (default, configurable per-problem)
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
@@ -184,7 +184,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Source code validated by `submissionDraftSchema` (1-50,000 chars)
 - Temporal workflow ID is deterministic (`judge-{submissionId}`) — duplicate dispatches are idempotent
 - `writeApiRateLimiter` (10 req/min per IP) on submission endpoint
-- Submit cooldown via Redis `SET NX EX` for contest submissions
+- Submit cooldown: recent-submission lookup in PostgreSQL, serialized by a `pg_advisory_xact_lock` held within the submission transaction so concurrent requests can't race the window
 - Static analysis stage can ban dangerous functions/imports/patterns before execution
 - Temporal retries (3 attempts) for transient sandbox failures
 
@@ -193,9 +193,9 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Container escape**: Malicious code exploits kernel vulnerability to escape sandbox. _Mitigation_: `cap-drop ALL` removes all Linux capabilities. `no-new-privileges` prevents escalation. seccomp restricts syscalls. Read-only rootfs limits persistence. In production, Kubernetes Jobs run in a dedicated namespace with NetworkPolicy and ResourceQuota.
 - **Fork bomb / resource exhaustion**: Code spawns processes to consume host resources. _Mitigation_: PID limit (64) caps process count. Memory limit (256 MB default) caps RAM. CPU limit caps compute. Container killed on limit breach.
 - **Network exfiltration**: Code sends hidden testcase data to external server. _Mitigation_: `--network none` blocks all network access by default. When network is enabled per-problem, firewall rules whitelist specific hosts/ports only. Traffic is logged.
-- **Filesystem escape**: Code reads sensitive files on host filesystem. _Mitigation_: Read-only rootfs. Only `/tmp` (tmpfs) is writable. No host volume mounts. Container runs as non-root.
+- **Filesystem escape**: Code reads sensitive files on host filesystem. _Mitigation_: Read-only rootfs. Only the bounded `tmpfs` mounts (`/tmp`, `/workspace`) are writable — no host volume mounts, so a runaway write can't fill host disk. Container runs as non-root.
 - **Compiler/runtime exploit**: Malicious source exploits compiler or runtime vulnerability. _Mitigation_: Compilation runs inside the same sandboxed container. seccomp profile limits available syscalls.
-- **Submission flooding**: Attacker submits thousands of requests to overwhelm sandbox workers. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest cooldown via Redis. Temporal task queue provides natural backpressure. Worker capacity model lives in [RELIABILITY.md → Worker Unavailable](RELIABILITY.md#worker-unavailable).
+- **Submission flooding**: Attacker submits thousands of requests to overwhelm sandbox workers. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest submit cooldown (PostgreSQL, advisory-locked). Temporal task queue provides natural backpressure. Worker capacity model lives in [RELIABILITY.md → Worker Unavailable](RELIABILITY.md#worker-unavailable).
 - **Sandbox output manipulation**: Code produces output designed to exploit the checker. _Mitigation_: Checker scripts also run inside sandbox with same isolation. Output is treated as untrusted data throughout the pipeline.
 
 ### 3.4 Image Upload and Object Storage
@@ -206,7 +206,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 - `requireApiAuth(event)` — must be authenticated
 - `canEditProblem(actor.platformRole)` — admin or teacher only
-- File type whitelist: `image/png`, `image/jpeg`, `image/gif`, `image/webp` — checked first against the client-reported `file.type`, then **re-validated server-side via `detectImageType(buffer)` magic-number sniffing** before storage. A request that passes MIME but fails byte-header detection is rejected with 400.
+- File type whitelist: `image/png`, `image/jpeg`, `image/gif`, `image/webp` — checked first against the client-reported `file.type`, then **re-validated server-side via `detectImageMime(buffer)` magic-number sniffing** before storage. A request that passes MIME but fails byte-header detection is rejected with 400.
 - Size limit: 5 MB per file
 - UUID filenames: `problems/{problemId}/images/{uuid}.{ext}` — no user-controlled path components
 - Images stored in S3-compatible storage (MinIO local, GCS/R2/S3 production)
@@ -214,7 +214,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Attacker stories:**
 
-- **Malicious file upload (polyglot)**: Attacker uploads a file with a spoofed `Content-Type` header and a non-image payload. _Mitigation_: After the MIME whitelist check, `detectImageType(buffer)` reads the file's magic bytes and rejects anything that doesn't match png/jpeg/gif/webp signatures. UUID filenames prevent path guessing. Images served from a separate S3 origin, not the application domain (reduces XSS risk).
+- **Malicious file upload (polyglot)**: Attacker uploads a file with a spoofed `Content-Type` header and a non-image payload. _Mitigation_: After the MIME whitelist check, `detectImageMime(buffer)` reads the file's magic bytes and rejects anything that doesn't match png/jpeg/gif/webp signatures. UUID filenames prevent path guessing. Images served from a separate S3 origin, not the application domain (reduces XSS risk).
 - **Path traversal**: Attacker manipulates `problemId` to write files outside the intended directory. _Mitigation_: `problemId` comes from URL route param (CUID format). Storage path is constructed server-side: `problems/{problemId}/images/{uuid}.{ext}`. No user-supplied path segments.
 - **Storage exhaustion**: Attacker uploads many large images to fill storage. _Mitigation_: 5 MB per file. `requireApiAuth` + `canEditProblem` limits uploaders to admin/teacher. `writeApiRateLimiter` limits upload rate. _Gap_: No per-problem or per-user storage quota.
 - **XSS via SVG**: SVG files can contain JavaScript. _Mitigation_: SVG is not in the allowed type list (`image/svg+xml` is rejected). Only `png`, `jpeg`, `gif`, `webp` are accepted.
@@ -229,7 +229,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **IP binding (exam only)**: When `Exam.ipBindingEnabled`, first request records `ExamParticipation.ipPin`. Subsequent requests from different IPs are blocked or logged based on violation mode (`block`/`notify`). Violations stored in `IpViolationLog` table. Contests have no IP binding — they're public CP events.
 - **IP whitelist**: When `ipWhitelistEnabled`, only whitelisted IPs can participate.
 - **Page lock**: When `pageLockEnabled`, JavaScript visibility API prevents opening new tabs. Violations detected client-side.
-- **Submit cooldown**: Redis `SET NX EX` prevents rapid-fire submissions. Configurable per-contest (`submitCooldownSec`). Cross-instance consistent.
+- **Submit cooldown**: A recent-submission check in PostgreSQL, serialized by a `pg_advisory_xact_lock` within the submission transaction, prevents both rapid-fire and concurrent-race submissions. Configurable per-contest (`submitCooldownSec`). Cross-instance consistent (shared DB).
 - **Scoreboard freeze**: `freezeScoreboard` snapshots the live sorted set into a separate `:frozen` key with `ZRANGE`+`ZADD` (not `RENAME`) so the live key keeps updating during the freeze window. `getScoreboard` returns the frozen key when it exists, so public viewers see the snapshot; `unfreezeScoreboard` deletes the frozen key. Admin/teacher views can read the live key directly. Final scores always computed from PostgreSQL.
 - **Allowed languages**: Contest can restrict which languages are accepted.
 - **Max attempt limits**: Configurable per-contest.
@@ -259,8 +259,8 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **Unauthorized event access**: Attacker subscribes to another user's event stream. _Mitigation_: Channel name is `user:{userId}` where `userId` comes from the authenticated session. Attacker cannot control which channel they subscribe to.
-- **SSE connection flooding**: Attacker opens thousands of SSE connections to exhaust server resources. _Mitigation_: Each connection creates a Redis subscriber. 10-minute auto-close limits duration. `apiRateLimiter` (60/min per IP) on all API routes. _Gap_: No explicit per-user SSE connection limit. A single authenticated user could open many concurrent SSE connections.
-- **Submission stream eavesdropping**: Attacker polls another user's submission stream to infer verdicts. _Mitigation_: `getSubmissionForUser()` checks ownership before returning any data. Unauthorized access returns an error and closes the stream.
+- **SSE connection flooding**: Attacker opens thousands of SSE connections to exhaust server resources. _Mitigation_: Each connection creates a Redis subscriber. 10-minute auto-close limits duration. `apiRateLimiter` (60/min per IP) is consumed on connect for both SSE routes, and `acquireSseSlot` caps concurrent streams per user (5, shared across both stream types). _Gap_: the per-user cap is an in-memory counter, so the effective ceiling is 5 × web replicas and resets on restart.
+- **Submission stream eavesdropping**: Attacker polls another user's submission stream to infer verdicts. _Mitigation_: `getSubmissionForUser()` checks ownership up front, before the stream emits any status — a non-owner gets 404 and no stream is opened.
 
 ### 3.7 Problem and Course Management
 
@@ -352,15 +352,15 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Medium
 
-| Threat                                         | Justification                                                                                 |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| DoS via submission flooding                    | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service. |
-| SSE connection exhaustion                      | No per-user SSE connection limit. Many concurrent connections could exhaust server memory.    |
-| Image storage exhaustion                       | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.        |
-| Information leakage from Zod validation errors | Validation issue responses include field paths — reveals internal schema structure.           |
-| Plagiarism detection abuse (worker load)       | Repeated triggers load tree-sitter parsers and consume worker CPU/memory in-process.          |
-| Redis data manipulation (development)          | No Redis auth in dev. Any local process can read/write cache, scoreboards, cooldowns.         |
-| Course join token brute force                  | General rate limiter (20/min) but no token-specific lockout.                                  |
+| Threat                                         | Justification                                                                                                        |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| DoS via submission flooding                    | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service.                        |
+| SSE connection exhaustion                      | Per-user cap (`acquireSseSlot`, 5) + per-IP rate limit exist; the cap is in-memory so it is per-replica, not global. |
+| Image storage exhaustion                       | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.                               |
+| Information leakage from Zod validation errors | Validation issue responses include field paths — reveals internal schema structure.                                  |
+| Plagiarism detection abuse (worker load)       | Repeated triggers load tree-sitter parsers and consume worker CPU/memory in-process.                                 |
+| Redis data manipulation (development)          | No Redis auth in dev. Any local process can read/write cache, scoreboards, cooldowns.                                |
+| Course join token brute force                  | General rate limiter (20/min) but no token-specific lockout.                                                         |
 
 ### Low
 
@@ -373,18 +373,18 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ## 5. Open Gaps and Recommendations
 
-| #   | Gap                                                    | Current State                                                                                                                                                                                                           | Recommendation                                                                                                                            | Priority |
-| --- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | No per-user SSE connection limit                       | Any authenticated user can open unlimited SSE streams                                                                                                                                                                   | Add a per-user concurrent connection counter in Redis; reject above threshold                                                             | Medium   |
-| 2   | No per-problem/per-user storage quota                  | Teachers can upload unlimited 5 MB images                                                                                                                                                                               | Track upload count/size per problem; enforce a reasonable ceiling                                                                         | Medium   |
-| 3   | ~~Rate limiter is in-memory~~ — **CLOSED**             | `RateLimiterRedis` keyed on `getClientIp(event)`; production falls back to `failClosedLimiter` (deny all) if Redis is unreachable. Memory fallback only in dev.                                                         | —                                                                                                                                         | —        |
-| 4   | Redis unauthenticated in development                   | Any local process can access Redis                                                                                                                                                                                      | Acceptable for development. Ensure production uses VPC-restricted Memorystore                                                             | Low      |
-| 5   | Page lock is client-side only                          | Determined attacker can bypass with custom HTTP client                                                                                                                                                                  | Document limitation. Consider logging tab-visibility violations server-side as evidence                                                   | Low      |
-| 6   | No CSRF token on API routes                            | SvelteKit form actions have built-in CSRF. API routes rely on same-origin and auth headers                                                                                                                              | Verify `Origin` header checking is active on all mutation endpoints                                                                       | Medium   |
-| 7   | ~~File type validation uses `file.type`~~ — **CLOSED** | Magic-number validation via `detectImageType(buffer)` in `apps/web/src/routes/api/problems/[id]/images/+server.ts` rejects payloads whose bytes don't match png/jpeg/gif/webp signatures, even if the MIME header lies. | —                                                                                                                                         | —        |
-| 8   | Temporal UI exposed in development                     | Port 8080 accessible on localhost                                                                                                                                                                                       | Ensure Temporal UI is not publicly accessible in production (firewall or VPN)                                                             | High     |
-| 9   | Plagiarism concurrency cap                             | No per-worker cap on concurrent Dolos runs                                                                                                                                                                              | Add a semaphore / Temporal activity concurrency limit if operator sees parser contention                                                  | Low      |
-| 10  | Account lockout on failed login — **PARTIALLY CLOSED** | `signInRateLimiter` (5 / 15 min per IP) gates the password sign-in endpoints. OAuth flows are exempt and rely on the upstream provider.                                                                                 | Per-account (rather than per-IP) lockout would further harden against distributed brute-force from many source IPs targeting one account. | Low      |
+| #   | Gap                                                              | Current State                                                                                                                                                                                                           | Recommendation                                                                                                                            | Priority |
+| --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | No _global_ per-user SSE connection limit — **PARTIALLY CLOSED** | `acquireSseSlot` caps 5 concurrent streams/user (in-memory, per-replica); `apiRateLimiter` rate-limits connects per IP                                                                                                  | Move the counter to Redis if a hard cross-instance cap is needed                                                                          | Low      |
+| 2   | No per-problem/per-user storage quota                            | Teachers can upload unlimited 5 MB images                                                                                                                                                                               | Track upload count/size per problem; enforce a reasonable ceiling                                                                         | Medium   |
+| 3   | ~~Rate limiter is in-memory~~ — **CLOSED**                       | `RateLimiterRedis` keyed on `getClientIp(event)`; production falls back to `failClosedLimiter` (deny all) if Redis is unreachable. Memory fallback only in dev.                                                         | —                                                                                                                                         | —        |
+| 4   | Redis unauthenticated in development                             | Any local process can access Redis                                                                                                                                                                                      | Acceptable for development. Ensure production uses VPC-restricted Memorystore                                                             | Low      |
+| 5   | Page lock is client-side only                                    | Determined attacker can bypass with custom HTTP client                                                                                                                                                                  | Document limitation. Consider logging tab-visibility violations server-side as evidence                                                   | Low      |
+| 6   | No CSRF token on API routes                                      | SvelteKit form actions have built-in CSRF. API routes rely on same-origin and auth headers                                                                                                                              | Verify `Origin` header checking is active on all mutation endpoints                                                                       | Medium   |
+| 7   | ~~File type validation uses `file.type`~~ — **CLOSED**           | Magic-number validation via `detectImageMime(buffer)` in `apps/web/src/routes/api/problems/[id]/images/+server.ts` rejects payloads whose bytes don't match png/jpeg/gif/webp signatures, even if the MIME header lies. | —                                                                                                                                         | —        |
+| 8   | Temporal UI exposed in development                               | Port 8080 accessible on localhost                                                                                                                                                                                       | Ensure Temporal UI is not publicly accessible in production (firewall or VPN)                                                             | High     |
+| 9   | Plagiarism concurrency cap                                       | No per-worker cap on concurrent Dolos runs                                                                                                                                                                              | Add a semaphore / Temporal activity concurrency limit if operator sees parser contention                                                  | Low      |
+| 10  | Account lockout on failed login — **PARTIALLY CLOSED**           | `signInRateLimiter` (5 / 15 min per IP) gates the password sign-in endpoints. OAuth flows are exempt and rely on the upstream provider.                                                                                 | Per-account (rather than per-IP) lockout would further harden against distributed brute-force from many source IPs targeting one account. | Low      |
 
 ## Related Docs
 
