@@ -44,7 +44,6 @@ when working on a specific area, open the listed doc first.
 | Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                           |
 | Setting up or updating Grafana metrics dashboards    | [Observability Setup](docs/runbooks/observability-setup.md)                   |
 | Where new tests belong, how to run each layer        | [Testing Strategy](docs/runbooks/testing.md)                                  |
-| Live demo / showcase walkthrough                     | [Exhibition Demo Playbook](docs/playbooks/exhibition-demo-playbook.md)        |
 | Cross-cutting quality / tech debt                    | [Quality Ledger](docs/operations/QUALITY_SCORE.md)                            |
 | Overall system map, layer boundaries                 | [Architecture Overview](docs/architecture/ARCHITECTURE.md)                    |
 | Feature acceptance specs (assignments, exams, etc.)  | [Feature Specs](docs/specs/) — per-feature Given/When/Then                    |
@@ -123,7 +122,6 @@ docs/
   operations/       Deployment, reliability, security, threat model, quality ledger
   product/          Product sense, planning system
   runbooks/         Getting started, incident recovery, backup/restore, observability
-  playbooks/        Live demo / showcase walkthroughs
   specs/            Per-feature acceptance specs
   plans/            Active + completed design plans
   example-problem/  Sample course problem PDFs + extracted text (referenced by e2e tests)
