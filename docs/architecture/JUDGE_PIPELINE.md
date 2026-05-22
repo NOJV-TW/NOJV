@@ -44,7 +44,7 @@ One sandboxed process per testcase. Stdin comes from the testcase `input`, stdou
 - `memoryLimitMb` — 16 MB to 1024 MB, default 256 MB
 - `env` — extra environment variables injected into the process
 
-All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs, and a `tmpfs` on `/tmp`.
+All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs, and bounded `tmpfs` mounts on `/tmp` (64m) and `/workspace` (128m).
 
 ### check
 
@@ -125,11 +125,11 @@ For `tarball` sources, the worker streams the tarball out of object storage and 
 Resource limits come from `Problem.timeLimitMs` / `Problem.memoryLimitMb`:
 
 - `timeLimitMs` — 1 s to 300 s wall clock for the entire container
-- `memoryLimitMb` — 16 MB to 4096 MB cgroup limit
+- `memoryLimitMb` — 16 MB to 1024 MB cgroup limit
 
 Advanced Mode containers always run with `--network none`. Any packages or test data the TA image needs must be baked into the image at build time — runtime fetches are not allowed. Advanced Mode also always skips the in-browser editor: students can only submit ZIP files (or a single source file that the platform wraps into `sourceFiles: [{ path, content }]`).
 
-**Only the Docker executor runs advanced containers.** Advanced dispatch lives in `apps/worker/src/services/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`). The Kubernetes executor explicitly rejects advanced-mode requests: `K8sExecutor.execute` in `apps/worker/src/services/k8s-executor.ts` short-circuits with an `SE` verdict and the message _"Advanced Mode is not supported by the Kubernetes executor. Deploy the Docker backend for problems with mode='special_env'."_ — operators running advanced-mode problems must run the Docker backend.
+**Only the Docker executor runs advanced containers.** Advanced dispatch lives in `apps/worker/src/services/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`). The Kubernetes executor explicitly rejects advanced-mode requests: `K8sExecutor.execute` in `apps/worker/src/services/k8s-executor.ts` short-circuits with an `SE` verdict — the learner sees a neutral _"Sandbox configuration error. Please contact your administrator."_ while the operator-facing reason ("switch to Docker backend") is logged at `error` level. Operators running advanced-mode problems must run the Docker backend.
 
 ## Problem types
 
