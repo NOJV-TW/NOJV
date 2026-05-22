@@ -3,15 +3,15 @@ import type { RequestHandler } from "./$types";
 import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { problemDomain } from "@nojv/domain";
+import { canEditProblem, problemDomain } from "@nojv/domain";
 
 const { createProblemRecord } = problemDomain;
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  if (actor.platformRole === "student" && !actor.emailVerified) {
-    error(403, "Verify school email first");
+  if (!canEditProblem(actor.platformRole)) {
+    error(403, "Not authorized to create problems");
   }
 
   // Clients send `mode: "standard" | "advanced"` for back-compat with

@@ -102,8 +102,6 @@ function isPageLockExempt(pathname: string): boolean {
   );
 }
 
-// CSP is not set here — the inline theme bootstrap in app.html would need a
-// nonce (requires `app_template_contains_nonce` in svelte.config.js).
 function setSecurityHeaders(response: Response): void {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
@@ -145,6 +143,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   let recordedStatus: number | null = null;
   try {
     const response = await runHandle({ event, resolve });
+    setSecurityHeaders(response);
     recordedStatus = response.status;
     return response;
   } finally {
@@ -321,7 +320,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     // Update the event request with the (potentially de-localized) request
     event.request = request;
     const response = await resolve(event);
-    setSecurityHeaders(response);
     response.headers.set("x-request-id", event.locals.requestId);
     return response;
   });

@@ -139,6 +139,8 @@ export async function checkSubmitCooldown(
 ) {
   if (cooldownSec <= 0) return;
 
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${contestId}:${userId}:${problemId}`}, 0))`;
+
   const cutoff = new Date(Date.now() - cooldownSec * 1000);
 
   const recentSubmission = await submissionRepo.withTx(tx).findMostRecent({

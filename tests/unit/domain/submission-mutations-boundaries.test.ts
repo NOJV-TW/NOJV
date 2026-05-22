@@ -74,11 +74,13 @@ vi.mock("@nojv/db", () => ({
   },
   runTransaction: async <T>(
     fn: (tx: {
+      $executeRaw: typeof vi.fn;
       contestProblem: { findFirst: typeof txContestProblemFindFirst };
       courseAssessmentProblem: { findFirst: typeof vi.fn };
     }) => Promise<T>,
   ): Promise<T> =>
     fn({
+      $executeRaw: vi.fn().mockResolvedValue(0),
       contestProblem: { findFirst: txContestProblemFindFirst },
       courseAssessmentProblem: { findFirst: vi.fn() },
     }),
