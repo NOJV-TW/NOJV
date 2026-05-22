@@ -60,7 +60,6 @@ docs/
   operations/       Deployment, reliability, security, threat model, quality ledger
   product/          Product sense, planning system
   runbooks/         Getting started, incident recovery, backup/restore, observability
-  playbooks/        Live demo / showcase walkthroughs
   specs/            Per-feature acceptance specs
   plans/            Active + completed design plans
 ```
