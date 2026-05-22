@@ -91,16 +91,19 @@ timezone. There is no pre-aggregated daily-activity table.
   THEN SvelteKit redirects to the sign-in flow via `requireAuth(event)`.
 - GIVEN an authenticated request,
   WHEN the load runs,
-  THEN `getDashboardView(actor.userId)`,
-  `getSubmissionActivity(actor.userId, since)`, and
-  `getSuggestedProblems(actor.userId)` resolve in parallel; the response
-  carries `stats`, `recentSubmissions`, `analytics`, `activity` (an
-  `{ at, ac }[]` array of ISO timestamps), `suggestedProblems`, and
-  `username`.
+  THEN `getDashboardView(actor.userId)` is awaited FIRST (so the shell
+  can decide between `<WelcomeGuide />` and the dashboard body); the
+  response carries top-level `stats`, `recentSubmissions`, `analytics`,
+  `username`, plus a nested `streamed` object. `streamed.activity` (an
+  `{ at, ac }[]` array of ISO timestamps) and `streamed.suggestedProblems`
+  are STREAMED promises, kicked off only when `hasActivity`
+  (`stats.totalAttempts > 0`); otherwise both resolve to empty arrays
+  without hitting the heavier queries.
 - GIVEN an actor with zero submissions,
   WHEN the load runs,
   THEN `stats.totalAc === 0`, `stats.totalAttempts === 0`,
-  `recentSubmissions === []`, `activity === []`, and every
+  `recentSubmissions === []`, `streamed.activity` resolves to `[]` (the
+  `hasActivity` gate is false, so the query is skipped), and every
   `analytics.*` array is empty.
 
 ### Activity heatmap

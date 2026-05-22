@@ -15,9 +15,10 @@
 
 - `src/index.ts` — 容器 entrypoint，讀 stdin config 並呼叫 judge
 - `src/compiler.ts` — 多語言編譯包裝
-- `src/judges/run-process.ts` — 標準 stdin/stdout judge
+- `src/judges/standard.ts` — 標準 stdin/stdout judge
+- `src/judges/run-process.ts` — 共用程序執行包裝
 - `src/judges/interactive.ts` — interactive judge（雙向 IO）
-- `src/judges/special-judge.ts` — special judge（自訂比對程式）
+- `src/judges/checker.ts` — special judge / 自訂比對程式（custom comparator）
 - `src/utils.ts` — `createBoundedBuffer` 等共用 helper
 
 ## 依賴

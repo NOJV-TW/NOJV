@@ -140,15 +140,16 @@ Unlike the web, the worker **does** have an explicit shutdown hook.
 The OTel SDK starts **before any application code runs** via top-of-file
 side-effect imports:
 
-- `apps/web/src/hooks.server.ts:1` → `import "./lib/server/otel.js"`
+- `apps/web/src/hooks.server.ts:1` → `import "$lib/server/otel"`
 - `apps/worker/src/index.ts:1` → `import "./otel.js"`
 
-The worker also has `apps/worker/src/otel-bootstrap.ts` for `--import`
-belt-and-braces in dev — Node's `--import` flag runs the bootstrap before
-the entry-file's top-level imports, which gives the auto-instrumentation
-hooks a chance to monkey-patch modules before anything imports `pg` or
-`ioredis`. In production builds the side-effect import is sufficient
-because tsup bundles `otel.ts` first.
+The worker boots OTel via the side-effect `import "./otel.js"` at the very
+top of `apps/worker/src/index.ts` — before anything imports `pg` or
+`ioredis`, so the auto-instrumentation hooks can monkey-patch those modules
+first. In dev, `--import tsx` is the TypeScript loader (it transpiles the
+`.ts` entry on the fly); the OTel ordering still comes from that top-of-file
+import, not from a separate bootstrap file. There is no
+`apps/worker/src/otel-bootstrap.ts`.
 
 ### Auto-instrumentation
 
@@ -177,11 +178,11 @@ otherwise emit traces too. Metrics-only is the design.
 
 Add new metrics in the closest existing file:
 
-| Surface           | File                                          |
-| ----------------- | --------------------------------------------- |
-| Web request flow  | `apps/web/src/lib/server/metrics.ts`          |
-| Temporal activity | `packages/temporal/src/activities/metrics.ts` |
-| Redis-side timing | `packages/redis/src/metrics.ts`               |
+| Surface           | File                                  |
+| ----------------- | ------------------------------------- |
+| Web request flow  | `apps/web/src/lib/server/metrics.ts`  |
+| Judge / worker    | `apps/worker/src/activities/utils.ts` |
+| Redis-side timing | `packages/redis/src/metrics.ts`       |
 
 ### Cardinality budget
 

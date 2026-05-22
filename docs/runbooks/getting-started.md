@@ -26,16 +26,24 @@ pnpm install
 cp .env.example .env
 ```
 
-Edit `.env` with your values. For local development, the defaults work out of the box except for OAuth (optional):
+Edit `.env` with your values. For local development the defaults work out of the box — the `S3_*` vars already match the local MinIO that docker-compose starts, and OAuth is optional:
 
-| Variable                  | Action                                  |
-| ------------------------- | --------------------------------------- |
-| `DATABASE_URL`            | Keep default for local PostgreSQL       |
-| `REDIS_URL`               | Keep default for local Redis            |
-| `BETTER_AUTH_SECRET`      | Change to a random string in production |
-| `GITHUB_CLIENT_ID/SECRET` | Optional: create a GitHub OAuth App     |
-| `GOOGLE_CLIENT_ID/SECRET` | Optional: create a Google OAuth App     |
-| `RESEND_API_KEY`          | Optional: needed for email verification |
+| Variable                  | Action                                                                 |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `DATABASE_URL`            | Keep default for local PostgreSQL                                      |
+| `REDIS_URL`               | Keep default for local Redis                                           |
+| `BETTER_AUTH_SECRET`      | Change to a random string in production                                |
+| `S3_ENDPOINT`             | Local MinIO: `http://localhost:9000`                                   |
+| `S3_ACCESS_KEY`           | Local MinIO: `minioadmin`                                              |
+| `S3_SECRET_KEY`           | Local MinIO: `minioadmin`                                              |
+| `EXECUTION_BACKEND`       | `docker` for local sandbox execution (`kubernetes` in production)      |
+| `ALLOWED_HOSTS`           | Comma-separated Vite host allowlist; default `localhost,127.0.0.1,...` |
+| `METRICS_TOKEN`           | Random secret protecting the web `/metrics` endpoint                   |
+| `GITHUB_CLIENT_ID/SECRET` | Optional: create a GitHub OAuth App                                    |
+| `GOOGLE_CLIENT_ID/SECRET` | Optional: create a Google OAuth App                                    |
+| `RESEND_API_KEY`          | Optional: needed for email verification                                |
+
+> **Note:** Local storage is MinIO; `.env.example` ships the matching defaults (`S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin`, `S3_BUCKET=nojv`). The storage client (`packages/storage/src/client.ts`) throws on boot if `S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` are unset, so keep them set.
 
 ## 3. Start Infrastructure
 
@@ -80,10 +88,10 @@ pnpm db:seed
 
 Seed creates:
 
-- 7 users (all with password `password123`)
-- 5 problems with testcases
-- 2 contests
-- 2 courses with memberships, assessments, and join tokens
+- 5 users — 4 with password `password123` (admin, teacher, ta-student, student); the 5th (`b11902999`) is an OAuth-placeholder with no password
+- 12 problems with testcases
+- 3 contests
+- 1 course ("Operating Systems Lab") with memberships and assessments (students are added directly by the teacher — the join-token flow was removed)
 
 ## 5. Build Sandbox Image
 
@@ -143,7 +151,7 @@ pnpm test:all           # All of the above
 pnpm ci:verify
 ```
 
-Runs: formatting check, Prisma generation, build, lint, and tests.
+Runs: formatting check, the `lint:domain-queries` guard, Prisma generation, build, typecheck, lint, and unit tests.
 
 ### Rebuild Sandbox Image
 

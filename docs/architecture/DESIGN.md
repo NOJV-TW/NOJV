@@ -6,39 +6,38 @@ Design guidance matters in this repository because NOJV is a tool that students 
 
 ### CSS Framework
 
-Tailwind CSS 4 with `tw-animate-css` for animation utilities. Components use `tailwind-variants` (`tv()`) for variant-driven styling and `tailwind-merge` via the `cn()` utility from `$lib/utils.ts` for conditional class merging. The `clsx` library handles class composition before merge.
+Tailwind CSS 4 with `tw-animate-css` for animation utilities. Components use `tailwind-variants` (`tv()`) for variant-driven styling and `tailwind-merge` via the `cn()` utility from `$lib/utils/css.ts` for conditional class merging. The `clsx` library handles class composition before merge.
 
 The `@theme inline` block in `app.css` maps CSS custom properties to Tailwind color tokens (`--color-primary`, `--color-muted`, etc.) so all design tokens are usable as Tailwind classes (`bg-primary`, `text-muted-foreground`).
 
 ### Component Library
 
-Bits UI (headless Svelte components, similar to Radix) provides accessible primitives. Shipped Bits UI integrations: Tooltip, Dialog, DropdownMenu, Select, Tabs. These are wrapped in styled components under `$lib/components/ui/`.
+Bits UI (headless Svelte components, similar to Radix) provides accessible primitives. Shipped Bits UI integrations: Dialog, RadioGroup, Select, Separator, Tooltip. These are wrapped in styled components under `$lib/components/primitives/ui/`.
 
-shadcn-svelte-style components in `$lib/components/ui/`:
+shadcn-svelte-style components in `$lib/components/primitives/ui/`:
 
-| Component    | Variants / Notes                                                                                                              |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Button       | `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`; sizes: `default`, `sm`, `lg`, `icon`, `icon-sm`, `icon-lg` |
-| Badge        | `default`, `secondary`, `destructive`, `outline`; renders as `<a>` or `<span>`                                                |
-| Card         | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, CardAction                                             |
-| Dialog       | Full set: trigger, content, header, footer, overlay, close, portal                                                            |
-| DropdownMenu | Full set including sub-menus, checkbox items, radio groups, shortcuts                                                         |
-| Select       | Full set with scroll buttons, groups, portal                                                                                  |
-| Tabs         | Tabs, TabsList, TabsTrigger, TabsContent                                                                                      |
-| Table        | Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter, TableCaption                                      |
-| Input        | Single styled input component                                                                                                 |
-| Separator    | Horizontal/vertical separator                                                                                                 |
+| Component | Variants / Notes                                                                                                              |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Button    | `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`; sizes: `default`, `sm`, `lg`, `icon`, `icon-sm`, `icon-lg` |
+| Badge     | `default`, `secondary`, `destructive`, `outline`; renders as `<a>` or `<span>`                                                |
+| Card      | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, CardAction                                             |
+| Dialog    | Full set: trigger, content, header, footer, overlay, close, portal                                                            |
+| Select    | Full set with scroll buttons, groups, portal                                                                                  |
+| Input     | Single styled input component                                                                                                 |
+| Separator | Horizontal/vertical separator                                                                                                 |
+| Skeleton  | Loading placeholder primitives                                                                                                |
+| Toast     | Toast stack (`ToastProvider` + `toast/ToastItem`)                                                                             |
 
-Custom components in `$lib/components/ui/`:
+There is no shadcn `Tabs` / `Table` / `DropdownMenu` wrapper dir: tabs are the custom `primitives/visual/TabStrip.svelte`, tables are feature-specific (e.g. `features/admin/users/UsersTable.svelte`, `features/course/submissions/MatrixTable.svelte`), and the dropdown menu is `features/notification/NotificationDropdown.svelte`.
 
-| Component        | Purpose                                                              |
-| ---------------- | -------------------------------------------------------------------- |
-| EmptyState       | Icon + title + description + optional CTA for zero-data states       |
-| ToastContainer   | Fixed bottom-right toast stack with success/error/info type styling  |
-| TagInput         | Pill-based tag entry with space/enter to add, backspace to remove    |
-| HelpTooltip      | `CircleHelp` icon with Bits UI Tooltip for inline help text          |
-| ImageDropZone    | Textarea with drag-and-drop + paste image upload, markdown insertion |
-| SystemTextToggle | Admin-side zh/en toggle with localStorage persistence                |
+Custom components in `$lib/components/primitives/ui/`:
+
+| Component     | Purpose                                                              |
+| ------------- | -------------------------------------------------------------------- |
+| EmptyState    | Icon + title + description + optional CTA for zero-data states       |
+| TagInput      | Pill-based tag entry with space/enter to add, backspace to remove    |
+| HelpTooltip   | `CircleHelp` icon with Bits UI Tooltip for inline help text          |
+| ImageDropZone | Textarea with drag-and-drop + paste image upload, markdown insertion |
 
 ### Typography
 
@@ -119,13 +118,13 @@ All semantic colors use the `dark:text-{color}-400` pattern for dark mode contra
 
 ### Internationalization
 
-Paraglide JS (`@inlang/paraglide-js`) with locale-aware routing. Shipped locales: `en`, `zh-TW`. The header contains a pill-style locale switcher where the active locale gets `bg-primary text-white`.
+Paraglide JS (`@inlang/paraglide-js`) with locale-aware routing. Shipped locales: `en` (`baseLocale`, default), `zh-TW`. The header contains a pill-style locale switcher where the active locale gets `bg-primary text-white`.
 
 ## Interaction Patterns
 
 ### Problem Workspace
 
-The primary problem-solving surface is a resizable split-pane layout (`Workspace.svelte`):
+The primary problem-solving surface is a resizable split-pane layout (`ProblemWorkspace.svelte`):
 
 - **Left panel**: Three tabs -- Description, Submissions, Editorials. Default width 42%, draggable resize handle (20%-80% range), keyboard-accessible (`ArrowLeft`/`ArrowRight`).
 - **Right panel**: Monaco code editor with language selector, action bar (Run / Submit), and a bottom panel for testcase editing and result viewing.
@@ -185,7 +184,7 @@ Difficulty badges: easy = emerald, medium = amber, hard = red. All use the `bg-{
 
 2. **Follow the semantic color map.** Verdicts, difficulty, and status states have established color conventions (see table above). New status indicators must follow the same pattern (`bg-{color}-500/15 text-{color}-700 dark:text-{color}-400`).
 
-3. **New UI primitives go through Bits UI.** Headless behavior (tooltips, popovers, dialogs, etc.) must use Bits UI, not custom DOM event handling. Wrap Bits UI primitives in styled components under `$lib/components/ui/`.
+3. **New UI primitives go through Bits UI.** Headless behavior (tooltips, popovers, dialogs, etc.) must use Bits UI, not custom DOM event handling. Wrap Bits UI primitives in styled components under `$lib/components/primitives/ui/`.
 
 4. **Variant-driven components use `tailwind-variants`.** When a component has more than two visual variants, define them with `tv()` and export the type (see `buttonVariants`, `badgeVariants`).
 

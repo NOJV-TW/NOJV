@@ -11,7 +11,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 │  User Interface    Svelte components (browser rendering)            │
 │                                                                     │
 │  Presentation      SvelteKit server load / form actions (BFF)       │
-│                    Temporal activities (worker-side controllers)    │
+│                    Temporal activities (apps/worker/src/activities/) │
 ├─────────────────────────────────────────────────────────────────────┤
 │ 2nd Tier                                                            │
 │                                                                     │
@@ -231,7 +231,6 @@ Dispatch helpers exposed at the root entry:
 
 - `dispatchSubmissionJudge()` — submission judge workflow
 - `dispatchContestLifecycle()` — contest lifecycle workflow
-- `dispatchAssessmentLifecycle()` — assessment lifecycle workflow
 - `dispatchPlagiarismCheck()` — Dolos plagiarism workflow
 - `dispatchRejudge()` — rejudge workflow
 - `dispatchExamAutoClose()` — exam auto-close timer workflow
@@ -239,14 +238,13 @@ Dispatch helpers exposed at the root entry:
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                      | Task Queue | Workflow ID pattern                                                                 | Signal / Query                                |
-| ----------------------------- | ---------- | ----------------------------------------------------------------------------------- | --------------------------------------------- |
-| `submissionJudgeWorkflow`     | `judge`    | `judge-{submissionId}`                                                              | Query: `getStatus`                            |
-| `rejudgeWorkflow`             | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`    | Query: `getProgress`                          |
-| `contestLifecycleWorkflow`    | `platform` | `contest-lifecycle-{contestId}`                                                     | Signal: `adminOverride` (`earlyEnd`/`extend`) |
-| `assessmentLifecycleWorkflow` | `platform` | `assessment-lifecycle-{assessmentId}`                                               | —                                             |
-| `plagiarismCheckWorkflow`     | `platform` | `plagiarism-{targetType}-{targetId}`                                                | Query: `getPlagiarismStatus`                  |
-| `examAutoCloseWorkflow`       | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_IF_RUNNING` on re-dispatch) | —                                             |
+| Workflow                   | Task Queue | Workflow ID pattern                                                               | Signal / Query                                |
+| -------------------------- | ---------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| `submissionJudgeWorkflow`  | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                            |
+| `rejudgeWorkflow`          | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{timestamp}`  | Query: `getProgress`                          |
+| `contestLifecycleWorkflow` | `platform` | `contest-lifecycle-{contestId}`                                                   | Signal: `adminOverride` (`earlyEnd`/`extend`) |
+| `plagiarismCheckWorkflow`  | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                  |
+| `examAutoCloseWorkflow`    | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                             |
 
 Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)).
 

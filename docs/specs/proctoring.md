@@ -53,9 +53,11 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
   `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts`.
 - Violation modes: `block` → `{ allowed: false, violationType }` result
   (caller rejects request); `notify` → log and `{ allowed: true }`.
-- `checkProctoringGate` / `checkExamGate` — single entry point from
-  route loaders that composes existence, visibility, membership,
-  course-archived, time window, and IP checks into one verdict.
+- `checkProctoringGate` / `checkProctoringGateInTx` — the public entry
+  point from route loaders that composes existence, visibility,
+  membership, course-archived, time window, and IP checks into one
+  verdict. Internally it dispatches to the non-exported `checkExamGate`
+  / `checkContestGate` helpers by entity kind.
 - `getPageLockedContext` — hook-layer helper that asks "is this user
   currently inside an active published exam with page lock on?"
 - Client-IP trust model: Cloudflare-only (`CF-Connecting-IP`); missing
@@ -188,13 +190,6 @@ true }`.
 notify` while students are taking the exam, ongoing blocked requests
   don't retroactively become notifies — but the very next request
   the student makes hits the new config.
-- **Contest routes with IP fields in config.** The contest
-  zod schema still carries `ipLockFields` + `pageLockEnabled` as
-  residual Phase 3 artefacts (see
-  `packages/core/src/schemas/contest.ts`). The DB column, domain
-  layer, and gate.ts have all been cleaned up; the schema fields are
-  accepted and silently ignored. Flagged as a cleanup TODO in
-  `docs/specs/contests.md`.
 - **Page-lock cache + instructor release.** When an instructor
   releases a session, the 30s cache on `examContextCache` can still
   redirect the student for up to 30 seconds. A forced cache-bust is
@@ -209,8 +204,9 @@ notify` while students are taking the exam, ongoing blocked requests
   `ipToNumber`.
 - `packages/domain/src/shared/page-lock.ts` — `getPageLockedContext`.
 - `packages/domain/src/proctoring/gate.ts` — `checkProctoringGate`,
-  `checkProctoringGateInTx`, `checkExamGate`, `checkContestGate`,
-  `ProctoringDenialReason`.
+  `checkProctoringGateInTx` (the exported entry points);
+  `checkExamGate` / `checkContestGate` are internal (non-exported)
+  per-kind helpers. `ProctoringDenialReason`.
 - `packages/domain/src/proctoring/violation-logger.ts` — `logViolation`,
   `logViolationInTx`.
 
@@ -219,8 +215,9 @@ notify` while students are taking the exam, ongoing blocked requests
 - `apps/web/src/hooks.server.ts` —
   - `setSecurityHeaders` (nosniff, DENY, referrer-policy,
     permissions-policy, HSTS in prod).
-  - `getCachedPageLockContext` / `getCachedActiveExamContext` (30s
-    FIFO/LRU caches).
+  - `pageLockCache` / `examContextCache` — inline `createTtlCache`
+    instances (30s TTL, bounded to 10k entries) read via
+    `.getOrLoad(key, loader)`.
   - Page-lock redirect + `visibility_lost` event.
 - `apps/web/src/lib/server/exam-lock.ts` — `getActiveExamContext`,
   `isAllowedPathForExam`.
