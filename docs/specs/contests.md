@@ -56,8 +56,11 @@ freeze/unfreeze for the final reveal.
 - Scoreboard chart series (top-N + time-series by user).
 - Invite-code join flow (`joinByCode` action; redirects to
   `/contests/[id]` — participation is still lazy).
-- Visibility gating: `draft` contests are creator/admin only; non-managers
-  get 404 for the detail page.
+- Visibility gating: `getContestDetail` throws `NotFoundError` for any
+  non-`published` contest — including for the creator/admin (there is no
+  manager-only draft preview). In practice the draft state is
+  unreachable via creation anyway: `createContestRecord` hardcodes
+  `visibility: "published"`.
 - Practice-after-close via `assertProblemViewAccess` historical-
   participant clause.
 - Per-contest `allowedLanguages` with workspace-file invariant (every
@@ -111,8 +114,9 @@ freeze/unfreeze for the final reveal.
 
 ### Visibility & detail
 
-- GIVEN a `draft` contest, WHEN a non-manager viewer hits
-  `getContestDetail`, THEN `NotFoundError`.
+- GIVEN a non-`published` (e.g. `draft`) contest, WHEN ANY viewer hits
+  `getContestDetail` (manager or not), THEN `NotFoundError` — there is
+  no manager draft-preview path.
 - GIVEN a `published` contest with `now < startsAt`, WHEN a non-manager
   viewer calls `getContestDetail`, THEN `problemsHidden: true` and
   `problems: null` in the response.
@@ -165,8 +169,11 @@ problems`; Redis zset score = `solvedCount * 1e9 - totalPenalty` so
 ### Scoreboard freeze / unfreeze
 
 - WHEN `freezeContestBoard(contestId)` runs, THEN
-  `scoreboard.freezeScoreboard(contestId)` snapshots the live zset into
-  the frozen key (90-day TTL) and sets `Contest.frozenBoard = true`.
+  `scoreboard.freezeScoreboard(contestId, ttl)` snapshots the live zset
+  into the frozen key and sets `Contest.frozenBoard = true`. The TTL is
+  `scoreboardTtlForEndsAt(contest.endsAt)` (= `endsAt` + 7-day grace,
+  floored at 1h), the same `endsAt`-derived TTL as the live board — not
+  the 90-day constant.
 - WHEN a submission is judged DURING a freeze, THEN `updateScoreboard`
   still writes to the LIVE zset — `getScoreboard` continues to return
   the frozen snapshot until unfreeze.
@@ -177,8 +184,9 @@ problems`; Redis zset score = `solvedCount * 1e9 - totalPenalty` so
 - GIVEN `scoreboardMode === 'frozen'` OR (`frozenBoard && frozenAt <
 now`) and the viewer is not privileged, THEN `getScoreboard` returns
   the frozen view (`isFrozen: true`).
-- GIVEN `options.unfrozen: true` AND the viewer is privileged,
-  THEN the live view is returned regardless of freeze state.
+- GIVEN `options.canSeeLive: true` (set server-side for privileged
+  viewers — admin or contest organizer), THEN the live view is returned
+  regardless of freeze or `hidden` mode.
 
 ### Scoreboard chart
 
@@ -204,9 +212,9 @@ now`) and the viewer is not privileged, THEN `getScoreboard` returns
   section (the feedback section is omitted for contest contexts).
 - GIVEN a non-admin manager actor with `now < endsAt`, WHEN
   `createOverride` / `updateOverride` / `deleteOverride` is called
-  against the contest, THEN `ConflictError("Grading is only
-available after the contest has ended.")` (post-close gate via
-  `assertContextClosed`). `platformRole === "admin"` bypasses.
+  against the contest, THEN `ConflictError("This context is still open;
+grading is only available after it closes.")` (shared post-close gate
+  via `assertContextClosed`). `platformRole === "admin"` bypasses.
 
 ### Audit timeline
 
@@ -304,9 +312,13 @@ by design. Verified safe in`contest-permissions.test.ts`.
 ### Redis
 
 - `packages/redis/src/scoreboard.ts` — `updateScoreboard`,
-  `getScoreboard`, `freezeScoreboard`, `unfreezeScoreboard`.
+  `getScoreboard`, `freezeScoreboard`, `unfreezeScoreboard`,
+  `scoreboardTtlForEndsAt`.
   Keys: `keys.scoreboard(contestId)` / `keys.scoreboardFrozen(contestId)`.
-  `SCOREBOARD_TTL_SECONDS = 90 * 24 * 60 * 60`.
+  `scoreboardTtlForEndsAt(endsAt)` = `endsAt` + 7-day grace, floored at
+  `MIN_SCOREBOARD_TTL_SECONDS` (1h). `SCOREBOARD_TTL_SECONDS`
+  (`90 * 24 * 60 * 60`) is only the default/fallback when no `endsAt` is
+  available.
 
 ### Routes / API
 

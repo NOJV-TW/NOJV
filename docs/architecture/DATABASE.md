@@ -62,9 +62,11 @@ Course ──┬── CourseMembership
 | `CourseRole`                 | teacher, ta, student                                                                                                                          |
 | `CourseMembershipStatus`     | active, removed                                                                                                                               |
 | `CourseAssessmentStatus`     | draft, published                                                                                                                              |
+| `AssessmentAuditAction`      | publish, revert_to_draft, delete_draft                                                                                                        |
 | `ContestVisibility`          | draft, published                                                                                                                              |
 | `ContestScoringMode`         | problem_count, point_sum                                                                                                                      |
 | `ContestParticipationStatus` | registered, active, submitted, disqualified                                                                                                   |
+| `VirtualContestStatus`       | active, finished                                                                                                                              |
 | `ExamStatus`                 | draft, published                                                                                                                              |
 | `ExamScoringMode`            | problem_count, point_sum                                                                                                                      |
 | `ExamParticipationStatus`    | registered, active, submitted, disqualified                                                                                                   |
@@ -79,6 +81,8 @@ Course ──┬── CourseMembership
 | `PlagiarismContext`          | assessment, exam, contest                                                                                                                     |
 | `OverrideContextType`        | assignment, exam, contest                                                                                                                     |
 | `ScoreOverrideAction`        | create, update, delete                                                                                                                        |
+| `SubmissionFeedbackAction`   | create, update, delete                                                                                                                        |
+| `EditorialReportStatus`      | open, resolved, dismissed                                                                                                                     |
 | `ClarificationContextType`   | contest, exam, assignment                                                                                                                     |
 | `ClarificationState`         | pending, answered, dismissed                                                                                                                  |
 | `NotificationType`           | assignment_due_soon, exam_starting_soon, contest_starting_soon, course_enrolled, announcement_published, role_changed, clarification_answered |
@@ -129,13 +133,14 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | `score`              | Int              | 0-100                                                                                      |
 | `examId`             | String?          | FK to `Exam` when the submission was made inside an exam                                   |
 | `contestId`          | String?          | FK to `Contest` when the submission was made inside a contest                              |
+| `virtualContestId`   | String?          | FK to `VirtualContest` when the submission was made inside a virtual contest replay        |
 | `courseAssessmentId` | String?          | FK to `CourseAssessment` when the submission was made for a homework assignment            |
 | `sampleOnly`         | Boolean          | `true` for in-editor sample runs — never graded                                            |
 | `verdictDetail`      | Json?            | Full `SubmissionResult`: per-case + per-subtask results, compiler output, scoring feedback |
 
-"Mode" is not a stored column — it's derived from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `courseAssessmentId` ? "assignment" : "practice". A DB-level CHECK constraint (`Submission_single_context_chk`, added in migration `20260416180001_submission_single_context_check`) enforces that at most one of `examId` / `contestId` / `courseAssessmentId` is non-null per row.
+"Mode" is not a stored column — it's derived from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `courseAssessmentId` ? "assignment" : "practice". A DB-level CHECK constraint (`Submission_single_context_chk`, added in migration `20260416180001_submission_single_context_check`) enforces that at most one of `examId` / `contestId` / `courseAssessmentId` is non-null per row. `virtualContestId` sits OUTSIDE this xor — a virtual-contest submission has only `virtualContestId` set (none of the three xor columns).
 
-Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[courseId, courseAssessmentId, createdAt]`, `[contestParticipationId, problemId, createdAt]`, `[contestId, problemId, createdAt]`, `[examId, problemId, createdAt]`.
+Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[courseId, courseAssessmentId, createdAt]`, `[contestParticipationId, problemId, createdAt]`, `[contestId, problemId, createdAt]`, `[examId, problemId, createdAt]`, `[virtualContestId, problemId, createdAt]`.
 
 ### Contest
 
@@ -193,44 +198,50 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 
 ## Complete Model Index
 
-34 models in total. The sections above detail the high-traffic / core models; everything else lives here for navigation. For exact column definitions, open the schema file — this table is deliberately one-line-per-model so it stays easy to keep in sync.
+39 models in total. The sections above detail the high-traffic / core models; everything else lives here for navigation. For exact column definitions, open the schema file — this table is deliberately one-line-per-model so it stays easy to keep in sync.
 
-| Model                     | Purpose                                                                     | Schema file                   |
-| ------------------------- | --------------------------------------------------------------------------- | ----------------------------- |
-| `User`                    | Central identity (better-auth core + platform role, status, disabled flag)  | `schema/auth.prisma`          |
-| `Session`                 | better-auth session row (opaque token, expiry, IP, UA)                      | `schema/auth.prisma`          |
-| `Account`                 | better-auth OAuth provider link (GitHub, Google) or password account        | `schema/auth.prisma`          |
-| `Verification`            | better-auth email / OTP verification token store                            | `schema/auth.prisma`          |
-| `SchoolVerificationToken` | School-email verification flow (separate from better-auth's Verification)   | `schema/auth.prisma`          |
-| `Clarification`           | Public Q&A for contests / exams / assignments (asker masked to non-staff)   | `schema/clarification.prisma` |
-| `Contest`                 | Standalone public / invite-only CP event — no proctoring fields             | `schema/contest.prisma`       |
-| `ContestProblem`          | Join table: problems attached to a contest with ordinal + points            | `schema/contest.prisma`       |
-| `ContestParticipation`    | Per-user contest state (score, penalty, status, subtaskScores)              | `schema/contest.prisma`       |
-| `Exam`                    | Course-embedded proctored exam (page lock, IP whitelist / binding)          | `schema/contest.prisma`       |
-| `ExamProblem`             | Join table: problems attached to an exam with ordinal + points              | `schema/contest.prisma`       |
-| `ExamParticipation`       | Per-user exam state + `ipPin` for IP-binding enforcement                    | `schema/contest.prisma`       |
-| `IpViolationLog`          | Audit rows for IP whitelist / binding violations — exam-only                | `schema/contest.prisma`       |
-| `ActiveExamSession`       | Phase 4 exam lock — one row per active `(user, exam)`; `endedAt` closes it  | `schema/contest.prisma`       |
-| `ExamSessionEvent`        | Append-only audit log per `ActiveExamSession` (enter / leave / release / …) | `schema/contest.prisma`       |
-| `Course`                  | Course container (title, owner, `academicYear` / `semester`, archived flag) | `schema/course.prisma`        |
-| `CourseMembership`        | `(course, user, role)` with `active` / `removed` status + audit trail       | `schema/course.prisma`        |
-| `CourseAssessment`        | Homework assignment (opens / due / close, adjustment rules, no proctoring)  | `schema/course.prisma`        |
-| `CourseAssessmentProblem` | Join table: problems attached to an assessment with ordinal + points        | `schema/course.prisma`        |
-| `Notification`            | Per-recipient event row (type + params JSON, `readAt` for unread state)     | `schema/notification.prisma`  |
-| `Announcement`            | Platform / course announcement (pinned, audience, published window)         | `schema/ops.prisma`           |
-| `AnnouncementTranslation` | Per-locale title + body for an Announcement                                 | `schema/ops.prisma`           |
-| `PlagiarismPairFlag`      | Per-pair staff review state (survives plagiarism re-runs)                   | `schema/plagiarism.prisma`    |
-| `Problem`                 | Problem metadata (type, difficulty, limits, judge config, samples)          | `schema/problem.prisma`       |
-| `ProblemStatementI18n`    | Per-locale problem statement (title, body, input / output format)           | `schema/problem.prisma`       |
-| `TestcaseSet`             | Named subtask on a problem (weight, scoring strategy)                       | `schema/problem.prisma`       |
-| `Testcase`                | Individual graded case (S3 keys for input / output / aux files)             | `schema/problem.prisma`       |
-| `ProblemWorkspaceFile`    | Per-language workspace file (path, content S3 key, visibility, order)       | `schema/problem.prisma`       |
-| `Submission`              | Judge submission row (source code, verdict, score, mode derived from FKs)   | `schema/submission.prisma`    |
-| `SubmissionRejudgeLog`    | Two-pass audit log for rejudge runs (snapshot of old / new verdict + score) | `schema/submission.prisma`    |
-| `ScoreOverride`           | Staff-only manual score override per `(user, problem, context)`             | `schema/submission.prisma`    |
-| `ScoreOverrideAuditLog`   | Append-only create / update / delete trail for `ScoreOverride`              | `schema/submission.prisma`    |
-| `Editorial`               | Per-`(user, problem, language)` editorial / writeup                         | `schema/submission.prisma`    |
-| `UserDailyActivity`       | Per-`(user, UTC day)` aggregate for streaks / heatmaps                      | `schema/submission.prisma`    |
+| Model                        | Purpose                                                                           | Schema file                   |
+| ---------------------------- | --------------------------------------------------------------------------------- | ----------------------------- |
+| `User`                       | Central identity (better-auth core + platform role, status, disabled flag)        | `schema/auth.prisma`          |
+| `Session`                    | better-auth session row (opaque token, expiry, IP, UA)                            | `schema/auth.prisma`          |
+| `Account`                    | better-auth OAuth provider link (GitHub, Google) or password account              | `schema/auth.prisma`          |
+| `Verification`               | better-auth email / OTP verification token store                                  | `schema/auth.prisma`          |
+| `SchoolVerificationToken`    | School-email verification flow (separate from better-auth's Verification)         | `schema/auth.prisma`          |
+| `Clarification`              | Public Q&A for contests / exams / assignments (asker masked to non-staff)         | `schema/clarification.prisma` |
+| `Contest`                    | Standalone public / invite-only CP event — no proctoring fields                   | `schema/contest.prisma`       |
+| `ContestProblem`             | Join table: problems attached to a contest with ordinal + points                  | `schema/contest.prisma`       |
+| `ContestParticipation`       | Per-user contest state (score, penalty, status, subtaskScores)                    | `schema/contest.prisma`       |
+| `Exam`                       | Course-embedded proctored exam (page lock, IP whitelist / binding)                | `schema/contest.prisma`       |
+| `ExamProblem`                | Join table: problems attached to an exam with ordinal + points                    | `schema/contest.prisma`       |
+| `ExamParticipation`          | Per-user exam state + `ipPin` for IP-binding enforcement                          | `schema/contest.prisma`       |
+| `IpViolationLog`             | Audit rows for IP whitelist / binding violations — exam-only                      | `schema/contest.prisma`       |
+| `ActiveExamSession`          | Phase 4 exam lock — one row per active `(user, exam)`; `endedAt` closes it        | `schema/contest.prisma`       |
+| `ExamSessionEvent`           | Append-only audit log per `ActiveExamSession` (enter / leave / release / …)       | `schema/contest.prisma`       |
+| `VirtualContest`             | Per-user time-shifted replay of an ended contest (score, penalty, version)        | `schema/contest.prisma`       |
+| `Course`                     | Course container (title, owner, `academicYear` / `semester`, archived flag)       | `schema/course.prisma`        |
+| `CourseMembership`           | `(course, user, role)` with `active` / `removed` status + audit trail             | `schema/course.prisma`        |
+| `CourseAssessment`           | Homework assignment (opens / due / close, adjustment rules, no proctoring)        | `schema/course.prisma`        |
+| `CourseAssessmentProblem`    | Join table: problems attached to an assessment with ordinal + points              | `schema/course.prisma`        |
+| `AssessmentAuditLog`         | Append-only publish / revert / delete-draft trail for course assessments          | `schema/course.prisma`        |
+| `Notification`               | Per-recipient event row (type + params JSON, `readAt` for unread state)           | `schema/notification.prisma`  |
+| `Announcement`               | Platform / course announcement (pinned, audience, published window)               | `schema/ops.prisma`           |
+| `AnnouncementTranslation`    | Per-locale title + body for an Announcement                                       | `schema/ops.prisma`           |
+| `PlagiarismPairFlag`         | Per-pair staff review state (survives plagiarism re-runs)                         | `schema/plagiarism.prisma`    |
+| `PlagiarismTriggerLog`       | Append-only log of plagiarism-check triggers (context, triggerer, priorPairCount) | `schema/plagiarism.prisma`    |
+| `Problem`                    | Problem metadata (type, difficulty, limits, judge config, samples)                | `schema/problem.prisma`       |
+| `ProblemStatementI18n`       | Per-locale problem statement (title, body, input / output format)                 | `schema/problem.prisma`       |
+| `TestcaseSet`                | Named subtask on a problem (weight, scoring strategy)                             | `schema/problem.prisma`       |
+| `Testcase`                   | Individual graded case (S3 keys for input / output / aux files)                   | `schema/problem.prisma`       |
+| `ProblemWorkspaceFile`       | Per-language workspace file (path, content S3 key, visibility, order)             | `schema/problem.prisma`       |
+| `Submission`                 | Judge submission row (source code, verdict, score, mode derived from FKs)         | `schema/submission.prisma`    |
+| `SubmissionRejudgeLog`       | Two-pass audit log for rejudge runs (snapshot of old / new verdict + score)       | `schema/submission.prisma`    |
+| `ScoreOverride`              | Staff-only manual score override per `(user, problem, context)`                   | `schema/submission.prisma`    |
+| `ScoreOverrideAuditLog`      | Append-only create / update / delete trail for `ScoreOverride`                    | `schema/submission.prisma`    |
+| `Editorial`                  | Per-`(user, problem, language)` editorial / writeup                               | `schema/submission.prisma`    |
+| `EditorialReport`            | User-filed report against an editorial (reason, open / resolved / dismissed)      | `schema/submission.prisma`    |
+| `SubmissionFeedback`         | Per-`(context, problem, student)` grader comment on a submission                  | `schema/submission.prisma`    |
+| `SubmissionFeedbackAuditLog` | Append-only create / update / delete trail for `SubmissionFeedback`               | `schema/submission.prisma`    |
+| `UserDailyActivity`          | Per-`(user, UTC day)` aggregate for streaks / heatmaps                            | `schema/submission.prisma`    |
 
 Deep field-level detail intentionally stays in the Prisma schema files themselves — treat the `.prisma` file as the source of truth for column types, defaults, indexes, and FK cascade rules.
 

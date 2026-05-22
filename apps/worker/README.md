@@ -15,7 +15,7 @@
 - `src/index.ts` — worker bootstrap，連 Temporal 並註冊 activities
 - `src/services/docker-executor.ts` — 本地 Docker sandbox 啟動器
 - `src/services/k8s-executor.ts` — 生產環境 Kubernetes sandbox 啟動器
-- `src/healthz.ts` — health check endpoint
+- `src/health-server.ts` — health check endpoint
 - task queue 註冊：見 `@nojv/temporal` 的 `task-queues.ts`
 
 ## 依賴

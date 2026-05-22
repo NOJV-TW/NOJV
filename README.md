@@ -39,7 +39,10 @@ apps/
 packages/
   core/             Shared Zod schemas, types, pipeline definitions
   db/               Prisma 7 schema, migrations, seed script
-  temporal/         Temporal workflows, activities, task queue definitions
+  domain/           Business logic — queries, commands, scoring, stats
+  redis/            Redis connection, key registry, pub/sub, scoreboards
+  storage/          S3-compatible object storage (problem images)
+  temporal/         Temporal client + dispatch API + workflows + activities
 
 tooling/
   eslint/           Shared ESLint 9 flat config
@@ -70,7 +73,7 @@ docs/
 - **Auth**: better-auth (email/password, GitHub, Google)
 - **Orchestration**: Temporal (TypeScript SDK)
 - **Database**: PostgreSQL 18, Prisma 7
-- **Cache**: Redis 8 (pub/sub, rate limiting, scoreboards, cooldown, hot cache)
+- **Cache**: Redis 8 (pub/sub, scoreboards, connection/keys/metrics)
 - **Validation**: Zod 4
 - **Testing**: Vitest, Playwright
 - **Build**: Turborepo, pnpm workspaces, tsdown, esbuild
@@ -229,7 +232,7 @@ See [Deployment Guide](docs/operations/DEPLOYMENT.md) for full operational detai
 
 ## Design Documents
 
-- [Judge Pipeline Extensibility Spec](docs/plans/SPEC.md)
-- [Temporal Migration Design](docs/plans/2026-04-02-temporal-migration-design.md)
-- [Page Lock & IP Lock Design](docs/plans/2026-03-20-page-lock-ip-lock-design.md)
-- [CP Problem Judge Mapping](docs/plans/2026-04-01-cp-problem-judge-mapping.md)
+- [Judge Pipeline Extensibility Spec](docs/plans/completed/2026-04-02-judge-pipeline-spec.md)
+- [Temporal Migration Design](docs/plans/completed/2026-04-02-temporal-migration-design.md)
+- [Page Lock & IP Lock Design](docs/plans/completed/2026-03-20-page-lock-ip-lock-design.md)
+- [CP Problem Judge Mapping](docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md)

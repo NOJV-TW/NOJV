@@ -185,7 +185,6 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Temporal workflow ID is deterministic (`judge-{submissionId}`) — duplicate dispatches are idempotent
 - `writeApiRateLimiter` (10 req/min per IP) on submission endpoint
 - Submit cooldown: recent-submission lookup in PostgreSQL, serialized by a `pg_advisory_xact_lock` held within the submission transaction so concurrent requests can't race the window
-- Static analysis stage can ban dangerous functions/imports/patterns before execution
 - Temporal retries (3 attempts) for transient sandbox failures
 
 **Attacker stories:**
@@ -286,7 +285,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### 3.8 Plagiarism Detection
 
-**Surface:** `POST /api/plagiarism/[assessmentId]`, `GET /api/plagiarism/[assessmentId]`
+**Surface:** `POST /api/plagiarism/[assignmentId]`, `GET /api/plagiarism/[assignmentId]`
 
 **Mitigations:**
 

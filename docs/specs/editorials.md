@@ -242,11 +242,11 @@ answer." Content is markdown, rendered through the shared
   paginated list page (AC-gated).
 - `apps/web/src/routes/(app)/editorials/[id]/edit/` — single-editorial
   edit form (author / admin only).
-- `apps/web/src/lib/components/problem/ProblemLeftPanel.svelte` —
-  Editorial tab, form, and list.
-- `apps/web/src/lib/components/layout/MarkdownRenderer.svelte` —
-  sanitized render pipeline.
-- `apps/web/src/lib/markdown.ts` — `marked` + `PURIFY_CONFIG`
+- `apps/web/src/lib/components/features/problem/layouts/ProblemLeftPanel.svelte`
+  — Editorial tab, form, and list.
+- `apps/web/src/lib/components/primitives/layout/MarkdownRenderer.svelte`
+  — sanitized render pipeline.
+- `apps/web/src/lib/utils/markdown.ts` — `marked` + `PURIFY_CONFIG`
   (KaTeX allowlist).
 
 ### Core schemas

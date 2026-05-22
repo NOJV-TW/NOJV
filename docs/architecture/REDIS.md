@@ -74,9 +74,9 @@ Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in 
 - Four shared limiters, not per-endpoint:
   - `apiRateLimiter` — 60 req / 60 s
   - `writeApiRateLimiter` — 10 req / 60 s
-  - `formActionRateLimiter` — 20 req / 60 s (consumed by `consumeFormRateLimit`)
+  - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
   - `signInRateLimiter` — 5 attempts / 15 min (password sign-in)
-- Dev / test multiply points by 10× to avoid E2E flakiness.
+- Dev / test multiply points by 1000× to avoid E2E flakiness.
 - In production, if Redis is unreachable at limiter construction time, the limiter fails closed (rejects every request) rather than falling back to per-instance memory.
 
 ## Observability
@@ -92,7 +92,7 @@ Exported through the project's OTLP pipeline; surface it on the Grafana scoreboa
 Both `apps/web` and Temporal activities use singleton Redis connections from `@nojv/redis`:
 
 - **Web**: imports `getRedis` (and `createSubscriber`, `keys`) directly from `@nojv/redis`. There is no `$lib/server/redis.ts` shim.
-- **Worker / Temporal activities**: import via the activity bundles in `packages/temporal/src/activities/`, which re-export from `@nojv/redis`.
+- **Worker / Temporal activities**: live in `apps/worker/src/activities/` (`judge-bundle.ts` / `platform-bundle.ts`) and import `getRedis` / `scoreboard` / `pubsub` from `@nojv/redis` directly.
 - **Subscriber**: a separate connection (`createSubscriber`) is created for pub/sub to avoid blocking the main connection.
 
 ## Related Docs
