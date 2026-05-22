@@ -117,8 +117,6 @@ async function runContainer(
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
   const containerName = `nojv-judge-${sanitizeId(request.submissionId).slice(0, 40)}`;
-  const workDir = join(tempDir, "_workspace");
-  await mkdir(workDir, { mode: 0o777, recursive: true });
 
   // All containers — standard and advanced — run with
   // `--network=none`. Student submissions must never reach the
@@ -149,10 +147,10 @@ async function runContainer(
     "--read-only",
     "--tmpfs",
     "/tmp:rw,exec,nosuid,nodev,size=64m",
+    "--tmpfs",
+    "/workspace:rw,exec,nosuid,nodev,size=128m",
     "-v",
     `${tempDir}:/submission:ro`,
-    "-v",
-    `${workDir}:/workspace`,
     "--cpus",
     config.cpuLimit,
     "--memory",
