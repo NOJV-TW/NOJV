@@ -30,7 +30,7 @@ Security requirements are first-class because this system handles authentication
 - Session cookies are pinned by `apps/web/src/lib/auth.server.ts` `advanced.defaultCookieAttributes` to `{ httpOnly: true, secure: NODE_ENV === "production", sameSite: "lax" }`. This is explicit rather than relying on better-auth defaults so a future library upgrade can't silently relax the posture; `sameSite: lax` is required for the top-level OAuth callback nav.
 - Rate-limit submission and plagiarism endpoints via Redis-backed `rate-limiter-flexible` (`RateLimiterRedis`). The limiter is keyed on `getClientIp(event)` so a single IP shares one counter across all SvelteKit replicas. If Redis is unreachable in production, the limiter falls back to a `failClosedLimiter` that rejects every request — never a per-instance in-memory counter (see `apps/web/src/lib/server/shared/rate-limiter.ts`).
 - A dedicated `signInRateLimiter` (5 attempts / 15 min per IP) gates `POST /api/auth/sign-in/email` and `/api/auth/sign-in/username` in `hooks.server.ts`. OAuth flows do not hit this limiter — they're handled by the upstream provider's own anti-abuse.
-- Image uploads must validate file type (png/jpeg/gif/webp), enforce 5MB size limit, require `canEditProblem` permission, AND run `detectImageType(buffer)` magic-number validation server-side after the body is read — the client-reported `file.type` is never trusted alone (`apps/web/src/routes/api/problems/[id]/images/+server.ts`).
+- Image uploads must validate file type (png/jpeg/gif/webp), enforce 5MB size limit, require `canEditProblem` permission, AND run `detectImageMime(buffer)` magic-number validation server-side after the body is read — the client-reported `file.type` is never trusted alone (`apps/web/src/routes/api/problems/[id]/images/+server.ts`).
 - Sandbox containers must run with `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `--network none`, and resource limits. On Kubernetes the pod and container both set `runAsNonRoot: true` (`apps/worker/src/services/k8s-executor.ts`).
 - The Kubernetes executor refuses Advanced Mode requests (`request.advanced === true`) with a System Error verdict — the K8s path cannot `docker load` a TA-supplied tarball, so operators running advanced-mode problems must deploy the Docker backend.
 - Exam IP binding, page lock, and submit cooldown are server-side enforced (contests have no proctoring). Never trust client-side checks alone.
@@ -60,7 +60,7 @@ Defence-in-depth is therefore layered on the cheap-but-strong primitives instead
 
 - `--cap-drop ALL` — removes every Linux capability, including `CAP_SYS_ADMIN` and `CAP_NET_RAW`.
 - `--security-opt no-new-privileges` — prevents setuid/setgid binaries from regaining capabilities.
-- read-only rootfs + `tmpfs /tmp` only — no persistence path.
+- read-only rootfs + bounded `tmpfs` on `/tmp` (64m) and `/workspace` (128m) — no host-writable persistence path.
 - non-root UID inside the container; on Kubernetes both pod and container set `runAsNonRoot: true`.
 - `--network none` (default) — kernel-level network namespace isolation.
 - Strict CPU / memory / PID limits.
