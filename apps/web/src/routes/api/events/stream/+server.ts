@@ -10,6 +10,8 @@ import {
   type SseCloseReason,
 } from "$lib/server/metrics";
 import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
+import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
+import { getClientIp } from "$lib/server/shared/client-ip";
 import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
@@ -72,6 +74,13 @@ export const GET: RequestHandler = async (event) => {
   const envResult = sseEnvSchema.safeParse(process.env);
   if (!envResult.success) {
     return new Response("SSE not configured", { status: 503 });
+  }
+
+  const ip = getClientIp(event);
+  try {
+    await apiRateLimiter.consume(ip);
+  } catch {
+    return new Response("Too many requests", { status: 429 });
   }
 
   const userId = actor.userId;

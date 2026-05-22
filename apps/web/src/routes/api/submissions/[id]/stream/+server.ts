@@ -1,6 +1,8 @@
 import type { RequestHandler } from "./$types";
 import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { acquireSseSlot, releaseSseSlot } from "$lib/server/shared/sse-slot";
+import { apiRateLimiter } from "$lib/server/shared/rate-limiter";
+import { getClientIp } from "$lib/server/shared/client-ip";
 import { submissionDomain } from "@nojv/domain";
 
 const { getSubmissionForUser, querySubmissionStatus } = submissionDomain;
@@ -9,7 +11,7 @@ const POLL_INTERVAL_MS = 1000;
 const MAX_DURATION_MS = 600_000;
 const TERMINAL_STATUSES = new Set(["completed", "failed"]);
 
-export const GET: RequestHandler = (event) => {
+export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
   if (!actor) return new Response("Authentication required.", { status: 401 });
   if (!hasActorUsername(actor))
@@ -18,6 +20,19 @@ export const GET: RequestHandler = (event) => {
   const { id: submissionId } = event.params;
   const userId = actor.userId;
   const isAdmin = actor.platformRole === "admin";
+
+  const ip = getClientIp(event);
+  try {
+    await apiRateLimiter.consume(ip);
+  } catch {
+    return new Response("Too many requests", { status: 429 });
+  }
+
+  try {
+    await getSubmissionForUser(submissionId, userId, isAdmin);
+  } catch {
+    return new Response("Submission not found.", { status: 404 });
+  }
 
   if (!acquireSseSlot("submission", userId)) {
     return new Response("Too many concurrent connections", { status: 429 });

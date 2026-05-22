@@ -1,7 +1,8 @@
 import { courseMembershipRepo, examRepo, ipViolationLogRepo, runTransaction } from "@nojv/db";
 import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
 
-import { NotFoundError } from "../shared/errors";
+import type { ActorContext } from "../shared/actor-context";
+import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { checkIpLock, type IpCheckResult } from "../shared/ip";
 import { aggregateExamClassStats, aggregateExamMyStatus } from "../shared/list-aggregations";
 import { canManageExam } from "./permissions";
@@ -384,4 +385,23 @@ export function listExamIpViolations(opts: { examId: string; take?: number }) {
     examId: opts.examId,
     take: opts.take ?? 200,
   });
+}
+
+export async function listExamIpViolationsForActor(actor: ActorContext, examId: string) {
+  const exam = await examRepo.findById(examId);
+  if (!exam) {
+    throw new NotFoundError(`Exam not found: ${examId}`);
+  }
+  if (actor.platformRole !== "admin") {
+    const memberships = await courseMembershipRepo.listActiveForUser(actor.userId);
+    const canManage = canManageExam(
+      actor.userId,
+      { createdByUserId: exam.createdByUserId, courseId: exam.courseId },
+      memberships,
+    );
+    if (!canManage) {
+      throw new ForbiddenError("Not authorized to view this exam's IP violations");
+    }
+  }
+  return listExamIpViolations({ examId });
 }
